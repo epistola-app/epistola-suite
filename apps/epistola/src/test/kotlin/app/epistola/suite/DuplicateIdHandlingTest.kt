@@ -11,6 +11,8 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -18,6 +20,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
@@ -241,6 +244,50 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("A code-list with this ID already exists")
+        }
+    }
+
+    @Test
+    fun `POST stencil with duplicate slug returns inline error on the slug field`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
+            CreateStencil(
+                id = StencilId(StencilKey.of("my-stencil"), CatalogId.default(tenantId)),
+                name = "My Stencil",
+            ).execute()
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            // Mirror the browser form: every input is submitted (incl. the empty
+            // description/tags), so the re-rendered fragment's formData has those keys.
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("catalog", "default")
+            formData.add("slug", "my-stencil")
+            formData.add("name", "My Stencil Again")
+            formData.add("description", "")
+            formData.add("tags", "")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity(
+                "/tenants/${tenant.id}/stencils",
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("A stencil with this ID already exists")
+            // Regression: the message must land on the slug field's span (it was
+            // keyed under "id" — a field no form renders — and silently vanished).
+            assertThat(response.body).contains("id=\"stencil-error-slug\"")
+            assertThat(response.body).contains("data-error=\"true\"")
         }
     }
 }

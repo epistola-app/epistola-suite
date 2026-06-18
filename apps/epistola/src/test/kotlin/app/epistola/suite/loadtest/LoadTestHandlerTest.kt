@@ -23,6 +23,8 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.util.LinkedMultiValueMap
 import tools.jackson.databind.ObjectMapper
 
 class LoadTestHandlerTest : BaseIntegrationTest() {
@@ -443,6 +445,74 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 assertThat(response.body).doesNotContain("Data Example")
                 // Should still have version dropdown (even if empty)
                 assertThat(response.body).contains("versionId")
+            }
+        }
+    }
+
+    @Nested
+    inner class Start {
+
+        @Test
+        fun `POST start with invalid JSON returns the form-error fragment, not a 500`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given { testTenant = tenant("Load Test JSON Tenant") }
+
+            whenever {
+                // Format-valid (but not necessarily existing) template/variant get
+                // past field validation so we reach the testData JSON parse — the
+                // point of this test. The handler must return the form-error fragment
+                // (rendered inside the dialog's #form-error) rather than throwing an
+                // uncaught exception (a 500 surfaced behind the modal).
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+                headers.set("HX-Request", "true")
+                val formData = LinkedMultiValueMap<String, String>()
+                formData.add("templateId", "default/invoice-template")
+                formData.add("variantId", "invoice-default")
+                formData.add("targetCount", "10")
+                formData.add("testData", "{ this is not valid json")
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/load-tests",
+                    HttpEntity(formData, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("valid JSON")
+                assertThat(response.body).contains("alert-error")
+            }
+        }
+
+        @Test
+        fun `POST start with a non-object JSON array returns the form-error fragment`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given { testTenant = tenant("Load Test JSON Array Tenant") }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+                headers.set("HX-Request", "true")
+                val formData = LinkedMultiValueMap<String, String>()
+                formData.add("templateId", "default/invoice-template")
+                formData.add("variantId", "invoice-default")
+                formData.add("targetCount", "10")
+                formData.add("testData", "[1, 2, 3]")
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/load-tests",
+                    HttpEntity(formData, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("must be a JSON object")
             }
         }
     }

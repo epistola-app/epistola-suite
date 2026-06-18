@@ -373,6 +373,10 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
         this.errors.toMutableMap().apply { put(e.field, e.message) },
     )
 } catch (e: DuplicateIdException) {
+    // Every create form keys its identifier field "slug", so a duplicate-id
+    // error must land on "slug" to render next to that input. An entity missing
+    // here would key the error under "id" — a field no form has — and the
+    // message would silently vanish (the stencil bug).
     val field = when (e.entityType) {
         "environment" -> "slug"
         "template" -> "slug"
@@ -380,6 +384,8 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
         "theme" -> "slug"
         "attribute" -> "slug"
         "code-list" -> "slug"
+        "stencil" -> "slug"
+        "catalog" -> "slug"
         else -> "id"
     }
     val article = if (e.entityType.firstOrNull() in setOf('a', 'e', 'i', 'o', 'u')) "An" else "A"

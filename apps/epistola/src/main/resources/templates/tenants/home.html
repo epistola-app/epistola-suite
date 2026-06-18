@@ -71,15 +71,31 @@
             <div class="dashboard-actions">
                 <h2>Quick Actions</h2>
                 <div class="quick-links">
-                    <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
+                    <!--
+                        Open the create dialog directly into #dialog-host (the same
+                        wiring the list pages' openTrigger uses). hx-boost="false" is
+                        required so the request isn't boosted (a boosted GET …/new is
+                        treated as non-HTMX and redirects to the list). th:href is the
+                        no-JS fallback.
+                    -->
+                    <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}"
+                       th:hx-get="@{/tenants/{id}/templates/new(id=${tenant.id})}"
+                       hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+                       data-testid="template-create-open-home" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                         New Template
                     </a>
-                    <a th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
+                    <a th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}"
+                       th:hx-get="@{/tenants/{id}/themes/new(id=${tenant.id})}"
+                       hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+                       data-testid="theme-create-open-home" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                         New Theme
                     </a>
-                    <a th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
+                    <a th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}"
+                       th:hx-get="@{/tenants/{id}/environments/new(id=${tenant.id})}"
+                       hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+                       data-testid="environment-create-open-home" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                         New Environment
                     </a>

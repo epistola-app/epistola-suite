@@ -200,6 +200,15 @@ class LoadTestHandler(
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
 
+        // The form's hx-target is the dialog's #form-error region, so every failure
+        // path returns this fragment — keeping the error inside the open modal.
+        fun formError(message: String): ServerResponse = request.htmx {
+            fragment("loadtest/new", "form-error") {
+                "error" to message
+            }
+            onNonHtmx { redirect("/tenants/$tenantKey/load-tests") }
+        }
+
         val form = request.form {
             field("templateId") {
                 required()
@@ -212,13 +221,7 @@ class LoadTestHandler(
         }
 
         if (form.hasErrors()) {
-            val errorMessage = form.errors.values.firstOrNull() ?: "Form validation failed"
-            return request.htmx {
-                fragment("loadtest/new", "form-error") {
-                    "error" to errorMessage
-                }
-                onNonHtmx { redirect("/tenants/$tenantKey/load-tests") }
-            }
+            return formError(form.errors.values.firstOrNull() ?: "Form validation failed")
         }
 
         // Parse composite templateId (catalogKey/templateKey)
@@ -239,9 +242,15 @@ class LoadTestHandler(
 
         val targetCount = request.queryParamInt("targetCount", 100)
 
-        // Parse test data JSON
+        // Parse test data JSON. Invalid or non-object JSON returns the form-error
+        // fragment (inside the dialog) rather than throwing an uncaught 500.
         val testDataStr = params.getFirst("testData")?.takeIf { it.isNotBlank() } ?: "{}"
-        val testData = objectMapper.readTree(testDataStr) as tools.jackson.databind.node.ObjectNode
+        val testData = try {
+            objectMapper.readTree(testDataStr) as? tools.jackson.databind.node.ObjectNode
+                ?: return formError("Test data must be a JSON object, e.g. {\"customer\": \"Acme\"}.")
+        } catch (e: Exception) {
+            return formError("Test data must be valid JSON.")
+        }
 
         try {
             val run = StartLoadTest(
@@ -263,14 +272,7 @@ class LoadTestHandler(
                 redirect(url)
             }
         } catch (e: Exception) {
-            val errorMessage = e.message ?: "Failed to start load test"
-
-            return request.htmx {
-                fragment("loadtest/new", "form-error") {
-                    "error" to errorMessage
-                }
-                onNonHtmx { redirect("/tenants/$tenantKey/load-tests") }
-            }
+            return formError(e.message ?: "Failed to start load test")
         }
     }
 
