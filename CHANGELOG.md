@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(support): **Quiet hub-connectivity failures and back off.** When the support tier is enabled but epistola-hub is unreachable, hub operations throw `HubUnavailableException` (gRPC `UNAVAILABLE`). These are now logged as a concise WARN **without a stacktrace** (other hub errors and non-hub exceptions keep the full ERROR + trace), and callers **back off** instead of hammering. The backup and upgrading crons attempt once and, on a hub-unreachable result, log one WARN and stop the rest of the per-tenant sweep — the next scheduled run retries from scratch, so a stale connectivity reading never skips a run. The frequent feedback paths (the retry/poll sweeps and the immediate handlers) consult the hub client's existing connectivity state (`HubConnectivityService.reachable()`) to skip the call up front; this also stops the feedback retry sweep from burning sync attempts and marking items `FAILED` purely because the hub is down — items stay `PENDING` and re-sync when it returns. Classification lives in `epistola-support` (`Throwable.isHubUnreachable()`).
+
 ## [0.24.1] - 2026-06-16
 
 This release fixes a generation-feed bug where a destructive database reset could leave external consumers (such as the Valtimo plugin) silently stuck and never receiving freshly generated results; result sequences now self-heal across a reset with no client changes.
