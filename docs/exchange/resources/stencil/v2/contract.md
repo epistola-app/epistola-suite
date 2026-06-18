@@ -14,7 +14,7 @@
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "resource": {
     "type": "stencil",
     "slug": "company-header",

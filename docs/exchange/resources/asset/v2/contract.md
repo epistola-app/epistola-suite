@@ -14,7 +14,7 @@
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "resource": {
     "type": "asset",
     "slug": "01966a00-0000-7000-8000-000000000001",

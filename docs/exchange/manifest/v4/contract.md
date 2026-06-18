@@ -13,7 +13,7 @@
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "catalog": {
     "slug": "acme-templates",
     "name": "Acme Corp Templates",
@@ -49,7 +49,7 @@
 
 | Field                       | Type              | Required    | Description                                                                                                                                                                                                                                                                                                                |
 | --------------------------- | ----------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer           | yes         | **The authoritative catalog-wide wire version** (currently `4`) — versions the whole exchange bundle, not just the manifest; every resource detail echoes the same number ([ADR 0007](../../../adr/0007-catalog-wire-format-migrations.md)). Read first, gated by `CatalogSchemaMigrator` before binding to a typed model. |
+| `schemaVersion`             | integer           | yes         | **The authoritative catalog-wide wire version** (currently `5`) — versions the whole exchange bundle, not just the manifest; every resource detail echoes the same number ([ADR 0007](../../../adr/0007-catalog-wire-format-migrations.md)). Read first, gated by `CatalogSchemaMigrator` before binding to a typed model. |
 | `catalog.slug`              | string            | yes         | Catalog identifier (URL-safe slug).                                                                                                                                                                                                                                                                                        |
 | `catalog.name`              | string            | yes         | Display name.                                                                                                                                                                                                                                                                                                              |
 | `catalog.description`       | string            | no          | Free text.                                                                                                                                                                                                                                                                                                                 |

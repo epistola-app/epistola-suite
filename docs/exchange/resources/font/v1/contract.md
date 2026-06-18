@@ -16,7 +16,7 @@
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "resource": {
     "type": "font",
     "slug": "acme-display",

@@ -167,7 +167,7 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "catalog": {
     "slug": "acme-templates",
     "name": "Acme Corp Templates",
@@ -252,11 +252,11 @@ Dependencies use a sealed type hierarchy:
 
 ### Resource Detail Files
 
-Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload. Every detail echoes the same catalog-wide `schemaVersion` (`4`) as the manifest, so each file is self-describing:
+Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload. Every detail echoes the same catalog-wide `schemaVersion` (`5`) as the manifest, so each file is self-describing:
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "resource": {
     "type": "template",
     "slug": "invoice-standard",
