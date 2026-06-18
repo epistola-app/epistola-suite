@@ -49,8 +49,9 @@ Constants in `CatalogConstants.kt` (one catalog-wide version — ADR 0007):
 - `CATALOG_SCHEMA_VERSION: Int = 5` — the current catalog wire version (the
   manifest is authoritative; every detail echoes it).
 - `CATALOG_BASELINE_SCHEMA_VERSION: Int = 3` — the oldest upgradable version.
-  The chain spans `[3, 5]`: `CatalogV3ToV4ExampleMigration` (field rename) then
-  `CatalogV4ToV5Migration` (no-op version bump).
+  The chain spans `[3, 5]`: `CatalogV3ToV4ExampleMigration` (appends an "upgrade
+  naar versie 4" text block to every template) then `CatalogV4ToV5Migration`
+  (appends "update naar versie 5").
 
 ## Build sequence
 

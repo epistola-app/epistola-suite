@@ -129,20 +129,16 @@ class CatalogSchemaMigratorGateTest {
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
     }
 
-    private fun attributeDetail(schemaVersion: String, type: String = "attribute", legacy: Boolean = false): ByteArray {
-        // legacy = the v3 shape (uses `displayName`); otherwise current `name`.
-        val nameField = if (legacy) """"displayName": "Country"""" else """"name": "Country""""
-        return mapper.writeValueAsBytes(
-            mapper.readTree(
-                """
-                {
-                  "schemaVersion": $schemaVersion,
-                  "resource": { "type": "$type", "slug": "country", $nameField }
-                }
-                """.trimIndent(),
-            ),
-        )
-    }
+    private fun attributeDetail(schemaVersion: String, type: String = "attribute"): ByteArray = mapper.writeValueAsBytes(
+        mapper.readTree(
+            """
+            {
+              "schemaVersion": $schemaVersion,
+              "resource": { "type": "$type", "slug": "country", "name": "Country" }
+            }
+            """.trimIndent(),
+        ),
+    )
 
     @Test
     fun `migrateAndBindResourceDetail binds a current-version detail whose type matches`() {
@@ -179,14 +175,14 @@ class CatalogSchemaMigratorGateTest {
     }
 
     @Test
-    fun `a v3 manifest is migrated to v4 and binds (legacy title to name)`() {
+    fun `a v3 manifest migrates through the chain to current and binds`() {
         val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
         val v3 = mapper.writeValueAsBytes(
             mapper.readTree(
                 """
                 {
                   "schemaVersion": 3,
-                  "catalog": { "slug": "acme", "title": "Acme Templates" },
+                  "catalog": { "slug": "acme", "name": "Acme Templates" },
                   "publisher": { "name": "P" },
                   "release": { "version": "1.0.0" },
                   "resources": []
@@ -200,9 +196,11 @@ class CatalogSchemaMigratorGateTest {
     }
 
     @Test
-    fun `a v3 resource detail is migrated to v4 and binds (legacy displayName to name)`() {
+    fun `a v3 non-template detail migrates through the chain to current and binds`() {
+        // The example migrations only transform templates, so a non-template
+        // detail just passes through the chain and is re-stamped + bound.
         val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
-        val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("3", legacy = true))
+        val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("3"))
         assertThat(bound.resource).isInstanceOf(AttributeResource::class.java)
         assertThat((bound.resource as AttributeResource).name).isEqualTo("Country")
     }

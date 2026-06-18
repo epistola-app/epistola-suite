@@ -13,7 +13,26 @@ class CatalogV3ToV4ExampleMigrationTest {
     private val migration = CatalogV3ToV4ExampleMigration()
     private val ctx = MigrationContext(sourceVersion = 3, targetVersion = 4)
 
-    private fun obj(json: String): ObjectNode = mapper.readTree(json) as ObjectNode
+    private fun templateDetail(): ObjectNode = mapper.readTree(
+        """
+        {
+          "schemaVersion": 3,
+          "resource": {
+            "type": "template",
+            "slug": "t",
+            "name": "T",
+            "templateModel": {
+              "root": "n-root",
+              "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
+              "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } }
+            }
+          }
+        }
+        """.trimIndent(),
+    ) as ObjectNode
+
+    private fun noticeText(detail: ObjectNode): String = detail.get("resource").get("templateModel").get("nodes").get("n-migration-notice-v4")
+        .get("props").get("content").get("content").get(0).get("content").get(0).get("text").asString()
 
     @Test
     fun `declares the v3 to v4 step`() {
@@ -22,37 +41,30 @@ class CatalogV3ToV4ExampleMigrationTest {
     }
 
     @Test
-    fun `manifest renames legacy catalog title to name`() {
-        val tree = obj("""{ "schemaVersion": 3, "catalog": { "slug": "x", "title": "Acme" } }""")
-        val result = migration.migrateManifest(tree, ctx)
-        val catalog = result.get("catalog") as ObjectNode
-        assertThat(catalog.get("name").asString()).isEqualTo("Acme")
-        assertThat(catalog.has("title")).isFalse()
+    fun `appends an upgrade-naar-versie-4 text block to a template`() {
+        val result = migration.migrateResourceDetail("template", templateDetail(), ctx)
+        val model = result.get("resource").get("templateModel")
+        val block = model.get("nodes").get("n-migration-notice-v4")
+        assertThat(block.get("type").asString()).isEqualTo("text")
+        assertThat(noticeText(result)).isEqualTo("upgrade naar versie 4")
+        // wired into the root's children slot (appended last)
+        val children = model.get("slots").get("s-root").get("children")
+        assertThat(children.last().asString()).isEqualTo("n-migration-notice-v4")
     }
 
     @Test
-    fun `resource detail renames legacy displayName to name`() {
-        val tree = obj("""{ "schemaVersion": 3, "resource": { "type": "attribute", "slug": "country", "displayName": "Country" } }""")
-        val result = migration.migrateResourceDetail("attribute", tree, ctx)
-        val resource = result.get("resource") as ObjectNode
-        assertThat(resource.get("name").asString()).isEqualTo("Country")
-        assertThat(resource.has("displayName")).isFalse()
+    fun `is idempotent - re-running adds no second block`() {
+        val detail = templateDetail()
+        migration.migrateResourceDetail("template", detail, ctx)
+        migration.migrateResourceDetail("template", detail, ctx)
+        val children = detail.get("resource").get("templateModel").get("slots").get("s-root").get("children")
+        assertThat(children.size()).isEqualTo(1)
     }
 
     @Test
-    fun `is a no-op when the current field already exists (idempotent)`() {
-        val manifest = obj("""{ "catalog": { "slug": "x", "name": "Acme", "title": "stale" } }""")
-        val catalog = migration.migrateManifest(manifest, ctx).get("catalog") as ObjectNode
-        // name is kept; the legacy field is left untouched because name was present
-        assertThat(catalog.get("name").asString()).isEqualTo("Acme")
-        assertThat(catalog.get("title").asString()).isEqualTo("stale")
-    }
-
-    @Test
-    fun `leaves a current-shape tree unchanged`() {
-        val tree = obj("""{ "resource": { "type": "theme", "slug": "corp", "name": "Corporate" } }""")
-        val result = migration.migrateResourceDetail("theme", tree, ctx)
-        assertThat((result.get("resource") as ObjectNode).get("name").asString()).isEqualTo("Corporate")
-        assertThat((result.get("resource") as ObjectNode).has("displayName")).isFalse()
+    fun `is a no-op for a non-template resource`() {
+        val json = """{ "schemaVersion": 3, "resource": { "type": "attribute", "slug": "x", "name": "X" } }"""
+        val result = migration.migrateResourceDetail("attribute", mapper.readTree(json) as ObjectNode, ctx)
+        assertThat(result).isEqualTo(mapper.readTree(json))
     }
 }
