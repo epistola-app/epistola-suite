@@ -46,7 +46,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_BACKUPS, enabled = false).execute()
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_UPGRADING, enabled = false).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = false).execute()
         }
 
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!

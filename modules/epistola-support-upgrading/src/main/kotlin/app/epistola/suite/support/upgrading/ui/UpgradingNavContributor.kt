@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component
 class UpgradingNavContributor : NavContributor {
     override fun items(context: UiRequestContext): List<NavItem> {
         val available = ResolveAvailableFeatures(context.tenantKey).query()
-        if (available[KnownFeatures.SUPPORT_UPGRADING] != true) return emptyList()
+        if (available[KnownFeatures.SUPPORT_COMPATIBILITY_CHECK] != true) return emptyList()
         return listOf(NavItem("support", "upgrading", "Upgrading", "upgrading", order = 30))
     }
 }
