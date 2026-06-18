@@ -167,7 +167,9 @@ class ImportCatalogZipHandler(
         // schemaVersion and every resource detail echoes it, so details are gated
         // against the same version below. The chain is empty today, so
         // current-shape payloads pass straight through to binding.
-        val manifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        val manifest = migratedManifest.manifest
+        val catalogCtx = migratedManifest.catalog
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
         // A ZIP import targets a catalog *type*. A slug that already exists
@@ -284,7 +286,7 @@ class ImportCatalogZipHandler(
             .associate { entry ->
                 val detailBytes = entries[entry.detailUrl.removePrefix("./")]
                     ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                val parsed = schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes).resource
+                val parsed = schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
                 val stencil = parsed as? StencilResource
                     ?: throw IllegalArgumentException(
                         "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
@@ -315,7 +317,7 @@ class ImportCatalogZipHandler(
                     val detailPath = entry.detailUrl.removePrefix("./")
                     val detailBytes = entries[detailPath]
                         ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                    schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes).resource
+                    schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
                 }
 
                 val status = installResource(

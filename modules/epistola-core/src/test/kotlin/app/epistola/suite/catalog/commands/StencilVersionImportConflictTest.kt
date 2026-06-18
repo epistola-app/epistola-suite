@@ -5,7 +5,7 @@ import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
+import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
@@ -175,7 +175,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a too-new resource detail aborts the whole import (not a single FAILED resource)`() {
+    fun `a mis-versioned resource detail aborts the whole import (not a single FAILED resource)`() {
         val tenant = createTenant("Schema Gate")
         val tenantKey = tenant.id
         val key = CatalogKey.of("sg-${tenantKey.value.take(8)}")
@@ -183,8 +183,9 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = key, name = "Schema Gate").execute()
 
-            // The stencil detail is a valid wire version, but the template detail is
-            // stamped newer than this instance supports. The version gate (in the
+            // The stencil detail matches the manifest's wire version, but the
+            // template detail carries a different one — a catalog is one bundle at
+            // one wire version, so this is malformed. The version gate (in the
             // install loop) must reject the WHOLE import — surfacing the dedicated
             // CatalogSchemaException — rather than downgrading the template to a
             // single FAILED resource swallowed by the generic catch.
@@ -202,7 +203,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                     catalogType = CatalogType.AUTHORED,
                     onStencilConflict = OnStencilConflict.FAIL,
                 ).execute()
-            }.isInstanceOf(CatalogSchemaTooNewException::class.java)
+            }.isInstanceOf(CatalogSchemaException::class.java)
         }
     }
 

@@ -74,7 +74,9 @@ class InstallFromCatalogHandler(
         val sourceUrl = catalog.sourceUrl
             ?: throw IllegalStateException("Catalog has no source URL: ${command.catalogKey}")
 
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val migratedManifest = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val manifest = migratedManifest.manifest
+        val catalogCtx = migratedManifest.catalog
 
         val selected = if (command.resourceSlugs != null) {
             manifest.resources.filter { it.slug in command.resourceSlugs }
@@ -83,14 +85,14 @@ class InstallFromCatalogHandler(
         }
 
         // Resolve dependencies: scan for refs, expand the set (validates completeness)
-        val resourcesToInstall = dependencyResolver.resolve(selected, manifest, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val resourcesToInstall = dependencyResolver.resolve(selected, manifest, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value, catalogCtx)
 
         // Install in dependency order: assets → attributes → themes → stencils → templates
         val ordered = resourcesToInstall.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
         ordered.map { entry ->
             try {
-                val detail = catalogClient.fetchResourceDetail(entry.type, entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+                val detail = catalogClient.fetchResourceDetail(entry.type, entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value, catalogCtx)
                 val status = installResource(command, detail.resource, manifest.release.version, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
                 InstallResult(type = entry.type, slug = entry.slug, status = status)
             } catch (e: Exception) {

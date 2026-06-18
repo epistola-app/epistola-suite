@@ -2,7 +2,9 @@ package app.epistola.suite.catalog
 
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceDetail
+import app.epistola.suite.catalog.migrations.CatalogMigrationContext
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.migrations.MigratedManifest
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ResourceLoader
@@ -28,7 +30,15 @@ class CatalogClient(
         if (allowHttp) add("http")
     }
 
-    fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest {
+    /** The bound, current-shape manifest. Use [fetchMigratedManifest] when you also need to fetch details. */
+    fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest = fetchMigratedManifest(url, authType, credential).manifest
+
+    /**
+     * Like [fetchManifest], but also returns the [CatalogMigrationContext] that
+     * must be threaded into [fetchResourceDetail] for every detail of the same
+     * catalog (the catalog's source version + migrated manifest tree).
+     */
+    fun fetchMigratedManifest(url: String, authType: AuthType, credential: String?): MigratedManifest {
         validateUrl(url, allowedSchemes)
         logger.debug("Fetching catalog manifest from {}", url)
         // Fetch raw bytes and route through the schema migrator (version gate +
@@ -41,17 +51,24 @@ class CatalogClient(
 
     /**
      * Fetch one resource detail and upgrade it to the current catalog wire shape
-     * before binding. [type] is the resource type discriminator (from the
-     * manifest entry); the migrator gates/migrates the detail against the single
-     * catalog-wide `schemaVersion` (the same one the manifest carries) and
-     * verifies the detail's own `resource.type` matches [type].
+     * before binding. [type] is the resource type discriminator (from the manifest
+     * entry); [catalog] is the context from [fetchMigratedManifest]. The migrator
+     * rejects a detail whose version differs from the catalog's, verifies
+     * `resource.type` matches [type], and exposes the manifest to cross-part steps.
      */
-    fun fetchResourceDetail(type: String, detailUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ResourceDetail {
+    fun fetchResourceDetail(
+        type: String,
+        detailUrl: String,
+        manifestUrl: String,
+        authType: AuthType,
+        credential: String?,
+        catalog: CatalogMigrationContext,
+    ): ResourceDetail {
         val resolvedUrl = resolveDetailUrl(detailUrl, manifestUrl)
         validateUrl(resolvedUrl, allowedSchemes)
         logger.debug("Fetching resource detail from {}", resolvedUrl)
         val bytes = readLocalBinary(resolvedUrl) ?: fetchHttpBinary(resolvedUrl, authType, credential)
-        return schemaMigrator.migrateAndBindResourceDetail(type, bytes)
+        return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog)
     }
 
     fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
