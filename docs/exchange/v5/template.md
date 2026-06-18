@@ -1,12 +1,12 @@
-# Template resource contract — v2
+# Template — catalog wire v5
 
-> Part of [catalog import/export](../../../README.md). **Current** template version. [All template versions](../).
+> Part of the [catalog **v4** wire format](README.md) ([exchange overview](../README.md)).
 
 **Role:** a document template — its layout (`templateModel`), the data shape it expects (`dataModel` JSON Schema), sample data, and its variants.
 
 **DTO:** `TemplateResource` (`CatalogResource` subtype, `epistola-model`).
-**Exported by:** [`ExportResources.kt`](../../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) → wrapped in `ResourceDetail` by [`CatalogContentBuilder`](../../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt).
-**Imported by:** [`InstallFromCatalog`](../../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
+**Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) → wrapped in `ResourceDetail` by [`CatalogContentBuilder`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt).
+**Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 6 (last — depends on theme/stencil/asset).
 **Wire location:** `./resources/template/{slug}.json`.
 
@@ -59,11 +59,11 @@
 - On import the `themeId` (and any cross-catalog `themeRef`/stencil/asset references) must resolve, or the import is rejected (see manifest `dependencies`).
 - `dataModel` is JSON-Schema-validated against bound data at generation time, not at import.
 
-## Changed in v2
+## Shape history
 
-- Baseline documented version. (`templateModel` is the editor model; its own evolution is tracked by the embedded `modelVersion`, independent of this wire contract.)
+- `templateModel` is the editor model; its own evolution is tracked by the embedded `modelVersion`, independent of this wire contract. This is the history of this resource's shape; on the wire it carries the catalog-wide `schemaVersion` (currently `5`), not an independent template version.
 
 ## Related parts
 
-- [Theme](../../theme/v2/contract.md) (via `themeId`), [Stencil](../../stencil/v2/contract.md) & [Asset](../../asset/v2/contract.md) (referenced from `templateModel`).
-- [Manifest](../../../manifest/v4/contract.md) — cross-catalog refs surface as `dependencies`.
+- [Theme](theme.md) (via `themeId`), [Stencil](stencil.md) & [Asset](asset.md) (referenced from `templateModel`).
+- [Manifest](manifest.md) — cross-catalog refs surface as `dependencies`.
