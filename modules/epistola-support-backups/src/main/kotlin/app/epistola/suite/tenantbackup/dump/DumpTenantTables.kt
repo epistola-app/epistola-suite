@@ -12,13 +12,13 @@ data class DumpedTable(
     val rows: List<Map<String, Any?>>,
 )
 
-/** One backed-up asset blob from `content_store` (bytes base64-encoded). */
-data class DumpedBlob(
+/** One backed-up asset blob from `content_store` (raw bytes). */
+class DumpedBlob(
     val key: String,
     val contentType: String,
     val sizeBytes: Long,
     val createdAt: String,
-    val base64: String,
+    val content: ByteArray,
 )
 
 /** A full tenant dump: every INCLUDE table in FK order plus the tenant's asset blobs. */
@@ -63,8 +63,7 @@ class DumpTenantTables(
         val prefix = TenantTableTopology.assetBlobPrefix(tenantKey)
         return handle
             .createQuery(
-                "SELECT key, content_type, size_bytes, created_at::text AS created_at, " +
-                    "encode(content, 'base64') AS content_b64 " +
+                "SELECT key, content_type, size_bytes, created_at::text AS created_at, content " +
                     "FROM content_store WHERE left(key, :len) = :prefix ORDER BY key",
             ).bind("len", prefix.length)
             .bind("prefix", prefix)
@@ -74,7 +73,7 @@ class DumpTenantTables(
                     contentType = rs.getString("content_type"),
                     sizeBytes = rs.getLong("size_bytes"),
                     createdAt = rs.getString("created_at"),
-                    base64 = rs.getString("content_b64"),
+                    content = rs.getBytes("content"),
                 )
             }.list()
     }

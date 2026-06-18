@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
-import java.util.Base64
 import java.util.TreeMap
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -81,7 +80,7 @@ class BuildTenantBackupHandler(
         val blobEntries =
             dump.blobs.mapIndexed { index, blob ->
                 val file = "blobs/$index.bin"
-                blobFiles[file] = Base64.getDecoder().decode(blob.base64)
+                blobFiles[file] = blob.content
                 BackupBlobEntry(blob.key, file, blob.contentType, blob.sizeBytes, blob.createdAt)
             }
 
@@ -131,7 +130,7 @@ class BuildTenantBackupHandler(
         }
         dump.blobs.forEach { blob ->
             digest.update("B:${blob.key}:${blob.sizeBytes}\n".toByteArray(Charsets.UTF_8))
-            digest.update(blob.base64.toByteArray(Charsets.UTF_8))
+            digest.update(blob.content)
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
