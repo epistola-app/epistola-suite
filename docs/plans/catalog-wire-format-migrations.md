@@ -1,13 +1,12 @@
 # Plan: Catalog Wire-Format Schema Migrations (EF-style)
 
-> **Per-part axis (implemented).** [ADR 0007](../adr/0007-catalog-wire-format-migrations.md)
-> decides a **per-part** version axis — the manifest and each resource type
-> version independently, one chain each. Phase 0 now reflects this: a `CatalogPart`
-> enum and `CATALOG_PART_SCHEMAS` map hold the per-part windows, export stamps each
-> detail with its part's version, and `CatalogSchemaMigrator` gates/migrates per
-> part. A few passages below still use single-axis phrasing from the original
-> draft — read "the wire `schemaVersion`" as "each part's `schemaVersion`" and
-> "the chain" as "that part's chain".
+> **Whole-catalog axis (implemented).** [ADR 0007](../adr/0007-catalog-wire-format-migrations.md)
+> decides a **single, catalog-wide** wire version — the manifest is authoritative
+> and every resource detail echoes the same number, so the whole bundle moves
+> together under one migration chain. Phase 0 reflects this: `CATALOG_SCHEMA_VERSION`
+> and `CATALOG_BASELINE_SCHEMA_VERSION` hold the one window, `CatalogContentBuilder`
+> stamps the manifest and every detail uniformly, and `CatalogSchemaMigrator` gates
+> the payload's `schemaVersion` once and runs one chain.
 
 Companion to [ADR 0007](../adr/0007-catalog-wire-format-migrations.md). This is
 the implementation roadmap for an ordered, EF-Core-style migration chain that
@@ -38,48 +37,45 @@ All new code under `modules/epistola-core/src/main/kotlin/app/epistola/suite/cat
 
 ```
 migrations/
-  CatalogSchemaMigration.kt        # the step interface (part / from / to / migrate)
-  MigrationContext.kt              # carries source/target versions of the part's chain
+  CatalogSchemaMigration.kt        # the step interface (from / to / migrateManifest / migrateResourceDetail)
+  MigrationContext.kt              # carries source/target versions of the catalog chain
   CatalogSchemaMigrator.kt         # @Component: collects steps, validates chain, runs it
   CatalogSchemaExceptions.kt       # TooOld / TooNew / Unknown
   steps/                           # one file per version bump, e.g. V4ToV5_<desc>.kt  (empty until first real bump)
 ```
 
-Constants in `CatalogConstants.kt` (per-part — ADR 0007):
+Constants in `CatalogConstants.kt` (one catalog-wide version — ADR 0007):
 
-- `CatalogPart` enum — the manifest + each resource type, with its wire `type`.
-- `CATALOG_PART_SCHEMAS: Map<CatalogPart, PartSchemaWindow(baseline, current)>` —
-  the current + oldest-upgradable version of **each part** (manifest `4`; asset/
-  theme/stencil/template `2`; attribute/code-list `3`; font `1`). `baseline ==
-current` for every part today → all chains empty.
-- `CATALOG_MANIFEST_SCHEMA_VERSION` / `…_BASELINE` derive from the map (the
-  manifest part's window) for the existing manifest call sites.
+- `CATALOG_SCHEMA_VERSION: Int = 4` — the current catalog wire version (the
+  manifest is authoritative; every detail echoes it).
+- `CATALOG_BASELINE_SCHEMA_VERSION: Int = 4` — the oldest upgradable version.
+  `baseline == current` today → the chain is empty.
 
 ## Build sequence
 
-### Phase 0 — Per-part framework, with empty chains — ✅ IMPLEMENTED
+### Phase 0 — Whole-catalog framework, with an empty chain — ✅ IMPLEMENTED
 
-The whole framework lands before any real migration exists. Every part's
-`baseline == current`, so all chains are empty.
+The whole framework lands before any real migration exists. `baseline ==
+current == 4`, so the chain is empty.
 
-**Per-part model (ADR 0007):**
+**Whole-catalog model (ADR 0007):**
 
-- **Each part owns its version.** The committed bundled details carry independent
-  per-type numbers (template/theme/stencil/asset `2`; attribute/code-list `3`;
-  manifest `4`) — these are **canonical**, recorded in `CATALOG_PART_SCHEMAS`.
-  Export stamps each detail with **its part's** current version, so a re-export
-  preserves them instead of flattening to the manifest version.
-- **The gate is per part.** It reads the part's own tree `schemaVersion` and
-  compares against that part's window. `> current` → `TooNewException`; `<
-current` with an **empty** chain → **pass through** and bind as-is (how every
-  payload imports today, including the under-stamped test-fixture manifests at
-  `2`); `< baseline` (only reachable once a part has a chain) → `TooOldException`.
-  The too-old / chain-execution branches exist and are unit-tested via the
-  parameterised companion gate, just not reachable with the live empty chains.
+- **One catalog-wide version.** The manifest carries the authoritative
+  `schemaVersion`, and `CatalogContentBuilder` stamps the **same** number on
+  every resource detail, so each file is self-describing but no detail carries an
+  independent per-resource version. Export stamps everything uniformly with
+  `CATALOG_SCHEMA_VERSION`.
+- **The gate runs once.** It reads the payload's `schemaVersion` and compares
+  against `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]`. `> current`
+  → `TooNewException`; `< current` with an **empty** chain → **pass through** and
+  bind as-is (how every payload imports today); `< baseline` (only reachable once
+  a chain exists) → `TooOldException`. The too-old / chain-execution branches
+  exist and are unit-tested via the parameterised companion gate, just not
+  reachable with the live empty chain.
 - **Detail-path import wiring — now wired.** `migrateAndBindResourceDetail` is
   invoked at both chokepoints (`ImportCatalogZip`'s stencil pre-scan + per-resource
-  reads and `CatalogClient.fetchResourceDetail`), gating each detail by its own
-  `schemaVersion`. (Originally deferred from Phase 0; landed with the per-part
+  reads and `CatalogClient.fetchResourceDetail`), gating each detail by the same
+  catalog `schemaVersion`. (Originally deferred from Phase 0; landed with the
   framework, so the first resource migration only needs to add its step.)
 
 **Placement decision (supersedes the open (a)/(b) question below).** The remote
@@ -94,22 +90,24 @@ un-migrated payloads. So the migrator is invoked **inside `CatalogClient`**
 "migrate → bind" responsibility in one component (the migrator) while placing
 its invocation at the two real byte→typed chokepoints.
 
-**What shipped:** `CatalogPart` + `CATALOG_PART_SCHEMAS` (per-part windows),
-per-part export stamping in `CatalogContentBuilder`, `CatalogSchemaMigration`
-(per-part), `MigrationContext`, `CatalogSchemaMigrator` (per-part chains/gate +
-the parameterised companion gate & `validateMigrationChain`), the
+**What shipped:** `CATALOG_SCHEMA_VERSION` + `CATALOG_BASELINE_SCHEMA_VERSION`
+(the one catalog-wide window), uniform export stamping in `CatalogContentBuilder`
+(manifest + every detail), `CatalogSchemaMigration` (whole-catalog),
+`MigrationContext`, `CatalogSchemaMigrator` (one chain/gate + the parameterised
+companion gate & `validateMigrationChain`), the
 `CatalogSchema{TooNew,TooOld,Unknown}Exception` family (all extend
 `IllegalArgumentException` → existing import error paths map them to 400),
 manifest-path wiring into `CatalogClient` + `ImportCatalogZipHandler`, and the
 two unit tests (`CatalogSchemaMigratorChainTest`, `CatalogSchemaMigratorGateTest`).
 Catalog import/export integration tests stay green.
 
-1. **`CatalogSchemaMigration`** interface — `part: CatalogPart`, `from`,
-   `to = from + 1`, and a single `migrate(node, ctx): ObjectNode` (the step
-   belongs to one part and migrates that part's tree).
+1. **`CatalogSchemaMigration`** interface — `from`, `to = from + 1`, and two
+   methods `migrateManifest(node, ctx): ObjectNode` and
+   `migrateResourceDetail(type, node, ctx): ObjectNode` (both default to
+   identity). One step reshapes a whole catalog from `from` to `to` — it may
+   touch the manifest tree and/or any resource-detail tree.
 2. **`MigrationContext`** — `data class(sourceVersion, targetVersion)`; the
-   endpoints of the part's chain (for logging / version-conditional logic). No
-   cross-part data is threaded yet — add it here if a step ever needs it.
+   endpoints of the catalog chain (for logging / version-conditional logic).
 3. **`CatalogSchemaExceptions`** — `CatalogSchemaTooOldException`,
    `CatalogSchemaTooNewException`, `CatalogSchemaUnknownException`. Each carries
    the offending version and a remediation message; they extend
@@ -117,17 +115,18 @@ Catalog import/export integration tests stay green.
    dedicated RFC 9457 problem type is Phase 2.)
 4. **`CatalogSchemaMigrator`** `@Component`:
    - constructor-injects `List<CatalogSchemaMigration>` + the `ObjectMapper`;
-     **groups steps by `part`** into `chainsByPart`.
-   - init **chain-integrity check per part**: each part's steps validated
-     contiguous `baseline … current-1` against its `CATALOG_PART_SCHEMAS` window;
-     a malformed chain (any part) fails application start. Unit-tested directly.
-   - `migrateAndBindManifest(raw): CatalogManifest` — gate/migrate by the
-     **manifest** part's window, then bind.
-   - `migrateAndBindResourceDetail(type, raw): ResourceDetail` — gate/migrate by
-     **that resource type's** window (keyed off the detail's own `schemaVersion`),
-     then bind. _Invoked at both chokepoints._
-   - companion `migratePartTree(tree, byFrom, baseline, current)` — the pure
-     gate+chain primitive (no-op when `source == current`).
+     orders the steps into one chain.
+   - init **chain-integrity check**: the steps are validated contiguous
+     `baseline … current-1` against `[CATALOG_BASELINE_SCHEMA_VERSION,
+CATALOG_SCHEMA_VERSION]`; a malformed chain fails application start.
+     Unit-tested directly.
+   - `migrateAndBindManifest(raw): CatalogManifest` — gate the catalog version,
+     run each step's `migrateManifest`, then bind.
+   - `migrateAndBindResourceDetail(type, raw): ResourceDetail` — gate the same
+     catalog version (read off the detail's `schemaVersion`), run each step's
+     `migrateResourceDetail(type, …)`, then bind. _Invoked at both chokepoints._
+   - companion gate primitive — the pure gate+chain runner (no-op when
+     `source == current`).
 5. **Wire into the chokepoints** (migrate → bind, replacing bind):
    - **Manifest (done):** `ImportCatalogZipHandler` and `CatalogClient.fetchManifest`
      both route the manifest bytes through `migrateAndBindManifest`. The remote
@@ -136,8 +135,8 @@ Catalog import/export integration tests stay green.
      see migrated content too.
    - **Detail (done):** the detail reads in `ImportCatalogZip` (stencil pre-scan +
      per-resource loop) and `CatalogClient.fetchResourceDetail` route through
-     `migrateAndBindResourceDetail`, each gated by the detail's own `schemaVersion`.
-     A new resource-type migration only needs to add its step — the wiring is in
+     `migrateAndBindResourceDetail`, each gated by the catalog `schemaVersion`.
+     A new resource-shape migration only needs to add its step — the wiring is in
      place.
 
 6. **Tests (Phase 0):**
@@ -152,25 +151,27 @@ Catalog import/export integration tests stay green.
 
 ### Phase 1 — First real migration (driven by the first non-additive bump)
 
-This phase is exercised the first time some part's `epistola-model` shape
-changes non-additively (or immediately, with a synthetic bump, to prove the
-machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
+This phase is exercised the first time the catalog wire shape changes
+non-additively (or immediately, with a synthetic bump, to prove the machinery
+end-to-end). Steps for bumping the catalog version `N → N+1`:
 
-1. In `epistola-model`: make `P`'s shape change; the typed model now describes
-   `P` at `N+1`.
-2. In the suite: bump **that part's** `current` in `CATALOG_PART_SCHEMAS`
-   (`CatalogPart.P → PartSchemaWindow(baseline, N+1)`). Other parts are untouched.
-3. Add `steps/{P}V{N}ToV{N+1}_<desc>.kt` implementing `CatalogSchemaMigration`
-   with `part = CatalogPart.P`, `from = N`, and the one-version `migrate`.
-4. **Detail path: already wired** (one-time, done) — `ImportCatalogZip`'s detail
+1. In `epistola-model`: make the shape change (manifest and/or some resource
+   type); the typed model now describes the catalog at `N+1`.
+2. In the suite: bump `CATALOG_SCHEMA_VERSION` to `N+1` in `CatalogConstants.kt`
+   (`CATALOG_BASELINE_SCHEMA_VERSION` stays at the oldest still-upgradable
+   version).
+3. Add `steps/V{N}ToV{N+1}_<desc>.kt` implementing `CatalogSchemaMigration` with
+   `from = N` and the relevant `migrateManifest` / `migrateResourceDetail`
+   overrides (only the trees that actually changed need a non-identity override).
+4. **Both paths: already wired** (one-time, done) — `ImportCatalogZip`'s detail
    reads and `CatalogClient.fetchResourceDetail` route through
-   `migrateAndBindResourceDetail`, so a resource-type migration needs no extra
-   wiring. (The manifest path is likewise wired.)
-5. Capture a **golden fixture**: a real exported catalog at `P = N`, committed
-   under `modules/epistola-core/src/test/resources/test-catalogs/wire-{P}vN/`.
+   `migrateAndBindResourceDetail`, and the manifest path through
+   `migrateAndBindManifest`, so a migration needs no extra wiring.
+5. Capture a **golden fixture**: a real exported catalog at version `N`, committed
+   under `modules/epistola-core/src/test/resources/test-catalogs/wire-vN/`.
 6. **Tests:**
-   - `{P}V{N}ToV{N+1}MigrationTest` (unit): exact JSON in → JSON out for `P`,
-     including edge cases (absent optional field, empty arrays, polymorphic-tag).
+   - `V{N}ToV{N+1}MigrationTest` (unit): exact JSON in → JSON out for each changed
+     tree, including edge cases (absent optional field, empty arrays, polymorphic-tag).
    - `WireVersionImportFixtureTest` (integration): import the vN golden
      fixture into a real DB via both `ImportCatalogZip` and the remote path;
      assert the installed resources equal those from importing an equivalent
@@ -199,17 +200,17 @@ machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
 
 ## Key design decisions (carried from ADR 0007)
 
-| Decision                         | Choice                                                                                    |
-| -------------------------------- | ----------------------------------------------------------------------------------------- |
-| Migrate typed or JSON?           | **JSON `JsonNode`**, before binding. The typed model is always current.                   |
-| One version axis or per-part?    | **Per-part** — the manifest and each resource type version independently, one chain each. |
-| Migration unit                   | One step per `(part, from)`; a step declares its `part` and migrates that part's tree.    |
-| Streaming remote path            | Manifest first → each detail migrated on fetch by its **own** `schemaVersion`.            |
-| `release.fingerprint` on migrate | **Preserved verbatim** (source identity; excludes `schemaVersion`). Never recomputed.     |
-| Newer-than-current payload       | **Reject** (`TooNew`).                                                                    |
-| Older-than-baseline payload      | **Reject** (`TooOld`); baseline is a deliberate, documented floor.                        |
-| Direction                        | **Up-migration only.** Down/export-to-older is a future ADR.                              |
-| Chain integrity                  | Validated **at startup**; gaps/dupes fail app start (Flyway-like).                        |
+| Decision                         | Choice                                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Migrate typed or JSON?           | **JSON `JsonNode`**, before binding. The typed model is always current.                                               |
+| One version axis or per-part?    | **One catalog-wide version** — the manifest is authoritative, every detail echoes it, one chain for the whole bundle. |
+| Migration unit                   | One step per `from`; a step may reshape the manifest tree and/or any resource-detail tree.                            |
+| Streaming remote path            | Manifest first → each detail migrated on fetch, gated by the same catalog `schemaVersion`.                            |
+| `release.fingerprint` on migrate | **Preserved verbatim** (source identity; excludes `schemaVersion`). Never recomputed.                                 |
+| Newer-than-current payload       | **Reject** (`TooNew`).                                                                                                |
+| Older-than-baseline payload      | **Reject** (`TooOld`); baseline is a deliberate, documented floor.                                                    |
+| Direction                        | **Up-migration only.** Down/export-to-older is a future ADR.                                                          |
+| Chain integrity                  | Validated **at startup**; gaps/dupes fail app start (Flyway-like).                                                    |
 
 ## Risks & mitigations
 

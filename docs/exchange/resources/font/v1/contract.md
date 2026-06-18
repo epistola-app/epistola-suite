@@ -10,13 +10,13 @@
 **Install order:** 2 (after the assets its faces point at; before themes that reference it).
 **Wire location:** `./resources/font/{slug}.json`.
 
-> **No bundled example.** The demo/system catalogs ship no asset-backed fonts, so there is no committed fixture for this part. Its contract is documented here as the **v1** baseline (no prior shape change is known). See [docs/fonts.md](../../../../fonts.md) for the font model itself. (Exports stamp this `schemaVersion` with the font part's own current version — `CatalogContentBuilder` applies per-part stamps, [ADR 0007](../../../../adr/0007-catalog-wire-format-migrations.md).)
+> **No bundled example.** The demo/system catalogs ship no asset-backed fonts, so there is no committed fixture for this part. Its contract is documented here as the **v1** baseline shape (no prior shape change is known). See [docs/fonts.md](../../../../fonts.md) for the font model itself. (On the wire the detail carries the single catalog-wide `schemaVersion` — `CatalogContentBuilder` stamps it uniformly across the manifest and every detail, [ADR 0007](../../../../adr/0007-catalog-wire-format-migrations.md).)
 
 ## Shape
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 4,
   "resource": {
     "type": "font",
     "slug": "acme-display",

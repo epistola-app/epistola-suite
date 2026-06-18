@@ -14,7 +14,7 @@
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "resource": {
     "type": "attribute",
     "slug": "country",
@@ -41,7 +41,7 @@
 
 ## Changed in v3
 
-- **Added `codeListBinding`** as the preferred way to source allowed values. Earlier versions carried the enumeration only inline (`allowedValues`); v3 lets an attribute instead bind to a shared, reusable [code-list](../../code-list/v3/contract.md) resource. `allowedValues` is **not removed** — the wire model still carries and round-trips it (export emits it, import consumes it), so both can be present; a binding, when set, supersedes the inline list. This is the canonical example of a per-part contract change — diff this folder against a future `v4/` to see the next one.
+- **Added `codeListBinding`** as the preferred way to source allowed values. Earlier versions carried the enumeration only inline (`allowedValues`); v3 lets an attribute instead bind to a shared, reusable [code-list](../../code-list/v3/contract.md) resource. `allowedValues` is **not removed** — the wire model still carries and round-trips it (export emits it, import consumes it), so both can be present; a binding, when set, supersedes the inline list. This is the canonical example of a resource-shape contract change — diff this folder against a future `v4/` to see the next one. (The `vN` is this doc's shape history; on the wire the detail carries the catalog-wide `schemaVersion`, not an independent attribute version.)
 
 ## Related parts
 

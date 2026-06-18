@@ -1,6 +1,5 @@
 package app.epistola.suite.catalog.migrations
 
-import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.validateMigrationChain
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -10,18 +9,17 @@ import tools.jackson.module.kotlin.jsonMapper
 
 /**
  * Startup chain-integrity checks for [CatalogSchemaMigrator] — the contiguous,
- * total, gap-free invariant that fails application start (Flyway-like) when a
- * part's migration chain is malformed. Pure unit test; no Spring.
+ * total, gap-free invariant that fails application start (Flyway-like) when the
+ * catalog migration chain is malformed. Pure unit test; no Spring.
  */
 class CatalogSchemaMigratorChainTest {
 
-    /** A migration step that does nothing but declare its [part]/[from]/[to]. */
+    /** A migration step that does nothing but declare its [from]/[to]. */
     private class NoopMigration(
         override val from: Int,
         override val to: Int = from + 1,
-        override val part: CatalogPart = CatalogPart.MANIFEST,
     ) : CatalogSchemaMigration {
-        override fun migrate(node: ObjectNode, ctx: MigrationContext): ObjectNode = node
+        override fun migrateManifest(node: ObjectNode, ctx: MigrationContext): ObjectNode = node
     }
 
     @Test
@@ -95,7 +93,7 @@ class CatalogSchemaMigratorChainTest {
     @Test
     fun `the real bean accepts an empty chain (baseline == current today)`() {
         // Constructing the @Component with no migrations must not throw — this is
-        // the wired-in Phase-0 state.
+        // the wired-in Phase-0 state (catalog baseline == current).
         assertThatCode { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
             .doesNotThrowAnyException()
     }
@@ -112,8 +110,8 @@ class CatalogSchemaMigratorChainTest {
     fun `chain integrity does not depend on the constants - probes the window directly`() {
         // The checker is parameterised on the version window, so it validates a
         // chain against an arbitrary baseline/current unrelated to today's
-        // constants (all baseline == current). A contiguous 10->11->12->13 chain
-        // over window [10, 13] must pass purely on its own merits.
+        // constants (baseline == current). A contiguous 10->11->12->13 chain over
+        // window [10, 13] must pass purely on its own merits.
         val chain = listOf(NoopMigration(from = 10), NoopMigration(from = 11), NoopMigration(from = 12))
         assertThatCode { validateMigrationChain(chain, baseline = 10, current = 13) }
             .doesNotThrowAnyException()

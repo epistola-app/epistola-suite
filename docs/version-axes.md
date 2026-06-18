@@ -11,13 +11,13 @@ the map; each axis links to its detailed doc.
 
 ## The axes
 
-| Axis                                               | Versions…                                        | Bumped when                           | Travels in export/import?                                              | Used for                                                                        |
-| -------------------------------------------------- | ------------------------------------------------ | ------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| **Template version** (per variant)                 | the _content_ of a template variant              | you **publish** a draft               | **No** — export carries the latest published _content_, not the number | history & rollback, deploy a specific version to an environment, pinning        |
-| **Contract version**                               | a template's data contract (JSON Schema)         | you publish a contract draft          | the schema _content_ travels; its own draft/publish lifecycle          | breaking-change detection — what data a template accepts                        |
-| **Stencil version**                                | a stencil's published _content_                  | you publish a stencil version         | **Yes** — `StencilResource.version` is on the wire and preserved       | templates **pin** a specific stencil version; the pin must survive a round-trip |
-| **Catalog release version** (SemVer) + fingerprint | the whole catalog's _content_ at a point in time | you cut a **release**                 | **Yes** — in the manifest `release` block                              | upgrade detection across instances (subscribers see "a newer version")          |
-| **Wire-format `schemaVersion`** (per part)         | the _shape_ of the exchange format itself        | only when the JSON **format** changes | n/a — it _is_ the import/export layer                                  | forward-compatible import between instances on different **software** versions  |
+| Axis                                               | Versions…                                                   | Bumped when                           | Travels in export/import?                                              | Used for                                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **Template version** (per variant)                 | the _content_ of a template variant                         | you **publish** a draft               | **No** — export carries the latest published _content_, not the number | history & rollback, deploy a specific version to an environment, pinning        |
+| **Contract version**                               | a template's data contract (JSON Schema)                    | you publish a contract draft          | the schema _content_ travels; its own draft/publish lifecycle          | breaking-change detection — what data a template accepts                        |
+| **Stencil version**                                | a stencil's published _content_                             | you publish a stencil version         | **Yes** — `StencilResource.version` is on the wire and preserved       | templates **pin** a specific stencil version; the pin must survive a round-trip |
+| **Catalog release version** (SemVer) + fingerprint | the whole catalog's _content_ at a point in time            | you cut a **release**                 | **Yes** — in the manifest `release` block                              | upgrade detection across instances (subscribers see "a newer version")          |
+| **Catalog wire `schemaVersion`**                   | the _shape_ of the exchange format itself (one per catalog) | only when the JSON **format** changes | n/a — it _is_ the import/export layer                                  | forward-compatible import between instances on different **software** versions  |
 
 ## What each axis is for
 
@@ -34,9 +34,10 @@ the map; each axis links to its detailed doc.
   change?". See [catalog-versioning.md](catalog-versioning.md).
 - **Wire-format `schemaVersion`** — _"what shape is the exchange file?"_ Purely
   so an import works between instances running different **software** versions.
-  It changes **only when the format changes**, never when your content changes,
-  and it is versioned **per part** (the manifest and each resource type move
-  independently). See [ADR 0007](adr/0007-catalog-wire-format-migrations.md) and
+  It changes **only when the format changes**, never when your content changes.
+  There is **one catalog-wide version** for the whole bundle — the manifest is
+  authoritative and every resource detail echoes the same number, so the catalog
+  moves together. See [ADR 0007](adr/0007-catalog-wire-format-migrations.md) and
   [exchange/README.md](exchange/README.md#wire-format-version-gate).
 
 ## How they relate (and don't)
@@ -50,10 +51,10 @@ the map; each axis links to its detailed doc.
   (`props.version`), so that version **number** is real, user-visible data and
   must survive a round-trip. The wire format therefore carries
   `StencilResource.version` and the importer installs at that number (see
-  [ADR 0003](adr/0003-stencil-version-in-export.md)). This is also why the first
-  wire-format migration exists: stencil wire **v1 → v2** made that field
-  required ([ADR 0007](adr/0007-catalog-wire-format-migrations.md)) — a _format_
-  change carrying a _content_ version.
+  [ADR 0003](adr/0003-stencil-version-in-export.md)). The stencil-shape change
+  that made that field required is the motivating example for the wire-format
+  migration machinery ([ADR 0007](adr/0007-catalog-wire-format-migrations.md)) —
+  a _format_ change carrying a _content_ version.
 - **Release version vs `schemaVersion` are orthogonal.** A catalog can publish
   release `5.9.0` (content) at wire `schemaVersion` 4 (format); editing content
   bumps the release/fingerprint but not the `schemaVersion`, and a format change
@@ -65,6 +66,6 @@ the map; each axis links to its detailed doc.
 
 - [catalog-versioning.md](catalog-versioning.md) — release SemVer + content fingerprint, upgrade flow.
 - [schema-versioning.md](schema-versioning.md) — contract (data-model) draft/publish + compatibility.
-- [exchange/README.md](exchange/README.md) — the wire format, per-part contracts, and the version gate.
-- [ADR 0007](adr/0007-catalog-wire-format-migrations.md) — per-part wire-format migrations.
+- [exchange/README.md](exchange/README.md) — the wire format, resource contracts, and the version gate.
+- [ADR 0007](adr/0007-catalog-wire-format-migrations.md) — catalog-wide wire-format migrations.
 - [ADR 0003](adr/0003-stencil-version-in-export.md) — stencil version on the wire.
