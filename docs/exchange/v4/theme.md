@@ -1,12 +1,12 @@
-# Theme resource contract — v2
+# Theme — catalog wire v4
 
-> Part of [catalog import/export](../../../README.md). **Current** theme version. [All theme versions](../).
+> Part of the [catalog **v4** wire format](README.md) ([exchange overview](../README.md)).
 
 **Role:** the visual styling a template renders with — document-level typography/colour, page settings, and named block-style presets.
 
 **DTO:** `ThemeResource` (`CatalogResource` subtype, `epistola-model`).
-**Exported by:** [`ExportResources.kt`](../../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt).
-**Imported by:** [`InstallFromCatalog`](../../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
+**Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt).
+**Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 4 (before stencils/templates that reference it).
 **Wire location:** `./resources/theme/{slug}.json`.
 
@@ -54,11 +54,11 @@
 
 - A `documentStyles.fontFamily` referencing another catalog is recorded as a manifest `dependency` (type `font` resolution is tenant/catalog-scoped) and must resolve on import.
 
-## Changed in v2
+## Shape history
 
-- Baseline documented version. `documentStyles.fontFamily` is the structured `{ slug, catalogKey? }` font reference (not a CSS stack).
+- `documentStyles.fontFamily` is the structured `{ slug, catalogKey? }` font reference (not a CSS stack). This is the history of this resource's shape; on the wire it carries the catalog-wide `schemaVersion` (currently `4`), not an independent theme version.
 
 ## Related parts
 
-- Referenced by [Template](../../template/v2/contract.md) via `themeId`; may depend on a [Font](../../font/v1/contract.md).
-- [Manifest](../../../manifest/v4/contract.md) `dependencies` for cross-catalog font refs.
+- Referenced by [Template](template.md) via `themeId`; may depend on a [Font](font.md).
+- [Manifest](manifest.md) `dependencies` for cross-catalog font refs.

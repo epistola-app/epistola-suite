@@ -1,12 +1,12 @@
-# Code-list resource contract — v3
+# Code-list — catalog wire v4
 
-> Part of [catalog import/export](../../../README.md). **Current** code-list version. [All code-list versions](../).
+> Part of the [catalog **v4** wire format](README.md) ([exchange overview](../README.md)).
 
-**Role:** a reusable enumeration (e.g. BCP-47 languages, ISO-3166 countries) that [attributes](../../attribute/v3/contract.md) (and data-contract bindings) draw their allowed values from.
+**Role:** a reusable enumeration (e.g. BCP-47 languages, ISO-3166 countries) that [attributes](attribute.md) (and data-contract bindings) draw their allowed values from.
 
 **DTO:** `CodeListResource` (`CatalogResource` subtype, `epistola-model`).
-**Exported by:** [`ExportResources.kt`](../../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) (`ExportCodeLists`).
-**Imported by:** [`InstallFromCatalog`](../../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
+**Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) (`ExportCodeLists`).
+**Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 1 (early — attributes bind to it).
 **Wire location:** `./resources/codeList/{slug}.json`.
 
@@ -43,12 +43,12 @@
 
 ## Validation / behaviour
 
-- A code list must install **before** any [attribute](../../attribute/v3/contract.md) that binds to it (guaranteed by install order 1 < 3).
+- A code list must install **before** any [attribute](attribute.md) that binds to it (guaranteed by install order 1 < 3).
 
-## Changed in v3
+## Shape history
 
-- Baseline documented version. Code lists became the canonical home for enumerations when [attribute v3](../../attribute/v3/contract.md) moved from inline `allowedValues` to a `codeListBinding`.
+- Code lists became the canonical home for enumerations when the [attribute](attribute.md) shape moved from inline `allowedValues` to a `codeListBinding`. This is the history of this resource's shape; on the wire it carries the catalog-wide `schemaVersion` (currently `4`), not an independent code-list version.
 
 ## Related parts
 
-- Bound by [Attribute](../../attribute/v3/contract.md) (`codeListBinding`).
+- Bound by [Attribute](attribute.md) (`codeListBinding`).

@@ -6,26 +6,24 @@ Catalogs are first-class entities in Epistola for organizing, sharing, and impor
 
 ## Parts & contract versions
 
-Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/contract.md) plus one detail file per resource. Each of these is a **part** with its own JSON contract. Every part is documented in its own folder, with a version subfolder per contract version, so a contract change is a new folder you can diff against the previous one.
+Import/export is a **wire format**: a `catalog.json` [manifest](v4/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract, all documented together under **one folder per catalog wire version** (currently [`v4/`](v4/)).
 
 **There is one catalog-wide wire `schemaVersion`** (currently `4`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. This is the decision recorded in [ADR 0007](../adr/0007-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism is one chain that upgrades a whole catalog (manifest tree and/or any resource-detail tree) from an older version up to the current one.
 
-**Resource shapes at catalog `schemaVersion` 4:**
+**Parts, at catalog `schemaVersion` 4** — each documented in [`v4/`](v4/):
 
-| Part                                                 | Doc rev | Folder                                         | Carries                                                                           |
-| ---------------------------------------------------- | ------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
-| [Manifest](manifest/v4/contract.md) (`catalog.json`) | **v4**  | [`manifest/`](manifest/)                       | catalog identity, `release` (version + fingerprint), resource index, dependencies |
-| [Asset](resources/asset/v2/contract.md)              | **v2**  | [`resources/asset/`](resources/asset/)         | image metadata + `contentUrl` to the binary                                       |
-| [Code list](resources/code-list/v3/contract.md)      | **v3**  | [`resources/code-list/`](resources/code-list/) | reusable enumerations (`entries`)                                                 |
-| [Font](resources/font/v1/contract.md)                | **v1**  | [`resources/font/`](resources/font/)           | asset-backed font family + variants                                               |
-| [Attribute](resources/attribute/v3/contract.md)      | **v3**  | [`resources/attribute/`](resources/attribute/) | variant attribute + `codeListBinding`                                             |
-| [Theme](resources/theme/v2/contract.md)              | **v2**  | [`resources/theme/`](resources/theme/)         | document styles, page settings, presets                                           |
-| [Stencil](resources/stencil/v2/contract.md)          | **v2**  | [`resources/stencil/`](resources/stencil/)     | published fragment (`content` + `version`)                                        |
-| [Template](resources/template/v2/contract.md)        | **v2**  | [`resources/template/`](resources/template/)   | `templateModel`, `dataModel`, variants                                            |
+| Part                                        | Carries                                                                           |
+| ------------------------------------------- | --------------------------------------------------------------------------------- |
+| [Manifest](v4/manifest.md) (`catalog.json`) | catalog identity, `release` (version + fingerprint), resource index, dependencies |
+| [Asset](v4/asset.md)                        | image metadata + `contentUrl` to the binary                                       |
+| [Code list](v4/code-list.md)                | reusable enumerations (`entries`)                                                 |
+| [Font](v4/font.md)                          | asset-backed font family + variants                                               |
+| [Attribute](v4/attribute.md)                | variant attribute + `codeListBinding`                                             |
+| [Theme](v4/theme.md)                        | document styles, page settings, presets                                           |
+| [Stencil](v4/stencil.md)                    | published fragment (`content` + `version`)                                        |
+| [Template](v4/template.md)                  | `templateModel`, `dataModel`, variants                                            |
 
 (Rows are in install order — see [`CatalogConstants.RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt).)
-
-> The bold **vN** above is the **contract-doc iteration** for that resource's _shape_ — the `vN/` folder you diff against to see how the shape changed — **not** an independent wire version. Every part on the wire carries the same catalog `schemaVersion` (`4`); a resource detail is not stamped with its own number. The folder names are purely editorial history of each shape.
 
 **The three version axes** (orthogonal — don't conflate them):
 
@@ -37,7 +35,7 @@ Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/cont
 
 These three are the **catalog-level** axes. For the full picture — including the editorial **template / contract / stencil** versions and how they do (and don't) relate to import/export — see [version-axes.md](../version-axes.md).
 
-**Maintaining these docs:** when you change a resource's wire shape, add a new `vN+1/contract.md` for that resource, update its _Doc rev_ above, and note the change under "Changed in vN+1". Leave the old version folder in place so the diff stays visible. A shape change that is not round-trip-compatible bumps the catalog-wide `schemaVersion` and lands a migration step in the single chain.
+**Maintaining these docs:** the wire shape lives under [`v4/`](v4/) — one file per part at catalog `schemaVersion` 4. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the whole `v4/` folder to `v5/`, edit the changed part(s) there, and land a migration step in the single chain. Leave the old version folder in place so the whole set diffs against the previous wire version.
 
 > **Implementation status.** The whole-catalog wire-format framework is **implemented** ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)): `CatalogContentBuilder` stamps the manifest **and** every resource detail with the single `CATALOG_SCHEMA_VERSION` (currently `4`), and `CatalogSchemaMigrator` gates the payload's `schemaVersion` once against `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before binding — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). **No migrations exist yet** — the chain is empty (`baseline == current == 4`), so every current-shape payload binds as-is. The first shape change that isn't round-trip-compatible bumps the catalog version and adds one migration step to the chain. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
 
