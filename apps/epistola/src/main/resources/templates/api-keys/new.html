@@ -26,7 +26,7 @@
     </form>
 
     <th:block th:fragment="fields">
-        <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+        <div class="form-group">
             <label class="ep-label" for="name">Name</label>
             <input type="text" id="name" name="name" class="ep-input"
                    required maxlength="100"
@@ -34,14 +34,14 @@
                    th:value="${formData?.name}"
                    autofocus>
             <span class="form-hint">A short label so you can recognise this key later. Max 100 characters.</span>
-            <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+            <span class="form-error" id="api-key-error-name" th:attr="data-error=${errors?.containsKey('name')}" th:text="${errors?.get('name')}"></span>
         </div>
-        <div class="form-group" th:classappend="${errors?.containsKey('expiresAt')} ? 'error' : ''">
+        <div class="form-group">
             <label class="ep-label" for="expiresAt">Expires (optional)</label>
             <input type="date" id="expiresAt" name="expiresAt" class="ep-input"
                    th:value="${formData?.expiresAt}">
             <span class="form-hint">Leave blank for a key that never expires.</span>
-            <span class="form-error" th:if="${errors?.containsKey('expiresAt')}" th:text="${errors.expiresAt}"></span>
+            <span class="form-error" id="api-key-error-expiresAt" th:attr="data-error=${errors?.containsKey('expiresAt')}" th:text="${errors?.get('expiresAt')}"></span>
         </div>
     </th:block>
 

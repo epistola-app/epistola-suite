@@ -38,14 +38,14 @@
                         th:selected="${formData?.catalog == cat.id}"></option>
             </select>
         </div>
-        <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+        <div class="form-group">
             <label class="ep-label" for="name">Name</label>
             <input type="text" id="name" name="name" class="ep-input"
                    required placeholder="Monthly Invoice" data-slug-source="slug"
                    th:value="${formData?.name}">
-            <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+            <span class="form-error" id="template-error-name" th:attr="data-error=${errors?.containsKey('name')}" th:text="${errors?.get('name')}"></span>
         </div>
-        <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+        <div class="form-group">
             <label class="ep-label" for="slug">Template ID (Slug)</label>
             <input type="text" id="slug" name="slug" class="ep-input"
                    required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
@@ -53,7 +53,7 @@
                    placeholder="monthly-invoice"
                    th:value="${formData?.slug}">
             <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
-            <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+            <span class="form-error" id="template-error-slug" th:attr="data-error=${errors?.containsKey('slug')}" th:text="${errors?.get('slug')}"></span>
         </div>
     </th:block>
 </body>

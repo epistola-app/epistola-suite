@@ -2,10 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-        Upload Font form. Already HTMX-driven (multipart hx-post; success sends
-        HX-Redirect, errors return JSON handled by the inline script). The dialog
-        reuses the same form + script via the shared `fields` fragment; htmx runs
-        the <script> when the dialog is injected into #dialog-host.
+        Upload Font form (multipart hx-post). Success sends HX-Redirect; a
+        validation error swaps the per-field + general error spans via OOB
+        (hx-swap-oob) so the chosen face files survive — see the error-* fragments
+        below and FontHandler.upload. The dialog reuses the same form + script via
+        the shared `fields` fragment; htmx runs the <script> when the dialog is
+        injected into #dialog-host.
     -->
     <th:block th:fragment="createDialog(catalogs)">
         <dialog id="create-font-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-font-dialog" data-create-dialog data-dialog-param="upload">
@@ -33,6 +35,7 @@
                         th:value="${cat.id}"
                         th:text="${cat.name}"></option>
             </select>
+            <span class="form-error" id="font-error-catalog" th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
         </div>
         <div class="form-group">
             <label class="ep-label" for="slug">Slug</label>
@@ -40,11 +43,13 @@
                    placeholder="acme-sans" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
                    minlength="2" maxlength="64" required />
             <span class="form-hint">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
+            <span class="form-error" id="font-error-slug" th:attr="data-error=${errors?.containsKey('slug')}" th:text="${errors?.get('slug')}"></span>
         </div>
         <div class="form-group">
             <label class="ep-label" for="name">Display name</label>
             <input type="text" id="name" name="name" class="ep-input"
                    placeholder="Acme Sans" maxlength="100" required />
+            <span class="form-error" id="font-error-name" th:attr="data-error=${errors?.containsKey('name')}" th:text="${errors?.get('name')}"></span>
         </div>
         <div class="form-group">
             <label class="ep-label" for="kind">Kind</label>
@@ -55,6 +60,7 @@
                 <option value="condensed">Condensed</option>
                 <option value="display">Display</option>
             </select>
+            <span class="form-error" id="font-error-kind" th:attr="data-error=${errors?.containsKey('kind')}" th:text="${errors?.get('kind')}"></span>
         </div>
 
         <div class="form-group">
@@ -81,7 +87,7 @@
                 </div>
             </div>
             <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top: var(--ep-space-2)">+ Add face</button>
-            <span id="font-upload-error" class="form-error" th:text="${error}"></span>
+            <span class="form-error" id="font-error-general" th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
         </div>
 
         <script>
@@ -102,28 +108,24 @@
                     });
                     fontFaces.appendChild(clone);
                 });
-
-                var fontUploadForm = document.getElementById('font-upload-form');
-                var fontUploadError = document.getElementById('font-upload-error');
-
-                fontUploadForm.addEventListener('htmx:responseError', function(event) {
-                    var xhr = event.detail && event.detail.xhr;
-                    if (!xhr || xhr.status < 400) {
-                        return;
-                    }
-                    try {
-                        var body = JSON.parse(xhr.responseText || '{}');
-                        fontUploadError.textContent = body.detail || body.error || 'Failed to upload font. Please try again.';
-                    } catch (e) {
-                        fontUploadError.textContent = 'Failed to upload font. Please try again.';
-                    }
-                });
-
-                fontUploadForm.addEventListener('htmx:beforeRequest', function() {
-                    fontUploadError.textContent = '';
-                });
             })();
         </script>
     </th:block>
+
+    <!--
+        OOB error fragments. On a validation error the handler swaps these (by id,
+        via hx-swap-oob) into the live per-field spans + the general region, leaving
+        the form and its selected face files untouched (see FontHandler.upload).
+    -->
+    <span th:fragment="error-catalog" class="form-error" id="font-error-catalog" hx-swap-oob="true"
+          th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
+    <span th:fragment="error-slug" class="form-error" id="font-error-slug" hx-swap-oob="true"
+          th:attr="data-error=${errors?.containsKey('slug')}" th:text="${errors?.get('slug')}"></span>
+    <span th:fragment="error-name" class="form-error" id="font-error-name" hx-swap-oob="true"
+          th:attr="data-error=${errors?.containsKey('name')}" th:text="${errors?.get('name')}"></span>
+    <span th:fragment="error-kind" class="form-error" id="font-error-kind" hx-swap-oob="true"
+          th:attr="data-error=${errors?.containsKey('kind')}" th:text="${errors?.get('kind')}"></span>
+    <span th:fragment="error-general" class="form-error" id="font-error-general" hx-swap-oob="true"
+          th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
 </body>
 </html>

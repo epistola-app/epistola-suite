@@ -60,7 +60,7 @@ class TemplateCreateDialogUiTest : BasePlaywrightTest() {
 
         // The form re-renders inside the still-open dialog with the error.
         assertThat(dialog).isVisible()
-        assertThat(page.locator("#create-template-form .form-error")).isVisible()
+        assertThat(page.locator("#create-template-form .form-error[data-error='true']")).isVisible()
     }
 
     @Test

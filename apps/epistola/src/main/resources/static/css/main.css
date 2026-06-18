@@ -97,16 +97,18 @@ main.regular section {
   color: var(--ep-muted-foreground);
 }
 
-/* Form validation error states */
-.form-group.error input,
-.form-group.error textarea,
-.form-group.error select {
+/* Form validation error states — keyed off the error span's data-error, not a
+   server-toggled parent class, so it works for whole-form re-renders and
+   out-of-band span swaps alike (see docs/htmx.md "Create Forms: Modal Dialogs"). */
+.form-group:has(.form-error[data-error='true']) input,
+.form-group:has(.form-error[data-error='true']) textarea,
+.form-group:has(.form-error[data-error='true']) select {
   border-color: var(--ep-destructive);
 }
 
-.form-group.error input:focus,
-.form-group.error textarea:focus,
-.form-group.error select:focus {
+.form-group:has(.form-error[data-error='true']) input:focus,
+.form-group:has(.form-error[data-error='true']) textarea:focus,
+.form-group:has(.form-error[data-error='true']) select:focus {
   border-color: var(--ep-destructive);
   box-shadow:
     0 0 0 var(--ep-ring-offset) var(--ep-white),
@@ -118,6 +120,12 @@ main.regular section {
   font-size: var(--ep-text-sm);
   color: var(--ep-destructive);
   margin-top: var(--ep-space-1);
+}
+
+/* Error spans now always render (so OOB swaps have a stable target); collapse
+   them when empty so a clean field shows no gap. */
+.form-error:empty {
+  display: none;
 }
 
 .form-hint {

@@ -2,10 +2,13 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-        Upload Asset form. Already HTMX-driven (multipart hx-post; success sends
-        HX-Redirect, errors return JSON handled by the inline script). The dialog
-        reuses the same form + script via the shared `fields` fragment; htmx runs
-        the <script> when the dialog is injected into #dialog-host.
+        Upload Asset form (multipart hx-post). Success sends HX-Redirect; a
+        validation error swaps the catalog + general error spans via OOB
+        (hx-swap-oob) so the chosen file survives — see the error-* fragments below
+        and AssetHandler.upload. The editor calls this same endpoint with
+        Accept: application/json and still gets a JSON 400. The dialog reuses the
+        same form + script via the shared `fields` fragment; htmx runs the
+        <script> when the dialog is injected into #dialog-host.
     -->
     <th:block th:fragment="createDialog(catalogs)">
         <dialog id="create-asset-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-asset-dialog" data-create-dialog data-dialog-param="upload">
@@ -33,6 +36,7 @@
                         th:value="${cat.id}"
                         th:text="${cat.name}"></option>
             </select>
+            <span class="form-error" id="asset-error-catalog" th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
         </div>
         <div class="form-group">
             <label class="ep-label">Image file</label>
@@ -53,42 +57,20 @@
             <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
                 <span id="file-name" class="text-sm"></span>
             </div>
-            <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
+            <span class="form-error" id="asset-error-general" th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
         </div>
 
         <script>
             (function () {
-                var uploadForm = document.getElementById('asset-upload-form');
-                var uploadError = document.getElementById('asset-upload-error');
-
                 document.getElementById('asset-file-input').addEventListener('change', function() {
                     var preview = document.getElementById('file-preview');
                     var fileName = document.getElementById('file-name');
                     if (this.files.length > 0) {
                         fileName.textContent = this.files[0].name;
                         preview.style.display = 'block';
-                        uploadError.textContent = '';
                     } else {
                         preview.style.display = 'none';
                     }
-                });
-
-                uploadForm.addEventListener('htmx:responseError', function(event) {
-                    var xhr = event.detail && event.detail.xhr;
-                    if (!xhr || xhr.status < 400) {
-                        return;
-                    }
-
-                    try {
-                        var body = JSON.parse(xhr.responseText || '{}');
-                        uploadError.textContent = body.detail || body.error || 'Failed to upload asset. Please try again.';
-                    } catch (e) {
-                        uploadError.textContent = 'Failed to upload asset. Please try again.';
-                    }
-                });
-
-                uploadForm.addEventListener('htmx:beforeRequest', function() {
-                    uploadError.textContent = '';
                 });
 
                 window.handleFileDrop = function(event) {
@@ -104,5 +86,15 @@
             })();
         </script>
     </th:block>
+
+    <!--
+        OOB error fragments. On a validation error the handler swaps these (by id,
+        via hx-swap-oob) into the live catalog span + the general region, leaving
+        the form and its selected file untouched (see AssetHandler.upload).
+    -->
+    <span th:fragment="error-catalog" class="form-error" id="asset-error-catalog" hx-swap-oob="true"
+          th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
+    <span th:fragment="error-general" class="form-error" id="asset-error-general" hx-swap-oob="true"
+          th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
 </body>
 </html>

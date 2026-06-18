@@ -56,6 +56,12 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
         accept = listOf(MediaType.APPLICATION_JSON)
     }
 
+    /** Dialog (HTMX) upload: validation errors come back as 200 + OOB error spans. */
+    private fun htmxMultipartHeaders() = HttpHeaders().apply {
+        contentType = MediaType.MULTIPART_FORM_DATA
+        set("HX-Request", "true")
+    }
+
     @Test
     fun `upload registers a font family with regular and bold faces`() = fixture {
         lateinit var testTenant: Tenant
@@ -185,6 +191,70 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `HTMX upload with an invalid slug swaps OOB error spans and keeps the form`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Font OOB Slug Tenant") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("slug", "Bad Slug!")
+            payload.add("name", "Bad")
+            payload.add("kind", "sans")
+            payload.add("catalog", "default")
+            payload.add("file", facePart("bad-regular.ttf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(payload, htmxMultipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            // HTMX validation errors come back 200 with OOB error spans, not a 4xx.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            assertThat(body).contains("id=\"font-error-slug\"")
+            assertThat(body).contains("hx-swap-oob=\"true\"")
+            assertThat(body).contains("data-error=\"true\"")
+            // The form itself is NOT re-rendered — the chosen face files must survive.
+            assertThat(body).doesNotContain("id=\"font-upload-form\"")
+        }
+    }
+
+    @Test
+    fun `HTMX upload without a face shows the general OOB error`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Font OOB Face Tenant") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("slug", "no-face")
+            payload.add("name", "No Face")
+            payload.add("kind", "display")
+            payload.add("catalog", "default")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(payload, htmxMultipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            assertThat(body).contains("id=\"font-error-general\"")
+            assertThat(body).contains("At least one face file is required")
+            assertThat(body).contains("data-error=\"true\"")
         }
     }
 

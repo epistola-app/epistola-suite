@@ -56,7 +56,7 @@ class EnvironmentCreateDialogUiTest : BasePlaywrightTest() {
         page.getByTestId("create-form-submit").click()
 
         assertThat(dialog).isVisible()
-        assertThat(page.locator("#create-environment-form .form-error")).isVisible()
+        assertThat(page.locator("#create-environment-form .form-error[data-error='true']")).isVisible()
     }
 
     @Test

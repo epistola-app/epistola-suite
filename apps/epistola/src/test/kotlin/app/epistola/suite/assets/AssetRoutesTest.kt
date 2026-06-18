@@ -60,4 +60,79 @@ class AssetRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
     }
+
+    @Test
+    fun `HTMX upload without a catalog swaps the OOB catalog error and keeps the form`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Asset OOB Catalog Tenant") }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.MULTIPART_FORM_DATA
+            headers.set("HX-Request", "true")
+
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)) {
+                        override fun getFilename(): String = "logo.png"
+                    },
+                    HttpHeaders().apply { contentType = MediaType.IMAGE_PNG },
+                ),
+            )
+            // No catalog field.
+
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/assets",
+                HttpEntity(payload, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // HTMX validation errors come back 200 with OOB error spans, not a 4xx.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            assertThat(body).contains("id=\"asset-error-catalog\"")
+            assertThat(body).contains("hx-swap-oob=\"true\"")
+            assertThat(body).contains("data-error=\"true\"")
+            // The form is NOT re-rendered — the chosen file must survive.
+            assertThat(body).doesNotContain("id=\"asset-upload-form\"")
+        }
+    }
+
+    @Test
+    fun `HTMX upload without a file shows the general OOB error`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Asset OOB File Tenant") }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.MULTIPART_FORM_DATA
+            headers.set("HX-Request", "true")
+
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("catalog", "default")
+            // No file field.
+
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/assets",
+                HttpEntity(payload, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            assertThat(body).contains("id=\"asset-error-general\"")
+            assertThat(body).contains("No file provided")
+            assertThat(body).contains("data-error=\"true\"")
+        }
+    }
 }

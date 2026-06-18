@@ -440,7 +440,7 @@ Reusable form field fragments reduce boilerplate by 80%. Instead of repeating 4-
 **Before (environments/new.html):**
 
 ```html
-<div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+<div class="form-group">
   <label class="ep-label" for="slug">Environment ID</label>
   <input
     type="text"
@@ -454,9 +454,17 @@ Reusable form field fragments reduce boilerplate by 80%. Instead of repeating 4-
     th:value="${formData?.slug}"
   />
   <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens</span>
-  <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+  <span
+    class="form-error"
+    th:attr="data-error=${errors?.containsKey('slug')}"
+    th:text="${errors?.get('slug')}"
+  ></span>
 </div>
 ```
+
+The error span carries `data-error="true"/"false"` and a single CSS rule
+(`.form-group:has(.form-error[data-error='true'])`) draws the red border — there is no
+server-toggled `.error` class on the `.form-group` (see "Create-form error handling" below).
 
 **After (using form-fields.html macros):**
 
@@ -657,6 +665,35 @@ so a form that targets a sub-region leaks that target to descendant controls (e.
 `hx-get` into `#template-options-section` _inside_ the dialog, so the form carries
 `hx-disinherit="hx-target hx-swap"`. Do **not** reach for per-link `hx-target="body"` overrides —
 disinherit at the form is the idiomatic fix.
+
+#### Create-form error handling
+
+One rule across every create form: **on a validation error, re-render the largest region whose
+state the server can reconstruct.** How wide that region is depends on the form:
+
+- **Text forms (the 8: templates, themes, api-keys, environments, stencils, attributes, code-lists,
+  catalogs)** — the whole form is reconstructable (`formData` round-trips), so `create` re-renders
+  the **whole `createForm`** (`hx-target="this" hx-swap="outerHTML"`). The error spans come along.
+- **File / cascade forms (fonts, assets, load-test)** — the whole form is **not** reconstructable
+  (a `<input type=file>` value can't be repopulated; cascade selections would reset). They swap only
+  the **error region**, leaving the inputs untouched. load-test posts to a localized `#form-error`
+  region; **fonts/assets** return `reswap(HxSwap.NONE)` + per-field `oob(...)` error spans (HTTP
+  200), so the chosen file survives. Each OOB fragment's root carries `hx-swap-oob="true"` + the
+  matching `id` (the DSL does **not** add it). Field-keyable problems map to per-field spans
+  (`#font-error-slug`, …); face/file problems map to a general region (`#font-error-general`).
+
+**Border styling is one CSS rule, not a server-toggled class.** Every error span renders
+`data-error="true"/"false"` (`th:attr="data-error=${errors?.containsKey('name')}"`) and always
+exists in the markup (collapsed via `.form-error:empty`). A single rule —
+`.form-group:has(.form-error[data-error='true']) input { border-color: var(--ep-destructive) }` —
+draws the red border for **both** whole-form re-renders and OOB span swaps. There is no
+`th:classappend="… 'error'"` anywhere. (The shared field macros in `fragments/form-fields.html`
+follow the same pattern.)
+
+**The asset endpoint serves two callers.** `POST /tenants/{id}/assets` is also the editor's
+`uploadAsset` (a raw `fetch` with `Accept: application/json`). So `AssetHandler.upload` branches on
+`request.isHtmx`: the dialog (HTMX) gets the OOB-200 error response; the editor (non-HTMX) still gets
+a **JSON 400**. fonts keeps the same JSON-400 fallback for its non-HTMX/test callers.
 
 #### Why per-entity `new.html`, not one shared dialog shell
 

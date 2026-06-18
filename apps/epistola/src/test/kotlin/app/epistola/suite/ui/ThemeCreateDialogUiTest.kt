@@ -55,7 +55,7 @@ class ThemeCreateDialogUiTest : BasePlaywrightTest() {
         page.getByTestId("create-form-submit").click()
 
         assertThat(dialog).isVisible()
-        assertThat(page.locator("#create-theme-form .form-error")).isVisible()
+        assertThat(page.locator("#create-theme-form .form-error[data-error='true']")).isVisible()
     }
 
     @Test

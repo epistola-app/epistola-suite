@@ -18,8 +18,7 @@
     - maxlength: Optional maximum length
     -->
     <div th:fragment="text-field(name, label, placeholder, hint, required, pattern, minlength, maxlength)"
-         class="form-group"
-         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+         class="form-group">
         <label class="ep-label" th:for="${name}" th:text="${label}"></label>
         <input type="text"
                class="ep-input"
@@ -29,7 +28,7 @@
                th:value="${formData?.get(name)}"
                th:attr="required=${required},pattern=${pattern},minlength=${minlength},maxlength=${maxlength}">
         <span class="form-hint" th:if="${hint != null}" th:text="${hint}"></span>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span class="form-error" th:attr="data-error=${errors?.containsKey(name)}" th:text="${errors?.get(name)}"></span>
     </div>
 
     <!--
@@ -53,8 +52,7 @@
     - maxlength: Optional maximum length
     -->
     <div th:fragment="textarea-field(name, label, placeholder, rows, required, minlength, maxlength)"
-         class="form-group"
-         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+         class="form-group">
         <label class="ep-label" th:for="${name}" th:text="${label}"></label>
         <textarea class="ep-textarea"
                   th:id="${name}"
@@ -63,7 +61,7 @@
                   th:rows="${rows ?: 5}"
                   th:attr="required=${required},minlength=${minlength},maxlength=${maxlength}"
                   th:text="${formData?.get(name)}"></textarea>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span class="form-error" th:attr="data-error=${errors?.containsKey(name)}" th:text="${errors?.get(name)}"></span>
     </div>
 
     <!--
@@ -75,8 +73,7 @@
     - required: Set to true to mark as required
     -->
     <div th:fragment="select-field(name, label, options, selectedValue, required)"
-         class="form-group"
-         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+         class="form-group">
         <label class="ep-label" th:for="${name}" th:text="${label}"></label>
         <select class="ep-select"
                 th:id="${name}"
@@ -88,7 +85,7 @@
                     th:text="${option.name}"
                     th:selected="${option.id == selectedValue}"></option>
         </select>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span class="form-error" th:attr="data-error=${errors?.containsKey(name)}" th:text="${errors?.get(name)}"></span>
     </div>
 
     <!--
@@ -106,7 +103,7 @@
                    th:checked="${checked}">
             <span th:text="${label}"></span>
         </label>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span class="form-error" th:attr="data-error=${errors?.containsKey(name)}" th:text="${errors?.get(name)}"></span>
     </div>
 
     <!--
@@ -116,10 +113,9 @@
     - content: HTML content to wrap
     -->
     <div th:fragment="form-group(name, content)"
-         class="form-group"
-         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+         class="form-group">
         <th:block th:replace="${content}"></th:block>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span class="form-error" th:attr="data-error=${errors?.containsKey(name)}" th:text="${errors?.get(name)}"></span>
     </div>
 
     <!--
@@ -128,8 +124,8 @@
     -->
     <span th:fragment="error(name)"
           class="form-error"
-          th:if="${errors?.containsKey(name)}"
-          th:text="${errors.get(name)}"></span>
+          th:attr="data-error=${errors?.containsKey(name)}"
+          th:text="${errors?.get(name)}"></span>
 
     <!--
     Form actions bar (submit/cancel buttons).

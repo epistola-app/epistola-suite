@@ -23,6 +23,7 @@ import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
@@ -95,8 +96,8 @@ class FontHandler(
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val catalogs = ListCatalogs(tenantKey).query().filter { it.type == CatalogType.AUTHORED }
         // HTMX requests load the dialog into #dialog-host; a direct GET still
-        // renders the full-page fallback. Upload itself already HX-Redirects on
-        // success and returns inline JSON errors, so it is unchanged.
+        // redirects to the list. Upload HX-Redirects on success and swaps OOB
+        // error spans on a validation error (see [upload]).
         return request.htmx {
             fragment("fonts/new", "createDialog") {
                 "tenantId" to tenantKey.value
@@ -121,24 +122,52 @@ class FontHandler(
         fun field(name: String): String? = multipartData[name]?.firstOrNull()
             ?.let { String(it.inputStream.readAllBytes()).trim() }?.ifBlank { null }
 
-        fun badRequest(message: String?): ServerResponse = ServerResponse.badRequest()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("error" to (message ?: "Invalid request")))
+        // Accumulate field-level errors (rendered next to their inputs) plus a
+        // single general message for face/file problems that aren't tied to a
+        // named field. On an HTMX (dialog) submit we swap only the error spans
+        // via OOB so the chosen face files survive — a re-render can't repopulate
+        // a file input. A non-HTMX caller still gets the legacy JSON 400.
+        val errors = linkedMapOf<String, String>()
+        var generalError: String? = null
 
-        val slugStr = field("slug") ?: return badRequest("slug is required")
-        val slug = try {
-            FontKey.of(slugStr)
-        } catch (e: IllegalArgumentException) {
-            return badRequest(e.message)
+        fun errorResponse(): ServerResponse {
+            if (request.isHtmx) {
+                return request.htmx {
+                    reswap(HxSwap.NONE)
+                    oob("fonts/new", "error-catalog") { "errors" to errors }
+                    oob("fonts/new", "error-slug") { "errors" to errors }
+                    oob("fonts/new", "error-name") { "errors" to errors }
+                    oob("fonts/new", "error-kind") { "errors" to errors }
+                    oob("fonts/new", "error-general") { "generalError" to generalError }
+                }
+            }
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to (generalError ?: errors.values.firstOrNull() ?: "Invalid request")))
         }
-        val name = field("name") ?: return badRequest("name is required")
-        val kind = try {
-            FontKind.fromWire(field("kind") ?: "")
-        } catch (e: IllegalArgumentException) {
-            return badRequest(e.message)
+
+        val slugStr = field("slug")
+        var slug: FontKey? = null
+        if (slugStr == null) {
+            errors["slug"] = "Slug is required"
+        } else {
+            try {
+                slug = FontKey.of(slugStr)
+            } catch (e: IllegalArgumentException) {
+                errors["slug"] = e.message ?: "Invalid slug"
+            }
         }
-        val catalogKeyStr = field("catalog") ?: return badRequest("catalog is required")
-        val catalogKey = CatalogKey.of(catalogKeyStr)
+        val name = field("name")
+        if (name == null) errors["name"] = "Name is required"
+        var kind: FontKind? = null
+        try {
+            kind = FontKind.fromWire(field("kind") ?: "")
+        } catch (e: IllegalArgumentException) {
+            errors["kind"] = e.message ?: "Invalid font kind"
+        }
+        val catalogKeyStr = field("catalog")
+        if (catalogKeyStr == null) errors["catalog"] = "Catalog is required"
+        val catalogKey = catalogKeyStr?.let { CatalogKey.of(it) }
 
         // Collect the repeating face rows: parallel `file` / `weight` /
         // `italic` fields, indexed positionally. Rows whose file is empty are
@@ -155,47 +184,65 @@ class FontHandler(
         for ((idx, part) in fileParts.withIndex()) {
             if ((part.submittedFileName ?: "").isBlank() || part.size <= 0L) continue
             val weight = weights.getOrNull(idx)?.toIntOrNull()
-                ?: return badRequest("Each face needs a numeric weight (1–1000)")
+            if (weight == null) {
+                generalError = "Each face needs a numeric weight (1–1000)"
+                break
+            }
             if (weight !in 1..1000) {
-                return badRequest("Font weight must be between 1 and 1000")
+                generalError = "Font weight must be between 1 and 1000"
+                break
             }
             val italic = italics.getOrNull(idx)?.equals("true", ignoreCase = true) == true
             rows += FaceRow(part, weight, italic)
         }
+        if (generalError == null && rows.isEmpty()) {
+            generalError = "At least one face file is required"
+        }
+        if (generalError == null && rows.map { it.weight to it.italic }.toSet().size != rows.size) {
+            generalError = "Each (weight, italic) face must be unique"
+        }
 
-        if (rows.isEmpty()) {
-            return badRequest("At least one face file is required")
-        }
-        if (rows.map { it.weight to it.italic }.toSet().size != rows.size) {
-            return badRequest("Each (weight, italic) face must be unique")
-        }
+        if (errors.isNotEmpty() || generalError != null) return errorResponse()
+
+        // Past validation: required fields are guaranteed present (their absence
+        // is recorded as an error above).
+        val validSlug = slug!!
+        val validName = name!!
+        val validKind = kind!!
+        val validCatalogKey = catalogKey!!
 
         val importVariants = mutableListOf<ImportFontVariant>()
         try {
             for (row in rows) {
                 val part = row.part
                 val contentType = part.contentType
-                    ?: return badRequest("No content type on uploaded face")
+                if (contentType == null) {
+                    generalError = "No content type on uploaded face"
+                    return errorResponse()
+                }
                 val mediaType = try {
                     assetTypeCatalog.require(contentType)
                 } catch (e: UnsupportedAssetTypeException) {
-                    return badRequest(e.message)
+                    generalError = e.message
+                    return errorResponse()
                 }
                 if (mediaType !in FONT_MEDIA_TYPES) {
-                    return badRequest("Unsupported font format: $contentType. Use TTF or OTF.")
+                    generalError = "Unsupported font format: $contentType. Use TTF or OTF."
+                    return errorResponse()
                 }
                 val bytes = part.inputStream.use { it.readAllBytes() }
                 app.epistola.generation.pdf.FontBytesValidator.rejectionReason(bytes)?.let { reason ->
-                    return badRequest("Face ${row.weight}${if (row.italic) " italic" else ""}: $reason")
+                    generalError = "Face ${row.weight}${if (row.italic) " italic" else ""}: $reason"
+                    return errorResponse()
                 }
                 val asset = UploadAsset(
                     tenantId = tenantKey,
-                    name = part.submittedFileName ?: "${slug.value}-${row.weight}${if (row.italic) "i" else ""}",
+                    name = part.submittedFileName ?: "${validSlug.value}-${row.weight}${if (row.italic) "i" else ""}",
                     mediaType = mediaType,
                     content = bytes,
                     width = null,
                     height = null,
-                    catalogKey = catalogKey,
+                    catalogKey = validCatalogKey,
                 ).execute()
                 importVariants += ImportFontVariant(
                     weight = row.weight,
@@ -207,16 +254,15 @@ class FontHandler(
 
             ImportFont(
                 tenantId = tenantId,
-                catalogKey = catalogKey,
-                slug = slug.value,
-                name = name,
-                kind = kind.wire,
+                catalogKey = validCatalogKey,
+                slug = validSlug.value,
+                name = validName,
+                kind = validKind.wire,
                 variants = importVariants,
             ).execute()
         } catch (e: CatalogReadOnlyException) {
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to e.message))
+            errors["catalog"] = e.message ?: "This catalog is read-only"
+            return errorResponse()
         }
 
         if (request.isHtmx) {
@@ -226,7 +272,7 @@ class FontHandler(
         }
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("slug" to slug.value, "catalogKey" to catalogKey.value))
+            .body(mapOf("slug" to validSlug.value, "catalogKey" to validCatalogKey.value))
     }
 
     /**
