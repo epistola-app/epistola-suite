@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.support.isHubUnreachable
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -76,6 +77,12 @@ class BackupScheduler(
                     snapshotSync.syncTenant(tenantKey)
                 }
             } catch (e: Exception) {
+                // Back off: the hub is down, so the remaining tenants would all fail their upload
+                // too. Log one warning and stop the sweep — the next daily run retries from scratch.
+                if (e.isHubUnreachable()) {
+                    log.warn("Epistola hub unreachable; stopping catalog backup sweep this cycle: {}", e.message)
+                    break
+                }
                 log.error("Catalog backup failed for tenant {}: {}", tenantKey.value, e.message, e)
             }
         }
