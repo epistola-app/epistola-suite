@@ -30,21 +30,23 @@ for that consumer.
 ## Create Forms (dialogs)
 
 Every "create new" form opens in a shared modal dialog loaded into `#dialog-host`
-(see [`htmx.md`](htmx.md) → "Create Forms: Modal Dialogs"). Each form exposes the
-same three anchors, with a per-entity prefix `<entity>` ∈ { `template`, `theme`,
-`api-key`, `environment`, `stencil`, `attribute`, `font`, `asset`, `code-list`,
-`load-test` }:
+(see [`htmx.md`](htmx.md) → "Create Forms: Modal Dialogs"). The trigger and footer
+come from the shared `fragments/dialog.html` (`openTrigger` / `dialogFooter`). Each
+form exposes the same anchors, with a per-entity prefix `<entity>` ∈ { `template`,
+`theme`, `api-key`, `environment`, `stencil`, `attribute`, `font`, `asset`,
+`code-list`, `load-test`, `catalog` }:
 
-| `data-testid`                | Attached to                                                         | Covers                                                                |
-| ---------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `<entity>-create-open`       | "New …" trigger on `<entity>/list.html` (`hx-get` → `#dialog-host`) | All ten create forms                                                  |
-| `<entity>-create-open-empty` | the same trigger inside the list's empty-state                      | The eight whose list can be empty (all except fonts/assets)           |
-| `create-form-submit`         | Submit button inside each create dialog (`#create-<entity>-dialog`) | All create dialogs — generic, since only one dialog is open at a time |
+| `data-testid`                | Attached to                                                         | Covers                                                                                |
+| ---------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `<entity>-create-open`       | "New …" trigger on `<entity>/list.html` (`hx-get` → `#dialog-host`) | All eleven create forms                                                               |
+| `<entity>-create-open-empty` | the same trigger inside the list's empty-state                      | The eight whose list can be empty (all except fonts/assets/catalogs)                  |
+| `create-form-submit`         | Submit button inside each create dialog (`#create-<entity>-dialog`) | All create dialogs **except catalog**, which uses `catalog-create-submit` (see below) |
 
 The dialog element carries both `id="create-<entity>-dialog"` and a matching
-`data-testid` (e.g. `create-template-dialog`), so a test opens via the trigger and
-asserts/scopes on the dialog. Field inputs keep stable `id`s (`#name`, `#slug`, …),
-scoped as `#create-<entity>-dialog #name`.
+`data-testid` (e.g. `create-template-dialog`), plus a `data-create-dialog` marker for
+the deep-link reconcile JS (see [`htmx.md`](htmx.md) → "Deep-linkable create dialogs").
+A test opens via the trigger and asserts/scopes on the dialog. Field inputs keep stable
+`id`s (`#name`, `#slug`, …), scoped as `#create-<entity>-dialog #name`.
 
 ---
 
@@ -79,10 +81,13 @@ scoped as `#create-<entity>-dialog #name`.
 
 ### Catalogs
 
-| `data-testid`           | Attached to                                  | Covers                               |
-| ----------------------- | -------------------------------------------- | ------------------------------------ |
-| `catalog-create-open`   | "New Catalog" button on `catalogs/list.html` | Opening the create-catalog dialog    |
-| `catalog-create-submit` | Submit button inside `#create-dialog`        | Submitting the catalog creation form |
+The Catalogs "New" flow uses the shared create-dialog pattern (above), but keeps an
+entity-specific submit testid rather than the generic `create-form-submit`:
+
+| `data-testid`           | Attached to                                                   | Covers                               |
+| ----------------------- | ------------------------------------------------------------- | ------------------------------------ |
+| `catalog-create-open`   | "New Catalog" trigger (`openTrigger`) on `catalogs/list.html` | Opening the create-catalog dialog    |
+| `catalog-create-submit` | Submit button inside `#create-catalog-dialog`                 | Submitting the catalog creation form |
 
 ### Feature Toggles
 

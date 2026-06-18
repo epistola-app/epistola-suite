@@ -621,19 +621,19 @@ list. The shared pieces:
   `htmx:afterSwap` listener binds to `document`, not `document.body` — that script runs in `<head>`
   where `document.body` is still null.)
 
-**Trigger** (on the list page):
+**Trigger** (on the list page) — the shared `openTrigger` fragment from `fragments/dialog.html`, used
+verbatim in both the header and the empty state:
 
 ```html
-<a
-  th:href="@{…/new}"
-  th:hx-get="@{…/new}"
-  hx-target="#dialog-host"
-  hx-swap="innerHTML"
-  hx-boost="false"
-  >New …</a
->
+<th:block
+  th:replace="~{fragments/dialog :: openTrigger(
+    url=@{…/new}, label='New …', icon='plus',
+    testid='<entity>-create-open',
+    canCreate=${auth.has('<PERMISSION>')})}"
+></th:block>
 ```
 
+The fragment bakes in `hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"` once.
 `hx-boost="false"` is **required**: a boosted request carries `HX-Boosted`, which the handler treats
 as non-HTMX and answers with a redirect instead of the dialog fragment — so the whole list page
 would be injected into `#dialog-host`.
@@ -660,18 +660,22 @@ disinherit at the form is the idiomatic fix.
 
 #### Why per-entity `new.html`, not one shared dialog shell
 
-Each entity keeps its own `new.html` (the `createDialog` / `createForm` / `fields` fragments), even
-though the **chrome** — the `<dialog>`, header, `<form>`, body/footer with Cancel + submit — is
-byte-identical across all of them. We deliberately do **not** factor that chrome into a single
-parameterized `fragments/create-dialog.html`. The reasoning:
+The two pieces with **zero per-entity variation** — the list trigger and the footer (Cancel +
+submit) — _are_ shared, in `fragments/dialog.html` (`openTrigger` / `dialogFooter`); that keeps the
+nested-shell-safe attributes (`hx-boost="false"`, the no-request `data-dialog-close` Cancel) defined
+once. What stays per-entity is the **`createDialog` / `createForm` / `fields` shell** — the `<dialog>`
+with its `id`, the `<form>` with its `th:hx-post` action, and the fields. We deliberately do **not**
+collapse that shell into a single parameterized `fragments/create-dialog.html`. The reasoning:
 
 - The **fields are the substance and are irreducibly per-entity** (a slug + name vs. a multipart
   face-upload vs. the load-test cascade). A shared shell only de-duplicates ~20 lines of trivial,
   stable chrome.
-- A shared shell only fits cleanly for the ~7 self-swapping forms. **fonts/assets** post multipart
-  and don't self-swap, and **load-test** is bespoke (cascade + `hx-disinherit` + posts to
-  `#form-error`) — folding them in needs `multipart`/`selfSwap` flags that turn the shell into
-  config soup. So we'd trade "uniform but slightly repeated" for "DRY but two patterns."
+- A shared shell only fits cleanly for the eight self-swapping forms (templates, themes, api-keys,
+  environments, stencils, attributes, code-lists, catalogs). Of the eleven create dialogs, the other
+  three diverge: **fonts/assets** post multipart and don't self-swap, and **load-test** is bespoke
+  (cascade + `hx-disinherit` + posts to `#form-error`). Folding them in needs `multipart`/`selfSwap`
+  flags that turn the shell into config soup — trading "uniform but slightly repeated" for "DRY but
+  two patterns."
 - The shell would move the chrome into **model-driven indirection** (the handler supplies
   `dialogId` / `title` / `action` / `fieldsTemplate`), which reads worse than self-contained markup
   and adds wiring to every handler.

@@ -31,28 +31,26 @@ The create form opens in a shared modal `<dialog>` loaded from the list page ove
 **Template** (`<entity>/new.html`) — three fragments, no `content`/full page:
 
 - **`createDialog`** — `<dialog id="create-<entity>-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-<entity>-dialog">` with an `ep-dialog-header` and `~{<entity>/new :: createForm}`.
-- **`createForm`** — `<form th:fragment="createForm" id="create-<entity>-form" th:hx-post="@{…}" hx-target="this" hx-swap="outerHTML" hx-boost="false">` containing `ep-dialog-body` (`~{… :: fields}`) and `ep-dialog-footer` (`[data-dialog-close]` Cancel + a `data-testid="create-form-submit"` submit). It re-renders **itself** on validation error (`hx-target="this"`), so the dialog stays open with field errors.
+- **`createForm`** — `<form th:fragment="createForm" id="create-<entity>-form" th:hx-post="@{…}" hx-target="this" hx-swap="outerHTML" hx-boost="false">` containing `ep-dialog-body` (`~{… :: fields}`) and the **shared footer** `~{fragments/dialog :: dialogFooter('Create …', 'create-form-submit')}` (a `[data-dialog-close]` Cancel + the submit). It re-renders **itself** on validation error (`hx-target="this"`), so the dialog stays open with field errors.
 - **`fields`** — the inputs (single source of truth, included by `createForm`). Any inline `<script>` lives **here** so it runs when the dialog is injected (htmx executes `<script>` in swapped content).
 
 Fragment names must NOT be an HTML tag — use `createForm`/`createDialog`, never `form`/`dialog`. `:: form` is a markup selector that matches **every** `<form>` element and will pull extra forms into the dialog.
 
-Give each entity its **own** `new.html` with these fragments — do **not** factor the shared dialog/form chrome into one parameterized `fragments/create-dialog.html`. This is a deliberate choice (self-contained, uniform templates over DRY-but-indirected ones); see [`docs/htmx.md`](../../../docs/htmx.md) → "Why per-entity `new.html`, not one shared dialog shell".
+Give each entity its **own** `new.html` with the `createDialog`/`createForm`/`fields` fragments — do **not** factor the per-entity dialog/form/fields **shell** into one parameterized `fragments/create-dialog.html`. The shell stays per-entity (self-contained, uniform templates over DRY-but-indirected ones). Only the two pieces with **zero per-entity variation** — the list trigger and the footer — are shared, in `fragments/dialog.html` (`openTrigger` + `dialogFooter`). See [`docs/htmx.md`](../../../docs/htmx.md) → "Why per-entity `new.html`, not one shared dialog shell".
 
-**List trigger** (`<entity>/list.html`):
+**List trigger** (`<entity>/list.html`) — use the shared `openTrigger` fragment, in both the header and the empty state:
 
 ```html
-<a
-  th:href="@{…/new}"
-  th:hx-get="@{…/new}"
-  hx-target="#dialog-host"
-  hx-swap="innerHTML"
-  hx-boost="false"
-  data-testid="<entity>-create-open"
-  >New …</a
->
+<th:block
+  th:replace="~{fragments/dialog :: openTrigger(
+    url=@{/tenants/{tenantId}/<entities>/new(tenantId=${tenantId})},
+    label='New …', icon='plus',
+    testid='<entity>-create-open',
+    canCreate=${auth.has('<PERMISSION>')})}"
+></th:block>
 ```
 
-`hx-boost="false"` is **required**: without it the request is boosted, and the handler's non-HTMX branch redirects to the list instead of returning the dialog. The shared `#dialog-host` (in `layout/shell`) plus the open/close wiring in `fragments/htmx` auto-open the injected `<dialog>` and close it on any `[data-dialog-close]`.
+The fragment bakes in the nested-shell-safe attributes (`hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"`). `hx-boost="false"` is **required**: without it the request is boosted, and the handler's non-HTMX branch redirects to the list instead of returning the dialog. The shared `#dialog-host` (in `layout/shell`) plus the open/close wiring in `fragments/htmx` auto-open the injected `<dialog>` and close it on any `[data-dialog-close]`. Use a distinct `testid` per location (`<entity>-create-open` in the header, `<entity>-create-open-empty` in the empty state).
 
 **Handler**:
 
@@ -94,7 +92,9 @@ fun create(request: ServerRequest): ServerResponse {
 }
 ```
 
-**Success-step variants**: most entities `HX-Redirect` to the new item's editor/detail (templates, themes) or back to the list (environments, attributes). **API keys** instead swap a `createdReveal` fragment over the form to show the one-time secret inside the dialog. **Multipart uploads** (fonts, assets) keep their existing `hx-post` + `hx-encoding="multipart/form-data"` + inline JSON error handling — only the dialog wrapper and `newForm` change.
+**Success-step variants**: most entities `HX-Redirect` to the new item's editor/detail (templates, themes) or back to the list (environments, attributes). **API keys** instead swap a `createdReveal` fragment over the form to show the one-time secret inside the dialog. **Multipart uploads** (fonts, assets) keep their existing `hx-post` + `hx-encoding="multipart/form-data"` + inline JSON error handling — only the dialog wrapper and `newForm` change. **Catalogs** also follow this pattern (`create-catalog-dialog`), with an entity-specific submit testid (`catalog-create-submit`) and a success `HX-Redirect` to the new catalog's `…/<slug>/browse`.
+
+**Deep-linkable (opt-in)**: every create dialog in the app makes its open state URL-addressable so it survives refresh/back/forward. Mark the `<dialog>` with `data-create-dialog` (and `data-dialog-param="upload"` for the file-upload forms; default param is `create`), `pushUrl(urlWithDialogParam(...))` in `newForm`, and render the dialog inline on `?create`/`?upload` in `list` (set a `createOpen` flag). The reconcile/close JS in `fragments/htmx` is entity-agnostic. See [`docs/htmx.md`](../../../docs/htmx.md) → "Deep-linkable create dialogs" for the full wiring.
 
 ### 2. Inline HTMX Create
 

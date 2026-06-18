@@ -2,8 +2,8 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-        New Theme create form. Mirrors templates/new: a shared `fields` set feeds
-        the full-page fallback (`content`), the dialog shell (`createDialog`), and
+        New Theme create form. Mirrors templates/new. Dialog-only (no full-page
+        fallback): a shared `fields` set feeds the dialog shell (`createDialog`) and
         the self-swapping `createForm` re-rendered on validation error.
     -->
     <th:block th:fragment="createDialog(catalogs)">

@@ -2,14 +2,13 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-        New Template create form.
+        New Template create form. Dialog-only (no full-page fallback).
 
         Three fragments share one field set:
-          - content : full-page fallback (direct GET /new, no-JS) — rendered in layout/shell
-          - dialog  : the <dialog> shell loaded into #dialog-host for HTMX requests
-          - form    : the <form> on its own, re-rendered standalone on validation error
-                      (swaps itself via hx-target="this" hx-swap="outerHTML", keeping the dialog open)
-        The shared `fields` fragment is the single source of truth for the inputs.
+          - createDialog : the <dialog> shell loaded into #dialog-host for HTMX requests
+          - createForm   : the <form> on its own, re-rendered standalone on validation error
+                           (swaps itself via hx-target="this" hx-swap="outerHTML", keeping the dialog open)
+          - fields       : the single source of truth for the inputs
     -->
     <th:block th:fragment="createDialog(catalogs)">
         <dialog id="create-template-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-template-dialog" data-create-dialog>
