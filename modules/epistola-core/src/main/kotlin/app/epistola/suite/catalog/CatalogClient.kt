@@ -40,10 +40,11 @@ class CatalogClient(
     }
 
     /**
-     * Fetch one resource detail and upgrade it to its part's current wire shape
+     * Fetch one resource detail and upgrade it to the current catalog wire shape
      * before binding. [type] is the resource type discriminator (from the
-     * manifest entry); the migrator gates/migrates the detail by **its own**
-     * `schemaVersion` against that part's chain (per-part versioning).
+     * manifest entry); the migrator gates/migrates the detail against the single
+     * catalog-wide `schemaVersion` (the same one the manifest carries) and
+     * verifies the detail's own `resource.type` matches [type].
      */
     fun fetchResourceDetail(type: String, detailUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ResourceDetail {
         val resolvedUrl = resolveDetailUrl(detailUrl, manifestUrl)
