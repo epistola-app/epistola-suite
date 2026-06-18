@@ -2,6 +2,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.steps.CatalogV3ToV4ExampleMigration
+import app.epistola.suite.catalog.migrations.steps.CatalogV4ToV5Migration
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.core.io.DefaultResourceLoader
@@ -30,7 +31,7 @@ class BundledCatalogFingerprintTest {
     private val catalogClient = CatalogClient(
         catalogRestClient = RestClient.create(),
         resourceLoader = DefaultResourceLoader(),
-        schemaMigrator = CatalogSchemaMigrator(objectMapper, listOf(CatalogV3ToV4ExampleMigration())),
+        schemaMigrator = CatalogSchemaMigrator(objectMapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration())),
     )
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 

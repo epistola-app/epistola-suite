@@ -11,15 +11,16 @@ package app.epistola.suite.catalog
  * [CATALOG_SCHEMA_VERSION] (manifest + every resource detail move together). See
  * `docs/adr/0007-catalog-wire-format-migrations.md` and `docs/exchange/`.
  *
- * The chain currently spans `3 → 4`
- * ([app.epistola.suite.catalog.migrations.steps.CatalogV3ToV4ExampleMigration]):
- * a `v3` catalog (legacy `title`/`displayName` fields) is upgraded to `v4`
- * (`name`) on import, while a `v4` catalog binds directly. This is the example
- * migration — see that class for the pattern to copy.
+ * The chain currently spans `3 → 4 → 5`:
+ * [app.epistola.suite.catalog.migrations.steps.CatalogV3ToV4ExampleMigration]
+ * renames legacy `title`/`displayName` to `name`, and
+ * [app.epistola.suite.catalog.migrations.steps.CatalogV4ToV5Migration] is a
+ * **no-op version bump** (the catalog moves from `4` to `5` with no content
+ * change). Copy either for the pattern.
  */
 
 /** The wire schema version this instance emits, and upgrades older imports to. */
-const val CATALOG_SCHEMA_VERSION: Int = 4
+const val CATALOG_SCHEMA_VERSION: Int = 5
 
 /** The oldest wire schema version this instance can still upgrade to current. */
 const val CATALOG_BASELINE_SCHEMA_VERSION: Int = 3

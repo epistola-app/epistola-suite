@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.migrations
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.migrate
 import app.epistola.suite.catalog.migrations.steps.CatalogV3ToV4ExampleMigration
+import app.epistola.suite.catalog.migrations.steps.CatalogV4ToV5Migration
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -115,15 +116,15 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest binds a current-version manifest end to end`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
-        val bound = migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("4")))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
+        val bound = migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("5")))
         assertThat(bound.catalog.slug).isEqualTo("x")
         assertThat(bound.release.version).isEqualTo("1.0.0")
     }
 
     @Test
     fun `migrateAndBindManifest rejects a too-new payload before binding`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
         assertThatThrownBy { migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("9"))) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
     }
@@ -145,14 +146,14 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindResourceDetail binds a current-version detail whose type matches`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
-        val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("4"))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
+        val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("5"))
         assertThat(bound.resource).isInstanceOf(AttributeResource::class.java)
     }
 
     @Test
     fun `migrateAndBindResourceDetail rejects a detail whose own type contradicts the manifest entry`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
         // Manifest entry says "theme", but the detail's own discriminator is "attribute".
         assertThatThrownBy { migrator.migrateAndBindResourceDetail("theme", attributeDetail("4")) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
@@ -161,7 +162,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `invalid JSON is rejected as schema-unknown, not a raw Jackson error`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
         val garbage = "{ not json".toByteArray()
         assertThatThrownBy { migrator.migrateAndBindManifest(garbage) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
@@ -171,7 +172,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `a non-object JSON payload is rejected as schema-unknown`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
         assertThatThrownBy { migrator.migrateAndBindManifest("[]".toByteArray()) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
             .hasMessageContaining("not a JSON object")
@@ -179,7 +180,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `a v3 manifest is migrated to v4 and binds (legacy title to name)`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
         val v3 = mapper.writeValueAsBytes(
             mapper.readTree(
                 """
@@ -200,7 +201,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `a v3 resource detail is migrated to v4 and binds (legacy displayName to name)`() {
-        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
         val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("3", legacy = true))
         assertThat(bound.resource).isInstanceOf(AttributeResource::class.java)
         assertThat((bound.resource as AttributeResource).name).isEqualTo("Country")

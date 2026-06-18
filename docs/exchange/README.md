@@ -8,9 +8,9 @@ Catalogs are first-class entities in Epistola for organizing, sharing, and impor
 
 Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/contract.md) plus one detail file per resource. Each of these is a **part** with its own JSON contract. Every part is documented in its own folder, with a version subfolder per contract version, so a contract change is a new folder you can diff against the previous one.
 
-**There is one catalog-wide wire `schemaVersion`** (currently `4`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. This is the decision recorded in [ADR 0007](../adr/0007-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism is one chain that upgrades a whole catalog (manifest tree and/or any resource-detail tree) from an older version up to the current one.
+**There is one catalog-wide wire `schemaVersion`** (currently `5`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. This is the decision recorded in [ADR 0007](../adr/0007-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism is one chain that upgrades a whole catalog (manifest tree and/or any resource-detail tree) from an older version up to the current one.
 
-**Resource shapes at catalog `schemaVersion` 4:**
+**Resource shapes at catalog `schemaVersion` 5:**
 
 | Part                                                 | Doc rev | Folder                                         | Carries                                                                           |
 | ---------------------------------------------------- | ------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -25,7 +25,7 @@ Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/cont
 
 (Rows are in install order — see [`CatalogConstants.RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt).)
 
-> The bold **vN** above is the **contract-doc iteration** for that resource's _shape_ — the `vN/` folder you diff against to see how the shape changed — **not** an independent wire version. Every part on the wire carries the same catalog `schemaVersion` (`4`); a resource detail is not stamped with its own number. The folder names are purely editorial history of each shape.
+> The bold **vN** above is the **contract-doc iteration** for that resource's _shape_ — the `vN/` folder you diff against to see how the shape changed — **not** an independent wire version. Every part on the wire carries the same catalog `schemaVersion` (`5`); a resource detail is not stamped with its own number. The folder names are purely editorial history of each shape.
 
 **The three version axes** (orthogonal — don't conflate them):
 
@@ -39,7 +39,7 @@ These three are the **catalog-level** axes. For the full picture — including t
 
 **Maintaining these docs:** when you change a resource's wire shape, add a new `vN+1/contract.md` for that resource, update its _Doc rev_ above, and note the change under "Changed in vN+1". Leave the old version folder in place so the diff stays visible. A shape change that is not round-trip-compatible bumps the catalog-wide `schemaVersion` and lands a migration step in the single chain.
 
-> **Implementation status.** The whole-catalog wire-format framework is **implemented** ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)): `CatalogContentBuilder` stamps the manifest **and** every resource detail with the single `CATALOG_SCHEMA_VERSION` (currently `4`), and `CatalogSchemaMigrator` gates the payload's `schemaVersion` once against `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before binding — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). The chain currently spans **`[3, 4]`** with one **example** step, `CatalogV3ToV4ExampleMigration`: a `v3` catalog (legacy `title`/`displayName` fields) is upgraded to `v4` (`name`) on import, while a `v4` catalog binds directly. Copy that class to write your own migration, and bump `CATALOG_SCHEMA_VERSION` for the next. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
+> **Implementation status.** The whole-catalog wire-format framework is **implemented** ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)): `CatalogContentBuilder` stamps the manifest **and** every resource detail with the single `CATALOG_SCHEMA_VERSION` (currently `5`), and `CatalogSchemaMigrator` gates the payload's `schemaVersion` once against `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before binding — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). The chain currently spans **`[3, 5]`** with two example steps: `CatalogV3ToV4ExampleMigration` renames legacy `title`/`displayName` to `name`, and `CatalogV4ToV5Migration` is a **no-op version bump** (4 → 5 with no content change). A `v5` catalog binds directly; an older one is upgraded on import. Copy either class to write your own migration, and bump `CATALOG_SCHEMA_VERSION` for the next. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
 
 ## Concepts
 
@@ -334,14 +334,14 @@ The import runs within `CatalogImportContext.runAsImport {}` to bypass editabili
 
 Every part (the manifest and each resource detail) is gated by the **single catalog-wide** `schemaVersion` against the window `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before it is bound ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)). The manifest is authoritative for the version; every detail carries the same number. `CatalogSchemaMigrator` decides:
 
-| `schemaVersion`                          | Behaviour                                                                                                                                                 |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `== current`                             | Bind directly (fast path).                                                                                                                                |
-| `v < current`, chain empty               | **Pass through unchanged** and bind — transitional (no chain yet, so nothing to upgrade through). This is today's behaviour (`baseline == current == 4`). |
-| `baseline ≤ v < current` (chain present) | Run the migration chain `v → … → current`, then bind.                                                                                                     |
-| `> current`                              | **Reject** — `CatalogSchemaTooNewException` ("exported by a newer Epistola; upgrade this instance").                                                      |
-| `< baseline` (chain present)             | **Reject** — `CatalogSchemaTooOldException` ("predates the oldest supported version; re-export from a current source").                                   |
-| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException` (not a recognised catalog wire payload).                                                                     |
+| `schemaVersion`                          | Behaviour                                                                                                                                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `== current`                             | Bind directly (fast path).                                                                                                                                                                |
+| `v < current`, chain empty               | **Pass through unchanged** and bind — transitional (no chain for that range, so nothing to upgrade through). Applies when `baseline == current`; today the chain is non-empty (`[3, 5]`). |
+| `baseline ≤ v < current` (chain present) | Run the migration chain `v → … → current`, then bind.                                                                                                                                     |
+| `> current`                              | **Reject** — `CatalogSchemaTooNewException` ("exported by a newer Epistola; upgrade this instance").                                                                                      |
+| `< baseline` (chain present)             | **Reject** — `CatalogSchemaTooOldException` ("predates the oldest supported version; re-export from a current source").                                                                   |
+| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException` (not a recognised catalog wire payload).                                                                                                     |
 
 The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so browse / preview / upgrade-check see migrated content too. Migration never recomputes `release.fingerprint` — see [catalog-versioning.md](../catalog-versioning.md#fingerprint-algorithm).
 

@@ -2,6 +2,7 @@ package app.epistola.suite.catalog.migrations
 
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.validateMigrationChain
 import app.epistola.suite.catalog.migrations.steps.CatalogV3ToV4ExampleMigration
+import app.epistola.suite.catalog.migrations.steps.CatalogV4ToV5Migration
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -92,26 +93,32 @@ class CatalogSchemaMigratorChainTest {
     }
 
     @Test
-    fun `the real bean accepts the live v3 to v4 chain`() {
+    fun `the real bean accepts the live v3 to v5 chain`() {
         // Constructing the @Component with the wired-in chain must not throw. The
-        // catalog window is [3, 4], so its one migration (v3→v4) is required.
-        assertThatCode { CatalogSchemaMigrator(jsonMapper(), listOf(CatalogV3ToV4ExampleMigration())) }
-            .doesNotThrowAnyException()
+        // catalog window is [3, 5], so both steps (v3→v4, v4→v5) are required.
+        assertThatCode {
+            CatalogSchemaMigrator(jsonMapper(), listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration()))
+        }.doesNotThrowAnyException()
     }
 
     @Test
-    fun `the real bean rejects a missing chain (v3 to v4 required)`() {
-        // baseline (3) < current (4) needs its migration — an empty chain is
-        // malformed against the live constants.
+    fun `the real bean rejects a missing chain (v3 to v5 required)`() {
+        // baseline (3) < current (5) needs both steps — an empty chain, or a
+        // partial one, is malformed against the live constants.
         assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
+            .isInstanceOf(IllegalStateException::class.java)
+        assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), listOf(CatalogV3ToV4ExampleMigration())) }
             .isInstanceOf(IllegalStateException::class.java)
     }
 
     @Test
     fun `the real bean rejects a stray migration past current`() {
-        // The required v3→v4 step plus a stray v4→v5 step overshoots current (4).
+        // The required v3→v4→v5 chain plus a stray v5→v6 step overshoots current (5).
         assertThatThrownBy {
-            CatalogSchemaMigrator(jsonMapper(), listOf(CatalogV3ToV4ExampleMigration(), NoopMigration(from = 4)))
+            CatalogSchemaMigrator(
+                jsonMapper(),
+                listOf(CatalogV3ToV4ExampleMigration(), CatalogV4ToV5Migration(), NoopMigration(from = 5)),
+            )
         }.isInstanceOf(IllegalStateException::class.java)
     }
 
