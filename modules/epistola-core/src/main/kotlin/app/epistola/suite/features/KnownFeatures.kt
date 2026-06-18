@@ -26,8 +26,8 @@ object KnownFeatures {
 
     val descriptions: Map<FeatureKey, String> = mapOf(
         SUPPORT_FEEDBACK to "Enables the Support → Feedback feature (sync to epistola-hub).",
-        SUPPORT_BACKUPS to "Enables the Support → Backups feature (catalog snapshot backups + restore via epistola-hub).",
-        SUPPORT_UPGRADING to "Enables the Support → Upgrading feature (compatibility checks against upcoming Epistola releases). Relies on the snapshots sent by Backups.",
+        SUPPORT_BACKUPS to "Enables the Support → Backups feature (faithful full-fidelity tenant backups + restore).",
+        SUPPORT_UPGRADING to "Enables the Support → Upgrading feature (compatibility checks against upcoming Epistola releases). Ships its own catalog-export snapshots to the hub for the checks.",
         STENCIL_PARAMETERS to "Enables typed parameters on stencils.",
     )
 }
