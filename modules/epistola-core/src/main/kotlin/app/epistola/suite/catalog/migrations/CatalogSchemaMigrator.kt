@@ -40,6 +40,9 @@ import tools.jackson.databind.node.ObjectNode
  * - `< baseline` (only reachable once a chain exists) — [CatalogSchemaTooOldException].
  * - missing / non-integer `schemaVersion`, or unparseable JSON —
  *   [CatalogSchemaUnknownException].
+ * - valid `schemaVersion` but a structure that fails to bind to the typed model
+ *   (missing required fields, wrong node types) — also [CatalogSchemaUnknownException],
+ *   so a broken-shape payload is a 400, not an unmapped 500.
  */
 @Component
 class CatalogSchemaMigrator(
@@ -75,7 +78,7 @@ class CatalogSchemaMigrator(
         val sourceVersion = readSchemaVersion(tree)
         val migrated = migrate(tree, manifest = null) { step, node, ctx -> step.migrateManifest(node, ctx) }
         return MigratedManifest(
-            manifest = objectMapper.treeToValue(migrated, CatalogManifest::class.java),
+            manifest = bind(migrated, CatalogManifest::class.java, "catalog manifest"),
             catalog = CatalogMigrationContext(sourceVersion = sourceVersion, migratedManifest = migrated),
         )
     }
@@ -110,7 +113,7 @@ class CatalogSchemaMigrator(
         val migrated = migrate(tree, manifest = catalog.migratedManifest) { step, node, ctx ->
             step.migrateResourceDetail(type, node, ctx)
         }
-        return objectMapper.treeToValue(migrated, ResourceDetail::class.java)
+        return bind(migrated, ResourceDetail::class.java, "resource detail '$type'")
     }
 
     /** Apply the catalog version gate + chain to an already-parsed tree. */
@@ -131,6 +134,23 @@ class CatalogSchemaMigrator(
         }
         return tree as? ObjectNode
             ?: throw CatalogSchemaUnknownException("payload is not a JSON object")
+    }
+
+    /**
+     * Bind an already-gated, current-shape [tree] to the typed protocol model.
+     * A payload can carry a valid `schemaVersion` yet still be structurally
+     * malformed (missing required fields, wrong node types) — Jackson would throw
+     * a raw bind exception that escapes the gate as an unmapped 500. Mirror
+     * [parse]: surface it as a [CatalogSchemaUnknownException] (→ HTTP 400 / inline
+     * UI fragment) so a broken-shape payload is reported as a bad request, not a
+     * server error. [describe] names the part for the operator-facing message.
+     */
+    private fun <T : Any> bind(tree: ObjectNode, type: Class<T>, describe: String): T = try {
+        objectMapper.treeToValue(tree, type)
+    } catch (e: JacksonException) {
+        throw CatalogSchemaUnknownException(
+            "$describe has a valid schemaVersion but its structure does not bind: ${e.originalMessage}",
+        )
     }
 
     companion object {

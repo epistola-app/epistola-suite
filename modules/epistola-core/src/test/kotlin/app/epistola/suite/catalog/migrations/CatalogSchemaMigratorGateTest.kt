@@ -205,4 +205,26 @@ class CatalogSchemaMigratorGateTest {
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
             .hasMessageContaining("not a JSON object")
     }
+
+    @Test
+    fun `migrateAndBindManifest maps a valid-version but unbindable manifest to schema-unknown`() {
+        // Passes the gate (schemaVersion is current) but the body is missing every
+        // required field, so binding fails — must surface as schema-unknown (400),
+        // not escape as a raw Jackson bind error (500).
+        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        assertThatThrownBy { migrator.migrateAndBindManifest("""{ "schemaVersion": 4 }""".toByteArray()) }
+            .isInstanceOf(CatalogSchemaUnknownException::class.java)
+            .hasMessageContaining("does not bind")
+    }
+
+    @Test
+    fun `migrateAndBindResourceDetail maps a valid-version but unbindable detail to schema-unknown`() {
+        // Valid, catalog-matching schemaVersion but no `resource` to bind.
+        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        assertThatThrownBy {
+            migrator.migrateAndBindResourceDetail("attribute", """{ "schemaVersion": 4 }""".toByteArray(), ctx(4))
+        }
+            .isInstanceOf(CatalogSchemaUnknownException::class.java)
+            .hasMessageContaining("does not bind")
+    }
 }

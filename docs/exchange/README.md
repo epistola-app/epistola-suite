@@ -330,7 +330,7 @@ The import runs within `CatalogImportContext.runAsImport {}` to bypass editabili
 
 ### Wire-format version gate
 
-Every part (the manifest and each resource detail) is gated by the **single catalog-wide** `schemaVersion` against the window `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before it is bound ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)). The manifest is authoritative for the version; every detail carries the same number. `CatalogSchemaMigrator` decides:
+Every part (the manifest and each resource detail) is gated by the **single catalog-wide** `schemaVersion` against the window `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before it is bound ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)). The manifest is authoritative for the version, and every resource detail **must** carry the same number — a detail whose stamp differs from the manifest's is rejected. `CatalogSchemaMigrator` decides:
 
 | `schemaVersion`                          | Behaviour                                                                                                                                                 |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -339,6 +339,8 @@ Every part (the manifest and each resource detail) is gated by the **single cata
 | `baseline ≤ v < current` (chain present) | Run the migration chain `v → … → current`, then bind.                                                                                                     |
 | `> current`                              | **Reject** — `CatalogSchemaTooNewException` ("exported by a newer Epistola; upgrade this instance").                                                      |
 | `< baseline` (chain present)             | **Reject** — `CatalogSchemaTooOldException` ("predates the oldest supported version; re-export from a current source").                                   |
+| detail `v` ≠ manifest version            | **Reject** — `CatalogSchemaUnknownException` (a catalog is one bundle at one wire version; a drifted per-detail stamp is malformed).                      |
+| valid `v` but shape fails to bind        | **Reject** — `CatalogSchemaUnknownException` (a gated, current-shape tree that still won't deserialize is a 400, not a server error).                     |
 | not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException` (not a recognised catalog wire payload).                                                                     |
 
 The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so browse / preview / upgrade-check see migrated content too. Migration never recomputes `release.fingerprint` — see [catalog-versioning.md](../catalog-versioning.md#fingerprint-algorithm).

@@ -222,11 +222,14 @@ changed — `migrateManifest` to reshape the `catalog.json` tree, and/or
 `migrateResourceDetail` to reshape a resource-detail tree (both default to
 identity). Migrations are **pure**: no DB, no IO, no clock, no randomness —
 `JsonNode` in, `JsonNode` out. `MigrationContext` carries the source and target
-catalog version numbers (useful for logging or version-conditional logic).
+catalog version numbers (useful for logging or version-conditional logic) and,
+when a resource detail is being migrated, the **migrated (current-shape) manifest
+tree** (`ctx.manifest`) so a cross-part step can read catalog-level data.
 
 A change that moves data between files (e.g. lift a field out of every detail
 into the manifest) is one step whose `migrateManifest` and `migrateResourceDetail`
-cooperate at the same version bump.
+cooperate at the same version bump: the manifest is migrated first, then each
+detail step reads the already-migrated manifest through `ctx.manifest`.
 
 ### The migrator
 
@@ -242,12 +245,20 @@ payload's `schemaVersion` against the single catalog window, runs the chain, and
 binds the current-shape tree straight to the typed protocol model:
 
 ```kotlin
-/** Parse, gate/upgrade the manifest to CURRENT, and bind. */
-fun migrateAndBindManifest(rawManifest: ByteArray): CatalogManifest
+/** Parse, gate/upgrade the manifest to CURRENT, and bind. Returns the bound
+ *  manifest plus a CatalogMigrationContext (the catalog's source version + the
+ *  migrated manifest tree) to thread into every detail of the same catalog. */
+fun migrateAndBindManifest(rawManifest: ByteArray): MigratedManifest
 
 /** Parse, gate/upgrade resource `type`'s detail to CURRENT, and bind. The
- *  detail's own `resource.type` must match the manifest-declared `type`. */
-fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail
+ *  detail's own `resource.type` must match the manifest-declared `type`, and its
+ *  `schemaVersion` must equal the catalog (manifest) version — a drifted stamp is
+ *  rejected. `catalog` is the context returned by migrateAndBindManifest. */
+fun migrateAndBindResourceDetail(
+    type: String,
+    rawDetail: ByteArray,
+    catalog: CatalogMigrationContext,
+): ResourceDetail
 ```
 
 The orchestration at each call site becomes: **migrate → bind → import**,
@@ -270,12 +281,16 @@ the payload's `schemaVersion` — the manifest's, and (identically) each detail'
 | `BASELINE ≤ v < CURRENT` (chain present) | Run the chain `v → … → CURRENT`, then bind.                                                                                                                                                                                                                     |
 | `v < BASELINE` (chain present)           | **Reject** — `CatalogSchemaTooOldException` ("export predates the oldest supported wire version; re-export from a current source").                                                                                                                             |
 | `v > CURRENT`                            | **Reject** — `CatalogSchemaTooNewException` ("produced by a newer Epistola; upgrade this instance").                                                                                                                                                            |
+| detail `v` ≠ manifest version            | **Reject** — `CatalogSchemaUnknownException` (a catalog is one bundle at one wire version; a detail whose stamp drifts from the manifest's is malformed, rejected before any migration runs).                                                                   |
+| valid `v` but shape fails to bind        | **Reject** — `CatalogSchemaUnknownException` (a gated, current-shape tree that still fails to deserialize — missing required field, wrong node type — is a 400, not an unmapped 500).                                                                           |
 | not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException`. (Unparseable payloads and pre-versioning artifacts are not in scope.)                                                                                                                                             |
 
 The manifest is checked (and migrated) **first**, before any resource is
 fetched, bound, or mutated — consistent with the existing "read-only pre-scan,
-then mutate" discipline (ADR 0003's conflict pre-scan). Each detail is then
-gated against the same catalog version as it arrives.
+then mutate" discipline (ADR 0003's conflict pre-scan). Each detail must then
+carry that same catalog version: a detail whose `schemaVersion` differs from the
+manifest's is rejected (`CatalogSchemaUnknownException`) before any migration
+runs — the manifest version is authoritative and the whole bundle moves as one.
 
 ### Fingerprint preservation
 

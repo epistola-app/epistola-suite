@@ -72,8 +72,8 @@
 
 ## Validation / behaviour
 
-- **Version gate** (`CatalogSchemaMigrator`): payload `schemaVersion` greater than this instance's `CATALOG_SCHEMA_VERSION` → `CatalogSchemaTooNewException`; below `CATALOG_BASELINE_SCHEMA_VERSION` (once migrations exist) → `CatalogSchemaTooOldException`; unparseable JSON or a missing/non-integer `schemaVersion` → `CatalogSchemaUnknownException`. All map to HTTP 400. See [ADR 0007](../../adr/0007-catalog-wire-format-migrations.md).
-- **One catalog version**: the manifest is authoritative for the catalog-wide `schemaVersion`; every resource detail carries the same number. There is no independent per-resource version — the whole bundle is gated and migrated together.
+- **Version gate** (`CatalogSchemaMigrator`): payload `schemaVersion` greater than this instance's `CATALOG_SCHEMA_VERSION` → `CatalogSchemaTooNewException`; below `CATALOG_BASELINE_SCHEMA_VERSION` (once migrations exist) → `CatalogSchemaTooOldException`; unparseable JSON, a missing/non-integer `schemaVersion`, or a gated-but-unbindable shape → `CatalogSchemaUnknownException`. All map to HTTP 400. See [ADR 0007](../../adr/0007-catalog-wire-format-migrations.md).
+- **One catalog version**: the manifest is authoritative for the catalog-wide `schemaVersion`; every resource detail **must** carry the same number — a detail whose `schemaVersion` differs from the manifest's is rejected (`CatalogSchemaUnknownException`). There is no independent per-resource version — the whole bundle is gated and migrated together.
 
 ## Shape history
 
