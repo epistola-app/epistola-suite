@@ -9,7 +9,7 @@
 
 The catalog exchange wire format (`catalog.json` manifest + per-resource
 `resources/{type}/{slug}.json` detail files) carries an integer
-`schemaVersion`, currently `4` (`CatalogConstants.CATALOG_MANIFEST_SCHEMA_VERSION`).
+`schemaVersion`, currently `4` (`CatalogConstants.CATALOG_SCHEMA_VERSION`).
 Both the manifest and every resource-detail file are stamped with that same
 constant at export time (`CatalogContentBuilder`).
 
@@ -129,7 +129,7 @@ objects. A registry of `CatalogSchemaMigration` steps each declares
 `from`/`to = from + 1` and provides pure JSON transforms. At each
 deserialization chokepoint, raw bytes are parsed to a tree, the migrator runs
 every step from the payload's `schemaVersion` up to
-`CATALOG_MANIFEST_SCHEMA_VERSION`, and only the resulting current-shape tree
+`CATALOG_SCHEMA_VERSION`, and only the resulting current-shape tree
 is bound to the `epistola-model` types and handed to the existing importers.
 
 #### C — Pros
@@ -175,82 +175,78 @@ deserializers that accept old and new shapes, `@JsonAlias` for renames.
 ## Decision
 
 Adopt **Option C**: a JSON-tree migration chain applied at the import boundary,
-modelled on EF Core migrations — with **one chain per part** (each part is
-versioned independently; see the version axis below).
+modelled on EF Core migrations — with **one chain for the whole catalog** (a
+single catalog-wide version; see the version axis below).
 
-### The version axis — per part
+### The version axis — one per catalog
 
-Each **part** of the wire format owns an **independent** `schemaVersion`: the
-manifest (`catalog.json`) and each resource type (`asset`, `codeList`, `font`,
-`attribute`, `theme`, `stencil`, `template`). The manifest is **not** privileged
-— it is one versioned part among the others. A catalog is therefore at _a set_
-of part versions (e.g. manifest `4`, template `2`, attribute `3`), **not** at a
-single whole-catalog version. A resource detail's own `schemaVersion` is
-authoritative for that detail (the manifest's version governs the manifest only).
+The wire format has a **single, catalog-wide** `schemaVersion`. The manifest
+(`catalog.json`) carries the **authoritative** version; every resource detail
+(`asset`, `codeList`, `font`, `attribute`, `theme`, `stencil`, `template`)
+carries the **same** number so each file is self-describing, but a catalog is at
+**one** version and the whole bundle moves together. There is no independent
+per-resource version.
 
-This matches the committed bundled catalogs, whose details already carry
-independent per-type numbers, and it lets one part's shape change without
-bumping unrelated parts. (We considered a single whole-payload version — one
-number on the manifest, copied onto every detail — but rejected it: it forces a
-whole-format version event for any one-part change and flattens the per-part
-numbers on every re-export. The per-part contract docs, [`docs/exchange/`](../exchange/README.md),
-are the canonical record of each part's current version.)
+(We considered versioning each part independently — the manifest and each
+resource type at its own number, one chain each — but rejected it: it makes a
+catalog "a set of versions", complicates the gate and the streaming detail path,
+and a re-export has to re-derive each part's number. A single catalog version is
+simpler to reason about, to gate, and to migrate: one number, one chain. The
+contract docs, [`docs/exchange/`](../exchange/README.md), record each resource's
+current _shape_ — but all under the one catalog version.)
 
-Each part has its own `CURRENT` and `BASELINE` (the oldest version its chain can
-still upgrade; payloads below it are rejected — we may drop very old migrations
-rather than keep them forever). The single `CATALOG_MANIFEST_SCHEMA_VERSION`
-constant is therefore split into a per-part current/baseline pair (the manifest's
-is `4` today). Export stamps **each part with its own `CURRENT`**, not the
-manifest version.
+The catalog has one `CURRENT` and one `BASELINE` (the oldest version the chain
+can still upgrade; payloads below it are rejected — we may drop very old
+migrations rather than keep them forever). `CATALOG_SCHEMA_VERSION` and
+`CATALOG_BASELINE_SCHEMA_VERSION` (both `4` today) hold them. Export stamps the
+manifest **and every detail** with `CATALOG_SCHEMA_VERSION`.
 
 ### The migration unit
 
 ```kotlin
 interface CatalogSchemaMigration {
-    /** The wire-format part this step migrates (the manifest, or one resource type). */
-    val part: CatalogPart
     val from: Int
     val to: Int get() = from + 1
 
-    /** Upgrade this part's tree by exactly one version (manifest tree for
-     *  CatalogPart.MANIFEST, or one resource-detail tree otherwise). */
-    fun migrate(node: ObjectNode, ctx: MigrationContext): ObjectNode
+    /** Upgrade the manifest (catalog.json) tree by exactly one version. */
+    fun migrateManifest(node: ObjectNode, ctx: MigrationContext): ObjectNode = node
+
+    /** Upgrade one resource-detail tree by exactly one version.
+     *  `type` is the resource type ("template", "theme", …). */
+    fun migrateResourceDetail(type: String, node: ObjectNode, ctx: MigrationContext): ObjectNode = node
 }
 ```
 
-Each step declares the **single part** it belongs to (via [`CatalogPart`]) and a
-single `migrate` reshaping that part's tree by one version — the manifest and
-each resource type each have their own independent chain. Migrations are
-**pure**: no DB, no IO, no clock, no randomness — `JsonNode` in, `JsonNode` out.
-`MigrationContext` carries only the source and target version numbers of the
-part's chain (useful for logging or version-conditional logic).
+A step belongs to the **one** catalog chain and overrides only what its version
+changed — `migrateManifest` to reshape the `catalog.json` tree, and/or
+`migrateResourceDetail` to reshape a resource-detail tree (both default to
+identity). Migrations are **pure**: no DB, no IO, no clock, no randomness —
+`JsonNode` in, `JsonNode` out. `MigrationContext` carries the source and target
+catalog version numbers (useful for logging or version-conditional logic).
 
-A cross-part change (e.g. lift a field out of every detail into the manifest)
-is expressed as one step in **each** affected part's chain. Steps do not read
-each other's trees today; if a step ever needs another part's data, extend
-`MigrationContext` at that point (YAGNI until then).
+A change that moves data between files (e.g. lift a field out of every detail
+into the manifest) is one step whose `migrateManifest` and `migrateResourceDetail`
+cooperate at the same version bump.
 
 ### The migrator
 
 `CatalogSchemaMigrator` (a `@Component` in `epistola-core`) collects all
-`CatalogSchemaMigration` beans and groups them **per part** (the manifest and
-each resource type). At startup it asserts each part's chain is **contiguous and
-total**: exactly one step per version from that part's `BASELINE` to
-`CURRENT - 1`, no gaps, no duplicates, terminating at `CURRENT`. A malformed
-chain (for any part) fails application start — the same fail-fast posture as a
-broken Flyway sequence.
+`CatalogSchemaMigration` beans into **one chain**. At startup it asserts the
+chain is **contiguous and total**: exactly one step per version from `BASELINE`
+to `CURRENT - 1`, no gaps, no duplicates, terminating at `CURRENT`. A malformed
+chain fails application start — the same fail-fast posture as a broken Flyway
+sequence.
 
-It exposes two entry points matching the two chokepoints; each gates and
-migrates by its own part's version, then binds the current-shape tree straight
-to the typed protocol model:
+It exposes two entry points matching the two chokepoints; each gates the
+payload's `schemaVersion` against the single catalog window, runs the chain, and
+binds the current-shape tree straight to the typed protocol model:
 
 ```kotlin
-/** Parse, gate/upgrade the manifest part to its CURRENT, and bind. */
+/** Parse, gate/upgrade the manifest to CURRENT, and bind. */
 fun migrateAndBindManifest(rawManifest: ByteArray): CatalogManifest
 
-/** Parse, gate/upgrade resource `type`'s detail from its OWN `schemaVersion`
- *  to that type's CURRENT (using that type's chain), and bind. The detail's
- *  own `resource.type` must match the manifest-declared `type`. */
+/** Parse, gate/upgrade resource `type`'s detail to CURRENT, and bind. The
+ *  detail's own `resource.type` must match the manifest-declared `type`. */
 fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail
 ```
 
@@ -258,27 +254,28 @@ The orchestration at each call site becomes: **migrate → bind → import**,
 replacing today's **bind → import**. Binding (`treeToValue` to
 `CatalogManifest` / `ResourceDetail`) happens inside the migrator, so the
 existing typed model and every downstream importer (`ImportTemplates`,
-`ImportStencil`, …) are unchanged. (A lower-level `migratePartTree` that returns
-the raw migrated `ObjectNode` backs both, for callers that bind themselves.)
+`ImportStencil`, …) are unchanged. (A lower-level pure
+`migrate(tree, chain, baseline, current, apply)` backs both entry points and is
+unit-tested directly.)
 
 ### Version-range enforcement
 
-The gate is evaluated **per part** against that part's own `CURRENT`/`BASELINE`
-— for the manifest from its `schemaVersion`, and for each detail from its own:
+The gate is evaluated against the single catalog `CURRENT`/`BASELINE`, read from
+the payload's `schemaVersion` — the manifest's, and (identically) each detail's:
 
-| Source version                           | Behaviour                                                                                                                                                                                                                                                                    |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `== CURRENT`                             | No migration; bind directly. (Fast path — today's behaviour for every part, since all chains are empty: `BASELINE == CURRENT`.)                                                                                                                                              |
-| `v < CURRENT`, part's chain **empty**    | **Pass through unchanged** and bind — Phase-0 transitional. With no chain there is nothing to upgrade through, and pre-versioning stamps are unreliable, so a sub-current payload is assumed current-shape. Replaced by the two rows below once the part gains a real chain. |
-| `BASELINE ≤ v < CURRENT` (chain present) | Run that part's chain `v → … → CURRENT`, then bind.                                                                                                                                                                                                                          |
-| `v < BASELINE` (chain present)           | **Reject** — `CatalogSchemaTooOldException` ("export predates the oldest supported wire version; re-export from a current source").                                                                                                                                          |
-| `v > CURRENT`                            | **Reject** — `CatalogSchemaTooNewException` ("produced by a newer Epistola; upgrade this instance").                                                                                                                                                                         |
-| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException`. (Unparseable payloads and pre-versioning artifacts are not in scope.)                                                                                                                                                          |
+| Source version                           | Behaviour                                                                                                                                                                                                                                                       |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `== CURRENT`                             | No migration; bind directly. (Fast path — today's behaviour, since the chain is empty: `BASELINE == CURRENT`.)                                                                                                                                                  |
+| `v < CURRENT`, chain **empty**           | **Pass through unchanged** and bind — Phase-0 transitional. With no chain there is nothing to upgrade through, and pre-versioning stamps are unreliable, so a sub-current payload is assumed current-shape. Replaced by the two rows below once a chain exists. |
+| `BASELINE ≤ v < CURRENT` (chain present) | Run the chain `v → … → CURRENT`, then bind.                                                                                                                                                                                                                     |
+| `v < BASELINE` (chain present)           | **Reject** — `CatalogSchemaTooOldException` ("export predates the oldest supported wire version; re-export from a current source").                                                                                                                             |
+| `v > CURRENT`                            | **Reject** — `CatalogSchemaTooNewException` ("produced by a newer Epistola; upgrade this instance").                                                                                                                                                            |
+| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException`. (Unparseable payloads and pre-versioning artifacts are not in scope.)                                                                                                                                             |
 
 The manifest is checked (and migrated) **first**, before any resource is
 fetched, bound, or mutated — consistent with the existing "read-only pre-scan,
 then mutate" discipline (ADR 0003's conflict pre-scan). Each detail is then
-gated by its own version as it arrives.
+gated against the same catalog version as it arrives.
 
 ### Fingerprint preservation
 
@@ -314,11 +311,10 @@ never recomputed during migration.
   alike.
 - Non-additive wire changes stop being multi-instance coordination events;
   the producer bumps the version and ships one migration in the same PR.
-- **Per-part versioning keeps the blast radius small:** a one-field template
-  change bumps only the template part and ships only a template-chain step,
-  with no effect on the manifest, themes, fonts, etc.; a consumer migrates only
-  the parts it is behind on. A re-export preserves each part's number instead of
-  flattening them to a shared version.
+- **One catalog version keeps the model simple:** a bump moves the whole catalog
+  forward together — one number, one chain, one gate. A consumer upgrades the
+  catalog from the version it has to current; there is no per-part bookkeeping to
+  reconcile, and the manifest is the single authoritative version.
 - The current typed model stays clean — historical shapes live in the
   migration chain, not in permissive production DTOs.
 - The chain-integrity startup check and CI round-trip make "forgot to ship a
@@ -326,19 +322,17 @@ never recomputed during migration.
 
 ### Negative
 
-- Every non-additive bump to a part's `epistola-model` shape carries an
-  obligation: bump **that part's** `CURRENT`, ship the paired
-  `CatalogSchemaMigration` in **that part's** chain, and capture a golden
-  fixture at the old version.
-- Per-part versioning means more moving parts: a current/baseline pair and a
-  (possibly empty) chain **per part**, each with its own startup integrity
-  check, and the gate is evaluated per part rather than once. Cross-part
-  migrations (moving a field between the manifest and a detail) bump each
-  affected part and ship a step in each affected chain.
+- Every non-additive bump to any `epistola-model` shape carries an obligation:
+  bump `CATALOG_SCHEMA_VERSION`, ship the paired `CatalogSchemaMigration`, and
+  capture a golden fixture at the old version.
+- A single catalog version is coarse: a one-field change to one resource bumps
+  the **whole catalog** to a new version (and re-stamps every detail). We accept
+  that granularity for the simplicity of one version line, one chain, and one
+  gate; the migration itself still only reshapes the affected tree.
 - JSON-tree transforms are not statically type-checked; correctness rests on
   the golden-fixture and round-trip tests.
-- We keep historical wire knowledge (migrations + fixtures) back to each part's
-  `BASELINE`. Dropping below baseline is a deliberate, documented break.
+- We keep historical wire knowledge (migrations + fixtures) back to `BASELINE`.
+  Dropping below baseline is a deliberate, documented break.
 
 ### Neutral / follow-ups
 
@@ -362,7 +356,7 @@ never recomputed during migration.
 
 ## Implementation references
 
-- Current version constant: `CatalogConstants.CATALOG_MANIFEST_SCHEMA_VERSION`.
+- Current version constant: `CatalogConstants.CATALOG_SCHEMA_VERSION`.
 - Manifest binding chokepoints: `ImportCatalogZip.kt` (manifest read),
   `CatalogClient.fetchManifest()`.
 - Resource-detail binding chokepoints: `ImportCatalogZip.kt` (stencil

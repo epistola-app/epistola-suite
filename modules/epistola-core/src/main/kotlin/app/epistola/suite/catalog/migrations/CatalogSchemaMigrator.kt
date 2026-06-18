@@ -2,9 +2,8 @@ package app.epistola.suite.catalog.migrations
 
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceDetail
-import app.epistola.suite.catalog.CATALOG_PART_SCHEMAS
-import app.epistola.suite.catalog.CatalogPart
-import app.epistola.suite.catalog.PartSchemaWindow
+import app.epistola.suite.catalog.CATALOG_BASELINE_SCHEMA_VERSION
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.core.JacksonException
@@ -17,13 +16,12 @@ import tools.jackson.databind.node.ObjectNode
  * tree before binding**, then deserializing the current-shape tree into the
  * typed protocol model.
  *
- * **Per-part versioning** (`docs/adr/0007-catalog-wire-format-migrations.md`):
- * each [CatalogPart] — the manifest and each resource type — is versioned
- * independently with its own chain and its own [PartSchemaWindow]. The manifest
- * is gated by its own `schemaVersion`; each resource detail by its own. Steps
- * are grouped by [CatalogSchemaMigration.part]; each part's chain is validated
- * **contiguous and total** at startup (see [validateMigrationChain]), so a
- * malformed chain fails application start (Flyway-like).
+ * **Catalog-wide versioning** (`docs/adr/0007-catalog-wire-format-migrations.md`):
+ * the whole catalog has a single `schemaVersion`. The manifest is authoritative
+ * for it, and every resource detail carries the same version. One contiguous
+ * chain upgrades the manifest and every detail together; it is validated
+ * contiguous and total at startup (see [validateMigrationChain]), so a malformed
+ * chain fails application start (Flyway-like).
  *
  * This is the single migration chokepoint for both transports: the ZIP path
  * (`ImportCatalogZipHandler`) and the remote/classpath path
@@ -31,23 +29,17 @@ import tools.jackson.databind.node.ObjectNode
  * fingerprint). Putting the gate in `CatalogClient` means read-only query paths
  * see migrated content too.
  *
- * **Version gate** (per part, read from that part's tree `schemaVersion`):
+ * **Version gate** (read from the payload's `schemaVersion`):
  *
  * - `== current` — bind directly (fast path; today's behaviour).
  * - `> current` — [CatalogSchemaTooNewException].
- * - `< current` with the part's chain **empty** — bind as-is. **Transitional:**
- *   no chain exists for the part yet and pre-versioning stamps are unreliable,
- *   so a sub-current payload is assumed already current-shape (how every such
- *   payload imports today). The first real migration for the part replaces this
+ * - `< current` with the chain **empty** — bind as-is. **Transitional:** no chain
+ *   exists yet, so a sub-current payload is assumed already current-shape (how
+ *   every such payload imports today). The first real migration replaces this
  *   with strict baseline enforcement.
- * - `< baseline` (only reachable once the part has a chain) —
- *   [CatalogSchemaTooOldException].
- * - missing / non-integer `schemaVersion` — [CatalogSchemaUnknownException].
- *
- * The resource-detail path ([migrateAndBindResourceDetail]) is wired at both
- * chokepoints — `ImportCatalogZip` (stencil pre-scan + per-resource reads) and
- * [app.epistola.suite.catalog.CatalogClient.fetchResourceDetail] — gating each
- * detail by **its own** `schemaVersion` against that resource type's window.
+ * - `< baseline` (only reachable once a chain exists) — [CatalogSchemaTooOldException].
+ * - missing / non-integer `schemaVersion`, or unparseable JSON —
+ *   [CatalogSchemaUnknownException].
  */
 @Component
 class CatalogSchemaMigrator(
@@ -56,53 +48,39 @@ class CatalogSchemaMigrator(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /** Per-part chains, keyed `part -> (from -> step)`. Empty for parts with no migrations. */
-    private val chainsByPart: Map<CatalogPart, Map<Int, CatalogSchemaMigration>>
+    /** The catalog-wide chain, keyed `from -> step`. Empty when no migrations exist. */
+    private val chain: Map<Int, CatalogSchemaMigration>
 
     init {
-        val byPart = migrations.groupBy { it.part }
-        // Validate every part's chain against that part's window — including parts
-        // with no migrations (an empty chain is valid iff baseline == current).
-        // Build the map eagerly here (associate, not a mapValues lambda whose
-        // validation reads as a side-effect) so each chain is validated exactly
-        // once at construction — this is a singleton @Component — and later
-        // lookups are plain O(1) reads.
-        chainsByPart = CATALOG_PART_SCHEMAS.entries.associate { (part, window) ->
-            val steps = (byPart[part] ?: emptyList()).sortedBy { it.from }
-            validateMigrationChain(steps, window.baseline, window.current)
-            part to steps.associateBy { it.from }
-        }
-        val total = chainsByPart.values.sumOf { it.size }
-        if (total == 0) {
-            logger.info("Catalog wire-format migration chains are all empty.")
+        val steps = migrations.sortedBy { it.from }
+        validateMigrationChain(steps, CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION)
+        chain = steps.associateBy { it.from }
+        if (chain.isEmpty()) {
+            logger.info("Catalog wire-format migration chain is empty.")
         } else {
-            logger.info("Catalog wire-format migration chains loaded: {} step(s) across {} part(s).", total, chainsByPart.count { it.value.isNotEmpty() })
+            logger.info("Catalog wire-format migration chain loaded: {} step(s).", chain.size)
         }
     }
 
     /**
-     * Parse [rawManifest], gate/upgrade the **manifest** part to its current
-     * schema version, and bind it to [CatalogManifest]. Throws a
-     * [CatalogSchemaException] if the version is unreadable, too new, or too old.
+     * Parse [rawManifest], gate/upgrade it to the current catalog schema version,
+     * and bind it to [CatalogManifest]. Throws a [CatalogSchemaException] if the
+     * version is unreadable, too new, or too old.
      */
     fun migrateAndBindManifest(rawManifest: ByteArray): CatalogManifest {
-        val migrated = migratePartTree(CatalogPart.MANIFEST, parse(rawManifest))
+        val migrated = migrate(parse(rawManifest)) { step, node, ctx -> step.migrateManifest(node, ctx) }
         return objectMapper.treeToValue(migrated, CatalogManifest::class.java)
     }
 
     /**
-     * Parse [rawDetail], gate/upgrade the resource [type]'s detail to its part's
-     * current schema version, and bind it to [ResourceDetail]. Invoked at both
-     * import chokepoints (see class KDoc).
+     * Parse [rawDetail], gate/upgrade it to the current catalog schema version,
+     * and bind it to [ResourceDetail]. Invoked at both import chokepoints.
      *
      * [type] is the manifest-declared resource type; the detail's own
-     * `resource.type` discriminator must agree with it, otherwise the payload
-     * would be gated/migrated against the wrong part's window. A mismatch is
-     * rejected as a malformed payload before any migration runs.
+     * `resource.type` discriminator must agree with it (a mismatch is a malformed
+     * payload, rejected before any migration runs).
      */
     fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail {
-        val part = CatalogPart.ofResourceType(type)
-            ?: throw CatalogSchemaUnknownException("unknown resource type '$type'")
         val tree = parse(rawDetail)
         val declared = tree.get("resource")?.get("type")?.takeIf { it.isString }?.asString()
         if (declared != null && declared != type) {
@@ -110,15 +88,15 @@ class CatalogSchemaMigrator(
                 "resource detail declares type '$declared' but the manifest entry is '$type'",
             )
         }
-        val migrated = migratePartTree(part, tree)
+        val migrated = migrate(tree) { step, node, ctx -> step.migrateResourceDetail(type, node, ctx) }
         return objectMapper.treeToValue(migrated, ResourceDetail::class.java)
     }
 
-    /** Apply [part]'s version gate + chain to an already-parsed tree, returning a current-shape tree. */
-    fun migratePartTree(part: CatalogPart, tree: ObjectNode): ObjectNode {
-        val window = CATALOG_PART_SCHEMAS.getValue(part)
-        return migratePartTree(tree, chainsByPart.getValue(part), window.baseline, window.current)
-    }
+    /** Apply the catalog version gate + chain to an already-parsed tree. */
+    private fun migrate(
+        tree: ObjectNode,
+        apply: (CatalogSchemaMigration, ObjectNode, MigrationContext) -> ObjectNode,
+    ): ObjectNode = migrate(tree, chain, CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION, apply)
 
     private fun parse(raw: ByteArray): ObjectNode {
         // Invalid JSON must surface as a schema-unknown error too (→ HTTP 400 /
@@ -151,16 +129,18 @@ class CatalogSchemaMigrator(
         }
 
         /**
-         * Pure form of the version gate + chain run for one part, parameterised on
-         * the version window so it is testable without Spring. See the class KDoc
-         * for the decision table. Runs [CatalogSchemaMigration.migrate] for each
-         * step and re-stamps `schemaVersion` to [current].
+         * Pure form of the version gate + chain run, parameterised on the version
+         * window and the per-step transform ([CatalogSchemaMigration.migrateManifest]
+         * or [CatalogSchemaMigration.migrateResourceDetail]) so it is testable
+         * without Spring. See the class KDoc for the decision table. Re-stamps
+         * `schemaVersion` to [current].
          */
-        fun migratePartTree(
+        fun migrate(
             tree: ObjectNode,
             byFrom: Map<Int, CatalogSchemaMigration>,
             baseline: Int,
             current: Int,
+            apply: (CatalogSchemaMigration, ObjectNode, MigrationContext) -> ObjectNode,
         ): ObjectNode {
             val source = readSchemaVersion(tree)
             return when {
@@ -169,7 +149,7 @@ class CatalogSchemaMigrator(
                 // source < current
                 byFrom.isEmpty() -> tree // transitional: no chain yet — see class KDoc
                 source < baseline -> throw CatalogSchemaTooOldException(source, baseline)
-                else -> runChain(tree, source, byFrom, current)
+                else -> runChain(tree, source, byFrom, current, apply)
             }
         }
 
@@ -178,6 +158,7 @@ class CatalogSchemaMigrator(
             source: Int,
             byFrom: Map<Int, CatalogSchemaMigration>,
             current: Int,
+            apply: (CatalogSchemaMigration, ObjectNode, MigrationContext) -> ObjectNode,
         ): ObjectNode {
             val ctx = MigrationContext(sourceVersion = source, targetVersion = current)
             var node = tree
@@ -185,16 +166,16 @@ class CatalogSchemaMigrator(
             while (version < current) {
                 val step = byFrom[version]
                     ?: error("No migration from v$version (chain validated at startup — should be unreachable)")
-                node = step.migrate(node, ctx)
+                node = apply(step, node, ctx)
                 version = step.to
             }
             node.put("schemaVersion", current)
-            logger.debug("Migrated catalog part from wire schema v{} to v{}.", source, current)
+            logger.debug("Migrated catalog wire schema v{} to v{}.", source, current)
             return node
         }
 
         /**
-         * Asserts one part's migration chain is contiguous and total: each step is
+         * Asserts the migration chain is contiguous and total: each step is
          * exactly one version (`to == from + 1`), no two steps share a `from`, and
          * the steps span `[baseline, current]` with no gaps. An empty chain is
          * valid iff `baseline == current` (nothing to migrate). Throws

@@ -14,7 +14,7 @@
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 4,
   "resource": {
     "type": "template",
     "slug": "simple-letter",

@@ -1,8 +1,6 @@
 package app.epistola.suite.catalog.migrations
 
-import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.validateMigrationChain
-import app.epistola.suite.catalog.migrations.steps.StencilV1ToV2RequireVersionMigration
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -11,18 +9,17 @@ import tools.jackson.module.kotlin.jsonMapper
 
 /**
  * Startup chain-integrity checks for [CatalogSchemaMigrator] — the contiguous,
- * total, gap-free invariant that fails application start (Flyway-like) when a
- * part's migration chain is malformed. Pure unit test; no Spring.
+ * total, gap-free invariant that fails application start (Flyway-like) when the
+ * catalog migration chain is malformed. Pure unit test; no Spring.
  */
 class CatalogSchemaMigratorChainTest {
 
-    /** A migration step that does nothing but declare its [part]/[from]/[to]. */
+    /** A migration step that does nothing but declare its [from]/[to]. */
     private class NoopMigration(
         override val from: Int,
         override val to: Int = from + 1,
-        override val part: CatalogPart = CatalogPart.MANIFEST,
     ) : CatalogSchemaMigration {
-        override fun migrate(node: ObjectNode, ctx: MigrationContext): ObjectNode = node
+        override fun migrateManifest(node: ObjectNode, ctx: MigrationContext): ObjectNode = node
     }
 
     @Test
@@ -94,40 +91,27 @@ class CatalogSchemaMigratorChainTest {
     }
 
     @Test
-    fun `the real bean accepts the live stencil v1 to v2 chain`() {
-        // Constructing the @Component with the wired-in chains must not throw. The
-        // STENCIL part has baseline 1 / current 2, so its one migration is
-        // required; every other part is baseline == current (empty chain).
-        assertThatCode { CatalogSchemaMigrator(jsonMapper(), listOf(StencilV1ToV2RequireVersionMigration())) }
+    fun `the real bean accepts an empty chain (baseline == current today)`() {
+        // Constructing the @Component with no migrations must not throw — this is
+        // the wired-in Phase-0 state (catalog baseline == current).
+        assertThatCode { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
             .doesNotThrowAnyException()
     }
 
     @Test
-    fun `the real bean rejects a missing stencil chain`() {
-        // STENCIL baseline (1) < current (2) needs its migration — an empty chain
-        // is malformed against the live constants.
-        assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
+    fun `the real bean rejects a stray migration (baseline == current leaves no room)`() {
+        // With current == baseline, any non-empty chain is malformed — a good
+        // guard that init actually validates against the live constants.
+        assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), listOf(NoopMigration(from = 4))) }
             .isInstanceOf(IllegalStateException::class.java)
-    }
-
-    @Test
-    fun `the real bean rejects a stray migration on a complete-chain part`() {
-        // A stray manifest step (manifest is baseline == current == 4, no room),
-        // on top of the required stencil chain, must fail validation.
-        assertThatThrownBy {
-            CatalogSchemaMigrator(
-                jsonMapper(),
-                listOf(StencilV1ToV2RequireVersionMigration(), NoopMigration(from = 4, part = CatalogPart.MANIFEST)),
-            )
-        }.isInstanceOf(IllegalStateException::class.java)
     }
 
     @Test
     fun `chain integrity does not depend on the constants - probes the window directly`() {
         // The checker is parameterised on the version window, so it validates a
         // chain against an arbitrary baseline/current unrelated to today's
-        // constants. A contiguous 10->11->12->13 chain over window [10, 13] must
-        // pass purely on its own merits.
+        // constants (baseline == current). A contiguous 10->11->12->13 chain over
+        // window [10, 13] must pass purely on its own merits.
         val chain = listOf(NoopMigration(from = 10), NoopMigration(from = 11), NoopMigration(from = 12))
         assertThatCode { validateMigrationChain(chain, baseline = 10, current = 13) }
             .doesNotThrowAnyException()

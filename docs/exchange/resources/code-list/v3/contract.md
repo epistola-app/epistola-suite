@@ -14,7 +14,7 @@
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "resource": {
     "type": "codeList",
     "slug": "bcp-47",
