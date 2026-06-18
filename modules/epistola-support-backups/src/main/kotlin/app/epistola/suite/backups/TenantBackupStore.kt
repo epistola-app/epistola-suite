@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.tenantbackup.TenantBackupArtifact
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import java.time.Instant
 import java.util.UUID
@@ -45,7 +46,13 @@ interface TenantBackupStore {
     ): Int
 }
 
+/**
+ * Local Postgres store (`tenant_backups` table) — the default. Used in OSS deployments and whenever
+ * the support tier is off; when `epistola.support.enabled=true` the [HubTenantBackupStore] replaces
+ * it so backups ride to the hub instead. The two are mutually exclusive by property.
+ */
 @Component
+@ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "false", matchIfMissing = true)
 class JdbiTenantBackupStore(
     private val jdbi: Jdbi,
 ) : TenantBackupStore {
