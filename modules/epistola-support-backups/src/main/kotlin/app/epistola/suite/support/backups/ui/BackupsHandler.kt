@@ -1,5 +1,7 @@
 package app.epistola.suite.support.backups.ui
 
+import app.epistola.hub.client.error.HubEntitlementDeniedException
+import app.epistola.hub.client.error.HubException
 import app.epistola.suite.backups.BackupOutcome
 import app.epistola.suite.backups.StoredBackup
 import app.epistola.suite.backups.TenantBackupService
@@ -43,7 +45,20 @@ class BackupsHandler(
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
 
-        val backups = backupService.listBackups(tenantId.key)
+        // A managed-services feature must not 500 the page when the hub is transiently down or the
+        // installation isn't entitled — degrade to a notice with an empty list.
+        var hubStatus = "OK"
+        val backups =
+            try {
+                backupService.listBackups(tenantId.key)
+            } catch (e: HubEntitlementDeniedException) {
+                hubStatus = "NOT_ENTITLED"
+                emptyList()
+            } catch (e: HubException) {
+                log.warn("Could not list backups for tenant {}: {}", tenantId.key.value, e.message)
+                hubStatus = "UNAVAILABLE"
+                emptyList()
+            }
         val states =
             jdbi.withHandle<Map<String, RestoreState>, Exception> { handle ->
                 val live = SchemaStamp.current(handle)
@@ -55,6 +70,7 @@ class BackupsHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "backups"
+            "hubStatus" to hubStatus
             "backups" to backups.mapIndexed { index, backup -> backup.toView(isLatest = index == 0, state = states.getValue(backup.id)) }
             "saved" to request.param("saved").orElse(null)
             "error" to request.param("error").orElse(null)
