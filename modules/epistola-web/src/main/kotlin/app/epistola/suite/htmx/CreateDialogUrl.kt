@@ -1,6 +1,7 @@
 package app.epistola.suite.htmx
 
 import java.net.URI
+import java.net.URISyntaxException
 
 /**
  * Builds the URL that represents "the list, with a dialog open" by appending a
@@ -22,7 +23,8 @@ import java.net.URI
  * The result is a path-relative URL (path + query, no scheme/host), which is what
  * `HX-Push-Url` wants and keeps history entries origin-independent.
  *
- * @param currentUrl the value of the `HX-Current-URL` header, or null/blank if absent
+ * @param currentUrl the value of the `HX-Current-URL` header; a null, blank, or malformed value
+ *   falls back to [fallbackPath]
  * @param fallbackPath the list path to use when no current URL is available
  * @param param the dialog-open query parameter to add (e.g. `create`, `upload`)
  */
@@ -30,7 +32,13 @@ fun urlWithDialogParam(currentUrl: String?, fallbackPath: String, param: String)
     val source = currentUrl?.takeIf { it.isNotBlank() }
         ?: return "$fallbackPath?$param"
 
-    val uri = URI(source)
+    // HX-Current-URL is client-supplied, so a malformed value falls back to the list path
+    // rather than throwing out of the handler.
+    val uri = try {
+        URI(source)
+    } catch (_: URISyntaxException) {
+        return "$fallbackPath?$param"
+    }
     val path = uri.rawPath?.takeIf { it.isNotEmpty() } ?: fallbackPath
     val existing = uri.rawQuery
 

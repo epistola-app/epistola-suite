@@ -21,6 +21,13 @@ class CreateDialogUrlTest {
     }
 
     @Test
+    fun `falls back when the client-supplied current URL is malformed`() {
+        // HX-Current-URL is client-controlled; an unparseable value must not throw.
+        assertThat(urlWithCreateParam("/a b c", fallback)).isEqualTo("$fallback?create")
+        assertThat(urlWithCreateParam("/tenants/acme/templates?x=%", fallback)).isEqualTo("$fallback?create")
+    }
+
+    @Test
     fun `appends create when there is no existing query`() {
         assertThat(urlWithCreateParam("/tenants/acme/templates", fallback))
             .isEqualTo("/tenants/acme/templates?create")

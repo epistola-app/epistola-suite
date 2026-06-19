@@ -4,9 +4,11 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -287,6 +289,45 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             // Regression: the message must land on the slug field's span (it was
             // keyed under "id" — a field no form renders — and silently vanished).
             assertThat(response.body).contains("id=\"stencil-error-slug\"")
+            assertThat(response.body).contains("data-error=\"true\"")
+        }
+    }
+
+    @Test
+    fun `POST catalog with duplicate slug returns inline error on the slug field`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Catalog Dup Tenant")
+            CreateCatalog(
+                tenantKey = tenant.id,
+                id = CatalogKey.of("my-catalog"),
+                name = "My Catalog",
+            ).execute()
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "my-catalog")
+            formData.add("name", "My Catalog Again")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity(
+                "/tenants/${tenant.id}/catalogs/create",
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The handler now uses executeOrFormError: a duplicate maps to the slug field
+            // (not a misleading catch-all), and a non-duplicate failure would propagate.
+            assertThat(response.body).contains("A catalog with this ID already exists")
+            assertThat(response.body).contains("id=\"catalog-error-slug\"")
             assertThat(response.body).contains("data-error=\"true\"")
         }
     }

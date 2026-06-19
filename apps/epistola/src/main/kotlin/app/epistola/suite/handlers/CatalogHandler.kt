@@ -28,6 +28,7 @@ import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.ModelBuilder
+import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxCurrentUrl
@@ -108,23 +109,27 @@ class CatalogHandler {
         }
 
         val slug = form["slug"]
-        return try {
+
+        // A duplicate id maps to the slug field (FormBinder's "catalog" → "slug"); any other
+        // failure (DB, connectivity) propagates to UiHandlerExceptionResolver and renders in the
+        // dialog's general error region — never mis-attributed to the slug field.
+        val result = form.executeOrFormError {
             CreateCatalog(
                 tenantKey = tenantId.key,
                 id = CatalogKey.of(slug),
                 name = form["name"],
             ).execute()
+        }
+        if (result.hasErrors()) {
+            return reRender(result.formData, result.errors)
+        }
 
-            val location = "/tenants/${tenantId.key}/catalogs/$slug/browse"
-            if (request.isHtmx) {
-                // The dialog submits over HTMX; navigate to the new catalog.
-                ServerResponse.ok().header("HX-Redirect", location).build()
-            } else {
-                ServerResponse.status(303).header("Location", location).build()
-            }
-        } catch (e: Exception) {
-            logger.warn("Failed to create catalog: ${e.message}", e)
-            reRender(form.formData, mapOf("slug" to "This catalog ID may already be in use."))
+        val location = "/tenants/${tenantId.key}/catalogs/$slug/browse"
+        return if (request.isHtmx) {
+            // The dialog submits over HTMX; navigate to the new catalog.
+            ServerResponse.ok().header("HX-Redirect", location).build()
+        } else {
+            ServerResponse.status(303).header("Location", location).build()
         }
     }
 
