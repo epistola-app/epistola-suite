@@ -8,10 +8,12 @@
         injected into the dialog (htmx executes <script> in swapped content).
     -->
     <th:block th:fragment="createDialog(catalogs)">
-        <dialog id="create-attribute-dialog" class="ep-dialog ep-dialog-wide" data-create-dialog data-testid="create-attribute-dialog">
+        <dialog id="create-attribute-dialog" class="ep-dialog ep-dialog-wide" data-create-dialog data-testid="create-attribute-dialog"
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
             <div class="ep-dialog-header">
                 <h3>New Attribute</h3>
             </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
             <th:block th:replace="~{attributes/new :: createForm}"></th:block>
         </dialog>
     </th:block>

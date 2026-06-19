@@ -967,6 +967,13 @@ a.stat-card:hover {
   margin-bottom: 0;
 }
 
+/* General/server error banner inside a create dialog. Sits between the header and
+   the form; empty (and so invisible) until UiExceptionFilter swaps an alert into it
+   out-of-band. Insets to match the dialog body's horizontal padding. */
+.ep-dialog-general-error:not(:empty) {
+  padding: var(--ep-space-4) var(--ep-space-6) 0;
+}
+
 .ep-dialog-footer {
   display: flex;
   justify-content: flex-end;

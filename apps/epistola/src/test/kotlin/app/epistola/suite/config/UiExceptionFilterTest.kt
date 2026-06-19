@@ -33,11 +33,11 @@ class UiExceptionFilterTest {
             CatalogReadOnlyException(CatalogKey("system")),
         )
 
-        assertThat(response.status).isEqualTo(403)
+        assertThat(response.status).isEqualTo(409)
         assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
         val parsed = objectMapper.readTree(response.contentAsString)
         assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/catalog-read-only")
-        assertThat(parsed.get("status").asInt()).isEqualTo(403)
+        assertThat(parsed.get("status").asInt()).isEqualTo(409)
         assertThat(parsed.get("detail").asString())
             .isEqualTo("Cannot modify resources in read-only catalog 'system'. Subscribed catalogs are read-only.")
         assertThat(parsed.has("code")).isFalse()
@@ -51,7 +51,7 @@ class UiExceptionFilterTest {
             CatalogReadOnlyException(CatalogKey("system")),
         )
 
-        assertThat(response.status).isEqualTo(403)
+        assertThat(response.status).isEqualTo(409)
         assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
         val parsed = objectMapper.readTree(response.contentAsString)
         assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/catalog-read-only")
@@ -61,7 +61,7 @@ class UiExceptionFilterTest {
     fun `HTMX request returns a problem body too`() {
         val response = runWith(accept = null, isHtmx = true, CatalogReadOnlyException(CatalogKey("system")))
 
-        assertThat(response.status).isEqualTo(403)
+        assertThat(response.status).isEqualTo(409)
         assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
         val parsed = objectMapper.readTree(response.contentAsString)
         assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/catalog-read-only")
@@ -100,7 +100,7 @@ class UiExceptionFilterTest {
     fun `HTML navigations use container sendError, not a JSON body`() {
         val response = runWith(accept = "text/html", isHtmx = false, CatalogReadOnlyException(CatalogKey("system")))
 
-        assertThat(response.status).isEqualTo(403)
+        assertThat(response.status).isEqualTo(409)
         assertThat(response.errorMessage)
             .isEqualTo("Cannot modify resources in read-only catalog 'system'. Subscribed catalogs are read-only.")
         assertThat(response.contentAsString).isEmpty()

@@ -128,6 +128,16 @@
                 }
             });
 
+            // ── Clear the dialog's general error region before each submit ──
+            // The shared UiExceptionFilter swaps a server/general error into
+            // #dialog-error (out of band) whenever a dialog handler throws; clear
+            // it before the next request so a stale message never lingers across
+            // submits (field errors render in their own per-field spans).
+            document.addEventListener('htmx:beforeRequest', function() {
+                var region = document.getElementById('dialog-error');
+                if (region) region.innerHTML = '';
+            });
+
             // ── Deep-linkable create dialog: reconcile <dialog data-create-dialog> to ?create ──
             //
             // The URL is the single source of truth for whether the create dialog

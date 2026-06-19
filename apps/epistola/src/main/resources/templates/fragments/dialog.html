@@ -33,5 +33,26 @@
     <button type="submit" class="ep-btn ep-btn-primary"
             th:data-testid="${submitTestid}" th:text="${submitLabel}">Create</button>
   </div>
+
+  <!--
+    Shared general (non-field) error region for a create dialog. Empty (and so
+    invisible) until the shared UiExceptionFilter swaps an alert into it out-of-band
+    for any error a handler throws (a `FormInputException`, an operational rejection,
+    an unexpected failure). fragments/htmx clears it before each submit. The dialog
+    that includes this must carry hx-headers='{"X-Epistola-Error-Region":"dialog-error"}'
+    so its form submits tell the filter where to render.
+  -->
+  <div th:fragment="generalError" id="dialog-error" data-testid="dialog-error" class="ep-dialog-general-error"></div>
+
+  <!--
+    The out-of-band replacement that UiHandlerExceptionResolver renders into the
+    general error region on a thrown error: same id (so HTMX swaps it in place) plus
+    the alert. Thymeleaf escapes the region id and the message — no hand-built HTML.
+  -->
+  <th:block th:fragment="dialogError">
+    <div th:id="${regionId}" th:attr="data-testid=${regionId}" hx-swap-oob="true" class="ep-dialog-general-error">
+      <div class="alert alert-error" role="alert" th:text="${message}"></div>
+    </div>
+  </th:block>
 </body>
 </html>

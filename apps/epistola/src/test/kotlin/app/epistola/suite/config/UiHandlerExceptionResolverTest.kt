@@ -7,12 +7,16 @@ import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.web.HttpRequestMethodNotSupportedException
+import org.thymeleaf.spring6.SpringTemplateEngine
 import tools.jackson.databind.json.JsonMapper
 
 @Tag("unit")
 class UiHandlerExceptionResolverTest {
     private val objectMapper = JsonMapper.builder().build()
-    private val resolver = UiHandlerExceptionResolver(objectMapper)
+
+    // The framework-error paths exercised here never render the dialog fragment, so a bare
+    // engine is fine; the out-of-band rendering path is covered by integration tests.
+    private val resolver = UiHandlerExceptionResolver(objectMapper, SpringTemplateEngine())
 
     private val ex = HttpRequestMethodNotSupportedException("DELETE", listOf("GET", "POST"))
 

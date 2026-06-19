@@ -11,10 +11,12 @@
           - fields       : the single source of truth for the inputs
     -->
     <th:block th:fragment="createDialog(catalogs)">
-        <dialog id="create-template-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-template-dialog" data-create-dialog>
+        <dialog id="create-template-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-template-dialog" data-create-dialog
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
             <div class="ep-dialog-header">
                 <h3>New Template</h3>
             </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
             <th:block th:replace="~{templates/new :: createForm}"></th:block>
         </dialog>
     </th:block>

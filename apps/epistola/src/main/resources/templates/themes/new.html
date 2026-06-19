@@ -7,10 +7,12 @@
         the self-swapping `createForm` re-rendered on validation error.
     -->
     <th:block th:fragment="createDialog(catalogs)">
-        <dialog id="create-theme-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-theme-dialog" data-create-dialog>
+        <dialog id="create-theme-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-theme-dialog" data-create-dialog
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
             <div class="ep-dialog-header">
                 <h3>New Theme</h3>
             </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
             <th:block th:replace="~{themes/new :: createForm}"></th:block>
         </dialog>
     </th:block>

@@ -12,10 +12,12 @@
         the open dialog. Success HX-Redirects to the new catalog's browse page.
     -->
     <th:block th:fragment="createDialog">
-        <dialog id="create-catalog-dialog" class="ep-dialog" data-testid="create-catalog-dialog" data-create-dialog>
+        <dialog id="create-catalog-dialog" class="ep-dialog" data-testid="create-catalog-dialog" data-create-dialog
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
             <div class="ep-dialog-header">
                 <h3>New Catalog</h3>
             </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
             <th:block th:replace="~{catalogs/new :: createForm}"></th:block>
         </dialog>
     </th:block>
