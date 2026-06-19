@@ -4,7 +4,9 @@ import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION
 import app.epistola.suite.catalog.CATALOG_MANIFEST_SCHEMA_VERSION
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -47,11 +49,19 @@ import tools.jackson.databind.node.ObjectNode
 class CatalogSchemaMigrator(
     private val objectMapper: ObjectMapper,
     migrations: List<CatalogSchemaMigration>,
+    private val current: Int,
+    private val baseline: Int,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    /**
+     * Production constructor — Spring injects the registered steps and the
+     * version window is read from [CatalogConstants]. Tests use the primary
+     * constructor with an explicit window to exercise a non-empty chain.
+     */
+    @Autowired
+    constructor(objectMapper: ObjectMapper, migrations: List<CatalogSchemaMigration>) :
+        this(objectMapper, migrations, CATALOG_MANIFEST_SCHEMA_VERSION, CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION)
 
-    private val current = CATALOG_MANIFEST_SCHEMA_VERSION
-    private val baseline = CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     /** Steps keyed by `from`. Empty until the first real migration. */
     private val byFrom: Map<Int, CatalogSchemaMigration>
@@ -90,6 +100,25 @@ class CatalogSchemaMigrator(
      * parsed tree can bind it directly.
      */
     fun migrateManifestTree(manifest: ObjectNode): ObjectNode = migrateManifestTree(manifest, byFrom, baseline, current)
+
+    /** The content/wire schema version this instance produces. */
+    val currentVersion: Int get() = current
+
+    /**
+     * True when at least one migration step is registered. False during the
+     * pre-release transitional window (`baseline == current`, empty chain),
+     * where the at-rest migrator can skip scanning entirely.
+     */
+    val hasMigrations: Boolean get() = byFrom.isNotEmpty()
+
+    /**
+     * Upgrade a single stored content blob from [sourceVersion] (the row's
+     * `schema_version`) to [currentVersion] by running the same registered chain
+     * via [CatalogSchemaMigration.migrateContentBlob]. Drives the at-rest path
+     * (see [AtRestContentMigrator]); the version lives in the carrier's
+     * `schema_version` column, so the returned blob is **not** version-stamped.
+     */
+    fun migrateContentBlob(blobType: String, blob: JsonNode, sourceVersion: Int): JsonNode = migrateContentBlobTree(blobType, blob, sourceVersion, byFrom, baseline, current)
 
     companion object {
         private val logger = LoggerFactory.getLogger(CatalogSchemaMigrator::class.java)
@@ -146,6 +175,48 @@ class CatalogSchemaMigrator(
             }
             node.put("schemaVersion", current)
             logger.debug("Migrated catalog manifest from wire schema v{} to v{}.", source, current)
+            return node
+        }
+
+        /**
+         * Pure form of the at-rest content-blob gate + chain run, parameterised
+         * on the version window so it is testable without Spring. Mirrors
+         * [migrateManifestTree]'s decision table, but the version is supplied by
+         * the carrier's `schema_version` column (not read from the blob) and the
+         * result is **not** version-stamped.
+         */
+        fun migrateContentBlobTree(
+            blobType: String,
+            blob: JsonNode,
+            sourceVersion: Int,
+            byFrom: Map<Int, CatalogSchemaMigration>,
+            baseline: Int,
+            current: Int,
+        ): JsonNode = when {
+            sourceVersion > current -> throw CatalogSchemaTooNewException(sourceVersion, current)
+            sourceVersion == current -> blob
+            // sourceVersion < current
+            byFrom.isEmpty() -> blob // transitional: no chain yet — see migrateManifestTree
+            sourceVersion < baseline -> throw CatalogSchemaTooOldException(sourceVersion, baseline)
+            else -> runContentBlobChain(blobType, blob, sourceVersion, byFrom, current)
+        }
+
+        private fun runContentBlobChain(
+            blobType: String,
+            blob: JsonNode,
+            source: Int,
+            byFrom: Map<Int, CatalogSchemaMigration>,
+            current: Int,
+        ): JsonNode {
+            val ctx = MigrationContext(sourceVersion = source, targetVersion = current, manifest = null)
+            var node = blob
+            var version = source
+            while (version < current) {
+                val step = byFrom[version]
+                    ?: error("No migration from v$version (chain validated at startup — should be unreachable)")
+                node = step.migrateContentBlob(blobType, node, ctx)
+                version = step.to
+            }
             return node
         }
 

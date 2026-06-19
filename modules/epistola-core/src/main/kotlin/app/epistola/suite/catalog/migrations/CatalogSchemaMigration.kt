@@ -1,6 +1,40 @@
 package app.epistola.suite.catalog.migrations
 
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
+
+/**
+ * The kind of stored content blob an at-rest migration step operates on, keyed
+ * by **content shape** rather than resource type. The same shape is shared
+ * across carriers — e.g. a [TEMPLATE_DOCUMENT] step applies to both
+ * `template_versions.template_model` and `stencil_versions.content` (both are
+ * `TemplateDocument` trees) — and is the same JSON the wire format carries, so a
+ * single step migrates wire and at-rest content alike.
+ *
+ * See `docs/adr/0007-at-rest-resource-migration.md`.
+ */
+object ContentBlobType {
+    /** `template_versions.template_model` and `stencil_versions.content`. */
+    const val TEMPLATE_DOCUMENT = "templateDocument"
+
+    /** `themes.document_styles`. */
+    const val DOCUMENT_STYLES = "documentStyles"
+
+    /** `themes.page_settings`. */
+    const val PAGE_SETTINGS = "pageSettings"
+
+    /** `themes.block_style_presets`. */
+    const val BLOCK_STYLE_PRESETS = "blockStylePresets"
+
+    /** `contract_versions.schema`. */
+    const val CONTRACT_SCHEMA = "contractSchema"
+
+    /** `contract_versions.data_model`. */
+    const val DATA_MODEL = "dataModel"
+
+    /** `contract_versions.data_examples` (a JSON array). */
+    const val DATA_EXAMPLES = "dataExamples"
+}
 
 /**
  * One step in the catalog wire-format migration chain — upgrades a catalog
@@ -49,4 +83,19 @@ interface CatalogSchemaMigration {
      * migration (see [CatalogSchemaMigrator]).
      */
     fun migrateResourceDetail(type: String, detail: ObjectNode, ctx: MigrationContext): ObjectNode = detail
+
+    /**
+     * Upgrade one **stored content blob** by exactly one version. [blobType] is a
+     * [ContentBlobType] constant identifying the content shape (so a step can
+     * branch — e.g. only touch [ContentBlobType.TEMPLATE_DOCUMENT]). The node is
+     * the bare domain blob (a `TemplateDocument`, theme-styles object, data-model
+     * object, or — for [ContentBlobType.DATA_EXAMPLES] — a JSON array), **not** a
+     * wire `ResourceDetail` envelope, so this returns [JsonNode] to allow arrays.
+     * Default: identity.
+     *
+     * Driven by the at-rest [AtRestContentMigrator]; the per-row content version
+     * lives in a `schema_version` column, never inside the blob, so a step must
+     * not stamp a version. See `docs/adr/0007-at-rest-resource-migration.md`.
+     */
+    fun migrateContentBlob(blobType: String, blob: JsonNode, ctx: MigrationContext): JsonNode = blob
 }
