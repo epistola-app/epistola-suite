@@ -28,9 +28,8 @@ class BundledCatalogFingerprintTest {
     private val objectMapper = jsonMapper { addModule(kotlinModule()) }
     private val catalogClient = CatalogClient(
         catalogRestClient = RestClient.create(),
-        objectMapper = objectMapper,
         resourceLoader = DefaultResourceLoader(),
-        schemaMigrator = CatalogSchemaMigrator(objectMapper, emptyList()),
+        schemaMigrator = CatalogSchemaMigrator(objectMapper, emptyList(), current = 4, baseline = 4),
     )
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 

@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.migrations
 
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION
 import app.epistola.suite.catalog.CATALOG_MANIFEST_SCHEMA_VERSION
 import org.slf4j.LoggerFactory
@@ -9,6 +10,13 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+
+/**
+ * A bound, current-shape [CatalogManifest] plus the wire [sourceVersion] the
+ * payload arrived at — threaded into resource-detail migration so details
+ * upgrade from the same manifest-authoritative version.
+ */
+data class MigratedManifest(val manifest: CatalogManifest, val sourceVersion: Int)
 
 /**
  * Upgrades an imported catalog payload from the wire schema version it was
@@ -84,14 +92,31 @@ class CatalogSchemaMigrator(
 
     /**
      * Parse [rawManifest], gate/upgrade it to the current schema version, and
-     * bind it to [CatalogManifest]. Throws a [CatalogSchemaException] if the
-     * version is unreadable, too new, or too old.
+     * bind it — returning the bound [CatalogManifest] together with the wire
+     * version the payload *arrived* at. The caller threads that
+     * [MigratedManifest.sourceVersion] into every [migrateAndBindResourceDetail]
+     * so details migrate from the same (manifest-authoritative) version. Throws a
+     * [CatalogSchemaException] if the version is unreadable, too new, or too old.
      */
-    fun migrateAndBindManifest(rawManifest: ByteArray): CatalogManifest {
+    fun migrateAndBindManifest(rawManifest: ByteArray): MigratedManifest {
         val tree = objectMapper.readTree(rawManifest) as? ObjectNode
             ?: throw CatalogSchemaUnknownException("manifest is not a JSON object")
+        val sourceVersion = readSchemaVersion(tree)
         val migrated = migrateManifestTree(tree)
-        return objectMapper.treeToValue(migrated, CatalogManifest::class.java)
+        return MigratedManifest(objectMapper.treeToValue(migrated, CatalogManifest::class.java), sourceVersion)
+    }
+
+    /**
+     * Parse [rawDetail], upgrade it from [sourceVersion] (the manifest's
+     * authoritative version) to current via the resource-detail chain, and bind
+     * it. The whole `{schemaVersion, resource}` tree is handed to
+     * [CatalogSchemaMigration.migrateResourceDetail].
+     */
+    fun migrateAndBindResourceDetail(rawDetail: ByteArray, sourceVersion: Int): ResourceDetail {
+        val tree = objectMapper.readTree(rawDetail) as? ObjectNode
+            ?: throw CatalogSchemaUnknownException("resource detail is not a JSON object")
+        val migrated = migrateResourceDetailTree(tree, sourceVersion, byFrom, baseline, current)
+        return objectMapper.treeToValue(migrated, ResourceDetail::class.java)
     }
 
     /**
@@ -217,6 +242,46 @@ class CatalogSchemaMigrator(
                 node = step.migrateContentBlob(blobType, node, ctx)
                 version = step.to
             }
+            return node
+        }
+
+        /**
+         * Pure form of the resource-detail gate + chain run. Mirrors
+         * [migrateManifestTree], but the version is the manifest's (threaded by
+         * the caller) and the result is re-stamped to current.
+         */
+        fun migrateResourceDetailTree(
+            detail: ObjectNode,
+            sourceVersion: Int,
+            byFrom: Map<Int, CatalogSchemaMigration>,
+            baseline: Int,
+            current: Int,
+        ): ObjectNode = when {
+            sourceVersion > current -> throw CatalogSchemaTooNewException(sourceVersion, current)
+            sourceVersion == current -> detail
+            byFrom.isEmpty() -> detail
+            sourceVersion < baseline -> throw CatalogSchemaTooOldException(sourceVersion, baseline)
+            else -> runResourceDetailChain(detail, sourceVersion, byFrom, current)
+        }
+
+        private fun runResourceDetailChain(
+            detail: ObjectNode,
+            source: Int,
+            byFrom: Map<Int, CatalogSchemaMigration>,
+            current: Int,
+        ): ObjectNode {
+            val typeNode = detail.path("resource").path("type")
+            val type = if (typeNode.isString) typeNode.asString() else ""
+            val ctx = MigrationContext(sourceVersion = source, targetVersion = current, manifest = null)
+            var node = detail
+            var version = source
+            while (version < current) {
+                val step = byFrom[version]
+                    ?: error("No migration from v$version (chain validated at startup — should be unreachable)")
+                node = step.migrateResourceDetail(type, node, ctx)
+                version = step.to
+            }
+            node.put("schemaVersion", current)
             return node
         }
 

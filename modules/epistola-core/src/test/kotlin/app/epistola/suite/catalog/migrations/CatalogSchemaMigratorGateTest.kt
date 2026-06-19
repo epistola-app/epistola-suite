@@ -109,17 +109,18 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest binds a current-version manifest end to end`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, emptyList(), current = 4, baseline = 4)
         val bound = migrator.migrateAndBindManifest(
             mapper.writeValueAsBytes(manifest("4")),
         )
-        assertThat(bound.catalog.slug).isEqualTo("x")
-        assertThat(bound.release.version).isEqualTo("1.0.0")
+        assertThat(bound.sourceVersion).isEqualTo(4)
+        assertThat(bound.manifest.catalog.slug).isEqualTo("x")
+        assertThat(bound.manifest.release.version).isEqualTo("1.0.0")
     }
 
     @Test
     fun `migrateAndBindManifest rejects a too-new payload before binding`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, emptyList(), current = 4, baseline = 4)
         assertThatThrownBy { migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("9"))) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
     }

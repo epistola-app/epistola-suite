@@ -30,6 +30,7 @@ class DependencyResolver(
         sourceUrl: String,
         authType: AuthType,
         credential: String?,
+        sourceVersion: Int,
     ): List<ResourceEntry> {
         val allByKey = manifest.resources.associateBy { "${it.type}:${it.slug}" }
         val result = selected.associateByTo(mutableMapOf()) { "${it.type}:${it.slug}" }
@@ -53,7 +54,7 @@ class DependencyResolver(
                 if (key in scanned) continue
                 scanned += key
 
-                val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, authType, credential)
+                val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, authType, credential, sourceVersion)
                 when (val resource = detail.resource) {
                     is TemplateResource -> {
                         // Resource-level theme reference (themeId field)

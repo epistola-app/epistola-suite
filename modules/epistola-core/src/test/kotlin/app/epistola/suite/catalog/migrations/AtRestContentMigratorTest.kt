@@ -14,6 +14,9 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
+/** Key present only in this test's seeded blob, so the table-wide scan tags nothing else. */
+private const val SENTINEL = "_attestAtRest"
+
 /**
  * End-to-end check of [AtRestContentMigrator] against a real Postgres: it drives
  * the migration off the single global `app_metadata` counter, rewrites every
@@ -31,9 +34,14 @@ class AtRestContentMigratorTest : IntegrationTestBase() {
     @Autowired
     private lateinit var appMetadata: AppMetadataService
 
-    /** A 1→2 step that tags any content blob with `"migrated": true`. */
+    /**
+     * A 1→2 step that tags only this test's own blob with `"migrated": true`. The
+     * at-rest scan is table-wide and shares the DB with other test classes, so it
+     * hands this step their blobs too (including array blobs like `data_examples`);
+     * key on a sentinel so only the row this test seeded is modified.
+     */
     private class TagMigration(override val from: Int) : CatalogSchemaMigration {
-        override fun migrateContentBlob(blobType: String, blob: JsonNode, ctx: MigrationContext): JsonNode = (blob as ObjectNode).put("migrated", true)
+        override fun migrateContentBlob(blobType: String, blob: JsonNode, ctx: MigrationContext): JsonNode = if (blob is ObjectNode && blob.has(SENTINEL)) blob.put("migrated", true) else blob
     }
 
     private fun seedTheme(tenant: TenantKey, slug: String, styles: String) {
@@ -68,7 +76,7 @@ class AtRestContentMigratorTest : IntegrationTestBase() {
     fun `migrateAll rewrites content and advances the counter when behind`() {
         val tenant = createTenant("At-Rest Migration Test").id
         appMetadata.setAs(CONTENT_SCHEMA_VERSION_KEY, 1)
-        seedTheme(tenant, "lagging", styles = """{"font":"Helvetica"}""")
+        seedTheme(tenant, "lagging", styles = """{"font":"Helvetica","$SENTINEL":"1"}""")
 
         val schemaMigrator = CatalogSchemaMigrator(objectMapper, listOf(TagMigration(from = 1)), current = 2, baseline = 1)
         AtRestContentMigrator(jdbi, objectMapper, schemaMigrator).migrateAll()
@@ -86,7 +94,7 @@ class AtRestContentMigratorTest : IntegrationTestBase() {
         seedTheme(tenant, "untouched", styles = """{"font":"Georgia"}""")
 
         // Live constants: baseline == current == 4, empty chain.
-        val report = AtRestContentMigrator(jdbi, objectMapper, CatalogSchemaMigrator(objectMapper, emptyList())).migrateAll()
+        val report = AtRestContentMigrator(jdbi, objectMapper, CatalogSchemaMigrator(objectMapper, emptyList(), current = 4, baseline = 4)).migrateAll()
 
         assertThat(report.total).isEqualTo(0)
         assertThat(storedVersion()).isEqualTo(4)
@@ -97,7 +105,7 @@ class AtRestContentMigratorTest : IntegrationTestBase() {
     fun `migrateAll seeds the counter to current on first run`() {
         jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :k").bind("k", CONTENT_SCHEMA_VERSION_KEY).execute() }
 
-        val report = AtRestContentMigrator(jdbi, objectMapper, CatalogSchemaMigrator(objectMapper, emptyList())).migrateAll()
+        val report = AtRestContentMigrator(jdbi, objectMapper, CatalogSchemaMigrator(objectMapper, emptyList(), current = 4, baseline = 4)).migrateAll()
 
         assertThat(report.total).isEqualTo(0)
         assertThat(storedVersion()).isEqualTo(4) // adopted current without migrating

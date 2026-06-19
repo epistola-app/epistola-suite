@@ -86,18 +86,17 @@ class CatalogSchemaMigratorChainTest {
     }
 
     @Test
-    fun `the real bean accepts an empty chain (baseline == current today)`() {
-        // Constructing the @Component with no migrations must not throw — this is
-        // the wired-in Phase-0 state.
-        assertThatCode { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
+    fun `the real bean accepts the v3-to-v4 chain (live baseline 3, current 4)`() {
+        // The wired-in Phase-1 state: a single 3 -> 4 step spans [baseline, current].
+        assertThatCode { CatalogSchemaMigrator(jsonMapper(), listOf(NoopMigration(from = 3))) }
             .doesNotThrowAnyException()
     }
 
     @Test
-    fun `the real bean rejects a stray migration (baseline == current leaves no room)`() {
-        // With current == baseline, any non-empty chain is malformed — a good
-        // guard that init actually validates against the live constants.
-        assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), listOf(NoopMigration(from = 4))) }
+    fun `the real bean rejects an empty chain (baseline 3 != current 4 leaves a gap)`() {
+        // With baseline below current, an empty chain is malformed — a good guard
+        // that init actually validates against the live constants.
+        assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
             .isInstanceOf(IllegalStateException::class.java)
     }
 

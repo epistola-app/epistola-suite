@@ -395,6 +395,47 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `imports a v3 catalog by injecting the missing stencil version`() {
+        val tenant = createTenant("Legacy v3")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val key = CatalogKey.of("v3-legacy")
+
+        withMediator {
+            // A genuine v3 export: manifest schemaVersion 3, plus a stencil detail
+            // that predates the required `version` field. The 3 -> 4 migration
+            // injects version 1, so the import now succeeds instead of failing the
+            // pre-scan with "missing version".
+            val zip = buildManualZipWithRawStencilJson(
+                catalogSlug = key.value,
+                manifestSchemaVersion = 3,
+                stencilJson = """
+                {
+                  "schemaVersion": 3,
+                  "resource": {
+                    "type": "stencil",
+                    "slug": "no-version",
+                    "name": "Legacy",
+                    "content": ${objectMapper.writeValueAsString(simpleStencil("legacy"))}
+                  }
+                }
+                """.trimIndent(),
+            )
+
+            ImportCatalogZip(
+                tenantKey = tenantKey,
+                zipBytes = zip,
+                catalogType = CatalogType.AUTHORED,
+            ).execute()
+
+            val versions = ListStencilVersions(
+                stencilId = StencilId(StencilKey.of("no-version"), CatalogId(key, tenantId)),
+            ).query()
+            assertThat(versions.single().id.value).isEqualTo(1)
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun simpleStencil(rootId: String): TemplateDocument {
@@ -594,7 +635,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         return baos.toByteArray()
     }
 
-    private fun buildManualZipWithRawStencilJson(catalogSlug: String, stencilJson: String): ByteArray {
+    private fun buildManualZipWithRawStencilJson(catalogSlug: String, stencilJson: String, manifestSchemaVersion: Int = 4): ByteArray {
         val resources = listOf(
             app.epistola.catalog.protocol.ResourceEntry(
                 type = "stencil",
@@ -605,7 +646,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             ),
         )
         val manifest = CatalogManifest(
-            schemaVersion = 4,
+            schemaVersion = manifestSchemaVersion,
             catalog = app.epistola.catalog.protocol.CatalogInfo(catalogSlug, "Legacy", null),
             publisher = app.epistola.catalog.protocol.PublisherInfo("Test"),
             release = app.epistola.catalog.protocol.ReleaseInfo("0.0.0-dev", null, null),

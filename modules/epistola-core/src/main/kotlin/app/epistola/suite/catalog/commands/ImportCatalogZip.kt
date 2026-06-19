@@ -5,7 +5,6 @@ import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
-import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
@@ -163,9 +162,10 @@ class ImportCatalogZipHandler(
         val manifestBytes = entries["catalog.json"]
             ?: throw IllegalArgumentException("ZIP does not contain catalog.json")
         // Version gate + wire-format upgrade chain before binding (see
-        // CatalogSchemaMigrator). Resource details bind as-is for now; the
-        // detail-path migration wires in with the first real migration.
-        val manifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        // CatalogSchemaMigrator). The detected source version is threaded into
+        // every resource-detail migration below so details upgrade from the same
+        // manifest-authoritative version.
+        val (manifest, sourceVersion) = schemaMigrator.migrateAndBindManifest(manifestBytes)
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
         // A ZIP import targets a catalog *type*. A slug that already exists
@@ -278,7 +278,7 @@ class ImportCatalogZipHandler(
             .associate { entry ->
                 val detailBytes = entries[entry.detailUrl.removePrefix("./")]
                     ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                val parsed = objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                val parsed = schemaMigrator.migrateAndBindResourceDetail(detailBytes, sourceVersion).resource
                 val stencil = parsed as? StencilResource
                     ?: throw IllegalArgumentException(
                         "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
@@ -309,7 +309,7 @@ class ImportCatalogZipHandler(
                     val detailPath = entry.detailUrl.removePrefix("./")
                     val detailBytes = entries[detailPath]
                         ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                    objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                    schemaMigrator.migrateAndBindResourceDetail(detailBytes, sourceVersion).resource
                 }
 
                 val status = installResource(
