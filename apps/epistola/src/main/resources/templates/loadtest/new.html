@@ -7,20 +7,24 @@
         `newForm` is dual-purpose: opening the dialog (trigger has no field name)
         returns `createDialog`; the cascade selects (name=templateId/variantId/…)
         hit the same endpoint and get the `template-options` fragment swapped into
-        #template-options-section. The form submits to `start` (hx-target=#form-error)
-        which HX-Redirects on success or returns the `form-error` fragment.
+        #template-options-section. The form submits to `start`, which HX-Redirects on
+        success; every error (bad JSON, missing selection, a backend failure) is
+        thrown by the handler and rendered in the shared #dialog-error region by
+        UiExceptionFilter — the dialog carries hx-headers so its submit tells the
+        filter where to render. The cascade selects keep their own hx-target, so the
+        form needs none.
     -->
     <th:block th:fragment="createDialog">
-        <dialog id="create-load-test-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-load-test-dialog" data-create-dialog>
+        <dialog id="create-load-test-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-load-test-dialog" data-create-dialog
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
             <div class="ep-dialog-header">
                 <h3>New Load Test</h3>
             </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
             <form id="load-test-form"
                   th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
-                  hx-target="#form-error" hx-swap="innerHTML"
-                  hx-boost="false" hx-disinherit="hx-target hx-swap">
+                  hx-boost="false">
                 <div class="ep-dialog-body">
-                    <div id="form-error"></div>
 
                     <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
                         <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Template Configuration</legend>
@@ -62,13 +66,6 @@
                 <th:block th:replace="~{fragments/dialog :: dialogFooter('Start Load Test', 'create-form-submit')}"></th:block>
             </form>
         </dialog>
-    </th:block>
-
-    <!--/* Error fragment: shown when form submission fails */-->
-    <th:block th:fragment="form-error">
-        <div class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
-            <strong>Error:</strong> <span th:text="${error}"></span>
-        </div>
     </th:block>
 
     <!--/* Empty state fragment: shown when no template is selected */-->

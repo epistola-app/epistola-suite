@@ -54,8 +54,10 @@ class AssetRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
+            // The editor (Accept: json, non-HTMX) gets RFC 9457 problem+json from the
+            // shared filter; its `detail` carries the message uploadAsset reads.
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-            assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_JSON)
+            assertThat(response.headers.contentType!!.isCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
             assertThat(response.body).contains("Unsupported asset media type")
             assertThat(response.body).contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
@@ -105,15 +107,19 @@ class AssetRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX upload without a file shows the general OOB error`() = fixture {
+    fun `HTMX dialog upload without a file renders the general error in the dialog region`() = fixture {
         lateinit var testTenant: Tenant
 
-        given { testTenant = tenant("Asset OOB File Tenant") }
+        given { testTenant = tenant("Asset Dialog File Tenant") }
 
         whenever {
+            // The dialog form declares its error region via X-Epistola-Error-Region
+            // (inherited from the dialog's hx-headers in the browser); the shared
+            // filter renders the thrown error as an OOB swap into it.
             val headers = HttpHeaders()
             headers.contentType = MediaType.MULTIPART_FORM_DATA
             headers.set("HX-Request", "true")
+            headers.set("X-Epistola-Error-Region", "dialog-error")
 
             val payload = LinkedMultiValueMap<String, Any>()
             payload.add("catalog", "default")
@@ -128,11 +134,14 @@ class AssetRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
+            // 200 + Reswap:none so HTMX applies the OOB without touching the form/file.
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             val body = response.body!!
-            assertThat(body).contains("id=\"asset-error-general\"")
+            assertThat(body).contains("id=\"dialog-error\"")
+            assertThat(body).contains("hx-swap-oob=\"true\"")
+            assertThat(body).contains("alert-error")
             assertThat(body).contains("No file provided")
-            assertThat(body).contains("data-error=\"true\"")
         }
     }
 }

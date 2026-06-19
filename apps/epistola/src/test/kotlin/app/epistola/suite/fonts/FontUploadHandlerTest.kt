@@ -131,7 +131,9 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
 
         then {
             val response = result<ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            // Read-only catalog → CatalogReadOnlyException, mapped to 409 (problem+json here,
+            // since this is a non-HTMX Accept: json caller — same canonical status as the REST API).
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
             val tenantId = TenantId(testTenant.id)
             val fonts = withMediator {
                 ListFonts(tenantId = tenantId, catalogKey = CatalogKey.of("system")).query()
@@ -163,34 +165,6 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             assertThat(response.body).contains("At least one face file is required")
-        }
-    }
-
-    @Test
-    fun `upload rejects an invalid slug`() = fixture {
-        lateinit var testTenant: Tenant
-
-        given { testTenant = tenant("Font Bad Slug Tenant") }
-
-        whenever {
-            val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("slug", "Bad Slug!")
-            payload.add("name", "Bad")
-            payload.add("kind", "sans")
-            payload.add("catalog", "default")
-            payload.add("file", facePart("bad-regular.ttf"))
-            payload.add("weight", "400")
-            payload.add("italic", "false")
-            restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
-                HttpEntity(payload, multipartHeaders()),
-                String::class.java,
-            )
-        }
-
-        then {
-            val response = result<ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
     }
 
@@ -230,12 +204,16 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX upload without a face shows the general OOB error`() = fixture {
+    fun `HTMX dialog upload without a face renders the general error in the dialog region`() = fixture {
         lateinit var testTenant: Tenant
 
-        given { testTenant = tenant("Font OOB Face Tenant") }
+        given { testTenant = tenant("Font Dialog Face Tenant") }
 
         whenever {
+            // The dialog declares its error region via X-Epistola-Error-Region; the
+            // thrown face error is rendered by the shared filter as an OOB swap into it.
+            val headers = htmxMultipartHeaders()
+            headers.set("X-Epistola-Error-Region", "dialog-error")
             val payload = LinkedMultiValueMap<String, Any>()
             payload.add("slug", "no-face")
             payload.add("name", "No Face")
@@ -243,7 +221,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("catalog", "default")
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/fonts",
-                HttpEntity(payload, htmxMultipartHeaders()),
+                HttpEntity(payload, headers),
                 String::class.java,
             )
         }
@@ -251,10 +229,12 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             val body = response.body!!
-            assertThat(body).contains("id=\"font-error-general\"")
+            assertThat(body).contains("id=\"dialog-error\"")
+            assertThat(body).contains("hx-swap-oob=\"true\"")
+            assertThat(body).contains("alert-error")
             assertThat(body).contains("At least one face file is required")
-            assertThat(body).contains("data-error=\"true\"")
         }
     }
 

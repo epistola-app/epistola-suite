@@ -4,7 +4,6 @@ import app.epistola.suite.tenants.Tenant
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.FilePayload
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -63,32 +62,44 @@ class FontUploadDialogUiTest : BasePlaywrightTest() {
 
         page.locator("#create-font-dialog [data-testid='create-form-submit']").click()
 
-        // The general error is swapped in via OOB and the dialog stays open
-        // (web-first assertions auto-wait for the swap).
-        val generalError = page.locator("#create-font-dialog #font-error-general")
-        assertThat(generalError).hasAttribute("data-error", "true")
-        assertThat(generalError).containsText("unique")
+        // The duplicate-face error is general (not field-tied), so it is thrown and
+        // rendered by the shared filter as an OOB swap into the dialog's #dialog-error
+        // region — inside the still-open modal (web-first assertions auto-wait).
+        assertThat(page.getByTestId("dialog-error")).containsText("Each (weight, italic) face must be unique")
         assertThat(dialog).isVisible()
 
         page.htmxSettle()
 
-        // The load-bearing guarantee: OOB swapped only the error span, so BOTH chosen
-        // files survived — a whole-form re-render would have wiped the file inputs.
+        // The load-bearing guarantee: the OOB swap (HX-Reswap:none) never touched the
+        // form, so BOTH chosen files survived — a whole-form re-render would have
+        // wiped the file inputs.
         assertEquals(1, (faceFiles.first().evaluate("el => el.files.length") as Number).toInt())
         assertEquals(1, (faceFiles.nth(1).evaluate("el => el.files.length") as Number).toInt())
+    }
 
-        // :has(.form-error[data-error='true']) fired: the faces group (which holds the
-        // general error span) now borders its inputs differently from the clean slug input.
-        val bordersDiffer = page.evaluate(
-            """
-            () => {
-                const weight = document.querySelector("#create-font-dialog .font-face-row input[name='weight']");
-                const slug = document.querySelector("#create-font-dialog #slug");
-                return getComputedStyle(weight).borderColor !== getComputedStyle(slug).borderColor;
-            }
-            """,
-        ) as Boolean
-        assertTrue(bordersDiffer, "the faces group should show the error border via :has()")
+    @Test
+    fun `a server error renders in the dialog's general error region, not behind the modal`() {
+        val tenant: Tenant = createTenant("Font Server Error")
+
+        page.setViewportSize(1600, 900)
+        gotoAndReady("/tenants/${tenant.id}/fonts")
+
+        val dialog = page.openDialogByTrigger(
+            page.getByTestId("font-create-open"),
+            "#create-font-dialog",
+        )
+        assertThat(dialog).isVisible()
+
+        // Valid required fields, but no face file — a general (non-field) error the
+        // handler throws. The shared filter must render it in the dialog's #dialog-error
+        // region (an OOB swap), keeping it inside the open modal rather than behind it.
+        page.locator("#create-font-dialog #name").fill("Acme")
+        page.locator("#create-font-dialog #slug").fill("acme-sans")
+        page.locator("#create-font-dialog [data-testid='create-form-submit']").click()
+
+        val region = page.getByTestId("dialog-error")
+        assertThat(region).containsText("At least one face file is required")
+        assertThat(dialog).isVisible()
     }
 
     @Test

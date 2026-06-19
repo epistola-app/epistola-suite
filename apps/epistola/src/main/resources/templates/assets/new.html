@@ -2,19 +2,22 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-        Upload Asset form (multipart hx-post). Success sends HX-Redirect; a
-        validation error swaps the catalog + general error spans via OOB
-        (hx-swap-oob) so the chosen file survives — see the error-* fragments below
-        and AssetHandler.upload. The editor calls this same endpoint with
-        Accept: application/json and still gets a JSON 400. The dialog reuses the
-        same form + script via the shared `fields` fragment; htmx runs the
-        <script> when the dialog is injected into #dialog-host.
+        Upload Asset form (multipart hx-post). Success sends HX-Redirect; a catalog
+        field error swaps the catalog error span via OOB (hx-swap-oob) so the chosen
+        file survives (see the error-catalog fragment below). File and operational
+        errors are thrown by AssetHandler.upload and rendered centrally by
+        UiExceptionFilter: the shared #dialog-error region for the dialog, problem+json
+        (with `detail`) for the editor's non-HTMX `Accept: application/json` caller.
+        The dialog reuses the same form + script via the shared `fields` fragment;
+        htmx runs the <script> when the dialog is injected into #dialog-host.
     -->
     <th:block th:fragment="createDialog(catalogs)">
-        <dialog id="create-asset-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-asset-dialog" data-create-dialog data-dialog-param="upload">
+        <dialog id="create-asset-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-asset-dialog" data-create-dialog data-dialog-param="upload"
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
             <div class="ep-dialog-header">
                 <h3>Upload Asset</h3>
             </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
             <th:block th:replace="~{assets/new :: createForm}"></th:block>
         </dialog>
     </th:block>
@@ -57,7 +60,6 @@
             <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
                 <span id="file-name" class="text-sm"></span>
             </div>
-            <span class="form-error" id="asset-error-general" th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
         </div>
 
         <script>
@@ -88,13 +90,12 @@
     </th:block>
 
     <!--
-        OOB error fragments. On a validation error the handler swaps these (by id,
-        via hx-swap-oob) into the live catalog span + the general region, leaving
-        the form and its selected file untouched (see AssetHandler.upload).
+        OOB per-field error fragment. On a field validation error the handler swaps this
+        (by id, via hx-swap-oob) into the live catalog span, leaving the form and its
+        selected file untouched (see AssetHandler.upload). File/server errors are thrown
+        and rendered in the shared #dialog-error region (or problem+json) by the filter.
     -->
     <span th:fragment="error-catalog" class="form-error" id="asset-error-catalog" hx-swap-oob="true"
           th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
-    <span th:fragment="error-general" class="form-error" id="asset-error-general" hx-swap-oob="true"
-          th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
 </body>
 </html>

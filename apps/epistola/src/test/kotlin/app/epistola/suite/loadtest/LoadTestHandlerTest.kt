@@ -453,20 +453,21 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
     inner class Start {
 
         @Test
-        fun `POST start with invalid JSON returns the form-error fragment, not a 500`() = fixture {
+        fun `POST start with invalid JSON renders the error in the dialog region, not a 500`() = fixture {
             lateinit var testTenant: Tenant
 
             given { testTenant = tenant("Load Test JSON Tenant") }
 
             whenever {
-                // Format-valid (but not necessarily existing) template/variant get
-                // past field validation so we reach the testData JSON parse — the
-                // point of this test. The handler must return the form-error fragment
-                // (rendered inside the dialog's #form-error) rather than throwing an
-                // uncaught exception (a 500 surfaced behind the modal).
+                // Format-valid (but not necessarily existing) template/variant get past
+                // field validation so we reach the testData JSON parse. The handler throws
+                // a FormInputException; with the dialog's error-region header, the shared
+                // filter renders it as an OOB swap into #dialog-error (inside the modal) —
+                // never an uncaught 500 surfaced behind the modal.
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
                 headers.set("HX-Request", "true")
+                headers.set("X-Epistola-Error-Region", "dialog-error")
                 val formData = LinkedMultiValueMap<String, String>()
                 formData.add("templateId", "default/invoice-template")
                 formData.add("variantId", "invoice-default")
@@ -482,13 +483,16 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("valid JSON")
-                assertThat(response.body).contains("alert-error")
+                assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+                val body = response.body!!
+                assertThat(body).contains("id=\"dialog-error\"")
+                assertThat(body).contains("alert-error")
+                assertThat(body).contains("valid JSON")
             }
         }
 
         @Test
-        fun `POST start with a non-object JSON array returns the form-error fragment`() = fixture {
+        fun `POST start with a non-object JSON array renders the error in the dialog region`() = fixture {
             lateinit var testTenant: Tenant
 
             given { testTenant = tenant("Load Test JSON Array Tenant") }
@@ -497,6 +501,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
                 headers.set("HX-Request", "true")
+                headers.set("X-Epistola-Error-Region", "dialog-error")
                 val formData = LinkedMultiValueMap<String, String>()
                 formData.add("templateId", "default/invoice-template")
                 formData.add("variantId", "invoice-default")
@@ -512,6 +517,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("id=\"dialog-error\"")
                 assertThat(response.body).contains("must be a JSON object")
             }
         }

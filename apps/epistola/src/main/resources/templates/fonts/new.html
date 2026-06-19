@@ -2,18 +2,21 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-        Upload Font form (multipart hx-post). Success sends HX-Redirect; a
-        validation error swaps the per-field + general error spans via OOB
-        (hx-swap-oob) so the chosen face files survive — see the error-* fragments
-        below and FontHandler.upload. The dialog reuses the same form + script via
-        the shared `fields` fragment; htmx runs the <script> when the dialog is
-        injected into #dialog-host.
+        Upload Font form (multipart hx-post). Success sends HX-Redirect; a field
+        validation error swaps the per-field error spans via OOB (hx-swap-oob) so
+        the chosen face files survive (see the error-* fragments below). Face/file
+        and operational errors are thrown by FontHandler.upload and rendered in the
+        shared #dialog-error region by UiExceptionFilter. The dialog reuses the same
+        form + script via the shared `fields` fragment; htmx runs the <script> when
+        the dialog is injected into #dialog-host.
     -->
     <th:block th:fragment="createDialog(catalogs)">
-        <dialog id="create-font-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-font-dialog" data-create-dialog data-dialog-param="upload">
+        <dialog id="create-font-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-font-dialog" data-create-dialog data-dialog-param="upload"
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
             <div class="ep-dialog-header">
                 <h3>Upload Font</h3>
             </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
             <th:block th:replace="~{fonts/new :: createForm}"></th:block>
         </dialog>
     </th:block>
@@ -87,7 +90,6 @@
                 </div>
             </div>
             <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top: var(--ep-space-2)">+ Add face</button>
-            <span class="form-error" id="font-error-general" th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
         </div>
 
         <script>
@@ -113,9 +115,10 @@
     </th:block>
 
     <!--
-        OOB error fragments. On a validation error the handler swaps these (by id,
-        via hx-swap-oob) into the live per-field spans + the general region, leaving
-        the form and its selected face files untouched (see FontHandler.upload).
+        OOB per-field error fragments. On a field validation error the handler swaps
+        these (by id, via hx-swap-oob) into the live per-field spans, leaving the form
+        and its selected face files untouched (see FontHandler.upload). General/server
+        errors are thrown and rendered in the shared #dialog-error region by the filter.
     -->
     <span th:fragment="error-catalog" class="form-error" id="font-error-catalog" hx-swap-oob="true"
           th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
@@ -125,7 +128,5 @@
           th:attr="data-error=${errors?.containsKey('name')}" th:text="${errors?.get('name')}"></span>
     <span th:fragment="error-kind" class="form-error" id="font-error-kind" hx-swap-oob="true"
           th:attr="data-error=${errors?.containsKey('kind')}" th:text="${errors?.get('kind')}"></span>
-    <span th:fragment="error-general" class="form-error" id="font-error-general" hx-swap-oob="true"
-          th:attr="data-error=${generalError != null}" th:text="${generalError}"></span>
 </body>
 </html>

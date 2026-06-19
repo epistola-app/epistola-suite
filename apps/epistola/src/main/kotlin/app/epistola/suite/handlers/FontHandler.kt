@@ -1,7 +1,6 @@
 package app.epistola.suite.fonts
 
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.assets.UnsupportedAssetTypeException
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
@@ -23,6 +22,7 @@ import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.htmx.FormInputException
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxCurrentUrl
@@ -122,28 +122,19 @@ class FontHandler(
         fun field(name: String): String? = multipartData[name]?.firstOrNull()
             ?.let { String(it.inputStream.readAllBytes()).trim() }?.ifBlank { null }
 
-        // Accumulate field-level errors (rendered next to their inputs) plus a
-        // single general message for face/file problems that aren't tied to a
-        // named field. On an HTMX (dialog) submit we swap only the error spans
-        // via OOB so the chosen face files survive — a re-render can't repopulate
-        // a file input. A non-HTMX caller still gets the legacy JSON 400.
+        // Field errors render next to their inputs via OOB spans (the form can't
+        // self-swap — a file input can't be repopulated, so we swap only the spans).
+        // Face/file/operational problems aren't tied to a named input, so they are
+        // thrown and rendered centrally by UiExceptionFilter (the dialog's general
+        // error region for HTMX, problem+json for a data caller).
         val errors = linkedMapOf<String, String>()
-        var generalError: String? = null
 
-        fun errorResponse(): ServerResponse {
-            if (request.isHtmx) {
-                return request.htmx {
-                    reswap(HxSwap.NONE)
-                    oob("fonts/new", "error-catalog") { "errors" to errors }
-                    oob("fonts/new", "error-slug") { "errors" to errors }
-                    oob("fonts/new", "error-name") { "errors" to errors }
-                    oob("fonts/new", "error-kind") { "errors" to errors }
-                    oob("fonts/new", "error-general") { "generalError" to generalError }
-                }
-            }
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to (generalError ?: errors.values.firstOrNull() ?: "Invalid request")))
+        fun fieldErrors(): ServerResponse = request.htmx {
+            reswap(HxSwap.NONE)
+            oob("fonts/new", "error-catalog") { "errors" to errors }
+            oob("fonts/new", "error-slug") { "errors" to errors }
+            oob("fonts/new", "error-name") { "errors" to errors }
+            oob("fonts/new", "error-kind") { "errors" to errors }
         }
 
         val slugStr = field("slug")
@@ -167,12 +158,18 @@ class FontHandler(
         }
         val catalogKeyStr = field("catalog")
         if (catalogKeyStr == null) errors["catalog"] = "Catalog is required"
-        val catalogKey = catalogKeyStr?.let { CatalogKey.of(it) }
 
-        // Collect the repeating face rows: parallel `file` / `weight` /
-        // `italic` fields, indexed positionally. Rows whose file is empty are
-        // skipped (the template renders at least one row but extras may be
-        // blank). At least one face file is required.
+        if (errors.isNotEmpty()) return fieldErrors()
+
+        // Past field validation: these are present.
+        val validSlug = slug!!
+        val validName = name!!
+        val validKind = kind!!
+        val validCatalogKey = CatalogKey.of(catalogKeyStr!!)
+
+        // Collect the repeating face rows: parallel `file` / `weight` / `italic`
+        // fields, indexed positionally. Rows whose file is empty are skipped. These
+        // problems aren't tied to a named input, so they are thrown (→ filter).
         val fileParts: List<Part> = multipartData["file"].orEmpty()
         val weights: List<String> = multipartData["weight"].orEmpty()
             .map { String(it.inputStream.readAllBytes()).trim() }
@@ -184,86 +181,56 @@ class FontHandler(
         for ((idx, part) in fileParts.withIndex()) {
             if ((part.submittedFileName ?: "").isBlank() || part.size <= 0L) continue
             val weight = weights.getOrNull(idx)?.toIntOrNull()
-            if (weight == null) {
-                generalError = "Each face needs a numeric weight (1–1000)"
-                break
-            }
-            if (weight !in 1..1000) {
-                generalError = "Font weight must be between 1 and 1000"
-                break
-            }
+                ?: throw FormInputException("Each face needs a numeric weight (1–1000)")
+            if (weight !in 1..1000) throw FormInputException("Font weight must be between 1 and 1000")
             val italic = italics.getOrNull(idx)?.equals("true", ignoreCase = true) == true
             rows += FaceRow(part, weight, italic)
         }
-        if (generalError == null && rows.isEmpty()) {
-            generalError = "At least one face file is required"
-        }
-        if (generalError == null && rows.map { it.weight to it.italic }.toSet().size != rows.size) {
-            generalError = "Each (weight, italic) face must be unique"
+        if (rows.isEmpty()) throw FormInputException("At least one face file is required")
+        if (rows.map { it.weight to it.italic }.toSet().size != rows.size) {
+            throw FormInputException("Each (weight, italic) face must be unique")
         }
 
-        if (errors.isNotEmpty() || generalError != null) return errorResponse()
-
-        // Past validation: required fields are guaranteed present (their absence
-        // is recorded as an error above).
-        val validSlug = slug!!
-        val validName = name!!
-        val validKind = kind!!
-        val validCatalogKey = catalogKey!!
-
+        // UploadAsset / ImportFont may throw UnsupportedAssetTypeException or
+        // CatalogReadOnlyException — both are mapped centrally by UiExceptionFilter.
         val importVariants = mutableListOf<ImportFontVariant>()
-        try {
-            for (row in rows) {
-                val part = row.part
-                val contentType = part.contentType
-                if (contentType == null) {
-                    generalError = "No content type on uploaded face"
-                    return errorResponse()
-                }
-                val mediaType = try {
-                    assetTypeCatalog.require(contentType)
-                } catch (e: UnsupportedAssetTypeException) {
-                    generalError = e.message
-                    return errorResponse()
-                }
-                if (mediaType !in FONT_MEDIA_TYPES) {
-                    generalError = "Unsupported font format: $contentType. Use TTF or OTF."
-                    return errorResponse()
-                }
-                val bytes = part.inputStream.use { it.readAllBytes() }
-                app.epistola.generation.pdf.FontBytesValidator.rejectionReason(bytes)?.let { reason ->
-                    generalError = "Face ${row.weight}${if (row.italic) " italic" else ""}: $reason"
-                    return errorResponse()
-                }
-                val asset = UploadAsset(
-                    tenantId = tenantKey,
-                    name = part.submittedFileName ?: "${validSlug.value}-${row.weight}${if (row.italic) "i" else ""}",
-                    mediaType = mediaType,
-                    content = bytes,
-                    width = null,
-                    height = null,
-                    catalogKey = validCatalogKey,
-                ).execute()
-                importVariants += ImportFontVariant(
-                    weight = row.weight,
-                    italic = row.italic,
-                    source = FontVariantSource.ASSET,
-                    assetKey = asset.id,
-                )
+        for (row in rows) {
+            val part = row.part
+            val contentType = part.contentType
+                ?: throw FormInputException("No content type on uploaded face")
+            val mediaType = assetTypeCatalog.require(contentType)
+            if (mediaType !in FONT_MEDIA_TYPES) {
+                throw FormInputException("Unsupported font format: $contentType. Use TTF or OTF.")
             }
-
-            ImportFont(
-                tenantId = tenantId,
+            val bytes = part.inputStream.use { it.readAllBytes() }
+            app.epistola.generation.pdf.FontBytesValidator.rejectionReason(bytes)?.let { reason ->
+                throw FormInputException("Face ${row.weight}${if (row.italic) " italic" else ""}: $reason")
+            }
+            val asset = UploadAsset(
+                tenantId = tenantKey,
+                name = part.submittedFileName ?: "${validSlug.value}-${row.weight}${if (row.italic) "i" else ""}",
+                mediaType = mediaType,
+                content = bytes,
+                width = null,
+                height = null,
                 catalogKey = validCatalogKey,
-                slug = validSlug.value,
-                name = validName,
-                kind = validKind.wire,
-                variants = importVariants,
             ).execute()
-        } catch (e: CatalogReadOnlyException) {
-            errors["catalog"] = e.message ?: "This catalog is read-only"
-            return errorResponse()
+            importVariants += ImportFontVariant(
+                weight = row.weight,
+                italic = row.italic,
+                source = FontVariantSource.ASSET,
+                assetKey = asset.id,
+            )
         }
+
+        ImportFont(
+            tenantId = tenantId,
+            catalogKey = validCatalogKey,
+            slug = validSlug.value,
+            name = validName,
+            kind = validKind.wire,
+            variants = importVariants,
+        ).execute()
 
         if (request.isHtmx) {
             return ServerResponse.ok()

@@ -1,6 +1,7 @@
 package app.epistola.suite.loadtest
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -10,6 +11,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.htmx.FormInputException
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxCurrentUrl
@@ -198,17 +200,11 @@ class LoadTestHandler(
      */
     fun start(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
 
-        // The form's hx-target is the dialog's #form-error region, so every failure
-        // path returns this fragment — keeping the error inside the open modal.
-        fun formError(message: String): ServerResponse = request.htmx {
-            fragment("loadtest/new", "form-error") {
-                "error" to message
-            }
-            onNonHtmx { redirect("/tenants/$tenantKey/load-tests") }
-        }
-
+        // Every error is thrown as a FormInputException and rendered centrally by
+        // UiExceptionFilter into the dialog's #dialog-error region (the form's submit
+        // inherits the dialog's X-Epistola-Error-Region header). The template/variant
+        // selects are `required`, so a missing selection is normally caught client-side.
         val form = request.form {
             field("templateId") {
                 required()
@@ -221,15 +217,16 @@ class LoadTestHandler(
         }
 
         if (form.hasErrors()) {
-            return formError(form.errors.values.firstOrNull() ?: "Form validation failed")
+            throw FormInputException(form.errors.values.firstOrNull() ?: "Please complete the form.")
         }
 
         // Parse composite templateId (catalogKey/templateKey)
         val rawTemplateId = form.formData["templateId"] ?: ""
         val templateSlashIdx = rawTemplateId.indexOf('/')
-        val templateCatalogKey = if (templateSlashIdx > 0) app.epistola.suite.common.ids.CatalogKey.of(rawTemplateId.substring(0, templateSlashIdx)) else return ServerResponse.badRequest().build()
-        val templateKeyStr = if (templateSlashIdx > 0) rawTemplateId.substring(templateSlashIdx + 1) else rawTemplateId
-        val templateKey = TemplateKey.validateOrNull(templateKeyStr) ?: return ServerResponse.badRequest().build()
+        if (templateSlashIdx <= 0) throw FormInputException("Select a template.")
+        val templateCatalogKey = CatalogKey.of(rawTemplateId.substring(0, templateSlashIdx))
+        val templateKey = TemplateKey.validateOrNull(rawTemplateId.substring(templateSlashIdx + 1))
+            ?: throw FormInputException("Select a valid template.")
         val variantKey = form.getVariantId("variantId")!!
 
         // Parse version or environment
@@ -237,23 +234,30 @@ class LoadTestHandler(
         val versionIdStr = params.getFirst("versionId")
         val environmentIdStr = params.getFirst("environmentId")
 
-        val versionId = if (!versionIdStr.isNullOrBlank()) VersionKey.of(versionIdStr.toInt()) else null
+        val versionId = if (!versionIdStr.isNullOrBlank()) {
+            VersionKey.of(versionIdStr.toIntOrNull() ?: throw FormInputException("Select a valid version."))
+        } else {
+            null
+        }
         val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentKey.of(environmentIdStr) else null
 
         val targetCount = request.queryParamInt("targetCount", 100)
 
-        // Parse test data JSON. Invalid or non-object JSON returns the form-error
-        // fragment (inside the dialog) rather than throwing an uncaught 500.
+        // Parse test data JSON — invalid or non-object JSON is a thrown input error.
         val testDataStr = params.getFirst("testData")?.takeIf { it.isNotBlank() } ?: "{}"
         val testData = try {
             objectMapper.readTree(testDataStr) as? tools.jackson.databind.node.ObjectNode
-                ?: return formError("Test data must be a JSON object, e.g. {\"customer\": \"Acme\"}.")
+                ?: throw FormInputException("Test data must be a JSON object, e.g. {\"customer\": \"Acme\"}.")
+        } catch (e: FormInputException) {
+            throw e
         } catch (e: Exception) {
-            return formError("Test data must be valid JSON.")
+            throw FormInputException("Test data must be valid JSON.")
         }
 
-        try {
-            val run = StartLoadTest(
+        // A backend rejection (template/version not found, conflict, …) is surfaced
+        // with its message in the same general error region.
+        val run = try {
+            StartLoadTest(
                 tenantId = tenantKey,
                 catalogKey = templateCatalogKey,
                 templateId = templateKey,
@@ -264,15 +268,15 @@ class LoadTestHandler(
                 concurrencyLevel = 1, // Legacy field, not used with batch submission
                 testData = testData,
             ).execute()
-
-            val url = "/tenants/$tenantKey/load-tests/${run.id}"
-            return if (request.isHtmx) {
-                ServerResponse.ok().header("HX-Redirect", url).build()
-            } else {
-                redirect(url)
-            }
         } catch (e: Exception) {
-            return formError(e.message ?: "Failed to start load test")
+            throw FormInputException(e.message ?: "Failed to start load test")
+        }
+
+        val url = "/tenants/$tenantKey/load-tests/${run.id}"
+        return if (request.isHtmx) {
+            ServerResponse.ok().header("HX-Redirect", url).build()
+        } else {
+            redirect(url)
         }
     }
 

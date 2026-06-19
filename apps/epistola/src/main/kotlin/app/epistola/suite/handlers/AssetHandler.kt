@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.htmx.FormInputException
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxCurrentUrl
@@ -17,7 +18,6 @@ import app.epistola.suite.htmx.urlWithDialogParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
-import jakarta.servlet.http.Part
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -119,52 +119,32 @@ class AssetHandler(
 
         val multipartData = request.multipartData()
 
-        // Accumulate the catalog field error (rendered next to its select) plus a
-        // single general message for file problems. On an HTMX (dialog) submit we
-        // swap only the error spans via OOB so the chosen file survives — a
-        // re-render can't repopulate a file input. The editor calls this endpoint
-        // with `Accept: application/json` (non-HTMX) and still gets the JSON 400.
+        // The catalog field error renders next to its select via an OOB span (the
+        // form can't self-swap — a file input can't be repopulated). File/operational
+        // problems aren't tied to a named input, so they are thrown and rendered
+        // centrally by UiExceptionFilter: the dialog's #dialog-error region for HTMX,
+        // problem+json (with `detail`) for the editor's non-HTMX `Accept: json` caller.
         val errors = linkedMapOf<String, String>()
-        var generalError: String? = null
 
-        fun errorResponse(): ServerResponse {
-            if (request.isHtmx) {
-                return request.htmx {
-                    reswap(HxSwap.NONE)
-                    oob("assets/new", "error-catalog") { "errors" to errors }
-                    oob("assets/new", "error-general") { "generalError" to generalError }
-                }
-            }
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to (generalError ?: errors.values.firstOrNull() ?: "Invalid request")))
+        fun fieldErrors(): ServerResponse = request.htmx {
+            reswap(HxSwap.NONE)
+            oob("assets/new", "error-catalog") { "errors" to errors }
         }
 
         val catalogKeyStr = multipartData["catalog"]?.firstOrNull()?.let {
             String(it.inputStream.readAllBytes()).trim()
         }?.ifBlank { null }
         if (catalogKeyStr == null) errors["catalog"] = "Catalog is required"
+        if (errors.isNotEmpty()) return fieldErrors()
+        val catalogKey = CatalogKey.of(catalogKeyStr!!)
 
-        val filePart: Part? = multipartData["file"]?.firstOrNull()
-        if (filePart == null) {
-            generalError = "No file provided"
-            return errorResponse()
-        }
-
+        val filePart = multipartData["file"]?.firstOrNull()
+            ?: throw FormInputException("No file provided")
         val contentBytes = filePart.inputStream.use { it.readAllBytes() }
         val originalFilename = filePart.submittedFileName ?: "unnamed"
         val contentType = filePart.contentType
-        if (contentType == null) {
-            generalError = "No content type on uploaded file"
-            return errorResponse()
-        }
-
-        val mediaType = try {
-            assetTypeCatalog.require(contentType)
-        } catch (e: UnsupportedAssetTypeException) {
-            generalError = e.message
-            return errorResponse()
-        }
+            ?: throw FormInputException("No content type on uploaded file")
+        val mediaType = assetTypeCatalog.require(contentType)
 
         // Extract image dimensions (null for SVG)
         val dimensions = if (mediaType != AssetMediaType.SVG) {
@@ -181,23 +161,16 @@ class AssetHandler(
             null
         }
 
-        if (catalogKeyStr == null) return errorResponse()
-        val catalogKey = CatalogKey.of(catalogKeyStr)
-
-        val asset = try {
-            UploadAsset(
-                tenantId = tenantId,
-                name = originalFilename,
-                mediaType = mediaType,
-                content = contentBytes,
-                width = dimensions?.first,
-                height = dimensions?.second,
-                catalogKey = catalogKey,
-            ).execute()
-        } catch (e: AssetTooLargeException) {
-            generalError = e.message
-            return errorResponse()
-        }
+        // UploadAsset may throw AssetTooLargeException — mapped centrally by the filter.
+        val asset = UploadAsset(
+            tenantId = tenantId,
+            name = originalFilename,
+            mediaType = mediaType,
+            content = contentBytes,
+            width = dimensions?.first,
+            height = dimensions?.second,
+            catalogKey = catalogKey,
+        ).execute()
 
         // HTMX form submission — redirect to asset list
         if (request.isHtmx) {
