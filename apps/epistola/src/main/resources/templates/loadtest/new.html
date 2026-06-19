@@ -8,10 +8,12 @@
         returns `createDialog`; the cascade selects (name=templateId/variantId/…)
         hit the same endpoint and get the `template-options` fragment swapped into
         #template-options-section. The form submits to `start`, which HX-Redirects on
-        success; every error (bad JSON, missing selection, a backend failure) is
-        thrown by the handler and rendered in the shared #dialog-error region by
-        UiExceptionFilter — the dialog carries hx-headers so its submit tells the
-        filter where to render. The cascade selects keep their own hx-target, so the
+        success. Field-keyable errors (bad JSON, a missing/invalid template/variant/version)
+        render inline as per-field OOB spans next to their input (see the error-fields
+        fragment below), leaving the cascade selections and typed JSON intact. Only an
+        operational StartLoadTest failure is thrown to the shared #dialog-error region by
+        the central resolver — the dialog carries hx-headers so its submit tells the
+        resolver where to render. The cascade selects keep their own hx-target, so the
         form needs none.
     -->
     <th:block th:fragment="createDialog">
@@ -43,6 +45,7 @@
                                 </option>
                             </select>
                             <span class="form-hint">Select the template to test</span>
+                            <span class="form-error" id="loadtest-error-templateId" th:attr="data-error=${errors?.containsKey('templateId')}" th:text="${errors?.get('templateId')}"></span>
                         </div>
 
                         <div id="template-options-section">
@@ -59,6 +62,7 @@
                             <input type="number" id="targetCount" name="targetCount" class="ep-input"
                                    required value="100" min="1" max="10000">
                             <span class="form-hint">Number of documents to generate (1-10,000). Specify either an explicit version or an environment, not both.</span>
+                            <span class="form-error" id="loadtest-error-targetCount" th:attr="data-error=${errors?.containsKey('targetCount')}" th:text="${errors?.get('targetCount')}"></span>
                         </div>
                     </fieldset>
                 </div>
@@ -122,6 +126,7 @@
                 </option>
             </select>
             <span class="form-hint">Template variant to use</span>
+            <span class="form-error" id="loadtest-error-variantId" th:attr="data-error=${errors?.containsKey('variantId')}" th:text="${errors?.get('variantId')}"></span>
         </div>
 
         <!--/* Version dropdown: hidden when an environment is selected */-->
@@ -142,6 +147,7 @@
             </select>
             <span class="form-hint" th:if="${#lists.isEmpty(versions)}">No versions available for this variant</span>
             <span class="form-hint" th:unless="${#lists.isEmpty(versions)}">Select a version, or leave as "Use environment" to resolve from environment</span>
+            <span class="form-error" id="loadtest-error-versionId" th:attr="data-error=${errors?.containsKey('versionId')}" th:text="${errors?.get('versionId')}"></span>
         </div>
 
         <!--/* Environment dropdown: hidden when a version is explicitly selected */-->
@@ -160,6 +166,7 @@
                 </option>
             </select>
             <span class="form-hint">Environment to determine version from</span>
+            <span class="form-error" id="loadtest-error-environmentId" th:attr="data-error=${errors?.containsKey('environmentId')}" th:text="${errors?.get('environmentId')}"></span>
         </div>
 
         <fieldset style="border: none; padding: 0; margin: 0;">
@@ -191,6 +198,7 @@
                               th:text="${testData}"></textarea>
                     <span class="form-hint" th:if="${#strings.isEmpty(selectedExampleId)}">Select a data example above, or enter JSON manually</span>
                     <span class="form-hint" th:unless="${#strings.isEmpty(selectedExampleId)}">Pre-filled from selected data example (read-only)</span>
+                    <span class="form-error" id="loadtest-error-testData" th:attr="data-error=${errors?.containsKey('testData')}" th:text="${errors?.get('testData')}"></span>
                 </div>
             </th:block>
 
@@ -202,9 +210,34 @@
                               rows="10" style="font-family: monospace;"
                               placeholder="Enter JSON test data..."></textarea>
                     <span class="form-hint">This template has no data examples. Enter JSON test data manually.</span>
+                    <span class="form-error" id="loadtest-error-testData" th:attr="data-error=${errors?.containsKey('testData')}" th:text="${errors?.get('testData')}"></span>
                 </div>
             </th:block>
         </fieldset>
+    </th:block>
+
+    <!--
+        OOB per-field error fragment. On a field-keyable error (invalid JSON, a missing or
+        invalid template/variant/version) the handler swaps these spans (by id, via
+        hx-swap-oob) into their live slots with HX-Reswap: none, so the cascade selections
+        and the typed JSON survive. All four slots are emitted every error response so a
+        previously-shown error clears (empty span → data-error absent) when its field is
+        fixed. Operational StartLoadTest failures are NOT field-keyable — they are thrown
+        and rendered in the shared #dialog-error region (see fragments/dialog :: dialogError).
+    -->
+    <th:block th:fragment="error-fields">
+        <span class="form-error" id="loadtest-error-templateId" hx-swap-oob="true"
+              th:attr="data-error=${errors?.containsKey('templateId')}" th:text="${errors?.get('templateId')}"></span>
+        <span class="form-error" id="loadtest-error-variantId" hx-swap-oob="true"
+              th:attr="data-error=${errors?.containsKey('variantId')}" th:text="${errors?.get('variantId')}"></span>
+        <span class="form-error" id="loadtest-error-versionId" hx-swap-oob="true"
+              th:attr="data-error=${errors?.containsKey('versionId')}" th:text="${errors?.get('versionId')}"></span>
+        <span class="form-error" id="loadtest-error-environmentId" hx-swap-oob="true"
+              th:attr="data-error=${errors?.containsKey('environmentId')}" th:text="${errors?.get('environmentId')}"></span>
+        <span class="form-error" id="loadtest-error-targetCount" hx-swap-oob="true"
+              th:attr="data-error=${errors?.containsKey('targetCount')}" th:text="${errors?.get('targetCount')}"></span>
+        <span class="form-error" id="loadtest-error-testData" hx-swap-oob="true"
+              th:attr="data-error=${errors?.containsKey('testData')}" th:text="${errors?.get('testData')}"></span>
     </th:block>
 </body>
 </html>

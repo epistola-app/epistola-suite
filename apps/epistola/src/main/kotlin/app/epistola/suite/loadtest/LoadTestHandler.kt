@@ -12,7 +12,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.FormInputException
-import app.epistola.suite.htmx.form
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.htmxTriggerName
@@ -40,6 +40,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
 
 @Component
@@ -200,73 +201,88 @@ class LoadTestHandler(
      */
     fun start(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-
-        // Every error is thrown as a FormInputException and rendered centrally by
-        // UiExceptionFilter into the dialog's #dialog-error region (the form's submit
-        // inherits the dialog's X-Epistola-Error-Region header). The template/variant
-        // selects are `required`, so a missing selection is normally caught client-side.
-        val form = request.form {
-            field("templateId") {
-                required()
-                // No asTemplateId() — value is composite "catalogKey/templateKey", parsed manually below
-            }
-            field("variantId") {
-                required()
-                asVariantId()
-            }
-        }
-
-        if (form.hasErrors()) {
-            throw FormInputException(form.errors.values.firstOrNull() ?: "Please complete the form.")
-        }
-
-        // Parse composite templateId (catalogKey/templateKey)
-        val rawTemplateId = form.formData["templateId"] ?: ""
-        val templateSlashIdx = rawTemplateId.indexOf('/')
-        if (templateSlashIdx <= 0) throw FormInputException("Select a template.")
-        val templateCatalogKey = CatalogKey.of(rawTemplateId.substring(0, templateSlashIdx))
-        val templateKey = TemplateKey.validateOrNull(rawTemplateId.substring(templateSlashIdx + 1))
-            ?: throw FormInputException("Select a valid template.")
-        val variantKey = form.getVariantId("variantId")!!
-
-        // Parse version or environment
         val params = request.params()
-        val versionIdStr = params.getFirst("versionId")
-        val environmentIdStr = params.getFirst("environmentId")
 
-        val versionId = if (!versionIdStr.isNullOrBlank()) {
-            VersionKey.of(versionIdStr.toIntOrNull() ?: throw FormInputException("Select a valid version."))
-        } else {
-            null
+        // Field-keyable problems (invalid JSON, a missing/invalid template/variant/version)
+        // accumulate per field and render inline as per-field OOB spans with HX-Reswap: none,
+        // so the dialog's cascade selections and typed JSON survive. Only an operational
+        // StartLoadTest failure (below) is a non-field error, thrown to the shared
+        // #dialog-error region by the central resolver. See ADR 0008.
+        val errors = linkedMapOf<String, String>()
+
+        fun fieldErrors(): ServerResponse = request.htmx {
+            reswap(HxSwap.NONE)
+            oob("loadtest/new", "error-fields") { "errors" to errors }
         }
+
+        // templateId — composite "catalogKey/templateKey"
+        val rawTemplateId = params.getFirst("templateId")?.trim().orEmpty()
+        var templateCatalogKey: CatalogKey? = null
+        var templateKey: TemplateKey? = null
+        if (rawTemplateId.isBlank()) {
+            errors["templateId"] = "Template is required"
+        } else {
+            val slashIdx = rawTemplateId.indexOf('/')
+            if (slashIdx <= 0) {
+                errors["templateId"] = "Select a template."
+            } else {
+                templateCatalogKey = CatalogKey.of(rawTemplateId.substring(0, slashIdx))
+                templateKey = TemplateKey.validateOrNull(rawTemplateId.substring(slashIdx + 1))
+                if (templateKey == null) errors["templateId"] = "Select a valid template."
+            }
+        }
+
+        // variantId
+        val rawVariantId = params.getFirst("variantId")?.trim().orEmpty()
+        var variantKey: VariantKey? = null
+        if (rawVariantId.isBlank()) {
+            errors["variantId"] = "Variant is required"
+        } else {
+            variantKey = VariantKey.validateOrNull(rawVariantId)
+            if (variantKey == null) errors["variantId"] = "Select a valid variant."
+        }
+
+        // versionId (optional) — rendered only when no environment is chosen
+        var versionId: VersionKey? = null
+        val versionIdStr = params.getFirst("versionId")
+        if (!versionIdStr.isNullOrBlank()) {
+            val parsed = versionIdStr.toIntOrNull()
+            if (parsed == null) errors["versionId"] = "Select a valid version." else versionId = VersionKey.of(parsed)
+        }
+
+        // environmentId (optional)
+        val environmentIdStr = params.getFirst("environmentId")
         val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentKey.of(environmentIdStr) else null
+
+        // testData JSON — invalid or non-object JSON is a field error on testData.
+        val testDataStr = params.getFirst("testData")?.takeIf { it.isNotBlank() } ?: "{}"
+        var testData: ObjectNode? = null
+        try {
+            testData = objectMapper.readTree(testDataStr) as? ObjectNode
+            if (testData == null) {
+                errors["testData"] = "Test data must be a JSON object, e.g. {\"customer\": \"Acme\"}."
+            }
+        } catch (e: Exception) {
+            errors["testData"] = "Test data must be valid JSON."
+        }
+
+        if (errors.isNotEmpty()) return fieldErrors()
 
         val targetCount = request.queryParamInt("targetCount", 100)
 
-        // Parse test data JSON — invalid or non-object JSON is a thrown input error.
-        val testDataStr = params.getFirst("testData")?.takeIf { it.isNotBlank() } ?: "{}"
-        val testData = try {
-            objectMapper.readTree(testDataStr) as? tools.jackson.databind.node.ObjectNode
-                ?: throw FormInputException("Test data must be a JSON object, e.g. {\"customer\": \"Acme\"}.")
-        } catch (e: FormInputException) {
-            throw e
-        } catch (e: Exception) {
-            throw FormInputException("Test data must be valid JSON.")
-        }
-
-        // A backend rejection (template/version not found, conflict, …) is surfaced
-        // with its message in the same general error region.
+        // A backend rejection (template/version not found, conflict, …) is NOT a field
+        // problem: it is thrown and surfaced in the shared #dialog-error region.
         val run = try {
             StartLoadTest(
                 tenantId = tenantKey,
-                catalogKey = templateCatalogKey,
-                templateId = templateKey,
-                variantId = variantKey,
+                catalogKey = templateCatalogKey!!,
+                templateId = templateKey!!,
+                variantId = variantKey!!,
                 versionId = versionId,
                 environmentId = environmentId,
                 targetCount = targetCount,
                 concurrencyLevel = 1, // Legacy field, not used with batch submission
-                testData = testData,
+                testData = testData!!,
             ).execute()
         } catch (e: Exception) {
             throw FormInputException(e.message ?: "Failed to start load test")

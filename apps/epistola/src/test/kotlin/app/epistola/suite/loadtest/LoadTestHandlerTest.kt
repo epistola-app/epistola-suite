@@ -452,18 +452,19 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
     @Nested
     inner class Start {
 
+        /**
+         * Field-keyable errors (bad JSON, missing/invalid selections) render inline as
+         * per-field OOB error spans, leaving the cascade selections and typed JSON
+         * untouched (HX-Reswap: none). Only an operational StartLoadTest failure uses the
+         * shared #dialog-error card. See ADR 0008.
+         */
         @Test
-        fun `POST start with invalid JSON renders the error in the dialog region, not a 500`() = fixture {
+        fun `POST start with invalid JSON renders a field error under the testData textarea, not the dialog card`() = fixture {
             lateinit var testTenant: Tenant
 
             given { testTenant = tenant("Load Test JSON Tenant") }
 
             whenever {
-                // Format-valid (but not necessarily existing) template/variant get past
-                // field validation so we reach the testData JSON parse. The handler throws
-                // a FormInputException; with the dialog's error-region header, the shared
-                // filter renders it as an OOB swap into #dialog-error (inside the modal) —
-                // never an uncaught 500 surfaced behind the modal.
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
                 headers.set("HX-Request", "true")
@@ -485,14 +486,16 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
                 val body = response.body!!
-                assertThat(body).contains("id=\"dialog-error\"")
-                assertThat(body).contains("alert-error")
+                // Field error on the testData field (OOB span) — NOT the general dialog card.
+                assertThat(body).contains("id=\"loadtest-error-testData\"")
+                assertThat(body).contains("data-error=\"true\"")
                 assertThat(body).contains("valid JSON")
+                assertThat(body).doesNotContain("id=\"dialog-error\"")
             }
         }
 
         @Test
-        fun `POST start with a non-object JSON array renders the error in the dialog region`() = fixture {
+        fun `POST start with a non-object JSON array renders a field error under the testData textarea`() = fixture {
             lateinit var testTenant: Tenant
 
             given { testTenant = tenant("Load Test JSON Array Tenant") }
@@ -517,8 +520,112 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("id=\"dialog-error\"")
+                assertThat(response.body).contains("id=\"loadtest-error-testData\"")
                 assertThat(response.body).contains("must be a JSON object")
+                assertThat(response.body).doesNotContain("id=\"dialog-error\"")
+            }
+        }
+
+        @Test
+        fun `POST start with a blank template renders a field error under the template select`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given { testTenant = tenant("Load Test Blank Template Tenant") }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+                headers.set("HX-Request", "true")
+                headers.set("X-Epistola-Error-Region", "dialog-error")
+                val formData = LinkedMultiValueMap<String, String>()
+                formData.add("templateId", "")
+                formData.add("variantId", "invoice-default")
+                formData.add("targetCount", "10")
+                formData.add("testData", "{}")
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/load-tests",
+                    HttpEntity(formData, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+                val body = response.body!!
+                assertThat(body).contains("id=\"loadtest-error-templateId\"")
+                assertThat(body).contains("data-error=\"true\"")
+                assertThat(body).doesNotContain("id=\"dialog-error\"")
+            }
+        }
+
+        @Test
+        fun `POST start with a blank variant renders a field error under the variant select`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given { testTenant = tenant("Load Test Blank Variant Tenant") }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+                headers.set("HX-Request", "true")
+                headers.set("X-Epistola-Error-Region", "dialog-error")
+                val formData = LinkedMultiValueMap<String, String>()
+                formData.add("templateId", "default/invoice-template")
+                formData.add("variantId", "")
+                formData.add("targetCount", "10")
+                formData.add("testData", "{}")
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/load-tests",
+                    HttpEntity(formData, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                val body = response.body!!
+                assertThat(body).contains("id=\"loadtest-error-variantId\"")
+                assertThat(body).contains("data-error=\"true\"")
+                assertThat(body).doesNotContain("id=\"dialog-error\"")
+            }
+        }
+
+        @Test
+        fun `POST start with a backend failure renders the general dialog-error card, not a field error`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given { testTenant = tenant("Load Test Backend Failure Tenant") }
+
+            whenever {
+                // Format-valid but non-existent template/variant pass field validation, so
+                // StartLoadTest is reached and fails operationally — that is NOT a field
+                // problem, so it renders in the shared #dialog-error card.
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+                headers.set("HX-Request", "true")
+                headers.set("X-Epistola-Error-Region", "dialog-error")
+                val formData = LinkedMultiValueMap<String, String>()
+                formData.add("templateId", "default/invoice-template")
+                formData.add("variantId", "invoice-default")
+                formData.add("targetCount", "10")
+                formData.add("testData", "{}")
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/load-tests",
+                    HttpEntity(formData, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                val body = response.body!!
+                assertThat(body).contains("id=\"dialog-error\"")
+                assertThat(body).contains("alert-error")
+                assertThat(body).doesNotContain("id=\"loadtest-error-testData\"")
             }
         }
     }
