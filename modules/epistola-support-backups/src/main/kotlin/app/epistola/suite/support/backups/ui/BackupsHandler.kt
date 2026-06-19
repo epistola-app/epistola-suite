@@ -2,6 +2,7 @@ package app.epistola.suite.support.backups.ui
 
 import app.epistola.hub.client.error.HubEntitlementDeniedException
 import app.epistola.hub.client.error.HubException
+import app.epistola.hub.client.error.HubUnauthenticatedException
 import app.epistola.suite.backups.BackupOutcome
 import app.epistola.suite.backups.StoredBackup
 import app.epistola.suite.backups.TenantBackupService
@@ -49,6 +50,10 @@ class BackupsHandler(
             } catch (e: HubEntitlementDeniedException) {
                 hubStatus = "NOT_ENTITLED"
                 emptyList()
+            } catch (e: HubUnauthenticatedException) {
+                log.warn("Hub rejected this installation's credentials listing backups for tenant {}: {}", tenantId.key.value, e.message)
+                hubStatus = "AUTH"
+                emptyList()
             } catch (e: HubException) {
                 log.warn("Could not list backups for tenant {}: {}", tenantId.key.value, e.message)
                 hubStatus = "UNAVAILABLE"
@@ -84,6 +89,9 @@ class BackupsHandler(
         } catch (e: HubEntitlementDeniedException) {
             log.warn("Backup not entitled for tenant {}: {}", tenantId.key.value, e.message)
             redirect(tenantId.key.value, "error=not-entitled")
+        } catch (e: HubUnauthenticatedException) {
+            log.warn("Hub rejected this installation's credentials backing up tenant {}: {}", tenantId.key.value, e.message)
+            redirect(tenantId.key.value, "error=hub-auth")
         } catch (e: HubException) {
             log.warn("Backup could not reach the hub for tenant {}: {}", tenantId.key.value, e.message)
             redirect(tenantId.key.value, "error=hub-unavailable")
@@ -106,6 +114,9 @@ class BackupsHandler(
         } catch (e: HubEntitlementDeniedException) {
             log.warn("Restore not entitled for tenant {}: {}", tenantId.key.value, e.message)
             redirect(tenantId.key.value, "error=not-entitled")
+        } catch (e: HubUnauthenticatedException) {
+            log.warn("Hub rejected this installation's credentials restoring tenant {} backup {}: {}", tenantId.key.value, backupId, e.message)
+            redirect(tenantId.key.value, "error=hub-auth")
         } catch (e: HubException) {
             log.warn("Restore could not reach the hub for tenant {} backup {}: {}", tenantId.key.value, backupId, e.message)
             redirect(tenantId.key.value, "error=hub-unavailable")
