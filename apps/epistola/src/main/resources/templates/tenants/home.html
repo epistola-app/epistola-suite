@@ -2,12 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <div>
-                <h1 data-testid="page-title" th:text="${tenant.name}">Tenant Name</h1>
-                <p class="subtitle" th:text="'ID: ' + ${tenant.id}">ID: tenant-id</p>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${tenant.name},
+            pageDescription=${'ID: ' + tenant.id}
+        )}"></div>
 
         <!-- What's New compact teaser (always shown, emphasized when unseen) -->
         <div th:if="${changelogSummary != null}"
@@ -16,7 +14,7 @@
              th:classappend="${changelogIsNew} ? 'whats-new-unseen'">
             <div class="whats-new-row">
                 <div class="whats-new-info">
-                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                     <span th:if="${changelogIsNew}">
                         <strong>What's New in v<span th:text="${changelogVersion}">0.12.0</span></strong>
                     </span>
@@ -42,7 +40,7 @@
                             hx-target="#whats-new-banner"
                             hx-swap="outerHTML"
                             aria-label="Dismiss">
-                        <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon ep-icon-sm')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='x', class='ep-icon ep-icon-sm')}" />
                     </button>
                 </div>
             </div>
@@ -72,19 +70,19 @@
                 <h2>Quick Actions</h2>
                 <div class="quick-links">
                     <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
-                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                         New Template
                     </a>
                     <a th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
-                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                         New Theme
                     </a>
                     <a th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
-                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                         New Environment
                     </a>
                     <a th:href="@{/tenants/{id}/generate(id=${tenant.id})}" class="ep-btn ep-btn-primary">
-                        <th:block th:replace="~{fragments/icon :: icon(name='zap', class='ep-icon')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='zap', class='ep-icon')}" />
                         Generate Document
                     </a>
                 </div>
