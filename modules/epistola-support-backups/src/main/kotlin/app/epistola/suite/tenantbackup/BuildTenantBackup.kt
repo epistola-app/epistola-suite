@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenantbackup.dump.DumpTenantTables
+import app.epistola.suite.tenantbackup.schema.RestoreCompatibility
 import app.epistola.suite.tenantbackup.schema.SchemaStamp
 import app.epistola.suite.tenantbackup.schema.TenantTableTopology
 import app.epistola.suite.time.EpistolaClock
@@ -46,6 +47,7 @@ class BuildTenantBackupHandler(
     private val dumpTenantTables: DumpTenantTables,
     private val crypto: TenantBackupCrypto,
     private val objectMapper: ObjectMapper,
+    private val restoreCompatibility: RestoreCompatibility,
     private val buildProperties: BuildProperties?,
 ) : CommandHandler<BuildTenantBackup, TenantBackupArtifact> {
     private val buildVersion: String get() = buildProperties?.version ?: "dev"
@@ -95,6 +97,7 @@ class BuildTenantBackupHandler(
                 fingerprint = fingerprint(dump),
                 tables = tableEntries,
                 blobs = blobEntries,
+                appliedMigrations = recordAppliedMigrations(handle),
             )
 
         val archive = buildArchive(manifest, tableFiles, blobFiles)
@@ -112,6 +115,21 @@ class BuildTenantBackupHandler(
     }
 
     private fun encodeJsonl(rows: List<Map<String, Any?>>): ByteArray = rows.joinToString("\n") { objectMapper.writeValueAsString(it) }.toByteArray(Charsets.UTF_8)
+
+    /**
+     * Snapshots every applied migration version with its restore-compatibility flags (from
+     * `schema-backup-compatibility.yaml`), so a future **forward** restore — onto an app that can't
+     * see migrations newer than itself — can read them. Records *all* applied versions (unlisted →
+     * `false,false`) so an unlisted crossed migration correctly reads as not forward-compatible.
+     */
+    private fun recordAppliedMigrations(handle: org.jdbi.v3.core.Handle): List<BackupMigration> = handle
+        .createQuery("SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY version")
+        .mapTo(String::class.java)
+        .list()
+        .map { version ->
+            val flags = restoreCompatibility.flagsFor(version)
+            BackupMigration(version = version, backward = flags.backward, forward = flags.forward)
+        }
 
     /**
      * Content fingerprint for dedup: SHA-256 over the ordered tables and rows (each row's columns
@@ -155,6 +173,6 @@ class BuildTenantBackupHandler(
     }
 
     private companion object {
-        const val FORMAT_VERSION = 1
+        const val FORMAT_VERSION = 2
     }
 }

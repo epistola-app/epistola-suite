@@ -27,6 +27,7 @@
         <div th:if="${saved == 'restore'}" class="alert alert-success" role="status">Tenant restored from the backup.</div>
         <div th:if="${error == 'backup-failed'}" class="alert alert-error" role="alert">The backup failed. Please try again or check the logs.</div>
         <div th:if="${error == 'restore-failed'}" class="alert alert-error" role="alert">The restore failed and was rolled back. Please try again or check the logs.</div>
+        <div th:if="${error == 'restore-incompatible'}" class="alert alert-error" role="alert">This backup was taken on a schema version this build can't restore (a database change between the two isn't declared restore-compatible). Restore it on a matching build.</div>
 
         <div th:if="${#lists.isEmpty(backups)}" class="empty-state">
             <div class="empty-state-icon">
@@ -57,15 +58,25 @@
                     <td th:text="${backup.size}">1.2 MB</td>
                     <td>
                         <span th:if="${backup.isLatest}" class="ep-badge ep-badge-success">Latest</span>
+                        <span th:if="${backup.versionNote != null}" class="ep-badge ep-badge-warning" th:text="${backup.versionNote}">Older version</span>
                     </td>
                     <td style="text-align: right;">
-                        <button type="button"
+                        <button th:if="${backup.restorable}"
+                                type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                 data-confirm-title="Restore backup"
                                 data-confirm-target="body"
                                 th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${backup.capturedAt} + '? This reverts the tenant to the backed-up state — any templates, versions and edits made since are dropped (generated documents are kept). This cannot be undone.',
                                          data-confirm-url=@{/tenants/{tenantId}/backups/{backupId}/restore(tenantId=${tenantId},backupId=${backup.backupId})}"
                                 onclick="openConfirmDialog(this)">
+                            <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
+                            Restore
+                        </button>
+                        <button th:unless="${backup.restorable}"
+                                type="button"
+                                class="ep-btn ep-btn-ghost ep-btn-sm"
+                                disabled
+                                title="This backup was taken on a schema version this build can't restore.">
                             <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
                             Restore
                         </button>

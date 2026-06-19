@@ -8,7 +8,12 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.tenantbackup.IncompatibleBackupSchemaException
+import app.epistola.suite.tenantbackup.schema.Compatibility
+import app.epistola.suite.tenantbackup.schema.RestoreCompatibility
+import app.epistola.suite.tenantbackup.schema.SchemaStamp
 import app.epistola.suite.tenants.queries.GetTenant
+import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -17,14 +22,19 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
- * UI handler for the Support → Backups page: lists a tenant's locally-stored faithful backups,
- * triggers an on-demand backup, and restores one. Visible only when the `support-backups` feature
- * toggle is on (nav) and gated per-action on `TENANT_SETTINGS`. Backups are stored locally, so there
- * is no hub round-trip here.
+ * UI handler for the Support → Backups page: lists a tenant's faithful backups, triggers an
+ * on-demand backup, and restores one. Visible only when the `support-backups` feature toggle is on
+ * (nav) and gated per-action on `TENANT_SETTINGS`.
+ *
+ * Each backup is annotated with whether it is **restore-compatible** with the running schema
+ * ([RestoreCompatibility]) so an incompatible one is shown as such (and its Restore disabled) rather
+ * than failing with a generic error on click.
  */
 @Component
 class BackupsHandler(
     private val backupService: TenantBackupService,
+    private val jdbi: Jdbi,
+    private val restoreCompatibility: RestoreCompatibility,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -34,12 +44,18 @@ class BackupsHandler(
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
 
         val backups = backupService.listBackups(tenantId.key)
+        val states =
+            jdbi.withHandle<Map<String, RestoreState>, Exception> { handle ->
+                val live = SchemaStamp.current(handle)
+                backups.associate { it.id to restoreState(handle, live, it) }
+            }
+
         return ServerResponse.ok().page("backups/list") {
             "pageTitle" to "Backups - Epistola"
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "backups"
-            "backups" to backups.mapIndexed { index, backup -> backup.toView(isLatest = index == 0) }
+            "backups" to backups.mapIndexed { index, backup -> backup.toView(isLatest = index == 0, state = states.getValue(backup.id)) }
             "saved" to request.param("saved").orElse(null)
             "error" to request.param("error").orElse(null)
         }
@@ -68,10 +84,32 @@ class BackupsHandler(
         return try {
             backupService.restoreFromBackup(tenantId.key, backupId)
             redirect(tenantId.key.value, "saved=restore")
+        } catch (e: IncompatibleBackupSchemaException) {
+            log.warn("Restore refused for tenant {} from backup {}: {}", tenantId.key.value, backupId, e.reason)
+            redirect(tenantId.key.value, "error=restore-incompatible")
         } catch (e: Exception) {
             log.error("Restore failed for tenant {} from backup {}: {}", tenantId.key.value, backupId, e.message, e)
             redirect(tenantId.key.value, "error=restore-failed")
         }
+    }
+
+    /**
+     * Cheap per-backup restore-compatibility for the list, decided from the stamp alone: same →
+     * yes; backward → the live compatibility file decides; forward (backup newer than this schema) →
+     * shown as "newer", left enabled, and decided authoritatively on restore (needs the manifest).
+     */
+    private fun restoreState(
+        handle: org.jdbi.v3.core.Handle,
+        live: String,
+        backup: StoredBackup,
+    ): RestoreState = when {
+        backup.schemaStamp == live -> RestoreState(restorable = true, versionNote = null)
+        backup.schemaStamp > live -> RestoreState(restorable = true, versionNote = "Newer version")
+        else ->
+            when (restoreCompatibility.check(handle, backup.schemaStamp, appliedMigrations = null)) {
+                is Compatibility.Compatible -> RestoreState(restorable = true, versionNote = null)
+                is Compatibility.Incompatible -> RestoreState(restorable = false, versionNote = "Older version")
+            }
     }
 
     // Both actions are triggered via htmx; return 200 with HX-Redirect so htmx navigates the whole
@@ -81,7 +119,10 @@ class BackupsHandler(
         query: String,
     ): ServerResponse = ServerResponse.ok().header("HX-Redirect", "/tenants/$tenantKey/backups?$query").build()
 
-    private fun StoredBackup.toView(isLatest: Boolean): BackupView = BackupView(
+    private fun StoredBackup.toView(
+        isLatest: Boolean,
+        state: RestoreState,
+    ): BackupView = BackupView(
         backupId = id,
         capturedAt = FORMATTER.format(capturedAt.atOffset(ZoneOffset.UTC)),
         size = humanSize(sizeBytes),
@@ -89,6 +130,13 @@ class BackupsHandler(
         rowCount = rowCount,
         buildVersion = buildVersion.ifBlank { "—" },
         isLatest = isLatest,
+        restorable = state.restorable,
+        versionNote = state.versionNote,
+    )
+
+    private data class RestoreState(
+        val restorable: Boolean,
+        val versionNote: String?,
     )
 
     data class BackupView(
@@ -99,6 +147,8 @@ class BackupsHandler(
         val rowCount: Int,
         val buildVersion: String,
         val isLatest: Boolean,
+        val restorable: Boolean,
+        val versionNote: String?,
     )
 
     private companion object {

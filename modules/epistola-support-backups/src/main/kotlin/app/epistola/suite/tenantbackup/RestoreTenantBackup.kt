@@ -6,7 +6,8 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenantbackup.restore.MergeRestoreTables
-import app.epistola.suite.tenantbackup.schema.SchemaStamp
+import app.epistola.suite.tenantbackup.schema.Compatibility
+import app.epistola.suite.tenantbackup.schema.RestoreCompatibility
 import app.epistola.suite.tenantbackup.schema.TenantTableTopology
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -57,6 +58,7 @@ class RestoreTenantBackupHandler(
     private val merge: MergeRestoreTables,
     private val crypto: TenantBackupCrypto,
     private val objectMapper: ObjectMapper,
+    private val restoreCompatibility: RestoreCompatibility,
 ) : CommandHandler<RestoreTenantBackup, TenantRestoreResult> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -75,10 +77,9 @@ class RestoreTenantBackupHandler(
         }
 
         return jdbi.withHandle<TenantRestoreResult, Exception> { handle ->
-            val liveStamp = SchemaStamp.current(handle)
-            require(manifest.schemaStamp == liveStamp) {
-                "Backup was taken at schema '${manifest.schemaStamp}'; this suite is at '$liveStamp'. " +
-                    "A faithful restore is gated to the same schema — restore on a matching build."
+            when (val compatibility = restoreCompatibility.check(handle, manifest.schemaStamp, manifest.appliedMigrations)) {
+                is Compatibility.Compatible -> Unit
+                is Compatibility.Incompatible -> throw IncompatibleBackupSchemaException(compatibility.reason)
             }
             validateColumns(handle, manifest)
 
@@ -159,6 +160,6 @@ class RestoreTenantBackupHandler(
     )
 
     private companion object {
-        const val FORMAT_VERSION = 1
+        const val FORMAT_VERSION = 2
     }
 }

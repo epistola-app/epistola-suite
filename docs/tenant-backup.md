@@ -47,9 +47,12 @@ up automatically; only genuine special cases are hand-coded.
   and the matching cast on re-bind. Credential `enc:v1:` columns are read raw
   (no decryption) and ride through verbatim.
 - **Schema-version gate** — the artifact stamps the Flyway schema head
-  (`flyway_schema_history`). Restore refuses an artifact whose stamp ≠ the running
-  schema, and also verifies each table's column set still matches. A backup is a
-  **same-schema undo**, never a migration.
+  (`flyway_schema_history`). Same stamp always restores. A _different_ stamp
+  restores only when every migration crossed between the backup and the running
+  schema is declared compatible in `schema-backup-compatibility.yaml` (default
+  deny) — see [Schema compatibility](#schema-compatibility) below. Restore also
+  verifies each backed-up table's column set still matches (the structural
+  backstop), regardless of the stamp.
 - **Encryption at rest** — the whole archive is wrapped with the existing
   `CredentialCipher` keyset (`epistola.encryption.*`, AES-256-GCM, key rotation).
   Restore needs the same keyset present — the same constraint that already governs
@@ -76,6 +79,44 @@ Special cases the merge handles: the `tenants`↔`themes` circular FK (the defau
 theme is nulled during the merge and re-applied at the end), the deferred
 `font_variants`→`assets` FK, the RESTRICT `variant_attribute_definitions`→
 `code_lists` edge, and the `content_store` asset blobs.
+
+## Schema compatibility
+
+A backup taken at one schema can restore into a **different** schema only when
+every migration crossed between them is explicitly declared safe — otherwise the
+restore is refused (default deny). The declarations live in
+`modules/epistola-support-backups/src/main/resources/schema-backup-compatibility.yaml`,
+one entry per migration with two directional flags:
+
+```yaml
+migrations:
+  - version: "20260618204750"
+    backward: true # an OLDER backup may restore into a schema that HAS this migration
+    forward: true # a NEWER backup may restore into a schema that does NOT have it
+    reason: "Data-only migration; no structural change to backed-up tables."
+```
+
+The two directions read the flags from different places, because a running app's
+schema head equals its own code's migration head — so it can only _see_ the
+migrations up to itself:
+
+- **Backward** (restoring an older backup after an upgrade — the common case): the
+  live (newer) app knows the crossed migrations and reads their `backward` flags
+  straight from this file.
+- **Forward** (restoring a newer backup after a downgrade): the live (older) app
+  is blind to the newer migrations, so it reads the `forward` flags the backup
+  **snapshotted into its manifest** (`appliedMigrations`) at build time. Backups in
+  the legacy v1 format don't carry these, so they can't be forward-restored.
+
+`validateColumns` (every backed-up table structurally identical) still runs in both
+directions as the automatic backstop — the flags only relax the _stamp_, never a
+structural change.
+
+**Maintaining the file:** when a migration is safe to cross, add an entry with the
+right flag(s); leave a restore-breaking migration out (it becomes the compatibility
+boundary). Every listed version must be a real migration —
+`SchemaBackupCompatibilityFileTest` fails CI on a typo. There is no manual "restore
+anyway" override; compatibility is decided solely by the file + the structural check.
 
 ## Storage and the Backups UI
 
