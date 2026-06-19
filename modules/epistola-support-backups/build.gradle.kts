@@ -12,17 +12,17 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 }
 
 dependencies {
-    // The Backups feature: the daily retained-snapshot scheduler and the Backups UI (list,
-    // "back up now", restore). It rides the shared snapshot sync; the snapshot itself is built in
-    // epistola-core and moved to/from the hub by epistola-support-snapshots. Gated by the
-    // `support-backups` feature toggle and (for the hub calls) `epistola.support.enabled`.
+    // The Backups feature: its own faithful, full-fidelity tenant-backup primitive
+    // (`app.epistola.suite.tenantbackup`), the daily retention scheduler, and the Backups UI (list,
+    // "back up now", restore). Backups are stored locally and optionally synced to the hub. Gated by
+    // the `support-backups` feature toggle and (for the hub calls) `epistola.support.enabled`.
 
     // Core (IDs, mediator, security, feature toggles, scheduler lock, JDBI config).
     api(project(":modules:epistola-core"))
 
-    // Shared snapshot sync (TenantSnapshotSyncService + SnapshotSyncPort + system principal).
-    // api-exposes epistola-support, so the support tier is on the classpath transitively.
-    api(project(":modules:epistola-support-snapshots"))
+    // The support tier: provides the EpistolaHubClient bean (registration loop, credentials) the
+    // hub-backed store injects when `epistola.support.enabled=true`.
+    implementation(project(":modules:epistola-support"))
 
     // Epistola Hub client — only for the typed HubEntitlementDeniedException the UI catches to
     // render the "no service contract" state.

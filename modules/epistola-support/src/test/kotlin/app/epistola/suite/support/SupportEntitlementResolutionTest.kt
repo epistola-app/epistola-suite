@@ -55,7 +55,7 @@ class SupportEntitlementResolutionTest {
 
     @Test
     fun `a different feature does not match`() {
-        val entries = listOf(entry(feature = "support-upgrading"))
+        val entries = listOf(entry(feature = "support-compatibility-check"))
         assertThat(resolveEntitlement(entries, "support-backups", "acme", now)).isEqualTo(EntitlementDecision.NOT_CONFIGURED)
     }
 

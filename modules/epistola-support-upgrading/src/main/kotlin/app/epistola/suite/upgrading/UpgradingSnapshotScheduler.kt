@@ -74,7 +74,7 @@ class UpgradingSnapshotScheduler(
     private fun ensureAllTenants() {
         val tenantKeys = allTenantKeys()
         for (tenantKey in tenantKeys) {
-            if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.SUPPORT_UPGRADING] != true) continue
+            if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.SUPPORT_COMPATIBILITY_CHECK] != true) continue
             if (hasFreshSnapshot(tenantKey)) continue
             try {
                 SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
