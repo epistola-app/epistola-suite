@@ -35,6 +35,7 @@
                         th:text="${cat.name}"
                         th:selected="${formData?.catalog == cat.id}"></option>
             </select>
+            <span class="form-error" id="theme-error-catalog" th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
         </div>
         <div class="form-group">
             <label class="ep-label" for="name">Name</label>
@@ -58,6 +59,7 @@
             <textarea id="description" name="description" class="ep-textarea" rows="2"
                       placeholder="Theme description"
                       th:text="${formData?.description}"></textarea>
+            <span class="form-error" id="theme-error-description" th:attr="data-error=${errors?.containsKey('description')}" th:text="${errors?.get('description')}"></span>
         </div>
     </th:block>
 </body>

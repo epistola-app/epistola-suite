@@ -674,12 +674,15 @@ state the server can reconstruct.** How wide that region is depends on the form:
 - **Text forms (the 8: templates, themes, api-keys, environments, stencils, attributes, code-lists,
   catalogs)** — the whole form is reconstructable (`formData` round-trips), so `create` re-renders
   the **whole `createForm`** (`hx-target="this" hx-swap="outerHTML"`). The error spans come along.
-- **File / cascade forms (fonts, assets)** — the whole form is **not** reconstructable (a
+- **File / cascade forms (fonts, assets, load-test)** — the whole form is **not** reconstructable (a
   `<input type=file>` value can't be repopulated; cascade selections would reset). For a **field**
-  error they swap only the per-field spans — `reswap(HxSwap.NONE)` + per-field `oob(...)` (HTTP 200),
-  so the chosen file survives. Each OOB fragment's root carries `hx-swap-oob="true"` + the matching
-  `id` (the DSL does **not** add it), e.g. `#font-error-slug`, `#asset-error-catalog`. load-test has
-  no per-field spans — every load-test error is general (below).
+  error they swap only the per-field spans — `reswap(HxSwap.NONE)` + `oob(...)` (HTTP 200), so the
+  chosen file — and, for load-test, the cascade selections and typed JSON — survive. Each OOB
+  fragment's root carries `hx-swap-oob="true"` + the matching `id` (the DSL does **not** add it),
+  e.g. `#font-error-slug`, `#asset-error-catalog`, `#loadtest-error-testData`. load-test keys invalid
+  JSON and a missing/invalid template/variant/version to per-field spans (one `error-fields` fragment
+  emits all four slots, so a fixed field clears); only an operational `StartLoadTest` failure is
+  general (below).
 
 **Border styling is one CSS rule, not a server-toggled class.** Every error span renders
 `data-error="true"/"false"` (`th:attr="data-error=${errors?.containsKey('name')}"`) and always
@@ -690,8 +693,8 @@ draws the red border for **both** whole-form re-renders and OOB span swaps. Ther
 follow the same pattern.)
 
 **General (non-field) errors are thrown, not hand-rendered.** A problem that isn't tied to a named
-input — a malformed JSON blob, a duplicate face, an operational rejection (read-only catalog, "too
-large"), an unexpected failure — is **thrown** (`FormInputException`, or any domain exception) and
+input — a duplicate face, an operational rejection (read-only catalog, "too large"), a backend
+start-failure, an unexpected failure — is **thrown** (`FormInputException`, or any domain exception) and
 rendered centrally by the MVC error handler **`UiHandlerExceptionResolver`** (it returns a
 `ModelAndView` and the **view layer renders the HTML** from the `fragments/dialog :: dialogError`
 fragment — no component hand-builds markup; `UiExceptionFilter` is only the last-resort net for
@@ -709,8 +712,15 @@ So a handler renders only **field** errors (data); it **throws** for everything 
 hand-builds a JSON-400 or a per-form general region. **Text forms get this for free** (they already
 let operational exceptions propagate — adding the shared region + the dialog header is enough);
 fonts/assets/load-test were migrated off their old hand-rendered general paths (the `error-general`
-spans, the load-test `#form-error` region, the JSON-400 branch). See
-[ADR 0007](adr/0007-create-form-validation-errors.md) → "Amendment".
+spans, the load-test `#form-error` region, the JSON-400 branch), and load-test's field-keyable errors
+(invalid JSON, missing/invalid selections) now render inline as per-field OOB spans rather than the
+general card. See [ADR 0008](adr/0008-create-form-validation-errors.md).
+
+**This is a build-enforced convention.** `CreateDialogErrorConventionTest` (in `unitTest`) fails the
+build unless every create dialog (a) includes the shared `#dialog-error` region + the
+`X-Epistola-Error-Region` header, and (b) gives every user-editable payload field its own per-field
+error span — so a handler-keyed field error can never silently vanish. New create forms must follow
+it; the `htmx-form` skill documents the shape.
 
 #### Why per-entity `new.html`, not one shared dialog shell
 
@@ -727,7 +737,7 @@ collapse that shell into a single parameterized `fragments/create-dialog.html`. 
 - A shared shell only fits cleanly for the eight self-swapping forms (templates, themes, api-keys,
   environments, stencils, attributes, code-lists, catalogs). Of the eleven create dialogs, the other
   three diverge: **fonts/assets** post multipart and don't self-swap, and **load-test** is bespoke
-  (cascade + `hx-disinherit` + posts to `#form-error`). Folding them in needs `multipart`/`selfSwap`
+  (cascade + per-field OOB error spans, no self-swap). Folding them in needs `multipart`/`selfSwap`
   flags that turn the shell into config soup — trading "uniform but slightly repeated" for "DRY but
   two patterns."
 - The shell would move the chrome into **model-driven indirection** (the handler supplies

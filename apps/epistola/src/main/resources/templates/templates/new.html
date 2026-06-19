@@ -39,6 +39,7 @@
                         th:text="${cat.name}"
                         th:selected="${formData?.catalog == cat.id}"></option>
             </select>
+            <span class="form-error" id="template-error-catalog" th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
         </div>
         <div class="form-group">
             <label class="ep-label" for="name">Name</label>

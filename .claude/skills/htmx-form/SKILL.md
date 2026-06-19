@@ -163,6 +163,36 @@ Templates receive `tenantId.value` (String), never the wrapper. Commands/queries
 - `errors`: `Map<String, String>` — multi-field form validation (field name → message)
 - `error`: single `String` — operation-level error message
 
+### Error display (convention — build-enforced)
+
+Every create dialog MUST provide **both** error surfaces. This is enforced by `CreateDialogErrorConventionTest` (in `unitTest`) — a missing span or region fails the build. See [ADR 0008](../../../docs/adr/0008-create-form-validation-errors.md).
+
+1. **A per-field error span for EVERY user-editable field** — directly inside each field's `.form-group`, after the input/hint:
+
+   ```html
+   <span
+     class="form-error"
+     id="<entity>-error-<field>"
+     th:attr="data-error=${errors?.containsKey('<field>')}"
+     th:text="${errors?.get('<field>')}"
+   ></span>
+   ```
+
+   The span is always rendered; one CSS rule (`.form-group:has(.form-error[data-error='true'])`) draws the red border and `.form-error:empty` hides it until populated. Self-swap forms (pattern 1) render these inline with the re-rendered form; file/cascade forms (fonts, assets, load-test) re-send them **out-of-band** (`hx-swap-oob="true"` + `reswap(HxSwap.NONE)`) so the chosen file / cascade selections / typed text survive. **A field that keys an error but has no span → the message silently vanishes.**
+
+2. **The shared general error region** — for non-field / operational errors. On the `<dialog>`:
+
+   ```html
+   <dialog … hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
+     <div class="ep-dialog-header">…</div>
+     <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
+   </dialog>
+   ```
+
+   Handlers **throw** (`FormInputException` or any domain exception) for non-field problems; `UiHandlerExceptionResolver` renders them into `#dialog-error` inside the modal (HTMX) or `problem+json` (data callers). Field problems stay **data** (the `errors` map). See [`docs/htmx.md`](../../../docs/htmx.md) → "Create-form error handling".
+
+Only controls that are not part of the create payload are exempt (file inputs, radio/checkbox choice groups, a cascade-only helper select); everything submitted gets a span.
+
 ### Delete pattern
 
 All list/detail page deletes use `openConfirmDialog()`:
@@ -238,6 +268,7 @@ UI deletes always use `POST /{id}/delete`. The `DELETE` HTTP verb is only used f
 - [ ] Handler in `apps/epistola/.../suite/<domain>/<Entity>Handler.kt`
 - [ ] Routes in `apps/epistola/.../suite/<domain>/<Entity>Routes.kt`
 - [ ] Template(s) in `apps/epistola/src/main/resources/templates/<entity>/`
+- [ ] **Per-field error span** (`<entity>-error-<field>`) on every payload field + the shared `generalError` region with the `X-Epistola-Error-Region` header — enforced by `CreateDialogErrorConventionTest`
 - [ ] `./gradlew ktlintFormat`
 - [ ] `./gradlew integrationTest`
 
