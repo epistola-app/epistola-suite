@@ -19,10 +19,13 @@ class FeatureHandler {
         val toggles = GetFeatureToggles(tenantId.key).query()
 
         val features = toggles.map { (key, enabled) ->
+            val md = KnownFeatures.metadataFor(key)
             mapOf(
                 "key" to key.value,
+                "title" to (md?.title ?: key.value),
                 "enabled" to enabled,
-                "description" to (KnownFeatures.descriptions[key] ?: ""),
+                "description" to (md?.description ?: ""),
+                "stage" to (md?.stage ?: KnownFeatures.FeatureStage.STABLE),
             )
         }
 

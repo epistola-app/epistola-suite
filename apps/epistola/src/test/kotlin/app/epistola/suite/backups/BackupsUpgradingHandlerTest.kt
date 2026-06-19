@@ -85,6 +85,8 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         val body = response.body!!
         assertThat(body).contains("Backups")
         assertThat(body).contains("Back up now")
+        // Backups is a Beta feature: the page header carries the maturity badge.
+        assertThat(body).contains("badge badge-beta")
         // Support nav items (Overview + the toggled features) are linked.
         assertThat(body).contains("/tenants/${tenant.id.value}/support")
         assertThat(body).contains("/tenants/${tenant.id.value}/backups")

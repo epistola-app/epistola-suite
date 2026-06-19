@@ -6,6 +6,7 @@ import app.epistola.hub.client.error.HubUnauthenticatedException
 import app.epistola.suite.backups.BackupOutcome
 import app.epistola.suite.backups.StoredBackup
 import app.epistola.suite.backups.TenantBackupService
+import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
@@ -66,6 +67,7 @@ class BackupsHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "backups"
+            "stage" to KnownFeatures.stageOf(KnownFeatures.SUPPORT_BACKUPS)
             "hubStatus" to hubStatus
             "backups" to
                 backups.mapIndexed { index, backup ->

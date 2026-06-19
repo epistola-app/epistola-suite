@@ -1602,6 +1602,9 @@ a.stat-card:hover {
 }
 
 .feature-toggle-name {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
   font-size: var(--ep-text-sm);
   font-weight: 600;
   color: var(--ep-foreground);

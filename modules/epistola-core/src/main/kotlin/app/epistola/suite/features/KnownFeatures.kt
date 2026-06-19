@@ -30,10 +30,43 @@ object KnownFeatures {
      */
     val HUB_ONLY: Set<FeatureKey> = setOf(SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK)
 
-    val descriptions: Map<FeatureKey, String> = mapOf(
-        SUPPORT_FEEDBACK to "Enables the Support → Feedback feature (sync to epistola-hub).",
-        SUPPORT_BACKUPS to "Enables the Support → Backups feature (faithful full-fidelity tenant backups + restore).",
-        SUPPORT_COMPATIBILITY_CHECK to "Enables the Support → Upgrading feature (compatibility checks against upcoming Epistola releases). Ships its own catalog-export snapshots to the hub for the checks.",
-        STENCIL_PARAMETERS to "Enables typed parameters on stencils.",
+    /**
+     * Release maturity of a feature. [STABLE] shows no marker; [BETA]/[ALPHA] render a badge in the
+     * nav, on the feature page, and in the admin Features list. The [label] is the user-facing text
+     * (null for stable, so the UI renders nothing).
+     */
+    enum class FeatureStage(val label: String?) {
+        STABLE(null),
+        BETA("Beta"),
+        ALPHA("Alpha"),
+    }
+
+    /** Display metadata for a feature, shown wherever the feature surfaces in the UI. */
+    data class FeatureMetadata(
+        val title: String,
+        val description: String,
+        val stage: FeatureStage = FeatureStage.STABLE,
     )
+
+    val metadata: Map<FeatureKey, FeatureMetadata> = mapOf(
+        SUPPORT_FEEDBACK to FeatureMetadata(
+            "Feedback",
+            "Enables the Support → Feedback feature (sync to epistola-hub).",
+        ),
+        SUPPORT_BACKUPS to FeatureMetadata(
+            "Backups",
+            "Enables the Support → Backups feature (faithful full-fidelity tenant backups + restore).",
+            stage = FeatureStage.BETA,
+        ),
+        SUPPORT_COMPATIBILITY_CHECK to FeatureMetadata(
+            "Upgrading",
+            "Enables the Support → Upgrading feature (compatibility checks against upcoming Epistola releases). " +
+                "Ships its own catalog-export snapshots to the hub for the checks.",
+        ),
+        STENCIL_PARAMETERS to FeatureMetadata("Stencil parameters", "Enables typed parameters on stencils."),
+    )
+
+    fun metadataFor(key: FeatureKey): FeatureMetadata? = metadata[key]
+
+    fun stageOf(key: FeatureKey): FeatureStage = metadata[key]?.stage ?: FeatureStage.STABLE
 }
