@@ -116,6 +116,10 @@ integration-test coverage — `InstallationServiceIT` and
    retry.
 5. Ensure the normal integration suite passes — a new migration is just appended
    to the history; there is no special gate to satisfy.
+6. **If the new table is tenant-scoped** (has a `tenant_key` column, or is keyed
+   by the tenant itself), classify it in `TenantTableTopology` — `INCLUDE` to back
+   it up or `DENY_TENANT_TABLES` to exclude it. `TenantTableTopologyDriftIntegrationTest`
+   fails the build until you do. See [`tenant-backup.md`](tenant-backup.md).
 
 ## Running migrations: embedded vs separated
 
