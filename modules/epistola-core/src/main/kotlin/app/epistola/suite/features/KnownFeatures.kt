@@ -32,13 +32,17 @@ object KnownFeatures {
 
     /**
      * Release maturity of a feature. [STABLE] shows no marker; [BETA]/[ALPHA] render a badge in the
-     * nav, on the feature page, and in the admin Features list. The [label] is the user-facing text
-     * (null for stable, so the UI renders nothing).
+     * nav, on the feature page, and in the admin Features list.
+     *
+     * [label] is the user-facing text and [badgeClass] the design-system CSS class (both null for
+     * stable, so the UI renders nothing). A non-stable stage MUST have a matching `.badge-*` rule in
+     * `modules/design-system/components.css` — `FeatureStageTest` guards that the enum and CSS agree
+     * so a new stage can't ship as an unstyled badge.
      */
-    enum class FeatureStage(val label: String?) {
-        STABLE(null),
-        BETA("Beta"),
-        ALPHA("Alpha"),
+    enum class FeatureStage(val label: String?, val badgeClass: String?) {
+        STABLE(null, null),
+        BETA("Beta", "badge-beta"),
+        ALPHA("Alpha", "badge-alpha"),
     }
 
     /** Display metadata for a feature, shown wherever the feature surfaces in the UI. */

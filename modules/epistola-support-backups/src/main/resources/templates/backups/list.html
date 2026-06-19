@@ -4,8 +4,8 @@
     <th:block th:fragment="content">
         <div class="page-header">
             <h1>Backups
-                <span th:if="${stage.label != null}"
-                      th:class="'badge badge-' + ${stage.name().toLowerCase()}"
+                <span th:if="${stage.badgeClass != null}"
+                      th:class="${'badge ' + stage.badgeClass}"
                       th:text="${stage.label}">Beta</span>
             </h1>
             <div class="page-actions">

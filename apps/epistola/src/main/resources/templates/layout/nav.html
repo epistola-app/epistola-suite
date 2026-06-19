@@ -27,8 +27,8 @@
                                th:attr="data-testid=${'nav-item-' + item.sectionKey}"
                                th:classappend="${item.active} ? ' active' : ''">
                                 <span th:text="${item.label}">Item</span>
-                                <span th:if="${item.stage.label != null}"
-                                      th:class="'badge badge-' + ${item.stage.name().toLowerCase()}"
+                                <span th:if="${item.stage.badgeClass != null}"
+                                      th:class="${'badge ' + item.stage.badgeClass}"
                                       th:text="${item.stage.label}">Beta</span>
                             </a>
                         </div>
@@ -72,8 +72,8 @@
                        th:classappend="${item.active} ? ' active' : ''"
                        role="menuitem">
                         <span th:text="${item.label}">Item</span>
-                        <span th:if="${item.stage.label != null}"
-                              th:class="'badge badge-' + ${item.stage.name().toLowerCase()}"
+                        <span th:if="${item.stage.badgeClass != null}"
+                              th:class="${'badge ' + item.stage.badgeClass}"
                               th:text="${item.stage.label}">Beta</span>
                     </a>
                 </div>
