@@ -11,30 +11,30 @@ class FlatRoleParserTest {
     @Test
     fun `parses per-tenant roles from ept-prefixed entries`() {
         val result = parseFlatRoles(
-            listOf("ept_acme-corp_reader", "ept_acme-corp_editor"),
+            listOf("ept_acme-corp_content-viewer", "ept_acme-corp_content-author"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
         assertThat(result.tenantRoles[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
     }
 
     @Test
     fun `parses multiple tenants`() {
         val result = parseFlatRoles(
-            listOf("ept_acme-corp_reader", "ept_beta-org_manager"),
+            listOf("ept_acme-corp_content-viewer", "ept_beta-org_tenant-administrator"),
         )
 
         assertThat(result.tenantRoles).hasSize(2)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
-        assertThat(result.tenantRoles[TenantKey.of("beta-org")]).containsExactly(TenantRole.MANAGER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
+        assertThat(result.tenantRoles[TenantKey.of("beta-org")]).containsExactly(TenantRole.TENANT_ADMINISTRATOR)
     }
 
     @Test
     fun `parses global roles from epg-prefixed entries`() {
-        val result = parseFlatRoles(listOf("epg_reader", "epg_editor"))
+        val result = parseFlatRoles(listOf("epg_content-viewer", "epg_content-author"))
 
-        assertThat(result.globalRoles).containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(result.globalRoles).containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
         assertThat(result.tenantRoles).isEmpty()
     }
 
@@ -55,21 +55,21 @@ class FlatRoleParserTest {
     @Test
     fun `ignores entries without a recognised prefix`() {
         val result = parseFlatRoles(
-            listOf("admin", "user", "ROLE_USER", "epistola_reader", "ept_acme-corp_reader"),
+            listOf("admin", "user", "ROLE_USER", "epistola_reader", "ept_acme-corp_content-viewer"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
         assertThat(result.globalRoles).isEmpty()
         assertThat(result.platformRoles).isEmpty()
     }
 
     @Test
     fun `ignores unknown tenant role`() {
-        val result = parseFlatRoles(listOf("ept_acme-corp_superadmin", "ept_acme-corp_reader"))
+        val result = parseFlatRoles(listOf("ept_acme-corp_superadmin", "ept_acme-corp_content-viewer"))
 
         assertThat(result.tenantRoles).hasSize(1)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
@@ -92,22 +92,22 @@ class FlatRoleParserTest {
             listOf(
                 "ept_reader", // missing tenant
                 "ept_acme-corp_reader_extra", // too many segments
-                "ept_acme-corp_reader", // valid
+                "ept_acme-corp_content-viewer", // valid
             ),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
     fun `ignores ept entries with invalid tenant keys`() {
         val result = parseFlatRoles(
-            listOf("ept_INVALID_reader", "ept_acme-corp_reader"),
+            listOf("ept_INVALID_content-viewer", "ept_acme-corp_content-viewer"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
@@ -123,17 +123,17 @@ class FlatRoleParserTest {
     fun `full example mixing all three prefixes`() {
         val result = parseFlatRoles(
             listOf(
-                "ept_acme-corp_reader",
-                "ept_acme-corp_editor",
-                "epg_reader",
+                "ept_acme-corp_content-viewer",
+                "ept_acme-corp_content-author",
+                "epg_content-viewer",
                 "eps_tenant_manager",
                 "ROLE_OTHER",
             ),
         )
 
         assertThat(result.tenantRoles[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
-        assertThat(result.globalRoles).containsExactly(TenantRole.READER)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
+        assertThat(result.globalRoles).containsExactly(TenantRole.CONTENT_VIEWER)
         assertThat(result.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
     }
 
@@ -141,19 +141,19 @@ class FlatRoleParserTest {
     fun `handles all four tenant roles via flat encoding`() {
         val result = parseFlatRoles(
             listOf(
-                "ept_acme-corp_reader",
-                "ept_acme-corp_editor",
-                "ept_acme-corp_generator",
-                "ept_acme-corp_manager",
+                "ept_acme-corp_content-viewer",
+                "ept_acme-corp_content-author",
+                "ept_acme-corp_document-generator",
+                "ept_acme-corp_tenant-administrator",
             ),
         )
 
         assertThat(result.tenantRoles[TenantKey.of("acme-corp")])
             .containsExactlyInAnyOrder(
-                TenantRole.READER,
-                TenantRole.EDITOR,
-                TenantRole.GENERATOR,
-                TenantRole.MANAGER,
+                TenantRole.CONTENT_VIEWER,
+                TenantRole.CONTENT_AUTHOR,
+                TenantRole.DOCUMENT_GENERATOR,
+                TenantRole.TENANT_ADMINISTRATOR,
             )
     }
 }

@@ -15,8 +15,8 @@ class EpistolaPrincipalTest {
 
     private fun principal(
         memberships: Map<TenantKey, Set<TenantRole>> = mapOf(
-            acme to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR, TenantRole.MANAGER),
-            beta to setOf(TenantRole.READER, TenantRole.EDITOR),
+            acme to TenantRole.entries.toSet(),
+            beta to setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR),
         ),
         globalRoles: Set<TenantRole> = emptySet(),
         platformRoles: Set<PlatformRole> = emptySet(),
@@ -61,9 +61,9 @@ class EpistolaPrincipalTest {
     @Test
     fun `hasRole checks specific role`() {
         val p = principal()
-        assertThat(p.hasRole(acme, TenantRole.MANAGER)).isTrue()
-        assertThat(p.hasRole(beta, TenantRole.MANAGER)).isFalse()
-        assertThat(p.hasRole(beta, TenantRole.READER)).isTrue()
+        assertThat(p.hasRole(acme, TenantRole.TENANT_ADMINISTRATOR)).isTrue()
+        assertThat(p.hasRole(beta, TenantRole.TENANT_ADMINISTRATOR)).isFalse()
+        assertThat(p.hasRole(beta, TenantRole.CONTENT_VIEWER)).isTrue()
     }
 
     @Test
@@ -76,12 +76,7 @@ class EpistolaPrincipalTest {
     @Test
     fun `rolesFor returns roles or empty set`() {
         val p = principal()
-        assertThat(p.rolesFor(acme)).containsExactlyInAnyOrder(
-            TenantRole.READER,
-            TenantRole.EDITOR,
-            TenantRole.GENERATOR,
-            TenantRole.MANAGER,
-        )
+        assertThat(p.rolesFor(acme)).containsExactlyInAnyOrderElementsOf(TenantRole.entries)
         assertThat(p.rolesFor(unknown)).isEmpty()
     }
 
@@ -109,7 +104,7 @@ class EpistolaPrincipalTest {
     fun `global roles grant access to any tenant`() {
         val p = principal(
             memberships = emptyMap(),
-            globalRoles = setOf(TenantRole.READER),
+            globalRoles = setOf(TenantRole.CONTENT_VIEWER),
         )
         assertThat(p.hasAccessToTenant(acme)).isTrue()
         assertThat(p.hasAccessToTenant(unknown)).isTrue()
@@ -118,21 +113,21 @@ class EpistolaPrincipalTest {
     @Test
     fun `global roles are merged with per-tenant roles`() {
         val p = principal(
-            memberships = mapOf(acme to setOf(TenantRole.EDITOR)),
-            globalRoles = setOf(TenantRole.READER),
+            memberships = mapOf(acme to setOf(TenantRole.CONTENT_AUTHOR)),
+            globalRoles = setOf(TenantRole.CONTENT_VIEWER),
         )
 
         // acme gets both per-tenant EDITOR and global READER
-        assertThat(p.rolesFor(acme)).containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(p.rolesFor(acme)).containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
         // beta gets only global READER (no per-tenant membership)
-        assertThat(p.rolesFor(beta)).containsExactly(TenantRole.READER)
+        assertThat(p.rolesFor(beta)).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
     fun `global roles enable permissions in any tenant`() {
         val p = principal(
             memberships = emptyMap(),
-            globalRoles = setOf(TenantRole.READER),
+            globalRoles = setOf(TenantRole.CONTENT_VIEWER),
         )
 
         assertThat(p.hasPermission(unknown, Permission.TEMPLATE_VIEW)).isTrue()
@@ -143,17 +138,17 @@ class EpistolaPrincipalTest {
     fun `hasRole includes global roles`() {
         val p = principal(
             memberships = emptyMap(),
-            globalRoles = setOf(TenantRole.READER),
+            globalRoles = setOf(TenantRole.CONTENT_VIEWER),
         )
 
-        assertThat(p.hasRole(unknown, TenantRole.READER)).isTrue()
-        assertThat(p.hasRole(unknown, TenantRole.EDITOR)).isFalse()
+        assertThat(p.hasRole(unknown, TenantRole.CONTENT_VIEWER)).isTrue()
+        assertThat(p.hasRole(unknown, TenantRole.CONTENT_AUTHOR)).isFalse()
     }
 
     @Test
     fun `no global roles means no access to unknown tenant`() {
         val p = principal(
-            memberships = mapOf(acme to setOf(TenantRole.READER)),
+            memberships = mapOf(acme to setOf(TenantRole.CONTENT_VIEWER)),
             globalRoles = emptySet(),
         )
 
@@ -164,7 +159,7 @@ class EpistolaPrincipalTest {
     @Test
     fun `platform roles and tenant roles are independent`() {
         val p = principal(
-            memberships = mapOf(acme to setOf(TenantRole.READER)),
+            memberships = mapOf(acme to setOf(TenantRole.CONTENT_VIEWER)),
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),
         )
 

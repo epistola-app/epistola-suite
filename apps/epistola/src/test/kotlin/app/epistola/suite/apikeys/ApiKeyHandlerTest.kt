@@ -82,6 +82,8 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
         whenever {
             val form: MultiValueMap<String, String> = LinkedMultiValueMap()
             form.add("name", "CI integration")
+            form.add("roles", "CONTENT_VIEWER")
+            form.add("roles", "DOCUMENT_GENERATOR")
             val headers = HttpHeaders().apply {
                 contentType = MediaType.APPLICATION_FORM_URLENCODED
                 set("HX-Request", "true")

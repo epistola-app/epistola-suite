@@ -33,7 +33,7 @@ data class ImportAttribute(
     val codeListSlug: CodeListKey? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 }
 

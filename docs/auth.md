@@ -286,13 +286,13 @@ data class EpistolaPrincipal(
 
 ## API Key Authentication
 
-API key authentication allows machine-to-machine access to the REST API without a browser login. Each key is scoped to a single tenant and carries the full set of tenant roles.
+API key authentication allows machine-to-machine access to the REST API without a browser login. Each key is scoped to a single tenant **and to a chosen subset of that tenant's roles** (least privilege) — see [`authorization.md`](authorization.md#api-keys-are-least-privilege).
 
 ### Managing API Keys
 
 API keys are managed per-tenant via the web UI at `/tenants/{tenantId}/api-keys`:
 
-- **Create:** Name the key and optionally set an expiration date. The plaintext key is shown **exactly once** — store it immediately.
+- **Create:** Name the key, pick its **scope** (the tenant roles it authenticates as — `content-viewer` is the default, administration is never pre-selected), and optionally set an expiration date. The plaintext key is shown **exactly once** — store it immediately.
 - **List:** View all active keys with name, prefix, creation date, last used, and expiration.
 - **Revoke:** Delete a key to immediately invalidate it.
 

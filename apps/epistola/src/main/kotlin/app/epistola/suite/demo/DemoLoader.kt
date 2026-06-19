@@ -109,10 +109,13 @@ class DemoLoader(
         val keyHash = apiKeyService.hashKey(DEMO_API_KEY)
         val keyPrefix = apiKeyService.extractPrefix(DEMO_API_KEY)
 
+        // The demo key is the convenient "everything" key for local dev / MCP, so grant all roles
+        // (real keys are scoped at creation). Enum names are safe identifiers — no injection risk.
+        val rolesLiteral = TenantRole.entries.joinToString(",") { "'${it.name}'" }
         jdbcClient.sql(
             """
-            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at)
-            VALUES (?, ?, ?, ?, ?, true, NOW())
+            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at, roles)
+            VALUES (?, ?, ?, ?, ?, true, NOW(), ARRAY[$rolesLiteral]::varchar[])
             ON CONFLICT (id) DO NOTHING
             """,
         )

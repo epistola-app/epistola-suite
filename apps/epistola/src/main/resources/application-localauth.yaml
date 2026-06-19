@@ -19,6 +19,7 @@ epistola:
           - READER
           - EDITOR
           - GENERATOR
+          - PUBLISHER
           - MANAGER
         platform-roles:
           - TENANT_MANAGER
@@ -30,3 +31,4 @@ epistola:
           - READER
           - EDITOR
           - GENERATOR
+          - PUBLISHER

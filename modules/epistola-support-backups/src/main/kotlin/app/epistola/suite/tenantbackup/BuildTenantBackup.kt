@@ -35,7 +35,7 @@ import java.util.zip.ZipOutputStream
  * tenant (the daily-scheduler steady state) skips the expensive archive build. With it null (the
  * default) the build always produces an artifact.
  *
- * Requires [Permission.TENANT_SETTINGS] — the artifact contains all of a tenant's data including
+ * Requires [Permission.BACKUP_CREATE] — the artifact contains all of a tenant's data including
  * API-key hashes and encrypted credentials.
  */
 data class BuildTenantBackup(
@@ -43,7 +43,7 @@ data class BuildTenantBackup(
     val skipIfFingerprint: String? = null,
 ) : Command<TenantBackupArtifact?>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.BACKUP_CREATE
 }
 
 @Component

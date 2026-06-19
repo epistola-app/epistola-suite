@@ -22,6 +22,18 @@
                         <span class="form-hint">A short label so you can recognise this key later. Max 100 characters.</span>
                         <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
+                    <div class="form-group" th:classappend="${errors?.containsKey('roles')} ? 'error' : ''">
+                        <label class="ep-label">Scope</label>
+                        <span class="form-hint">An API key authenticates with exactly these tenant roles. Grant the least it needs — administration is rarely appropriate for an integration key.</span>
+                        <div class="ep-checkbox-list" data-testid="api-key-roles">
+                            <label class="ep-checkbox" th:each="opt : ${roleOptions}">
+                                <input type="checkbox" name="roles" th:value="${opt.value}"
+                                       th:checked="${selectedRoles != null ? selectedRoles.contains(opt.value) : opt.defaultChecked}">
+                                <span><strong th:text="${opt.label}">Viewer</strong> &mdash; <span th:text="${opt.description}">description</span></span>
+                            </label>
+                        </div>
+                        <span class="form-error" th:if="${errors?.containsKey('roles')}" th:text="${errors.roles}"></span>
+                    </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('expiresAt')} ? 'error' : ''">
                         <label class="ep-label" for="expiresAt">Expires (optional)</label>
                         <input type="date" id="expiresAt" name="expiresAt" class="ep-input"

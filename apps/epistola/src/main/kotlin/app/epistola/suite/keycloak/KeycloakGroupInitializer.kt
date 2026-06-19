@@ -17,12 +17,14 @@ import org.springframework.stereotype.Component
  * /epistola
  *   /epistola/tenants
  *   /epistola/global
- *     /epistola/global/reader
- *     /epistola/global/editor
- *     /epistola/global/generator
- *     /epistola/global/manager
+ *     /epistola/global/content-viewer
+ *     /epistola/global/content-author
+ *     /epistola/global/document-generator
+ *     /epistola/global/content-publisher
+ *     /epistola/global/tenant-administrator
  *   /epistola/platform
  *     /epistola/platform/tenant-manager
+ *     /epistola/platform/platform-observer
  * ```
  *
  * Enabled via `epistola.keycloak.ensure-groups=true`. Disabled by default.
@@ -43,7 +45,7 @@ class KeycloakGroupInitializer(
             add("/epistola/tenants")
 
             for (role in TenantRole.entries) {
-                add("/epistola/global/${role.name.lowercase()}")
+                add("/epistola/global/${role.name.lowercase().replace('_', '-')}")
             }
 
             for (role in PlatformRole.entries) {

@@ -11,6 +11,7 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -36,6 +37,7 @@ class ApiKeyHandler {
         return ServerResponse.ok().page("api-keys/new") {
             "pageTitle" to "New API key - Epistola"
             "tenantId" to tenantId.key
+            "roleOptions" to ROLE_OPTIONS
         }
     }
 
@@ -50,9 +52,13 @@ class ApiKeyHandler {
             field("expiresAt") {}
         }
 
+        val selectedRoleNames = request.params()["roles"].orEmpty()
+        val roles = selectedRoleNames.mapNotNull { name -> runCatching { TenantRole.valueOf(name) }.getOrNull() }.toSet()
+
         val expiresAtError = parseExpiresAt(form["expiresAt"]).errorOrNull()
         val errors = form.errors.toMutableMap()
         if (expiresAtError != null) errors["expiresAt"] = expiresAtError
+        if (roles.isEmpty()) errors["roles"] = "Select at least one role"
 
         if (errors.isNotEmpty()) {
             return ServerResponse.ok().page("api-keys/new") {
@@ -60,6 +66,8 @@ class ApiKeyHandler {
                 "tenantId" to tenantId.key
                 "formData" to form.formData
                 "errors" to errors
+                "roleOptions" to ROLE_OPTIONS
+                "selectedRoles" to selectedRoleNames
             }
         }
 
@@ -69,6 +77,7 @@ class ApiKeyHandler {
         val result = CreateApiKey(
             tenantId = tenantId.key,
             name = form["name"],
+            roles = roles,
             expiresAt = expiresAt,
             createdBy = principal?.userId,
         ).execute()
@@ -103,6 +112,14 @@ class ApiKeyHandler {
         }
     }
 
+    /** A selectable role on the create form: its enum name plus a human label/description. */
+    data class RoleOption(
+        val value: String,
+        val label: String,
+        val description: String,
+        val defaultChecked: Boolean,
+    )
+
     private sealed class ParsedExpiry {
         data class Ok(val value: java.time.Instant?) : ParsedExpiry()
         data class Err(val message: String) : ParsedExpiry()
@@ -118,5 +135,23 @@ class ApiKeyHandler {
         } catch (_: DateTimeParseException) {
             ParsedExpiry.Err("Expires must be a valid date (YYYY-MM-DD)")
         }
+    }
+
+    companion object {
+        // Order mirrors the privilege ladder. Viewer is pre-checked so the narrowest scope is the
+        // default; administration (settings/users/catalogs/backups/destructive restore) is offered
+        // but never pre-selected, keeping keys least-privilege unless deliberately escalated.
+        val ROLE_OPTIONS = listOf(
+            RoleOption(TenantRole.CONTENT_VIEWER.name, "Viewer", "Read-only access across the tenant.", defaultChecked = true),
+            RoleOption(TenantRole.CONTENT_AUTHOR.name, "Author", "Create and edit templates, themes, stencils, and reference data.", defaultChecked = false),
+            RoleOption(TenantRole.DOCUMENT_GENERATOR.name, "Generator", "Generate documents.", defaultChecked = false),
+            RoleOption(TenantRole.CONTENT_PUBLISHER.name, "Publisher", "Publish and archive template and stencil versions.", defaultChecked = false),
+            RoleOption(
+                TenantRole.TENANT_ADMINISTRATOR.name,
+                "Administrator",
+                "Tenant settings, users, catalogs, diagnostics, backups, and destructive restore.",
+                defaultChecked = false,
+            ),
+        )
     }
 }

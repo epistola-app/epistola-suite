@@ -44,7 +44,7 @@ data class RestoreTenantSnapshot(
     val archiveBytes: ByteArray,
 ) : Command<RestoreResult>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.TENANT_RESTORE
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

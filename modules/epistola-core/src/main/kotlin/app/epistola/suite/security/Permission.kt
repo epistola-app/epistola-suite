@@ -25,6 +25,30 @@ enum class Permission {
     THEME_VIEW,
     THEME_EDIT,
 
+    /** Shared reference/library data: attributes, code lists, fonts. */
+    REFERENCE_VIEW,
+    REFERENCE_EDIT,
+
+    /** Catalog registry lifecycle: browse vs. register/unregister/upgrade. */
+    CATALOG_VIEW,
+    CATALOG_MANAGE,
+
+    /** Observability: application logs and diagnostics. */
+    DIAGNOSTICS_VIEW,
+
+    /** Non-destructive backup operations: list backups, back up now. */
+    BACKUP_VIEW,
+    BACKUP_CREATE,
+
+    /**
+     * Irreversible, data-destroying operations: restore a backup or snapshot,
+     * purge catalogs. Held only by MANAGER and deliberately withheld from
+     * API keys by default — named to signal danger and to be granted/audited
+     * independently of ordinary settings.
+     */
+    TENANT_RESTORE,
+
+    /** Tenant configuration: feature toggles, defaults, environments, entitlements. */
     TENANT_SETTINGS,
     TENANT_USERS,
 }
@@ -36,25 +60,35 @@ enum class Permission {
  * all their roles' permission grants.
  */
 fun TenantRole.permissions(): Set<Permission> = when (this) {
-    TenantRole.READER -> setOf(
+    TenantRole.CONTENT_VIEWER -> setOf(
         Permission.TEMPLATE_VIEW,
         Permission.DOCUMENT_VIEW,
         Permission.THEME_VIEW,
         Permission.STENCIL_VIEW,
+        Permission.REFERENCE_VIEW,
+        Permission.CATALOG_VIEW,
+        Permission.BACKUP_VIEW,
     )
-    TenantRole.EDITOR -> setOf(
+    TenantRole.CONTENT_AUTHOR -> setOf(
         Permission.TEMPLATE_EDIT,
         Permission.THEME_EDIT,
         Permission.STENCIL_EDIT,
+        Permission.REFERENCE_EDIT,
     )
-    TenantRole.GENERATOR -> setOf(
+    TenantRole.DOCUMENT_GENERATOR -> setOf(
         Permission.DOCUMENT_GENERATE,
     )
-    TenantRole.MANAGER -> setOf(
+    TenantRole.CONTENT_PUBLISHER -> setOf(
         Permission.TEMPLATE_PUBLISH,
         Permission.STENCIL_PUBLISH,
+    )
+    TenantRole.TENANT_ADMINISTRATOR -> setOf(
         Permission.TENANT_SETTINGS,
         Permission.TENANT_USERS,
+        Permission.CATALOG_MANAGE,
+        Permission.BACKUP_CREATE,
+        Permission.DIAGNOSTICS_VIEW,
+        Permission.TENANT_RESTORE,
     )
 }
 

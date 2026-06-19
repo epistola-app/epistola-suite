@@ -29,8 +29,8 @@ mechanism, or both — duplicates are de-duped via set union.
 
 **How it works:**
 
-1. Admin assigns users to Keycloak groups (e.g., `/epistola/tenants/acme-corp/reader`)
-   **and/or** to realm roles (e.g., `ept_acme-corp_reader`).
+1. Admin assigns users to Keycloak groups (e.g., `/epistola/tenants/acme-corp/content-viewer`)
+   **and/or** to realm roles (e.g., `ept_acme-corp_content-viewer`).
 2. The `oidc-group-membership-mapper` (with `full.path=true`) puts full group paths into
    the JWT `groups` claim; the `oidc-usermodel-realm-role-mapper` puts realm role names
    into the configured flat-roles claim (default `roles`).
@@ -46,56 +46,62 @@ All Epistola groups live under a single root group:
 /epistola
   /epistola/tenants                          <- tenant container
     /epistola/tenants/{tenant}               <- one per tenant
-      /epistola/tenants/{tenant}/reader
-      /epistola/tenants/{tenant}/editor
-      /epistola/tenants/{tenant}/generator
-      /epistola/tenants/{tenant}/manager
+      /epistola/tenants/{tenant}/content-viewer
+      /epistola/tenants/{tenant}/content-author
+      /epistola/tenants/{tenant}/document-generator
+      /epistola/tenants/{tenant}/content-publisher
+      /epistola/tenants/{tenant}/tenant-administrator
   /epistola/global                           <- global roles (all tenants)
-    /epistola/global/reader
-    /epistola/global/editor
-    /epistola/global/generator
-    /epistola/global/manager
+    /epistola/global/content-viewer
+    /epistola/global/content-author
+    /epistola/global/document-generator
+    /epistola/global/content-publisher
+    /epistola/global/tenant-administrator
   /epistola/platform                         <- platform roles
     /epistola/platform/tenant-manager
+    /epistola/platform/platform-observer
 ```
 
 ### Group Path Convention
 
-| Pattern                              | Example                              | Meaning                          |
-| ------------------------------------ | ------------------------------------ | -------------------------------- |
-| `/epistola/tenants/{tenant}/{role}`  | `/epistola/tenants/acme-corp/reader` | `reader` role in `acme-corp`     |
-| `/epistola/global/{role}`            | `/epistola/global/reader`            | `reader` role in **all** tenants |
-| `/epistola/platform/{platform-role}` | `/epistola/platform/tenant-manager`  | Platform role: manage tenants    |
+| Pattern                              | Example                                      | Meaning                                  |
+| ------------------------------------ | -------------------------------------------- | ---------------------------------------- |
+| `/epistola/tenants/{tenant}/{role}`  | `/epistola/tenants/acme-corp/content-viewer` | `content-viewer` role in `acme-corp`     |
+| `/epistola/global/{role}`            | `/epistola/global/content-viewer`            | `content-viewer` role in **all** tenants |
+| `/epistola/platform/{platform-role}` | `/epistola/platform/tenant-manager`          | Platform role: manage tenants            |
 
 ### Known Roles
 
 **Tenant roles** (per-tenant or global):
 
-- `reader` — view templates, themes, documents
-- `editor` — edit templates and themes
-- `generator` — generate documents
-- `manager` — full tenant management (publish, settings, users)
+- `content-viewer` — read-only across the tenant
+- `content-author` — create/edit templates, themes, stencils, reference data (attributes, code lists, fonts)
+- `document-generator` — generate documents
+- `content-publisher` — publish/archive template and stencil versions
+- `tenant-administrator` — tenant settings, users/API keys, catalog management, diagnostics, backups, and destructive restore (does **not** include publish)
 
 **Platform roles**:
 
 - `tenant-manager` — create and manage tenants across the platform
+- `platform-observer` — cross-tenant read-only access (diagnostics/logs/status)
 
 ### Permissions
 
-Tenant roles map to fine-grained permissions in application code (not in Keycloak):
+Tenant roles map to fine-grained permissions in application code (not in Keycloak). See [`authorization.md`](authorization.md) for the full permission catalog.
 
-| Role        | Permissions                                           |
-| ----------- | ----------------------------------------------------- |
-| `reader`    | `TEMPLATE_VIEW`, `DOCUMENT_VIEW`, `THEME_VIEW`        |
-| `editor`    | `TEMPLATE_EDIT`, `THEME_EDIT`                         |
-| `generator` | `DOCUMENT_GENERATE`                                   |
-| `manager`   | `TEMPLATE_PUBLISH`, `TENANT_SETTINGS`, `TENANT_USERS` |
+| Role                   | Permissions                                                                                                     |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `content-viewer`       | `TEMPLATE_VIEW`, `DOCUMENT_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, `BACKUP_VIEW` |
+| `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                                 |
+| `document-generator`   | `DOCUMENT_GENERATE`                                                                                             |
+| `content-publisher`    | `TEMPLATE_PUBLISH`, `STENCIL_PUBLISH`                                                                           |
+| `tenant-administrator` | `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE`, `BACKUP_CREATE`, `DIAGNOSTICS_VIEW`, `TENANT_RESTORE`      |
 
-Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `reader` + `editor` can view and edit templates and themes.
+Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `content-viewer` + `content-author` can view and edit templates and themes. Note that publishing is its own role (`content-publisher`), separate from administration.
 
 ### How Parsing Works
 
-The JWT `groups` claim contains full paths (e.g., `/epistola/tenants/demo/reader`). The parser splits on `/` and routes based on the category segment:
+The JWT `groups` claim contains full paths (e.g., `/epistola/tenants/demo/content-viewer`). The parser splits on `/` and routes based on the category segment:
 
 - `/epistola/tenants/{tenant}/{role}` → per-tenant role
 - `/epistola/global/{role}` → global tenant role
@@ -106,14 +112,14 @@ This is unambiguous because the path structure encodes the category explicitly. 
 
 ### Global Roles
 
-A global role like `/epistola/global/reader` grants read access to **all** tenants. Global roles are merged with per-tenant roles. Example:
+A global role like `/epistola/global/content-viewer` grants read access to **all** tenants. Global roles are merged with per-tenant roles. Example:
 
 ```
-User groups: ["/epistola/tenants/acme-corp/editor", "/epistola/global/reader"]
+User groups: ["/epistola/tenants/acme-corp/content-author", "/epistola/global/content-viewer"]
 
 Effective roles:
-  acme-corp: {READER, EDITOR}   (per-tenant EDITOR + global READER)
-  any-tenant: {READER}          (from global)
+  acme-corp: {CONTENT_VIEWER, CONTENT_AUTHOR}   (per-tenant author + global viewer)
+  any-tenant: {CONTENT_VIEWER}                  (from global)
 ```
 
 ## Flat Roles (for IdPs without groups)
@@ -122,14 +128,15 @@ When an IdP cannot emit hierarchical group paths, Epistola accepts a **flat stri
 claim** (default name `roles`, configurable via `epistola.auth.flat-roles.claim-name`).
 Each entry uses one of three prefixes:
 
-| Prefix | Pattern                  | Example                | Meaning                                     |
-| ------ | ------------------------ | ---------------------- | ------------------------------------------- |
-| `epg_` | `epg_<role>`             | `epg_reader`           | Global tenant role (applies to all tenants) |
-| `ept_` | `ept_<tenantKey>_<role>` | `ept_acme-corp_editor` | Per-tenant role                             |
-| `eps_` | `eps_<platformRole>`     | `eps_tenant_manager`   | Platform role                               |
+| Prefix | Pattern                  | Example                        | Meaning                                     |
+| ------ | ------------------------ | ------------------------------ | ------------------------------------------- |
+| `epg_` | `epg_<role>`             | `epg_content-viewer`           | Global tenant role (applies to all tenants) |
+| `ept_` | `ept_<tenantKey>_<role>` | `ept_acme-corp_content-author` | Per-tenant role                             |
+| `eps_` | `eps_<platformRole>`     | `eps_tenant_manager`           | Platform role                               |
 
-Role names match the existing vocabulary: `reader`, `editor`, `generator`, `manager`
-(tenant roles) and `tenant_manager` (platform role — `_` is normalised to `-` for lookup,
+Role names match the kebab-case vocabulary: `content-viewer`, `content-author`,
+`document-generator`, `content-publisher`, `tenant-administrator` (tenant roles) and
+`tenant-manager` / `platform-observer` (platform roles — `_` is normalised to `-` for lookup,
 so both `eps_tenant_manager` and `eps_tenant-manager` resolve correctly). Tenant keys
 follow the existing slug rules (lowercase letters/digits/hyphens, never underscores), so
 `_` is unambiguously the segment separator.
@@ -179,7 +186,7 @@ Add a protocol mapper to the `epistola-suite` client:
 | Add to access token | ON                 |
 | Add to userinfo     | ON                 |
 
-**Important:** `Full group path` must be ON so the JWT contains full paths like `/epistola/tenants/demo/reader`.
+**Important:** `Full group path` must be ON so the JWT contains full paths like `/epistola/tenants/demo/content-viewer`.
 
 ### 3. Create Groups
 
@@ -188,24 +195,24 @@ Create the hierarchical group structure:
 1. Create root group `epistola`
 2. Under `epistola`, create `tenants`, `global`, and `platform`
 3. Under `tenants`, create a sub-group for each tenant (e.g., `demo`)
-4. Under each tenant, create role groups: `reader`, `editor`, `generator`, `manager`
-5. Under `global`, create: `reader`, `editor`, `generator`, `manager`
-6. Under `platform`, create: `tenant-manager`
+4. Under each tenant, create role groups: `content-viewer`, `content-author`, `document-generator`, `content-publisher`, `tenant-administrator`
+5. Under `global`, create the same five role groups
+6. Under `platform`, create: `tenant-manager`, `platform-observer`
 
 Alternatively, configure the chart with `oidc.enabled: true` and `keycloakAdmin.ensureGroups: true` to have the app create the base structure automatically on startup (see below).
 
 ### 4. Assign Users to Groups
 
-Assign users to the leaf groups (e.g., `/epistola/tenants/demo/reader`). Assigning to intermediate groups (e.g., `/epistola/tenants/demo`) has no effect on authorization.
+Assign users to the leaf groups (e.g., `/epistola/tenants/demo/content-viewer`). Assigning to intermediate groups (e.g., `/epistola/tenants/demo`) has no effect on authorization.
 
 ## Automatic Tenant Provisioning
 
 When the `keycloakAdmin` client secret is configured, Epistola automatically creates hierarchical Keycloak groups when a new tenant is created via the UI. The four role groups are created under `/epistola/tenants/{key}/`:
 
-- `/epistola/tenants/{key}/reader`
-- `/epistola/tenants/{key}/editor`
-- `/epistola/tenants/{key}/generator`
-- `/epistola/tenants/{key}/manager`
+- `/epistola/tenants/{key}/content-viewer`
+- `/epistola/tenants/{key}/content-author`
+- `/epistola/tenants/{key}/document-generator`
+- `/epistola/tenants/{key}/tenant-administrator`
 
 When a tenant is deleted, the entire `/epistola/tenants/{key}` group is removed (Keycloak cascades to sub-groups).
 
@@ -299,13 +306,13 @@ Run the app with the `keycloak` profile:
 
 Pre-configured in the realm export (`apps/epistola/docker/keycloak/realm-export.json`):
 
-| Username         | Password    | Roles on `demo` tenant | Platform roles                      |
-| ---------------- | ----------- | ---------------------- | ----------------------------------- |
-| `admin@demo`     | `admin`     | All roles              | `tenant-manager` + all global roles |
-| `reader@demo`    | `reader`    | Reader                 | —                                   |
-| `editor@demo`    | `editor`    | Reader, Editor         | —                                   |
-| `generator@demo` | `generator` | Reader, Generator      | —                                   |
-| `manager@demo`   | `manager`   | All tenant roles       | —                                   |
+| Username         | Password    | Roles on `demo` tenant                   | Platform roles                      |
+| ---------------- | ----------- | ---------------------------------------- | ----------------------------------- |
+| `admin@demo`     | `admin`     | All roles (incl. publisher)              | `tenant-manager` + all global roles |
+| `reader@demo`    | `reader`    | Viewer                                   | —                                   |
+| `editor@demo`    | `editor`    | Viewer, Author                           | —                                   |
+| `generator@demo` | `generator` | Viewer, Generator                        | —                                   |
+| `manager@demo`   | `manager`   | Viewer, Author, Generator, Administrator | —                                   |
 
 Self-registration is enabled — new users can register with email + password. In demo mode (`epistola.demo.enabled=true`), users without group memberships are automatically assigned to a tenant derived from their email domain (e.g., `user@acme.io` → tenant `acme-io` with all roles).
 
@@ -321,17 +328,17 @@ same effective memberships:
 ```json
 {
   "groups": [
-    "/epistola/tenants/demo/reader",
-    "/epistola/tenants/demo/editor",
-    "/epistola/tenants/demo/generator",
-    "/epistola/tenants/demo/manager",
+    "/epistola/tenants/demo/content-viewer",
+    "/epistola/tenants/demo/content-author",
+    "/epistola/tenants/demo/document-generator",
+    "/epistola/tenants/demo/tenant-administrator",
     "/epistola/platform/tenant-manager"
   ],
   "roles": [
-    "ept_demo_reader",
-    "ept_demo_editor",
-    "ept_demo_generator",
-    "ept_demo_manager",
+    "ept_demo_content-viewer",
+    "ept_demo_content-author",
+    "ept_demo_document-generator",
+    "ept_demo_tenant-administrator",
     "eps_tenant_manager"
   ]
 }
@@ -380,7 +387,7 @@ itself only ever sees Keycloak-issued tokens with the expected claim shape.
    (OIDC v1 / SAML v2). Trust is established with the customer's IDP admins.
 2. Add identity-provider **claim mappers** that derive Epistola group memberships from
    whatever the customer IDP emits — typically:
-   - Static group assignment, e.g. all brokered users land in `/epistola/global/reader`.
+   - Static group assignment, e.g. all brokered users land in `/epistola/global/content-viewer`.
    - Conditional / attribute-based assignment, e.g. users in the IDP's "Tenant Admins"
      group are mapped into `/epistola/platform/tenant-manager`.
 3. Users authenticate via their corporate IDP. Keycloak provisions a local shadow user on
@@ -391,10 +398,10 @@ itself only ever sees Keycloak-issued tokens with the expected claim shape.
 For any IDP integration, the token Epistola Suite receives must contain `sub` and
 `email`, plus **at least one** of the following claim shapes:
 
-| Claim                                  | Type            | Example values                                                                                                                                                                                   |
-| -------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `groups`                               | array of string | `["/epistola/tenants/acme-corp/reader", "/epistola/platform/tenant-manager"]` — paths must start with `/epistola/` and follow the conventions in [Group Path Convention](#group-path-convention) |
-| `roles` (or the configured equivalent) | array of string | `["ept_acme-corp_reader", "eps_tenant_manager"]` — see [Flat Roles](#flat-roles-for-idps-without-groups)                                                                                         |
+| Claim                                  | Type            | Example values                                                                                                                                                                                           |
+| -------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `groups`                               | array of string | `["/epistola/tenants/acme-corp/content-viewer", "/epistola/platform/tenant-manager"]` — paths must start with `/epistola/` and follow the conventions in [Group Path Convention](#group-path-convention) |
+| `roles` (or the configured equivalent) | array of string | `["ept_acme-corp_content-viewer", "eps_tenant_manager"]` — see [Flat Roles](#flat-roles-for-idps-without-groups)                                                                                         |
 
 Anything outside the recognised prefixes / paths is ignored by the parsers — short-name
 groups (e.g. `"tenant-manager"` without the path prefix) and unknown role labels alike.

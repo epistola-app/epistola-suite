@@ -30,7 +30,7 @@ data class ExportThemes(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<ThemeResource>>,
     RequiresPermission {
-    override val permission get() = Permission.THEME_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
@@ -70,7 +70,7 @@ data class ExportAttributes(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<AttributeResource>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
@@ -133,7 +133,7 @@ data class ExportCodeLists(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<CodeListResource>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
@@ -272,7 +272,7 @@ data class ExportFonts(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<FontResource>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
