@@ -3,7 +3,11 @@
 <body>
     <th:block th:fragment="content">
         <div class="page-header">
-            <h1>Backups</h1>
+            <h1>Backups
+                <span th:if="${stage.badgeClass != null}"
+                      th:class="${'badge ' + stage.badgeClass}"
+                      th:text="${stage.label}">Beta</span>
+            </h1>
             <div class="page-actions">
                 <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
                     <button type="submit" class="ep-btn ep-btn-primary">

@@ -115,6 +115,6 @@ class SupportOverviewHandler(
 
         /** Human descriptions keyed by the wire feature key, for the entitlements table. */
         val DESCRIPTIONS_BY_KEY: Map<String, String> =
-            KnownFeatures.descriptions.entries.associate { it.key.value to it.value }
+            KnownFeatures.metadata.entries.associate { it.key.value to it.value.description }
     }
 }
