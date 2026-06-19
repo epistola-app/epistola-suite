@@ -103,7 +103,13 @@ function generateSprite() {
         `  <symbol id="icon-${name}" viewBox="${viewBox}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    ${inner}\n  </symbol>`,
       );
     } catch {
-      console.warn(`Warning: Icon "${name}" not found at ${filePath}, skipping`);
+      // Fail loudly instead of silently shipping a sprite missing this symbol.
+      // A missing file here means the name is misspelled or does not exist in
+      // this lucide-static version — both produce a blank icon at runtime.
+      throw new Error(
+        `Icon "${name}" not found in lucide-static (${filePath}). ` +
+          'Check the spelling against https://lucide.dev/icons and fix the ICONS list.',
+      );
     }
   }
 
