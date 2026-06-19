@@ -17,7 +17,12 @@
 
                     <div class="feature-toggle-item" th:each="feature : ${features}" data-testid="feature-toggle" th:data-feature-key="${feature['key']}">
                         <div class="feature-toggle-info">
-                            <div class="feature-toggle-name" th:text="${feature['key']}">feature-key</div>
+                            <div class="feature-toggle-name">
+                                <span th:text="${feature['title']}">Feature</span>
+                                <span th:if="${feature['stage'].badgeClass != null}"
+                                      th:class="${'badge ' + feature['stage'].badgeClass}"
+                                      th:text="${feature['stage'].label}">Beta</span>
+                            </div>
                             <div class="feature-toggle-description" th:if="${feature['description'] != ''}" th:text="${feature['description']}"></div>
                         </div>
                         <label class="toggle-switch">

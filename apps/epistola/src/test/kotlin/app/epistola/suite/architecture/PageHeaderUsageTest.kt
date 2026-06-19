@@ -38,6 +38,7 @@ class PageHeaderUsageTest {
         "searchUrl",
         "searchTargetId",
         "actions",
+        "stage",
     )
 
     /** Matches the call site `~{epistola-web/page-header :: page-header(` up to its opening paren. */
@@ -115,7 +116,7 @@ class PageHeaderUsageTest {
             check(
                 "pageTitle='X', pageDescription='a, b (c)', backLinkHref=@{/x}, backLinkLabel='B', " +
                     "searchUrl=@{/tenants/{t}/x/search(t=\${t})}, searchTargetId='rows', " +
-                    "searchPlaceholder='Search...', actions=~{::a}",
+                    "searchPlaceholder='Search...', actions=~{::a}, stage=\${stage}",
             ).isEmpty(),
             "a well-formed invocation must not be flagged",
         )

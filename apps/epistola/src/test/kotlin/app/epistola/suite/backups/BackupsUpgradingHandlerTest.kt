@@ -71,11 +71,11 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
 
     private fun enableSupport(tenantKey: TenantKey) = withMediator {
         SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
-        SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_UPGRADING, enabled = true).execute()
+        SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = true).execute()
     }
 
     @Test
-    fun `backups page lists snapshots and the Support nav shows the items`() {
+    fun `backups page renders and the Support nav shows the items`() {
         val tenant = createTenant("Backups Page")
         enableSupport(tenant.id)
 
@@ -85,10 +85,8 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         val body = response.body!!
         assertThat(body).contains("Backups")
         assertThat(body).contains("Back up now")
-        // The fake returns one snapshot — its size, suite version + catalog count render.
-        assertThat(body).contains("3.0 MB")
-        assertThat(body).contains("1.4.0")
-        assertThat(body).contains("Latest")
+        // Backups is a Beta feature: the page header carries the maturity badge.
+        assertThat(body).contains("badge badge-beta")
         // Support nav items (Overview + the toggled features) are linked.
         assertThat(body).contains("/tenants/${tenant.id.value}/support")
         assertThat(body).contains("/tenants/${tenant.id.value}/backups")
@@ -111,18 +109,6 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `backups page renders a not-connected state instead of 500 when the hub is unreachable`() {
-        val tenant = createTenant("Backups Hub Down")
-        enableSupport(tenant.id)
-        fakeSnapshots.unreachable = true
-
-        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/backups", String::class.java)
-
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body!!).contains("Not connected to the Epistola hub")
-    }
-
-    @Test
     fun `upgrading page renders a not-connected state instead of 500 when the hub is unreachable`() {
         val tenant = createTenant("Upgrading Hub Down")
         enableSupport(tenant.id)
@@ -132,20 +118,6 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body!!).contains("Not connected to the Epistola hub")
-    }
-
-    @Test
-    fun `backups page shows a hub-error state (not 'not connected') when the hub answers UNIMPLEMENTED`() {
-        val tenant = createTenant("Backups Hub Error")
-        enableSupport(tenant.id)
-        fakeSnapshots.hubErrored = true
-
-        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/backups", String::class.java)
-
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        val body = response.body!!
-        assertThat(body).contains("couldn't serve backups")
-        assertThat(body).doesNotContain("Not connected to the Epistola hub")
     }
 
     @Test

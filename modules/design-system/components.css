@@ -416,6 +416,19 @@
     border-color: var(--ep-border-color);
   }
 
+  /* Feature maturity markers (see KnownFeatures.FeatureStage). */
+  .badge-beta {
+    background-color: var(--ep-purple-100);
+    color: var(--ep-purple-600);
+    border-color: var(--ep-purple-200);
+  }
+
+  .badge-alpha {
+    background-color: var(--ep-amber-100);
+    color: var(--ep-amber-800);
+    border-color: var(--ep-amber-300);
+  }
+
   /* ── Tables ───────────────────────────────────────────────────────────── */
 
   .ep-table {

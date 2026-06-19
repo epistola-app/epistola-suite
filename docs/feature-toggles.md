@@ -25,26 +25,28 @@ Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
 
 ## Key Classes
 
-| Class                  | Location                                       | Purpose                                           |
-| ---------------------- | ---------------------------------------------- | ------------------------------------------------- |
-| `KnownFeatures`        | `modules/epistola-core/.../features/`          | Registry of all feature keys with descriptions    |
-| `FeatureDefaults`      | `modules/epistola-core/.../features/`          | Global defaults from `application.yaml`           |
-| `FeatureToggleService` | `modules/epistola-core/.../features/`          | Resolves effective state (DB override or default) |
-| `FeatureKey`           | `modules/epistola-core/.../common/ids/`        | Typed value class with slug validation            |
-| `SaveFeatureToggle`    | `modules/epistola-core/.../features/commands/` | Upserts a tenant override                         |
-| `DeleteFeatureToggle`  | `modules/epistola-core/.../features/commands/` | Removes a tenant override (reverts to default)    |
-| `GetFeatureToggles`    | `modules/epistola-core/.../features/queries/`  | Returns all features with resolved state          |
+| Class                  | Location                                       | Purpose                                                                              |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `KnownFeatures`        | `modules/epistola-core/.../features/`          | Registry of all feature keys + display metadata (title, description, maturity stage) |
+| `FeatureDefaults`      | `modules/epistola-core/.../features/`          | Global defaults from `application.yaml`                                              |
+| `FeatureToggleService` | `modules/epistola-core/.../features/`          | Resolves effective state (DB override or default)                                    |
+| `FeatureKey`           | `modules/epistola-core/.../common/ids/`        | Typed value class with slug validation                                               |
+| `SaveFeatureToggle`    | `modules/epistola-core/.../features/commands/` | Upserts a tenant override                                                            |
+| `DeleteFeatureToggle`  | `modules/epistola-core/.../features/commands/` | Removes a tenant override (reverts to default)                                       |
+| `GetFeatureToggles`    | `modules/epistola-core/.../features/queries/`  | Returns all features with resolved state                                             |
 
 ## How to Add a New Feature Toggle
 
-1. **Register the feature** in `KnownFeatures`:
+1. **Register the feature** in `KnownFeatures` (key + display metadata). The optional `stage`
+   defaults to `STABLE`; set `BETA`/`ALPHA` to render a maturity badge (see
+   [Feature maturity](#feature-maturity-alpha--beta)):
 
    ```kotlin
    val MY_FEATURE = FeatureKey.of("my-feature")
    val all: List<FeatureKey> = listOf(FEEDBACK, MY_FEATURE)
-   val descriptions: Map<FeatureKey, String> = mapOf(
-       FEEDBACK to "Enables feedback option.",
-       MY_FEATURE to "Description of my feature.",
+   val metadata: Map<FeatureKey, FeatureMetadata> = mapOf(
+       FEEDBACK to FeatureMetadata("Feedback", "Enables the feedback option."),
+       MY_FEATURE to FeatureMetadata("My feature", "Description of my feature.", stage = FeatureStage.BETA),
    )
    ```
 
@@ -104,12 +106,43 @@ The feature toggles management page is at `/tenants/{tenantId}/features` (Settin
 | Save feature toggles  | `TENANT_SETTINGS` |
 | Delete feature toggle | `TENANT_SETTINGS` |
 
+## Feature maturity (Alpha / Beta)
+
+A feature can advertise its release maturity via `FeatureMetadata.stage`
+(`KnownFeatures.FeatureStage`):
+
+| Stage    | Badge    | Meaning                                 |
+| -------- | -------- | --------------------------------------- |
+| `STABLE` | _(none)_ | Default — no marker is shown.           |
+| `BETA`   | Beta     | Feature-complete but still stabilizing. |
+| `ALPHA`  | Alpha    | Experimental / less stable.             |
+
+A non-stable stage renders a small badge **on every surface the feature appears
+on**: its nav item (desktop + mobile dropdowns), its own page header, and the
+admin Features list. The stage is the single source of truth — set it once in
+`KnownFeatures.metadata` and all three surfaces pick it up.
+
+Each non-stable stage carries both its user-facing `label` and the design-system
+`badgeClass` (e.g. `BETA → "badge-beta"`). The templates use `stage.badgeClass`
+directly (no string-building), and the matching `.badge-*` rule lives in
+`modules/design-system/components.css`. `FeatureStageTest` fails the build if a
+stage is missing its CSS rule, so a new stage cannot ship as an unstyled badge.
+
+To mark a feature beta, just set `stage = FeatureStage.BETA` on its
+`FeatureMetadata` entry — nothing else is required. To **add a new stage**:
+add the enum constant (with `label` + `badgeClass`) and a matching `.badge-*`
+rule in `components.css`.
+
 ## Current Features
 
-| Key                  | Description                                                                  | Default |
-| -------------------- | ---------------------------------------------------------------------------- | ------- |
-| `feedback`           | Enables the feedback system (nav link, FAB, console capture)                 | `true`  |
-| `stencil-parameters` | Typed parameters on stencils (preview). Existing data renders when disabled. | `false` |
+| Key                           | Description                                                          | Stage  | Default |
+| ----------------------------- | -------------------------------------------------------------------- | ------ | ------- |
+| `support-feedback`            | Support → Feedback (local; hub sync gated on the support tier)       | Stable | `true`  |
+| `support-backups`             | Support → Backups (faithful full-fidelity tenant backups + restore)  | Beta   | tier\*  |
+| `support-compatibility-check` | Support → Upgrading (compatibility checks against upcoming releases) | Stable | tier\*  |
+| `stencil-parameters`          | Typed parameters on stencils. Existing data renders when disabled.   | Stable | `true`  |
+
+\* Hub-only features (`KnownFeatures.HUB_ONLY`) default to `epistola.support.enabled` — see above.
 
 ## Editor feature flags
 

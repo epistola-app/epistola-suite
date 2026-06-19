@@ -26,6 +26,14 @@ class HubConnectivityService(
     /** Whether the support tier is wired (a hub client bean exists) on this node. */
     fun supportEnabled(): Boolean = clientProvider.ifAvailable != null
 
+    /**
+     * Backoff gate for hub operations: returns false only when the most recent probe explicitly found
+     * the hub [HubReachability.UNREACHABLE]. `UNKNOWN` (not yet probed) and `REACHABLE` both return
+     * true so we still attempt — the first failed attempt records `UNREACHABLE`, so subsequent checks
+     * short-circuit and we stop hammering a hub that is down. No-op (true) when support is off.
+     */
+    fun reachable(): Boolean = clientProvider.ifAvailable?.connectivity()?.reachability != HubReachability.UNREACHABLE
+
     /** This node's current hub connectivity. */
     fun currentNode(): NodeHubConnectivity {
         val connectivity = clientProvider.ifAvailable?.connectivity()

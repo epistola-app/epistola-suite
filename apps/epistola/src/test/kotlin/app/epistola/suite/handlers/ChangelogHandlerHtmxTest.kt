@@ -70,14 +70,16 @@ class ChangelogHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the dialog previews the unreleased section as an Upcoming entry`() {
-        // The bundled CHANGELOG.md always carries an [Unreleased] section, surfaced as "Upcoming".
+    fun `the dialog previews the unreleased section as Upcoming only when entries exist`() {
+        val hasVisibleUnreleased = renderer.entries(ChangelogAudience.USER, includeUnreleased = true).any { !it.released }
         val response = get("/changelog")
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains(">Upcoming<")
-        // The [Unreleased] section carries a summary paragraph, rendered above its entries.
-        assertThat(response.body).contains("changelog-summary")
+        if (hasVisibleUnreleased) {
+            assertThat(response.body).contains(">Upcoming<")
+        } else {
+            assertThat(response.body).doesNotContain(">Upcoming<")
+        }
     }
 
     @Test

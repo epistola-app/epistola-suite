@@ -25,8 +25,12 @@
                                th:href="@{/tenants/{id}/{p}(id=${tenantId}, p=${item.pathSuffix})}"
                                class="app-nav-dropdown-item" role="menuitem"
                                th:attr="data-testid=${'nav-item-' + item.sectionKey}"
-                               th:classappend="${item.active} ? ' active' : ''"
-                               th:text="${item.label}">Item</a>
+                               th:classappend="${item.active} ? ' active' : ''">
+                                <span th:text="${item.label}">Item</span>
+                                <span th:if="${item.stage.badgeClass != null}"
+                                      th:class="${'badge ' + item.stage.badgeClass}"
+                                      th:text="${item.stage.label}">Beta</span>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -66,7 +70,12 @@
                        class="app-nav-mobile-item"
                        th:attr="data-testid=${'nav-mobile-item-' + item.sectionKey}"
                        th:classappend="${item.active} ? ' active' : ''"
-                       role="menuitem" th:text="${item.label}">Item</a>
+                       role="menuitem">
+                        <span th:text="${item.label}">Item</span>
+                        <span th:if="${item.stage.badgeClass != null}"
+                              th:class="${'badge ' + item.stage.badgeClass}"
+                              th:text="${item.stage.label}">Beta</span>
+                    </a>
                 </div>
                 <div class="app-nav-mobile-footer">
                     <a th:href="@{/}" class="app-nav-mobile-item" role="menuitem">

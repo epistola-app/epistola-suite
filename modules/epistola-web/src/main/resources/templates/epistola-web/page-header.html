@@ -10,7 +10,8 @@
             searchPlaceholder=${searchPlaceholder} ?: 'Search...',
             searchUrl=${searchUrl} ?: null,
             searchTargetId=${searchTargetId} ?: null,
-            actions=${actions} ?: null
+            actions=${actions} ?: null,
+            stage=${stage} ?: null
          "
          class="page-header">
 
@@ -21,7 +22,12 @@
                 <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
                 <span th:text="${backLinkLabel}"></span>
             </a>
-            <h1 data-testid="page-title" th:text="${pageTitle}"></h1>
+            <h1 data-testid="page-title">
+                <span th:text="${pageTitle}"></span>
+                <span th:if="${stage != null and stage.badgeClass != null}"
+                      th:class="${'badge ' + stage.badgeClass}"
+                      th:text="${stage.label}">Beta</span>
+            </h1>
             <p th:if="${!#strings.isEmpty(pageDescription)}" th:text="${pageDescription}"></p>
         </div>
 
