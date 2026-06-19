@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemUser
+import app.epistola.suite.support.isHubUnreachable
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -73,6 +74,12 @@ class BackupScheduler(
                     backupService.backupTenant(tenantKey)
                 }
             } catch (e: Exception) {
+                // Back off: if the hub is down the remaining tenants would all fail their upload too.
+                // Log one warning and stop the sweep — the next daily run retries from scratch.
+                if (e.isHubUnreachable()) {
+                    log.warn("Epistola hub unreachable; stopping the backup sweep this cycle: {}", e.message)
+                    break
+                }
                 log.error("Backup failed for tenant {}: {}", tenantKey.value, e.message, e)
             }
         }

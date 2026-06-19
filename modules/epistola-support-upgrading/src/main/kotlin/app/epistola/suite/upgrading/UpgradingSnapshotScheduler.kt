@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.support.isHubUnreachable
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -80,6 +81,12 @@ class UpgradingSnapshotScheduler(
                     snapshotSync.syncTenant(tenantKey)
                 }
             } catch (e: Exception) {
+                // Back off: the hub is down, so the remaining tenants would all fail their upload
+                // too. Log one warning and stop the sweep — the next run retries from scratch.
+                if (e.isHubUnreachable()) {
+                    log.warn("Epistola hub unreachable; stopping upgrading snapshot sweep this cycle: {}", e.message)
+                    break
+                }
                 log.error("Upgrading snapshot refresh failed for tenant {}: {}", tenantKey.value, e.message, e)
             }
         }

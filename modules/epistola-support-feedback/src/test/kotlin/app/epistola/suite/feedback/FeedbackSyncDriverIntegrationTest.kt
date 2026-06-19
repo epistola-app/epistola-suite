@@ -23,6 +23,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
+import app.epistola.suite.support.HubConnectivityService
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
 import io.micrometer.core.instrument.MeterRegistry
@@ -31,6 +32,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
@@ -56,10 +58,32 @@ import java.time.Instant
 )
 class FeedbackSyncDriverIntegrationTest : IntegrationTestBase() {
 
+    /**
+     * Stands in for the real [HubConnectivityService] so a test can simulate the hub being
+     * unreachable and assert the sweeps back off. The support tier is off in this context, so the
+     * real bean would always report reachable; this lets [reachable] be toggled per test.
+     */
+    class ToggleableHubConnectivity(
+        clientProvider: ObjectProvider<app.epistola.hub.client.EpistolaHubClient>,
+        nodeIdentity: app.epistola.suite.observability.NodeIdentity,
+    ) : HubConnectivityService(clientProvider, nodeIdentity) {
+        @Volatile
+        var hubReachable: Boolean = true
+
+        override fun reachable(): Boolean = hubReachable
+    }
+
     class TestConfig {
         @Bean
         @Primary
         fun recordingFeedbackSyncPort(): FeedbackSyncPort = RecordingFeedbackSyncPort()
+
+        @Bean
+        @Primary
+        fun toggleableHubConnectivity(
+            clientProvider: ObjectProvider<app.epistola.hub.client.EpistolaHubClient>,
+            nodeIdentity: app.epistola.suite.observability.NodeIdentity,
+        ): HubConnectivityService = ToggleableHubConnectivity(clientProvider, nodeIdentity)
 
         // The retry scheduler records sync-outcome metrics; the minimal TestApplication has no
         // actuator MeterRegistry, so provide a simple one (the real app gets it from actuator).
@@ -80,13 +104,19 @@ class FeedbackSyncDriverIntegrationTest : IntegrationTestBase() {
     @Autowired
     lateinit var appMetadata: AppMetadataService
 
+    @Autowired
+    lateinit var hubConnectivity: HubConnectivityService
+
     private val recording get() = syncPort as RecordingFeedbackSyncPort
+
+    private val toggleableConnectivity get() = hubConnectivity as ToggleableHubConnectivity
 
     private val testUserKey = UserKey.of("00000000-0000-0000-0000-feedbac00077")
 
     @BeforeEach
     fun setUp() {
         recording.reset()
+        toggleableConnectivity.hubReachable = true
         appMetadata.setAs(FeedbackPollScheduler.CURSOR_KEY, FeedbackPollScheduler.Cursor(0))
         ensureUser(testUserKey, "feedback-driver-author", "feedback-driver@epistola.test", "Feedback Driver Author")
     }
@@ -274,6 +304,49 @@ class FeedbackSyncDriverIntegrationTest : IntegrationTestBase() {
         repeat(ListPendingSyncFeedback.MAX_SYNC_ATTEMPTS) { retryScheduler.retryPendingSync() }
 
         assertThat(withMediator { GetFeedback(feedbackId).query()!! }.syncStatus).isEqualTo(SyncStatus.FAILED)
+    }
+
+    @Test
+    fun `retry sweep backs off and does not burn attempts while the hub is unreachable`() {
+        val tenant = createTenant("Driver Backoff")
+        recording.failCreate = true
+
+        // PENDING item whose immediate push failed.
+        val feedbackId = FeedbackId(FeedbackKey.generate(), TenantId(tenant.id))
+        withMediator {
+            CreateFeedback(
+                id = feedbackId,
+                title = "Hub down",
+                description = "desc",
+                category = FeedbackCategory.BUG,
+                priority = FeedbackPriority.LOW,
+                sourceUrl = null,
+                consoleLogs = null,
+                metadata = null,
+                createdBy = testUserKey,
+            ).execute()
+        }
+        assertThat(withMediator { GetFeedback(feedbackId).query()!! }.syncStatus).isEqualTo(SyncStatus.PENDING)
+
+        // Hub unreachable: even after many sweeps the item is never attempted, so it stays PENDING
+        // (not FAILED) and the port is never called.
+        toggleableConnectivity.hubReachable = false
+        recording.createdTickets.clear()
+        repeat(ListPendingSyncFeedback.MAX_SYNC_ATTEMPTS + 2) { retryScheduler.retryPendingSync() }
+
+        assertThat(recording.createdTickets).isEmpty()
+        assertThat(withMediator { GetFeedback(feedbackId).query()!! }.syncStatus).isEqualTo(SyncStatus.PENDING)
+    }
+
+    @Test
+    fun `poll backs off and does not fetch while the hub is unreachable`() {
+        appMetadata.setAs(FeedbackPollScheduler.CURSOR_KEY, FeedbackPollScheduler.Cursor(7))
+        toggleableConnectivity.hubReachable = false
+
+        pollScheduler.pollForUpdates()
+
+        assertThat(recording.fetchCalls).isEmpty()
+        assertThat(appMetadata.getAs<FeedbackPollScheduler.Cursor>(FeedbackPollScheduler.CURSOR_KEY)!!.seq).isEqualTo(7)
     }
 
     @Test

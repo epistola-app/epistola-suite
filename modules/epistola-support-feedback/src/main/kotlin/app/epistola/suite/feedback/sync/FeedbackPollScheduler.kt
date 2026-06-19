@@ -16,6 +16,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.HubConnectivityService
+import app.epistola.suite.support.isHubUnreachable
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
@@ -41,6 +43,7 @@ import org.springframework.stereotype.Component
 )
 class FeedbackPollScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
+    private val connectivity: HubConnectivityService,
     private val mediator: Mediator,
     private val appMetadata: AppMetadataService,
     private val properties: FeedbackSyncProperties,
@@ -71,11 +74,24 @@ class FeedbackPollScheduler(
             log.debug("Feedback sync target not ready yet (installation not registered); skipping poll")
             return
         }
+        // Back off when the hub is known unreachable: skip the poll rather than fail the fetch.
+        if (!connectivity.reachable()) {
+            log.debug("Epistola hub unreachable; skipping feedback poll this cycle")
+            return
+        }
 
         var cursor = loadCursor()
         var pages = 0
         while (pages++ < MAX_PAGES_PER_RUN) {
-            val page = feedbackSyncPort.fetchUpdates(cursor)
+            val page = try {
+                feedbackSyncPort.fetchUpdates(cursor)
+            } catch (e: Exception) {
+                if (e.isHubUnreachable()) {
+                    log.debug("Epistola hub unreachable while polling feedback updates: {}", e.message)
+                    break
+                }
+                throw e
+            }
             if (page.updates.isEmpty()) {
                 // Nothing new — leave the cursor untouched (it is the hub's seq, not a clock).
                 break

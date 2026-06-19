@@ -25,6 +25,7 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.HubConnectivityService
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -49,6 +50,7 @@ import org.springframework.stereotype.Component
 )
 class FeedbackSyncScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
+    private val connectivity: HubConnectivityService,
     private val mediator: Mediator,
     private val properties: FeedbackSyncProperties,
     private val meterRegistry: MeterRegistry,
@@ -76,6 +78,12 @@ class FeedbackSyncScheduler(
             // sync attempts during the startup window before registration completes.
             if (!feedbackSyncPort.isReady()) {
                 log.debug("Feedback sync target not ready yet (installation not registered); skipping retry sweep")
+                return@runWithMediator
+            }
+            // Back off when the hub is known unreachable: skip the whole sweep so we neither call a
+            // hub that is down nor burn sync attempts (which would eventually mark items FAILED).
+            if (!connectivity.reachable()) {
+                log.debug("Epistola hub unreachable; skipping feedback sync sweep this cycle")
                 return@runWithMediator
             }
             retryPendingFeedback()
