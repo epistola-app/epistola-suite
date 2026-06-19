@@ -48,12 +48,16 @@ the deep-link reconcile JS (see [`htmx.md`](htmx.md) → "Deep-linkable create d
 A test opens via the trigger and asserts/scopes on the dialog. Field inputs keep stable
 `id`s (`#name`, `#slug`, …), scoped as `#create-<entity>-dialog #name`.
 
-**Validation-error spans** are addressed by stable `id`, not `data-testid`: per-field
-`#<entity>-error-<field>` (e.g. `#font-error-slug`) and the general region
-`#<entity>-form-error` / `#font-error-general` / `#asset-error-general`. Each carries
-`data-error="true"/"false"`; the fonts/assets ones are swapped in via `hx-swap-oob`
-(see [`htmx.md`](htmx.md) → "Create-form error handling"). The 8 text forms re-render the
-whole form, so their error spans only need the `id` for test selection.
+**Per-field error spans** are addressed by stable `id`, not `data-testid`:
+`#<entity>-error-<field>` (e.g. `#font-error-slug`, `#asset-error-catalog`). Each carries
+`data-error="true"/"false"`; the fonts/assets ones are swapped in via `hx-swap-oob`. The 8
+text forms re-render the whole form, so their error spans only need the `id`.
+
+**General (non-field / server) errors** all render into one shared region per dialog,
+`#dialog-error` (`data-testid="dialog-error"`), rendered by the central
+`UiHandlerExceptionResolver` (an out-of-band swap). A test asserts the message on `getByTestId("dialog-error")` after a
+thrown error (bad upload, invalid load-test JSON, read-only catalog, …). See
+[`htmx.md`](htmx.md) → "Create-form error handling".
 
 ---
 

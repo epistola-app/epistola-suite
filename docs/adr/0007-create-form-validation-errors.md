@@ -5,6 +5,39 @@
 - **Deciders:** Epistola team
 - **Tags:** ui, htmx, forms, validation, dialogs, css, architecture
 
+## Amendment (2026-06-19) — Centralized general-error rendering
+
+This ADR's **Consequences** flagged two gaps in the original design: most create forms
+had **no general (non-field) error region**, and an error thrown _before_ a region was
+rendered surfaced as a 500 behind the modal (the global `htmx:responseError` net inserted a
+banner into `#main-content`, behind the open dialog). Both are now resolved by making
+**general errors a thrown-and-centrally-rendered concern**, keeping the field-error model
+(Decisions 1 & 2) exactly as-is. The split is now explicit:
+
+- **Field errors stay data** (the `errors` map): the handler renders them next to their
+  inputs — whole-form self-swap for text forms, per-field OOB spans for the file forms.
+- **General/operational errors are thrown** (a `FormInputException`, or any unmapped domain
+  exception) — handlers no longer hand-render them. The MVC error handler
+  **`UiHandlerExceptionResolver`** resolves them and renders the response **through the view
+  layer** (it returns a `ModelAndView`; the HTML comes from the `fragments/dialog :: dialogError`
+  fragment, so no component hand-builds markup). `UiExceptionFilter` is only the last-resort net
+  for whatever escapes the dispatch (data/error-page, never markup); both share `resolveUiError`.
+  Content-negotiated into one envelope:
+  - an HTMX form that declares a region via the **`X-Epistola-Error-Region`** request header
+    (set on the create `<dialog>` via `hx-headers`, so the header is absent on every other
+    HTMX flow → **zero blast radius**) → **200 + `HX-Reswap: none` + an out-of-band swap** of
+    an alert into that region (a shared `#dialog-error` inside each dialog, so it renders
+    _inside_ the modal and never touches the form/file);
+  - a data caller (`Accept: application/json`, e.g. the editor's `uploadAsset`) → **RFC 9457
+    `problem+json`** whose `detail` carries the message.
+
+Consequences of the amendment: fonts/assets drop their JSON-400 branch and per-form
+`error-general` span (they throw; the resolver renders both contracts); load-test drops its
+`#form-error` region and `form-error` fragment (it throws everything); **text forms need no
+change** — they already let operational exceptions propagate, so adding the shared region +
+the dialog header is enough. The clear-before-submit of `#dialog-error` lives once in
+`fragments/htmx`. The original Decisions and the rest of this ADR stand unchanged.
+
 ## Context
 
 Every "create new" flow now opens in a shared modal `<dialog>` loaded into `#dialog-host`
