@@ -28,6 +28,8 @@
         <div th:if="${error == 'backup-failed'}" class="alert alert-error" role="alert">The backup failed. Please try again or check the logs.</div>
         <div th:if="${error == 'restore-failed'}" class="alert alert-error" role="alert">The restore failed and was rolled back. Please try again or check the logs.</div>
         <div th:if="${error == 'restore-incompatible'}" class="alert alert-error" role="alert">This backup was taken on a schema version this build can't restore (a database change between the two isn't declared restore-compatible). Restore it on a matching build.</div>
+        <div th:if="${error == 'hub-unavailable'}" class="alert alert-error" role="alert">Couldn't reach the Epistola hub, so that action didn't complete. Check the connection on Support → Overview and try again.</div>
+        <div th:if="${error == 'not-entitled'}" class="alert alert-error" role="alert">This installation isn't entitled to backups — contact Epistola for a service contract.</div>
         <div th:if="${hubStatus == 'UNAVAILABLE'}" class="alert alert-info" role="status">Couldn't reach the Epistola hub, so stored backups can't be listed right now. Check the connection on Support → Overview and try again.</div>
         <div th:if="${hubStatus == 'NOT_ENTITLED'}" class="alert alert-info" role="status">This installation isn't entitled to backups — contact Epistola for a service contract.</div>
 

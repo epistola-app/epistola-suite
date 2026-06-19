@@ -14,7 +14,11 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.util.LinkedMultiValueMap
 
 /**
  * The Backups page must degrade gracefully — a notice, not a 500 — when listing backups fails because
@@ -44,6 +48,33 @@ class BackupsHubUnavailableTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body!!).contains("Couldn't reach the Epistola hub")
+    }
+
+    @Test
+    fun `back up now redirects to a hub-unavailable notice instead of a generic failure`() {
+        val tenant = createTenant("Backup Hub Down")
+        val body = HttpEntity(LinkedMultiValueMap<String, String>(), htmxForm())
+
+        val response = restTemplate.postForEntity("/tenants/${tenant.id.value}/backups", body, String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.headers.getFirst("HX-Redirect")).contains("error=hub-unavailable")
+    }
+
+    @Test
+    fun `restore redirects to a hub-unavailable notice instead of a generic failure`() {
+        val tenant = createTenant("Restore Hub Down")
+        val body = HttpEntity(LinkedMultiValueMap<String, String>(), htmxForm())
+
+        val response = restTemplate.postForEntity("/tenants/${tenant.id.value}/backups/any-id/restore", body, String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.headers.getFirst("HX-Redirect")).contains("error=hub-unavailable")
+    }
+
+    private fun htmxForm() = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_FORM_URLENCODED
+        add("HX-Request", "true")
     }
 
     /** A [TenantBackupStore] that fails its hub-backed reads, simulating an unreachable hub. */

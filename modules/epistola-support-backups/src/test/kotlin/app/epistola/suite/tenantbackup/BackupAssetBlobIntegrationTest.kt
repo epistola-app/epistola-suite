@@ -43,7 +43,7 @@ class BackupAssetBlobIntegrationTest : IntegrationTestBase() {
             }
         val blobKey = "assets/${tenant.id.value}/${assetKey.value}"
 
-        val backup = withMediator { BuildTenantBackup(tenant.id).execute() }
+        val backup = withMediator { BuildTenantBackup(tenant.id).execute()!! }
         assertThat(backup.blobCount).isEqualTo(1)
 
         // Diverge: wipe the stored bytes, then restore them from the backup.

@@ -30,20 +30,36 @@ class SchemaBackupCompatibilityFileTest : IntegrationTestBase() {
 
     @Test
     fun `every declared compatibility version is a real applied migration`() {
-        val applied =
-            jdbi.withHandle<Set<String>, Exception> { handle ->
-                handle
-                    .createQuery("SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL")
-                    .mapTo(String::class.java)
-                    .set()
-            }
-        assertThat(applied).containsAll(restoreCompatibility.declaredVersions())
+        assertThat(appliedVersions()).containsAll(restoreCompatibility.declaredVersions())
+    }
+
+    @Test
+    fun `every applied migration version is a fixed-width 14-digit timestamp`() {
+        // SchemaStamp + RestoreCompatibility compare version strings; that equals chronological order
+        // only while every version is a fixed-width YYYYMMDDHHMMSS timestamp. Guard the invariant.
+        assertThat(appliedVersions()).allSatisfy { version -> assertThat(version).matches("\\d{14}") }
+    }
+
+    @Test
+    fun `build skips the archive when the fingerprint is unchanged`() {
+        val tenant = createTenant("Compat Skip")
+        val first = withMediator { BuildTenantBackup(tenant.id).execute()!! }
+
+        val skipped = withMediator { BuildTenantBackup(tenant.id, skipIfFingerprint = first.fingerprint).execute() }
+        assertThat(skipped).isNull()
+    }
+
+    private fun appliedVersions(): Set<String> = jdbi.withHandle<Set<String>, Exception> { handle ->
+        handle
+            .createQuery("SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL")
+            .mapTo(String::class.java)
+            .set()
     }
 
     @Test
     fun `a fresh backup is v2 and records applied migrations with their compatibility flags`() {
         val tenant = createTenant("Compat Manifest")
-        val artifact = withMediator { BuildTenantBackup(tenant.id).execute() }
+        val artifact = withMediator { BuildTenantBackup(tenant.id).execute()!! }
         val manifest = readManifest(artifact.bytes)
 
         assertThat(manifest.formatVersion).isEqualTo(2)

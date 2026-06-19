@@ -28,14 +28,20 @@ import java.util.zip.ZipOutputStream
  *
  * This is the faithful counterpart to the catalog *export* snapshot (`BuildTenantSnapshot`), which
  * is a publishing format that keeps only the latest published version and renumbers on import. A
- * backup is restored with [RestoreTenantBackup] and is gated to the same schema version.
+ * backup is restored with [RestoreTenantBackup] and is gated to a compatible schema version.
+ *
+ * [skipIfFingerprint] is the dedup short-circuit: when set and the freshly-dumped content fingerprint
+ * equals it, the build returns **null** without zipping or encrypting the archive — so an unchanged
+ * tenant (the daily-scheduler steady state) skips the expensive archive build. With it null (the
+ * default) the build always produces an artifact.
  *
  * Requires [Permission.TENANT_SETTINGS] — the artifact contains all of a tenant's data including
  * API-key hashes and encrypted credentials.
  */
 data class BuildTenantBackup(
     override val tenantKey: TenantKey,
-) : Command<TenantBackupArtifact>,
+    val skipIfFingerprint: String? = null,
+) : Command<TenantBackupArtifact?>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
 }
@@ -49,14 +55,21 @@ class BuildTenantBackupHandler(
     private val objectMapper: ObjectMapper,
     private val restoreCompatibility: RestoreCompatibility,
     private val buildProperties: BuildProperties?,
-) : CommandHandler<BuildTenantBackup, TenantBackupArtifact> {
+) : CommandHandler<BuildTenantBackup, TenantBackupArtifact?> {
     private val buildVersion: String get() = buildProperties?.version ?: "dev"
 
     @Transactional(readOnly = true)
-    override fun handle(command: BuildTenantBackup): TenantBackupArtifact = jdbi.withHandle<TenantBackupArtifact, Exception> { handle ->
+    override fun handle(command: BuildTenantBackup): TenantBackupArtifact? = jdbi.withHandle<TenantBackupArtifact?, Exception> { handle ->
         val resolved = topology.resolve(handle)
         val schemaStamp = SchemaStamp.current(handle)
         val dump = dumpTenantTables.dump(handle, resolved, command.tenantKey.value)
+
+        // Dedup short-circuit: the fingerprint comes from the dump alone, so an unchanged tenant skips
+        // the expensive zip + encrypt below (see [BuildTenantBackup.skipIfFingerprint]).
+        val fingerprint = fingerprint(dump)
+        if (command.skipIfFingerprint == fingerprint) {
+            return@withHandle null
+        }
 
         val tableEntries = mutableListOf<BackupTableEntry>()
         val tableFiles = LinkedHashMap<String, ByteArray>()
@@ -94,7 +107,7 @@ class BuildTenantBackupHandler(
                 buildVersion = buildVersion,
                 tenantKey = command.tenantKey.value,
                 createdAt = capturedAt.toString(),
-                fingerprint = fingerprint(dump),
+                fingerprint = fingerprint,
                 tables = tableEntries,
                 blobs = blobEntries,
                 appliedMigrations = recordAppliedMigrations(handle),

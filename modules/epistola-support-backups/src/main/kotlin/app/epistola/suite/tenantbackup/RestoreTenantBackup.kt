@@ -18,9 +18,11 @@ import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
 /**
- * Restores a tenant from a faithful backup artifact ([BuildTenantBackup]). **Same-schema undo, not a
- * migration**: the artifact's [TenantBackupManifest.schemaStamp] must equal the running schema head,
- * else the restore is refused before any write.
+ * Restores a tenant from a faithful backup artifact ([BuildTenantBackup]). It is an **undo**, not a
+ * forward migration: a cross-schema restore is allowed only when every migration crossed between the
+ * backup and the running schema is declared compatible (see
+ * [app.epistola.suite.tenantbackup.schema.RestoreCompatibility]); otherwise it is refused before any
+ * write. The backed-up tables must also still be structurally identical (`validateColumns`).
  *
  * The whole operation is one transaction (`@Transactional`; JDBI joins it), so a failure rolls the
  * tenant back. Unlike the catalog-export restore, this is a **merge** (see [MergeRestoreTables]): it
@@ -96,8 +98,11 @@ class RestoreTenantBackupHandler(
     }
 
     /**
-     * Belt-and-braces alongside the schema stamp: every backed-up table must still exist with the
-     * exact same column set (name + udt). Catches an out-of-band schema edit that shares a stamp.
+     * Belt-and-braces alongside the compatibility gate: every backed-up table must still exist with
+     * the exact same column set (name + udt). Catches a structural change (a column added/dropped/
+     * retyped on a backed-up table) that the declared compatibility flags intentionally do not cover —
+     * the flags relax the *stamp*, never the structure. Surfaced as [IncompatibleBackupSchemaException]
+     * so the UI explains it as a schema-incompatibility rather than a generic failure.
      */
     private fun validateColumns(
         handle: org.jdbi.v3.core.Handle,
@@ -107,11 +112,15 @@ class RestoreTenantBackupHandler(
         manifest.tables.forEach { entry ->
             val liveSpec =
                 live[entry.table]
-                    ?: error("Backup table '${entry.table}' no longer exists in the schema")
+                    ?: throw IncompatibleBackupSchemaException(
+                        "table '${entry.table}' in the backup no longer exists in this schema",
+                    )
             val liveCols = liveSpec.columns.associate { it.name to it.udtName }
             val backupCols = entry.columns.associate { it.name to it.udtName }
-            require(liveCols == backupCols) {
-                "Schema for table '${entry.table}' changed since the backup (column set differs); restore refused"
+            if (liveCols != backupCols) {
+                throw IncompatibleBackupSchemaException(
+                    "the schema structure changed for table '${entry.table}' (column set differs) since this backup was taken",
+                )
             }
         }
     }

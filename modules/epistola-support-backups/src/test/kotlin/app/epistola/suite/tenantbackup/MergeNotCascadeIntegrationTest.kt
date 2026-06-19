@@ -60,7 +60,7 @@ class MergeNotCascadeIntegrationTest : IntegrationTestBase() {
                 .execute()
         }
 
-        val backup = withMediator { BuildTenantBackup(tenant.id).execute() }
+        val backup = withMediator { BuildTenantBackup(tenant.id).execute()!! }
         withMediator { RestoreTenantBackup(tenant.id, backup.bytes).execute() }
 
         val surviving =

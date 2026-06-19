@@ -31,6 +31,32 @@ class RestoreCompatibilityIntegrationTest : IntegrationTestBase() {
     @Autowired
     lateinit var objectMapper: ObjectMapper
 
+    @Autowired
+    lateinit var restoreCompatibility: app.epistola.suite.tenantbackup.schema.RestoreCompatibility
+
+    @Autowired
+    lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
+    @Test
+    fun `backwardBoundary classifies every applied version the same way check does`() {
+        // The O(1) list shortcut (boundary) must match the authoritative per-backup check (F3).
+        jdbi.useHandle<Exception> { handle ->
+            val live = app.epistola.suite.tenantbackup.schema.SchemaStamp.current(handle)
+            val boundary = restoreCompatibility.backwardBoundary(handle, live)
+            val applied =
+                handle
+                    .createQuery("SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL AND version <= :live")
+                    .bind("live", live)
+                    .mapTo(String::class.java)
+                    .list()
+            applied.forEach { stamp ->
+                val viaBoundary = boundary == null || stamp >= boundary
+                val viaCheck = restoreCompatibility.check(handle, stamp, appliedMigrations = null) is app.epistola.suite.tenantbackup.schema.Compatibility.Compatible
+                assertThat(viaBoundary).describedAs("restorability of backup at %s", stamp).isEqualTo(viaCheck)
+            }
+        }
+    }
+
     @Test
     fun `refuses an older backup whose crossed migrations are not declared backward-compatible`() {
         val backup = freshBackup("Compat Old")
@@ -104,7 +130,7 @@ class RestoreCompatibilityIntegrationTest : IntegrationTestBase() {
     private fun freshBackup(name: String): Backup {
         val tenant = createTenant(name)
         withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("main"), name = "Main").execute() }
-        val artifact = withMediator { BuildTenantBackup(tenant.id).execute() }
+        val artifact = withMediator { BuildTenantBackup(tenant.id).execute()!! }
         return Backup(tenant.id, artifact.bytes)
     }
 

@@ -44,6 +44,25 @@ class RestoreCompatibility {
     fun declaredVersions(): Set<String> = flagsByVersion.keys
 
     /**
+     * The greatest applied version `<= live` that is **not** declared backward-compatible — the
+     * "backward boundary". A backup taken at stamp `A` (`A < live`) is backward-restorable iff
+     * `boundary == null || A >= boundary` (no incompatible migration lies in the crossed range
+     * `(A, live]`). Lets the Backups list classify every backward backup from **one** query instead of
+     * calling [check] (and its per-backup query) for each. Equivalent to [check]'s backward branch.
+     */
+    fun backwardBoundary(
+        handle: Handle,
+        live: String,
+    ): String? = handle
+        .createQuery(
+            "SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL AND version <= :live",
+        ).bind("live", live)
+        .mapTo(String::class.java)
+        .list()
+        .filterNot { flagsFor(it).backward }
+        .maxOrNull()
+
+    /**
      * Decides a restore. [backupStamp] is the manifest's `schemaStamp`; [appliedMigrations] is the
      * manifest's recorded flags (null on v1 backups → forward unavailable).
      */

@@ -11,11 +11,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.tenantbackup.IncompatibleBackupSchemaException
-import app.epistola.suite.tenantbackup.schema.Compatibility
-import app.epistola.suite.tenantbackup.schema.RestoreCompatibility
-import app.epistola.suite.tenantbackup.schema.SchemaStamp
 import app.epistola.suite.tenants.queries.GetTenant
-import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -29,14 +25,13 @@ import java.time.format.DateTimeFormatter
  * (nav) and gated per-action on `TENANT_SETTINGS`.
  *
  * Each backup is annotated with whether it is **restore-compatible** with the running schema
- * ([RestoreCompatibility]) so an incompatible one is shown as such (and its Restore disabled) rather
- * than failing with a generic error on click.
+ * (computed by [TenantBackupService.restorability]) so an incompatible one is shown as such (and its
+ * Restore disabled) rather than failing with a generic error on click. Hub round-trips (the
+ * hub-backed store) degrade to a notice instead of a 500 when the hub is down or unentitled.
  */
 @Component
 class BackupsHandler(
     private val backupService: TenantBackupService,
-    private val jdbi: Jdbi,
-    private val restoreCompatibility: RestoreCompatibility,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -59,11 +54,7 @@ class BackupsHandler(
                 hubStatus = "UNAVAILABLE"
                 emptyList()
             }
-        val states =
-            jdbi.withHandle<Map<String, RestoreState>, Exception> { handle ->
-                val live = SchemaStamp.current(handle)
-                backups.associate { it.id to restoreState(handle, live, it) }
-            }
+        val restorability = if (backups.isEmpty()) emptyMap() else backupService.restorability(tenantId.key, backups)
 
         return ServerResponse.ok().page("backups/list") {
             "pageTitle" to "Backups - Epistola"
@@ -71,7 +62,10 @@ class BackupsHandler(
             "tenantId" to tenantId.key
             "activeNavSection" to "backups"
             "hubStatus" to hubStatus
-            "backups" to backups.mapIndexed { index, backup -> backup.toView(isLatest = index == 0, state = states.getValue(backup.id)) }
+            "backups" to
+                backups.mapIndexed { index, backup ->
+                    backup.toView(isLatest = index == 0, restorable = restorability.getValue(backup.id))
+                }
             "saved" to request.param("saved").orElse(null)
             "error" to request.param("error").orElse(null)
         }
@@ -87,6 +81,12 @@ class BackupsHandler(
                     is BackupOutcome.Unchanged -> "saved=backup-unchanged"
                 }
             redirect(tenantId.key.value, query)
+        } catch (e: HubEntitlementDeniedException) {
+            log.warn("Backup not entitled for tenant {}: {}", tenantId.key.value, e.message)
+            redirect(tenantId.key.value, "error=not-entitled")
+        } catch (e: HubException) {
+            log.warn("Backup could not reach the hub for tenant {}: {}", tenantId.key.value, e.message)
+            redirect(tenantId.key.value, "error=hub-unavailable")
         } catch (e: Exception) {
             log.error("Manual backup failed for tenant {}: {}", tenantId.key.value, e.message, e)
             redirect(tenantId.key.value, "error=backup-failed")
@@ -103,29 +103,16 @@ class BackupsHandler(
         } catch (e: IncompatibleBackupSchemaException) {
             log.warn("Restore refused for tenant {} from backup {}: {}", tenantId.key.value, backupId, e.reason)
             redirect(tenantId.key.value, "error=restore-incompatible")
+        } catch (e: HubEntitlementDeniedException) {
+            log.warn("Restore not entitled for tenant {}: {}", tenantId.key.value, e.message)
+            redirect(tenantId.key.value, "error=not-entitled")
+        } catch (e: HubException) {
+            log.warn("Restore could not reach the hub for tenant {} backup {}: {}", tenantId.key.value, backupId, e.message)
+            redirect(tenantId.key.value, "error=hub-unavailable")
         } catch (e: Exception) {
             log.error("Restore failed for tenant {} from backup {}: {}", tenantId.key.value, backupId, e.message, e)
             redirect(tenantId.key.value, "error=restore-failed")
         }
-    }
-
-    /**
-     * Cheap per-backup restore-compatibility for the list, decided from the stamp alone: same →
-     * yes; backward → the live compatibility file decides; forward (backup newer than this schema) →
-     * shown as "newer", left enabled, and decided authoritatively on restore (needs the manifest).
-     */
-    private fun restoreState(
-        handle: org.jdbi.v3.core.Handle,
-        live: String,
-        backup: StoredBackup,
-    ): RestoreState = when {
-        backup.schemaStamp == live -> RestoreState(restorable = true, versionNote = null)
-        backup.schemaStamp > live -> RestoreState(restorable = true, versionNote = "Newer version")
-        else ->
-            when (restoreCompatibility.check(handle, backup.schemaStamp, appliedMigrations = null)) {
-                is Compatibility.Compatible -> RestoreState(restorable = true, versionNote = null)
-                is Compatibility.Incompatible -> RestoreState(restorable = false, versionNote = "Older version")
-            }
     }
 
     // Both actions are triggered via htmx; return 200 with HX-Redirect so htmx navigates the whole
@@ -137,7 +124,7 @@ class BackupsHandler(
 
     private fun StoredBackup.toView(
         isLatest: Boolean,
-        state: RestoreState,
+        restorable: TenantBackupService.Restorable,
     ): BackupView = BackupView(
         backupId = id,
         capturedAt = FORMATTER.format(capturedAt.atOffset(ZoneOffset.UTC)),
@@ -146,13 +133,8 @@ class BackupsHandler(
         rowCount = rowCount,
         buildVersion = buildVersion.ifBlank { "—" },
         isLatest = isLatest,
-        restorable = state.restorable,
-        versionNote = state.versionNote,
-    )
-
-    private data class RestoreState(
-        val restorable: Boolean,
-        val versionNote: String?,
+        restorable = restorable.restorable,
+        versionNote = restorable.note,
     )
 
     data class BackupView(

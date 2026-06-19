@@ -55,7 +55,7 @@ class TenantBackupRoundTripIntegrationTest : IntegrationTestBase() {
             PublishVersion(versionId = VersionId(VersionKey.of(1), defaultVariant)).execute()
         }
 
-        val backup = withMediator { BuildTenantBackup(tenant.id).execute() }
+        val backup = withMediator { BuildTenantBackup(tenant.id).execute()!! }
         val originalFingerprint = backup.fingerprint
         assertThat(backup.tableCount).isGreaterThan(0)
 
@@ -81,7 +81,7 @@ class TenantBackupRoundTripIntegrationTest : IntegrationTestBase() {
             assertThat(restored.defaultThemeCatalogKey?.value).isEqualTo("main")
 
             // Content-identical to the backup.
-            assertThat(BuildTenantBackup(tenant.id).execute().fingerprint).isEqualTo(originalFingerprint)
+            assertThat(BuildTenantBackup(tenant.id).execute()!!.fingerprint).isEqualTo(originalFingerprint)
         }
 
         // Exact version number preserved, and the stray template's versions are gone.
