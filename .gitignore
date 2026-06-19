@@ -52,3 +52,10 @@ dist/
 ### Test Coverage ###
 coverage/
 plan.md
+
+### Claude Code ###
+# Local git worktrees created by Claude Code. They're registered in
+# .git/worktrees/, so ignoring the directory is safe (worktrees keep working);
+# this only keeps them out of `git status` and out of an accidental `git add -A`.
+# Note: .claude/settings.json and .claude/skills/ are intentionally tracked.
+.claude/worktrees/
