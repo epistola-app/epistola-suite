@@ -2,7 +2,6 @@ package app.epistola.suite.backups
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.tenantbackup.TenantBackupArtifact
-import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
@@ -74,7 +73,7 @@ class JdbiTenantBackupStore(
             .bind("blobCount", artifact.blobCount)
             .bind("sizeBytes", artifact.bytes.size.toLong())
             .bind("content", artifact.bytes)
-            .bind("capturedAt", EpistolaClock.offsetDateTime().withOffsetSameInstant(java.time.ZoneOffset.UTC))
+            .bind("capturedAt", artifact.capturedAt.atOffset(java.time.ZoneOffset.UTC))
             .execute()
         id
     }

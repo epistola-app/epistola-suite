@@ -105,8 +105,8 @@ class TableRowCodec {
         val p = ":" + bindName(col.name)
         return when {
             isBytea(col) -> "decode($p, 'base64')"
-            isArray(col) -> "$p::${elementType(col)}[]"
-            isTextCast(col) -> "$p::${col.udtName}"
+            isArray(col) -> "$p::${safeType(elementType(col))}[]"
+            isTextCast(col) -> "$p::${safeType(col.udtName)}"
             else -> p
         }
     }
@@ -122,9 +122,22 @@ class TableRowCodec {
 
     private fun bindName(column: String): String = "p_$column"
 
-    private fun q(identifier: String): String = "\"$identifier\""
+    /** Quotes a SQL identifier, doubling any embedded `"` per the SQL standard (defense-in-depth). */
+    private fun q(identifier: String): String = "\"" + identifier.replace("\"", "\"\"") + "\""
+
+    /**
+     * Validates a Postgres type name before it is interpolated into a `::cast`. Type names always
+     * match this shape; anything else (an injected schema) fails closed rather than reaching the SQL.
+     */
+    private fun safeType(udt: String): String {
+        require(SAFE_TYPE_NAME.matches(udt)) { "Unsafe SQL type name in backup schema: '$udt'" }
+        return udt
+    }
 
     private companion object {
+        /** Lowercase Postgres type-name shape (`int4`, `timestamptz`, `_int4` element → `int4`). */
+        val SAFE_TYPE_NAME = Regex("^[a-z_][a-z0-9_]*$")
+
         /**
          * udt names projected to text on dump and bound back with `::<udt>` on restore. Spans the
          * complex scalar types whose default JSON/JDBC mapping is lossy or order-unstable.

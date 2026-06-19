@@ -1,6 +1,7 @@
 package app.epistola.suite.tenantbackup
 
 import app.epistola.suite.crypto.CredentialCipher
+import app.epistola.suite.crypto.CredentialEnvelope
 import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -28,6 +29,14 @@ class TenantBackupCrypto(
 
     fun unwrap(artifactBytes: ByteArray): ByteArray {
         val envelope = String(artifactBytes, StandardCharsets.UTF_8)
+        // When encryption is enabled, refuse a non-`enc:` artifact: a plain-base64 blob would bypass
+        // AEAD entirely (the cipher passes non-envelope text through), so restore would trust
+        // unauthenticated bytes. Require the authenticated envelope before decrypting.
+        if (cipher.enabled && !CredentialEnvelope.isEnvelope(envelope)) {
+            throw IllegalStateException(
+                "Backup artifact is not an authenticated ciphertext envelope; refusing to restore unencrypted bytes while encryption is enabled",
+            )
+        }
         val base64 = cipher.decrypt(envelope)
         return Base64.getDecoder().decode(base64)
     }

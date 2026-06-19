@@ -1,8 +1,8 @@
 -- tenant_backups: locally-stored faithful tenant backup artifacts.
 --
--- A backup is a full-fidelity, identity-preserving, same-schema "undo" of a
--- tenant's authoring data (built by epistola-core's BuildTenantBackup), stored
--- here as the encrypted artifact bytes. This is distinct from the catalog-export
+-- A backup is a full-fidelity, identity-preserving "undo" of a tenant's authoring
+-- data (built by this module's BuildTenantBackup, in app.epistola.suite.tenantbackup),
+-- stored here as the encrypted artifact bytes. This is distinct from the catalog-export
 -- snapshots that the Upgrading feature ships to the hub for compatibility checks.
 --
 -- Stored locally (not on the hub): backups exist to correct mistakes, so keeping

@@ -3,6 +3,7 @@ package app.epistola.suite.tenantbackup
 import app.epistola.suite.tenantbackup.schema.TenantTableTopology
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -32,6 +33,26 @@ class TenantTableTopologyDriftIntegrationTest : IntegrationTestBase() {
 
             // Resolving must not throw (no FK cycle outside the special-cased tenants↔themes edge).
             assertThat(topology.resolve(handle).orderedTables).isNotEmpty()
+        }
+    }
+
+    @Test
+    fun `an unclassified tenant-scoped table trips the drift guard`() {
+        // Prove the guard actually fires (not just that today's schema happens to be clean): a new
+        // tenant-scoped table in neither list must be discovered and must make resolve() refuse.
+        // Done in a rolled-back transaction so it leaves no trace.
+        jdbi.useHandle<Exception> { handle ->
+            handle.begin()
+            try {
+                handle.execute("CREATE TABLE drift_probe (tenant_key text NOT NULL, id int NOT NULL, PRIMARY KEY (tenant_key, id))")
+
+                assertThat(topology.discoverTenantScopedTables(handle)).contains("drift_probe")
+                assertThatThrownBy { topology.resolve(handle) }
+                    .isInstanceOf(IllegalArgumentException::class.java)
+                    .hasMessageContaining("not classified")
+            } finally {
+                handle.rollback()
+            }
         }
     }
 }

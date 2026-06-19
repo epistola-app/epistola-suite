@@ -22,7 +22,8 @@ import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
 /**
- * The backups engine: builds a tenant's faithful backup (the `epistola-core` primitive), skips
+ * The backups engine: builds a tenant's faithful backup (the `tenantbackup/` primitive in this
+ * module), skips
  * storing it when nothing changed since the last backup (fingerprint match cached in
  * `app_metadata`), persists it via [TenantBackupStore], and restores from a stored backup.
  *

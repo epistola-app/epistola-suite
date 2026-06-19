@@ -45,7 +45,6 @@ class MergeRestoreTables(
         // Relax deferrable FKs (e.g. font_variants→assets) until commit.
         handle.execute("SET CONSTRAINTS ALL DEFERRED")
 
-        val tenantEntry = manifest.tables.first { it.table == TenantTableTopology.TENANTS }
         val tenantRow = rowsByTable.getValue(TenantTableTopology.TENANTS).single()
         val targetThemeKey = tenantRow["default_theme_key"]
         val targetThemeCatalog = tenantRow["default_theme_catalog_key"]
