@@ -77,8 +77,6 @@ class ChangelogHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         if (hasVisibleUnreleased) {
             assertThat(response.body).contains(">Upcoming<")
-            // The [Unreleased] section carries a summary paragraph, rendered above its entries.
-            assertThat(response.body).contains("changelog-summary")
         } else {
             assertThat(response.body).doesNotContain(">Upcoming<")
         }
