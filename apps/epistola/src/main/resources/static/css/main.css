@@ -275,6 +275,13 @@ main.regular .empty-message {
   color: var(--ep-gray-600);
 }
 
+/* Horizontal, wrapping list of badges with consistent spacing. */
+.badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-1);
+}
+
 /* ── Variant tags ─────────────────────────────────────────────────────── */
 
 .tag {

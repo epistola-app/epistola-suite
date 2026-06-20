@@ -47,7 +47,9 @@
                 <tr th:each="membership : ${memberships}">
                     <td th:text="${membership.tenant}">acme-corp</td>
                     <td>
-                        <span th:each="role : ${membership.roles}" class="ep-badge" th:text="${role}">READER</span>
+                        <span class="badge-list">
+                            <span th:each="role : ${membership.roles}" class="badge badge-default" th:text="${role}">READER</span>
+                        </span>
                     </td>
                 </tr>
             </tbody>
@@ -55,15 +57,15 @@
 
         <h3>Global roles</h3>
         <p th:if="${globalRoles.isEmpty()}" class="text-muted">None</p>
-        <p th:unless="${globalRoles.isEmpty()}">
-            <span th:each="role : ${globalRoles}" class="ep-badge" th:text="${role}">READER</span>
-        </p>
+        <div th:unless="${globalRoles.isEmpty()}" class="badge-list">
+            <span th:each="role : ${globalRoles}" class="badge badge-default" th:text="${role}">READER</span>
+        </div>
 
         <h3>Platform roles</h3>
         <p th:if="${platformRoles.isEmpty()}" class="text-muted">None</p>
-        <p th:unless="${platformRoles.isEmpty()}">
-            <span th:each="role : ${platformRoles}" class="ep-badge" th:text="${role}">TENANT_MANAGER</span>
-        </p>
+        <div th:unless="${platformRoles.isEmpty()}" class="badge-list">
+            <span th:each="role : ${platformRoles}" class="badge badge-default" th:text="${role}">TENANT_MANAGER</span>
+        </div>
 
         <h2 class="section-title">Token claims</h2>
         <div th:unless="${hasToken}" class="alert alert-info" role="status">
