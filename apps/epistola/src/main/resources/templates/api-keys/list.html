@@ -35,6 +35,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Prefix</th>
+                    <th>Scope</th>
                     <th>Created by</th>
                     <th>Created</th>
                     <th>Last used</th>
@@ -48,6 +49,13 @@
                         <td th:text="${apiKey.name}" style="font-weight: 500;"></td>
                         <td>
                             <code th:text="${apiKey.keyPrefix} + '…'"></code>
+                        </td>
+                        <td>
+                            <span class="api-key-scope">
+                                <span class="badge badge-outline"
+                                      th:each="role : ${apiKey.roles}"
+                                      th:text="${roleLabels.containsKey(role.name()) ? roleLabels.get(role.name()) : role.name()}">Viewer</span>
+                            </span>
                         </td>
                         <td>
                             <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
@@ -83,6 +91,14 @@
         </table>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <style>
+            .api-key-scope {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--ep-space-1);
+            }
+        </style>
     </th:block>
 </body>
 </html>

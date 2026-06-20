@@ -29,6 +29,7 @@ class ApiKeyHandler {
             "pageTitle" to "API Keys - Epistola"
             "tenantId" to tenantId.key
             "apiKeys" to apiKeys
+            "roleLabels" to ROLE_LABELS
         }
     }
 
@@ -107,6 +108,7 @@ class ApiKeyHandler {
             fragment("api-keys/list", "rows") {
                 "tenantId" to tenantId.key
                 "apiKeys" to apiKeys
+                "roleLabels" to ROLE_LABELS
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
         }
@@ -153,5 +155,8 @@ class ApiKeyHandler {
                 defaultChecked = false,
             ),
         )
+
+        /** Role enum name → short human label, for rendering a key's scope on the list page. */
+        val ROLE_LABELS: Map<String, String> = ROLE_OPTIONS.associate { it.value to it.label }
     }
 }
