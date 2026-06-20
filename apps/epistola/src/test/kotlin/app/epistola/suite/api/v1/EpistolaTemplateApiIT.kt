@@ -6,6 +6,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
@@ -78,6 +79,30 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(json, "$.variants[0].hasDraft")).isTrue
         assertThat(JsonPath.read<String>(json, "$.createdAt")).isNotBlank
         assertThat(JsonPath.read<String>(json, "$.lastModified")).isNotBlank
+    }
+
+    @Test
+    fun `create template with an under-privileged key returns 403 naming the missing permission`() {
+        val (tenantKey, viewerKey) = seedTenantAndViewerKey()
+        val slug = "denied-${randomSuffix()}"
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Should Be Denied"}""", baseHeaders(viewerKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val json = response.body!!
+        assertThat(JsonPath.read<String>(json, "$.type")).isEqualTo("https://epistola.app/errors/permission-denied")
+        assertThat(JsonPath.read<String>(json, "$.title")).isEqualTo("Permission Denied")
+        assertThat(JsonPath.read<Int>(json, "$.status")).isEqualTo(403)
+        // The missing permission is named in both the detail string and a machine-readable extension.
+        assertThat(JsonPath.read<String>(json, "$.detail")).isEqualTo("Missing required permission: template-edit")
+        assertThat(JsonPath.read<String>(json, "$.requiredPermission")).isEqualTo("template-edit")
+        assertThat(JsonPath.read<String>(json, "$.tenantId")).isEqualTo(tenantKey.value)
     }
 
     @Test
@@ -391,6 +416,18 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
         CreateTenant(id = tenantKey, name = "Template Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "tmpl-it").execute()
+        tenantKey to created.plaintextKey
+    }
+
+    /** Tenant + a viewer-only key (can read but not create/edit templates). */
+    private fun seedTenantAndViewerKey(): Pair<TenantKey, String> = withMediator {
+        val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
+        CreateTenant(id = tenantKey, name = "Template Tenant").execute()
+        val created = CreateApiKey(
+            tenantId = tenantKey,
+            name = "tmpl-it-viewer",
+            roles = setOf(TenantRole.CONTENT_VIEWER),
+        ).execute()
         tenantKey to created.plaintextKey
     }
 

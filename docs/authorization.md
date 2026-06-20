@@ -87,6 +87,33 @@ inherit this single check. A few UI handlers add an explicit `requirePermission(
 backing query is only `RequiresAuthentication` and the page needs tighter gating. UI **visibility**
 (nav/footer via `UiRequestContext.hasPermission`) is defense-in-depth, not the enforcement boundary.
 
+## What a denied API caller receives
+
+Each failed check maps to an RFC 7807 `application/problem+json` body, **HTTP 403**
+(`ApiExceptionHandler` + `ApiProblemTypes`). A missing/invalid/expired key is **401**
+`unauthorized`, before any permission check.
+
+| Failure                           | Exception                       | `type` slug              | Names                            |
+| --------------------------------- | ------------------------------- | ------------------------ | -------------------------------- |
+| Lacks the fine-grained permission | `PermissionDeniedException`     | `permission-denied`      | `requiredPermission`, `tenantId` |
+| No access to the tenant           | `TenantAccessDeniedException`   | `access-denied`          | `tenantId`                       |
+| Lacks the platform role           | `PlatformAccessDeniedException` | `platform-access-denied` | `requiredRole`                   |
+
+The missing permission is named in both the `detail` string and a machine-readable extension
+(kebab-case, e.g. `template-edit`), so an integrator can resolve a 403 without server logs:
+
+```json
+{
+  "type": "https://epistola.app/errors/permission-denied",
+  "title": "Permission Denied",
+  "status": 403,
+  "detail": "Missing required permission: template-edit",
+  "requiredPermission": "template-edit",
+  "tenantId": "acme",
+  "instance": "/api/tenants/acme/catalogs/default/templates"
+}
+```
+
 ## API keys are least-privilege
 
 `api/security/ApiKeyAuthenticationFilter.kt` builds the request principal from the **roles stored
