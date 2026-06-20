@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}">Code lists</a> &raquo;
-            <span>New code list</span>
-        </nav>
 
-        <h1>New code list</h1>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='New code list',
+            backLinkHref=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
+            backLinkLabel='Code lists'
+        )}"></div>
 
         <div id="code-list-form-area" class="card create-form-card" th:fragment="form-card">
             <div class="card-content">
@@ -116,7 +116,7 @@
                             </tbody>
                         </table>
                         <button type="button" class="btn btn-sm btn-outline" id="add-entry-btn">
-                            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                             Add entry
                         </button>
                         <input type="hidden" id="entriesJson" name="entriesJson" th:value="${formData?.entriesJson}">

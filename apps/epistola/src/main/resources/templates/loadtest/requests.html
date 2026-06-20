@@ -2,24 +2,17 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
-            <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-               th:text="${'Test ' + run.id}">Test</a> &raquo;
-            <span>Request Log</span>
-        </nav>
 
-        <div class="page-header">
-            <h1>Request Log</h1>
-            <div class="page-actions">
-                <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-                   class="ep-btn ep-btn-outline">Back to Test Details</a>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Request Log',
+            backLinkHref=@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})},
+            backLinkLabel=${'Test ' + run.id},
+            actions=~{::load-test-request-actions}
+        )}"></div>
 
         <div th:if="${#lists.isEmpty(requests)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No request data</div>
             <div class="empty-state-description">No request log entries are available for this test run.</div>
@@ -78,5 +71,10 @@
             </div>
         </div>
     </th:block>
+    <th:block th:fragment="load-test-request-actions">
+        <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
+           class="ep-btn ep-btn-outline">Back to Test Details</a>
+    </th:block>
+
 </body>
 </html>
