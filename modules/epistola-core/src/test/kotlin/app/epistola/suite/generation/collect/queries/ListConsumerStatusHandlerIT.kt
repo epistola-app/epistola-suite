@@ -1,6 +1,9 @@
 package app.epistola.suite.generation.collect.queries
 
+import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.apikeys.commands.RevokeApiKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -15,31 +18,20 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    /** Seeds an api_keys row directly so the test stays focused on the read path. */
+    /**
+     * Seeds an API key (the consumer identity) through the command path and returns its id for
+     * linking nodes/cursors. A disabled key is created then revoked — exercising the real lifecycle
+     * instead of writing api_keys rows directly, so this fixture tracks schema/validation changes
+     * (e.g. it didn't need touching when the roles column was added).
+     */
     private fun seedApiKey(
         tenantKey: TenantKey,
         name: String,
         enabled: Boolean = true,
-        lastUsedAt: OffsetDateTime? = null,
-    ): UUID {
-        val id = UUID.randomUUID()
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, last_used_at, roles)
-                VALUES (:id, :tenantKey, :name, :keyHash, :keyPrefix, :enabled, :lastUsedAt, ARRAY['CONTENT_VIEWER']::varchar[])
-                """,
-            )
-                .bind("id", id)
-                .bind("tenantKey", tenantKey)
-                .bind("name", name)
-                .bind("keyHash", "hash-${UUID.randomUUID()}")
-                .bind("keyPrefix", "epk_${id.toString().take(8)}")
-                .bind("enabled", enabled)
-                .bind("lastUsedAt", lastUsedAt)
-                .execute()
-        }
-        return id
+    ): UUID = withMediator {
+        val created = CreateApiKey(tenantId = tenantKey, name = name).execute()
+        if (!enabled) RevokeApiKey(tenantId = tenantKey, id = created.apiKey.id).execute()
+        created.apiKey.id.value
     }
 
     private fun seedNode(
@@ -129,7 +121,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
     fun `groups multiple nodes under the same consumer and surfaces partitions + cursor summary`() {
         val tenant = createTenant("Multi Node Tenant")
         val now = now()
-        val consumerId = seedApiKey(tenant.id, "Production Plugin", lastUsedAt = now)
+        val consumerId = seedApiKey(tenant.id, "Production Plugin")
         seedNode(tenant.id, consumerId, "node-a", listOf(0, 5, 17), now.minusSeconds(2))
         seedNode(tenant.id, consumerId, "node-b", listOf(11, 23, 42), now.minusSeconds(5))
         seedCursor(tenant.id, consumerId, partition = 0, lastAckedSequence = 100)
