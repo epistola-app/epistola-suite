@@ -48,7 +48,7 @@
                 </a>
 
                 <div class="app-nav-user" sec:authorize="isAuthenticated()">
-                    <span class="app-nav-username" sec:authentication="name">user</span>
+                    <a th:href="@{/profile}" class="app-nav-username" sec:authentication="name" title="Your profile">user</a>
                     <span class="app-nav-separator">|</span>
                     <a th:href="@{/api-docs}" class="app-nav-link-sm" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
                     <span class="app-nav-separator">|</span>
@@ -78,6 +78,10 @@
                     </a>
                 </div>
                 <div class="app-nav-mobile-footer">
+                    <a th:href="@{/profile}" class="app-nav-mobile-item" role="menuitem">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='user', class='ep-icon ep-icon-sm')}" />
+                        Profile
+                    </a>
                     <a th:href="@{/}" class="app-nav-mobile-item" role="menuitem">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
                         Switch tenant

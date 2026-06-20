@@ -76,6 +76,7 @@ const ICONS = [
   'undo-2',
   'upload',
   'upload-cloud',
+  'user',
   'x',
   'zap',
 ];
