@@ -64,6 +64,11 @@ class DemoLoader(
 
         if (exists) {
             log.info("Demo tenant already exists")
+            // Still (re-)assert the demo API key on every boot so its scope self-heals
+            // across upgrades — e.g. the api_key roles migration backfilled it to
+            // CONTENT_VIEWER; this restores the full "everything key" scope. The upsert is
+            // idempotent, so re-running it for an existing tenant is safe.
+            ensureDemoApiKey(TenantId(tenantKey))
             return
         }
 
@@ -72,7 +77,7 @@ class DemoLoader(
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
 
             val tenantId = TenantId(tenant.id)
-            createDemoApiKey(tenantId)
+            ensureDemoApiKey(tenantId)
 
             mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("staging"), tenantId), name = "Staging"))
             mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production"))
@@ -100,9 +105,11 @@ class DemoLoader(
     }
 
     /**
-     * Creates a well-known demo API key for testing external API access.
+     * Ensures the well-known demo API key exists for testing external API access, with the full
+     * ("everything") role scope. Idempotent: re-asserts the scope on conflict so it self-heals
+     * across upgrades, and is safe to call on every boot.
      */
-    private fun createDemoApiKey(tenantId: TenantId) {
+    private fun ensureDemoApiKey(tenantId: TenantId) {
         // Demo seeding uses a deterministic key + ID so devs can hard-code the key
         // in local config across restarts. The CQRS CreateApiKey command always
         // generates a random key, so we INSERT directly here instead.
