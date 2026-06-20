@@ -1,6 +1,12 @@
 package app.epistola.suite.architecture
 
 import org.junit.jupiter.api.Test
+import org.thymeleaf.context.ExpressionContext
+import org.thymeleaf.context.IExpressionContext
+import org.thymeleaf.spring6.SpringTemplateEngine
+import org.thymeleaf.standard.expression.AssignationUtils
+import org.thymeleaf.templatemode.TemplateMode
+import org.thymeleaf.templateresolver.StringTemplateResolver
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -8,23 +14,29 @@ import kotlin.test.assertTrue
 
 /**
  * Build-time gate over every `epistola-web/page-header` invocation in the
- * codebase. Plain unit test — no Spring, no Docker — so it runs in the fast
- * `unitTest` cycle and gates every PR (same posture as [UiTestHygieneTest]).
+ * codebase. Plain unit test — no Spring context, no Docker — so it runs in the
+ * fast `unitTest` cycle and gates every PR (same posture as [UiTestHygieneTest]).
  *
  * Why this exists: the shared header is declared as `th:fragment="page-header"`
  * with **no parameter signature** (see
  * `modules/epistola-web/src/main/resources/templates/epistola-web/page-header.html`).
- * Thymeleaf binds named arguments as local variables, so a misspelled or
- * missing argument is **never** an error — it silently resolves to null. A
- * typo'd `pageTitel='…'` leaves `pageTitle` null and the page renders an empty
- * `<h1>`; a lone `backLinkHref` (without `backLinkLabel`) renders no link at
- * all. Neither the compiler nor the template engine catches it, and no
- * render-time test asserts header structure. This static check is the only
- * thing that does.
+ * Thymeleaf binds named arguments as local variables and parses their
+ * expressions **lazily at render time**, so two whole classes of mistake are
+ * invisible until a page is opened in a browser:
  *
- * It validates the *data* each call site passes (not that the header renders) —
- * the spelling and well-formedness of the arguments, across all 40-plus call
- * sites in the host app and the feature modules.
+ *  1. **Bad data** — a misspelled or missing argument silently resolves to null
+ *     (`pageTitel='…'` leaves `pageTitle` null and renders an empty `<h1>`; a
+ *     lone `backLinkHref` renders no link).
+ *  2. **Unparseable arguments** — a bare ASCII apostrophe `'` (U+0027) or
+ *     double-quote `"` (U+0022) inside an inline literal breaks Thymeleaf's
+ *     fragment-call parser. The build stays green; the page **500s at runtime**.
+ *     (There is no escape that survives the fragment-selector grammar — the fix
+ *     is a typographic `’`/`“ ”`, or a `${...}`/`#{...}` value.)
+ *
+ * This test catches both. It validates the *spelling and pairing* of the
+ * arguments (1), and it **parses every call site with Thymeleaf's own
+ * assignation-sequence parser** — the exact parser the runtime uses for
+ * fragment parameters — so a literal that would 500 fails the build instead (2).
  */
 class PageHeaderUsageTest {
 
@@ -43,6 +55,19 @@ class PageHeaderUsageTest {
 
     /** Matches the call site `~{epistola-web/page-header :: page-header(` up to its opening paren. */
     private val callMarker = Regex("""epistola-web/page-header\s*::\s*page-header\s*\(""")
+
+    /**
+     * A parse-only Thymeleaf expression context. We never render anything — we
+     * only run each call site's argument list through `AssignationUtils`, the
+     * same parser Thymeleaf uses to bind `frag(name=value, …)` parameters. Built
+     * from a `SpringTemplateEngine` so the dialect/parser match production (SpEL).
+     */
+    private val exprContext: IExpressionContext by lazy {
+        val engine = SpringTemplateEngine().apply {
+            setTemplateResolver(StringTemplateResolver().apply { templateMode = TemplateMode.HTML })
+        }
+        ExpressionContext(engine.configuration)
+    }
 
     @Test
     fun `every page-header invocation passes valid, well-formed parameters`() {
@@ -92,6 +117,7 @@ class PageHeaderUsageTest {
             """<div th:replace="~{epistola-web/page-header :: page-header($args)}"></div>""",
         ).second
 
+        // --- bad data (spelling / pairing / presence) ---
         assertTrue(check("pageTitel='X'").any { "unknown" in it }, "typo'd parameter must be flagged")
         assertTrue(check("pageDescription='x'").any { "pageTitle" in it }, "missing pageTitle must be flagged")
         assertTrue(check("pageTitle='X', pageTitle='Y'").any { "duplicate" in it }, "duplicate must be flagged")
@@ -111,6 +137,27 @@ class PageHeaderUsageTest {
             check("pageTitle='X', searchTargetId='rows'").any { "searchUrl" in it },
             "dead search parameter must be flagged",
         )
+
+        // --- unparseable arguments (the runtime-500 class) ---
+        assertTrue(
+            check("pageTitle='Manage the tenant's settings'").any { "U+2019" in it },
+            "a bare ASCII apostrophe in a literal must be flagged with the typographic-quote fix",
+        )
+        assertTrue(
+            check("pageTitle=\"oops\"").any { "U+2019" in it },
+            "a bare ASCII double-quote in a literal must be flagged",
+        )
+        // The fix works: a typographic apostrophe is accepted, the literal parses clean.
+        assertTrue(
+            check("pageTitle='Manage the tenant’s settings'").isEmpty(),
+            "a typographic apostrophe (U+2019) must parse clean",
+        )
+        // Model-bound values are always fine (no inline literal to break).
+        assertTrue(
+            check("pageTitle=\${title}").isEmpty(),
+            "a model-bound value must parse clean",
+        )
+
         // A fully valid call — including values containing commas/parens — must pass clean.
         assertTrue(
             check(
@@ -136,10 +183,27 @@ class PageHeaderUsageTest {
             val line = content.substring(0, m.range.first).count { it == '\n' } + 1
             val at = "$label:$line"
             if (close < 0) {
-                out += "$at — unterminated page-header(...) invocation"
+                out += "$at — unterminated page-header(...) invocation (unbalanced parenthesis)"
                 continue
             }
-            val names = splitTopArgs(content.substring(open + 1, close)).map { argName(it) }
+
+            // Parse the argument list with Thymeleaf's own fragment-parameter parser.
+            // A bare ASCII '/" inside a literal throws here — exactly as it would 500 at runtime.
+            val names: List<String> = try {
+                val seq = AssignationUtils.parseAssignationSequence(
+                    exprContext,
+                    content.substring(open + 1, close),
+                    true,
+                )
+                if (seq == null) {
+                    out += unparseableMessage(at, "parser returned no result")
+                    continue
+                }
+                seq.map { it.left.toString() }
+            } catch (e: Exception) {
+                out += unparseableMessage(at, rootCause(e).message?.replace(Regex("\\s+"), " ")?.trim() ?: "$e")
+                continue
+            }
             val nameSet = names.toSet()
 
             names.filter { it !in allowedParams }.toSet().forEach {
@@ -166,18 +230,27 @@ class PageHeaderUsageTest {
         return count to out
     }
 
-    /** Index of the ')' matching the '(' at [openIdx], honoring single-quoted Thymeleaf string literals. */
+    /** The actionable message for an argument list Thymeleaf can't parse — tells the author exactly what to type. */
+    private fun unparseableMessage(at: String, cause: String): String = buildString {
+        append("$at — page-header arguments won't parse (Thymeleaf: $cause). ")
+        append("A bare ASCII apostrophe ' (U+0027) or double-quote \" (U+0022) inside an inline literal breaks the ")
+        append("fragment-call parser at runtime (it 500s; no escape survives the selector grammar). ")
+        append("Fix: use a typographic apostrophe ’ (U+2019) or curly quotes “ ” (U+201C/U+201D) — ")
+        append("e.g. pageDescription='Manage the tenant’s settings.' — or pass the value via \${...} or #{...}.")
+    }
+
+    /**
+     * Index of the ')' matching the '(' at [openIdx]. Quote-insensitive on purpose: a stray ASCII
+     * quote must NOT desync paren tracking (that's the very bug we're catching). Inline-literal
+     * parentheses are balanced, so counting parens alone locates the close even when quotes are not.
+     */
     private fun matchParen(text: String, openIdx: Int): Int {
         var depth = 0
-        var inQuote = false
         var i = openIdx
         while (i < text.length) {
-            val ch = text[i]
-            when {
-                inQuote -> if (ch == '\'') inQuote = false
-                ch == '\'' -> inQuote = true
-                ch == '(' -> depth++
-                ch == ')' -> {
+            when (text[i]) {
+                '(' -> depth++
+                ')' -> {
                     depth--
                     if (depth == 0) return i
                 }
@@ -187,56 +260,10 @@ class PageHeaderUsageTest {
         return -1
     }
 
-    /** Splits an argument list on top-level commas — values may contain nested commas/parens/braces. */
-    private fun splitTopArgs(s: String): List<String> {
-        val args = mutableListOf<String>()
-        val cur = StringBuilder()
-        var depth = 0
-        var inQuote = false
-        for (ch in s) {
-            when {
-                inQuote -> {
-                    cur.append(ch)
-                    if (ch == '\'') inQuote = false
-                }
-                ch == '\'' -> {
-                    inQuote = true
-                    cur.append(ch)
-                }
-                ch == '(' || ch == '{' || ch == '[' -> {
-                    depth++
-                    cur.append(ch)
-                }
-                ch == ')' || ch == '}' || ch == ']' -> {
-                    depth--
-                    cur.append(ch)
-                }
-                ch == ',' && depth == 0 -> {
-                    args.add(cur.toString())
-                    cur.setLength(0)
-                }
-                else -> cur.append(ch)
-            }
-        }
-        if (cur.isNotBlank()) args.add(cur.toString())
-        return args.map { it.trim() }.filter { it.isNotEmpty() }
-    }
-
-    /** The identifier before the top-level '=' of a single argument (e.g. `searchUrl=@{…}` -> `searchUrl`). */
-    private fun argName(arg: String): String {
-        var depth = 0
-        var inQuote = false
-        for (i in arg.indices) {
-            val ch = arg[i]
-            when {
-                inQuote -> if (ch == '\'') inQuote = false
-                ch == '\'' -> inQuote = true
-                ch == '(' || ch == '{' || ch == '[' -> depth++
-                ch == ')' || ch == '}' || ch == ']' -> depth--
-                ch == '=' && depth == 0 -> return arg.substring(0, i).trim()
-            }
-        }
-        return arg.trim()
+    private fun rootCause(e: Throwable): Throwable {
+        var c: Throwable = e
+        while (c.cause != null && c.cause !== c) c = c.cause!!
+        return c
     }
 
     private val repoRoot: Path = run {
@@ -257,6 +284,7 @@ class PageHeaderUsageTest {
                 stream
                     .map { it.resolve("src/main/resources/templates") }
                     .filter { Files.isDirectory(it) }
+                    .toList()
             }
         }
     }

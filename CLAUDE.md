@@ -180,6 +180,15 @@ A strict CSP is enforced on all UI responses (`SecurityConfig.kt`). Key restrict
 
 - **Thymeleaf also mangles `hx-on::*`** — the `::` is interpreted as a fragment expression separator and stripped during template processing. This is a second reason to avoid these attributes.
 
+### Page-header (and other fragment-call) inline literals: use typographic quotes
+
+A bare ASCII apostrophe `'` (U+0027) or double-quote `"` (U+0022) inside an **inline fragment-call literal** — e.g. `~{epistola-web/page-header :: page-header(pageDescription='Manage the tenant's settings.')}` — breaks Thymeleaf's fragment-selector parser. The build stays green but the page **500s at runtime**, and **no escaping works** in that position (`\'`, `''`, `&#39;`, `"…"`, and the `th:with`-on-host trick all fail — proven). The fixes:
+
+- **Use a typographic apostrophe `’` (U+2019)** or curly quotes `“ ”` (U+201C/U+201D). They are not delimiters to Thymeleaf's tokenizer, so they pass through as plain text — and they are the typographically correct characters anyway. Example: `pageDescription='Manage the tenant’s settings.'`.
+- Or pass the value via `${...}` (model attribute) or `#{...}` (message key) instead of an inline literal.
+
+`PageHeaderUsageTest` (in `apps/epistola`) **gates this at build time** — it parses every `page-header(...)` call site with Thymeleaf's own assignation-sequence parser and fails `unitTest` on a bare ASCII quote, with a message that names the fix.
+
 ### Editor component registrations
 
 Every editor component registration (`ComponentDefinition` in `modules/editor/src/main/typescript/engine/registry.ts`) must include at least one entry in `examples[]`. Backend tools (the MCP server's `list_component_types` / `get_component_type`) and design docs surface these as canonical usage. Each example is a self-contained `{ rootNodeId, nodes, slots }` `TemplateDocument` fragment showing one realistic way the component is used. Treat missing examples as a PR blocker.
