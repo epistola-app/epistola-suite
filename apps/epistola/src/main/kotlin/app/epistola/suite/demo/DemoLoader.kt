@@ -111,12 +111,14 @@ class DemoLoader(
 
         // The demo key is the convenient "everything" key for local dev / MCP, so grant all roles
         // (real keys are scoped at creation). Enum names are safe identifiers — no injection risk.
+        // On conflict we re-assert the full scope so a pre-existing demo row (e.g. backfilled to the
+        // migration's CONTENT_VIEWER default) self-heals back to all roles.
         val rolesLiteral = TenantRole.entries.joinToString(",") { "'${it.name}'" }
         jdbcClient.sql(
             """
             INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at, roles)
             VALUES (?, ?, ?, ?, ?, true, NOW(), ARRAY[$rolesLiteral]::varchar[])
-            ON CONFLICT (id) DO NOTHING
+            ON CONFLICT (id) DO UPDATE SET roles = ARRAY[$rolesLiteral]::varchar[]
             """,
         )
             .param(java.util.UUID.fromString(DEMO_API_KEY_ID))
