@@ -339,6 +339,29 @@ Shared test infrastructure lives in `modules/testing/` (not duplicated across mo
 
 To add tests to a new module: `testImplementation(project(":modules:testing"))` and extend `IntegrationTestBase`.
 
+### Seed test state through commands, not raw SQL
+
+When a test needs domain data to exist, create it by dispatching the **command**
+(`CreateApiKey`, `CreateTenant`, …) through the mediator — the same way production
+code does — rather than `INSERT`ing rows directly with JDBI. Command-seeded fixtures
+track schema and validation changes automatically (a raw `INSERT` silently rots when a
+column is added or a constraint tightens, and then fails the next unrelated change), and
+they exercise the real write path.
+
+Compose commands to reach the state you need instead of reaching for SQL:
+
+- Need the entity's id to link other rows? Use the id the command **returns** — don't
+  pre-generate one and force it in.
+- Need a non-default lifecycle state (disabled, revoked, used)? Apply the command that
+  produces it (e.g. `CreateApiKey` then `RevokeApiKey` for a disabled key;
+  `RecordApiKeyUsage` to mark one used).
+
+Raw SQL in a fixture is the **exception**, justified only when no command can produce the
+needed state — e.g. tables with no command (`consumer_nodes`, `consumer_partition_cursors`),
+or planting a **specific historical timestamp** the read path asserts against (commands
+write `NOW()`). When you do drop to SQL, add a one-line comment saying why so it doesn't
+read as the default.
+
 ### UI test rules (enforced — issue #418)
 
 UI tests must use the `PlaywrightHtmxSupport` helpers: navigate via
