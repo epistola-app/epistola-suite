@@ -26,8 +26,8 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, last_used_at)
-                VALUES (:id, :tenantKey, :name, :keyHash, :keyPrefix, :enabled, :lastUsedAt)
+                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, last_used_at, roles)
+                VALUES (:id, :tenantKey, :name, :keyHash, :keyPrefix, :enabled, :lastUsedAt, ARRAY['CONTENT_VIEWER']::varchar[])
                 """,
             )
                 .bind("id", id)

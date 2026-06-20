@@ -27,8 +27,8 @@ class ConsumerStatusHandlerTest : BaseIntegrationTest() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled)
-                VALUES (:id, :tenantKey, :name, :hash, :prefix, true)
+                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, roles)
+                VALUES (:id, :tenantKey, :name, :hash, :prefix, true, ARRAY['CONTENT_VIEWER']::varchar[])
                 """,
             )
                 .bind("id", id)
