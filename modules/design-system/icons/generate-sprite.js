@@ -22,39 +22,62 @@ const ROOT = join(__dirname, '..');
 const require = createRequire(join(ROOT, 'package.json'));
 const lucideDir = join(dirname(require.resolve('lucide-static/package.json')), 'icons');
 
+// The icons shipped in the sprite. Must be a superset of every icon name
+// referenced from a Thymeleaf template — `IconUsageTest` fails the build if a
+// template uses a name that is not generated here. Kept sorted for easy diffing.
 const ICONS = [
-  'file-text',
-  'palette',
-  'zap',
-  'globe',
-  'plus',
-  'trash-2',
-  'pencil',
-  'eye',
-  'search',
-  'chevron-right',
-  'x',
-  'check-circle',
+  'activity',
   'alert-circle',
   'alert-triangle',
-  'info',
   'arrow-left',
-  'external-link',
-  'play',
   'ban',
+  'book-open',
   'building-2',
+  'check-circle',
+  'chevron-down',
+  'chevron-right',
+  'clock',
+  'columns-2',
+  'copy',
+  'database',
+  'download',
+  'external-link',
+  'eye',
+  'file-text',
+  'gauge',
+  'globe',
+  'image',
+  'info',
+  'key',
+  'layout-template',
+  'list',
   'log-in',
   'log-out',
-  'undo-2',
+  'mail',
+  'menu',
+  'message-square',
+  'monitor',
+  'palette',
+  'pencil',
+  'play',
+  'plus',
+  'puzzle',
   'redo-2',
+  'refresh-cw',
+  'rotate-ccw',
   'save',
-  'clock',
-  'gauge',
-  'activity',
+  'scan',
+  'search',
   'settings',
-  'layout-template',
-  'copy',
+  'shield-check',
   'star',
+  'tag',
+  'trash-2',
+  'undo-2',
+  'upload',
+  'upload-cloud',
+  'x',
+  'zap',
 ];
 
 function extractSvgContent(filePath) {
@@ -80,7 +103,13 @@ function generateSprite() {
         `  <symbol id="icon-${name}" viewBox="${viewBox}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    ${inner}\n  </symbol>`,
       );
     } catch {
-      console.warn(`Warning: Icon "${name}" not found at ${filePath}, skipping`);
+      // Fail loudly instead of silently shipping a sprite missing this symbol.
+      // A missing file here means the name is misspelled or does not exist in
+      // this lucide-static version — both produce a blank icon at runtime.
+      throw new Error(
+        `Icon "${name}" not found in lucide-static (${filePath}). ` +
+          'Check the spelling against https://lucide.dev/icons and fix the ICONS list.',
+      );
     }
   }
 
