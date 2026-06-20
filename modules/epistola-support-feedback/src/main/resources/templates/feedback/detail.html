@@ -2,29 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/feedback(tenantId=${tenantId})}">Feedback</a>
-            &raquo;
-            <span th:text="${feedback.title}">Feedback Title</span>
-        </nav>
 
         <div id="feedback-content">
             <th:block th:fragment="feedback-content">
-                <div class="page-header">
-                    <h1 th:text="${feedback.title}">Feedback Title</h1>
-                    <div class="page-actions" th:if="${isManager}">
-                        <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
-                              hx-target="#feedback-content"
-                              hx-swap="innerHTML"
-                              class="ep-row">
-                            <select name="status" class="ep-select ep-select-sm form-control-auto">
-                                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
-                                        th:selected="${feedback.status.name() == s.name()}">STATUS</option>
-                            </select>
-                            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
-                        </form>
-                    </div>
-                </div>
+                <div th:replace="~{epistola-web/page-header :: page-header(
+                    pageTitle=${feedback.title},
+                    backLinkHref=@{/tenants/{tenantId}/feedback(tenantId=${tenantId})},
+                    backLinkLabel='Feedback',
+                    actions=~{::feedback-detail-actions}
+                )}"></div>
 
                 <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-6);">
                     <th:block th:insert="~{feedback/fragments/badges :: status-badge(${feedback.status})}" />
@@ -125,5 +111,19 @@
             </th:block>
         </div>
     </th:block>
+    <th:block th:fragment="feedback-detail-actions">
+        <form th:if="${isManager}"
+              hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
+              hx-target="#feedback-content"
+              hx-swap="innerHTML"
+              class="ep-row">
+            <select name="status" class="ep-select ep-select-sm form-control-auto">
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                        th:selected="${feedback.status.name() == s.name()}">STATUS</option>
+            </select>
+            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
+        </form>
+    </th:block>
+
 </body>
 </html>

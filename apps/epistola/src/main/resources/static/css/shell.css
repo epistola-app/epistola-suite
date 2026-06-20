@@ -276,10 +276,6 @@
   width: 100%;
 }
 
-.main-content h1 {
-  margin-bottom: var(--ep-space-6);
-}
-
 .main-content h2 {
   margin-bottom: var(--ep-space-4);
   font-size: var(--ep-text-xl);

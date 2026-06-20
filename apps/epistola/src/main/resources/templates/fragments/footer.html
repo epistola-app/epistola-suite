@@ -21,7 +21,7 @@
             </button>
             <span sec:authorize="isAuthenticated()" class="user-info">
                 <span class="separator">|</span>
-                <span sec:authentication="name">username</span>
+                <a th:href="@{/profile}" sec:authentication="name" title="Your profile">username</a>
                 <span class="separator">|</span>
                 <form th:action="@{/logout}" method="post" style="display: inline;">
                     <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Logout</button>

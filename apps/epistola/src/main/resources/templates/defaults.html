@@ -2,7 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <h1>Defaults</h1>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Defaults',
+            pageDescription='Manage tenant-wide default settings.'
+        )}"></div>
 
         <div class="alert alert-success" th:if="${param.saved}">
             Defaults saved successfully.

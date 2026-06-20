@@ -275,6 +275,13 @@ main.regular .empty-message {
   color: var(--ep-gray-600);
 }
 
+/* Horizontal, wrapping list of badges with consistent spacing. */
+.badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-1);
+}
+
 /* ── Variant tags ─────────────────────────────────────────────────────── */
 
 .tag {
@@ -302,37 +309,29 @@ main.regular .empty-message {
   align-items: center;
 }
 
-/* ── Breadcrumb navigation ────────────────────────────────────────────── */
-
-.breadcrumb {
-  margin-bottom: var(--ep-space-4);
-  font-size: var(--ep-text-sm);
-  color: var(--ep-muted-foreground);
-}
-
-.breadcrumb a {
-  color: var(--ep-primary);
-  text-decoration: none;
-  transition: color var(--ep-transition-fast);
-}
-
-.breadcrumb a:hover {
-  text-decoration: underline;
-}
-
 /* ── Back link (detail page header) ───────────────────────────────────── */
 
 .back-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-1);
   font-size: var(--ep-text-xs);
   color: var(--ep-muted-foreground);
   text-decoration: none;
-  margin-bottom: var(--ep-space-1);
+  margin-bottom: var(--ep-space-3);
   transition: color var(--ep-transition-fast);
+}
+
+.back-link .ep-icon {
+  transition: transform var(--ep-transition-fast);
 }
 
 .back-link:hover {
   color: var(--ep-primary);
+}
+
+.back-link:hover .ep-icon {
+  transform: translateX(-2px);
 }
 
 /* ── Inline form (for create variant) ─────────────────────────────────── */
@@ -1475,6 +1474,8 @@ a.stat-card:hover {
   display: flex;
   gap: var(--ep-space-2);
   align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 /* ── Asset manager ────────────────────────────────────────────────────── */
