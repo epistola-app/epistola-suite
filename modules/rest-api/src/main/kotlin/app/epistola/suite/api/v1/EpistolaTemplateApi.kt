@@ -53,8 +53,13 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
+import app.epistola.suite.templates.contracts.ContractPublishConflictException
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
+import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -145,6 +150,37 @@ class EpistolaTemplateApi(
             id = templateIdComposite,
             name = updateTemplateRequest.name,
         ).execute() ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+
+        val dataModel = updateTemplateRequest.dataModel?.let { objectMapper.valueToTree<ObjectNode>(it) }
+        val dataExamples = updateTemplateRequest.dataExamples?.map { dto ->
+            DataExample(
+                id = dto.id ?: java.util.UUID.randomUUID().toString(),
+                name = dto.name,
+                data = objectMapper.valueToTree(dto.data),
+            )
+        }
+        if (dataModel != null || dataExamples != null) {
+            // The REST caller is authoritative: stage the change on a draft, then publish it
+            // immediately so the change is readable back via GET (read-your-write).
+            val confirmBreaking = updateTemplateRequest.forceUpdate ?: false
+            CreateContractVersion(templateId = templateIdComposite).execute()
+                ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+            // forceUpdate=false here: data examples must always be valid against the schema —
+            // a published contract is never allowed to carry examples it would reject.
+            UpdateContractVersion(
+                templateId = templateIdComposite,
+                dataModel = dataModel,
+                dataExamples = dataExamples,
+                forceUpdate = false,
+            ).execute() ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+            val publish = PublishContractVersion(templateId = templateIdComposite, confirmed = confirmBreaking).execute()
+            // A breaking schema change is only published when the caller confirms via forceUpdate.
+            // Otherwise surface a 409 instead of silently leaving the previous published contract in place.
+            if (publish != null && !publish.published) {
+                throw ContractPublishConflictException(publish.breakingChanges.map { it.description })
+            }
+        }
+
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
