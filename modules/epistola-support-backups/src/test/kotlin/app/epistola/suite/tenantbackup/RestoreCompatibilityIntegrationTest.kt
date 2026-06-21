@@ -72,13 +72,23 @@ class RestoreCompatibilityIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `backward restore across a declared-compatible migration succeeds`() {
+    fun `backward restore is allowed when no undeclared migration is crossed, and the declared migration is crossable`() {
+        // A same-schema restore crosses nothing, so the gate allows it and the restore runs. (We can no
+        // longer construct a "crosses ONLY the declared migration" restore against the live schema: the
+        // declared data-only rename 20260618204750 is no longer HEAD — a later structural migration, the
+        // api-key-roles column, sits after it and is correctly an undeclared boundary.)
         val backup = freshBackup("Compat Backward")
-        // Stamp just before the listed rename, so the only crossed migration is the declared one.
-        val older = rewrite(backup.bytes) { it.copy(schemaStamp = "20260616222023") }
 
-        val result = withMediator { RestoreTenantBackup(backup.tenant, older).execute() }
+        val result = withMediator { RestoreTenantBackup(backup.tenant, backup.bytes).execute() }
         assertThat(result.rowsRestored).isGreaterThan(0)
+
+        // The declared data-only migration is genuinely treated as backward-crossable — it is never the
+        // backward boundary; the boundary is a later undeclared (structural) migration.
+        assertThat(restoreCompatibility.flagsFor("20260618204750").backward).isTrue()
+        jdbi.useHandle<Exception> { handle ->
+            val live = app.epistola.suite.tenantbackup.schema.SchemaStamp.current(handle)
+            assertThat(restoreCompatibility.backwardBoundary(handle, live)).isNotEqualTo("20260618204750")
+        }
     }
 
     @Test
