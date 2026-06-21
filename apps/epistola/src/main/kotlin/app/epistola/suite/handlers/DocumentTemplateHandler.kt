@@ -125,7 +125,7 @@ class DocumentTemplateHandler(
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
 
     private val sortableColumns = setOf("name", "variants", "updated", "published")
-    private val pageSizeOptions = listOf(25, 50, 100)
+    private val pageSizeOptions = listOf(10, 25, 50)
     private val templateColumns = listOf(
         Column("Name", "name"),
         Column("Catalog"),

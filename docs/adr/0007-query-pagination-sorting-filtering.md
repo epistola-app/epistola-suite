@@ -96,7 +96,7 @@ once in that rare stale-deep-link case.
   `require(size >= 1)`) — a programmatic caller passing `0`/negative gets an
   `IllegalArgumentException`, never a wrong or empty page, and junk never reaches
   SQL. This is the hard floor (defense in depth).
-- **The `size` allow-list `{25, 50, 100}` and clamping untrusted URL params to
+- **The `size` allow-list (e.g. `{10, 25, 50}`) and clamping untrusted URL params to
   sane values live at the UI boundary** (the handler that parses the query
   params, PR2). The core query still accepts any positive page size, so a
   programmatic caller (MCP, internal) is not restricted to the UI's three sizes.

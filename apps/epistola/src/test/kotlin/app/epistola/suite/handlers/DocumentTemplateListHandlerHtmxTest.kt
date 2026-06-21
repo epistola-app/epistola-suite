@@ -191,6 +191,20 @@ class DocumentTemplateListHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the page-size selector offers 10, 25 and 50`() = fixture {
+        lateinit var tenantId: TenantId
+        given { tenantId = seedTemplates("Page Sizes", listOf("Alpha")) }
+
+        whenever { getHtmx("/tenants/${tenantId.key}/templates") }
+
+        then {
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).contains("value=\"10\"").contains("value=\"25\"").contains("value=\"50\"")
+            assertThat(body).doesNotContain("value=\"100\"")
+        }
+    }
+
+    @Test
     fun `the old search route is gone`() = fixture {
         lateinit var tenantId: TenantId
         given { tenantId = seedTemplates("No Search Route", listOf("Alpha")) }
