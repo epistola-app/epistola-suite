@@ -51,26 +51,32 @@
                 </th:block>
             </th:block>
         </div>
+    </th:block>
 
-        <th:block th:fragment="rows">
-            <tr th:each="template : ${paged.items}" data-testid="template-row" th:data-template-slug="${template.id}">
-                <td>
-                    <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                       th:text="${template.name}" style="font-weight: 500;"></a>
-                </td>
-                <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
-                <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                <td th:text="${template.variantCount}"></td>
-                <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
-                <td class="actions">
-                    <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                    <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                       class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                    </a>
-                </td>
-            </tr>
-        </th:block>
+    <!--
+        The row markup, passed into the data-table via ~{::rows}. Defined OUTSIDE the
+        `content` fragment so it renders only where injected (the table body) and not
+        a second time inline — a stray <tr> outside a <table> is otherwise flattened
+        by the browser into loose cells below the table.
+    -->
+    <th:block th:fragment="rows">
+        <tr th:each="template : ${paged.items}" data-testid="template-row" th:data-template-slug="${template.id}">
+            <td>
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                   th:text="${template.name}" style="font-weight: 500;"></a>
+            </td>
+            <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
+            <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+            <td th:text="${template.variantCount}"></td>
+            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+            <td class="actions">
+                <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                </a>
+            </td>
+        </tr>
     </th:block>
 
     <th:block th:fragment="template-list-actions">

@@ -173,6 +173,22 @@ class DocumentTemplateListHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `each row renders exactly once and not duplicated outside the table`() = fixture {
+        lateinit var tenantId: TenantId
+        given { tenantId = seedTemplates("No Dup Rows", listOf("Alpha", "Bravo", "Charlie")) }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenantId.key}/templates", String::class.java) }
+
+        then {
+            val body = result<ResponseEntity<String>>().body!!
+            // If the `rows` fragment renders both inside the table AND inline, each row
+            // appears twice (the stray copy flattens to loose cells below the table).
+            val rowCount = Regex("data-testid=\"template-row\"").findAll(body).count()
+            assertThat(rowCount).isEqualTo(3)
+        }
+    }
+
+    @Test
     fun `the old search route is gone`() = fixture {
         lateinit var tenantId: TenantId
         given { tenantId = seedTemplates("No Search Route", listOf("Alpha")) }
