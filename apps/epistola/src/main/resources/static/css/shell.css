@@ -285,44 +285,9 @@
   margin-bottom: var(--ep-space-8);
 }
 
-/* Tables within the shell content */
-.main-content table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  overflow: hidden;
-  font-size: var(--ep-text-sm);
-}
-
-.main-content th,
-.main-content td {
-  padding: var(--ep-space-3) var(--ep-space-4);
-  text-align: left;
-}
-
-.main-content th {
-  background-color: var(--ep-gray-50);
-  font-weight: 500;
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: var(--ep-tracking-wider);
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-.main-content td {
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-.main-content tbody tr:hover {
-  background-color: var(--ep-muted);
-}
-
-.main-content tbody tr:last-child td {
-  border-bottom: none;
-}
+/* Table styling is owned by the design system (.ep-table) — no generic
+   .main-content table / th / td / tr overrides, which would fight it on
+   specificity. */
 
 .main-content .empty-message {
   text-align: center;

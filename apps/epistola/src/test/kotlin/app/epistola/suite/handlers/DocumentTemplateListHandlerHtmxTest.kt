@@ -74,22 +74,24 @@ class DocumentTemplateListHandlerHtmxTest : BaseIntegrationTest() {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body.indexOf("Alpha")).isLessThan(body.indexOf("Bravo"))
             assertThat(body.indexOf("Bravo")).isLessThan(body.indexOf("Charlie"))
-            // The active ascending column shows the up chevron.
-            assertThat(body).contains("chevron-up")
+            // The active ascending column is flagged is-asc (the chevron rotates up via CSS).
+            assertThat(body).contains("is-sorted is-asc")
             assertThat(result<ResponseEntity<String>>().headers.getFirst("HX-Push-Url"))
                 .contains("sort=name&dir=asc")
         }
     }
 
     @Test
-    fun `sort descending renders the down chevron on the active column`() = fixture {
+    fun `the active descending column is flagged is-desc, not is-asc`() = fixture {
         lateinit var tenantId: TenantId
         given { tenantId = seedTemplates("Sort Desc", listOf("Alpha", "Bravo")) }
 
         whenever { getHtmx("/tenants/${tenantId.key}/templates?sort=name&dir=desc") }
 
         then {
-            assertThat(result<ResponseEntity<String>>().body).contains("chevron-down")
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).contains("is-sorted is-desc")
+            assertThat(body).doesNotContain("is-asc")
         }
     }
 

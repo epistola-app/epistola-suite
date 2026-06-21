@@ -470,6 +470,76 @@
         vertical-align: middle;
       }
     }
+
+    /* Content/header links read as plain text, not default blue links. */
+    & a:not(.ep-btn) {
+      color: inherit;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
+
+  /* ── Sortable column headers ──────────────────────────────────────────── */
+
+  .ep-table-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    cursor: pointer;
+  }
+
+  /* One chevron, muted by default so the column reads as sortable; the active
+     column is full-strength and rotates up for ascending. */
+  .ep-sort-icon {
+    opacity: 0.3;
+    transition:
+      opacity var(--ep-transition-fast),
+      transform var(--ep-transition-fast);
+  }
+
+  .ep-table-sort:hover .ep-sort-icon {
+    opacity: 0.6;
+  }
+
+  .ep-table-sort.is-sorted .ep-sort-icon {
+    opacity: 1;
+  }
+
+  .ep-table-sort.is-asc .ep-sort-icon {
+    transform: rotate(180deg);
+  }
+
+  /* ── Table footer (pagination + per-page) ─────────────────────────────── */
+
+  .ep-table-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-3);
+    margin-top: var(--ep-space-3);
+  }
+
+  .ep-pagination {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  /* Summary text + per-page select, grouped and pinned to the right. */
+  .ep-table-meta {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
+  .ep-page-indicator {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
   }
 
   /* ── Icons ────────────────────────────────────────────────────────────── */

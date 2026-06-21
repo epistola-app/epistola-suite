@@ -307,6 +307,7 @@ main.regular .empty-message {
   display: flex;
   gap: var(--ep-space-2);
   align-items: center;
+  justify-content: end;
 }
 
 /* ── Back link (detail page header) ───────────────────────────────────── */

@@ -24,20 +24,18 @@
             <tr>
                 <th th:each="col : ${columns}">
                     <span th:if="${col.sortKey == null}" th:text="${col.label}"></span>
+                    <!-- Sortable: one chevron, always shown (muted) so the column reads as
+                         sortable; the active column is highlighted and rotates up for asc. -->
                     <a th:if="${col.sortKey != null}"
                        th:href="${query.sortUrl(col.sortKey)}"
                        th:hx-get="${query.sortUrl(col.sortKey)}"
                        hx-target="#data-table-container"
                        hx-swap="innerHTML"
                        th:data-sort-key="${col.sortKey}"
-                       class="ep-table-sort">
+                       class="ep-table-sort"
+                       th:classappend="${query.isSorted(col.sortKey) ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
                         <span th:text="${col.label}"></span>
-                        <th:block th:if="${query.isSorted(col.sortKey)}">
-                            <th:block th:if="${query.ascending()}"
-                                      th:replace="~{epistola-web/icon :: icon(name='chevron-up', class='ep-icon ep-icon-sm')}" />
-                            <th:block th:unless="${query.ascending()}"
-                                      th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
-                        </th:block>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
                     </a>
                 </th>
             </tr>
@@ -48,9 +46,6 @@
     </table>
 
     <div class="ep-table-footer" th:if="${paged.total > 0}">
-        <span class="ep-table-summary" data-testid="paging-summary"
-              th:text="|Showing ${paged.from}–${paged.to} of ${paged.total}|"></span>
-
         <nav class="ep-pagination" th:if="${paged.totalPages > 1}" aria-label="Pagination">
             <a th:if="${paged.page > 1}"
                th:href="${query.pageUrl(paged.page - 1)}"
@@ -65,16 +60,19 @@
                class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="page-next">Next</a>
         </nav>
 
-        <label class="ep-page-size">
-            <span>Rows</span>
-            <select class="ep-select" data-table-url-select data-testid="page-size" aria-label="Rows per page">
+        <!-- Summary + per-page selector, grouped and pinned bottom-right. -->
+        <div class="ep-table-meta">
+            <span data-testid="paging-summary"
+                  th:text="|Showing ${paged.from}–${paged.to} of ${paged.total}|"></span>
+            <select class="ep-select ep-select-sm form-control-auto" data-table-url-select
+                    data-testid="page-size" aria-label="Rows per page">
                 <option th:each="opt : ${pageSizeOptions}"
                         th:value="${opt}"
                         th:text="${opt}"
                         th:data-url="${query.sizeUrl(opt)}"
                         th:selected="${opt == paged.size}"></option>
             </select>
-        </label>
+        </div>
     </div>
 
     <!--

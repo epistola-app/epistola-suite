@@ -36,7 +36,6 @@ const ICONS = [
   'check-circle',
   'chevron-down',
   'chevron-right',
-  'chevron-up',
   'clock',
   'columns-2',
   'copy',
