@@ -21,9 +21,9 @@ class DocumentTemplateRoutes(
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/templates".nest {
-            // List and create (across all catalogs)
+            // List and create (across all catalogs). `list` serves both the full page
+            // and the HTMX data-table swaps (sort/filter/search/paging via query params).
             GET("", handler::list)
-            GET("/search", handler::search)
             GET("/new", handler::newForm)
             POST("", handler::create)
 

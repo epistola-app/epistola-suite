@@ -8,16 +8,23 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.paging.PageRequest
+import app.epistola.suite.common.paging.SortDirection
+import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
 import app.epistola.suite.handlers.decorateVariants
 import app.epistola.suite.handlers.filterToUsedDescriptors
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.queryParamInt
+import app.epistola.suite.htmx.table.Column
+import app.epistola.suite.htmx.table.ListQuery
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -116,31 +123,72 @@ class DocumentTemplateHandler(
     private val localeResolver: TenantLocaleResolver,
 ) {
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
+
+    private val sortableColumns = setOf("name", "variants", "updated", "published")
+    private val pageSizeOptions = listOf(25, 50, 100)
+    private val templateColumns = listOf(
+        Column("Name", "name"),
+        Column("Catalog"),
+        Column("ID"),
+        Column("Variants", "variants"),
+        Column("Last Modified", "updated"),
+        Column(""),
+    )
+
+    /**
+     * Unified list endpoint: full page on a normal request, the data-table fragment on
+     * an HTMX request. Sort/filter/search/paging state is read from (and pushed back to)
+     * the query string, so the view is bookmarkable and survives a refresh.
+     */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val basePath = "/tenants/${tenantId.key}/templates"
+
+        // Parse + clamp untrusted query params at this boundary (ADR 0007).
+        val q = request.queryParam("q")?.ifBlank { null }
+        val catalog = request.queryParam("catalog")?.ifBlank { null }
+        val sortKey = request.queryParam("sort", "updated").let { if (it in sortableColumns) it else "updated" }
+        val direction =
+            if (request.queryParam("dir", "desc").equals("asc", ignoreCase = true)) SortDirection.ASC else SortDirection.DESC
+        val size = request.queryParamInt("size", 50).let { if (it in pageSizeOptions) it else 50 }
+        val page = request.queryParamInt("page", 1).coerceAtLeast(1)
+
         val catalogs = ListCatalogs(tenantId.key).query()
-        val templates = ListTemplateSummaries(tenantId = tenantId, catalogKey = catalogFilter).query().items
-        return ServerResponse.ok().page("templates/list") {
+        val paged = ListTemplateSummaries(
+            tenantId = tenantId,
+            searchTerm = q,
+            catalogKey = catalog?.let { CatalogKey.of(it) },
+            sort = SortSpec(sortKey, direction),
+            page = PageRequest(page, size),
+        ).query()
+
+        // The query clamps a stale out-of-range page; rebuild the URL state from the
+        // EFFECTIVE page so the canonical/pushed URL matches what is rendered.
+        val query = ListQuery(
+            basePath = basePath,
+            q = q,
+            catalog = catalog,
+            sortKey = sortKey,
+            direction = direction,
+            page = paged.page,
+            size = size,
+        )
+
+        val model: ModelBuilder.() -> Unit = {
             "pageTitle" to "Document Templates - Epistola"
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "templates" to templates
+            "selectedCatalog" to (catalog ?: "")
+            "columns" to templateColumns
+            "query" to query
+            "paged" to paged
+            "pageSizeOptions" to pageSizeOptions
         }
-    }
 
-    fun search(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val searchTerm = request.queryParam("q")
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query().items
         return request.htmx {
-            fragment("templates/list", "rows") {
-                "tenantId" to tenantId.key
-                "templates" to templates
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
+            fragment("templates/list", "data-table-fragment", model)
+            pushUrl(query.canonicalUrl())
+            onNonHtmx { page("templates/list", model) }
         }
     }
 

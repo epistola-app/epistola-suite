@@ -6,77 +6,73 @@
             pageTitle='Templates',
             pageDescription='All of your templates are here.',
             searchPlaceholder='Search templates...',
-            searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
-            searchTargetId='template-rows',
+            searchUrl=${query.searchUrl()},
+            searchTargetId='data-table-container',
             actions=~{::template-list-actions}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
-                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+            <select class="ep-select" data-table-url-select data-testid="catalog-filter"
+                    aria-label="Filter by catalog" style="max-width: 300px;">
+                <option value="" th:data-url="${query.with('catalog', '', 'page', '1')}"
+                        th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
+                        th:data-url="${query.with('catalog', cat.id.toString(), 'page', '1')}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/templates';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
-        <div th:if="${#lists.isEmpty(templates)}" class="empty-state">
-            <div class="empty-state-icon">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
-            </div>
-            <div class="empty-state-title">No templates yet</div>
-            <div class="empty-state-description">Create your first document template to get started.</div>
-            <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                New Template
-            </a>
-        </div>
-
-        <table th:if="${!#lists.isEmpty(templates)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Catalog</th>
-                    <th>ID</th>
-                    <th>Variants</th>
-                    <th>Last Modified</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="template-rows">
-                <th:block th:fragment="rows">
-                    <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
-                        <td>
-                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               th:text="${template.name}" style="font-weight: 500;"></a>
-                        </td>
-                        <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
-                        <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                        <td th:text="${template.variantCount}"></td>
-                        <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions">
-                            <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                            </a>
-                        </td>
-                    </tr>
+        <!-- Single HTMX swap target: sort/page/size/search/filter all replace this innerHTML. -->
+        <div id="data-table-container">
+            <th:block th:fragment="data-table-fragment">
+                <div th:if="${paged.total == 0}" class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No templates yet</div>
+                    <div class="empty-state-description">Create your first document template to get started.</div>
+                    <a th:if="${auth.has('TEMPLATE_EDIT')}"
+                       th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                       class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                        New Template
+                    </a>
+                </div>
+                <th:block th:unless="${paged.total == 0}">
+                    <div th:replace="~{epistola-web/data-table :: data-table(
+                        columns=${columns},
+                        query=${query},
+                        paged=${paged},
+                        rows=~{::rows},
+                        pageSizeOptions=${pageSizeOptions}
+                    )}"></div>
                 </th:block>
-            </tbody>
-        </table>
+            </th:block>
+        </div>
+
+        <th:block th:fragment="rows">
+            <tr th:each="template : ${paged.items}" data-testid="template-row" th:data-template-slug="${template.id}">
+                <td>
+                    <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                       th:text="${template.name}" style="font-weight: 500;"></a>
+                </td>
+                <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
+                <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                <td th:text="${template.variantCount}"></td>
+                <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                <td class="actions">
+                    <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                    <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                       class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                    </a>
+                </td>
+            </tr>
+        </th:block>
     </th:block>
+
     <th:block th:fragment="template-list-actions">
         <a th:if="${auth.has('TEMPLATE_EDIT')}"
            th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
@@ -85,6 +81,5 @@
             New Template
         </a>
     </th:block>
-
 </body>
 </html>
