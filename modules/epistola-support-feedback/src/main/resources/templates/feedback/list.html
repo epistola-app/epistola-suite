@@ -2,19 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Feedback</h1>
-            <div class="page-actions">
-                <button type="button" class="ep-btn ep-btn-primary"
-                        hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
-                        hx-target="#feedback-dialog-content"
-                        hx-swap="innerHTML"
-                        onclick="document.getElementById('feedback-dialog').showModal()">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Feedback
-                </button>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Feedback',
+            actions=~{::feedback-list-actions}
+        )}"></div>
 
         <!-- Filters -->
         <div class="ep-filters ep-row ep-gap-3" style="margin-bottom: var(--ep-space-4);">
@@ -42,7 +33,7 @@
 
         <div th:if="${#lists.isEmpty(feedbackItems)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No feedback yet</div>
             <div class="empty-state-description">Submit feedback to report issues, request features, or ask questions.</div>
@@ -100,5 +91,16 @@
             });
         </script>
     </th:block>
+    <th:block th:fragment="feedback-list-actions">
+        <button type="button" class="ep-btn ep-btn-primary"
+                hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
+                hx-target="#feedback-dialog-content"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('feedback-dialog').showModal()">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Feedback
+        </button>
+    </th:block>
+
 </body>
 </html>

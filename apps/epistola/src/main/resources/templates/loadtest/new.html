@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
-            <span>New Load Test</span>
-        </nav>
 
-        <h1>New Load Test</h1>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='New Load Test',
+            backLinkHref=@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})},
+            backLinkLabel='Load Tests'
+        )}"></div>
 
         <div id="form-error">
             <div th:if="${error}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">

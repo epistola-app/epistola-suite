@@ -416,6 +416,19 @@
     border-color: var(--ep-border-color);
   }
 
+  /* Feature maturity markers (see KnownFeatures.FeatureStage). */
+  .badge-beta {
+    background-color: var(--ep-purple-100);
+    color: var(--ep-purple-600);
+    border-color: var(--ep-purple-200);
+  }
+
+  .badge-alpha {
+    background-color: var(--ep-amber-100);
+    color: var(--ep-amber-800);
+    border-color: var(--ep-amber-300);
+  }
+
   /* ── Tables ───────────────────────────────────────────────────────────── */
 
   .ep-table {
@@ -501,11 +514,28 @@
   .page-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--ep-space-6);
+    align-items: start;
+    gap: var(--ep-space-4);
+    padding: var(--ep-space-4) 0;
 
-    & h1 {
-      margin: 0;
+    & .content {
+      min-width: 0;
+
+      & h1 {
+        margin: 0;
+      }
+
+      & p {
+        font-size: var(--ep-text-sm);
+        color: var(--ep-muted-foreground);
+        margin-top: var(--ep-space-2);
+      }
+    }
+  }
+
+  @media (max-width: 56rem) {
+    .page-header {
+      flex-direction: column;
     }
   }
 

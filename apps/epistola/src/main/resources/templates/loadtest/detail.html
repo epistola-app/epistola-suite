@@ -2,35 +2,22 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
-            <span th:text="${'Test ' + run.id}">Test Details</span>
-        </nav>
 
-        <div class="page-header">
-            <h1>
-                Load Test
-                <span class="badge"
-                      th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
-                                        run.status.name() == 'RUNNING' ? 'badge-primary' :
-                                        run.status.name() == 'FAILED' ? 'badge-destructive' :
-                                        run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
-                      th:text="${run.status}">
-                </span>
-            </h1>
-            <div class="page-actions">
-                <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
-                   class="ep-btn ep-btn-outline"
-                   th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
-                    View Request Log
-                </a>
-                <form th:if="${run.status.name() == 'RUNNING'}"
-                      th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
-                      method="post"
-                      style="display: inline;">
-                    <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
-                </form>
-            </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Load Test',
+            backLinkHref=@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})},
+            backLinkLabel='Load Tests',
+            actions=~{::load-test-detail-actions}
+        )}"></div>
+
+        <div style="margin-bottom: var(--ep-space-4);">
+            <span class="badge"
+                  th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
+                                    run.status.name() == 'RUNNING' ? 'badge-primary' :
+                                    run.status.name() == 'FAILED' ? 'badge-destructive' :
+                                    run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
+                  th:text="${run.status}">
+            </span>
         </div>
 
         <!-- Configuration -->
@@ -196,5 +183,19 @@
             </div>
         </div>
     </th:block>
+    <th:block th:fragment="load-test-detail-actions">
+        <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
+           class="ep-btn ep-btn-outline"
+           th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
+            View Request Log
+        </a>
+        <form th:if="${run.status.name() == 'RUNNING'}"
+              th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
+              method="post"
+              style="display: inline;">
+            <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
+        </form>
+    </th:block>
+
 </body>
 </html>

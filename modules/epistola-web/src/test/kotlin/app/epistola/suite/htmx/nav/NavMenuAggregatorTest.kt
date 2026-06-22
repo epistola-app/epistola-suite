@@ -1,6 +1,7 @@
 package app.epistola.suite.htmx.nav
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.security.Permission
 import org.assertj.core.api.Assertions.assertThat
@@ -82,6 +83,21 @@ class NavMenuAggregatorTest {
         val support = model.groups.single()
         assertThat(support.testId).isEqualTo("nav-dropdown-support")
         assertThat(support.items.map { it.sectionKey }).containsExactly("overview", "feedback", "backups")
+    }
+
+    @Test
+    fun `propagates feature stage from item to view, defaulting to STABLE`() {
+        val support = contributor(groups = listOf(NavGroup("support", "Support", order = 80))) {
+            listOf(
+                NavItem("support", "overview", "Overview", "support", order = 0),
+                NavItem("support", "backups", "Backups", "backups", order = 20, stage = KnownFeatures.FeatureStage.BETA),
+            )
+        }
+        val model = NavMenuAggregator(listOf(support)).build(ctx(), "/tenants/acme")
+
+        val items = model.groups.single().items
+        assertThat(items.single { it.sectionKey == "overview" }.stage).isEqualTo(KnownFeatures.FeatureStage.STABLE)
+        assertThat(items.single { it.sectionKey == "backups" }.stage).isEqualTo(KnownFeatures.FeatureStage.BETA)
     }
 
     @Test

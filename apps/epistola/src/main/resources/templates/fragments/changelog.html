@@ -10,7 +10,7 @@
                     command="close"
                     commandfor="changelog-dialog"
                     aria-label="Close changelog">
-                <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='x', class='ep-icon')}" />
             </button>
         </div>
         <div class="ep-dialog-body">
@@ -93,7 +93,7 @@
              class="whats-new-card">
             <div class="whats-new-row">
                 <div class="whats-new-info">
-                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                     <span th:text="'Latest: v' + ${changelogVersion}">Latest: v0.12.0</span>
                     <span class="whats-new-summary" th:text="${changelogSummary}">6 new features, 1 fix</span>
                 </div>

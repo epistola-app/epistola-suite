@@ -2,25 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Backups</h1>
-            <div class="page-actions">
-                <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
-                    <button type="submit" class="ep-btn ep-btn-primary">
-                        <th:block th:replace="~{fragments/icon :: icon(name='upload-cloud', class='ep-icon')}" />
-                        Back up now
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <p class="page-description">
-            A backup is a full, point-in-time copy of all of this tenant's authoring data — every
-            template, theme, stencil, code list, font and asset, including drafts and the complete
-            version history — stored locally. Daily backups run automatically; you can also back up on
-            demand. Restoring reverts this tenant to the backed-up state: changes made since (new
-            templates, versions and edits) are dropped, but generated documents are preserved.
-        </p>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Backups',
+            pageDescription='A backup is a full, point-in-time copy of all the authoring data in this tenant — every template, theme, stencil, code list, font and asset, including drafts and the complete version history — stored locally. Daily backups run automatically; you can also back up on demand. Restoring reverts this tenant to the backed-up state: changes made since (new templates, versions and edits) are dropped, but generated documents are preserved.',
+            stage=${stage},
+            actions=~{::backup-list-actions}
+        )}"></div>
 
         <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>
         <div th:if="${saved == 'backup-unchanged'}" class="alert alert-info" role="status">No changes since the last backup — nothing new to store.</div>
@@ -37,7 +24,7 @@
 
         <div th:if="${#lists.isEmpty(backups)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No backups yet</div>
             <div class="empty-state-description">Run a backup now, or wait for the next scheduled daily backup.</div>
@@ -75,7 +62,7 @@
                                 th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${backup.capturedAt} + '? This reverts the tenant to the backed-up state — any templates, versions and edits made since are dropped (generated documents are kept). This cannot be undone.',
                                          data-confirm-url=@{/tenants/{tenantId}/backups/{backupId}/restore(tenantId=${tenantId},backupId=${backup.backupId})}"
                                 onclick="openConfirmDialog(this)">
-                            <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
                             Restore
                         </button>
                         <button th:unless="${backup.restorable}"
@@ -83,7 +70,7 @@
                                 class="ep-btn ep-btn-ghost ep-btn-sm"
                                 disabled
                                 title="This backup was taken on a schema version this build can't restore.">
-                            <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
                             Restore
                         </button>
                     </td>
@@ -93,5 +80,14 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+    <th:block th:fragment="backup-list-actions">
+        <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
+            <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${status != 'OK'}">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='upload-cloud', class='ep-icon')}" />
+                Back up now
+            </button>
+        </form>
+    </th:block>
+
 </body>
 </html>

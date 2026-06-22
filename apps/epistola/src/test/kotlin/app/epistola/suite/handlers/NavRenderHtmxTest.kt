@@ -71,7 +71,24 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         // Backups/Upgrading toggles are off, so their items are absent.
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/backups")
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/upgrading")
+        // Feedback is a stable feature, so its nav item carries no maturity badge.
+        assertThat(body).doesNotContain("badge badge-beta", "badge badge-alpha")
         // The feedback module also contributes the footer FAB via the footer SPI.
         assertThat(body).contains("feedback-capture.js")
+    }
+
+    @Test
+    fun `beta feature renders a maturity badge on its nav item`() {
+        val tenant = createTenant("Nav Beta Badge")
+        withMediator {
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
+        }
+
+        // Render a page whose header is NOT Backups, so the only Beta badge in the markup is the one
+        // the nav item emits — this isolates the nav-template rendering from the feature page header.
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+
+        assertThat(body).contains("/tenants/${tenant.id.value}/backups")
+        assertThat(body).contains("badge badge-beta")
     }
 }

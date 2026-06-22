@@ -2,12 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Logs</h1>
-        </div>
-        <p class="ep-text-muted ep-text-sm" style="margin-top: calc(-1 * var(--ep-space-4, 1rem)); margin-bottom: var(--ep-space-4, 1rem);">
-            Application log output for this tenant, plus system activity. Retained for a limited window. Times are shown in your browser's timezone.
-        </p>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Logs',
+            pageDescription='Application log output for this tenant, plus system activity. Retained for a limited window. Times are shown in your browser timezone.'
+        )}"></div>
 
         <style>
             /* Break the dense log table out of the centered content column. */
