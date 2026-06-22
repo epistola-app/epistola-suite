@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(backup): **"Back up now" was always disabled.** The button's `th:disabled` referenced a `status` model attribute that doesn't exist (the handler provides `hubStatus`), so it evaluated to "disabled" unconditionally. It is now gated on `hubStatus` like the rest of the page — enabled when backups are listable (the normal/local case), disabled only when the hub is unreachable or the installation isn't entitled. Added a render regression test.
+
 ## [0.25.0] - 2026-06-22
 
 This release restructures authorization into descriptive, least-privilege roles and scopes each API key to exactly the roles it needs, adds a `/profile` page for inspecting your identity and decoded OIDC token claims, and makes Support → Backups faithful, full-fidelity tenant snapshots that preserve the complete version history. It also adds Alpha/Beta feature-maturity markers, names the missing permission in `403` errors, and restores several UI icons that rendered blank. **Breaking:** an identity provider must rename its group/role names to the new kebab-case names (e.g. `content-viewer`, `tenant-administrator`) — a one-time, IdP-side step.
