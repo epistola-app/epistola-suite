@@ -80,6 +80,7 @@ class AssetHandler(
                     "tenantId" to tenantId.value
                     "tenant" to tenant
                     "assets" to assets
+                    "selectedCatalog" to (catalogFilter?.value ?: "")
                 }
                 onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
             }
@@ -107,7 +108,7 @@ class AssetHandler(
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val catalogs = ListCatalogs(tenantId).query().filter { it.type == CatalogType.AUTHORED }
         return ServerResponse.ok().page("images/new") {
-            "pageTitle" to "Upload Asset - Epistola"
+            "pageTitle" to "Upload Image - Epistola"
             "tenantId" to tenantId.value
             "catalogs" to catalogs
         }
@@ -215,8 +216,10 @@ class AssetHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
         val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
+        // The list dropdown's active catalog filter rides along as a query param so
+        // the refreshed grid stays consistent with the dropdown after a delete.
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
 
         val force = request.param("force").orElse("false").toBoolean()
 
@@ -229,12 +232,13 @@ class AssetHandler(
         }
 
         val tenant = GetTenant(id = tenantId).query()
-        val assets = listImages(tenantId = tenantId)
+        val assets = listImages(tenantId = tenantId, catalogKey = catalogFilter)
         return request.htmx {
             fragment("images/list", "asset-grid-items") {
                 "tenantId" to tenantId.value
                 "tenant" to tenant
                 "assets" to assets
+                "selectedCatalog" to (catalogFilter?.value ?: "")
             }
             onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
         }

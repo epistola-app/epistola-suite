@@ -5,7 +5,7 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Images',
             searchPlaceholder='Search images...',
-            searchUrl=@{/tenants/{tenantId}/images/search(tenantId=${tenantId})},
+            searchUrl=@{/tenants/{tenantId}/images/search(tenantId=${tenantId},catalog=${selectedCatalog})},
             searchTargetId='asset-grid-items',
             actions=~{::asset-list-actions}
         )}"></div>
@@ -63,7 +63,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"
                                         data-confirm-title="Delete Image"
-                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/images/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
+                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/images/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
                                         data-confirm-target="#asset-grid-items"
                                         onclick="openConfirmDialog(this)">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />

@@ -125,6 +125,28 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `GET images list keeps the catalog filter in the search and delete URLs`() = fixture {
+        var tenantKey = ""
+
+        given {
+            tenantKey = seedTenantWithPngAsset("Images Catalog Filter", "logo.png")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/$tenantKey/images?catalog=default", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The active catalog filter rides along on both the search and the delete
+            // request so an HTMX refresh stays consistent with the dropdown.
+            assertThat(response.body).contains("/images/search?")
+            assertThat(response.body).contains("catalog=default")
+        }
+    }
+
     private fun seedTenantWithPngAsset(name: String, assetName: String): String = withMediator {
         val tenant: Tenant = createTenant(name)
         UploadAsset(
