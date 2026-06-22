@@ -26,26 +26,26 @@
   /* Canvas-only placeholder grid. Real borders come from inline styles
      (cellStyle['border-top'] etc.) which override this rule. */
   .table-canvas-grid .table-canvas-cell {
-    border: 1px dashed var(--ep-gray-200);
+    border: 1px dashed var(--ep-stone-200);
   }
 
   /* Header cells */
   .table-canvas-cell.header {
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
     font-weight: 600;
   }
 
   /* Cell selection */
   .table-canvas-cell.cell-selected {
-    outline: 2px solid var(--ep-blue-400);
+    outline: 2px solid var(--ep-terracotta-400);
     outline-offset: -2px;
-    background: color-mix(in srgb, var(--ep-blue-100) 30%, transparent);
+    background: color-mix(in srgb, var(--ep-terracotta-100) 30%, transparent);
   }
 
   /* Empty table state */
   .table-canvas-empty {
     padding: var(--ep-space-4);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-size: var(--ep-text-xs);
     text-align: center;
   }
@@ -54,7 +54,7 @@
   .table-canvas-cell .canvas-slot.empty {
     min-height: 1.5rem;
     border-style: dashed;
-    border-color: var(--ep-gray-200);
+    border-color: var(--ep-stone-200);
   }
 
   .table-canvas-cell .canvas-slot-hint {
@@ -102,7 +102,7 @@
   .table-dialog-label {
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
   }
 
   .table-dialog-grid {
@@ -113,7 +113,7 @@
   .table-dialog-cell {
     width: 24px;
     height: 24px;
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     border-radius: 2px;
     background: var(--ep-white);
     cursor: pointer;
@@ -122,14 +122,14 @@
 
   .table-dialog-cell:hover,
   .table-dialog-cell.active {
-    background: var(--ep-blue-100);
-    border-color: var(--ep-blue-300);
+    background: var(--ep-terracotta-100);
+    border-color: var(--ep-terracotta-300);
   }
 
   .table-dialog-size-label {
     text-align: center;
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     font-weight: 500;
   }
 
@@ -143,7 +143,7 @@
     flex-direction: column;
     gap: var(--ep-space-1);
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     flex: 1;
   }
 
@@ -162,22 +162,22 @@
     border-radius: var(--ep-radius-sm);
     font-size: var(--ep-text-sm);
     cursor: pointer;
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     background: var(--ep-white);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
   }
 
   .table-dialog-btn:hover {
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
   }
 
   .table-dialog-btn.insert {
-    background: var(--ep-blue-500);
+    background: var(--ep-terracotta-500);
     color: var(--ep-white);
-    border-color: var(--ep-blue-500);
+    border-color: var(--ep-terracotta-500);
   }
 
   .table-dialog-btn.insert:hover {
-    background: var(--ep-blue-600);
+    background: var(--ep-terracotta-600);
   }
 }

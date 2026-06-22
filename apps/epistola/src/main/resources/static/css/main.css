@@ -152,7 +152,7 @@ main.regular td {
 }
 
 main.regular th {
-  background-color: var(--ep-gray-50);
+  background-color: var(--ep-stone-50);
   font-weight: 500;
   font-size: var(--ep-text-xs);
   color: var(--ep-muted-foreground);
@@ -232,9 +232,9 @@ main.regular .empty-message {
 
 /* Legacy badge variants mapped to new naming */
 .badge-draft {
-  background-color: var(--ep-blue-100);
-  color: var(--ep-blue-800);
-  border-color: var(--ep-blue-200);
+  background-color: var(--ep-terracotta-100);
+  color: var(--ep-terracotta-800);
+  border-color: var(--ep-terracotta-200);
 }
 
 .badge-published {
@@ -244,8 +244,8 @@ main.regular .empty-message {
 }
 
 .badge-archived {
-  background-color: var(--ep-gray-100);
-  color: var(--ep-gray-600);
+  background-color: var(--ep-stone-100);
+  color: var(--ep-stone-600);
   border-color: var(--ep-border-color);
 }
 
@@ -256,8 +256,8 @@ main.regular .empty-message {
 }
 
 .badge-info {
-  background-color: var(--ep-blue-100);
-  color: var(--ep-blue-800);
+  background-color: var(--ep-terracotta-100);
+  color: var(--ep-terracotta-800);
 }
 
 .badge-error {
@@ -271,8 +271,8 @@ main.regular .empty-message {
 }
 
 .badge-default {
-  background-color: var(--ep-gray-100);
-  color: var(--ep-gray-600);
+  background-color: var(--ep-stone-100);
+  color: var(--ep-stone-600);
 }
 
 /* Horizontal, wrapping list of badges with consistent spacing. */
@@ -288,8 +288,8 @@ main.regular .empty-message {
   display: inline-block;
   padding: 0.125rem var(--ep-space-2);
   margin: 0.125rem;
-  background-color: var(--ep-blue-100);
-  color: var(--ep-blue-800);
+  background-color: var(--ep-terracotta-100);
+  color: var(--ep-terracotta-800);
   border-radius: var(--ep-radius-full);
   font-size: var(--ep-text-xs);
   font-weight: 500;
@@ -443,7 +443,7 @@ main.regular .empty-message {
 }
 
 .nav-card:hover {
-  border-color: var(--ep-gray-300);
+  border-color: var(--ep-stone-300);
   box-shadow: var(--ep-shadow-md);
   transform: translateY(-1px);
   text-decoration: none;
@@ -457,7 +457,7 @@ main.regular .empty-message {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: var(--ep-radius-lg);
-  background-color: var(--ep-blue-50);
+  background-color: var(--ep-terracotta-50);
   color: var(--ep-primary);
   flex-shrink: 0;
 }
@@ -573,8 +573,8 @@ main.regular .empty-message {
 /* ── Info box ─────────────────────────────────────────────────────────── */
 
 .info-box {
-  background-color: var(--ep-blue-50);
-  border: 1px solid var(--ep-blue-200);
+  background-color: var(--ep-terracotta-50);
+  border: 1px solid var(--ep-terracotta-200);
   border-radius: var(--ep-radius-lg);
   padding: var(--ep-space-4) var(--ep-space-6);
 }
@@ -582,7 +582,7 @@ main.regular .empty-message {
 .info-box h3 {
   margin-top: 0;
   margin-bottom: var(--ep-space-2);
-  color: var(--ep-blue-800);
+  color: var(--ep-terracotta-800);
 }
 
 .info-box ul {
@@ -593,7 +593,7 @@ main.regular .empty-message {
 .info-box li {
   margin-bottom: var(--ep-space-2);
   font-size: var(--ep-text-sm);
-  color: var(--ep-blue-800);
+  color: var(--ep-terracotta-800);
 }
 
 /* ── Alert messages ───────────────────────────────────────────────────── */
@@ -780,7 +780,7 @@ main.regular .empty-message {
 }
 
 a.stat-card:hover {
-  border-color: var(--ep-gray-300);
+  border-color: var(--ep-stone-300);
   box-shadow: var(--ep-shadow-md);
   text-decoration: none;
   color: var(--ep-foreground);
@@ -1084,7 +1084,7 @@ a.stat-card:hover {
 }
 
 .changelog-version-item.unreleased .changelog-version-label {
-  color: var(--ep-blue-600);
+  color: var(--ep-terracotta-600);
 }
 
 .changelog-version-date {
@@ -1164,8 +1164,8 @@ a.stat-card:hover {
 }
 
 .changelog-badge--user {
-  background: var(--ep-blue-100);
-  color: var(--ep-blue-800);
+  background: var(--ep-terracotta-100);
+  color: var(--ep-terracotta-800);
 }
 
 .changelog-badge--dev {
@@ -1174,8 +1174,8 @@ a.stat-card:hover {
 }
 
 .changelog-badge--scope {
-  background: var(--ep-gray-100);
-  color: var(--ep-gray-600);
+  background: var(--ep-stone-100);
+  color: var(--ep-stone-600);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -1191,8 +1191,8 @@ a.stat-card:hover {
 }
 
 .whats-new-card.whats-new-unseen {
-  border-color: var(--ep-blue-200);
-  background: var(--ep-blue-50);
+  border-color: var(--ep-terracotta-200);
+  background: var(--ep-terracotta-50);
 }
 
 .whats-new-row {
@@ -1212,7 +1212,7 @@ a.stat-card:hover {
 }
 
 .whats-new-unseen .whats-new-info {
-  color: var(--ep-blue-800);
+  color: var(--ep-terracotta-800);
 }
 
 .whats-new-info strong {
@@ -1230,7 +1230,7 @@ a.stat-card:hover {
 }
 
 .whats-new-unseen .whats-new-summary {
-  color: var(--ep-blue-600);
+  color: var(--ep-terracotta-600);
 }
 
 .whats-new-actions {
@@ -1405,8 +1405,8 @@ a.stat-card:hover {
 }
 
 .variant-card-default {
-  background-color: var(--ep-blue-50);
-  border-color: var(--ep-blue-200);
+  background-color: var(--ep-terracotta-50);
+  border-color: var(--ep-terracotta-200);
 }
 
 .variant-card-header {
@@ -1456,7 +1456,7 @@ a.stat-card:hover {
 }
 
 .variant-card-default .variant-card-footer {
-  border-top-color: var(--ep-blue-200);
+  border-top-color: var(--ep-terracotta-200);
 }
 
 .variant-no-matches {
@@ -1495,7 +1495,7 @@ a.stat-card:hover {
 .asset-upload-zone:hover,
 .asset-upload-zone.dragover {
   border-color: var(--ep-primary);
-  background-color: var(--ep-blue-50);
+  background-color: var(--ep-terracotta-50);
 }
 
 .asset-upload-content {
@@ -1536,7 +1536,7 @@ a.stat-card:hover {
 
 .asset-card-preview {
   aspect-ratio: 4 / 3;
-  background-color: var(--ep-gray-50);
+  background-color: var(--ep-stone-50);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -24,7 +24,7 @@
   .sidebar-tabs {
     display: flex;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--ep-gray-200);
+    border-bottom: 1px solid var(--ep-stone-200);
   }
 
   .sidebar-tab {
@@ -34,7 +34,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: var(--ep-tracking-wider);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
@@ -44,7 +44,7 @@
       border-color var(--ep-transition-fast);
 
     &:hover {
-      color: var(--ep-gray-600);
+      color: var(--ep-stone-600);
     }
 
     &.active {

@@ -207,7 +207,7 @@
 
 .app-nav-tenant:hover {
   color: var(--ep-foreground);
-  border-color: var(--ep-gray-300);
+  border-color: var(--ep-stone-300);
   text-decoration: none;
 }
 
@@ -303,7 +303,7 @@
 }
 
 .main-content th {
-  background-color: var(--ep-gray-50);
+  background-color: var(--ep-stone-50);
   font-weight: 500;
   font-size: var(--ep-text-xs);
   color: var(--ep-muted-foreground);
@@ -491,7 +491,7 @@
 .toggle-switch-slider {
   position: absolute;
   inset: 0;
-  background-color: var(--ep-gray-300);
+  background-color: var(--ep-stone-300);
   border-radius: var(--ep-radius-full);
   cursor: pointer;
   transition: background-color 0.2s;

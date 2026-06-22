@@ -183,7 +183,7 @@ tasks.processResources {
     }
     // Copy design-system assets so Spring Boot serves them at /design-system/*
     from(rootProject.file("modules/design-system")) {
-        include("*.css", "icons.svg")
+        include("*.css", "icons.svg", "epistola-logo.svg")
         into("static/design-system")
     }
     // Self-host HTMX so Spring Boot serves it at /js/vendor/htmx.min.js

@@ -93,7 +93,7 @@
   }
 
   .stencil-picker-card:hover {
-    border-color: var(--ep-gray-400);
+    border-color: var(--ep-stone-400);
   }
 
   .stencil-picker-card.selected {
@@ -104,7 +104,7 @@
   .stencil-picker-card--disabled {
     opacity: 0.45;
     cursor: not-allowed;
-    background: var(--ep-gray-50, #f9fafb);
+    background: var(--ep-stone-50);
   }
 
   .stencil-picker-card--disabled:hover {
@@ -132,7 +132,7 @@
   }
 
   .stencil-picker-tag {
-    background: var(--ep-gray-100);
+    background: var(--ep-stone-100);
     padding: 0 var(--ep-space-1-5);
     border-radius: var(--ep-radius-sm);
     font-size: var(--ep-text-xs);
@@ -157,7 +157,7 @@
   }
 
   .stencil-picker-btn:hover {
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
   }
 
   .stencil-picker-btn.insert {
@@ -198,8 +198,8 @@
   }
 
   .stencil-picker-status--archived {
-    background: var(--ep-gray-100);
-    color: var(--ep-gray-500);
+    background: var(--ep-stone-100);
+    color: var(--ep-stone-500);
   }
 
   /* ── Stencil inspector ───────────────────────────────────────────────── */

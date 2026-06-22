@@ -63,16 +63,16 @@
     --btn-bg: var(--ep-primary);
     --btn-color: var(--ep-primary-foreground);
     --btn-border-color: var(--ep-primary);
-    --btn-hover-bg: var(--ep-blue-700);
+    --btn-hover-bg: var(--ep-terracotta-700);
     --btn-hover-color: var(--ep-primary-foreground);
-    --btn-hover-border-color: var(--ep-blue-700);
+    --btn-hover-border-color: var(--ep-terracotta-700);
   }
 
   .ep-btn-secondary {
     --btn-bg: var(--ep-muted);
     --btn-color: var(--ep-accent-foreground);
     --btn-border-color: transparent;
-    --btn-hover-bg: var(--ep-gray-200);
+    --btn-hover-bg: var(--ep-stone-200);
     --btn-hover-color: var(--ep-accent-foreground);
     --btn-hover-border-color: transparent;
   }
@@ -244,6 +244,26 @@
     }
   }
 
+  /* Native search clear (×) button: WebKit ignores accent-color here, so it
+     would show the cool browser default against the warm palette. Recolor it
+     to the muted neutral (darkening on hover) with a masked × glyph. */
+  .ep-input[type='search']::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 0.85em;
+    width: 0.85em;
+    cursor: pointer;
+    background-color: var(--ep-muted-foreground);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+
+  .ep-input[type='search']::-webkit-search-cancel-button:hover {
+    background-color: var(--ep-foreground);
+  }
+
   .ep-textarea {
     --ep-form-control-padding-y: var(--ep-space-2);
     --ep-form-control-padding-x: var(--ep-space-3);
@@ -387,9 +407,9 @@
   }
 
   .badge-primary {
-    background-color: var(--ep-blue-100);
-    color: var(--ep-blue-800);
-    border-color: var(--ep-blue-200);
+    background-color: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-800);
+    border-color: var(--ep-terracotta-200);
   }
 
   .badge-success {
@@ -552,7 +572,7 @@
       width: 3rem;
       height: 3rem;
       margin-bottom: var(--ep-space-4);
-      color: var(--ep-gray-300);
+      color: var(--ep-stone-300);
     }
 
     & .empty-state-title {
@@ -586,9 +606,9 @@
   }
 
   .alert-info {
-    background-color: var(--ep-blue-50);
-    border-color: var(--ep-blue-200);
-    color: var(--ep-blue-800);
+    background-color: var(--ep-terracotta-50);
+    border-color: var(--ep-terracotta-200);
+    color: var(--ep-terracotta-800);
   }
 
   .alert-success {
@@ -624,7 +644,7 @@
   .panel-empty {
     padding: var(--ep-space-3);
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   .panel-error {

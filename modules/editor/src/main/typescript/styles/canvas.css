@@ -14,7 +14,7 @@
     max-width: 48rem;
     margin-inline: auto;
     background: var(--ep-white);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-lg);
     box-shadow: var(--ep-shadow-md);
     min-height: 24rem;
@@ -27,7 +27,7 @@
 
   .canvas-slot.empty {
     min-height: 3rem;
-    border: 1px dashed var(--ep-gray-300);
+    border: 1px dashed var(--ep-stone-300);
     border-radius: var(--ep-radius-sm);
     display: flex;
     align-items: center;
@@ -36,7 +36,7 @@
 
   .canvas-slot-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   .canvas-block {
@@ -48,16 +48,16 @@
       border-color var(--ep-transition-base);
 
     &:hover {
-      box-shadow: 0 0 0 1px var(--ep-gray-300);
+      box-shadow: 0 0 0 1px var(--ep-stone-300);
     }
 
     &.selected {
-      box-shadow: 0 0 0 2px var(--ep-blue-500);
+      box-shadow: 0 0 0 2px var(--ep-terracotta-500);
     }
 
     &:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 2px var(--ep-blue-500);
+      box-shadow: 0 0 0 2px var(--ep-terracotta-500);
     }
   }
 
@@ -66,11 +66,11 @@
     align-items: center;
     gap: var(--ep-space-1-5);
     padding: var(--ep-space-1) var(--ep-space-2);
-    background: linear-gradient(to bottom, var(--ep-gray-50), var(--ep-gray-100));
+    background: linear-gradient(to bottom, var(--ep-stone-50), var(--ep-stone-100));
     border-radius: var(--ep-radius-sm) var(--ep-radius-sm) 0 0;
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
   }
 
   .canvas-block-label {
@@ -78,7 +78,7 @@
   }
 
   .canvas-block-id {
-    color: var(--ep-gray-300);
+    color: var(--ep-stone-300);
     margin-left: auto;
     font-family: var(--ep-font-mono);
     font-size: 10px;
@@ -93,7 +93,7 @@
     border: none;
     border-radius: var(--ep-radius-sm);
     background: transparent;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     cursor: pointer;
     padding: 0;
     transition:
@@ -108,7 +108,7 @@
 
   .canvas-block-content {
     padding: var(--ep-space-2);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-top: none;
     border-radius: 0 0 var(--ep-radius-sm) var(--ep-radius-sm);
 
@@ -119,7 +119,7 @@
 
   .canvas-leaf-text {
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     font-style: italic;
   }
 
@@ -132,17 +132,17 @@
 
   .canvas-pagebreak-line {
     flex: 1;
-    border-top: 1px dashed var(--ep-gray-400);
+    border-top: 1px dashed var(--ep-stone-400);
   }
 
   .canvas-pagebreak-label {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   .canvas-leaf-default {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   .canvas-columns {
@@ -164,7 +164,7 @@
     border: none;
     border-radius: var(--ep-radius-sm);
     background: transparent;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     cursor: pointer;
     padding: 0;
     transition:
@@ -173,7 +173,7 @@
   }
 
   .canvas-block-collapse:hover {
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
   }
 
   /* Chevron rotates 90deg when expanded (not collapsed) */
@@ -185,8 +185,8 @@
   .canvas-block-child-count {
     font-size: 10px;
     font-weight: 500;
-    color: var(--ep-gray-400);
-    background: var(--ep-gray-100);
+    color: var(--ep-stone-400);
+    background: var(--ep-stone-100);
     padding: 0 var(--ep-space-1);
     border-radius: var(--ep-radius-sm);
   }

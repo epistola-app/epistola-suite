@@ -16,19 +16,19 @@
   .inspector-node-info {
     margin-bottom: var(--ep-space-4);
     padding: var(--ep-space-2) var(--ep-space-3);
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
     border-radius: var(--ep-radius-sm);
   }
 
   .inspector-node-label {
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-800);
+    color: var(--ep-stone-800);
   }
 
   .inspector-node-id {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-family: var(--ep-font-mono);
     margin-top: var(--ep-space-0-5);
   }
@@ -40,7 +40,7 @@
   .inspector-section-label {
     font-size: 11px;
     font-weight: 600;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: var(--ep-space-2);
@@ -53,7 +53,7 @@
   .inspector-field-label {
     display: block;
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     margin-bottom: var(--ep-space-0-5);
   }
 
@@ -81,12 +81,12 @@
   .inspector-delete-section {
     margin-top: var(--ep-space-6);
     padding-top: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
+    border-top: 1px solid var(--ep-stone-200);
   }
 
   .inspector-unsupported {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   /* Callout messages — info (blue) and warning (amber) */
@@ -105,9 +105,9 @@
   }
 
   .callout--info {
-    color: var(--ep-blue-700);
-    background: var(--ep-blue-50);
-    border-color: var(--ep-blue-200);
+    color: var(--ep-terracotta-700);
+    background: var(--ep-terracotta-50);
+    border-color: var(--ep-terracotta-200);
   }
 
   .callout--warning {
@@ -136,7 +136,7 @@
   .inspector-style-group-label {
     font-size: 11px;
     font-weight: 600;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: var(--ep-space-1);
@@ -169,7 +169,7 @@
     width: 32px;
     height: 28px;
     padding: 1px;
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     cursor: pointer;
     flex-shrink: 0;
@@ -197,7 +197,7 @@
 
   .style-spacing-label {
     font-size: 9px;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-weight: 500;
   }
 
@@ -246,7 +246,7 @@
 
   .style-border-label {
     font-size: 9px;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-weight: 500;
     width: 20px;
     flex-shrink: 0;
@@ -278,7 +278,7 @@
     width: 24px;
     height: 24px;
     padding: 0;
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: 2px;
     cursor: pointer;
     flex-shrink: 0;
@@ -288,18 +288,18 @@
     width: 20px;
     height: 20px;
     padding: 0;
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: 2px;
     background: var(--ep-white);
     cursor: pointer;
     font-size: 12px;
     line-height: 1;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     flex-shrink: 0;
   }
 
   .style-border-link-toggle:hover {
-    border-color: var(--ep-gray-400);
+    border-color: var(--ep-stone-400);
     color: var(--ep-foreground);
   }
 
@@ -339,10 +339,10 @@
     justify-content: center;
     width: 28px;
     height: 28px;
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     background: var(--ep-white);
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     font-size: var(--ep-text-sm);
     font-weight: 600;
     cursor: pointer;
@@ -352,8 +352,8 @@
   }
 
   .inspector-column-btn:hover:not(:disabled) {
-    background: var(--ep-gray-50);
-    border-color: var(--ep-gray-300);
+    background: var(--ep-stone-50);
+    border-color: var(--ep-stone-300);
   }
 
   .inspector-column-btn:disabled {
@@ -364,7 +364,7 @@
   .inspector-column-count-value {
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     min-width: 1.5em;
     text-align: center;
   }
@@ -385,7 +385,7 @@
 
   .inspector-column-size-label {
     font-size: 9px;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-weight: 500;
   }
 
@@ -401,7 +401,7 @@
     width: 100%;
     min-height: var(--ep-h-8);
     padding: var(--ep-space-1) var(--ep-space-2);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     background: var(--ep-white);
     cursor: pointer;
@@ -413,8 +413,8 @@
   }
 
   .inspector-expression-trigger:hover {
-    background: var(--ep-gray-50);
-    border-color: var(--ep-gray-300);
+    background: var(--ep-stone-50);
+    border-color: var(--ep-stone-300);
   }
 
   .inspector-expression-trigger.valid {
@@ -426,27 +426,27 @@
   }
 
   .inspector-expression-trigger.empty {
-    border-color: var(--ep-gray-200);
+    border-color: var(--ep-stone-200);
   }
 
   .inspector-expression-value {
     font-family: var(--ep-font-mono);
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .inspector-expression-placeholder {
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-style: italic;
   }
 
   /* Highlighted field path items (e.g., array fields for loop expressions) */
   .expression-dialog-path-item.highlighted {
-    background: var(--ep-blue-50);
-    border-left: 2px solid var(--ep-blue-400);
+    background: var(--ep-terracotta-50);
+    border-left: 2px solid var(--ep-terracotta-400);
     padding-left: var(--ep-space-1);
   }
 
@@ -456,8 +456,8 @@
     font-size: var(--ep-text-xs);
     font-weight: 500;
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-500);
-    border-top: 1px solid var(--ep-gray-200);
+    color: var(--ep-stone-500);
+    border-top: 1px solid var(--ep-stone-200);
     margin-top: var(--ep-space-1);
     list-style: none;
   }

@@ -61,13 +61,13 @@
   .dc-section-label {
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     margin: 0 0 var(--ep-space-2) 0;
   }
 
   .dc-section-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     margin: 0 0 var(--ep-space-3) 0;
   }
 
@@ -113,7 +113,7 @@
    * ---------------------------------------------------------------------- */
 
   .dc-field-list {
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     overflow: hidden;
     align-self: start;
@@ -124,11 +124,11 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--ep-space-2) var(--ep-space-3);
-    background: var(--ep-gray-50);
-    border-bottom: 1px solid var(--ep-gray-200);
+    background: var(--ep-stone-50);
+    border-bottom: 1px solid var(--ep-stone-200);
     font-size: 11px;
     font-weight: 600;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -144,7 +144,7 @@
     gap: var(--ep-space-2);
     padding: var(--ep-space-2) var(--ep-space-3);
     cursor: pointer;
-    border-bottom: 1px solid var(--ep-gray-100);
+    border-bottom: 1px solid var(--ep-stone-100);
     transition: background var(--ep-transition-base);
 
     &:last-child {
@@ -152,15 +152,15 @@
     }
 
     &:hover {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
     }
   }
 
   .dc-field-list-item-selected {
-    background: var(--ep-blue-50);
+    background: var(--ep-terracotta-50);
 
     &:hover {
-      background: var(--ep-blue-50);
+      background: var(--ep-terracotta-50);
     }
   }
 
@@ -168,7 +168,7 @@
     flex: 1;
     font-size: var(--ep-text-sm);
     font-weight: 500;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -178,8 +178,8 @@
   .dc-field-type-badge {
     font-size: 10px;
     font-weight: 500;
-    color: var(--ep-gray-400);
-    background: var(--ep-gray-100);
+    color: var(--ep-stone-400);
+    background: var(--ep-stone-100);
     padding: 1px var(--ep-space-1-5);
     border-radius: var(--ep-radius-sm);
     white-space: nowrap;
@@ -202,7 +202,7 @@
     justify-content: center;
     background: none;
     border: none;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     cursor: pointer;
     font-size: 9px;
     border-radius: var(--ep-radius-sm);
@@ -210,8 +210,8 @@
     transition: all var(--ep-transition-base);
 
     &:hover {
-      background: var(--ep-gray-100);
-      color: var(--ep-gray-600);
+      background: var(--ep-stone-100);
+      color: var(--ep-stone-600);
     }
   }
 
@@ -221,7 +221,7 @@
   }
 
   .dc-field-nested-items {
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
   }
 
   .dc-field-nested-items .dc-field-list-item {
@@ -233,7 +233,7 @@
    * ---------------------------------------------------------------------- */
 
   .dc-detail-panel {
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     padding: var(--ep-space-4);
     align-self: start;
@@ -244,14 +244,14 @@
     align-items: center;
     justify-content: center;
     padding: var(--ep-space-10) var(--ep-space-4);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-size: var(--ep-text-sm);
   }
 
   .dc-detail-title {
     font-size: var(--ep-text-base);
     font-weight: 600;
-    color: var(--ep-gray-800);
+    color: var(--ep-stone-800);
     margin: 0 0 var(--ep-space-4) 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -279,7 +279,7 @@
   .dc-detail-label {
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
   }
 
   .dc-detail-input {
@@ -307,12 +307,12 @@
   .dc-detail-section-label {
     font-size: 10px;
     font-weight: 600;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: var(--ep-space-2);
     padding-top: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-100);
+    border-top: 1px solid var(--ep-stone-100);
   }
 
   .dc-detail-constraints {
@@ -326,7 +326,7 @@
     gap: var(--ep-space-2);
     margin-top: var(--ep-space-2);
     padding-top: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-100);
+    border-top: 1px solid var(--ep-stone-100);
   }
 
   .dc-detail-delete-btn {
@@ -368,8 +368,8 @@
     justify-content: flex-end;
     gap: var(--ep-space-3);
     padding: var(--ep-space-2) var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
-    background: var(--ep-gray-50);
+    border-top: 1px solid var(--ep-stone-200);
+    background: var(--ep-stone-50);
     border-radius: var(--ep-radius-sm);
     margin-top: var(--ep-space-4);
   }
@@ -410,9 +410,9 @@
     justify-content: center;
     padding: var(--ep-space-10) var(--ep-space-4);
     text-align: center;
-    color: var(--ep-gray-500);
-    background: var(--ep-gray-50);
-    border: 2px dashed var(--ep-gray-200);
+    color: var(--ep-stone-500);
+    background: var(--ep-stone-50);
+    border: 2px dashed var(--ep-stone-200);
     border-radius: var(--ep-radius-lg);
     margin: var(--ep-space-4) 0;
   }
@@ -424,27 +424,27 @@
     width: 64px;
     height: 64px;
     margin-bottom: var(--ep-space-3);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     background: var(--ep-white);
-    border: 2px solid var(--ep-gray-200);
+    border: 2px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-full);
   }
 
   .dc-empty-state-icon-muted {
-    color: var(--ep-gray-300);
-    border-color: var(--ep-gray-200);
+    color: var(--ep-stone-300);
+    border-color: var(--ep-stone-200);
   }
 
   .dc-empty-state p {
     font-size: var(--ep-text-base);
     font-weight: 500;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     margin: 0 0 var(--ep-space-1) 0;
   }
 
   .dc-empty-state-hint {
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   /* --------------------------------------------------------------------------
@@ -518,10 +518,10 @@
   .dc-form-empty {
     padding: var(--ep-space-8) var(--ep-space-4);
     text-align: center;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-size: var(--ep-text-sm);
-    background: var(--ep-gray-50);
-    border: 1px dashed var(--ep-gray-300);
+    background: var(--ep-stone-50);
+    border: 1px dashed var(--ep-stone-300);
     border-radius: var(--ep-radius-md);
   }
 
@@ -548,7 +548,7 @@
 
   .dc-tree-label {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -561,11 +561,11 @@
     font-size: var(--ep-text-sm);
     padding: var(--ep-space-1-5) var(--ep-space-3);
     min-width: 0;
-    border-color: var(--ep-gray-200);
+    border-color: var(--ep-stone-200);
 
     &:focus {
-      border-color: var(--ep-blue-400);
-      box-shadow: 0 0 0 3px var(--ep-blue-100);
+      border-color: var(--ep-terracotta-400);
+      box-shadow: 0 0 0 3px var(--ep-terracotta-100);
     }
   }
 
@@ -584,13 +584,13 @@
       min-height: var(--ep-h-9);
       font-size: var(--ep-text-sm);
       padding: var(--ep-space-1-5) var(--ep-space-3);
-      border: 1px solid var(--ep-gray-200);
+      border: 1px solid var(--ep-stone-200);
       border-radius: var(--ep-radius-md);
-      background: var(--ep-bg-input, white);
+      background: var(--ep-white);
 
       &:focus-within {
-        border-color: var(--ep-blue-400);
-        box-shadow: 0 0 0 3px var(--ep-blue-100);
+        border-color: var(--ep-terracotta-400);
+        box-shadow: 0 0 0 3px var(--ep-terracotta-100);
       }
 
       .ProseMirror {
@@ -618,27 +618,27 @@
 
   .dc-tree-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   /* Collapsible groups (object / array) */
   .dc-tree-group {
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     background: var(--ep-white);
 
     &[open] {
-      border-color: var(--ep-gray-300);
+      border-color: var(--ep-stone-300);
 
       & > .dc-tree-group-header {
-        border-bottom: 1px solid var(--ep-gray-200);
+        border-bottom: 1px solid var(--ep-stone-200);
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
         border-top-right-radius: var(--ep-radius-md);
         border-top-right-radius: var(--ep-radius-md);
 
         & .dc-tree-type-badge {
-          background: var(--ep-gray-200);
+          background: var(--ep-stone-200);
         }
       }
     }
@@ -649,12 +649,12 @@
     align-items: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-2) var(--ep-space-3);
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
     cursor: pointer;
     user-select: none;
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     border-radius: var(--ep-radius-md);
     list-style: none;
     transition: all var(--ep-transition-base);
@@ -664,7 +664,7 @@
     }
 
     &:hover {
-      background: var(--ep-gray-100);
+      background: var(--ep-stone-100);
     }
 
     &:focus-visible {
@@ -699,18 +699,18 @@
   /* Type and count badges */
   .dc-tree-type-badge {
     font-size: 10px;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-weight: 400;
     padding: 2px 6px;
-    background: var(--ep-gray-100);
+    background: var(--ep-stone-100);
     border-radius: var(--ep-radius-sm);
     white-space: nowrap;
     font-family: var(--ep-font-mono);
     text-transform: lowercase;
 
     &[data-type='list'] {
-      color: var(--ep-blue-600);
-      background: var(--ep-blue-50);
+      color: var(--ep-terracotta-600);
+      background: var(--ep-terracotta-50);
     }
 
     &[data-type='object'] {
@@ -721,10 +721,10 @@
 
   .dc-tree-count-badge {
     font-size: 10px;
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     font-weight: 600;
     padding: 2px 6px;
-    background: var(--ep-gray-100);
+    background: var(--ep-stone-100);
     border-radius: var(--ep-radius-full);
     min-width: 20px;
     text-align: center;
@@ -736,8 +736,8 @@
     align-items: flex-start;
     gap: var(--ep-space-2);
     padding: var(--ep-space-2);
-    background: var(--ep-gray-50);
-    border: 1px solid var(--ep-gray-200);
+    background: var(--ep-stone-50);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
   }
 
@@ -749,9 +749,9 @@
     height: 24px;
     font-size: 11px;
     font-weight: 700;
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     background: var(--ep-white);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     flex-shrink: 0;
 
@@ -788,9 +788,9 @@
     width: 28px;
     height: 28px;
     padding: 0;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     background: var(--ep-white);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     cursor: pointer;
     flex-shrink: 0;
@@ -822,7 +822,7 @@
 
   /* Array object item (collapsible, for array of objects) */
   .dc-array-object-item {
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     background: var(--ep-white);
     transition: all var(--ep-transition-base);
@@ -833,10 +833,10 @@
     }
 
     &[open] {
-      border-color: var(--ep-gray-300);
+      border-color: var(--ep-stone-300);
 
       & > .dc-array-object-header {
-        border-bottom: 1px solid var(--ep-gray-200);
+        border-bottom: 1px solid var(--ep-stone-200);
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
         border-top-right-radius: var(--ep-radius-md);
@@ -850,7 +850,7 @@
     align-items: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-2) var(--ep-space-3);
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
     cursor: pointer;
     user-select: none;
     list-style: none;
@@ -862,7 +862,7 @@
     }
 
     &:hover {
-      background: var(--ep-gray-100);
+      background: var(--ep-stone-100);
     }
 
     /*
@@ -892,17 +892,17 @@
     padding: var(--ep-space-2) var(--ep-space-3);
     font-size: var(--ep-text-xs);
     font-weight: 500;
-    color: var(--ep-blue-600);
-    background: var(--ep-blue-50);
-    border: 1px dashed var(--ep-blue-300);
+    color: var(--ep-terracotta-600);
+    background: var(--ep-terracotta-50);
+    border: 1px dashed var(--ep-terracotta-300);
     border-radius: var(--ep-radius-md);
     cursor: pointer;
     transition: all var(--ep-transition-base);
     align-self: flex-start;
 
     &:hover {
-      background: var(--ep-blue-100);
-      border-color: var(--ep-blue-400);
+      background: var(--ep-terracotta-100);
+      border-color: var(--ep-terracotta-400);
     }
 
     &:focus-visible {
@@ -921,7 +921,7 @@
 
   .dc-example-card {
     background: var(--ep-white);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-lg);
     overflow: hidden;
   }
@@ -931,8 +931,8 @@
     align-items: flex-start;
     gap: var(--ep-space-3);
     padding: var(--ep-space-4);
-    background: var(--ep-gray-50);
-    border-bottom: 1px solid var(--ep-gray-200);
+    background: var(--ep-stone-50);
+    border-bottom: 1px solid var(--ep-stone-200);
 
     & .dc-example-card-header-main {
       display: flex;
@@ -959,12 +959,12 @@
   .dc-example-field-label {
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
   }
 
   .dc-example-field-optional {
     font-weight: 400;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   .dc-example-name-input {
@@ -979,9 +979,9 @@
     width: 36px;
     height: 36px;
     padding: 0;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     background: var(--ep-white);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     cursor: pointer;
     transition: all var(--ep-transition-base);
@@ -1011,7 +1011,7 @@
     gap: var(--ep-space-3);
     padding: var(--ep-space-2) var(--ep-space-4);
     background: var(--ep-white);
-    border-bottom: 1px solid var(--ep-gray-200);
+    border-bottom: 1px solid var(--ep-stone-200);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -1029,7 +1029,7 @@
       padding: var(--ep-space-1) var(--ep-space-2);
       font-size: var(--ep-text-xs);
       font-weight: 500;
-      color: var(--ep-gray-600);
+      color: var(--ep-stone-600);
       background: transparent;
       border: none;
       border-radius: var(--ep-radius-md);
@@ -1037,8 +1037,8 @@
       transition: all var(--ep-transition-base);
 
       &:hover:not(:disabled) {
-        color: var(--ep-gray-800);
-        background: var(--ep-gray-100);
+        color: var(--ep-stone-800);
+        background: var(--ep-stone-100);
       }
 
       &:disabled {
@@ -1084,17 +1084,17 @@
     padding: var(--ep-space-1) var(--ep-space-2);
     font-size: var(--ep-text-xs);
     font-weight: 500;
-    color: var(--ep-gray-600);
-    background: var(--ep-gray-50);
-    border: 1px solid var(--ep-gray-200);
+    color: var(--ep-stone-600);
+    background: var(--ep-stone-50);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-full);
     cursor: pointer;
     transition: all var(--ep-transition-base);
     white-space: nowrap;
 
     &:hover {
-      background: var(--ep-gray-100);
-      border-color: var(--ep-gray-300);
+      background: var(--ep-stone-100);
+      border-color: var(--ep-stone-300);
     }
 
     &:focus-visible {
@@ -1104,14 +1104,14 @@
   }
 
   .dc-example-chip-active {
-    background: var(--ep-blue-50);
-    border-color: var(--ep-blue-300);
-    color: var(--ep-blue-700);
+    background: var(--ep-terracotta-50);
+    border-color: var(--ep-terracotta-300);
+    color: var(--ep-terracotta-700);
     transition: all var(--ep-transition-base);
 
     &:hover {
-      background: var(--ep-blue-100);
-      border-color: var(--ep-blue-400);
+      background: var(--ep-terracotta-100);
+      border-color: var(--ep-terracotta-400);
     }
 
     &:focus-visible {
@@ -1121,14 +1121,14 @@
   }
 
   .dc-example-chip-add {
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     border-style: dashed;
     transition: all var(--ep-transition-base);
 
     &:hover {
-      color: var(--ep-blue-600);
-      border-color: var(--ep-blue-300);
-      background: var(--ep-blue-50);
+      color: var(--ep-terracotta-600);
+      border-color: var(--ep-terracotta-300);
+      background: var(--ep-terracotta-50);
     }
 
     &:focus-visible {
@@ -1246,7 +1246,7 @@
     max-width: 640px;
     width: 90%;
     max-height: 80vh;
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-lg);
     box-shadow: var(--ep-shadow-xl);
     padding: 0;
@@ -1272,13 +1272,13 @@
   .dc-migration-title {
     font-size: var(--ep-text-base);
     font-weight: 600;
-    color: var(--ep-gray-800);
+    color: var(--ep-stone-800);
     margin: 0 0 var(--ep-space-1) 0;
   }
 
   .dc-migration-subtitle {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     margin: 0;
   }
 
@@ -1301,10 +1301,10 @@
   .dc-migration-group-header {
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     margin-bottom: var(--ep-space-1);
     padding-bottom: var(--ep-space-1);
-    border-bottom: 1px solid var(--ep-gray-100);
+    border-bottom: 1px solid var(--ep-stone-100);
   }
 
   .dc-migration-group-items {
@@ -1319,7 +1319,7 @@
     gap: var(--ep-space-2);
     padding: var(--ep-space-2);
     border-radius: var(--ep-radius-sm);
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
   }
 
   .dc-migration-item-manual {
@@ -1351,7 +1351,7 @@
   .dc-migration-item-path code {
     font-family: var(--ep-font-mono);
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
   }
 
   .dc-migration-issue-badge {
@@ -1365,7 +1365,7 @@
     gap: var(--ep-space-1);
     font-size: var(--ep-text-xs);
     font-family: var(--ep-font-mono);
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
   }
 
   .dc-migration-current {
@@ -1373,11 +1373,11 @@
   }
 
   .dc-migration-arrow {
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   .dc-migration-expected {
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     font-style: italic;
   }
 
@@ -1387,7 +1387,7 @@
 
   .dc-migration-item-info {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
   }
 
   .dc-migration-item-info code {
@@ -1400,8 +1400,8 @@
     justify-content: flex-end;
     gap: var(--ep-space-2);
     padding: var(--ep-space-3) var(--ep-space-4);
-    border-top: 1px solid var(--ep-gray-200);
-    background: var(--ep-gray-50);
+    border-top: 1px solid var(--ep-stone-200);
+    background: var(--ep-stone-50);
   }
 
   .dc-migration-force-save-btn {
@@ -1465,8 +1465,8 @@
   }
 
   .dc-breaking-change-chip-type_changed {
-    background: var(--ep-blue-100);
-    color: var(--ep-blue-700);
+    background: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-700);
   }
 
   .dc-breaking-change-chip-required_added,
@@ -1495,8 +1495,8 @@
     padding: var(--ep-space-2) var(--ep-space-3);
     font-size: var(--ep-text-sm);
     border-radius: var(--ep-radius-md);
-    background: var(--ep-gray-50);
-    border: 1px solid var(--ep-gray-200);
+    background: var(--ep-stone-50);
+    border: 1px solid var(--ep-stone-200);
   }
 
   .dc-breaking-change-badge {
@@ -1521,8 +1521,8 @@
   }
 
   .dc-breaking-change-type_changed .dc-breaking-change-badge {
-    background: var(--ep-blue-100);
-    color: var(--ep-blue-700);
+    background: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-700);
   }
 
   .dc-breaking-change-required_added .dc-breaking-change-badge,
@@ -1554,7 +1554,7 @@
 
   .dc-json-panel {
     margin-top: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
+    border-top: 1px solid var(--ep-stone-200);
     padding-top: var(--ep-space-3);
   }
 
@@ -1566,9 +1566,9 @@
     font-family: var(--ep-font-mono);
     font-size: var(--ep-text-xs);
     line-height: 1.6;
-    color: var(--ep-gray-700);
-    background: var(--ep-gray-50);
-    border: 1px solid var(--ep-gray-200);
+    color: var(--ep-stone-700);
+    background: var(--ep-stone-50);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     padding: var(--ep-space-3);
     overflow-x: auto;
@@ -1594,7 +1594,7 @@
   }
 
   .dc-json-summary:hover .dc-json-preview {
-    color: var(--ep-blue-600);
+    color: var(--ep-terracotta-600);
   }
 
   .dc-json-content {
@@ -1606,15 +1606,15 @@
   }
 
   .dc-json-key {
-    color: var(--ep-blue-700);
+    color: var(--ep-terracotta-700);
   }
 
   .dc-json-colon {
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
   }
 
   .dc-json-comma {
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   .dc-json-string {
@@ -1622,7 +1622,7 @@
   }
 
   .dc-json-number {
-    color: var(--ep-purple-600, var(--ep-blue-600));
+    color: var(--ep-purple-600, var(--ep-terracotta-600));
   }
 
   .dc-json-boolean {
@@ -1630,17 +1630,17 @@
   }
 
   .dc-json-null {
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-style: italic;
   }
 
   .dc-json-brace {
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
   }
 
   .dc-json-preview {
     font-size: 10px;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-style: italic;
     margin-left: var(--ep-space-1);
   }
@@ -1709,18 +1709,18 @@
   .dc-dialog-title {
     font-size: var(--ep-text-base);
     font-weight: 600;
-    color: var(--ep-gray-800);
+    color: var(--ep-stone-800);
     margin: 0 0 var(--ep-space-1) 0;
   }
 
   .dc-dialog-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     margin: 0 0 var(--ep-space-4) 0;
 
     code {
       font-family: var(--ep-font-mono);
-      background: var(--ep-gray-100);
+      background: var(--ep-stone-100);
       padding: 1px var(--ep-space-1);
       border-radius: var(--ep-radius-sm);
     }
@@ -1744,7 +1744,7 @@
     display: block;
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     margin-bottom: var(--ep-space-1);
   }
 
@@ -1755,14 +1755,14 @@
     font-size: var(--ep-text-xs);
     line-height: 1.5;
     padding: var(--ep-space-2);
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     border-radius: var(--ep-radius-md);
     resize: vertical;
     box-sizing: border-box;
 
     &:focus {
       outline: none;
-      border-color: var(--ep-blue-400);
+      border-color: var(--ep-terracotta-400);
       box-shadow: var(--ep-ring);
     }
   }
@@ -1774,7 +1774,7 @@
   .dc-import-file-input {
     display: block;
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
   }
 
   .dc-import-divider {
@@ -1782,7 +1782,7 @@
     align-items: center;
     gap: var(--ep-space-3);
     margin: var(--ep-space-3) 0;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     font-size: var(--ep-text-xs);
 
     &::before,
@@ -1790,7 +1790,7 @@
       content: '';
       flex: 1;
       height: 1px;
-      background: var(--ep-gray-200);
+      background: var(--ep-stone-200);
     }
   }
 
@@ -1800,7 +1800,7 @@
 
   .dc-dialog-description {
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     margin: 0 0 var(--ep-space-2) 0;
   }
 
@@ -1809,7 +1809,7 @@
     justify-content: flex-end;
     gap: var(--ep-space-2);
     padding-top: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
+    border-top: 1px solid var(--ep-stone-200);
     margin-top: var(--ep-space-3);
   }
 }

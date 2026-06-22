@@ -147,7 +147,7 @@ export class EpistolaPalette extends LitElement {
     if (def.icon && def.icon in ICONS) {
       return icon(def.icon as IconName, 14);
     }
-    return html`<span style="font-size: 11px; color: var(--ep-gray-400)">+</span>`;
+    return html`<span style="font-size: 11px; color: var(--ep-stone-400)">+</span>`;
   }
 
   override render() {

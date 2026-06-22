@@ -27,7 +27,7 @@
 
   /* Hover: subtle outline + floating label */
   .clean-mode .canvas-block:hover {
-    box-shadow: 0 0 0 1px var(--ep-blue-200);
+    box-shadow: 0 0 0 1px var(--ep-terracotta-200);
   }
 
   .clean-mode .canvas-block:hover:not([data-drop-edge]):not(.dragging)::before {
@@ -37,7 +37,7 @@
     left: var(--ep-space-1);
     font-size: 10px;
     font-weight: 500;
-    color: var(--ep-blue-500);
+    color: var(--ep-terracotta-500);
     background: var(--ep-white);
     padding: 0 var(--ep-space-1);
     border-radius: var(--ep-radius-sm);
@@ -49,24 +49,24 @@
 
   /* Selected block: keep blue ring */
   .clean-mode .canvas-block.selected {
-    box-shadow: 0 0 0 2px var(--ep-blue-500);
+    box-shadow: 0 0 0 2px var(--ep-terracotta-500);
   }
 
   /* Subtle empty slots */
   .clean-mode .canvas-slot.empty {
     min-height: 1.5rem;
-    border-color: var(--ep-gray-200);
+    border-color: var(--ep-stone-200);
   }
 
   .clean-mode .canvas-slot-hint {
-    color: var(--ep-gray-300);
+    color: var(--ep-stone-300);
   }
 
   /* Collapsed blocks in clean mode still show their header */
   .clean-mode .canvas-block.collapsed .canvas-block-header {
     display: flex;
     background: transparent;
-    border: 1px dashed var(--ep-gray-200);
+    border: 1px dashed var(--ep-stone-200);
     padding: var(--ep-space-0-5) var(--ep-space-2);
   }
 }

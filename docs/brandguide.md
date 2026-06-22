@@ -6,44 +6,47 @@ A comprehensive visual design system for the Epistola application. This guide do
 
 ## Color Palette
 
-### Primary - Blue
+### Primary - Terracotta
 
-The primary action color used for interactive elements, selections, and focus states.
+The primary action color used for interactive elements, selections, and focus
+states. Part of the "Peach Paper" scheme shared with the marketing site — a warm
+terracotta, exposed as the `--ep-terracotta-*` palette tokens.
 
-| Name     | Hex       | Tailwind   | Usage                           |
-| -------- | --------- | ---------- | ------------------------------- |
-| Blue 50  | `#eff6ff` | `blue-50`  | Active tab background           |
-| Blue 100 | `#dbeafe` | `blue-100` | Expression chip background      |
-| Blue 200 | `#bfdbfe` | `blue-200` | Expression chip hover           |
-| Blue 400 | `#60a5fa` | `blue-400` | Focus borders                   |
-| Blue 500 | `#3b82f6` | `blue-500` | Primary buttons, active toggles |
-| Blue 600 | `#2563eb` | `blue-600` | Button hover, active tab text   |
-| Blue 700 | `#1d4ed8` | `blue-700` | Selected block border           |
-| Blue 900 | `#1e40af` | `blue-900` | Expression chip text            |
+| Name           | Hex       | Tailwind         | Usage                           |
+| -------------- | --------- | ---------------- | ------------------------------- |
+| Terracotta 50  | `#fdf4ef` | `terracotta-50`  | Active tab background           |
+| Terracotta 100 | `#f9e3d8` | `terracotta-100` | Expression chip background      |
+| Terracotta 200 | `#f2c9b7` | `terracotta-200` | Expression chip hover           |
+| Terracotta 400 | `#d4825f` | `terracotta-400` | Focus borders                   |
+| Terracotta 500 | `#c47155` | `terracotta-500` | Primary buttons, active toggles |
+| Terracotta 600 | `#b6684e` | `terracotta-600` | Button hover, active tab text   |
+| Terracotta 700 | `#9d5741` | `terracotta-700` | Selected block border           |
+| Terracotta 900 | `#683a2d` | `terracotta-900` | Expression chip text            |
 
-### Neutral - Gray
+### Neutral - Warm paper
 
-Used for text, borders, backgrounds, and disabled states.
+Warm taupe/brown neutrals (not cool gray) for text, borders, backgrounds, and
+disabled states, exposed as the `--ep-stone-*` palette tokens.
 
-| Name     | Hex       | Tailwind   | Usage                           |
-| -------- | --------- | ---------- | ------------------------------- |
-| White    | `#ffffff` | `white`    | Panel backgrounds               |
-| Gray 50  | `#f9fafb` | `gray-50`  | Section headers, disabled bg    |
-| Gray 100 | `#f3f4f6` | `gray-100` | Secondary button bg, input bg   |
-| Gray 200 | `#e5e7eb` | `gray-200` | Borders, dividers               |
-| Gray 300 | `#d1d5db` | `gray-300` | Table borders, dashed borders   |
-| Gray 400 | `#9ca3af` | `gray-400` | Placeholder text, disabled text |
-| Gray 500 | `#6b7280` | `gray-500` | Secondary text, labels          |
-| Gray 600 | `#4b5563` | `gray-600` | Icon hover                      |
-| Gray 700 | `#374151` | `gray-700` | Primary text                    |
-| Gray 900 | `#1f2937` | `gray-900` | Headers, dark text              |
+| Name      | Hex       | Tailwind    | Usage                           |
+| --------- | --------- | ----------- | ------------------------------- |
+| White     | `#ffffff` | `white`     | Panel backgrounds               |
+| Stone 50  | `#fdf8f4` | `stone-50`  | Section headers, disabled bg    |
+| Stone 100 | `#f6ede6` | `stone-100` | Secondary button bg, input bg   |
+| Stone 200 | `#e9dace` | `stone-200` | Borders, dividers               |
+| Stone 300 | `#d8c2b2` | `stone-300` | Table borders, dashed borders   |
+| Stone 400 | `#b89e8c` | `stone-400` | Placeholder text, disabled text |
+| Stone 500 | `#8c7163` | `stone-500` | Secondary text, labels          |
+| Stone 600 | `#6e5347` | `stone-600` | Icon hover                      |
+| Stone 700 | `#573f38` | `stone-700` | Primary text                    |
+| Stone 900 | `#34221f` | `stone-900` | Headers, dark text              |
 
 ### Additional Neutral Tokens
 
-| Name     | Hex       | CSS Variable    | Usage                               |
-| -------- | --------- | --------------- | ----------------------------------- |
-| Gray 950 | `#030712` | `--ep-gray-950` | Near-black text, darkest background |
-| Black    | `#000000` | `--ep-black`    | Pure black (overlays, accents)      |
+| Name      | Hex       | CSS Variable     | Usage                               |
+| --------- | --------- | ---------------- | ----------------------------------- |
+| Stone 950 | `#241513` | `--ep-stone-950` | Near-black text, darkest background |
+| Black     | `#000000` | `--ep-black`     | Pure black (overlays, accents)      |
 
 ### Semantic Colors
 
@@ -96,25 +99,25 @@ Used for text, borders, backgrounds, and disabled states.
 
 Higher-level design tokens that reference the palette above. Use these in components for consistent theming.
 
-| Alias                  | CSS Variable                  | Resolves To | Purpose                                |
-| ---------------------- | ----------------------------- | ----------- | -------------------------------------- |
-| Background             | `--ep-background`             | `gray-50`   | Page background                        |
-| Foreground             | `--ep-foreground`             | `gray-900`  | Primary text                           |
-| Card                   | `--ep-card`                   | `white`     | Card/panel background                  |
-| Card Foreground        | `--ep-card-foreground`        | `gray-900`  | Card text                              |
-| Muted                  | `--ep-muted`                  | `gray-100`  | Muted background (secondary button bg) |
-| Muted Foreground       | `--ep-muted-foreground`       | `gray-500`  | Muted text (labels, placeholders)      |
-| Accent                 | `--ep-accent`                 | `gray-100`  | Hover/accent background                |
-| Accent Foreground      | `--ep-accent-foreground`      | `gray-900`  | Accent text                            |
-| Primary                | `--ep-primary`                | `blue-600`  | Primary action color                   |
-| Primary Foreground     | `--ep-primary-foreground`     | `white`     | Text on primary                        |
-| Destructive            | `--ep-destructive`            | `red-600`   | Destructive action color               |
-| Destructive Foreground | `--ep-destructive-foreground` | `white`     | Text on destructive                    |
-| Success                | `--ep-success`                | `green-700` | Success color                          |
-| Warning                | `--ep-warning`                | `amber-600` | Warning color                          |
-| Border Color           | `--ep-border-color`           | `gray-200`  | Default border                         |
-| Input Border           | `--ep-input-border`           | `gray-300`  | Form input border                      |
-| Ring                   | `--ep-ring`                   | `blue-500`  | Focus ring color                       |
+| Alias                  | CSS Variable                  | Resolves To      | Purpose                                |
+| ---------------------- | ----------------------------- | ---------------- | -------------------------------------- |
+| Background             | `--ep-background`             | `stone-50`       | Page background                        |
+| Foreground             | `--ep-foreground`             | `stone-900`      | Primary text                           |
+| Card                   | `--ep-card`                   | `white`          | Card/panel background                  |
+| Card Foreground        | `--ep-card-foreground`        | `stone-900`      | Card text                              |
+| Muted                  | `--ep-muted`                  | `stone-100`      | Muted background (secondary button bg) |
+| Muted Foreground       | `--ep-muted-foreground`       | `stone-500`      | Muted text (labels, placeholders)      |
+| Accent                 | `--ep-accent`                 | `stone-100`      | Hover/accent background                |
+| Accent Foreground      | `--ep-accent-foreground`      | `stone-900`      | Accent text                            |
+| Primary                | `--ep-primary`                | `terracotta-600` | Primary action color                   |
+| Primary Foreground     | `--ep-primary-foreground`     | `white`          | Text on primary                        |
+| Destructive            | `--ep-destructive`            | `red-600`        | Destructive action color               |
+| Destructive Foreground | `--ep-destructive-foreground` | `white`          | Text on destructive                    |
+| Success                | `--ep-success`                | `green-700`      | Success color                          |
+| Warning                | `--ep-warning`                | `amber-600`      | Warning color                          |
+| Border Color           | `--ep-border-color`           | `stone-200`      | Default border                         |
+| Input Border           | `--ep-input-border`           | `stone-300`      | Form input border                      |
+| Ring                   | `--ep-ring`                   | `terracotta-500` | Focus ring color                       |
 
 ---
 
@@ -248,17 +251,17 @@ Components are implemented as CSS classes in `modules/design-system/components.c
 
 All buttons use the base `.ep-btn` class combined with a variant class. Buttons include built-in focus ring, disabled state, and transition support.
 
-| Class                 | Description                   | Usage                          |
-| --------------------- | ----------------------------- | ------------------------------ |
-| `.ep-btn`             | Base button (required)        | All buttons                    |
-| `.ep-btn-primary`     | Blue background, white text   | Primary actions (save, create) |
-| `.ep-btn-secondary`   | Muted gray background         | Secondary actions              |
-| `.ep-btn-outline`     | White background, gray border | Tertiary actions               |
-| `.ep-btn-ghost`       | Transparent, no border        | Toolbar actions, icon buttons  |
-| `.ep-btn-destructive` | Red background, white text    | Delete, remove actions         |
-| `.ep-btn-sm`          | Smaller size variant          | Compact UI areas               |
-| `.ep-btn-lg`          | Larger size variant           | Prominent CTAs                 |
-| `.ep-btn-icon`        | Square (equal width/height)   | Icon-only buttons              |
+| Class                 | Description                       | Usage                          |
+| --------------------- | --------------------------------- | ------------------------------ |
+| `.ep-btn`             | Base button (required)            | All buttons                    |
+| `.ep-btn-primary`     | Terracotta background, white text | Primary actions (save, create) |
+| `.ep-btn-secondary`   | Muted background                  | Secondary actions              |
+| `.ep-btn-outline`     | White background, neutral border  | Tertiary actions               |
+| `.ep-btn-ghost`       | Transparent, no border            | Toolbar actions, icon buttons  |
+| `.ep-btn-destructive` | Red background, white text        | Delete, remove actions         |
+| `.ep-btn-sm`          | Smaller size variant              | Compact UI areas               |
+| `.ep-btn-lg`          | Larger size variant               | Prominent CTAs                 |
+| `.ep-btn-icon`        | Square (equal width/height)       | Icon-only buttons              |
 
 ```html
 <button class="ep-btn ep-btn-primary">Save</button>
@@ -306,17 +309,17 @@ w-64 flex flex-col overflow-hidden
 #### Panel Header
 
 ```
-px-3 py-2 border-b border-gray-200 bg-gray-50
+px-3 py-2 border-b border-stone-200 bg-stone-50
 flex items-center justify-between
 ```
 
 #### Collapsible Section
 
 ```
-border-b border-gray-200
+border-b border-stone-200
 Header: w-full px-3 py-2 flex items-center justify-between
-        text-sm font-medium text-gray-700
-        hover:bg-gray-50 transition-colors
+        text-sm font-medium text-stone-700
+        hover:bg-stone-50 transition-colors
 Content: px-3 pb-3 space-y-3
 ```
 
@@ -325,21 +328,21 @@ Content: px-3 pb-3 space-y-3
 #### Tab Container
 
 ```
-flex border-b border-gray-200
+flex border-b border-stone-200
 ```
 
 #### Inactive Tab
 
 ```
 flex-1 px-3 py-2 text-xs font-medium
-text-gray-500 hover:text-gray-700 hover:bg-gray-50
+text-stone-500 hover:text-stone-700 hover:bg-stone-50
 ```
 
 #### Active Tab
 
 ```
 flex-1 px-3 py-2 text-xs font-medium
-text-blue-600 border-b-2 border-blue-600 bg-blue-50/50
+text-terracotta-600 border-b-2 border-terracotta-600 bg-terracotta-50/50
 ```
 
 ### Modal
@@ -364,9 +367,9 @@ w-full mx-4 max-w-md (or max-w-2xl, max-w-4xl)
 
 ```
 flex items-center justify-between
-px-6 py-4 border-b border-gray-200
-Title: text-lg font-semibold text-gray-900
-Close: text-gray-400 hover:text-gray-600
+px-6 py-4 border-b border-stone-200
+Title: text-lg font-semibold text-stone-900
+Close: text-stone-400 hover:text-stone-600
 ```
 
 #### Modal Content
@@ -381,21 +384,21 @@ flex-1 overflow-auto p-6
 
 ```
 rounded-lg border-2 border-transparent
-hover:border-gray-300 transition-all
+hover:border-stone-300 transition-all
 ```
 
 #### Selected Block
 
 ```
-rounded-lg border-2 border-blue-500 shadow-md
+rounded-lg border-2 border-terracotta-500 shadow-md
 ```
 
 #### Container Block (empty)
 
 ```
-bg-gray-50 border border-dashed border-gray-300 rounded-lg
+bg-stone-50 border border-dashed border-stone-300 rounded-lg
 min-h-[40px] flex items-center justify-center
-text-gray-400 text-sm
+text-stone-400 text-sm
 ```
 
 #### Conditional Block
@@ -457,14 +460,14 @@ w-2 h-2 rounded-full bg-yellow-500
 
 Badges use the `.badge` base class combined with a variant. They render as inline-flex with full border-radius.
 
-| Class                | Description                      |
-| -------------------- | -------------------------------- |
-| `.badge`             | Base badge (required)            |
-| `.badge-primary`     | Blue background, blue-800 text   |
-| `.badge-success`     | Green background, green-800 text |
-| `.badge-warning`     | Amber background, amber-800 text |
-| `.badge-destructive` | Red background, red-700 text     |
-| `.badge-outline`     | Transparent, bordered            |
+| Class                | Description                                |
+| -------------------- | ------------------------------------------ |
+| `.badge`             | Base badge (required)                      |
+| `.badge-primary`     | Terracotta background, terracotta-800 text |
+| `.badge-success`     | Green background, green-800 text           |
+| `.badge-warning`     | Amber background, amber-800 text           |
+| `.badge-destructive` | Red background, red-700 text               |
+| `.badge-outline`     | Transparent, bordered                      |
 
 ```html
 <span class="badge badge-primary">Active</span>
@@ -476,13 +479,13 @@ Badges use the `.badge` base class combined with a variant. They render as inlin
 
 Inline alert blocks use `.alert` with a variant class.
 
-| Class            | Description                   |
-| ---------------- | ----------------------------- |
-| `.alert`         | Base alert (required)         |
-| `.alert-info`    | Blue — informational messages |
-| `.alert-success` | Green — success feedback      |
-| `.alert-warning` | Amber — warning messages      |
-| `.alert-error`   | Red — error messages          |
+| Class            | Description                         |
+| ---------------- | ----------------------------------- |
+| `.alert`         | Base alert (required)               |
+| `.alert-info`    | Terracotta — informational messages |
+| `.alert-success` | Green — success feedback            |
+| `.alert-warning` | Amber — warning messages            |
+| `.alert-error`   | Red — error messages                |
 
 ```html
 <div class="alert alert-warning">
@@ -527,18 +530,18 @@ Full-width header bar for primary navigation.
 
 ```
 Container:
-  h-14 bg-white border-b border-gray-200
+  h-14 bg-white border-b border-stone-200
   px-4 flex items-center justify-between
 
 Logo area:
   flex items-center gap-3
   Logo: h-8 w-auto
-  App name: text-lg font-semibold text-gray-900
+  App name: text-lg font-semibold text-stone-900
 
 Nav links:
   flex items-center gap-1
-  Link: px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg
-  Active link: text-blue-600 bg-blue-50
+  Link: px-3 py-2 text-sm text-stone-600 hover:text-stone-900 hover:bg-stone-50 rounded-lg
+  Active link: text-terracotta-600 bg-terracotta-50
 
 Right section:
   flex items-center gap-2
@@ -550,11 +553,11 @@ Vertical navigation for main app sections.
 
 ```
 Container:
-  w-64 bg-white border-r border-gray-200
+  w-64 bg-white border-r border-stone-200
   flex flex-col h-full
 
 Header:
-  h-14 px-4 flex items-center border-b border-gray-200
+  h-14 px-4 flex items-center border-b border-stone-200
   Logo + App name
 
 Nav section:
@@ -562,22 +565,22 @@ Nav section:
 
 Nav item:
   flex items-center gap-3 px-3 py-2 rounded-lg
-  text-sm text-gray-600
-  hover:bg-gray-50 hover:text-gray-900
+  text-sm text-stone-600
+  hover:bg-stone-50 hover:text-stone-900
   transition-colors
 
 Nav item (active):
-  bg-blue-50 text-blue-600 font-medium
+  bg-terracotta-50 text-terracotta-600 font-medium
 
 Nav item icon:
-  w-5 h-5 text-gray-400
-  Active: text-blue-500
+  w-5 h-5 text-stone-400
+  Active: text-terracotta-500
 
 Nav group label:
-  px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider
+  px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-wider
 
 Footer:
-  p-4 border-t border-gray-200
+  p-4 border-t border-stone-200
 ```
 
 ### Hamburger Menu Button
@@ -587,7 +590,7 @@ Toggle button for mobile navigation.
 ```
 Button:
   p-2 rounded-lg
-  text-gray-500 hover:text-gray-700 hover:bg-gray-100
+  text-stone-500 hover:text-stone-700 hover:bg-stone-100
   transition-colors
 
 Icon (closed - three lines):
@@ -618,7 +621,7 @@ Drawer:
 
 Close button:
   absolute top-4 right-4
-  p-1 rounded text-gray-400 hover:text-gray-600
+  p-1 rounded text-stone-400 hover:text-stone-600
 ```
 
 ### Breadcrumbs
@@ -630,14 +633,14 @@ Container:
   flex items-center gap-2 text-sm
 
 Item:
-  text-gray-500 hover:text-gray-700
+  text-stone-500 hover:text-stone-700
 
 Separator:
-  text-gray-300
+  text-stone-300
   Content: "/" or chevron icon (w-4 h-4)
 
 Current (last item):
-  text-gray-900 font-medium
+  text-stone-900 font-medium
   No hover effect, not clickable
 ```
 
@@ -656,25 +659,25 @@ Trigger button:
 
 Menu container:
   absolute mt-1 z-20
-  bg-white rounded-lg shadow-lg border border-gray-200
+  bg-white rounded-lg shadow-lg border border-stone-200
   py-1 min-w-[160px]
 
 Menu item:
-  w-full px-3 py-2 text-left text-sm text-gray-700
-  hover:bg-gray-50
+  w-full px-3 py-2 text-left text-sm text-stone-700
+  hover:bg-stone-50
   flex items-center gap-2
 
 Menu item with icon:
-  Icon: w-4 h-4 text-gray-400
+  Icon: w-4 h-4 text-stone-400
 
 Menu item (danger):
   text-red-600 hover:bg-red-50
 
 Divider:
-  my-1 border-t border-gray-200
+  my-1 border-t border-stone-200
 
 Menu header/label:
-  px-3 py-2 text-xs font-medium text-gray-400 uppercase
+  px-3 py-2 text-xs font-medium text-stone-400 uppercase
 ```
 
 ### Context Menu
@@ -684,7 +687,7 @@ Right-click triggered menu.
 ```
 Container:
   fixed z-50
-  bg-white rounded-lg shadow-xl border border-gray-200
+  bg-white rounded-lg shadow-xl border border-stone-200
   py-1 min-w-[180px]
 
 (Same item styles as Dropdown Menu)
@@ -696,8 +699,8 @@ Compact actions menu.
 
 ```
 Trigger:
-  p-1 rounded hover:bg-gray-100
-  Icon: w-5 h-5 text-gray-400
+  p-1 rounded hover:bg-stone-100
+  Icon: w-5 h-5 text-stone-400
   Content: ••• (vertical dots)
 
 Menu:
@@ -711,16 +714,16 @@ Account/profile dropdown.
 ```
 Trigger:
   flex items-center gap-2 px-2 py-1 rounded-lg
-  hover:bg-gray-50
+  hover:bg-stone-50
 
 Avatar:
   w-8 h-8 rounded-full
 
 User name (optional):
-  text-sm text-gray-700
+  text-sm text-stone-700
 
 Chevron:
-  w-4 h-4 text-gray-400
+  w-4 h-4 text-stone-400
 
 Menu:
   (Same as Dropdown Menu)
@@ -735,7 +738,7 @@ Menu:
 
 ```
 Wrapper:
-  bg-white rounded-lg border border-gray-200 overflow-hidden
+  bg-white rounded-lg border border-stone-200 overflow-hidden
 
 Scrollable:
   overflow-x-auto
@@ -745,36 +748,36 @@ Scrollable:
 
 ```
 Header row:
-  bg-gray-50 border-b border-gray-200
+  bg-stone-50 border-b border-stone-200
 
 Header cell:
   px-4 py-3 text-left
-  text-xs font-medium text-gray-500 uppercase tracking-wider
+  text-xs font-medium text-stone-500 uppercase tracking-wider
 
 Sortable header:
-  cursor-pointer hover:bg-gray-100
+  cursor-pointer hover:bg-stone-100
   flex items-center gap-1
 
 Sort icon:
-  w-4 h-4 text-gray-400
-  Active: text-blue-500
+  w-4 h-4 text-stone-400
+  Active: text-terracotta-500
 ```
 
 ### Table Body
 
 ```
 Row:
-  border-b border-gray-200 last:border-0
-  hover:bg-gray-50 transition-colors
+  border-b border-stone-200 last:border-0
+  hover:bg-stone-50 transition-colors
 
 Row (selected):
-  bg-blue-50
+  bg-terracotta-50
 
 Row (clickable):
   cursor-pointer
 
 Cell:
-  px-4 py-3 text-sm text-gray-700
+  px-4 py-3 text-sm text-stone-700
 
 Cell (numeric):
   text-right font-mono
@@ -793,18 +796,18 @@ Action buttons:
   flex items-center gap-1
 
 Action button:
-  p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100
+  p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100
 ```
 
 ### Table Footer
 
 ```
 Footer:
-  px-4 py-3 bg-gray-50 border-t border-gray-200
+  px-4 py-3 bg-stone-50 border-t border-stone-200
   flex items-center justify-between
 
 Row count:
-  text-sm text-gray-500
+  text-sm text-stone-500
 
 Pagination:
   (See Pagination component)
@@ -817,10 +820,10 @@ Container:
   py-12 text-center
 
 Icon:
-  mx-auto w-12 h-12 text-gray-300
+  mx-auto w-12 h-12 text-stone-300
 
 Message:
-  mt-4 text-sm text-gray-500
+  mt-4 text-sm text-stone-500
 
 Action:
   mt-4
@@ -835,25 +838,25 @@ Action:
 
 ```
 Container:
-  bg-white rounded-lg border border-gray-200
+  bg-white rounded-lg border border-stone-200
   overflow-hidden
 
 With shadow:
   shadow-sm hover:shadow-md transition-shadow
 
 Clickable:
-  cursor-pointer hover:border-gray-300
+  cursor-pointer hover:border-stone-300
 ```
 
 ### Card Header
 
 ```
 Header:
-  px-4 py-3 border-b border-gray-200
+  px-4 py-3 border-b border-stone-200
   flex items-center justify-between
 
 Title:
-  text-sm font-medium text-gray-900
+  text-sm font-medium text-stone-900
 
 Actions:
   flex items-center gap-2
@@ -870,7 +873,7 @@ Body:
 
 ```
 Footer:
-  px-4 py-3 bg-gray-50 border-t border-gray-200
+  px-4 py-3 bg-stone-50 border-t border-stone-200
   flex items-center justify-between (or justify-end)
 ```
 
@@ -878,19 +881,19 @@ Footer:
 
 ```
 Container:
-  bg-white rounded-lg border border-gray-200 p-4
+  bg-white rounded-lg border border-stone-200 p-4
 
 Label:
-  text-sm text-gray-500
+  text-sm text-stone-500
 
 Value:
-  mt-1 text-2xl font-semibold text-gray-900
+  mt-1 text-2xl font-semibold text-stone-900
 
 Change indicator:
   mt-2 flex items-center gap-1 text-sm
   Positive: text-green-600
   Negative: text-red-600
-  Neutral: text-gray-500
+  Neutral: text-stone-500
 
 Icon:
   w-4 h-4
@@ -901,12 +904,12 @@ Icon:
 
 ```
 Container:
-  bg-white rounded-lg border border-gray-200 p-4
+  bg-white rounded-lg border border-stone-200 p-4
   flex items-start gap-4
 
 Icon container:
   p-3 rounded-lg
-  Blue: bg-blue-100 text-blue-600
+  Accent: bg-terracotta-100 text-terracotta-600
   Green: bg-green-100 text-green-600
   Amber: bg-amber-100 text-amber-600
   Purple: bg-purple-100 text-purple-600
@@ -923,7 +926,7 @@ Content:
 
 ```
 Container:
-  bg-white rounded-lg border border-gray-200 overflow-hidden
+  bg-white rounded-lg border border-stone-200 overflow-hidden
 
 Image (optional):
   w-full h-40 object-cover
@@ -932,35 +935,35 @@ Body:
   p-4
 
 Title:
-  text-base font-medium text-gray-900
+  text-base font-medium text-stone-900
 
 Description:
-  mt-1 text-sm text-gray-500 line-clamp-2
+  mt-1 text-sm text-stone-500 line-clamp-2
 
 Meta:
-  mt-3 flex items-center gap-4 text-xs text-gray-400
+  mt-3 flex items-center gap-4 text-xs text-stone-400
 ```
 
 ### List Card
 
 ```
 Container:
-  bg-white rounded-lg border border-gray-200
+  bg-white rounded-lg border border-stone-200
 
 Header:
-  px-4 py-3 border-b border-gray-200
+  px-4 py-3 border-b border-stone-200
   flex items-center justify-between
 
 List:
-  divide-y divide-gray-200
+  divide-y divide-stone-200
 
 List item:
   px-4 py-3 flex items-center justify-between
-  hover:bg-gray-50
+  hover:bg-stone-50
 
 Footer:
-  px-4 py-3 border-t border-gray-200 text-center
-  Link: text-sm text-blue-600 hover:text-blue-700
+  px-4 py-3 border-t border-stone-200 text-center
+  Link: text-sm text-terracotta-600 hover:text-terracotta-700
 ```
 
 ---
@@ -971,7 +974,7 @@ Footer:
 
 ```
 Container:
-  divide-y divide-gray-200
+  divide-y divide-stone-200
 
 Item:
   py-3 flex items-center justify-between
@@ -984,16 +987,16 @@ Item:
   py-3 flex items-center gap-3
 
 Icon:
-  w-5 h-5 text-gray-400
+  w-5 h-5 text-stone-400
 
 Content:
   flex-1
 
 Title:
-  text-sm font-medium text-gray-900
+  text-sm font-medium text-stone-900
 
 Description:
-  text-sm text-gray-500
+  text-sm text-stone-500
 ```
 
 ### Action List
@@ -1003,10 +1006,10 @@ Item:
   py-2 px-3 rounded-lg
   flex items-center gap-3
   cursor-pointer
-  hover:bg-gray-50 transition-colors
+  hover:bg-stone-50 transition-colors
 
 Item (active):
-  bg-blue-50 text-blue-600
+  bg-terracotta-50 text-terracotta-600
 
 Item (danger hover):
   hover:bg-red-50 hover:text-red-600
@@ -1016,23 +1019,23 @@ Item (danger hover):
 
 ```
 Item:
-  p-4 border-b border-gray-200 last:border-0
-  hover:bg-gray-50
+  p-4 border-b border-stone-200 last:border-0
+  hover:bg-stone-50
 
 Title row:
   flex items-center justify-between
 
 Title:
-  text-sm font-medium text-gray-900
+  text-sm font-medium text-stone-900
 
 Badge/Status:
   (See Badge component)
 
 Description:
-  mt-1 text-sm text-gray-500
+  mt-1 text-sm text-stone-500
 
 Meta row:
-  mt-2 flex items-center gap-4 text-xs text-gray-400
+  mt-2 flex items-center gap-4 text-xs text-stone-400
 ```
 
 ---
@@ -1069,9 +1072,9 @@ Warning:
   Text: text-amber-800
 
 Info:
-  bg-blue-50 border border-blue-200
-  Icon: text-blue-500
-  Text: text-blue-800
+  bg-terracotta-50 border border-terracotta-200
+  Icon: text-terracotta-500
+  Text: text-terracotta-800
 
 Icon:
   w-5 h-5 flex-shrink-0
@@ -1102,7 +1105,7 @@ Warning:
   bg-amber-50 border border-amber-200
 
 Info:
-  bg-blue-50 border border-blue-200
+  bg-terracotta-50 border border-terracotta-200
 
 Icon:
   w-5 h-5 flex-shrink-0
@@ -1127,7 +1130,7 @@ Container:
   px-4 py-3
   flex items-center justify-center gap-3
 
-Info: bg-blue-600 text-white
+Info: bg-terracotta-600 text-white
 Warning: bg-amber-500 text-white
 Error: bg-red-600 text-white
 Success: bg-green-600 text-white
@@ -1154,13 +1157,13 @@ Container:
   py-12 px-4 text-center
 
 Icon:
-  mx-auto w-16 h-16 text-gray-300
+  mx-auto w-16 h-16 text-stone-300
 
 Title:
-  mt-4 text-lg font-medium text-gray-900
+  mt-4 text-lg font-medium text-stone-900
 
 Description:
-  mt-2 text-sm text-gray-500 max-w-sm mx-auto
+  mt-2 text-sm text-stone-500 max-w-sm mx-auto
 
 Action:
   mt-6
@@ -1174,7 +1177,7 @@ Action:
 ```
 Spinner:
   animate-spin rounded-full border-2
-  border-gray-200 border-t-blue-500
+  border-stone-200 border-t-terracotta-500
 
 Sizes:
   Small: w-4 h-4
@@ -1186,7 +1189,7 @@ Sizes:
 
 ```
 Skeleton:
-  bg-gray-200 rounded animate-pulse
+  bg-stone-200 rounded animate-pulse
 
 Text line:
   h-4 rounded
@@ -1210,23 +1213,23 @@ Overlay:
 
 Spinner + text:
   flex flex-col items-center gap-2
-  Text: text-sm text-gray-500
+  Text: text-sm text-stone-500
 ```
 
 ### Progress Bar
 
 ```
 Container:
-  w-full bg-gray-200 rounded-full overflow-hidden
+  w-full bg-stone-200 rounded-full overflow-hidden
 
 Bar:
-  h-2 bg-blue-500 rounded-full
+  h-2 bg-terracotta-500 rounded-full
   transition-all duration-300
 
 With label:
   flex items-center justify-between mb-1
-  Label: text-sm text-gray-700
-  Percentage: text-sm text-gray-500
+  Label: text-sm text-stone-700
+  Percentage: text-sm text-stone-500
 ```
 
 ---
@@ -1237,7 +1240,7 @@ With label:
 
 ```
 Base:
-  rounded-full bg-gray-200 flex items-center justify-center
+  rounded-full bg-stone-200 flex items-center justify-center
   overflow-hidden
 
 Sizes:
@@ -1251,9 +1254,9 @@ With image:
   img: w-full h-full object-cover
 
 With initials:
-  text-gray-600 font-medium
+  text-stone-600 font-medium
   Background colors (rotated by name):
-    bg-blue-100, bg-green-100, bg-amber-100,
+    bg-terracotta-100, bg-green-100, bg-amber-100,
     bg-purple-100, bg-pink-100, bg-cyan-100
 
 With status:
@@ -1262,7 +1265,7 @@ With status:
     w-3 h-3 rounded-full border-2 border-white
     Online: bg-green-500
     Away: bg-amber-500
-    Offline: bg-gray-400
+    Offline: bg-stone-400
 ```
 
 ### Avatar Group
@@ -1275,9 +1278,9 @@ Avatar:
   ring-2 ring-white
 
 Overflow indicator:
-  w-8 h-8 rounded-full bg-gray-100
+  w-8 h-8 rounded-full bg-stone-100
   flex items-center justify-center
-  text-xs text-gray-600 font-medium
+  text-xs text-stone-600 font-medium
   ring-2 ring-white
 ```
 
@@ -1290,7 +1293,7 @@ Trigger:
 Tooltip:
   absolute z-50
   px-2 py-1 rounded
-  bg-gray-900 text-white text-xs
+  bg-stone-900 text-white text-xs
   whitespace-nowrap
 
   Positions:
@@ -1300,7 +1303,7 @@ Tooltip:
     Right: left-full top-1/2 -translate-y-1/2 ml-1
 
 Arrow:
-  absolute w-2 h-2 bg-gray-900 rotate-45
+  absolute w-2 h-2 bg-stone-900 rotate-45
 ```
 
 ### Popover
@@ -1311,18 +1314,18 @@ Trigger:
 
 Popover:
   absolute z-50 mt-2
-  bg-white rounded-lg shadow-xl border border-gray-200
+  bg-white rounded-lg shadow-xl border border-stone-200
   min-w-[200px]
 
 Header (optional):
-  px-4 py-3 border-b border-gray-200
-  font-medium text-sm text-gray-900
+  px-4 py-3 border-b border-stone-200
+  font-medium text-sm text-stone-900
 
 Content:
   p-4
 
 Footer (optional):
-  px-4 py-3 border-t border-gray-200 bg-gray-50
+  px-4 py-3 border-t border-stone-200 bg-stone-50
 ```
 
 ### Pagination
@@ -1333,23 +1336,23 @@ Container:
 
 Page button:
   min-w-[32px] h-8 px-2
-  text-sm text-gray-600
-  rounded hover:bg-gray-100
+  text-sm text-stone-600
+  rounded hover:bg-stone-100
   flex items-center justify-center
 
 Page button (active):
-  bg-blue-500 text-white hover:bg-blue-600
+  bg-terracotta-500 text-white hover:bg-terracotta-600
 
 Page button (disabled):
-  text-gray-300 cursor-not-allowed hover:bg-transparent
+  text-stone-300 cursor-not-allowed hover:bg-transparent
 
 Prev/Next:
-  px-3 h-8 text-sm text-gray-600
-  rounded hover:bg-gray-100
+  px-3 h-8 text-sm text-stone-600
+  rounded hover:bg-stone-100
   flex items-center gap-1
 
 Ellipsis:
-  px-2 text-gray-400
+  px-2 text-stone-400
 ```
 
 ### Search Input
@@ -1360,17 +1363,17 @@ Container:
 
 Input:
   w-full pl-10 pr-4 py-2 text-sm
-  border border-gray-200 rounded-lg
-  focus:outline-none focus:border-blue-400
+  border border-stone-200 rounded-lg
+  focus:outline-none focus:border-terracotta-400
 
 Search icon:
   absolute left-3 top-1/2 -translate-y-1/2
-  w-4 h-4 text-gray-400
+  w-4 h-4 text-stone-400
 
 Clear button (when has value):
   absolute right-3 top-1/2 -translate-y-1/2
-  p-1 rounded hover:bg-gray-100
-  Icon: w-4 h-4 text-gray-400
+  p-1 rounded hover:bg-stone-100
+  Icon: w-4 h-4 text-stone-400
 ```
 
 ### Search with Dropdown
@@ -1383,18 +1386,18 @@ Container:
 
 Results dropdown:
   absolute top-full left-0 right-0 mt-1 z-50
-  bg-white rounded-lg shadow-lg border border-gray-200
+  bg-white rounded-lg shadow-lg border border-stone-200
   max-h-[300px] overflow-y-auto
 
 Result item:
-  px-4 py-2 hover:bg-gray-50 cursor-pointer
+  px-4 py-2 hover:bg-stone-50 cursor-pointer
   text-sm
 
 Result item (highlighted):
-  bg-blue-50
+  bg-terracotta-50
 
 No results:
-  px-4 py-8 text-center text-sm text-gray-500
+  px-4 py-8 text-center text-sm text-stone-500
 ```
 
 ### Tag/Chip
@@ -1405,8 +1408,8 @@ Base:
   px-2 py-0.5 rounded-full text-xs font-medium
 
 Variants:
-  Gray: bg-gray-100 text-gray-700
-  Blue: bg-blue-100 text-blue-700
+  Neutral: bg-stone-100 text-stone-700
+  Accent: bg-terracotta-100 text-terracotta-700
   Green: bg-green-100 text-green-700
   Amber: bg-amber-100 text-amber-700
   Red: bg-red-100 text-red-700
@@ -1422,15 +1425,15 @@ With remove button:
 
 ```
 Horizontal:
-  border-t border-gray-200
+  border-t border-stone-200
 
 With text:
   flex items-center gap-4
-  Line: flex-1 border-t border-gray-200
-  Text: text-sm text-gray-500
+  Line: flex-1 border-t border-stone-200
+  Text: text-sm text-stone-500
 
 Vertical:
-  border-l border-gray-200 h-full
+  border-l border-stone-200 h-full
 ```
 
 ### Checkbox
@@ -1440,11 +1443,11 @@ Container:
   flex items-center gap-2
 
 Input:
-  w-4 h-4 rounded border-gray-300
-  text-blue-500 focus:ring-blue-500
+  w-4 h-4 rounded border-stone-300
+  text-terracotta-500 focus:ring-terracotta-500
 
 Label:
-  text-sm text-gray-700
+  text-sm text-stone-700
 ```
 
 ### Radio Button
@@ -1454,11 +1457,11 @@ Container:
   flex items-center gap-2
 
 Input:
-  w-4 h-4 border-gray-300
-  text-blue-500 focus:ring-blue-500
+  w-4 h-4 border-stone-300
+  text-terracotta-500 focus:ring-terracotta-500
 
 Label:
-  text-sm text-gray-700
+  text-sm text-stone-700
 ```
 
 ### Toggle Switch
@@ -1469,8 +1472,8 @@ Container:
 
 Track:
   w-10 h-6 rounded-full transition-colors
-  Off: bg-gray-200
-  On: bg-blue-500
+  Off: bg-stone-200
+  On: bg-terracotta-500
 
 Thumb:
   absolute w-4 h-4 bg-white rounded-full shadow
@@ -1485,14 +1488,14 @@ Thumb:
 
 ### Hover
 
-| Element          | Effect                                   |
-| ---------------- | ---------------------------------------- |
-| Primary button   | `bg-blue-500` → `bg-blue-600`            |
-| Secondary button | `bg-gray-100` → `bg-gray-200`            |
-| Block            | `border-transparent` → `border-gray-300` |
-| Palette item     | `border-gray-200` → `border-blue-400`    |
-| Section header   | Background `bg-gray-50`                  |
-| Expression chip  | `#dbeafe` → `#bfdbfe`                    |
+| Element          | Effect                                       |
+| ---------------- | -------------------------------------------- |
+| Primary button   | `bg-terracotta-500` → `bg-terracotta-600`    |
+| Secondary button | `bg-stone-100` → `bg-stone-200`              |
+| Block            | `border-transparent` → `border-stone-300`    |
+| Palette item     | `border-stone-200` → `border-terracotta-400` |
+| Section header   | Background `bg-stone-50`                     |
+| Expression chip  | `#dbeafe` → `#bfdbfe`                        |
 
 ### Focus
 
@@ -1502,9 +1505,9 @@ Focus uses a **ring-based system** via offset `box-shadow`, not border-color. Th
 /* Focus ring implementation (from --ep-ring) */
 box-shadow:
   0 0 0 var(--ep-ring-offset) var(--ep-white),
-  /* white gap */ 0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color); /* blue ring */
+  /* white gap */ 0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color); /* focus ring */
 
-/* Default values: --ep-ring-offset: 2px, --ep-ring-width: 2px, --ep-ring-color: blue-500 */
+/* Default values: --ep-ring-offset: 2px, --ep-ring-width: 2px, --ep-ring-color: terracotta-500 */
 ```
 
 | Element            | Effect                                                         |
@@ -1513,33 +1516,33 @@ box-shadow:
 | Select             | Border changes to `--ep-ring-color` + focus ring box-shadow    |
 | Textarea           | Border changes to `--ep-ring-color` + focus ring box-shadow    |
 | Button             | Focus ring box-shadow on `:focus-visible` (no change on click) |
-| Destructive button | Focus ring with `--ep-red-500` instead of blue                 |
+| Destructive button | Focus ring with `--ep-red-500` instead of terracotta           |
 
 ### Active/Selected
 
-| Element           | Effect                                                   |
-| ----------------- | -------------------------------------------------------- |
-| Block             | `border-2 border-blue-500 shadow-md`                     |
-| Tab               | `text-blue-600 border-b-2 border-blue-600 bg-blue-50/50` |
-| Toggle button     | `bg-blue-500 text-white`                                 |
-| Formatting button | `bg-blue-500 text-white`                                 |
+| Element           | Effect                                                                     |
+| ----------------- | -------------------------------------------------------------------------- |
+| Block             | `border-2 border-terracotta-500 shadow-md`                                 |
+| Tab               | `text-terracotta-600 border-b-2 border-terracotta-600 bg-terracotta-50/50` |
+| Toggle button     | `bg-terracotta-500 text-white`                                             |
+| Formatting button | `bg-terracotta-500 text-white`                                             |
 
 ### Disabled
 
-| Element | Effect                      |
-| ------- | --------------------------- |
-| Input   | `bg-gray-50`                |
-| Text    | `text-gray-400`             |
-| Button  | `bg-gray-100 text-gray-500` |
+| Element | Effect                        |
+| ------- | ----------------------------- |
+| Input   | `bg-stone-50`                 |
+| Text    | `text-stone-400`              |
+| Button  | `bg-stone-100 text-stone-500` |
 
 ### Dragging
 
-| Element             | Effect                               |
-| ------------------- | ------------------------------------ |
-| Block being dragged | `opacity-50`                         |
-| Drag handle         | `opacity-0` → `opacity-100` on hover |
-| Drop zone (active)  | `bg-blue-50` or block-specific color |
-| Drop indicator      | `bg-blue-400 h-4`                    |
+| Element             | Effect                                     |
+| ------------------- | ------------------------------------------ |
+| Block being dragged | `opacity-50`                               |
+| Drag handle         | `opacity-0` → `opacity-100` on hover       |
+| Drop zone (active)  | `bg-terracotta-50` or block-specific color |
+| Drop indicator      | `bg-terracotta-400 h-4`                    |
 
 ### Error
 
@@ -1566,7 +1569,7 @@ box-shadow:
 ### Sidebar
 
 ```
-[Header - px-3 py-2, border-b, bg-gray-50]
+[Header - px-3 py-2, border-b, bg-stone-50]
 [Tabs - flex, border-b]
 [Content - flex-1, overflow-y-auto]
 ```
@@ -1696,14 +1699,14 @@ transition: all var(--ep-transition-slow); /* all properties, slow */
 
 ### Color Contrast
 
-- Primary text (`gray-700` on white): 8.5:1
-- Secondary text (`gray-500` on white): 4.6:1
-- Error text (`red-600` on white): 4.5:1
-- Blue on white (`blue-600`): 4.5:1
+> Contrast ratios for the "Peach Paper" palette have not been fully re-measured.
+> One known constraint: `--ep-primary` (terracotta `#b6684e`) is ~4.1:1 on white —
+> below WCAG AA for normal text. Use `--ep-primary-strong` (`#9d5741`, ~5.4:1) for
+> primary-colored text, links, and icons; reserve `--ep-primary` for fills.
 
 ### Focus Indicators
 
-- All interactive elements: Ring-based focus via `box-shadow` (2px blue-500 ring with 2px white offset)
+- All interactive elements: Ring-based focus via `box-shadow` (2px terracotta-500 ring with 2px white offset)
 - Inputs: Border transitions to `--ep-ring-color` + focus ring shadow
 - Buttons: Focus ring on `:focus-visible` only (not on click)
 

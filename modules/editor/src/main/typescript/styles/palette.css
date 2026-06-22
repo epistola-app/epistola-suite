@@ -17,7 +17,7 @@
   .palette-category-label {
     font-size: 11px;
     font-weight: 600;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: var(--ep-space-1) var(--ep-space-2);
@@ -32,7 +32,7 @@
     padding: var(--ep-space-1-5) var(--ep-space-2);
     border-radius: var(--ep-radius-sm);
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     border: none;
     background: none;
     cursor: pointer;
@@ -41,12 +41,12 @@
       box-shadow var(--ep-transition-fast);
 
     &:hover {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
       box-shadow: var(--ep-shadow-xs);
     }
 
     &:active {
-      background: var(--ep-gray-100);
+      background: var(--ep-stone-100);
       box-shadow: none;
     }
   }
@@ -58,8 +58,8 @@
     width: 1.5rem;
     height: 1.5rem;
     border-radius: var(--ep-radius-sm);
-    background: var(--ep-gray-100);
-    color: var(--ep-gray-500);
+    background: var(--ep-stone-100);
+    color: var(--ep-stone-500);
     flex-shrink: 0;
 
     & svg {

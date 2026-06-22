@@ -22,9 +22,9 @@
     padding: var(--ep-space-1) var(--ep-space-2);
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-gray-500);
-    background: var(--ep-gray-50);
-    border: 1px solid var(--ep-gray-200);
+    color: var(--ep-stone-500);
+    background: var(--ep-stone-50);
+    border: 1px solid var(--ep-stone-200);
     border-bottom: none;
     border-radius: var(--ep-radius-sm) var(--ep-radius-sm) 0 0;
   }
@@ -32,7 +32,7 @@
   .datatable-label-icon {
     display: flex;
     align-items: center;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-400);
   }
 
   /* -----------------------------------------------------------------------
@@ -49,8 +49,8 @@
     padding: var(--ep-space-1) var(--ep-space-1-5);
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-gray-600);
-    background: var(--ep-gray-50);
+    color: var(--ep-stone-600);
+    background: var(--ep-stone-50);
     min-height: 1.5rem;
     display: flex;
     align-items: center;
@@ -64,21 +64,21 @@
   }
 
   .datatable-body-cell.column-selected {
-    outline: 2px solid var(--ep-blue-400);
+    outline: 2px solid var(--ep-terracotta-400);
     outline-offset: -2px;
-    background: color-mix(in srgb, var(--ep-blue-100) 30%, transparent);
+    background: color-mix(in srgb, var(--ep-terracotta-100) 30%, transparent);
   }
 
   /* Border variants */
   .datatable-grid.border-all .datatable-header-cell,
   .datatable-grid.border-all .datatable-body-cell {
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
   }
 
   .datatable-grid.border-horizontal .datatable-header-cell,
   .datatable-grid.border-horizontal .datatable-body-cell {
-    border-top: 1px solid var(--ep-gray-300);
-    border-bottom: 1px solid var(--ep-gray-300);
+    border-top: 1px solid var(--ep-stone-300);
+    border-bottom: 1px solid var(--ep-stone-300);
     border-left: none;
     border-right: none;
   }
@@ -87,20 +87,20 @@
   .datatable-grid.border-vertical .datatable-body-cell {
     border-top: none;
     border-bottom: none;
-    border-left: 1px solid var(--ep-gray-300);
-    border-right: 1px solid var(--ep-gray-300);
+    border-left: 1px solid var(--ep-stone-300);
+    border-right: 1px solid var(--ep-stone-300);
   }
 
   .datatable-grid.border-none .datatable-header-cell,
   .datatable-grid.border-none .datatable-body-cell {
-    border: 1px dashed var(--ep-gray-200);
+    border: 1px dashed var(--ep-stone-200);
   }
 
   /* Slot hint inside datatable body cells */
   .datatable-body-cell .canvas-slot.empty {
     min-height: 1.5rem;
     border-style: dashed;
-    border-color: var(--ep-gray-200);
+    border-color: var(--ep-stone-200);
   }
 
   .datatable-body-cell .canvas-slot-hint {
@@ -134,7 +134,7 @@
   .datatable-dialog-label {
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
   }
 
   .datatable-dialog-field label {
@@ -142,7 +142,7 @@
     flex-direction: column;
     gap: var(--ep-space-1);
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
   }
 
   .datatable-dialog-field input {
@@ -160,22 +160,22 @@
     border-radius: var(--ep-radius-sm);
     font-size: var(--ep-text-sm);
     cursor: pointer;
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     background: var(--ep-white);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
   }
 
   .datatable-dialog-btn:hover {
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
   }
 
   .datatable-dialog-btn.insert {
-    background: var(--ep-blue-500);
+    background: var(--ep-terracotta-500);
     color: var(--ep-white);
-    border-color: var(--ep-blue-500);
+    border-color: var(--ep-terracotta-500);
   }
 
   .datatable-dialog-btn.insert:hover {
-    background: var(--ep-blue-600);
+    background: var(--ep-terracotta-600);
   }
 }

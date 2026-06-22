@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle} ?: 'Epistola'">Epistola</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/design-system/epistola-logo.svg}">
     <th:block th:replace="~{fragments/styles :: styles}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <th:block th:replace="~{fragments/htmx :: htmx}" />
