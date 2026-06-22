@@ -13,11 +13,16 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.util.LinkedMultiValueMap
+import java.io.ByteArrayOutputStream
 import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
@@ -252,6 +257,52 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("ZIP-managed")
+        }
+    }
+
+    @Test
+    fun `importing a too-old ZIP renders the inline schema-error fragment, not a server error`() = fixture {
+        lateinit var testTenant: Tenant
+        given { testTenant = tenant("Import Too Old") }
+
+        whenever {
+            // A minimal catalog ZIP at an older schema version → blocked by the import gate.
+            val baos = ByteArrayOutputStream()
+            ZipOutputStream(baos).use { zip ->
+                zip.putNextEntry(ZipEntry("catalog.json"))
+                zip.write(
+                    (
+                        """{"schemaVersion":2,"catalog":{"slug":"old-zip","name":"Old Zip"},""" +
+                            """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}"""
+                        ).toByteArray(),
+                )
+                zip.closeEntry()
+            }
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("catalogType", "AUTHORED")
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource(baos.toByteArray()) {
+                        override fun getFilename(): String = "old.zip"
+                    },
+                    HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+                ),
+            )
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/catalogs/import",
+                HttpEntity(payload, HttpHeaders().apply { contentType = MediaType.MULTIPART_FORM_DATA }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // The blocked import must render the inline schema-error fragment (HTTP
+            // 200, actionable message) — NOT crash with a TemplateInputException 500.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Import blocked")
+            assertThat(response.body).contains("too old")
         }
     }
 }

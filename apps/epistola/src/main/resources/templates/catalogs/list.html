@@ -452,7 +452,7 @@
          text is the migrator's actionable remediation message. -->
     <th:block th:fragment="import-schema-error">
         <div class="alert alert-error">
-            <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
             <div>
                 <div class="alert-title" th:text="${schemaErrorTitle}">Import blocked: incompatible catalog format</div>
                 <p style="margin: var(--ep-space-1) 0 0;" th:text="${schemaErrorDetail}"></p>
