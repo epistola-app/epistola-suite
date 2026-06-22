@@ -28,7 +28,7 @@ class CatalogFingerprintEquivalenceTest {
     fun `typed path equals recompute-from-serialized-wire (float and double bearing)`() {
         val details = linkedMapOf(
             "theme/corporate" to ResourceDetail(
-                schemaVersion = CATALOG_MANIFEST_SCHEMA_VERSION,
+                schemaVersion = CATALOG_SCHEMA_VERSION,
                 resource = ThemeResource(
                     slug = "corporate",
                     name = "Corporate",
@@ -37,7 +37,7 @@ class CatalogFingerprintEquivalenceTest {
                 ),
             ),
             "asset/logo" to ResourceDetail(
-                schemaVersion = CATALOG_MANIFEST_SCHEMA_VERSION,
+                schemaVersion = CATALOG_SCHEMA_VERSION,
                 resource = AssetResource(slug = "logo", name = "Logo", mediaType = "image/png", contentUrl = "./resources/asset/logo"),
             ),
         )

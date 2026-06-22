@@ -2,6 +2,43 @@
 
 Catalogs are first-class entities in Epistola for organizing, sharing, and importing resources. A catalog groups templates, themes, stencils, attributes, and assets under a common identity. Every resource belongs to exactly one catalog.
 
+> **This page is the root of the exchange docs.** The architecture, data model, protocol, and import/export flows are below. The **wire contract of each part** is documented separately — see the next section.
+
+## Parts & contract versions
+
+Import/export is a **wire format**: a `catalog.json` [manifest](v4/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract, all documented together under **one folder per catalog wire version** (currently [`v4/`](v4/)).
+
+**There is one catalog-wide wire `schemaVersion`** (currently `4`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. This is the decision recorded in [ADR 0007](../adr/0007-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism is one chain that upgrades a whole catalog (manifest tree and/or any resource-detail tree) from an older version up to the current one.
+
+**Parts, at catalog `schemaVersion` 4** — each documented in [`v4/`](v4/):
+
+| Part                                        | Carries                                                                           |
+| ------------------------------------------- | --------------------------------------------------------------------------------- |
+| [Manifest](v4/manifest.md) (`catalog.json`) | catalog identity, `release` (version + fingerprint), resource index, dependencies |
+| [Asset](v4/asset.md)                        | image metadata + `contentUrl` to the binary                                       |
+| [Code list](v4/code-list.md)                | reusable enumerations (`entries`)                                                 |
+| [Font](v4/font.md)                          | asset-backed font family + variants                                               |
+| [Attribute](v4/attribute.md)                | variant attribute + `codeListBinding`                                             |
+| [Theme](v4/theme.md)                        | document styles, page settings, presets                                           |
+| [Stencil](v4/stencil.md)                    | published fragment (`content` + `version`)                                        |
+| [Template](v4/template.md)                  | `templateModel`, `dataModel`, variants                                            |
+
+(Rows are in install order — see [`CatalogConstants.RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt).)
+
+**The three version axes** (orthogonal — don't conflate them):
+
+| Axis                             | What it versions                                                | Where                                                                  | Reference                                                 |
+| -------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Catalog wire `schemaVersion`** | the JSON _shape_ of the whole exchange bundle (one per catalog) | the manifest's `schemaVersion` (authoritative); echoed on every detail | [ADR 0007](../adr/0007-catalog-wire-format-migrations.md) |
+| **Release version** (SemVer)     | the catalog _content_ at a point in time                        | `release.version`, `catalog_releases`                                  | [catalog-versioning.md](../catalog-versioning.md)         |
+| **Content fingerprint**          | content _identity_ (did anything change?)                       | `release.fingerprint`                                                  | [catalog-versioning.md](../catalog-versioning.md)         |
+
+These three are the **catalog-level** axes. For the full picture — including the editorial **template / contract / stencil** versions and how they do (and don't) relate to import/export — see [version-axes.md](../version-axes.md).
+
+**Maintaining these docs:** the wire shape lives under [`v4/`](v4/) — one file per part at catalog `schemaVersion` 4. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the whole `v4/` folder to `v5/`, edit the changed part(s) there, and land a migration step in the single chain. Leave the old version folder in place so the whole set diffs against the previous wire version.
+
+> **Implementation status.** The whole-catalog wire-format framework is **implemented** ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)): `CatalogContentBuilder` stamps the manifest **and** every resource detail with the single `CATALOG_SCHEMA_VERSION` (currently `4`), and `CatalogSchemaMigrator` gates the payload's `schemaVersion` once against `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before binding — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). **No migrations exist yet** — the chain is empty (`baseline == current == 4`), so every current-shape payload binds as-is. The first shape change that isn't round-trip-compatible bumps the catalog version and adds one migration step to the chain. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
+
 ## Concepts
 
 ### Catalog Types
@@ -13,13 +50,17 @@ Every tenant has a `default` catalog (authored) that cannot be deleted. Addition
 
 ### Resource Types
 
-Catalogs contain five resource types, installed in dependency order:
+Catalogs contain seven resource types, installed in dependency order (see [`RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt)):
 
 1. **Assets** — Binary images (PNG, JPEG, WebP, SVG) used in templates
-2. **Attributes** — Variant attribute definitions (e.g., language, region)
-3. **Themes** — Document styles, page settings, block style presets
-4. **Stencils** — Reusable content blocks with versioning
-5. **Templates** — Document templates with variants, versions, and data contracts
+2. **Code lists** — Reusable enumerations (e.g. BCP-47 languages) bound by attributes
+3. **Fonts** — Asset-backed font families (system/`CLASSPATH` fonts are not exchanged)
+4. **Attributes** — Variant attribute definitions (e.g., language, region)
+5. **Themes** — Document styles, page settings, block style presets
+6. **Stencils** — Reusable content blocks with versioning
+7. **Templates** — Document templates with variants, versions, and data contracts
+
+The wire contract of each (and the manifest) is documented per part under [Parts & contract versions](#parts--contract-versions).
 
 ### Catalog Scoping
 
@@ -101,7 +142,7 @@ Immutable release history for `AUTHORED` catalogs — one row per **Release
 version** action. Not parallel installs; the changelog + Phase 2 upgrade-diff
 source. PK `(tenant_key, catalog_key, version)`, columns `version` (SemVer),
 `fingerprint`, `notes`, `manifest_snapshot` (jsonb), `released_at`,
-`released_by`. See [`catalog-versioning.md`](catalog-versioning.md).
+`released_by`. See [`catalog-versioning.md`](../catalog-versioning.md).
 
 ### Resource Tables
 
@@ -165,23 +206,23 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 }
 ```
 
-| Field                       | Type    | Required    | Description                                                                                                                                            |
-| --------------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `schemaVersion`             | integer | yes         | Protocol version. Currently `4`.                                                                                                                       |
-| `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                                                                                    |
-| `catalog.name`              | string  | yes         | Display name.                                                                                                                                          |
-| `publisher.name`            | string  | yes         | Publisher name.                                                                                                                                        |
-| `release.version`           | string  | yes         | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.  |
-| `release.fingerprint`       | string  | no          | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](catalog-versioning.md). |
-| `resources`                 | array   | yes         | List of available resources.                                                                                                                           |
-| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, or `asset`.                                                                                               |
-| `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                                                                                  |
-| `resources[].name`          | string  | yes         | Display name.                                                                                                                                          |
-| `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                                                                                         |
-| `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                    |
-| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, or `asset`.                                                                                                                        |
-| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes and stencils. Absent for assets (tenant-global).                                                              |
-| `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                                                                             |
+| Field                       | Type    | Required    | Description                                                                                                                                                                                               |
+| --------------------------- | ------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion`             | integer | yes         | The single catalog-wide wire version — the manifest is authoritative for it and every resource detail echoes the same number (see [Parts & contract versions](#parts--contract-versions)). Currently `4`. |
+| `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                                                                                                                                       |
+| `catalog.name`              | string  | yes         | Display name.                                                                                                                                                                                             |
+| `publisher.name`            | string  | yes         | Publisher name.                                                                                                                                                                                           |
+| `release.version`           | string  | yes         | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.                                                     |
+| `release.fingerprint`       | string  | no          | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](../catalog-versioning.md).                                                 |
+| `resources`                 | array   | yes         | List of available resources.                                                                                                                                                                              |
+| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, `asset`, `codeList`, or `font`.                                                                                                                              |
+| `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                                                                                                                                     |
+| `resources[].name`          | string  | yes         | Display name.                                                                                                                                                                                             |
+| `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                                                                                                                                            |
+| `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                                                                       |
+| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, `asset`, `codeList`, or `font`.                                                                                                                                                       |
+| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes, stencils, code lists, and fonts. Absent for assets (tenant-global).                                                                                             |
+| `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                                                                                                                                |
 
 ### Cross-Catalog Dependencies
 
@@ -190,6 +231,8 @@ Templates may reference resources from other catalogs:
 - **Themes**: via `themeRef.catalogKey` in the template model
 - **Stencils**: via `node.props.catalogKey` in stencil nodes
 - **Assets**: via `node.props.assetId` in image nodes (tenant-global, no catalog needed)
+- **Code lists**: via `codeListBinding.catalogKey` on an attribute
+- **Fonts**: via `fontFamily.catalogKey` in a theme or template's document styles
 
 During export, Epistola scans all template models and compares references against the catalog's own resources. Any reference to a resource NOT in the catalog is added to the `dependencies` list.
 
@@ -197,19 +240,21 @@ During import, Epistola validates that all declared dependencies exist in the ta
 
 Dependencies use a sealed type hierarchy:
 
-| Type      | Fields               | Scope                                                |
-| --------- | -------------------- | ---------------------------------------------------- |
-| `theme`   | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `stencil` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `asset`   | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
+| Type       | Fields               | Scope                                                |
+| ---------- | -------------------- | ---------------------------------------------------- |
+| `theme`    | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `stencil`  | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `codeList` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `font`     | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `asset`    | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
 
 ### Resource Detail Files
 
-Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload:
+Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload. Every detail echoes the same catalog-wide `schemaVersion` (`4`) as the manifest, so each file is self-describing:
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 4,
   "resource": {
     "type": "template",
     "slug": "invoice-standard",
@@ -283,6 +328,29 @@ Before installing, the import validates that all declared cross-catalog dependen
 
 The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the subscribed catalog.
 
+### Wire-format version gate
+
+Every part (the manifest and each resource detail) is gated by the **single catalog-wide** `schemaVersion` against the window `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before it is bound ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)). The manifest is authoritative for the version, and every resource detail **must** carry the same number — a detail whose stamp differs from the manifest's is rejected. `CatalogSchemaMigrator` decides:
+
+| `schemaVersion`                          | Behaviour                                                                                                                                                 |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `== current`                             | Bind directly (fast path).                                                                                                                                |
+| `v < current`, chain empty               | **Pass through unchanged** and bind — transitional (no chain yet, so nothing to upgrade through). This is today's behaviour (`baseline == current == 4`). |
+| `baseline ≤ v < current` (chain present) | Run the migration chain `v → … → current`, then bind.                                                                                                     |
+| `> current`                              | **Reject** — `CatalogSchemaTooNewException` ("exported by a newer Epistola; upgrade this instance").                                                      |
+| `< baseline` (chain present)             | **Reject** — `CatalogSchemaTooOldException` ("predates the oldest supported version; re-export from a current source").                                   |
+| detail `v` ≠ manifest version            | **Reject** — `CatalogSchemaUnknownException` (a catalog is one bundle at one wire version; a drifted per-detail stamp is malformed).                      |
+| valid `v` but shape fails to bind        | **Reject** — `CatalogSchemaUnknownException` (a gated, current-shape tree that still won't deserialize is a 400, not a server error).                     |
+| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException` (not a recognised catalog wire payload).                                                                     |
+
+The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so browse / preview / upgrade-check see migrated content too. Migration never recomputes `release.fingerprint` — see [catalog-versioning.md](../catalog-versioning.md#fingerprint-algorithm).
+
+**Operator surfaces for a rejected payload:**
+
+- **Web UI** (import dialog): the rejection is rendered inline in the dialog (the same `alert-error` slot as a stencil conflict) with the actionable remediation message — upgrade this instance, or re-export from a current source.
+- **REST** (`POST /api/tenants/{id}/catalogs/import`): an [RFC 9457](../adr/0004-rfc7807-problem-details.md) problem with a dedicated `type` — `…/errors/catalog-schema-too-new` (extensions `version`, `supportedVersion`), `…/catalog-schema-too-old` (`version`, `baselineVersion`), or `…/catalog-schema-unknown` — all `400`.
+- **MCP**: catalog import is not an MCP surface (the MCP server is read-only), so there is no MCP change.
+
 ### Dependency Resolution
 
 `DependencyScanner` scans template models for references to other resources:
@@ -319,7 +387,7 @@ The export stamps `release.version` with the catalog's latest released SemVer
 and `release.fingerprint` with the fingerprint of the actual exported bytes. A
 never-released catalog exports as `0.0.0-dev`; a working copy that drifted from
 its latest release exports as `<version>-dev`. Catalog-version drift is never
-blocked — see [`catalog-versioning.md`](catalog-versioning.md). Stencil-version
+blocked — see [`catalog-versioning.md`](../catalog-versioning.md). Stencil-version
 drift _is_ blocked at export time — see [Stencil version
 preservation](#stencil-version-preservation) below.
 
@@ -340,7 +408,7 @@ wire format carries the published version number alongside the content
 exporter ships the **latest** published version of each stencil and stamps
 its number; the importer installs the stencil at that exact number in
 target. The architecture and rationale are recorded in
-[ADR 0003](adr/0003-stencil-version-in-export.md).
+[ADR 0003](../adr/0003-stencil-version-in-export.md).
 
 #### Export precheck
 

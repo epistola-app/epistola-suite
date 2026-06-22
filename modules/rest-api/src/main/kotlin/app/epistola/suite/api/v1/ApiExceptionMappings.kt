@@ -13,6 +13,9 @@ import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
+import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
@@ -504,6 +507,26 @@ object ApiExceptionMappings {
             defaultDetail = "Catalog cannot be upgraded",
             extensions = { mapOf("catalogId" to it.catalogKey.value) },
             logMessage = { "Catalog not upgradeable: ${it.message}" },
+        )
+
+        builder.register<CatalogSchemaTooNewException>(
+            problemType = ApiProblemTypes.CATALOG_SCHEMA_TOO_NEW,
+            defaultDetail = "Catalog wire schema version is newer than this instance supports",
+            extensions = { mapOf("version" to it.version, "supportedVersion" to it.current) },
+            logMessage = { "Catalog import rejected — wire schema too new: ${it.message}" },
+        )
+
+        builder.register<CatalogSchemaTooOldException>(
+            problemType = ApiProblemTypes.CATALOG_SCHEMA_TOO_OLD,
+            defaultDetail = "Catalog wire schema version predates the oldest supported version",
+            extensions = { mapOf("version" to it.version, "baselineVersion" to it.baseline) },
+            logMessage = { "Catalog import rejected — wire schema too old: ${it.message}" },
+        )
+
+        builder.register<CatalogSchemaUnknownException>(
+            problemType = ApiProblemTypes.CATALOG_SCHEMA_UNKNOWN,
+            defaultDetail = "Unrecognised catalog wire payload",
+            logMessage = { "Catalog import rejected — unrecognised wire payload: ${it.message}" },
         )
 
         builder.register<CodeListInUseException>(

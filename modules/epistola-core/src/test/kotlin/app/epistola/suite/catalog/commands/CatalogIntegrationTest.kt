@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -13,7 +14,12 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
@@ -196,5 +202,72 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(themeIdx).isLessThan(stencilIdx)
             assertThat(stencilIdx).isLessThan(templateIdx)
         }
+    }
+
+    /**
+     * A wire-version gate failure on a *resource detail* during remote install
+     * must reject the whole install (propagate the [CatalogSchemaUnknownException]),
+     * not be downgraded to a single FAILED [InstallResult] by the loop's generic
+     * catch. Mirrors the ZIP path in `ImportCatalogZipHandler`.
+     *
+     * Uses a `file:` catalog whose manifest is at the current wire version but
+     * whose `codeList` detail carries a drifted `schemaVersion` — `codeList`
+     * details are not fetched during dependency resolution, so the gate failure
+     * first surfaces inside the install loop (the exact branch the rethrow guards).
+     */
+    @Test
+    fun `a detail with a drifted wire version rejects the whole remote install`(@TempDir tmp: Path) {
+        val tenant = createTenant("Drift Test")
+        val sourceUrl = writeDriftedCatalog(tmp)
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+
+            assertThatThrownBy {
+                InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("drift-test")).execute()
+            }
+                .isInstanceOf(CatalogSchemaUnknownException::class.java)
+                .hasMessageContaining("every part of a catalog must carry the same wire version")
+        }
+    }
+
+    /**
+     * Writes a minimal `file:` catalog under [dir]: a current-version (4) manifest
+     * declaring one `codeList`, whose detail is deliberately stamped at version 3.
+     * Returns the `file:` URL of the manifest.
+     */
+    private fun writeDriftedCatalog(dir: Path): String {
+        val manifest = """
+            {
+              "schemaVersion": 4,
+              "catalog": { "slug": "drift-test", "name": "Drift Test Catalog" },
+              "publisher": { "name": "Test" },
+              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "resources": [
+                {
+                  "type": "codeList",
+                  "slug": "colours",
+                  "name": "Colours",
+                  "detailUrl": "./resources/codelists/colours.json"
+                }
+              ]
+            }
+        """.trimIndent()
+        val detail = """
+            {
+              "schemaVersion": 3,
+              "resource": {
+                "type": "codeList",
+                "slug": "colours",
+                "name": "Colours",
+                "entries": [ { "code": "r", "label": "Red" }, { "code": "g", "label": "Green" } ]
+              }
+            }
+        """.trimIndent()
+
+        dir.resolve("catalog.json").writeText(manifest)
+        dir.resolve("resources/codelists").createDirectories()
+        dir.resolve("resources/codelists/colours.json").writeText(detail)
+        return dir.resolve("catalog.json").toUri().toString()
     }
 }

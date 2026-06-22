@@ -5,6 +5,7 @@ import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
@@ -170,6 +171,39 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             // Target's v1 content unchanged
             val versions = ListStencilVersions(stencilId = StencilId(stencilKey, cat)).query()
             assertThat(versions).hasSize(1)
+        }
+    }
+
+    @Test
+    fun `a mis-versioned resource detail aborts the whole import (not a single FAILED resource)`() {
+        val tenant = createTenant("Schema Gate")
+        val tenantKey = tenant.id
+        val key = CatalogKey.of("sg-${tenantKey.value.take(8)}")
+
+        withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = key, name = "Schema Gate").execute()
+
+            // The stencil detail matches the manifest's wire version, but the
+            // template detail carries a different one — a catalog is one bundle at
+            // one wire version, so this is malformed. The version gate (in the
+            // install loop) must reject the WHOLE import — surfacing the dedicated
+            // CatalogSchemaException — rather than downgrading the template to a
+            // single FAILED resource swallowed by the generic catch.
+            val zip = buildManualZip(
+                catalogSlug = key.value,
+                stencil = StencilResource(slug = "sg-stencil", name = "S", version = 1, content = simpleStencil("local")),
+                template = simpleStencil("tpl"),
+                templateDetailSchemaVersion = 99,
+            )
+
+            assertThatThrownBy {
+                ImportCatalogZip(
+                    tenantKey = tenantKey,
+                    zipBytes = zip,
+                    catalogType = CatalogType.AUTHORED,
+                    onStencilConflict = OnStencilConflict.FAIL,
+                ).execute()
+            }.isInstanceOf(CatalogSchemaException::class.java)
         }
     }
 
@@ -529,6 +563,8 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         catalogSlug: String,
         stencil: StencilResource,
         template: TemplateDocument? = null,
+        /** Wire version stamped on the *template* detail — used to exercise the version gate. */
+        templateDetailSchemaVersion: Int = 4,
     ): ByteArray {
         val resources = mutableListOf<app.epistola.catalog.protocol.ResourceEntry>()
         resources.add(
@@ -587,7 +623,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                     ),
                 )
                 zos.putNextEntry(ZipEntry("resources/template/${templateKey.value}.json"))
-                zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 4, resource = tpl)))
+                zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = templateDetailSchemaVersion, resource = tpl)))
                 zos.closeEntry()
             }
         }

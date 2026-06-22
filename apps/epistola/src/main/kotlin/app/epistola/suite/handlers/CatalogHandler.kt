@@ -18,6 +18,10 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.StencilVersionImportConflictsException
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
+import app.epistola.suite.catalog.migrations.CatalogSchemaException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
+import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
@@ -576,6 +580,25 @@ class CatalogHandler {
                 mapOf(
                     "catalogId" to e.catalogKey.value,
                     "stencilImportConflicts" to conflicts,
+                ),
+            )
+        } catch (e: CatalogSchemaException) {
+            // The uploaded catalog's wire format is too new, too old, or
+            // unrecognised — the migrator rejected it before binding. Render the
+            // actionable remediation message inline (same alert-error slot as the
+            // stencil-conflict report), so the operator knows whether to upgrade
+            // this instance or re-export from a current source.
+            logger.warn("Import blocked by catalog wire-format version: ${e.message}")
+            val title = when (e) {
+                is CatalogSchemaTooNewException -> "Import blocked: catalog format is too new"
+                is CatalogSchemaTooOldException -> "Import blocked: catalog format is too old"
+                is CatalogSchemaUnknownException -> "Import blocked: unrecognised catalog format"
+            }
+            ServerResponse.ok().render(
+                "catalogs/list :: import-schema-error",
+                mapOf(
+                    "schemaErrorTitle" to title,
+                    "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
                 ),
             )
         } catch (e: Exception) {

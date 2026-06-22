@@ -44,7 +44,8 @@ class PreviewInstallHandler(
         val sourceUrl = catalog.sourceUrl
             ?: throw IllegalStateException("Catalog has no source URL: ${query.catalogKey}")
 
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val migratedManifest = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val manifest = migratedManifest.manifest
 
         val selected = if (query.resourceSlugs != null) {
             manifest.resources.filter { it.slug in query.resourceSlugs }
@@ -52,7 +53,7 @@ class PreviewInstallHandler(
             manifest.resources
         }
 
-        val all = dependencyResolver.resolve(selected, manifest, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val all = dependencyResolver.resolve(selected, manifest, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value, migratedManifest.catalog)
         val selectedKeys = selected.map { "${it.type}:${it.slug}" }.toSet()
         val dependencies = all.filter { "${it.type}:${it.slug}" !in selectedKeys }
 

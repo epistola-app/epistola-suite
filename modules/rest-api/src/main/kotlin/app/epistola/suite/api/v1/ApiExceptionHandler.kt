@@ -14,6 +14,9 @@ import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
+import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
@@ -230,6 +233,9 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogReadOnlyException::class,
         CatalogNotFoundException::class,
         CatalogNotUpgradeableException::class,
+        CatalogSchemaTooNewException::class,
+        CatalogSchemaTooOldException::class,
+        CatalogSchemaUnknownException::class,
         CodeListInUseException::class,
         CodeListNotRefreshableException::class,
         ApiOperationNotImplementedException::class,

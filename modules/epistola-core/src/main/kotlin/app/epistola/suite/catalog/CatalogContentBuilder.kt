@@ -46,7 +46,7 @@ data class CatalogContent(
         release: ReleaseInfo,
         publisher: PublisherInfo = PublisherInfo(name = "Epistola"),
     ): CatalogManifest = CatalogManifest(
-        schemaVersion = CATALOG_MANIFEST_SCHEMA_VERSION,
+        schemaVersion = CATALOG_SCHEMA_VERSION,
         catalog = catalog,
         publisher = publisher,
         release = release,
@@ -89,7 +89,9 @@ class CatalogContentBuilder(
             resourceEntries.add(
                 ResourceEntry(type = type, slug = slug, name = name, description = description, detailUrl = "./resources/$type/$slug.json"),
             )
-            resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = CATALOG_MANIFEST_SCHEMA_VERSION, resource = resource)
+            // The catalog has one wire version — stamp every detail (and the
+            // manifest) with the same catalog-wide CATALOG_SCHEMA_VERSION.
+            resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = CATALOG_SCHEMA_VERSION, resource = resource)
         }
 
         for (codeList in codeLists) addResource("codeList", codeList.slug, codeList.name, codeList.description, codeList)
