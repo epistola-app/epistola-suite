@@ -193,8 +193,9 @@ The backend has **two distinct endpoint layers** that must NEVER be mixed:
 - **Path pattern**: `/api/tenants/*`, `/api/tenants/{tenantId}/templates/*`, etc. (all under `/api/` prefix)
 - **Authentication**: API key (`X-API-Key` header) or OAuth2 JWT Bearer token. Stateless, no CSRF.
 - **Implementation**: `@RestController` with `@RequestMapping("/api")` in `app.epistola.suite.api.v1` package
-- **Returns**: JSON DTOs (`application/vnd.epistola.v1+json`)
-- **OpenAPI spec**: `/modules/rest-api/src/main/resources/openapi/`
+- **Returns**: JSON DTOs (`application/vnd.epistola.v1+json`; streamed endpoints use `application/vnd.epistola.v1+ndjson`)
+- **Versioning**: by media type (`…v1+json`), not a URL prefix — there is no `/api/v1/`. See [`docs/api-versioning.md`](docs/api-versioning.md).
+- **OpenAPI spec**: defined in the external `epistola-contract` repo; the `app.epistola.suite.api.v1` controllers implement server interfaces generated from it (`app.epistola.contract:server-kotlin-springboot4`, see `gradle/libs.versions.toml`). The spec is not vendored in this repo.
 - **Purpose**: External system integration (stable, versioned API)
 
 ### 2. UI Handlers (Internal Use Only)
