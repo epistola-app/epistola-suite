@@ -6,6 +6,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -203,6 +204,36 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
                 .hasMessageContaining("only subscribed catalogs can be upgraded")
             assertThatThrownBy { CheckCatalogUpgrade(tenant.id, catalogKey).query() }
                 .hasMessageContaining("only subscribed catalogs can be upgraded")
+        }
+    }
+
+    @Test
+    fun `importing a ZIP with an older catalog schema version is rejected`() {
+        val pub = createTenant("Zip Old Schema Pub")
+        val consumer = createTenant("Zip Old Schema Consumer")
+        val catalogKey = CatalogKey.of("zipver-oldschema")
+
+        withMediator {
+            CreateCatalog(tenantKey = pub.id, id = catalogKey, name = "Zip Old Schema").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(pub.id))), name = "Th").execute()
+            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey).execute().zipBytes
+
+            // Rewrite the manifest to an older catalog schema version (a publisher
+            // on an older Epistola). A source-less ZIP can't be re-fetched and we
+            // don't migrate stored content in place, so the import is rejected
+            // outright — the publisher must re-export from a current source.
+            val entries = unzip(zip)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            manifest.put("schemaVersion", 2)
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+            assertThatThrownBy {
+                ImportCatalogZip(tenantKey = consumer.id, zipBytes = rezip(entries), catalogType = CatalogType.AUTHORED).execute()
+            }.isInstanceOf(CatalogSchemaTooOldException::class.java)
+                .hasMessageContaining("predates the oldest supported version")
+
+            // Nothing was created.
+            assertThat(GetCatalog(consumer.id, catalogKey).query()).isNull()
         }
     }
 

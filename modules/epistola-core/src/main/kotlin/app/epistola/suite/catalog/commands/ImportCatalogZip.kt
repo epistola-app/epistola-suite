@@ -9,6 +9,7 @@ import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogSizeLimits
@@ -19,6 +20,7 @@ import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -170,6 +172,17 @@ class ImportCatalogZipHandler(
         val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
+        // A ZIP is a one-shot, source-less transport: unlike a subscribed URL we
+        // cannot re-fetch a current copy, and we deliberately do not migrate stored
+        // content in place. So an outdated-schema ZIP that the migrator could NOT
+        // bring to current is rejected outright (the publisher must re-export from a
+        // current source) rather than bound as-is under the migrator's transitional
+        // leniency. The check is on the *migrated* manifest version: a real chain
+        // upgrades it to current (not blocked); only the transitional/un-upgraded
+        // case stays sub-current. Covers both the UI and REST import paths.
+        if (manifest.schemaVersion < CATALOG_SCHEMA_VERSION) {
+            throw CatalogSchemaTooOldException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+        }
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
         // A ZIP import targets a catalog *type*. A slug that already exists
