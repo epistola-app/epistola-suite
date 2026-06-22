@@ -23,7 +23,12 @@ internal fun injectTemplateNotice(detail: ObjectNode, nodeId: String, text: Stri
     }
 }
 
-private fun appendTextBlock(model: ObjectNode, nodeId: String, text: String) {
+/**
+ * Append the notice [text] block directly to a bare `TemplateDocument` [model]
+ * (the at-rest `template_model` blob — not wrapped in a resource detail).
+ * Idempotent on [nodeId].
+ */
+internal fun appendTextBlock(model: ObjectNode, nodeId: String, text: String) {
     val nodes = model.get("nodes") as? ObjectNode ?: return
     if (nodes.has(nodeId)) return // idempotent — already injected
     val rootId = model.get("root")?.takeIf { it.isString }?.asString() ?: return

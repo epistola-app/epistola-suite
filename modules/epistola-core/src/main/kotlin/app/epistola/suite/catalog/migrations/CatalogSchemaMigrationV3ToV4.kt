@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.migrations
 
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
@@ -28,18 +29,32 @@ import tools.jackson.databind.node.ObjectNode
 class CatalogSchemaMigrationV3ToV4 : CatalogSchemaMigration {
     override val from = 3
 
+    /** Wire/import path: inject the stencil version (if missing) and the notice. */
     override fun migrateResourceDetail(type: String, detail: ObjectNode, ctx: MigrationContext): ObjectNode {
         if (type == "stencil") {
             (detail.get("resource") as? ObjectNode)?.let { resource ->
                 if (!resource.has("version")) resource.put("version", DEFAULT_STENCIL_VERSION)
             }
         }
-        injectTemplateNotice(detail, nodeId = NOTICE_NODE_ID, text = "migratie naar versie 4")
+        injectTemplateNotice(detail, nodeId = NOTICE_NODE_ID, text = NOTICE_TEXT)
         return detail
+    }
+
+    /**
+     * At-rest path: inject the notice into a stored `template_model` blob. The
+     * stencil version is the relational `stencil_versions.id` (always present at
+     * rest), so there is nothing to do for stencil content here.
+     */
+    override fun migrateContentBlob(blobType: String, blob: JsonNode, ctx: MigrationContext): JsonNode {
+        if (blobType == ContentBlobType.TEMPLATE_MODEL && blob is ObjectNode) {
+            appendTextBlock(blob, nodeId = NOTICE_NODE_ID, text = NOTICE_TEXT)
+        }
+        return blob
     }
 
     private companion object {
         const val DEFAULT_STENCIL_VERSION = 1
         const val NOTICE_NODE_ID = "n-migration-notice-v4"
+        const val NOTICE_TEXT = "migratie naar versie 4"
     }
 }

@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.migrations
 
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
@@ -24,12 +25,22 @@ import tools.jackson.databind.node.ObjectNode
 class CatalogSchemaMigrationV2ToV3 : CatalogSchemaMigration {
     override val from = 2
 
+    /** Wire/import path: inject the notice into every template's models. */
     override fun migrateResourceDetail(type: String, detail: ObjectNode, ctx: MigrationContext): ObjectNode {
-        injectTemplateNotice(detail, nodeId = NOTICE_NODE_ID, text = "migratie naar versie 3")
+        injectTemplateNotice(detail, nodeId = NOTICE_NODE_ID, text = NOTICE_TEXT)
         return detail
+    }
+
+    /** At-rest path: inject the notice into a stored `template_model` blob. */
+    override fun migrateContentBlob(blobType: String, blob: JsonNode, ctx: MigrationContext): JsonNode {
+        if (blobType == ContentBlobType.TEMPLATE_MODEL && blob is ObjectNode) {
+            appendTextBlock(blob, nodeId = NOTICE_NODE_ID, text = NOTICE_TEXT)
+        }
+        return blob
     }
 
     private companion object {
         const val NOTICE_NODE_ID = "n-migration-notice-v3"
+        const val NOTICE_TEXT = "migratie naar versie 3"
     }
 }

@@ -4,18 +4,22 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * The kind of stored content blob an at-rest migration step operates on, keyed
- * by **content shape** rather than resource type. The same shape is shared
- * across carriers — e.g. a [TEMPLATE_DOCUMENT] step applies to both
- * `template_versions.template_model` and `stencil_versions.content` (both are
- * `TemplateDocument` trees) — and is the same JSON the wire format carries, so a
- * single step migrates wire and at-rest content alike.
+ * The kind of stored content blob an at-rest migration step operates on,
+ * identifying the **carrier column** it came from. [TEMPLATE_MODEL] and
+ * [STENCIL_CONTENT] are both `TemplateDocument` trees (same shape) but kept
+ * distinct so a step can target one — e.g. a template-only transform applies to
+ * `template_versions.template_model` but not stencil content, matching the wire
+ * path's per-resource-type behaviour. The blob is the bare domain value (the same
+ * JSON the wire format nests under `resource`).
  *
  * See `docs/adr/0007-at-rest-resource-migration.md`.
  */
 object ContentBlobType {
-    /** `template_versions.template_model` and `stencil_versions.content`. */
-    const val TEMPLATE_DOCUMENT = "templateDocument"
+    /** `template_versions.template_model` (a `TemplateDocument`). */
+    const val TEMPLATE_MODEL = "templateModel"
+
+    /** `stencil_versions.content` (a `TemplateDocument`). */
+    const val STENCIL_CONTENT = "stencilContent"
 
     /** `themes.document_styles`. */
     const val DOCUMENT_STYLES = "documentStyles"
@@ -75,19 +79,21 @@ interface CatalogSchemaMigration {
     fun migrateManifest(manifest: ObjectNode, ctx: MigrationContext): ObjectNode = manifest
 
     /**
-     * Upgrade one resource-detail tree by exactly one version. [type] is the
-     * resource type (`"template"`, `"theme"`, `"stencil"`, …) so the step can
-     * branch. Default: identity (this step did not change this detail shape).
+     * Upgrade one resource-detail tree by exactly one version — the **wire/import**
+     * path. [type] is the resource type (`"template"`, `"theme"`, `"stencil"`, …)
+     * so the step can branch; [detail] is the whole `{schemaVersion, resource}`
+     * tree. Default: identity (this step did not change this detail shape).
      *
-     * Not yet invoked at runtime — detail-path wiring lands with the first real
-     * migration (see [CatalogSchemaMigrator]).
+     * A step that also wants to transform the same content **at rest** overrides
+     * [migrateContentBlob] too (sharing the leaf transform), since the stored blobs
+     * are the bare domain values, not a `ResourceDetail` envelope.
      */
     fun migrateResourceDetail(type: String, detail: ObjectNode, ctx: MigrationContext): ObjectNode = detail
 
     /**
      * Upgrade one **stored content blob** by exactly one version. [blobType] is a
      * [ContentBlobType] constant identifying the content shape (so a step can
-     * branch — e.g. only touch [ContentBlobType.TEMPLATE_DOCUMENT]). The node is
+     * branch — e.g. only touch [ContentBlobType.TEMPLATE_MODEL]). The node is
      * the bare domain blob (a `TemplateDocument`, theme-styles object, data-model
      * object, or — for [ContentBlobType.DATA_EXAMPLES] — a JSON array), **not** a
      * wire `ResourceDetail` envelope, so this returns [JsonNode] to allow arrays.

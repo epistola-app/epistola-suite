@@ -72,4 +72,24 @@ class CatalogSchemaMigrationV3ToV4Test {
             .path("props").path("content").path("content").path(0).path("content").path(0).path("text").asString()
         assertThat(noticeText).isEqualTo("migratie naar versie 4")
     }
+
+    @Test
+    fun `at-rest appends the notice to a stored template_model blob`() {
+        val out = step.migrateContentBlob(ContentBlobType.TEMPLATE_MODEL, bareModel(), ctx) as ObjectNode
+        assertThat(out.path("slots").path("s").path("children").path(0).asString()).isEqualTo("n-migration-notice-v4")
+        val text = out.path("nodes").path("n-migration-notice-v4")
+            .path("props").path("content").path("content").path(0).path("content").path(0).path("text").asString()
+        assertThat(text).isEqualTo("migratie naar versie 4")
+    }
+
+    @Test
+    fun `at-rest leaves stencil content untouched`() {
+        val blob = bareModel()
+        val before = blob.deepCopy()
+        val out = step.migrateContentBlob(ContentBlobType.STENCIL_CONTENT, blob, ctx)
+        assertThat(out).isEqualTo(before)
+    }
+
+    /** A bare `TemplateDocument` blob, as stored in `template_versions.template_model`. */
+    private fun bareModel(): ObjectNode = detail("""{"root":"r","nodes":{"r":{"id":"r","type":"root","slots":["s"]}},"slots":{"s":{"id":"s","nodeId":"r","name":"children","children":[]}}}""")
 }

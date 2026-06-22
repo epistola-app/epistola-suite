@@ -64,4 +64,14 @@ class CatalogSchemaMigrationV2ToV3Test {
             .path("props").path("content").path("content").path(0).path("content").path(0).path("text").asString()
         assertThat(noticeText).isEqualTo("migratie naar versie 3")
     }
+
+    @Test
+    fun `at-rest appends the notice to a stored template_model blob`() {
+        val blob = detail("""{"root":"r","nodes":{"r":{"id":"r","type":"root","slots":["s"]}},"slots":{"s":{"id":"s","nodeId":"r","name":"children","children":[]}}}""")
+        val out = step.migrateContentBlob(ContentBlobType.TEMPLATE_MODEL, blob, ctx) as ObjectNode
+        assertThat(out.path("slots").path("s").path("children").path(0).asString()).isEqualTo("n-migration-notice-v3")
+        val text = out.path("nodes").path("n-migration-notice-v3")
+            .path("props").path("content").path("content").path(0).path("content").path(0).path("text").asString()
+        assertThat(text).isEqualTo("migratie naar versie 3")
+    }
 }

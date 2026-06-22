@@ -32,34 +32,34 @@ class CatalogSchemaMigratorContentBlobTest {
     @Test
     fun `current version is identity`() {
         val node = obj().put("x", 1)
-        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, node, sourceVersion = 4, byFrom = chain(), baseline = 4, current = 4)
+        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, node, sourceVersion = 4, byFrom = chain(), baseline = 4, current = 4)
         assertThat(result).isSameAs(node)
     }
 
     @Test
     fun `empty chain below current is identity (transitional)`() {
         val node = obj().put("x", 1)
-        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, node, sourceVersion = 1, byFrom = emptyMap(), baseline = 1, current = 4)
+        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, node, sourceVersion = 1, byFrom = emptyMap(), baseline = 1, current = 4)
         assertThat(result).isSameAs(node)
     }
 
     @Test
     fun `newer than current is rejected as too new`() {
         assertThatThrownBy {
-            migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, obj(), sourceVersion = 5, byFrom = chain(), baseline = 4, current = 4)
+            migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, obj(), sourceVersion = 5, byFrom = chain(), baseline = 4, current = 4)
         }.isInstanceOf(CatalogSchemaTooNewException::class.java)
     }
 
     @Test
     fun `older than baseline with a chain is rejected as too old`() {
         assertThatThrownBy {
-            migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, obj(), sourceVersion = 1, byFrom = chain(2, 3), baseline = 2, current = 4)
+            migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, obj(), sourceVersion = 1, byFrom = chain(2, 3), baseline = 2, current = 4)
         }.isInstanceOf(CatalogSchemaTooOldException::class.java)
     }
 
     @Test
     fun `runs every step in order from source to current`() {
-        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, obj(), sourceVersion = 1, byFrom = chain(1, 2, 3), baseline = 1, current = 4) as ObjectNode
+        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, obj(), sourceVersion = 1, byFrom = chain(1, 2, 3), baseline = 1, current = 4) as ObjectNode
         assertThat(result.has("step_1")).isTrue()
         assertThat(result.has("step_2")).isTrue()
         assertThat(result.has("step_3")).isTrue()
@@ -67,7 +67,7 @@ class CatalogSchemaMigratorContentBlobTest {
 
     @Test
     fun `entering mid-window runs only the remaining steps`() {
-        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, obj(), sourceVersion = 3, byFrom = chain(1, 2, 3), baseline = 1, current = 4) as ObjectNode
+        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, obj(), sourceVersion = 3, byFrom = chain(1, 2, 3), baseline = 1, current = 4) as ObjectNode
         assertThat(result.has("step_1")).isFalse()
         assertThat(result.has("step_2")).isFalse()
         assertThat(result.has("step_3")).isTrue()
@@ -75,16 +75,16 @@ class CatalogSchemaMigratorContentBlobTest {
 
     @Test
     fun `a step branches on blob type`() {
-        val byFrom = listOf(MarkMigration(from = 1, onlyType = ContentBlobType.TEMPLATE_DOCUMENT)).associateBy { it.from }
+        val byFrom = listOf(MarkMigration(from = 1, onlyType = ContentBlobType.TEMPLATE_MODEL)).associateBy { it.from }
         val styles = migrateContentBlobTree(ContentBlobType.DOCUMENT_STYLES, obj(), sourceVersion = 1, byFrom = byFrom, baseline = 1, current = 2) as ObjectNode
-        val doc = migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, obj(), sourceVersion = 1, byFrom = byFrom, baseline = 1, current = 2) as ObjectNode
+        val doc = migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, obj(), sourceVersion = 1, byFrom = byFrom, baseline = 1, current = 2) as ObjectNode
         assertThat(styles.has("step_1")).isFalse()
         assertThat(doc.has("step_1")).isTrue()
     }
 
     @Test
     fun `does not stamp a version into the blob`() {
-        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_DOCUMENT, obj(), sourceVersion = 1, byFrom = chain(1, 2, 3), baseline = 1, current = 4) as ObjectNode
+        val result = migrateContentBlobTree(ContentBlobType.TEMPLATE_MODEL, obj(), sourceVersion = 1, byFrom = chain(1, 2, 3), baseline = 1, current = 4) as ObjectNode
         assertThat(result.has("schemaVersion")).isFalse()
     }
 }

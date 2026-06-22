@@ -11,9 +11,11 @@ import java.sql.Types
 /**
  * Upgrades **already-stored** bucket-C content blobs to the current content
  * version, the at-rest counterpart to the import-boundary
- * [CatalogSchemaMigrator]. Reaches content the wire path cannot: AUTHORED /
- * user-authored resources have no source URL to re-fetch, so only an in-place
- * pass migrates them when the app is upgraded against an existing database.
+ * [CatalogSchemaMigrator]. Scans **AUTHORED catalogs only**: those have no source
+ * URL to re-fetch, so an in-place pass is the only way to migrate them when the
+ * app is upgraded against an existing database. SUBSCRIBED content is left alone —
+ * its source is authoritative and the wire path re-migrates it on upgrade, so
+ * mutating it locally would only drift it from source until the next refresh.
  *
  * Versioning is **one global counter**, not a per-row column — modelled on
  * Flyway/EF (one history pointer for the whole database): the app code is always
@@ -129,11 +131,13 @@ class AtRestContentMigrator(
     private fun migrateThemes(handle: Handle, stored: Int): Int {
         val rows = handle.createQuery(
             """
-            SELECT tenant_key::text AS tenant_key, catalog_key::text AS catalog_key, id::text AS id,
-                   document_styles::text AS document_styles,
-                   page_settings::text AS page_settings,
-                   block_style_presets::text AS block_style_presets
-            FROM themes
+            SELECT t.tenant_key::text AS tenant_key, t.catalog_key::text AS catalog_key, t.id::text AS id,
+                   t.document_styles::text AS document_styles,
+                   t.page_settings::text AS page_settings,
+                   t.block_style_presets::text AS block_style_presets
+            FROM themes t
+            JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key
+            WHERE c.type = 'AUTHORED'
             """,
         ).mapToMap().list()
 
@@ -168,16 +172,18 @@ class AtRestContentMigrator(
     private fun migrateTemplateVersions(handle: Handle, stored: Int): Int {
         val rows = handle.createQuery(
             """
-            SELECT tenant_key::text AS tenant_key, catalog_key::text AS catalog_key,
-                   template_key::text AS template_key, variant_key::text AS variant_key, id,
-                   template_model::text AS template_model
-            FROM template_versions
+            SELECT tv.tenant_key::text AS tenant_key, tv.catalog_key::text AS catalog_key,
+                   tv.template_key::text AS template_key, tv.variant_key::text AS variant_key, tv.id,
+                   tv.template_model::text AS template_model
+            FROM template_versions tv
+            JOIN catalogs c ON c.tenant_key = tv.tenant_key AND c.id = tv.catalog_key
+            WHERE c.type = 'AUTHORED'
             """,
         ).mapToMap().list()
 
         var updated = 0
         for (row in rows) {
-            val templateModel = migrateBlob(row["template_model"] as String?, ContentBlobType.TEMPLATE_DOCUMENT, stored)
+            val templateModel = migrateBlob(row["template_model"] as String?, ContentBlobType.TEMPLATE_MODEL, stored)
             if (!templateModel.changed) continue
             handle.createUpdate(
                 """
@@ -201,15 +207,17 @@ class AtRestContentMigrator(
     private fun migrateStencilVersions(handle: Handle, stored: Int): Int {
         val rows = handle.createQuery(
             """
-            SELECT tenant_key::text AS tenant_key, catalog_key::text AS catalog_key,
-                   stencil_key::text AS stencil_key, id, content::text AS content
-            FROM stencil_versions
+            SELECT sv.tenant_key::text AS tenant_key, sv.catalog_key::text AS catalog_key,
+                   sv.stencil_key::text AS stencil_key, sv.id, sv.content::text AS content
+            FROM stencil_versions sv
+            JOIN catalogs c ON c.tenant_key = sv.tenant_key AND c.id = sv.catalog_key
+            WHERE c.type = 'AUTHORED'
             """,
         ).mapToMap().list()
 
         var updated = 0
         for (row in rows) {
-            val content = migrateBlob(row["content"] as String?, ContentBlobType.TEMPLATE_DOCUMENT, stored)
+            val content = migrateBlob(row["content"] as String?, ContentBlobType.STENCIL_CONTENT, stored)
             if (!content.changed) continue
             handle.createUpdate(
                 """
@@ -232,12 +240,14 @@ class AtRestContentMigrator(
     private fun migrateContractVersions(handle: Handle, stored: Int): Int {
         val rows = handle.createQuery(
             """
-            SELECT tenant_key::text AS tenant_key, catalog_key::text AS catalog_key,
-                   template_key::text AS template_key, id,
-                   schema::text AS schema,
-                   data_model::text AS data_model,
-                   data_examples::text AS data_examples
-            FROM contract_versions
+            SELECT cv.tenant_key::text AS tenant_key, cv.catalog_key::text AS catalog_key,
+                   cv.template_key::text AS template_key, cv.id,
+                   cv.schema::text AS schema,
+                   cv.data_model::text AS data_model,
+                   cv.data_examples::text AS data_examples
+            FROM contract_versions cv
+            JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.id = cv.catalog_key
+            WHERE c.type = 'AUTHORED'
             """,
         ).mapToMap().list()
 

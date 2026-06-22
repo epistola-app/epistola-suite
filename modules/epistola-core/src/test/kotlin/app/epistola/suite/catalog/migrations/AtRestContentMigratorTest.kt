@@ -110,4 +110,30 @@ class AtRestContentMigratorTest : IntegrationTestBase() {
         assertThat(report.total).isEqualTo(0)
         assertThat(storedVersion()).isEqualTo(4) // adopted current without migrating
     }
+
+    @Test
+    fun `migrateAll skips SUBSCRIBED content`() {
+        val tenant = createTenant("Subscribed Skip").id
+        jdbi.useHandle<Exception> { h ->
+            h.createUpdate(
+                "INSERT INTO catalogs (id, tenant_key, name, type, source_url, created_at, updated_at) " +
+                    "VALUES ('sub', :t, 'Sub', 'SUBSCRIBED', 'https://example.test/catalog.json', NOW(), NOW())",
+            ).bind("t", tenant).execute()
+            h.createUpdate(
+                "INSERT INTO themes (id, tenant_key, catalog_key, name, document_styles, created_at, updated_at) " +
+                    "VALUES ('sub-theme', :t, 'sub', 'Sub', :ds::jsonb, NOW(), NOW())",
+            ).bind("t", tenant).bind("ds", """{"$SENTINEL":"x"}""").execute()
+        }
+        appMetadata.setAs(CONTENT_SCHEMA_VERSION_KEY, 1)
+
+        val schemaMigrator = CatalogSchemaMigrator(objectMapper, listOf(TagMigration(from = 1)), current = 2, baseline = 1)
+        AtRestContentMigrator(jdbi, objectMapper, schemaMigrator).migrateAll()
+
+        // The SUBSCRIBED theme carries the sentinel but is never scanned, so untouched.
+        val subStyles = jdbi.withHandle<String, Exception> { h ->
+            h.createQuery("SELECT document_styles::text FROM themes WHERE tenant_key = :t AND catalog_key = 'sub' AND id = 'sub-theme'")
+                .bind("t", tenant).mapTo(String::class.java).one()
+        }
+        assertThat(subStyles).doesNotContain("migrated")
+    }
 }
