@@ -7,8 +7,12 @@ import org.springframework.web.util.UriComponentsBuilder
  * A sortable column descriptor for the shared `data-table` fragment. [label] is the
  * header text; [sortKey] is the logical query key the backing query whitelists
  * ("name", "variants", "updated"). A null [sortKey] means the column is not sortable.
+ *
+ * [width] is an optional CSS width for the column's `<col>` (e.g. "10rem", "20%"), used
+ * with the table's fixed layout to keep widths predictable regardless of content. Null
+ * lets the column flex to share the remaining space (cells truncate with an ellipsis).
  */
-data class Column(val label: String, val sortKey: String? = null)
+data class Column(val label: String, val sortKey: String? = null, val width: String? = null)
 
 /**
  * Immutable, parsed-and-clamped state of a list view plus its base path, and the

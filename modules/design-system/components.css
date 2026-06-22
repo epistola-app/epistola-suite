@@ -482,6 +482,41 @@
     }
   }
 
+  /* Fixed-layout variant: predictable column widths (from <col>) regardless of content.
+     A readable min-width means a narrow viewport scrolls (see .ep-table-scroll) rather
+     than crushing the columns. */
+  .ep-table-fixed {
+    table-layout: fixed;
+    min-width: var(--ep-table-min-width, 50rem);
+
+    /* Headers stay on one line (and clip rather than wrap if a column is too narrow). */
+    & th {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Body cells WRAP by default — and break even a single unbroken token (a long id with
+       no spaces/dashes) — so content never overflows its column into the next one. */
+    & td {
+      overflow-wrap: anywhere;
+    }
+
+    /* Opt a cell IN to one-line truncation with an ellipsis. Pair it with a `title`
+       attribute carrying the full value so it stays reachable on hover. */
+    & td.ep-truncate {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  /* Horizontal-scroll wrapper for a table. Shows a scrollbar ONLY when the table can't
+     fit (narrow viewports); on desktop the table fits and nothing scrolls. */
+  .ep-table-scroll {
+    overflow-x: auto;
+  }
+
   /* ── Sortable column headers ──────────────────────────────────────────── */
 
   .ep-table-sort {

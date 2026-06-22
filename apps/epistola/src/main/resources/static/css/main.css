@@ -19,7 +19,7 @@ body {
 /* Scoped styles for regular pages (not editor) */
 main.regular {
   flex: 1;
-  max-width: 56rem;
+  max-width: var(--ep-max-width-base);
   margin: var(--ep-space-8) auto;
   padding: 0 var(--ep-space-6);
   width: 100%;
@@ -133,45 +133,10 @@ main.regular section {
   margin-top: var(--ep-space-6);
 }
 
-/* ── Table styles (scoped to regular pages) ───────────────────────────── */
-
-main.regular table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  overflow: hidden;
-  font-size: var(--ep-text-sm);
-}
-
-main.regular th,
-main.regular td {
-  padding: var(--ep-space-3) var(--ep-space-4);
-  text-align: left;
-}
-
-main.regular th {
-  background-color: var(--ep-gray-50);
-  font-weight: 500;
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: var(--ep-tracking-wider);
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-main.regular td {
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-main.regular tbody tr:hover {
-  background-color: var(--ep-muted);
-}
-
-main.regular tbody tr:last-child td {
-  border-bottom: none;
-}
+/* Tables are owned by the design system (.ep-table in components.css). No generic
+   `main.regular table/th/td` rules here — element selectors out-specify the .ep-table
+   class and silently re-skin it (card border/background) on the one page that still
+   uses main.regular (tenants list). The table there is an .ep-table and styles itself. */
 
 main.regular .empty-message {
   text-align: center;

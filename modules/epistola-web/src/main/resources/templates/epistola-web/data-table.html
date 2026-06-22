@@ -40,7 +40,14 @@
     </th:block>
 
     <th:block th:unless="${paged.total == 0}">
-        <table class="ep-table" data-testid="data-table">
+      <!-- Scroll wrapper: invisible when the table fits (desktop); on a narrow viewport
+           the fixed-layout table keeps a readable min-width and this scrolls horizontally
+           instead of forcing the whole page wide. The footer stays outside it. -->
+      <div class="ep-table-scroll">
+        <table class="ep-table ep-table-fixed" data-testid="data-table">
+            <colgroup>
+                <col th:each="col : ${columns}" th:style="${col.width != null ? 'width: ' + col.width : null}">
+            </colgroup>
             <thead>
                 <tr>
                     <th th:each="col : ${columns}">
@@ -65,6 +72,7 @@
                 <th:block th:replace="${rows}"></th:block>
             </tbody>
         </table>
+      </div>
 
         <div class="ep-table-footer">
             <nav class="ep-pagination" th:if="${paged.totalPages > 1}" aria-label="Pagination">

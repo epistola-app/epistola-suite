@@ -126,13 +126,17 @@ class DocumentTemplateHandler(
 
     private val sortableColumns = setOf("name", "variants", "updated", "published")
     private val pageSizeOptions = listOf(10, 25, 50)
+
+    // Name flexes (width = null) to take the leftover space; the rest are fixed so the
+    // layout stays predictable when content varies. Name, Catalog and ID truncate per-cell
+    // in the row markup; actions holds two small icons (read-only marker + view). See ADR 0007.
     private val templateColumns = listOf(
         Column("Name", "name"),
-        Column("Catalog"),
-        Column("ID"),
-        Column("Variants", "variants"),
-        Column("Last Modified", "updated"),
-        Column(""),
+        Column("Catalog", width = "8rem"),
+        Column("ID", width = "10rem"),
+        Column("Variants", "variants", width = "8rem"),
+        Column("Last Modified", "updated", width = "10rem"),
+        Column("", width = "6rem"),
     )
 
     /**
