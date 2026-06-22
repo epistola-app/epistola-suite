@@ -136,6 +136,11 @@ and `platform-observer`. Both hierarchical Keycloak groups (`/epistola/tenants/{
 flat prefixed claims (`ept_{tenant}_{role}`, `epg_{role}`, `eps_{platformRole}`) are supported.
 See [`keycloak-setup.md`](keycloak-setup.md).
 
+Only the new kebab names are recognised — the legacy `reader`/`editor`/`generator`/`manager`
+names are not aliased, so an IdP still emitting them resolves a user to **zero memberships**
+(logged in but locked out). Renaming them is a one-time IdP-side step with no DB migration; see
+the runbook in [`keycloak-setup.md`](keycloak-setup.md#migrating-from-the-legacy-role-names-one-time-idp-runbook).
+
 ## Changing the model
 
 - **Add a permission:** add to `Permission.kt`, grant it in `TenantRole.permissions()`, and tag the

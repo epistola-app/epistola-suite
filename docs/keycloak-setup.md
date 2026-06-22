@@ -99,6 +99,51 @@ Tenant roles map to fine-grained permissions in application code (not in Keycloa
 
 Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `content-viewer` + `content-author` can view and edit templates and themes. Note that publishing is its own role (`content-publisher`), separate from administration.
 
+### Migrating from the legacy role names (one-time IdP runbook)
+
+The tenant role vocabulary was renamed from the original `reader` / `editor` / `generator` /
+`manager` to the descriptive `content-viewer` / `content-author` / `document-generator` /
+`content-publisher` / `tenant-administrator` (and `content-publisher` is **new** — publishing
+was split out of the old `manager`). The parser recognises **only the new names**; it does not
+alias the old ones.
+
+> **This is a breaking change for any IdP still using the old group/role names.** A user whose
+> groups don't parse authenticates successfully but resolves to **zero memberships** — i.e. they
+> are logged in but locked out of everything (every action 403s). There is no DB migration that
+> can fix this: the role labels live in your IdP, so the rename must be applied there. Do this
+> **before or together with** deploying the renamed build.
+
+Mapping (old → new):
+
+| Old wire name               | New wire name                  | Notes                                                                                   |
+| --------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
+| `reader`                    | `content-viewer`               |                                                                                         |
+| `editor`                    | `content-author`               |                                                                                         |
+| `generator`                 | `document-generator`           |                                                                                         |
+| `manager`                   | `tenant-administrator`         | no longer grants publish (see below)                                                    |
+| —                           | `content-publisher`            | **new** — grant to users who publish/archive versions (previously implied by `manager`) |
+| `tenant-manager` (platform) | `tenant-manager`               | unchanged                                                                               |
+| —                           | `platform-observer` (platform) | **new**, optional — cross-tenant read-only                                              |
+
+**Hierarchical groups (Keycloak):** for every tenant, rename the leaf groups under
+`/epistola/tenants/{tenant}/` and `/epistola/global/` per the table; users keep their group
+membership across a rename, so no per-user reassignment is needed for the renamed roles. Then,
+for anyone who needs to publish, add them to the new `content-publisher` group (the old `manager`
+no longer implies it). If `keycloakAdmin.ensureGroups` is on, the new empty groups are also
+created automatically on startup — but the app never renames or deletes your existing groups, so
+the rename itself is a manual (or scripted) admin step.
+
+**Flat-claim IdPs (`ept_`/`epg_`/`eps_`):** rename the realm-role / claim values the same way
+(e.g. `ept_acme_reader` → `ept_acme_content-viewer`), and add a `content-publisher` value where
+publishing is needed.
+
+**Verify:** sign in as a migrated user and open `/profile` — it lists the resolved tenant
+memberships, global roles and platform roles, so you can confirm the new names parsed before
+rolling the rename out widely.
+
+**API keys are unaffected** — their scope is stored in the suite's own database (already on the
+new names) and is preserved across the upgrade; only IdP-sourced human logins need this runbook.
+
 ### How Parsing Works
 
 The JWT `groups` claim contains full paths (e.g., `/epistola/tenants/demo/content-viewer`). The parser splits on `/` and routes based on the category segment:
