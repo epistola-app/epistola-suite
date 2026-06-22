@@ -54,6 +54,7 @@ class CoreNavContributor : NavContributor {
             add(NavItem("operations", "cluster", "Cluster", "cluster", 35))
             add(NavItem("operations", "logs", "Logs", "logs", 45))
         }
+        // The Audit item is contributed by the epistola-audit module's AuditNavContributor.
         if (context.hasPermission(Permission.TENANT_USERS)) {
             add(NavItem("operations", "api-keys", "API Keys", "api-keys", 40))
         }
