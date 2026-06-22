@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.DependencyResolver
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
+import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
@@ -95,6 +96,13 @@ class InstallFromCatalogHandler(
                 val detail = catalogClient.fetchResourceDetail(entry.type, entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value, catalogCtx)
                 val status = installResource(command, detail.resource, manifest.release.version, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
                 InstallResult(type = entry.type, slug = entry.slug, status = status)
+            } catch (e: CatalogSchemaException) {
+                // A wire-version gate failure (too new/old/unknown) rejects the
+                // whole install and surfaces the dedicated operator remediation
+                // (UI fragment / RFC 9457 problem) — never downgraded to a single
+                // FAILED resource by the generic catch below. Matches the manifest
+                // gate (outside this loop) and the ZIP path in ImportCatalogZip.
+                throw e
             } catch (e: Exception) {
                 logger.error("Failed to install {} '{}' from catalog '{}': {}", entry.type, entry.slug, command.catalogKey, e.message, e)
                 InstallResult(type = entry.type, slug = entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
