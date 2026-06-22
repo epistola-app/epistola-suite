@@ -2,6 +2,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.commands.AuthoredImportMode
@@ -540,6 +541,13 @@ class CatalogHandler {
         }?.let { runCatching { OnStencilConflict.valueOf(it) }.getOrNull() }
             ?: OnStencilConflict.FAIL
 
+        // Set when the operator confirmed updating an AUTHORED ZIP that is below the
+        // current catalog schema version but migratable (re-submitted from the
+        // "update?" prompt).
+        val confirmMigration = multipartData["confirmMigration"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim().equals("true", ignoreCase = true)
+        } ?: false
+
         return try {
             val result = ImportCatalogZip(
                 tenantKey = tenantId.key,
@@ -547,6 +555,7 @@ class CatalogHandler {
                 catalogType = catalogType,
                 authoredMode = authoredMode,
                 onStencilConflict = onStencilConflict,
+                confirmMigration = confirmMigration,
             ).execute()
 
             val failed = result.results.count { it.status == InstallStatus.FAILED }
@@ -608,6 +617,18 @@ class CatalogHandler {
                 mapOf(
                     "schemaErrorTitle" to title,
                     "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
+                ),
+            )
+        } catch (e: CatalogMigrationConfirmationRequiredException) {
+            // AUTHORED ZIP below the current catalog schema version but migratable:
+            // updating mutates the imported content, so prompt before importing. The
+            // "Update" button re-submits the same form with confirmMigration=true.
+            ServerResponse.ok().render(
+                "catalogs/list :: import-migration-confirm",
+                mapOf(
+                    "tenantId" to tenantId.key,
+                    "fromSchemaVersion" to e.fromVersion,
+                    "toSchemaVersion" to e.toVersion,
                 ),
             )
         } catch (e: Exception) {

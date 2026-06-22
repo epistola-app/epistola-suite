@@ -238,6 +238,31 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `importing an older-schema ZIP as SUBSCRIBED is rejected — subscribed is never migrated`() {
+        val pub = createTenant("Zip Old Sub Pub")
+        val consumer = createTenant("Zip Old Sub Consumer")
+        val catalogKey = CatalogKey.of("zipver-oldsub")
+
+        withMediator {
+            CreateCatalog(tenantKey = pub.id, id = catalogKey, name = "Zip Old Sub").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(pub.id))), name = "Th").execute()
+            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey).execute().zipBytes
+            val entries = unzip(zip)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            manifest.put("schemaVersion", 2)
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+            // A subscribed mirror is never migrated locally — the source must
+            // republish — so an older-schema SUBSCRIBED ZIP is blocked outright.
+            assertThatThrownBy {
+                ImportCatalogZip(tenantKey = consumer.id, zipBytes = rezip(entries), catalogType = CatalogType.SUBSCRIBED).execute()
+            }.isInstanceOf(CatalogSchemaTooOldException::class.java)
+
+            assertThat(GetCatalog(consumer.id, catalogKey).query()).isNull()
+        }
+    }
+
+    @Test
     fun `importing a released ZIP that creates a new AUTHORED catalog adopts it as the initial release`() {
         val publisher = createTenant("Zip Rel Publisher")
         val consumer = createTenant("Zip Rel Consumer")

@@ -12,6 +12,8 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogImportContext
+import app.epistola.suite.catalog.CatalogImportSchemaAction
+import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
@@ -93,6 +95,13 @@ data class ImportCatalogZip(
      * The database FKs still enforce referential integrity regardless of this flag.
      */
     val validateCrossCatalogDeps: Boolean = true,
+    /**
+     * Set when the operator has confirmed updating an **AUTHORED** ZIP whose catalog
+     * schema version is below current but migratable. Without it such an import is
+     * not run — the handler raises [CatalogMigrationConfirmationRequiredException] so
+     * the UI can prompt. The REST import sets it `true` (non-interactive).
+     */
+    val confirmMigration: Boolean = false,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -172,16 +181,26 @@ class ImportCatalogZipHandler(
         val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
-        // A ZIP is a one-shot, source-less transport: unlike a subscribed URL we
-        // cannot re-fetch a current copy, and we deliberately do not migrate stored
-        // content in place. So an outdated-schema ZIP that the migrator could NOT
-        // bring to current is rejected outright (the publisher must re-export from a
-        // current source) rather than bound as-is under the migrator's transitional
-        // leniency. The check is on the *migrated* manifest version: a real chain
-        // upgrades it to current (not blocked); only the transitional/un-upgraded
-        // case stays sub-current. Covers both the UI and REST import paths.
-        if (manifest.schemaVersion < CATALOG_SCHEMA_VERSION) {
-            throw CatalogSchemaTooOldException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+        // Decide what to do about an outdated-schema ZIP (a source-less transport
+        // we can't re-fetch). SUBSCRIBED mirrors are never migrated locally; an
+        // AUTHORED ZIP with no migration path is rejected; an AUTHORED ZIP the chain
+        // can upgrade prompts for confirmation (migrating mutates content) and then
+        // imports. `sourceVersion` is the pre-migration version; `manifest.schemaVersion`
+        // is current iff a chain upgraded it. Covers the UI and REST import paths.
+        when (
+            CatalogImportSchemaAction.decide(
+                catalogType = command.catalogType,
+                sourceVersion = catalogCtx.sourceVersion,
+                migratedVersion = manifest.schemaVersion,
+                current = CATALOG_SCHEMA_VERSION,
+                confirmed = command.confirmMigration,
+            )
+        ) {
+            CatalogImportSchemaAction.BLOCK_TOO_OLD ->
+                throw CatalogSchemaTooOldException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+            CatalogImportSchemaAction.CONFIRM_MIGRATION ->
+                throw CatalogMigrationConfirmationRequiredException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+            CatalogImportSchemaAction.IMPORT -> {} // proceed
         }
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
