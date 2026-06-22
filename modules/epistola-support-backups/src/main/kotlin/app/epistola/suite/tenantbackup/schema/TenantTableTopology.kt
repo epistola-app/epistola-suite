@@ -1,5 +1,6 @@
 package app.epistola.suite.tenantbackup.schema
 
+import app.epistola.suite.backup.TenantBackupTableContributor
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 
@@ -31,27 +32,38 @@ data class TenantTopology(
  * (the `tenants`↔`themes` cycle is broken here; the asset-blob set and the merge mechanics live in
  * the dump/restore services).
  *
- * Two explicit lists ([INCLUDE] / [DENY_TENANT_TABLES]) overlay discovery. A discovered
- * tenant-scoped table in **neither** list fails [resolve] loudly: a future migration that adds a
- * tenant-scoped table forces a conscious include/exclude decision. This is the drift guard that
- * keeps "auto-adapts to migrations" honest (asserted by `TenantTableTopologyDriftTest`).
+ * Each module classifies its own tenant tables as included/excluded via a
+ * [TenantBackupTableContributor] bean, which this topology aggregates over discovery. A discovered
+ * tenant-scoped table that **no** contributor classifies fails [resolve] loudly: a future migration
+ * that adds a tenant-scoped table forces a conscious include/exclude decision. This is the drift guard
+ * that keeps "auto-adapts to migrations" honest (asserted by `TenantTableTopologyDriftIntegrationTest`
+ * for the local context, and `TenantBackupClassificationAppTest` for the full app composition).
  */
 @Component
-class TenantTableTopology {
+class TenantTableTopology(
+    private val contributors: List<TenantBackupTableContributor> = emptyList(),
+) {
+    /** Every contributing module's included tenant tables (those backed up and merge-restored). */
+    fun includedTables(): Set<String> = contributors.flatMapTo(mutableSetOf()) { it.includedTables() }
+
+    /** Every contributing module's excluded tenant tables (never backed up or restored). */
+    fun excludedTables(): Set<String> = contributors.flatMapTo(mutableSetOf()) { it.excludedTables() }
+
     /**
      * Resolves the topology against the live schema. Throws if a tenant-scoped table is
      * unclassified (drift) or if the INCLUDE tables contain an FK cycle we do not special-case.
      */
     fun resolve(handle: Handle): TenantTopology {
         val tenantScoped = discoverTenantScopedTables(handle)
+        val include = includedTables()
 
-        val unclassified = tenantScoped - INCLUDE - DENY_TENANT_TABLES
+        val unclassified = tenantScoped - include - excludedTables()
         require(unclassified.isEmpty()) {
-            "Tenant-scoped table(s) ${unclassified.sorted()} are not classified for backup. Add each to " +
-                "TenantTableTopology.INCLUDE (backed up) or DENY_TENANT_TABLES (excluded). See docs/tenant-backup.md."
+            "Tenant-scoped table(s) ${unclassified.sorted()} are not classified for backup. The owning module " +
+                "must declare each via a TenantBackupTableContributor (included or excluded). See docs/tenant-backup.md."
         }
 
-        val present = INCLUDE.filter { tenantScoped.contains(it) || it == TENANTS }.toSet()
+        val present = include.filter { tenantScoped.contains(it) || it == TENANTS }.toSet()
         val columns = loadColumns(handle, present)
         val primaryKeys = loadPrimaryKeys(handle, present)
         val edges = loadForeignKeyEdges(handle, present)
@@ -179,69 +191,11 @@ class TenantTableTopology {
         /** The asset-blob key prefix in `content_store`; blobs are dumped/restored separately. */
         fun assetBlobPrefix(tenantKey: String): String = "assets/$tenantKey/"
 
-        // These two lists are the single hand-maintained source of truth for "what is in a backup" —
-        // a data-fidelity decision worth keeping auditable in one place. The drift test enforces that
-        // every tenant-scoped table is classified here, so a new table can't be silently omitted.
-        //
-        // A few entries (feedback*) belong to other feature modules; we reference them by name only
-        // (no compile dependency). That is fine while just one external module contributes tenant
-        // tables. When a SECOND one does, evolve this into a per-module contribution SPI — each module
-        // declares its own include/exclude and the topology aggregates them — mirroring the existing
-        // NavContributor / FooterContributor pattern. Premature until then; keep the explicit list.
-
-        /**
-         * Tenant-scoped tables that ARE backed up and merge-restored, in any order (FK order is
-         * derived at runtime). `tenants` is included but update-in-place (never deleted).
-         */
-        val INCLUDE: Set<String> =
-            setOf(
-                "tenants",
-                "catalogs",
-                "catalog_releases",
-                "themes",
-                "document_templates",
-                "template_variants",
-                "template_versions",
-                "contract_versions",
-                "stencils",
-                "stencil_versions",
-                "code_lists",
-                "code_list_entries",
-                "fonts",
-                "font_variants",
-                "assets",
-                "variant_attribute_definitions",
-                "environments",
-                "environment_activations",
-                "api_keys",
-                "feature_toggles",
-                "feedback",
-                "feedback_comments",
-                "feedback_assets",
-            )
-
-        /**
-         * Tenant-scoped tables that are deliberately NOT backed up and NEVER touched by restore —
-         * generated documents (regenerable), the append-only collect feed and its cursors (must
-         * survive and stay monotonic for external consumers), audit/runtime/membership tables.
-         */
-        val DENY_TENANT_TABLES: Set<String> =
-            setOf(
-                "documents",
-                "document_generation_requests",
-                "document_generation_batches",
-                "generation_results",
-                "consumer_partition_cursors",
-                "consumer_node_assignments",
-                "event_log",
-                "application_log",
-                "tenant_memberships",
-                "cluster_timers",
-                "cluster_tasks_scheduled",
-                "load_test_runs",
-                "feedback_sync_config",
-                // The local backup store itself — never back up the backups (would be recursive).
-                "tenant_backups",
-            )
+        // "What is in a backup" is a data-fidelity and security decision. It is declared **per module**
+        // via TenantBackupTableContributor beans — each module classifies its own tenant tables
+        // (included / excluded), and this topology only aggregates and FK-orders them. The drift guard
+        // ensures every discovered tenant table is classified by some contributor. Core's tables live in
+        // CoreBackupTables; this module's own tenant_backups in BackupsOwnTables; feature modules ship
+        // their own (epistola-audit, feedback, loadtest).
     }
 }

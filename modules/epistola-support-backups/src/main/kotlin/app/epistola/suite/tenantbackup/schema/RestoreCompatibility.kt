@@ -2,9 +2,8 @@ package app.epistola.suite.tenantbackup.schema
 
 import app.epistola.suite.tenantbackup.BackupMigration
 import org.jdbi.v3.core.Handle
-import org.springframework.core.io.ClassPathResource
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver
 import org.springframework.stereotype.Component
-import org.yaml.snakeyaml.Yaml
 
 /** Per-migration restore-compatibility flags. */
 data class CompatibilityFlags(
@@ -23,8 +22,17 @@ sealed interface Compatibility {
 
 /**
  * Decides whether a backup taken at schema `A` may be restored into the live schema `B`, from the
- * per-migration flags in `schema-backup-compatibility.yaml` (default deny). See the file's header for
- * the direction model. Two sources by direction:
+ * per-migration restore-compatibility flags declared as a **header in each migration `.sql` file**
+ * (default deny — a migration with no header is incompatible in both directions). The flags live with
+ * the migration that owns them, so a module ships them with its own migration files; the version is
+ * taken from the filename (`V<version>__…`), so it cannot drift from the migration. Header form:
+ *
+ * ```sql
+ * -- backup-restore-compatibility: backward=true forward=true
+ * -- reason: <why crossing this migration is safe for a restore>
+ * ```
+ *
+ * Two sources by direction:
  *  - **backward** (`B > A`): the live (newer) app reads the crossed migrations `(A, B]` from its own
  *    `flyway_schema_history` and this file.
  *  - **forward** (`B < A`): the live (older) app is blind to migrations newer than itself, so it reads
@@ -40,7 +48,7 @@ class RestoreCompatibility {
     /** The declared flags for a migration version, or `false,false` if unlisted (default deny). */
     fun flagsFor(version: String): CompatibilityFlags = flagsByVersion[version] ?: CompatibilityFlags(backward = false, forward = false)
 
-    /** All versions the file declares (for the existence-validation test). */
+    /** All migration versions that declare a compatibility header. */
     fun declaredVersions(): Set<String> = flagsByVersion.keys
 
     /**
@@ -118,18 +126,41 @@ class RestoreCompatibility {
         .mapTo(String::class.java)
         .list()
 
-    @Suppress("UNCHECKED_CAST")
+    /**
+     * Scans every migration `.sql` on the classpath for a `backup-restore-compatibility` header and
+     * maps the migration version (from the filename) to its flags. Migrations without the header are
+     * absent → default deny. `classpath*:` spans every module's migrations, so each module's flags are
+     * present exactly where its migration file is.
+     */
     private fun load(): Map<String, CompatibilityFlags> {
-        val resource = ClassPathResource(RESOURCE)
-        val root = resource.inputStream.use { Yaml().load<Map<String, Any?>>(it) } ?: return emptyMap()
-        val migrations = (root["migrations"] as? List<Map<String, Any?>>).orEmpty()
-        return migrations.associate { row ->
-            val version = row["version"]?.toString() ?: error("$RESOURCE entry is missing 'version'")
-            version to CompatibilityFlags(backward = row["backward"] == true, forward = row["forward"] == true)
+        val resources = PathMatchingResourcePatternResolver().getResources("classpath*:db/migration/**/*.sql")
+        val result = mutableMapOf<String, CompatibilityFlags>()
+        for (resource in resources) {
+            val version = resource.filename?.let { VERSION_IN_FILENAME.find(it)?.groupValues?.get(1) } ?: continue
+            val flags = resource.inputStream.use { parseHeader(it.readBytes().decodeToString()) } ?: continue
+            result[version] = flags
         }
+        return result
+    }
+
+    /** Reads the compatibility flags from a migration's leading comment header, or null if absent. */
+    private fun parseHeader(sql: String): CompatibilityFlags? {
+        val header = sql.lineSequence()
+            .takeWhile { it.isBlank() || it.trimStart().startsWith("--") }
+            .joinToString("\n")
+        val match = COMPATIBILITY_HEADER.find(header) ?: return null
+        return CompatibilityFlags(
+            backward = match.groupValues[1] == "true",
+            forward = match.groupValues[2] == "true",
+        )
     }
 
     private companion object {
-        const val RESOURCE = "schema-backup-compatibility.yaml"
+        /** `V20260622102813__core_audit_log.sql` → `20260622102813`. */
+        val VERSION_IN_FILENAME = Regex("^V(\\d+)__")
+
+        /** `-- backup-restore-compatibility: backward=true forward=false` */
+        val COMPATIBILITY_HEADER =
+            Regex("backup-restore-compatibility:\\s*backward=(true|false)\\s+forward=(true|false)")
     }
 }
