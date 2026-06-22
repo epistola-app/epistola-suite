@@ -22,6 +22,9 @@ import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.support.TransactionTemplate
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
@@ -52,16 +55,24 @@ private const val OPERATION_READ = "READ"
  * operation, the outcome, and — on failure — a machine-readable, non-PII error
  * code. No payload, no free text, so the table never holds personal information.
  *
- * Durability: each entry is written in its **own** JDBI handle (a separate
- * connection, independent of any handler transaction) so a failing command's
- * rollback cannot erase its FAILURE entry. Recording is best-effort and must
- * never affect the dispatch — failures are swallowed, counted, and logged,
- * mirroring [app.epistola.suite.mediator.EventLogSubscriber].
+ * Isolation: each entry is written inside a **`REQUIRES_NEW`** transaction
+ * ([auditTransaction]), so it runs on its **own** connection — the command's
+ * transaction is suspended for the duration and resumed afterwards. This is
+ * essential: the primary JDBI wraps `SpringConnectionFactory`, which joins the
+ * active transaction, so a failed audit write on that connection would abort the
+ * command (and, via nested dispatch, an outer command). A cross-cutting listener
+ * fires after the command's own transaction has already resolved, so there is no
+ * command transaction to be atomic with anyway — audit is deliberately
+ * best-effort: a separate write that records both success and failure (the latter
+ * survives the command's rollback, since its transaction is independent), with
+ * failures swallowed, counted, and logged. Mirrors the separate-from-the-command
+ * nature of [app.epistola.suite.mediator.EventLogSubscriber] (which runs AFTER_COMMIT).
  */
 @Component
 class AuditRecorder(
     private val jdbi: Jdbi,
     private val nodeIdentity: NodeIdentity,
+    transactionManager: PlatformTransactionManager,
     meterRegistry: MeterRegistry,
 ) : CommandListener,
     QueryListener {
@@ -69,6 +80,16 @@ class AuditRecorder(
     private val persistFailures = Counter.builder("epistola.auditlog.persist.failures")
         .description("Audit log persistence failures (audit trail gaps)")
         .register(meterRegistry)
+
+    /**
+     * Runs the audit write in its OWN transaction (`REQUIRES_NEW`): the command's transaction is
+     * suspended, the audit INSERT commits/rolls back independently, then the command's transaction is
+     * resumed — so a failed audit write can never affect the command. `audit_log` has no foreign keys,
+     * so these writes never contend with the command's locks.
+     */
+    private val auditTransaction = TransactionTemplate(transactionManager).apply {
+        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+    }
 
     /** Per-message-class cache of the `EntityId`-typed properties, in constructor order. */
     private val entityIdProps = ConcurrentHashMap<KClass<*>, List<KProperty1<Any, *>>>()
@@ -100,29 +121,32 @@ class AuditRecorder(
     ) {
         try {
             val entity = entityRef(message)
-            jdbi.useHandle<Exception> { handle ->
-                handle.createUpdate(
-                    """
-                    INSERT INTO audit_log
-                        (id, occurred_at, tenant_key, actor_user_id, action, operation,
-                         entity_type, entity_id, outcome, error_code, instance_id)
-                    VALUES
-                        (:id, :occurredAt, :tenantKey, :actorUserId, :action, :operation,
-                         :entityType, :entityId, :outcome, :errorCode, :instanceId)
-                    """,
-                )
-                    .bind("id", UUIDv7.generate())
-                    .bind("occurredAt", EpistolaClock.instant())
-                    .bind("tenantKey", tenantKeyOf(message))
-                    .bind("actorUserId", currentUserIdOrNull()?.value)
-                    .bind("action", message::class.simpleName ?: "Unknown")
-                    .bind("operation", operation)
-                    .bind("entityType", entity?.type)
-                    .bind("entityId", entity?.id)
-                    .bind("outcome", outcome.name)
-                    .bind("errorCode", errorCode(error))
-                    .bind("instanceId", nodeIdentity.nodeId)
-                    .execute()
+            // REQUIRES_NEW: suspend the command's transaction and write on a fresh, independent one.
+            auditTransaction.executeWithoutResult {
+                jdbi.useHandle<Exception> { handle ->
+                    handle.createUpdate(
+                        """
+                        INSERT INTO audit_log
+                            (id, occurred_at, tenant_key, actor_user_id, action, operation,
+                             entity_type, entity_id, outcome, error_code, instance_id)
+                        VALUES
+                            (:id, :occurredAt, :tenantKey, :actorUserId, :action, :operation,
+                             :entityType, :entityId, :outcome, :errorCode, :instanceId)
+                        """,
+                    )
+                        .bind("id", UUIDv7.generate())
+                        .bind("occurredAt", EpistolaClock.instant())
+                        .bind("tenantKey", tenantKeyOf(message))
+                        .bind("actorUserId", currentUserIdOrNull()?.value)
+                        .bind("action", message::class.simpleName ?: "Unknown")
+                        .bind("operation", operation)
+                        .bind("entityType", entity?.type)
+                        .bind("entityId", entity?.id)
+                        .bind("outcome", outcome.name)
+                        .bind("errorCode", errorCode(error))
+                        .bind("instanceId", nodeIdentity.nodeId)
+                        .execute()
+                }
             }
         } catch (e: Exception) {
             persistFailures.increment()

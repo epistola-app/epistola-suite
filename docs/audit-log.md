@@ -69,11 +69,20 @@ and the `CommandCompleted` event both fire on success only, and the latter rolls
 back with the command). Listeners are isolated — one that throws is logged and
 skipped, affecting neither the dispatch nor the other listeners.
 
-Each entry is written in its **own** JDBI handle (a separate connection,
-independent of any handler transaction), so a failing command's rollback cannot
-erase its FAILURE entry. Recording is best-effort: it never throws, and
+Each entry is written in its **own `REQUIRES_NEW` transaction** — the command's
+transaction is suspended, the audit row commits (or rolls back) on an independent
+connection, then the command's transaction resumes. This is essential: the
+primary JDBI is transaction-aware (`SpringConnectionFactory`), so writing on it
+would join the command's transaction and a failed audit write would **abort the
+command** (and, via nested dispatch, an outer command). Isolating it means a
+failing command's rollback can't erase its FAILURE entry, and an audit-write
+failure can't affect the command. Recording is best-effort: it never throws, and
 persistence failures are counted (`epistola.auditlog.persist.failures`) and
-logged, mirroring `EventLogSubscriber`.
+logged, mirroring `EventLogSubscriber`. (A cross-cutting listener fires after the
+command's own transaction has already resolved, so there is no command
+transaction to be atomic with — best-effort is the coherent model here; strict
+atomicity would require a different mechanism such as DB triggers, which can't
+record failures.)
 
 Routing audit through the `CommandListener` / `QueryListener` SPIs (rather than a
 hardcoded call) keeps the mediator unaware of "audit" specifically and is the seam
