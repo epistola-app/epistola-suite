@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(catalog): **Catalog exchange protocol is versioned and append-only (stability contract).** Documented the 1.0 stability guarantee for the catalog wire format: it is a single catalog-wide `schemaVersion` (currently `4`), and from 1.0 onward it is append-only — additive (optional-field) changes stay within a version, while any non-round-trip-compatible change bumps the version and ships a forward [migration step](docs/adr/0007-catalog-wire-format-migrations.md) (the migration chain is the compatibility mechanism; there is no per-change shim to write). A new [`docs/exchange/stability.md`](docs/exchange/stability.md) states what a consumer can rely on across Epistola versions and exactly what counts as additive vs. breaking; the per-field shape of each part already lives under [`docs/exchange/v4/`](docs/exchange/v4/). No code or wire change — documentation only.
+
 ## [0.25.0] - 2026-06-22
 
 This release restructures authorization into descriptive, least-privilege roles and scopes each API key to exactly the roles it needs, adds a `/profile` page for inspecting your identity and decoded OIDC token claims, and makes Support → Backups faithful, full-fidelity tenant snapshots that preserve the complete version history. It also adds Alpha/Beta feature-maturity markers, names the missing permission in `403` errors, and restores several UI icons that rendered blank. **Breaking:** an identity provider must rename its group/role names to the new kebab-case names (e.g. `content-viewer`, `tenant-administrator`) — a one-time, IdP-side step.
