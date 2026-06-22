@@ -1,23 +1,35 @@
 package app.epistola.suite.catalog.migrations
 
 import org.springframework.stereotype.Component
+import tools.jackson.databind.node.ObjectNode
 
 /**
  * Catalog wire schema **v2 → v3**.
  *
- * This boundary was **purely additive** (epistola-model 0.4.0): v3 introduced
- * `CodeListResource`, `DependencyRef.CodeList`, and the optional
+ * The boundary itself was **purely additive** (epistola-model 0.4.0): v3
+ * introduced `CodeListResource`, `DependencyRef.CodeList`, and the optional
  * `AttributeResource.codeListBinding`. Nothing was renamed, restructured, or made
- * required — a v2 attribute keeps its inline `allowedValues` (still a valid v3
- * shape) and simply lacks `codeListBinding`, which binds as `null`. So every
- * method here is **identity**: the step exists only to extend the supported
- * baseline down to 2, letting a v2 catalog import (it then flows on through the
- * `3 → 4` step). Converting inline `allowedValues` into a `codeListBinding` would
- * be data loss, not a migration.
+ * required — a v2 attribute keeps its inline `allowedValues` and simply lacks
+ * `codeListBinding`, which binds as `null` — so no content reshape is required to
+ * bind a v2 payload. Converting inline `allowedValues` into a `codeListBinding`
+ * would be data loss, not a migration, so it is not done.
+ *
+ * Beyond that, this step appends a visible **"migratie naar versie 3"** text
+ * block to every template on import (see [injectTemplateNotice]) — a marker that
+ * the migration ran. Non-template resources pass through unchanged.
  *
  * See `docs/adr/0006-catalog-wire-format-migrations.md`.
  */
 @Component
 class CatalogSchemaMigrationV2ToV3 : CatalogSchemaMigration {
     override val from = 2
+
+    override fun migrateResourceDetail(type: String, detail: ObjectNode, ctx: MigrationContext): ObjectNode {
+        injectTemplateNotice(detail, nodeId = NOTICE_NODE_ID, text = "migratie naar versie 3")
+        return detail
+    }
+
+    private companion object {
+        const val NOTICE_NODE_ID = "n-migration-notice-v3"
+    }
 }

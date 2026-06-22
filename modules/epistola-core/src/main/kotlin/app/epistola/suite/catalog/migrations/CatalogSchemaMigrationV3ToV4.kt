@@ -18,6 +18,10 @@ import tools.jackson.databind.node.ObjectNode
  * version is the relational `stencil_versions.id`, not part of the content blob —
  * so [migrateContentBlob] stays identity too.
  *
+ * It also appends a visible **"migratie naar versie 4"** text block to every
+ * template on import (see [injectTemplateNotice]) — a marker that the migration
+ * ran.
+ *
  * See `docs/adr/0007-at-rest-resource-migration.md`.
  */
 @Component
@@ -25,13 +29,17 @@ class CatalogSchemaMigrationV3ToV4 : CatalogSchemaMigration {
     override val from = 3
 
     override fun migrateResourceDetail(type: String, detail: ObjectNode, ctx: MigrationContext): ObjectNode {
-        if (type != "stencil") return detail
-        val resource = detail.get("resource") as? ObjectNode ?: return detail
-        if (!resource.has("version")) resource.put("version", DEFAULT_STENCIL_VERSION)
+        if (type == "stencil") {
+            (detail.get("resource") as? ObjectNode)?.let { resource ->
+                if (!resource.has("version")) resource.put("version", DEFAULT_STENCIL_VERSION)
+            }
+        }
+        injectTemplateNotice(detail, nodeId = NOTICE_NODE_ID, text = "migratie naar versie 4")
         return detail
     }
 
     private companion object {
         const val DEFAULT_STENCIL_VERSION = 1
+        const val NOTICE_NODE_ID = "n-migration-notice-v4"
     }
 }

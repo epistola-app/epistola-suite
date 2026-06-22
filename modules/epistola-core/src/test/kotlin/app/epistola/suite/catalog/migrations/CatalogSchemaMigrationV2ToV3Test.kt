@@ -48,4 +48,20 @@ class CatalogSchemaMigrationV2ToV3Test {
         assertThat(out.path("resource").has("codeListBinding")).isFalse()
         assertThat(out.path("schemaVersion").asInt()).isEqualTo(3)
     }
+
+    @Test
+    fun `appends a version-3 notice text block to templates`() {
+        val out = step.migrateResourceDetail(
+            "template",
+            detail(
+                """{"schemaVersion":2,"resource":{"type":"template","slug":"t","name":"T","templateModel":{"root":"r","nodes":{"r":{"id":"r","type":"root","slots":["s"]}},"slots":{"s":{"id":"s","nodeId":"r","name":"children","children":[]}}},"variants":[]}}""",
+            ),
+            ctx,
+        )
+        val model = out.path("resource").path("templateModel")
+        assertThat(model.path("slots").path("s").path("children").path(0).asString()).isEqualTo("n-migration-notice-v3")
+        val noticeText = model.path("nodes").path("n-migration-notice-v3")
+            .path("props").path("content").path("content").path(0).path("content").path(0).path("text").asString()
+        assertThat(noticeText).isEqualTo("migratie naar versie 3")
+    }
 }
