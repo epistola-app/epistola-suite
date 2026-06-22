@@ -1,5 +1,6 @@
 package app.epistola.suite.tenantbackup
 
+import app.epistola.suite.backup.TenantBackupTableContributor
 import app.epistola.suite.tenantbackup.schema.TenantTableTopology
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -53,6 +54,27 @@ class TenantTableTopologyDriftIntegrationTest : IntegrationTestBase() {
             } finally {
                 handle.rollback()
             }
+        }
+    }
+
+    @Test
+    fun `a table classified both included and excluded fails resolve`() {
+        // A contributor conflict (two beans disagreeing, or one listing a table twice) must fail rather
+        // than silently back up something meant to be excluded.
+        val conflicting = TenantTableTopology(
+            listOf(
+                object : TenantBackupTableContributor {
+                    override fun includedTables() = setOf("conflicted_table")
+                },
+                object : TenantBackupTableContributor {
+                    override fun excludedTables() = setOf("conflicted_table")
+                },
+            ),
+        )
+        jdbi.useHandle<Exception> { handle ->
+            assertThatThrownBy { conflicting.resolve(handle) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("both included and excluded")
         }
     }
 }

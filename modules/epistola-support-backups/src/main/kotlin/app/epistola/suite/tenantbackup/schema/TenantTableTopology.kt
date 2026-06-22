@@ -56,8 +56,17 @@ class TenantTableTopology(
     fun resolve(handle: Handle): TenantTopology {
         val tenantScoped = discoverTenantScopedTables(handle)
         val include = includedTables()
+        val exclude = excludedTables()
 
-        val unclassified = tenantScoped - include - excludedTables()
+        // A table declared both included and excluded (a contributor conflict, or one bean listing it
+        // twice) would silently back up something meant to be excluded — fail instead of guessing.
+        val conflicting = include intersect exclude
+        require(conflicting.isEmpty()) {
+            "Tenant table(s) ${conflicting.sorted()} are declared both included and excluded by " +
+                "TenantBackupTableContributor beans. Each table must be classified exactly once."
+        }
+
+        val unclassified = tenantScoped - include - exclude
         require(unclassified.isEmpty()) {
             "Tenant-scoped table(s) ${unclassified.sorted()} are not classified for backup. The owning module " +
                 "must declare each via a TenantBackupTableContributor (included or excluded). See docs/tenant-backup.md."

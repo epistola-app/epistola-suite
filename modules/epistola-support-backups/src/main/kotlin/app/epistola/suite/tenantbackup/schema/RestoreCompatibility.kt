@@ -136,31 +136,51 @@ class RestoreCompatibility {
         val resources = PathMatchingResourcePatternResolver().getResources("classpath*:db/migration/**/*.sql")
         val result = mutableMapOf<String, CompatibilityFlags>()
         for (resource in resources) {
-            val version = resource.filename?.let { VERSION_IN_FILENAME.find(it)?.groupValues?.get(1) } ?: continue
-            val flags = resource.inputStream.use { parseHeader(it.readBytes().decodeToString()) } ?: continue
+            val version = resource.filename?.let { versionOf(it) } ?: continue
+            val flags = resource.inputStream.use {
+                try {
+                    parseCompatibilityHeader(it.readBytes().decodeToString())
+                } catch (e: IllegalArgumentException) {
+                    throw IllegalStateException("Invalid backup-restore-compatibility header in ${resource.filename}: ${e.message}", e)
+                }
+            } ?: continue
             result[version] = flags
         }
         return result
     }
 
-    /** Reads the compatibility flags from a migration's leading comment header, or null if absent. */
-    private fun parseHeader(sql: String): CompatibilityFlags? {
-        val header = sql.lineSequence()
-            .takeWhile { it.isBlank() || it.trimStart().startsWith("--") }
-            .joinToString("\n")
-        val match = COMPATIBILITY_HEADER.find(header) ?: return null
-        return CompatibilityFlags(
-            backward = match.groupValues[1] == "true",
-            forward = match.groupValues[2] == "true",
-        )
-    }
+    companion object {
+        /** `V20260622102813__core_audit_log.sql` → `20260622102813`; null for non-versioned (e.g. repeatable) migrations. */
+        internal fun versionOf(filename: String): String? = VERSION_IN_FILENAME.find(filename)?.groupValues?.get(1)
 
-    private companion object {
+        /**
+         * Reads the compatibility flags from a migration's leading comment header. Returns null when no
+         * header is present (→ default deny). **Throws** when a header line *is* present but doesn't
+         * parse, so a typo (`backward = true`, a missing flag, …) fails loudly at startup instead of
+         * silently defaulting to "incompatible" and blocking restores.
+         */
+        internal fun parseCompatibilityHeader(sql: String): CompatibilityFlags? {
+            val directiveLine = sql.lineSequence()
+                .takeWhile { it.isBlank() || it.trimStart().startsWith("--") }
+                .firstOrNull { it.contains(DIRECTIVE_TOKEN) }
+                ?: return null
+            val match = COMPATIBILITY_HEADER.find(directiveLine)
+                ?: throw IllegalArgumentException(
+                    "\"${directiveLine.trim()}\" — expected `-- $DIRECTIVE_TOKEN: backward=<true|false> forward=<true|false>`",
+                )
+            return CompatibilityFlags(
+                backward = match.groupValues[1] == "true",
+                forward = match.groupValues[2] == "true",
+            )
+        }
+
         /** `V20260622102813__core_audit_log.sql` → `20260622102813`. */
-        val VERSION_IN_FILENAME = Regex("^V(\\d+)__")
+        private val VERSION_IN_FILENAME = Regex("^V(\\d+)__")
+
+        private const val DIRECTIVE_TOKEN = "backup-restore-compatibility"
 
         /** `-- backup-restore-compatibility: backward=true forward=false` */
-        val COMPATIBILITY_HEADER =
-            Regex("backup-restore-compatibility:\\s*backward=(true|false)\\s+forward=(true|false)")
+        private val COMPATIBILITY_HEADER =
+            Regex("$DIRECTIVE_TOKEN:\\s*backward=(true|false)\\s+forward=(true|false)")
     }
 }
