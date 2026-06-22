@@ -8,6 +8,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.core.type.TypeReference
+import tools.jackson.databind.ObjectMapper
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -64,7 +66,10 @@ data class ListAuditEntries(
 @Component
 class ListAuditEntriesHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: ObjectMapper,
 ) : QueryHandler<ListAuditEntries, List<AuditEntry>> {
+
+    private val detailsType = object : TypeReference<Map<String, String>>() {}
 
     override fun handle(query: ListAuditEntries): List<AuditEntry> = jdbi.withHandle<List<AuditEntry>, Exception> { handle ->
         val ascending = query.direction == AuditPageDirection.NEWER
@@ -72,7 +77,7 @@ class ListAuditEntriesHandler(
         val sql = StringBuilder(
             """
             SELECT a.id, a.occurred_at, a.tenant_key, a.actor_user_id, u.display_name AS actor_display_name,
-                   a.action, a.operation, a.entity_type, a.entity_id, a.outcome, a.error_code, a.instance_id
+                   a.action, a.operation, a.entity_type, a.entity_id, a.outcome, a.error_code, a.details, a.instance_id
             FROM audit_log a
             LEFT JOIN users u ON u.id = a.actor_user_id
             WHERE (a.tenant_key = :tenantId OR a.tenant_key IS NULL)
@@ -126,6 +131,7 @@ class ListAuditEntriesHandler(
                 entityId = rs.getString("entity_id"),
                 outcome = rs.getString("outcome"),
                 errorCode = rs.getString("error_code"),
+                details = rs.getString("details")?.let { objectMapper.readValue(it, detailsType) } ?: emptyMap(),
                 instanceId = rs.getString("instance_id"),
             )
         }.list()

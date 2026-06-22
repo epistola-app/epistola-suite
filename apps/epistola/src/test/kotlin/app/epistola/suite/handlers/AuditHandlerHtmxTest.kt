@@ -137,6 +137,17 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `author-supplied details render as key value chips`() {
+        val tenantKey = seedAudit()
+
+        val response = get("/tenants/$tenantKey/audit?$WINDOW")
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        // The RestoreTenantBackup row carries {"backupId": "..."} as a chip.
+        assertThat(response.body).contains("backupId: 0193-restore-me")
+    }
+
+    @Test
     fun `an empty result renders the empty state`() {
         val tenantKey = seedAudit()
         val response = getHtmx("/tenants/$tenantKey/audit/search?action=NoSuchActionEver&$WINDOW")
@@ -163,6 +174,8 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
         insert(tenantKey, testUser.userId.value, "GetDocument", "READ", "SUCCESS", null, base.plusSeconds(15)) // audited data-access read
         // A typed entity (variant) — the viewer should render a readable label + a link to the template.
         insert(tenantKey, testUser.userId.value, "UpdateDraft", "WRITE", "SUCCESS", null, base.plusSeconds(12), entityType = "variant", entityId = "demo/default/invoice/nl")
+        // Author-supplied key/values render as chips.
+        insert(tenantKey, testUser.userId.value, "RestoreTenantBackup", "WRITE", "SUCCESS", null, base.plusSeconds(11), details = """{"backupId":"0193-restore-me"}""")
         insert(null, null, "UpgradeCatalog", "WRITE", "SUCCESS", null, base.plusSeconds(10)) // system / no-tenant row
         return tenantKey
     }
@@ -177,14 +190,15 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
         occurredAt: OffsetDateTime,
         entityType: String? = null,
         entityId: String? = null,
+        details: String? = null,
     ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 INSERT INTO audit_log
-                    (id, occurred_at, tenant_key, actor_user_id, action, operation, entity_type, entity_id, outcome, error_code, instance_id)
+                    (id, occurred_at, tenant_key, actor_user_id, action, operation, entity_type, entity_id, outcome, error_code, details, instance_id)
                 VALUES
-                    (:id, :occurredAt, :tenantKey, :actorUserId, :action, :operation, :entityType, :entityId, :outcome, :errorCode, 'test-instance')
+                    (:id, :occurredAt, :tenantKey, :actorUserId, :action, :operation, :entityType, :entityId, :outcome, :errorCode, :details::jsonb, 'test-instance')
                 """,
             )
                 .bind("id", UUIDv7.generate())
@@ -197,6 +211,7 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
                 .bind("entityId", entityId)
                 .bind("outcome", outcome)
                 .bind("errorCode", errorCode)
+                .bind("details", details)
                 .execute()
         }
     }

@@ -35,6 +35,7 @@ CREATE TABLE audit_log (
     entity_id     VARCHAR(255),                     -- EntityIdentifiable.entityId, when applicable (nullable)
     outcome       VARCHAR(16)  NOT NULL,            -- 'SUCCESS' | 'FAILURE'
     error_code    VARCHAR(255),                     -- non-PII: ValidationCode name or exception class simpleName. NULL on success. NEVER the exception message.
+    details       JSONB,                            -- optional, author-supplied PII-free key/values (AuditDetailed), e.g. {"backupId": "..."}
     instance_id   TEXT,                             -- NodeIdentity.nodeId that recorded the entry
     PRIMARY KEY (occurred_at, id),                  -- partition key must be part of the PK; also serves the keyset (occurred_at, id) cursor
     CONSTRAINT audit_log_outcome_check CHECK (outcome IN ('SUCCESS', 'FAILURE')),
@@ -62,4 +63,5 @@ COMMENT ON COLUMN audit_log.entity_type IS 'Type of the entity the command acted
 COMMENT ON COLUMN audit_log.entity_id IS 'Identifier of the entity the command acted on (EntityIdentifiable.entityId), when applicable.';
 COMMENT ON COLUMN audit_log.outcome IS 'SUCCESS if the handler returned, FAILURE if it threw.';
 COMMENT ON COLUMN audit_log.error_code IS 'Machine-readable, PII-free failure code (ValidationCode name or exception class simple name). NULL on success. Never the exception message.';
+COMMENT ON COLUMN audit_log.details IS 'Optional, author-supplied PII-free key/value details (AuditDetailed), e.g. the restored backup id. The only free-form field; never a payload dump.';
 COMMENT ON COLUMN audit_log.instance_id IS 'Application instance (NodeIdentity.nodeId) that recorded the entry.';

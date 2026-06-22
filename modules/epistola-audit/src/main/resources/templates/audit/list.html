@@ -16,6 +16,8 @@
             .audit-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
             .audit-action { font-weight: 600; }
             .audit-read-tag { font-size: var(--ep-text-xs, 0.7rem); color: var(--ep-color-info, #2563eb); border: 1px solid currentColor; border-radius: 3px; padding: 0 0.25rem; margin-left: 0.25rem; vertical-align: middle; }
+            .audit-details { margin-top: 0.15rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+            .audit-detail { font-size: var(--ep-text-xs, 0.7rem); color: var(--ep-text-muted-color, #6b7280); background: var(--ep-color-surface-2, #f3f4f6); border-radius: 3px; padding: 0 0.3rem; white-space: nowrap; }
             .audit-entity { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
             .audit-outcome-SUCCESS { color: var(--ep-color-success, #15803d); }
             .audit-outcome-FAILURE { color: var(--ep-color-danger, #c0392b); font-weight: 600; }
@@ -172,6 +174,10 @@
             <td>
                 <span class="audit-action" th:text="${entry.action}">CreateTheme</span>
                 <span th:if="${entry.isRead}" class="audit-read-tag" title="Data access (read)">read</span>
+                <div th:unless="${entry.details.isEmpty()}" class="audit-details">
+                    <span th:each="d : ${entry.details}" class="audit-detail"
+                          th:text="${d.key} + ': ' + ${d.value}">key: value</span>
+                </div>
             </td>
             <td th:text="${entry.actorLabel}" th:title="${entry.actorUserId}">actor</td>
             <td class="audit-entity" th:with="link=${@auditEntityLinks.resolve(entry)}" th:title="${entry.entityId}">

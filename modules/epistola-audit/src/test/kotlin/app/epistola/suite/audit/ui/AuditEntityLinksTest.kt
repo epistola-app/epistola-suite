@@ -25,6 +25,7 @@ class AuditEntityLinksTest {
         entityId = id,
         outcome = "SUCCESS",
         errorCode = null,
+        details = emptyMap(),
         instanceId = null,
     )
 

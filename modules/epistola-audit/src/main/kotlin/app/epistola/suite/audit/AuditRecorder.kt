@@ -1,5 +1,6 @@
 package app.epistola.suite.audit
 
+import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.AuditedRead
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.NotAudited
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
+import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
@@ -72,6 +74,7 @@ private const val OPERATION_READ = "READ"
 class AuditRecorder(
     private val jdbi: Jdbi,
     private val nodeIdentity: NodeIdentity,
+    private val objectMapper: ObjectMapper,
     transactionManager: PlatformTransactionManager,
     meterRegistry: MeterRegistry,
 ) : CommandListener,
@@ -121,6 +124,7 @@ class AuditRecorder(
     ) {
         try {
             val entity = entityRef(message)
+            val detailsJson = detailsOf(message)
             // REQUIRES_NEW: suspend the command's transaction and write on a fresh, independent one.
             auditTransaction.executeWithoutResult {
                 jdbi.useHandle<Exception> { handle ->
@@ -128,10 +132,10 @@ class AuditRecorder(
                         """
                         INSERT INTO audit_log
                             (id, occurred_at, tenant_key, actor_user_id, action, operation,
-                             entity_type, entity_id, outcome, error_code, instance_id)
+                             entity_type, entity_id, outcome, error_code, details, instance_id)
                         VALUES
                             (:id, :occurredAt, :tenantKey, :actorUserId, :action, :operation,
-                             :entityType, :entityId, :outcome, :errorCode, :instanceId)
+                             :entityType, :entityId, :outcome, :errorCode, :details::jsonb, :instanceId)
                         """,
                     )
                         .bind("id", UUIDv7.generate())
@@ -144,6 +148,7 @@ class AuditRecorder(
                         .bind("entityId", entity?.id)
                         .bind("outcome", outcome.name)
                         .bind("errorCode", errorCode(error))
+                        .bind("details", detailsJson)
                         .bind("instanceId", nodeIdentity.nodeId)
                         .execute()
                 }
@@ -204,6 +209,15 @@ class AuditRecorder(
                 .map { it as KProperty1<Any, *> }
         }
         return props.firstNotNullOfOrNull { it.get(message) as? EntityIdBase }
+    }
+
+    /**
+     * The command/query's opt-in [AuditDetailed] key/values, serialized to JSON, or null when absent
+     * or empty. Guarded so a misbehaving `auditDetails` can't drop the whole entry.
+     */
+    private fun detailsOf(message: Any): String? {
+        val details = (message as? AuditDetailed)?.let { runCatching { it.auditDetails }.getOrNull() }
+        return details?.takeIf { it.isNotEmpty() }?.let { objectMapper.writeValueAsString(it) }
     }
 
     /**

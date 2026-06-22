@@ -35,11 +35,16 @@ names, …) into a JSONB payload. The audit log stores none of that.
 | `entity_id`     | reference to the entity acted on (the typed id's path segments, or `EntityIdentifiable.entityId`) |
 | `outcome`       | `SUCCESS` or `FAILURE`                                                                            |
 | `error_code`    | on failure: `ValidationCode` name or exception class — **never the message**                      |
+| `details`       | optional, author-supplied PII-free key/values (`AuditDetailed`), e.g. `{"backupId": "…"}` (JSONB) |
 | `instance_id`   | `NodeIdentity.nodeId` that recorded the entry                                                     |
 
-There is **no payload and no free text**, so a command field value can never
-leak into the table (enforced by a test). `error_code` is a machine code, not a
-message, because messages can echo user input.
+There is **no payload dump**, so a command field value can never auto-leak into
+the table (enforced by a test). `error_code` is a machine code (not the message,
+which can echo user input). The only author-supplied field is `details` — an
+opt-in key/value map a command provides via [`AuditDetailed`] (e.g.
+`RestoreTenantBackup` → `{"backupId": "…"}`), with the **same PII-free contract as
+`error_code`**: keys/values must be identifiers, counts and fixed phrasing, never
+names/emails/free user input. It renders as chips in the viewer.
 
 **Tenant and entity are derived generically**, so a command/query needn't opt in:
 `tenant_key` comes from `TenantScoped.tenantId` _or_ `RequiresPermission.tenantKey`
@@ -162,9 +167,9 @@ nav contributor, and the partition/backup table contributors). Only the **contra
 stays in `epistola-core`, because core domain types depend on it:
 
 - the `CommandListener` / `QueryListener` SPIs (the mediator owns them),
-- the `NotAudited` / `AuditedRead` markers (in `app.epistola.suite.common`, applied
-  by core commands/queries — they can't live in the module without a dependency
-  cycle), and
+- the `NotAudited` / `AuditedRead` / `AuditDetailed` markers (in
+  `app.epistola.suite.common`, applied by core/feature commands/queries — they
+  can't live in the module without a dependency cycle), and
 - the `AUDIT_VIEW` permission (a closed enum in core).
 
 The module depends on core + `epistola-web`; the host app depends on the module so

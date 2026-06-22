@@ -1,11 +1,14 @@
 package app.epistola.suite.audit
 
+import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.AuditedRead
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.mediator.Command
+import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.execute
@@ -90,6 +93,21 @@ class AuditRecorderIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `AuditDetailed key-values are stored in the details column`() {
+        val tenant = createTenant("Audit Details")
+        val tenantKey = tenant.id.value
+
+        withMediator {
+            DetailedTestCommand(tenant.id).execute()
+        }
+
+        val row = latestRow(tenantKey, "DetailedTestCommand")
+        assertThat(row).isNotNull
+        assertThat(row!!.details).isNotNull()
+        assertThat(row.details).contains("\"backupId\"", "0193-abc", "\"rows\"", "42")
+    }
+
+    @Test
     fun `tenant and entity are captured for permission-gated commands carrying a typed id`() {
         val tenant = createTenant("Audit Entity")
         val tenantKey = tenant.id.value
@@ -152,7 +170,7 @@ class AuditRecorderIT : IntegrationTestBase() {
                 SELECT count(*) FROM audit_log
                 WHERE tenant_key = :tenantKey
                   AND (action ILIKE :m OR entity_type ILIKE :m OR entity_id ILIKE :m
-                       OR error_code ILIKE :m OR instance_id ILIKE :m)
+                       OR error_code ILIKE :m OR instance_id ILIKE :m OR details::text ILIKE :m)
                 """,
             )
                 .bind("tenantKey", tenantKey)
@@ -184,13 +202,14 @@ class AuditRecorderIT : IntegrationTestBase() {
         val entityType: String?,
         val entityId: String?,
         val errorCode: String?,
+        val details: String?,
         val instanceId: String?,
     )
 
     private fun latestRow(tenantKey: String, action: String): Row? = jdbi.withHandle<Row?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT outcome, operation, actor_user_id, entity_type, entity_id, error_code, instance_id
+            SELECT outcome, operation, actor_user_id, entity_type, entity_id, error_code, details::text AS details, instance_id
             FROM audit_log
             WHERE tenant_key = :tenantKey AND action = :action
             ORDER BY occurred_at DESC, id DESC
@@ -207,6 +226,7 @@ class AuditRecorderIT : IntegrationTestBase() {
                     entityType = rs.getString("entity_type"),
                     entityId = rs.getString("entity_id"),
                     errorCode = rs.getString("error_code"),
+                    details = rs.getString("details"),
                     instanceId = rs.getString("instance_id"),
                 )
             }
@@ -219,6 +239,20 @@ class AuditRecorderIT : IntegrationTestBase() {
             .bind("action", action)
             .mapTo(Int::class.java)
             .one()
+    }
+
+    /** A tenant-scoped command carrying [AuditDetailed] key/values — they should land in `details`. */
+    data class DetailedTestCommand(val tenantId: TenantKey) :
+        Command<String>,
+        RequiresPermission,
+        AuditDetailed {
+        override val permission get() = Permission.TENANT_SETTINGS
+        override val tenantKey get() = tenantId
+        override val auditDetails get() = mapOf("backupId" to "0193-abc", "rows" to "42")
+    }
+
+    class DetailedTestCommandHandler : CommandHandler<DetailedTestCommand, String> {
+        override fun handle(command: DetailedTestCommand): String = "ok"
     }
 
     /** A tenant-scoped read marked [AuditedRead] — should produce a READ audit row. */
@@ -253,5 +287,8 @@ class AuditRecorderIT : IntegrationTestBase() {
 
         @Bean
         fun plainTestReadHandler() = PlainTestReadHandler()
+
+        @Bean
+        fun detailedTestCommandHandler() = DetailedTestCommandHandler()
     }
 }

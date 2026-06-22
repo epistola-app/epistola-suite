@@ -25,6 +25,7 @@ data class AuditEntry(
     val entityId: String?,
     val outcome: String,
     val errorCode: String?,
+    val details: Map<String, String>,
     val instanceId: String?,
 ) {
     /** True for system/root rows that carry no tenant. */

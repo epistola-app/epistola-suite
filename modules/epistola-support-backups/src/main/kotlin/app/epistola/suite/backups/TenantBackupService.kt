@@ -149,7 +149,7 @@ class TenantBackupService(
         val bytes =
             store.load(tenantKey, backupId)
                 ?: throw IllegalArgumentException("No backup '$backupId' for tenant '${tenantKey.value}'")
-        val result = RestoreTenantBackup(tenantKey, bytes).execute()
+        val result = RestoreTenantBackup(tenantKey, bytes, backupId = backupId).execute()
         appMetadata.setAs(metadataKey(tenantKey), LastBackup("", backupId, EpistolaClock.instant().toEpochMilli()))
         log.info("Restored tenant {} from backup {} ({} rows)", tenantKey.value, backupId, result.rowsRestored)
         return result
