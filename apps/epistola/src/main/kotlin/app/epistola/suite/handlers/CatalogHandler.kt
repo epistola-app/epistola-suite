@@ -23,6 +23,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CatalogSchemaSyncState
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
@@ -272,9 +273,17 @@ class CatalogHandler {
             catalog.sourceUrl == null -> model["state"] = "ZIP_MANAGED"
             else -> try {
                 val a = CheckCatalogUpgrade(tenantId.key, catalogKey).query()
-                model["state"] = if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
                 model["installedVersion"] = a.installedVersion
                 model["availableVersion"] = a.availableVersion
+                model["sourceSchemaVersion"] = a.sourceSchemaVersion
+                model["currentSchemaVersion"] = a.currentSchemaVersion
+                // A schema mismatch (source must republish, or this Epistola is
+                // behind) takes priority over the release-version upgrade state.
+                model["state"] = when (a.schemaSyncState) {
+                    CatalogSchemaSyncState.SOURCE_BEHIND -> "NOT_IN_SYNC"
+                    CatalogSchemaSyncState.SOURCE_AHEAD -> "SOURCE_AHEAD"
+                    CatalogSchemaSyncState.IN_SYNC -> if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
+                }
             } catch (e: Exception) {
                 logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
                 model["state"] = "CHECK_FAILED"

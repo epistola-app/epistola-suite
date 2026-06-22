@@ -17,6 +17,7 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import java.nio.file.Files
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
@@ -179,6 +180,42 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Up to date")
             assertThat(response.body).doesNotContain("Update →")
+        }
+    }
+
+    @Test
+    fun `upgrade-check reports out of sync when the source schema is older than this Epistola`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Upgrade Check Out Of Sync")
+            // A subscribed source that publishes at an older catalog schema
+            // version than this Epistola — the source must republish.
+            val dir = Files.createTempDirectory("oos-catalog")
+            val manifest = dir.resolve("catalog.json")
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":2,"catalog":{"slug":"old-source","name":"Old Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
+            )
+            withMediator {
+                RegisterCatalog(testTenant.id, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/old-source/upgrade-check",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("out of sync")
+            assertThat(response.body).doesNotContain("Up to date")
         }
     }
 

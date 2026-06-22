@@ -464,9 +464,12 @@
          cell's #catver-<id> span. Explicit/user-driven: the row's
          "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which
          returns this fragment swapped into that cell. `state` ∈ UNCHECKED |
-         UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED. Up to date
-         is green; an available update is grey + the new version, which is the
-         clickable entry to the Review dialog. CSP-safe (hx-get only). -->
+         UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED |
+         NOT_IN_SYNC | SOURCE_AHEAD. Up to date is green; an available update is
+         grey + the new version, which is the clickable entry to the Review
+         dialog. NOT_IN_SYNC (amber) means the source publishes an older catalog
+         schema version than this Epistola and must republish it. CSP-safe
+         (hx-get only). -->
     <th:block th:fragment="version-status" th:switch="${state}">
 
         <span th:case="'UNCHECKED'"
@@ -496,6 +499,19 @@
         <span th:case="'CHECK_FAILED'" title="Could not reach the source — try again later">
             <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
             <span class="text-muted" style="font-size: var(--ep-text-xs);">· check failed</span>
+        </span>
+
+        <span th:case="'NOT_IN_SYNC'"
+              style="color: var(--ep-amber-700); font-weight: 500;"
+              th:title="${'Out of sync — the source publishes catalog schema v' + sourceSchemaVersion + ', this Epistola expects v' + currentSchemaVersion + '. The source must republish the catalog at the current schema version.'}">
+            <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span style="font-size: var(--ep-text-xs);">· out of sync</span>
+        </span>
+
+        <span th:case="'SOURCE_AHEAD'" class="text-muted"
+              th:title="${'The source publishes catalog schema v' + sourceSchemaVersion + ', newer than this Epistola (v' + currentSchemaVersion + '). Upgrade Epistola to use it.'}">
+            <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span style="font-size: var(--ep-text-xs);">· upgrade Epistola</span>
         </span>
 
         <span th:case="*" class="text-muted"

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalog): **Subscribed catalogs warn when their source lags this Epistola's catalog schema version.** Because subscribed (mirror) content is never migrated locally, a source that publishes at an older `schemaVersion` than this instance would silently bind under the transitional gate; the catalog list's per-row "Check for updates" now reports an explicit **out of sync** state instead. `CheckCatalogUpgrade` reads the source's pre-migration schema version (already exposed by `CatalogClient.fetchMigratedManifest` as `catalog.sourceVersion`) and compares it against `CATALOG_SCHEMA_VERSION` to derive a `CatalogSchemaSyncState` (`IN_SYNC` / `SOURCE_BEHIND` / `SOURCE_AHEAD`). `SOURCE_BEHIND` renders an amber "out of sync — the source must republish at the current schema version" badge; `SOURCE_AHEAD` prompts an Epistola upgrade. Nothing is persisted: the app's schema version is the only reference and the source version is read live during the existing on-demand check.
+
 ## [0.25.0] - 2026-06-22
 
 This release restructures authorization into descriptive, least-privilege roles and scopes each API key to exactly the roles it needs, adds a `/profile` page for inspecting your identity and decoded OIDC token claims, and makes Support → Backups faithful, full-fidelity tenant snapshots that preserve the complete version history. It also adds Alpha/Beta feature-maturity markers, names the missing permission in `403` errors, and restores several UI icons that rendered blank. **Breaking:** an identity provider must rename its group/role names to the new kebab-case names (e.g. `content-viewer`, `tenant-administrator`) — a one-time, IdP-side step.
