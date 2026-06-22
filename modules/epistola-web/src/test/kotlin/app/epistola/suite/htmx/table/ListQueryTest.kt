@@ -48,33 +48,6 @@ class ListQueryTest {
     }
 
     @Test
-    fun `size url changes size and resets page`() {
-        assertThat(base.copy(page = 5).sizeUrl(25))
-            .isEqualTo("/tenants/acme/templates?sort=updated&dir=desc&size=25&page=1")
-    }
-
-    @Test
-    fun `search url drops q, keeps sort size catalog, and resets page`() {
-        val q = base.copy(q = "foo", catalog = "billing", page = 4, sortKey = "name", direction = SortDirection.ASC, size = 25)
-        assertThat(q.searchUrl())
-            .isEqualTo("/tenants/acme/templates?catalog=billing&sort=name&dir=asc&size=25&page=1")
-    }
-
-    @Test
-    fun `with overrides catalog and resets page while leaving sort intact`() {
-        val q = base.copy(sortKey = "name", direction = SortDirection.ASC, page = 3)
-        assertThat(q.with("catalog", "billing", "page", "1"))
-            .isEqualTo("/tenants/acme/templates?catalog=billing&sort=name&dir=asc&size=50&page=1")
-    }
-
-    @Test
-    fun `with a blank catalog clears the filter`() {
-        val q = base.copy(catalog = "billing")
-        assertThat(q.with("catalog", "", "page", "1"))
-            .isEqualTo("/tenants/acme/templates?sort=updated&dir=desc&size=50&page=1")
-    }
-
-    @Test
     fun `null and blank params are omitted`() {
         assertThat(base.canonicalUrl()).doesNotContain("catalog").doesNotContain("q=")
     }

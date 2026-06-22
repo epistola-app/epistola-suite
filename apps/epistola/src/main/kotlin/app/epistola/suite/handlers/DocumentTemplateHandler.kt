@@ -150,7 +150,10 @@ class DocumentTemplateHandler(
         val sortKey = request.queryParam("sort", "updated").let { if (it in sortableColumns) it else "updated" }
         val direction =
             if (request.queryParam("dir", "desc").equals("asc", ignoreCase = true)) SortDirection.ASC else SortDirection.DESC
-        val size = request.queryParamInt("size", 50).let { if (it in pageSizeOptions) it else 50 }
+        // Default to the smallest page-size option (the list's first option) when the
+        // param is absent or not one of the offered sizes.
+        val defaultPageSize = pageSizeOptions.first()
+        val size = request.queryParamInt("size", defaultPageSize).let { if (it in pageSizeOptions) it else defaultPageSize }
         val page = request.queryParamInt("page", 1).coerceAtLeast(1)
 
         val catalogs = ListCatalogs(tenantId.key).query()

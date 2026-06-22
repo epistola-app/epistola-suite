@@ -1,99 +1,101 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <!--
-    Reusable sortable + paginated table chrome. Renders the column headers (sortable
-    where the Column has a sortKey), the rows (injected via the passed-in `rows`
-    fragment), and a pagination/size footer. ALL control URLs are built server-side by
-    the ListQuery (app.epistola.suite.htmx.table.ListQuery) — never assembled in JS.
+    Reusable sortable + paginated table chrome, designed to live INSIDE a list <form>
+    (see apps/epistola .../templates/list.html). The enclosing form is the htmx
+    requester: any field change submits GET {basePath} and swaps #data-table-container,
+    and the handler sets HX-Push-Url to the canonical URL. This fragment renders:
 
-    The consuming page MUST wrap this in <div id="data-table-container">…</div>; every
-    control swaps that container's innerHTML and the handler sets HX-Push-Url to the
-    canonical URL. See ADR 0007.
+      - hidden `sort`/`dir` fields, so a filter/search request preserves the active sort;
+      - the column headers as server-built `<a hx-get>` sort links (NOT form fields —
+        they carry the full state, incl. page, in the URL the ListQuery builds);
+      - the rows (injected via the passed-in `rows` fragment) when there are any, else
+        the `emptyState` slot (with `size` mirrored as a hidden field, so filtering from
+        a zero-result view still preserves the chosen page size);
+      - a footer with the page-size `<select name="size">` (a plain form field) and
+        server-built prev/next links.
+
+    Filter state travels via the enclosing form; sort/page travel in the link URLs. The
+    consuming page MUST wrap this (and any page-specific filter fields) in a <form> whose
+    hx-get targets #data-table-container. See ADR 0007.
 
     Parameters:
     - columns:         List<Column> (label + optional sortKey)
-    - query:           ListQuery (current parsed/clamped state + URL builder)
+    - query:           ListQuery (current parsed/clamped state + sort/page URL builder)
     - paged:           PagedResult<*> (items already rendered by the rows fragment)
     - rows:            the page's row markup, passed as ~{::rows}
-    - pageSizeOptions: List<Int> page-size choices (e.g. 25, 50, 100)
+    - pageSizeOptions: List<Int> page-size choices (e.g. 10, 25, 50)
+    - emptyState:      markup (~{::…}) shown in place of the table when total == 0
 -->
 <body>
-<th:block th:fragment="data-table(columns, query, paged, rows, pageSizeOptions)">
-    <table class="ep-table" data-testid="data-table">
-        <thead>
-            <tr>
-                <th th:each="col : ${columns}">
-                    <span th:if="${col.sortKey == null}" th:text="${col.label}"></span>
-                    <!-- Sortable: one chevron, always shown (muted) so the column reads as
-                         sortable; the active column is highlighted and rotates up for asc. -->
-                    <a th:if="${col.sortKey != null}"
-                       th:href="${query.sortUrl(col.sortKey)}"
-                       th:hx-get="${query.sortUrl(col.sortKey)}"
-                       hx-target="#data-table-container"
-                       hx-swap="innerHTML"
-                       th:data-sort-key="${col.sortKey}"
-                       class="ep-table-sort"
-                       th:classappend="${query.isSorted(col.sortKey) ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
-                        <span th:text="${col.label}"></span>
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
-                    </a>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-            <th:block th:replace="${rows}"></th:block>
-        </tbody>
-    </table>
+<th:block th:fragment="data-table(columns, query, paged, rows, pageSizeOptions, emptyState)">
+    <!-- Active sort, carried on every filter/search request so it is preserved. -->
+    <input type="hidden" name="sort" th:value="${query.sortKey}">
+    <input type="hidden" name="dir" th:value="${query.ascending() ? 'asc' : 'desc'}">
 
-    <div class="ep-table-footer" th:if="${paged.total > 0}">
-        <nav class="ep-pagination" th:if="${paged.totalPages > 1}" aria-label="Pagination">
-            <a th:if="${paged.page > 1}"
-               th:href="${query.pageUrl(paged.page - 1)}"
-               th:hx-get="${query.pageUrl(paged.page - 1)}"
-               hx-target="#data-table-container" hx-swap="innerHTML"
-               class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="page-prev">Prev</a>
-            <span class="ep-page-indicator" th:text="|Page ${paged.page} of ${paged.totalPages}|"></span>
-            <a th:if="${paged.page < paged.totalPages}"
-               th:href="${query.pageUrl(paged.page + 1)}"
-               th:hx-get="${query.pageUrl(paged.page + 1)}"
-               hx-target="#data-table-container" hx-swap="innerHTML"
-               class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="page-next">Next</a>
-        </nav>
+    <th:block th:if="${paged.total == 0}">
+        <!-- No footer select to carry the page size here, so mirror it as a hidden field. -->
+        <input type="hidden" name="size" th:value="${query.size}">
+        <th:block th:replace="${emptyState}"></th:block>
+    </th:block>
 
-        <!-- Summary + per-page selector, grouped and pinned bottom-right. -->
-        <div class="ep-table-meta">
-            <span data-testid="paging-summary"
-                  th:text="|Showing ${paged.from}–${paged.to} of ${paged.total}|"></span>
-            <select class="ep-select ep-select-sm form-control-auto" data-table-url-select
-                    data-testid="page-size" aria-label="Rows per page">
-                <option th:each="opt : ${pageSizeOptions}"
-                        th:value="${opt}"
-                        th:text="${opt}"
-                        th:data-url="${query.sizeUrl(opt)}"
-                        th:selected="${opt == paged.size}"></option>
-            </select>
+    <th:block th:unless="${paged.total == 0}">
+        <table class="ep-table" data-testid="data-table">
+            <thead>
+                <tr>
+                    <th th:each="col : ${columns}">
+                        <span th:if="${col.sortKey == null}" th:text="${col.label}"></span>
+                        <!-- Sortable: one chevron, always shown (muted) so the column reads as
+                             sortable; the active column is highlighted and rotates up for asc. -->
+                        <a th:if="${col.sortKey != null}"
+                           th:href="${query.sortUrl(col.sortKey)}"
+                           th:hx-get="${query.sortUrl(col.sortKey)}"
+                           hx-target="#data-table-container"
+                           hx-swap="innerHTML"
+                           th:data-sort-key="${col.sortKey}"
+                           class="ep-table-sort"
+                           th:classappend="${query.isSorted(col.sortKey) ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
+                            <span th:text="${col.label}"></span>
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+                        </a>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <th:block th:replace="${rows}"></th:block>
+            </tbody>
+        </table>
+
+        <div class="ep-table-footer">
+            <nav class="ep-pagination" th:if="${paged.totalPages > 1}" aria-label="Pagination">
+                <a th:if="${paged.page > 1}"
+                   th:href="${query.pageUrl(paged.page - 1)}"
+                   th:hx-get="${query.pageUrl(paged.page - 1)}"
+                   hx-target="#data-table-container" hx-swap="innerHTML"
+                   class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="page-prev">Prev</a>
+                <span class="ep-page-indicator" th:text="|Page ${paged.page} of ${paged.totalPages}|"></span>
+                <a th:if="${paged.page < paged.totalPages}"
+                   th:href="${query.pageUrl(paged.page + 1)}"
+                   th:hx-get="${query.pageUrl(paged.page + 1)}"
+                   hx-target="#data-table-container" hx-swap="innerHTML"
+                   class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="page-next">Next</a>
+            </nav>
+
+            <!-- Summary + per-page selector, grouped and pinned bottom-right. The select is
+                 a plain form field; changing it submits the enclosing form (page resets). -->
+            <div class="ep-table-meta">
+                <span data-testid="paging-summary"
+                      th:text="|Showing ${paged.from}–${paged.to} of ${paged.total}|"></span>
+                <select name="size" class="ep-select ep-select-sm form-control-auto"
+                        data-testid="page-size" aria-label="Rows per page">
+                    <option th:each="opt : ${pageSizeOptions}"
+                            th:value="${opt}"
+                            th:text="${opt}"
+                            th:selected="${opt == paged.size}"></option>
+                </select>
+            </div>
         </div>
-    </div>
-
-    <!--
-        One delegated, idempotent listener: a [data-table-url-select] change navigates
-        to its pre-built (server-side) data-url. The JS never constructs a URL — it only
-        reads one the backend already encoded. CSP-safe (inline script, no eval/hx-on).
-    -->
-    <script>
-        if (!window.__epDataTableSelectBound) {
-            window.__epDataTableSelectBound = true;
-            document.addEventListener("change", function (e) {
-                var el = e.target;
-                if (el && el.matches && el.matches("[data-table-url-select]")) {
-                    var opt = el.options[el.selectedIndex];
-                    if (opt && opt.dataset.url) {
-                        htmx.ajax("GET", opt.dataset.url, { target: "#data-table-container", swap: "innerHTML" });
-                    }
-                }
-            });
-        }
-    </script>
+    </th:block>
 </th:block>
 </body>
 </html>

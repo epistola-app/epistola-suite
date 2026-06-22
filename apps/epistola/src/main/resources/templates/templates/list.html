@@ -2,54 +2,70 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Templates',
-            pageDescription='All of your templates are here.',
-            searchPlaceholder='Search templates...',
-            searchUrl=${query.searchUrl()},
-            searchTargetId='data-table-container',
-            actions=~{::template-list-actions}
-        )}"></div>
+        <!--
+            One filter form drives the whole list. Every stateful control inside it — the
+            search box, the catalog filter, the page-size select, plus hidden sort/dir — is
+            a plain field; htmx submits the form (hx-get) on any change and swaps
+            #data-table-container, and the handler pushes the canonical URL. Adding a new
+            filter is just another <select name="…">, with no per-control htmx wiring. Sort
+            headers and pagination stay server-built <a hx-get> links. See ADR 0007.
+        -->
+        <form th:action="${query.basePath}" method="get"
+              th:hx-get="${query.basePath}"
+              hx-target="#data-table-container"
+              hx-swap="innerHTML"
+              hx-trigger="submit, change, input changed delay:300ms">
+            <div th:replace="~{epistola-web/page-header :: page-header(
+                pageTitle='Templates',
+                pageDescription='All of your templates are here.',
+                searchPlaceholder='Search templates...',
+                searchFormDriven=true,
+                searchValue=${query.q},
+                actions=~{::template-list-actions}
+            )}"></div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select class="ep-select" data-table-url-select data-testid="catalog-filter"
-                    aria-label="Filter by catalog" style="max-width: 300px;">
-                <option value="" th:data-url="${query.with('catalog', '', 'page', '1')}"
-                        th:selected="${selectedCatalog == ''}">All catalogs</option>
-                <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
-                        th:text="${cat.name}"
-                        th:data-url="${query.with('catalog', cat.id.toString(), 'page', '1')}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
-            </select>
-        </div>
-
-        <!-- Single HTMX swap target: sort/page/size/search/filter all replace this innerHTML. -->
-        <div id="data-table-container">
-            <th:block th:fragment="data-table-fragment">
-                <div th:if="${paged.total == 0}" class="empty-state">
-                    <div class="empty-state-icon">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+            <!-- Single HTMX swap target: every filter/sort/page request replaces this. -->
+            <div id="data-table-container">
+                <th:block th:fragment="data-table-fragment">
+                    <!-- Page-specific filter bar: a plain form field, submitted by the form. -->
+                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+                        <select name="catalog" class="ep-select" data-testid="catalog-filter"
+                                aria-label="Filter by catalog" style="max-width: 300px;">
+                            <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                            <option th:each="cat : ${catalogs}"
+                                    th:value="${cat.id}"
+                                    th:text="${cat.name}"
+                                    th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
+                        </select>
                     </div>
-                    <div class="empty-state-title">No templates yet</div>
-                    <div class="empty-state-description">Create your first document template to get started.</div>
-                    <a th:if="${auth.has('TEMPLATE_EDIT')}"
-                       th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
-                       class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                        New Template
-                    </a>
-                </div>
-                <th:block th:unless="${paged.total == 0}">
+
                     <div th:replace="~{epistola-web/data-table :: data-table(
                         columns=${columns},
                         query=${query},
                         paged=${paged},
                         rows=~{::rows},
-                        pageSizeOptions=${pageSizeOptions}
+                        pageSizeOptions=${pageSizeOptions},
+                        emptyState=~{::empty-state}
                     )}"></div>
                 </th:block>
-            </th:block>
+            </div>
+        </form>
+    </th:block>
+
+    <!-- Shown by the data-table when there are no rows (passed in as the emptyState slot). -->
+    <th:block th:fragment="empty-state">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No templates yet</div>
+            <div class="empty-state-description">Create your first document template to get started.</div>
+            <a th:if="${auth.has('TEMPLATE_EDIT')}"
+               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+               class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                New Template
+            </a>
         </div>
     </th:block>
 

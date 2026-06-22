@@ -59,7 +59,7 @@ class DocumentTemplateListHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("data-testid=\"data-table\"")
             assertThat(response.headers.getFirst("HX-Push-Url"))
-                .isEqualTo("/tenants/${tenantId.key}/templates?sort=updated&dir=desc&size=50&page=1")
+                .isEqualTo("/tenants/${tenantId.key}/templates?sort=updated&dir=desc&size=10&page=1")
         }
     }
 
@@ -132,7 +132,7 @@ class DocumentTemplateListHandlerHtmxTest : BaseIntegrationTest() {
         whenever { getHtmx("/tenants/${tenantId.key}/templates?size=7") }
 
         then {
-            assertThat(result<ResponseEntity<String>>().headers.getFirst("HX-Push-Url")).contains("size=50")
+            assertThat(result<ResponseEntity<String>>().headers.getFirst("HX-Push-Url")).contains("size=10")
         }
     }
 
@@ -157,6 +157,21 @@ class DocumentTemplateListHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.body).contains("In Catalog A").doesNotContain("In Default")
             assertThat(response.headers.getFirst("HX-Push-Url")).contains("catalog=cat-a")
+        }
+    }
+
+    @Test
+    fun `a full-page load reflects the active search term in the search box`() = fixture {
+        lateinit var tenantId: TenantId
+        given { tenantId = seedTemplates("Reflect Search", listOf("Invoice A", "Report")) }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenantId.key}/templates?q=Invoice", String::class.java) }
+
+        then {
+            // A bookmarked/refreshed filtered URL must rehydrate the visible search box,
+            // not just the rows — otherwise the box reads empty while results are filtered.
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).containsPattern("search-input[^>]*value=\"Invoice\"")
         }
     }
 

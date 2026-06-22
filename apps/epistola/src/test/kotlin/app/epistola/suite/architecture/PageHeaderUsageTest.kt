@@ -37,6 +37,8 @@ class PageHeaderUsageTest {
         "searchPlaceholder",
         "searchUrl",
         "searchTargetId",
+        "searchFormDriven",
+        "searchValue",
         "actions",
         "stage",
     )
@@ -108,17 +110,30 @@ class PageHeaderUsageTest {
             "searchUrl without searchTargetId must be flagged",
         )
         assertTrue(
-            check("pageTitle='X', searchTargetId='rows'").any { "searchUrl" in it },
-            "dead search parameter must be flagged",
+            check("pageTitle='X', searchTargetId='rows'").any { "searchTargetId" in it },
+            "dead searchTargetId (no searchUrl) must be flagged",
         )
-        // A fully valid call — including values containing commas/parens — must pass clean.
+        assertTrue(
+            check("pageTitle='X', searchPlaceholder='Search...'").any { "searchPlaceholder" in it },
+            "searchPlaceholder without searchUrl or searchFormDriven must be flagged",
+        )
+        // A standalone search call — including values containing commas/parens — must pass clean.
         assertTrue(
             check(
                 "pageTitle='X', pageDescription='a, b (c)', backLinkHref=@{/x}, backLinkLabel='B', " +
                     "searchUrl=@{/tenants/{t}/x/search(t=\${t})}, searchTargetId='rows', " +
                     "searchPlaceholder='Search...', actions=~{::a}, stage=\${stage}",
             ).isEmpty(),
-            "a well-formed invocation must not be flagged",
+            "a well-formed standalone-search invocation must not be flagged",
+        )
+        // A form-driven search call (no searchUrl/searchTargetId) must also pass clean.
+        assertTrue(
+            check("pageTitle='X', searchPlaceholder='Search...', searchFormDriven=true, searchValue=\${query.q}, actions=~{::a}").isEmpty(),
+            "a well-formed form-driven-search invocation must not be flagged",
+        )
+        assertTrue(
+            check("pageTitle='X', searchValue='foo'").any { "searchValue" in it },
+            "searchValue without searchUrl or searchFormDriven must be flagged",
         )
     }
 
@@ -155,12 +170,20 @@ class PageHeaderUsageTest {
             if (("backLinkHref" in nameSet) != ("backLinkLabel" in nameSet)) {
                 out += "$at — backLinkHref and backLinkLabel must be provided together (a lone one renders no back-link)"
             }
+            // Search is enabled either by a standalone searchUrl (the input drives its own
+            // request) or by searchFormDriven=true (a plain field driven by an enclosing form).
+            val searchEnabled = "searchUrl" in nameSet || "searchFormDriven" in nameSet
             if ("searchUrl" in nameSet && "searchTargetId" !in nameSet) {
                 out += "$at — searchUrl requires searchTargetId (the search-box hx-target would resolve to '#')"
             }
-            if ("searchUrl" !in nameSet) {
-                if ("searchTargetId" in nameSet) out += "$at — searchTargetId without searchUrl (dead parameter)"
-                if ("searchPlaceholder" in nameSet) out += "$at — searchPlaceholder without searchUrl (dead parameter)"
+            if ("searchUrl" !in nameSet && "searchTargetId" in nameSet) {
+                out += "$at — searchTargetId without searchUrl (dead parameter; form-driven search needs no target)"
+            }
+            if (!searchEnabled && "searchPlaceholder" in nameSet) {
+                out += "$at — searchPlaceholder without searchUrl or searchFormDriven (dead parameter)"
+            }
+            if (!searchEnabled && "searchValue" in nameSet) {
+                out += "$at — searchValue without searchUrl or searchFormDriven (dead parameter)"
             }
         }
         return count to out
