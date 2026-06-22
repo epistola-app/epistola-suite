@@ -27,8 +27,10 @@ import java.sql.Types
  * Because the counter cannot distinguish a freshly-written current blob from a
  * lagging one, this must run **before** any bootstrap that writes current-shape
  * content (`DemoLoader`, `SystemCatalogBootstrap`) — see
- * `AtRestContentMigrationBootstrap`. Idempotent and a cheap no-op while the chain
- * is empty. See `docs/adr/0007-at-rest-resource-migration.md`.
+ * `AtRestContentMigrationBootstrap`. Rows the chain leaves unchanged are **not
+ * rewritten** (a migration that touches only one resource type skips the rest),
+ * so the pass is byte-stable for untouched content. Idempotent and a cheap no-op
+ * while the chain is empty. See `docs/adr/0007-at-rest-resource-migration.md`.
  */
 @Component
 class AtRestContentMigrator(
@@ -135,8 +137,13 @@ class AtRestContentMigrator(
             """,
         ).mapToMap().list()
 
+        var updated = 0
         for (row in rows) {
-            val update = handle.createUpdate(
+            val documentStyles = migrateBlob(row["document_styles"] as String?, ContentBlobType.DOCUMENT_STYLES, stored)
+            val pageSettings = migrateBlob(row["page_settings"] as String?, ContentBlobType.PAGE_SETTINGS, stored)
+            val blockStylePresets = migrateBlob(row["block_style_presets"] as String?, ContentBlobType.BLOCK_STYLE_PRESETS, stored)
+            if (!documentStyles.changed && !pageSettings.changed && !blockStylePresets.changed) continue
+            handle.createUpdate(
                 """
                 UPDATE themes
                 SET document_styles = :documentStyles::jsonb,
@@ -144,17 +151,18 @@ class AtRestContentMigrator(
                     block_style_presets = :blockStylePresets::jsonb
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :id
                 """,
-            )
-            bindJson(update, "documentStyles", migrate(row["document_styles"] as String?, ContentBlobType.DOCUMENT_STYLES, stored))
-            bindJson(update, "pageSettings", migrate(row["page_settings"] as String?, ContentBlobType.PAGE_SETTINGS, stored))
-            bindJson(update, "blockStylePresets", migrate(row["block_style_presets"] as String?, ContentBlobType.BLOCK_STYLE_PRESETS, stored))
-            update
+            ).also {
+                bindJson(it, "documentStyles", documentStyles.json)
+                bindJson(it, "pageSettings", pageSettings.json)
+                bindJson(it, "blockStylePresets", blockStylePresets.json)
+            }
                 .bind("tenantKey", row["tenant_key"])
                 .bind("catalogKey", row["catalog_key"])
                 .bind("id", row["id"])
                 .execute()
+            updated++
         }
-        return rows.size
+        return updated
     }
 
     private fun migrateTemplateVersions(handle: Handle, stored: Int): Int {
@@ -167,25 +175,27 @@ class AtRestContentMigrator(
             """,
         ).mapToMap().list()
 
+        var updated = 0
         for (row in rows) {
-            val update = handle.createUpdate(
+            val templateModel = migrateBlob(row["template_model"] as String?, ContentBlobType.TEMPLATE_DOCUMENT, stored)
+            if (!templateModel.changed) continue
+            handle.createUpdate(
                 """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND template_key = :templateKey AND variant_key = :variantKey AND id = :id
                 """,
-            )
-            bindJson(update, "templateModel", migrate(row["template_model"] as String?, ContentBlobType.TEMPLATE_DOCUMENT, stored))
-            update
+            ).also { bindJson(it, "templateModel", templateModel.json) }
                 .bind("tenantKey", row["tenant_key"])
                 .bind("catalogKey", row["catalog_key"])
                 .bind("templateKey", row["template_key"])
                 .bind("variantKey", row["variant_key"])
                 .bind("id", row["id"])
                 .execute()
+            updated++
         }
-        return rows.size
+        return updated
     }
 
     private fun migrateStencilVersions(handle: Handle, stored: Int): Int {
@@ -197,24 +207,26 @@ class AtRestContentMigrator(
             """,
         ).mapToMap().list()
 
+        var updated = 0
         for (row in rows) {
-            val update = handle.createUpdate(
+            val content = migrateBlob(row["content"] as String?, ContentBlobType.TEMPLATE_DOCUMENT, stored)
+            if (!content.changed) continue
+            handle.createUpdate(
                 """
                 UPDATE stencil_versions
                 SET content = :content::jsonb
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND stencil_key = :stencilKey AND id = :id
                 """,
-            )
-            bindJson(update, "content", migrate(row["content"] as String?, ContentBlobType.TEMPLATE_DOCUMENT, stored))
-            update
+            ).also { bindJson(it, "content", content.json) }
                 .bind("tenantKey", row["tenant_key"])
                 .bind("catalogKey", row["catalog_key"])
                 .bind("stencilKey", row["stencil_key"])
                 .bind("id", row["id"])
                 .execute()
+            updated++
         }
-        return rows.size
+        return updated
     }
 
     private fun migrateContractVersions(handle: Handle, stored: Int): Int {
@@ -229,8 +241,13 @@ class AtRestContentMigrator(
             """,
         ).mapToMap().list()
 
+        var updated = 0
         for (row in rows) {
-            val update = handle.createUpdate(
+            val schema = migrateBlob(row["schema"] as String?, ContentBlobType.CONTRACT_SCHEMA, stored)
+            val dataModel = migrateBlob(row["data_model"] as String?, ContentBlobType.DATA_MODEL, stored)
+            val dataExamples = migrateBlob(row["data_examples"] as String?, ContentBlobType.DATA_EXAMPLES, stored)
+            if (!schema.changed && !dataModel.changed && !dataExamples.changed) continue
+            handle.createUpdate(
                 """
                 UPDATE contract_versions
                 SET schema = :schema::jsonb,
@@ -239,25 +256,36 @@ class AtRestContentMigrator(
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND template_key = :templateKey AND id = :id
                 """,
-            )
-            bindJson(update, "schema", migrate(row["schema"] as String?, ContentBlobType.CONTRACT_SCHEMA, stored))
-            bindJson(update, "dataModel", migrate(row["data_model"] as String?, ContentBlobType.DATA_MODEL, stored))
-            bindJson(update, "dataExamples", migrate(row["data_examples"] as String?, ContentBlobType.DATA_EXAMPLES, stored))
-            update
+            ).also {
+                bindJson(it, "schema", schema.json)
+                bindJson(it, "dataModel", dataModel.json)
+                bindJson(it, "dataExamples", dataExamples.json)
+            }
                 .bind("tenantKey", row["tenant_key"])
                 .bind("catalogKey", row["catalog_key"])
                 .bind("templateKey", row["template_key"])
                 .bind("id", row["id"])
                 .execute()
+            updated++
         }
-        return rows.size
+        return updated
     }
 
-    /** Parse the stored JSON, run the chain from [stored] to current, re-serialize. Null → null. */
-    private fun migrate(json: String?, blobType: String, stored: Int): String? {
-        if (json == null) return null
-        val migrated = migrator.migrateContentBlob(blobType, objectMapper.readTree(json), stored)
-        return objectMapper.writeValueAsString(migrated)
+    private data class BlobResult(val json: String?, val changed: Boolean)
+
+    /**
+     * Run the chain over a stored blob. Returns the (re-serialized) JSON and
+     * whether the chain actually changed it. A blob the chain leaves alone is
+     * reported unchanged so the row can be skipped — a migration that doesn't
+     * touch a given row leaves it byte-identical, with no needless write or
+     * `updated_at` churn. Null → null, unchanged.
+     */
+    private fun migrateBlob(json: String?, blobType: String, stored: Int): BlobResult {
+        if (json == null) return BlobResult(null, changed = false)
+        val original = objectMapper.readTree(json)
+        val before = original.deepCopy()
+        val migrated = migrator.migrateContentBlob(blobType, original, stored)
+        return if (migrated == before) BlobResult(json, changed = false) else BlobResult(objectMapper.writeValueAsString(migrated), changed = true)
     }
 
     /** Bind a JSON string for a `:name::jsonb` placeholder, NULL-safe. */

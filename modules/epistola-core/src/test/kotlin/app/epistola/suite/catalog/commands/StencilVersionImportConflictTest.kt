@@ -436,6 +436,45 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `imports a v2 catalog through the full chain (2 to 3 additive, then version injected)`() {
+        val tenant = createTenant("Legacy v2")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val key = CatalogKey.of("v2-legacy")
+
+        withMediator {
+            // A v2 export now imports (baseline is 2): the 2 -> 3 step is identity,
+            // then 3 -> 4 injects the missing stencil version.
+            val zip = buildManualZipWithRawStencilJson(
+                catalogSlug = key.value,
+                manifestSchemaVersion = 2,
+                stencilJson = """
+                {
+                  "schemaVersion": 2,
+                  "resource": {
+                    "type": "stencil",
+                    "slug": "no-version",
+                    "name": "Legacy",
+                    "content": ${objectMapper.writeValueAsString(simpleStencil("legacy"))}
+                  }
+                }
+                """.trimIndent(),
+            )
+
+            ImportCatalogZip(
+                tenantKey = tenantKey,
+                zipBytes = zip,
+                catalogType = CatalogType.AUTHORED,
+            ).execute()
+
+            val versions = ListStencilVersions(
+                stencilId = StencilId(StencilKey.of("no-version"), CatalogId(key, tenantId)),
+            ).query()
+            assertThat(versions.single().id.value).isEqualTo(1)
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun simpleStencil(rootId: String): TemplateDocument {

@@ -86,14 +86,14 @@ class CatalogSchemaMigratorChainTest {
     }
 
     @Test
-    fun `the real bean accepts the v3-to-v4 chain (live baseline 3, current 4)`() {
-        // The wired-in Phase-1 state: a single 3 -> 4 step spans [baseline, current].
-        assertThatCode { CatalogSchemaMigrator(jsonMapper(), listOf(NoopMigration(from = 3))) }
+    fun `the real bean accepts the v2-to-v4 chain (live baseline 2, current 4)`() {
+        // The wired-in state: 2 -> 3 -> 4 steps span [baseline, current].
+        assertThatCode { CatalogSchemaMigrator(jsonMapper(), listOf(NoopMigration(from = 2), NoopMigration(from = 3))) }
             .doesNotThrowAnyException()
     }
 
     @Test
-    fun `the real bean rejects an empty chain (baseline 3 != current 4 leaves a gap)`() {
+    fun `the real bean rejects an empty chain (baseline 2 != current 4 leaves a gap)`() {
         // With baseline below current, an empty chain is malformed — a good guard
         // that init actually validates against the live constants.
         assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), emptyList()) }

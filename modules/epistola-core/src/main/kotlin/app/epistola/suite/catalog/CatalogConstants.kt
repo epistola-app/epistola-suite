@@ -13,13 +13,13 @@ const val CATALOG_MANIFEST_SCHEMA_VERSION: Int = 4
  * Oldest catalog wire schema version this instance can still upgrade to
  * [CATALOG_MANIFEST_SCHEMA_VERSION] via the `migrations/` chain. A payload below
  * this floor is rejected on import (re-export from a current source). The chain
- * spans `[baseline, current]` — currently a single `3 → 4` step
- * (`CatalogSchemaMigrationV3ToV4`) — see
+ * spans `[baseline, current]` — currently `2 → 3` (`CatalogSchemaMigrationV2ToV3`,
+ * additive/identity) then `3 → 4` (`CatalogSchemaMigrationV3ToV4`) — see
  * [app.epistola.suite.catalog.migrations.CatalogSchemaMigrator],
  * `docs/adr/0006-catalog-wire-format-migrations.md`, and
  * `docs/adr/0007-at-rest-resource-migration.md`.
  */
-const val CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION: Int = 3
+const val CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION: Int = 2
 
 /**
  * Installation order for catalog resources — dependencies must be installed
