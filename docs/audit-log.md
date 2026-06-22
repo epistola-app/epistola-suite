@@ -146,6 +146,14 @@ the `/profile` page precedent of keeping a sensitive read off the REST and MCP
 surfaces. Exposing it on REST (e.g. SIEM pull) or as an MCP tool is a
 deliberate follow-up, not a silent gap.
 
+The viewer turns the stored `entity_type` + id path into a **readable label and a
+link** to the resource's page where one exists (`AuditEntityLinks`) — e.g. a
+`variant demo/default/invoice/nl` row reads "template invoice › variant nl"
+linking to the template editor; unmapped/typeless entities fall back to plain
+text. Those resource URLs are currently hard-coded in the audit module (a
+`TODO` marks where a generic `AuditEntityLinkResolver` SPI should replace them so
+the host app and feature modules supply links for their own entity types).
+
 ## Module layout
 
 The feature lives in its own module, **`epistola-audit`** (recorder, read model +

@@ -125,6 +125,18 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `a typed entity renders as a readable link to its resource`() {
+        val tenantKey = seedAudit()
+
+        val response = get("/tenants/$tenantKey/audit?$WINDOW")
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        // The variant row shows "template invoice › variant nl" linking to the template editor.
+        assertThat(response.body).contains("/tenants/demo/templates/default/invoice")
+        assertThat(response.body).contains("variant nl")
+    }
+
+    @Test
     fun `an empty result renders the empty state`() {
         val tenantKey = seedAudit()
         val response = getHtmx("/tenants/$tenantKey/audit/search?action=NoSuchActionEver&$WINDOW")
@@ -149,6 +161,8 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
         insert(tenantKey, UUID.randomUUID(), "DeleteTheme", "WRITE", "SUCCESS", null, base.plusSeconds(30)) // unknown actor → "(deleted user)"
         insert(tenantKey, testUser.userId.value, "SetTenantDefaultLocale", "WRITE", "FAILURE", "InvalidLocaleException", base.plusSeconds(20))
         insert(tenantKey, testUser.userId.value, "GetDocument", "READ", "SUCCESS", null, base.plusSeconds(15)) // audited data-access read
+        // A typed entity (variant) — the viewer should render a readable label + a link to the template.
+        insert(tenantKey, testUser.userId.value, "UpdateDraft", "WRITE", "SUCCESS", null, base.plusSeconds(12), entityType = "variant", entityId = "demo/default/invoice/nl")
         insert(null, null, "UpgradeCatalog", "WRITE", "SUCCESS", null, base.plusSeconds(10)) // system / no-tenant row
         return tenantKey
     }
@@ -161,6 +175,8 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
         outcome: String,
         errorCode: String?,
         occurredAt: OffsetDateTime,
+        entityType: String? = null,
+        entityId: String? = null,
     ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -168,7 +184,7 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
                 INSERT INTO audit_log
                     (id, occurred_at, tenant_key, actor_user_id, action, operation, entity_type, entity_id, outcome, error_code, instance_id)
                 VALUES
-                    (:id, :occurredAt, :tenantKey, :actorUserId, :action, :operation, NULL, NULL, :outcome, :errorCode, 'test-instance')
+                    (:id, :occurredAt, :tenantKey, :actorUserId, :action, :operation, :entityType, :entityId, :outcome, :errorCode, 'test-instance')
                 """,
             )
                 .bind("id", UUIDv7.generate())
@@ -177,6 +193,8 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
                 .bind("actorUserId", actorUserId)
                 .bind("action", action)
                 .bind("operation", operation)
+                .bind("entityType", entityType)
+                .bind("entityId", entityId)
                 .bind("outcome", outcome)
                 .bind("errorCode", errorCode)
                 .execute()

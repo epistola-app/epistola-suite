@@ -174,10 +174,9 @@
                 <span th:if="${entry.isRead}" class="audit-read-tag" title="Data access (read)">read</span>
             </td>
             <td th:text="${entry.actorLabel}" th:title="${entry.actorUserId}">actor</td>
-            <td class="audit-entity" th:title="${entry.entityId}">
-                <span th:if="${entry.entityType != null}" th:text="${entry.entityType} + ' '">Type </span>
-                <span class="ep-text-muted" th:if="${entry.entityId != null}" th:text="${entry.entityId}">id</span>
-                <span class="ep-text-muted" th:if="${entry.entityId == null}">—</span>
+            <td class="audit-entity" th:with="link=${@auditEntityLinks.resolve(entry)}" th:title="${entry.entityId}">
+                <a th:if="${link.href != null}" th:href="@{${link.href}}" th:text="${link.label}">entity</a>
+                <span th:if="${link.href == null}" class="ep-text-muted" th:text="${link.label}">entity</span>
             </td>
             <td>
                 <span th:classappend="'audit-outcome-' + ${entry.outcome}" th:text="${entry.outcome}">SUCCESS</span>
