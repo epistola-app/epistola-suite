@@ -59,10 +59,11 @@ epistola:
         display-name: Local Admin
         tenant: demo
         roles:
-          - READER
-          - EDITOR
-          - GENERATOR
-          - MANAGER
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER
+          - TENANT_ADMINISTRATOR
         platform-roles:
           - TENANT_MANAGER
       - username: user@local
@@ -70,9 +71,10 @@ epistola:
         display-name: Local User
         tenant: demo
         roles:
-          - READER
-          - EDITOR
-          - GENERATOR
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER
   catalog:
     allow-http: true
   editor:

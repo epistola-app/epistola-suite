@@ -22,7 +22,7 @@ data class PreviewInstall(
     val resourceSlugs: List<String>? = null,
 ) : Query<PreviewInstallResult>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class PreviewInstallResult(

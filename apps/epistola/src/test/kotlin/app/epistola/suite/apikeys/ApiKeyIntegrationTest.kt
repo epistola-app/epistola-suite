@@ -7,6 +7,7 @@ import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.time.EpistolaClock
 import org.assertj.core.api.Assertions.assertThat
@@ -91,6 +92,55 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         then {
             assertThat(keys).hasSize(2)
             assertThat(keys.map { it.name }).containsExactlyInAnyOrder("Key 1", "Key 2")
+        }
+    }
+
+    @Test
+    fun `create API key persists the chosen role scope and it round-trips on lookup`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var created: ApiKeyWithSecret
+
+        given {
+            tenant = tenant("Scoped Key")
+        }
+
+        whenever {
+            created = CreateApiKey(
+                tenantId = tenant.id,
+                name = "Generate-only integration",
+                roles = setOf(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR),
+            ).execute()
+        }
+
+        then {
+            // The returned key and the persisted-then-reloaded key both carry exactly the chosen scope —
+            // not the full role set — so the auth filter grants only viewer+generator for this key.
+            assertThat(created.apiKey.roles)
+                .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR)
+
+            val reloaded = LookupApiKeyByHash(apiKeyService.hashKey(created.plaintextKey)).query()
+            assertThat(reloaded!!.roles)
+                .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR)
+            assertThat(reloaded.roles).doesNotContain(TenantRole.TENANT_ADMINISTRATOR, TenantRole.CONTENT_AUTHOR)
+        }
+    }
+
+    @Test
+    fun `create API key without explicit roles defaults to the full tenant role set`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var created: ApiKeyWithSecret
+
+        given {
+            tenant = tenant("Default Scope")
+        }
+
+        whenever {
+            created = CreateApiKey(tenantId = tenant.id, name = "Legacy-style key").execute()
+        }
+
+        then {
+            val reloaded = LookupApiKeyByHash(apiKeyService.hashKey(created.plaintextKey)).query()
+            assertThat(reloaded!!.roles).containsExactlyInAnyOrderElementsOf(TenantRole.entries)
         }
     }
 

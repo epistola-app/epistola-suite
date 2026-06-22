@@ -27,7 +27,7 @@ data class CheckCatalogUpgrade(
     val catalogKey: CatalogKey,
 ) : Query<CatalogUpgradeAvailability>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class CatalogUpgradeAvailability(

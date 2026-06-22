@@ -21,7 +21,7 @@ data class ListCodeListEntries(
     val includeHidden: Boolean = false,
 ) : Query<List<CodeListEntry>>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = codeListId.tenantKey
 }
 

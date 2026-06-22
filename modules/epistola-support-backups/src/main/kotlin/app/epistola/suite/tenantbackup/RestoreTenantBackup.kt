@@ -29,14 +29,14 @@ import java.util.zip.ZipInputStream
  * preserves exact version numbers and never blanket-deletes, so document/generation history pinned
  * to unchanged versions survives. The tenant row is updated in place; it is never deleted.
  *
- * Requires [Permission.TENANT_SETTINGS].
+ * Requires [Permission.TENANT_RESTORE].
  */
 data class RestoreTenantBackup(
     override val tenantKey: TenantKey,
     val artifactBytes: ByteArray,
 ) : Command<TenantRestoreResult>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.TENANT_RESTORE
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

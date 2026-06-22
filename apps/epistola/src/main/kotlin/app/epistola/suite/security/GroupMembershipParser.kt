@@ -12,15 +12,17 @@ private const val PLATFORM_SEGMENT = "platform"
 
 /** All known tenant role names (lowercase with hyphens, matching the Keycloak group convention). */
 internal val KNOWN_TENANT_ROLES = mapOf(
-    "reader" to TenantRole.READER,
-    "editor" to TenantRole.EDITOR,
-    "generator" to TenantRole.GENERATOR,
-    "manager" to TenantRole.MANAGER,
+    "content-viewer" to TenantRole.CONTENT_VIEWER,
+    "content-author" to TenantRole.CONTENT_AUTHOR,
+    "document-generator" to TenantRole.DOCUMENT_GENERATOR,
+    "content-publisher" to TenantRole.CONTENT_PUBLISHER,
+    "tenant-administrator" to TenantRole.TENANT_ADMINISTRATOR,
 )
 
 /** All known platform role names (lowercase with hyphens, matching the Keycloak group convention). */
 internal val KNOWN_PLATFORM_ROLES = mapOf(
     "tenant-manager" to PlatformRole.TENANT_MANAGER,
+    "platform-observer" to PlatformRole.PLATFORM_OBSERVER,
 )
 
 /**
@@ -76,7 +78,7 @@ object GroupMembershipParser {
         val platformRoles = mutableSetOf<PlatformRole>()
 
         for (group in groups) {
-            // Split "/epistola/tenants/demo/reader" → ["", "epistola", "tenants", "demo", "reader"]
+            // Split "/epistola/tenants/demo/content-viewer" → ["", "epistola", "tenants", "demo", "content-viewer"]
             val segments = group.split('/')
 
             // Must start with "/" (empty first segment) and have "epistola" as root

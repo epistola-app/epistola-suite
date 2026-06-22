@@ -22,7 +22,7 @@ data class UpdateCodeListEntryHidden(
     val hidden: Boolean,
 ) : Command<Boolean>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = codeListId.tenantKey
 }
 

@@ -47,7 +47,7 @@ data class ResolveFontFace(
     val italic: Boolean,
 ) : Query<ByteArray?>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId
 }
 

@@ -28,7 +28,8 @@ import java.util.zip.ZipInputStream
  * `app_metadata`), persists it via [TenantBackupStore], and restores from a stored backup.
  *
  * Must run inside a bound mediator context with a principal that has the tenant's permissions — the
- * build/restore commands are `TENANT_SETTINGS`-gated. See `BackupScheduler` / `BackupsHandler`.
+ * build command is `BACKUP_CREATE`-gated and restore is `TENANT_RESTORE`-gated (both held by MANAGER).
+ * See `BackupScheduler` / `BackupsHandler`.
  */
 @Component
 class TenantBackupService(

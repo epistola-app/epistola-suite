@@ -16,7 +16,7 @@ data class GetCatalog(
     val catalogKey: CatalogKey,
 ) : Query<Catalog?>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component

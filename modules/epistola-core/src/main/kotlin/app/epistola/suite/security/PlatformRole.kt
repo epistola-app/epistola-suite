@@ -12,4 +12,10 @@ enum class PlatformRole {
      * This is a cross-tenant role — fundamentally different from per-tenant MANAGER.
      */
     TENANT_MANAGER,
+
+    /**
+     * Cross-tenant **read-only** access for operations and support staff:
+     * diagnostics, logs, and status across all tenants. Grants no write capability.
+     */
+    PLATFORM_OBSERVER,
 }

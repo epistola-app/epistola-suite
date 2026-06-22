@@ -82,8 +82,8 @@ class KeycloakAdminClient(
     /**
      * Ensures a full group path exists, creating any missing segments.
      *
-     * For example, `ensureGroupPath("/epistola/tenants/demo/reader")` will create
-     * `ep`, `tenants`, `demo`, and `reader` groups as needed.
+     * For example, `ensureGroupPath("/epistola/tenants/demo/content-viewer")` will create
+     * `epistola`, `tenants`, `demo`, and `content-viewer` groups as needed.
      *
      * @return the UUID of the leaf group
      */
@@ -182,7 +182,7 @@ class KeycloakAdminClient(
      * Ensures a Realm Role protocol mapper exists on the given client, emitting realm role
      * names into the configured flat-roles claim. The mapper is required for
      * [app.epistola.suite.security.FlatRoleParser] to map Keycloak realm roles
-     * (e.g. `ept_acme_reader`) onto Epistola memberships.
+     * (e.g. `ept_acme_content-viewer`) onto Epistola memberships.
      *
      * Same self-heal / SkipForeign behaviour as [ensureGroupMembershipMapper].
      */

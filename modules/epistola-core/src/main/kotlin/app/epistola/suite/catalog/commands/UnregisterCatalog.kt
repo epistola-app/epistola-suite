@@ -18,7 +18,7 @@ data class UnregisterCatalog(
     val force: Boolean = false,
 ) : Command<Boolean>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_MANAGE
 }
 
 @Component

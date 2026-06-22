@@ -1,11 +1,11 @@
 package app.epistola.suite.apikeys.queries
 
 import app.epistola.suite.apikeys.ApiKey
+import app.epistola.suite.apikeys.toApiKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
@@ -27,13 +27,13 @@ class LookupApiKeyByHashHandler(
         handle.createQuery(
             """
             SELECT id, tenant_key, name, key_prefix, enabled, created_at,
-                   last_used_at, expires_at, created_by, revoked_at, revoked_by
+                   last_used_at, expires_at, created_by, revoked_at, revoked_by, roles
             FROM api_keys
             WHERE key_hash = :keyHash
             """,
         )
             .bind("keyHash", query.keyHash)
-            .mapTo<ApiKey>()
+            .map { rs, _ -> rs.toApiKey(withDisplayName = false) }
             .findOne()
             .orElse(null)
     }

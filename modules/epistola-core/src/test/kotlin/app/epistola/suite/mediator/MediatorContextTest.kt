@@ -96,7 +96,7 @@ class MediatorContextTest {
         externalId = "test-user",
         email = "test@example.com",
         displayName = "Test User",
-        tenantMemberships = mapOf(TenantKey.of("tenant-a") to setOf(TenantRole.READER)),
+        tenantMemberships = mapOf(TenantKey.of("tenant-a") to setOf(TenantRole.CONTENT_VIEWER)),
         currentTenantId = TenantKey.of("tenant-a"),
     )
 

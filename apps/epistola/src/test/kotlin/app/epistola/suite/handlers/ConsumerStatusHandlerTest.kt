@@ -1,6 +1,8 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -22,23 +24,9 @@ class ConsumerStatusHandlerTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    private fun seedApiKey(tenant: Tenant, name: String): UUID {
-        val id = UUID.randomUUID()
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled)
-                VALUES (:id, :tenantKey, :name, :hash, :prefix, true)
-                """,
-            )
-                .bind("id", id)
-                .bind("tenantKey", tenant.id)
-                .bind("name", name)
-                .bind("hash", "hash-${UUID.randomUUID()}")
-                .bind("prefix", "epk_${id.toString().take(8)}")
-                .execute()
-        }
-        return id
+    /** Seeds an API key (the consumer identity) via the command path; returns its id for linking nodes. */
+    private fun seedApiKey(tenant: Tenant, name: String): UUID = withMediator {
+        CreateApiKey(tenantId = tenant.id, name = name).execute().apiKey.id.value
     }
 
     private fun seedNode(tenant: Tenant, consumerId: UUID, nodeId: String, partitions: List<Int>) {

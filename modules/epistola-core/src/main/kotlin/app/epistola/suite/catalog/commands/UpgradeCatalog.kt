@@ -40,7 +40,7 @@ data class UpgradeCatalog(
     val includeNewSlugs: List<String> = emptyList(),
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_MANAGE
 }
 
 data class UpgradeCatalogResult(

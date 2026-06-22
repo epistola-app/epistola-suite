@@ -25,7 +25,7 @@ data class GetLatestCatalogRelease(
     val catalogKey: CatalogKey,
 ) : Query<LatestCatalogRelease>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class SuggestedBumps(

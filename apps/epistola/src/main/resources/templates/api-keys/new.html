@@ -23,6 +23,21 @@
                         <span class="form-hint">A short label so you can recognise this key later. Max 100 characters.</span>
                         <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
+                    <div class="form-group" th:classappend="${errors?.containsKey('roles')} ? 'error' : ''">
+                        <label class="ep-label">Scope</label>
+                        <span class="form-hint">An API key authenticates with exactly these tenant roles. Grant the least it needs — administration is rarely appropriate for an integration key.</span>
+                        <div class="ep-stack api-key-roles" data-testid="api-key-roles">
+                            <label class="role-option" th:each="opt : ${roleOptions}">
+                                <input type="checkbox" class="ep-checkbox" name="roles" th:value="${opt.value}"
+                                       th:checked="${selectedRoles != null ? selectedRoles.contains(opt.value) : opt.defaultChecked}">
+                                <span class="role-option-text">
+                                    <strong th:text="${opt.label}">Viewer</strong>
+                                    <span class="role-option-desc" th:text="${opt.description}">description</span>
+                                </span>
+                            </label>
+                        </div>
+                        <span class="form-error" th:if="${errors?.containsKey('roles')}" th:text="${errors.roles}"></span>
+                    </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('expiresAt')} ? 'error' : ''">
                         <label class="ep-label" for="expiresAt">Expires (optional)</label>
                         <input type="date" id="expiresAt" name="expiresAt" class="ep-input"
@@ -37,6 +52,28 @@
                 </form>
             </div>
         </div>
+
+        <style>
+            .api-key-roles .role-option {
+                display: flex;
+                align-items: flex-start;
+                gap: var(--ep-space-2);
+                cursor: pointer;
+            }
+            .api-key-roles .ep-checkbox {
+                flex: 0 0 1rem;
+                margin-top: 0.15rem;
+            }
+            .api-key-roles .role-option-text {
+                display: flex;
+                flex-direction: column;
+                font-size: var(--ep-text-sm);
+            }
+            .api-key-roles .role-option-desc {
+                color: var(--ep-muted-foreground);
+                font-size: var(--ep-text-xs);
+            }
+        </style>
     </th:block>
 </body>
 </html>

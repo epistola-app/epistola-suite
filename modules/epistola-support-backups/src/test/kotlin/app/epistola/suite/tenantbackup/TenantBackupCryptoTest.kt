@@ -52,9 +52,20 @@ class TenantBackupCryptoTest {
     @Test
     fun `unwrap rejects a tampered envelope (GCM authentication)`() {
         val crypto = TenantBackupCrypto(enabledCipher())
-        val wrapped = crypto.wrap(ByteArray(512) { it.toByte() })
-        // Flip a byte inside the base64 payload (past the `enc:v1:k1:` header).
-        val tampered = wrapped.copyOf().also { it[it.size - 5] = (it[it.size - 5].toInt() xor 0x01).toByte() }
+        val envelope = String(crypto.wrap(ByteArray(512) { it.toByte() }), StandardCharsets.UTF_8)
+
+        // Corrupt the ciphertext by swapping one character of the base64 body (past the
+        // `enc:v1:k1:` header) for a *different but still valid* base64 char. This deterministically
+        // alters the decoded ciphertext while keeping the envelope decodable, so the failure is the
+        // GCM authentication tag — not a base64 decode error. (Flipping a raw byte of the base64
+        // text would intermittently produce an invalid char, since the nonce — and thus the body —
+        // is random per wrap.)
+        val payloadStart = envelope.lastIndexOf(':') + 1
+        val pos = payloadStart + 8 // safely inside the body, never the trailing `=` padding
+        val replacement = if (envelope[pos] == 'A') 'B' else 'A'
+        val tampered = StringBuilder(envelope).also { it.setCharAt(pos, replacement) }
+            .toString()
+            .toByteArray(StandardCharsets.UTF_8)
 
         assertThatThrownBy { crypto.unwrap(tampered) }.isInstanceOf(EncryptionException::class.java)
     }

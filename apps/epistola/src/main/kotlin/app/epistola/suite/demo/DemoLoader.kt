@@ -64,6 +64,11 @@ class DemoLoader(
 
         if (exists) {
             log.info("Demo tenant already exists")
+            // Still (re-)assert the demo API key on every boot so its scope self-heals
+            // across upgrades — e.g. the api_key roles migration backfilled it to
+            // CONTENT_VIEWER; this restores the full "everything key" scope. The upsert is
+            // idempotent, so re-running it for an existing tenant is safe.
+            ensureDemoApiKey(TenantId(tenantKey))
             return
         }
 
@@ -72,7 +77,7 @@ class DemoLoader(
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
 
             val tenantId = TenantId(tenant.id)
-            createDemoApiKey(tenantId)
+            ensureDemoApiKey(tenantId)
 
             mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("staging"), tenantId), name = "Staging"))
             mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production"))
@@ -100,20 +105,27 @@ class DemoLoader(
     }
 
     /**
-     * Creates a well-known demo API key for testing external API access.
+     * Ensures the well-known demo API key exists for testing external API access, with the full
+     * ("everything") role scope. Idempotent: re-asserts the scope on conflict so it self-heals
+     * across upgrades, and is safe to call on every boot.
      */
-    private fun createDemoApiKey(tenantId: TenantId) {
+    private fun ensureDemoApiKey(tenantId: TenantId) {
         // Demo seeding uses a deterministic key + ID so devs can hard-code the key
         // in local config across restarts. The CQRS CreateApiKey command always
         // generates a random key, so we INSERT directly here instead.
         val keyHash = apiKeyService.hashKey(DEMO_API_KEY)
         val keyPrefix = apiKeyService.extractPrefix(DEMO_API_KEY)
 
+        // The demo key is the convenient "everything" key for local dev / MCP, so grant all roles
+        // (real keys are scoped at creation). Enum names are safe identifiers — no injection risk.
+        // On conflict we re-assert the full scope so a pre-existing demo row (e.g. backfilled to the
+        // migration's CONTENT_VIEWER default) self-heals back to all roles.
+        val rolesLiteral = TenantRole.entries.joinToString(",") { "'${it.name}'" }
         jdbcClient.sql(
             """
-            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at)
-            VALUES (?, ?, ?, ?, ?, true, NOW())
-            ON CONFLICT (id) DO NOTHING
+            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at, roles)
+            VALUES (?, ?, ?, ?, ?, true, NOW(), ARRAY[$rolesLiteral]::varchar[])
+            ON CONFLICT (id) DO UPDATE SET roles = ARRAY[$rolesLiteral]::varchar[]
             """,
         )
             .param(java.util.UUID.fromString(DEMO_API_KEY_ID))

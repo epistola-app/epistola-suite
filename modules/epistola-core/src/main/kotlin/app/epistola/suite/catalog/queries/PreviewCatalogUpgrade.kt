@@ -41,7 +41,7 @@ data class PreviewCatalogUpgrade(
     val catalogKey: CatalogKey,
 ) : Query<UpgradeDiff>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class UpgradeResourceChange(val type: String, val slug: String)

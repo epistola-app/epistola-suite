@@ -34,7 +34,7 @@ data class FindStencilVersionExportConflicts(
     val catalogKey: CatalogKey,
 ) : Query<List<StencilVersionConflict>>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component

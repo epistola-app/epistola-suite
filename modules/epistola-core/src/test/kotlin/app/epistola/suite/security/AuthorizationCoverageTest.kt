@@ -92,6 +92,17 @@ class AuthorizationCoverageTest {
         "app.epistola.suite.users",
         "app.epistola.suite.loadtest",
         "app.epistola.suite.feedback",
+        // Previously-missing packages — the build-time net now matches the runtime fail-closed net.
+        "app.epistola.suite.catalog",
+        "app.epistola.suite.stencils",
+        "app.epistola.suite.fonts",
+        "app.epistola.suite.cluster",
+        "app.epistola.suite.generation",
+        "app.epistola.suite.changelog",
+        "app.epistola.suite.encryption",
+        "app.epistola.suite.logs",
+        "app.epistola.suite.features",
+        "app.epistola.suite.metadata",
     )
 
     private fun findConcreteSubtypes(type: Class<*>): List<Class<*>> {

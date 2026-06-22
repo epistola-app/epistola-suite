@@ -16,10 +16,11 @@ epistola:
         display-name: ${LOCAL_AUTH_ADMIN_DISPLAY_NAME:Local Admin}
         tenant: ${LOCAL_AUTH_ADMIN_TENANT:demo}
         roles:
-          - READER
-          - EDITOR
-          - GENERATOR
-          - MANAGER
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER
+          - TENANT_ADMINISTRATOR
         platform-roles:
           - TENANT_MANAGER
       - username: ${LOCAL_AUTH_USER_USERNAME:user@local}
@@ -27,6 +28,7 @@ epistola:
         display-name: ${LOCAL_AUTH_USER_DISPLAY_NAME:Local User}
         tenant: ${LOCAL_AUTH_USER_TENANT:demo}
         roles:
-          - READER
-          - EDITOR
-          - GENERATOR
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER

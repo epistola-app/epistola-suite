@@ -2,15 +2,14 @@ package app.epistola.suite.mediator
 
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.security.Authorized
-import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.security.currentUser
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.security.requirePlatformRole
 import app.epistola.suite.security.requireTenantAccess
-import app.epistola.suite.security.requireTenantManager
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
@@ -189,11 +188,7 @@ class SpringMediator(
                 requireTenantAccess(message.tenantKey)
                 requirePermission(message.tenantKey, message.permission)
             }
-            is RequiresPlatformRole -> {
-                when (message.platformRole) {
-                    PlatformRole.TENANT_MANAGER -> requireTenantManager()
-                }
-            }
+            is RequiresPlatformRole -> requirePlatformRole(message.platformRole)
             is RequiresAuthentication -> {
                 currentUser()
                 if (message is TenantScoped) requireTenantAccess(message.tenantId)

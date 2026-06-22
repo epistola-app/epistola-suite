@@ -23,7 +23,7 @@ data class GetCatalogReleaseStatus(
     val catalogKey: CatalogKey,
 ) : Query<CatalogReleaseStatus>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class CatalogReleaseStatus(

@@ -24,7 +24,8 @@ import java.time.format.DateTimeFormatter
 /**
  * UI handler for the Support → Backups page: lists a tenant's faithful backups, triggers an
  * on-demand backup, and restores one. Visible only when the `support-backups` feature toggle is on
- * (nav) and gated per-action on `TENANT_SETTINGS`.
+ * (nav) and gated per-action: list on `BACKUP_VIEW`, back-up-now on `BACKUP_CREATE`, and the
+ * destructive restore on `TENANT_RESTORE`.
  *
  * Each backup is annotated with whether it is **restore-compatible** with the running schema
  * (computed by [TenantBackupService.restorability]) so an incompatible one is shown as such (and its
@@ -39,7 +40,7 @@ class BackupsHandler(
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.BACKUP_VIEW)
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
 
         // A managed-services feature must not 500 the page when the hub is transiently down or the
@@ -80,7 +81,7 @@ class BackupsHandler(
 
     fun backupNow(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.BACKUP_CREATE)
         return try {
             val query =
                 when (backupService.backupTenant(tenantId.key)) {
@@ -105,7 +106,7 @@ class BackupsHandler(
 
     fun restore(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.TENANT_RESTORE)
         val backupId = request.pathVariable("backupId")
         return try {
             backupService.restoreFromBackup(tenantId.key, backupId)

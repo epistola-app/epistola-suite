@@ -54,7 +54,7 @@ data class EpistolaPrincipal(
     /**
      * Check if the user has the manager role in the specified tenant.
      */
-    fun isManager(tenantId: TenantKey): Boolean = hasRole(tenantId, TenantRole.MANAGER)
+    fun isManager(tenantId: TenantKey): Boolean = hasRole(tenantId, TenantRole.TENANT_ADMINISTRATOR)
 
     /**
      * Get the user's effective roles for a specific tenant.

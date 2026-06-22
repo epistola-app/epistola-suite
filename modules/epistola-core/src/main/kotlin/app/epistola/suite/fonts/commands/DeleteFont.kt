@@ -40,7 +40,7 @@ data class DeleteFont(
     val force: Boolean = false,
 ) : Command<Boolean>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_EDIT
+    override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = fontId.tenantKey
 }
 

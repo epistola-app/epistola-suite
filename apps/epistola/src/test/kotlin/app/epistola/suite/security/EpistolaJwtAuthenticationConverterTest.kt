@@ -30,10 +30,10 @@ class EpistolaJwtAuthenticationConverterTest {
             jwt(
                 mapOf(
                     "groups" to listOf(
-                        "/epistola/tenants/acme-corp/reader",
-                        "/epistola/tenants/acme-corp/editor",
-                        "/epistola/tenants/beta-org/reader",
-                        "/epistola/tenants/beta-org/generator",
+                        "/epistola/tenants/acme-corp/content-viewer",
+                        "/epistola/tenants/acme-corp/content-author",
+                        "/epistola/tenants/beta-org/content-viewer",
+                        "/epistola/tenants/beta-org/document-generator",
                     ),
                 ),
             ),
@@ -42,19 +42,19 @@ class EpistolaJwtAuthenticationConverterTest {
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships).hasSize(2)
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
         assertThat(principal.tenantMemberships[TenantKey.of("beta-org")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.GENERATOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR)
     }
 
     @Test
     fun `extracts global roles from groups claim`() {
         val token = converter.convert(
-            jwt(mapOf("groups" to listOf("/epistola/global/reader", "/epistola/global/editor"))),
+            jwt(mapOf("groups" to listOf("/epistola/global/content-viewer", "/epistola/global/content-author"))),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
-        assertThat(principal.globalRoles).containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(principal.globalRoles).containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
     }
 
     @Test
@@ -92,7 +92,7 @@ class EpistolaJwtAuthenticationConverterTest {
         val token = converter.convert(
             jwt(
                 mapOf(
-                    "groups" to listOf("/other-app/group", "admin", "/epistola/tenants/acme-corp/reader"),
+                    "groups" to listOf("/other-app/group", "admin", "/epistola/tenants/acme-corp/content-viewer"),
                 ),
             ),
         )
@@ -100,7 +100,7 @@ class EpistolaJwtAuthenticationConverterTest {
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships).hasSize(1)
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactly(TenantRole.READER)
+            .containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
@@ -108,14 +108,14 @@ class EpistolaJwtAuthenticationConverterTest {
         val token = converter.convert(
             jwt(
                 mapOf(
-                    "groups" to listOf("/epistola/tenants/acme-corp/reader", "/epistola/tenants/acme-corp/superadmin"),
+                    "groups" to listOf("/epistola/tenants/acme-corp/content-viewer", "/epistola/tenants/acme-corp/superadmin"),
                 ),
             ),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactly(TenantRole.READER)
+            .containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
@@ -124,9 +124,9 @@ class EpistolaJwtAuthenticationConverterTest {
             jwt(
                 mapOf(
                     "groups" to listOf(
-                        "/epistola/tenants/acme-corp/reader",
-                        "/epistola/tenants/acme-corp/editor",
-                        "/epistola/global/reader",
+                        "/epistola/tenants/acme-corp/content-viewer",
+                        "/epistola/tenants/acme-corp/content-author",
+                        "/epistola/global/content-viewer",
                         "/epistola/platform/tenant-manager",
                         "/other-app/group",
                     ),
@@ -136,8 +136,8 @@ class EpistolaJwtAuthenticationConverterTest {
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
-        assertThat(principal.globalRoles).containsExactly(TenantRole.READER)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.CONTENT_VIEWER)
         assertThat(principal.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
     }
 
@@ -147,9 +147,9 @@ class EpistolaJwtAuthenticationConverterTest {
             jwt(
                 mapOf(
                     "roles" to listOf(
-                        "ept_acme-corp_reader",
-                        "ept_acme-corp_editor",
-                        "epg_generator",
+                        "ept_acme-corp_content-viewer",
+                        "ept_acme-corp_content-author",
+                        "epg_document-generator",
                         "eps_tenant_manager",
                     ),
                 ),
@@ -158,8 +158,8 @@ class EpistolaJwtAuthenticationConverterTest {
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
-        assertThat(principal.globalRoles).containsExactly(TenantRole.GENERATOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.DOCUMENT_GENERATOR)
         assertThat(principal.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
     }
 
@@ -168,16 +168,16 @@ class EpistolaJwtAuthenticationConverterTest {
         val token = converter.convert(
             jwt(
                 mapOf(
-                    "groups" to listOf("/epistola/tenants/acme-corp/reader"),
-                    "roles" to listOf("ept_acme-corp_editor", "epg_generator"),
+                    "groups" to listOf("/epistola/tenants/acme-corp/content-viewer"),
+                    "roles" to listOf("ept_acme-corp_content-author", "epg_document-generator"),
                 ),
             ),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
-        assertThat(principal.globalRoles).containsExactly(TenantRole.GENERATOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.DOCUMENT_GENERATOR)
     }
 
     @Test
@@ -187,18 +187,18 @@ class EpistolaJwtAuthenticationConverterTest {
         )
 
         val token = customConverter.convert(
-            jwt(mapOf("myroles" to listOf("ept_acme-corp_manager"))),
+            jwt(mapOf("myroles" to listOf("ept_acme-corp_tenant-administrator"))),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactly(TenantRole.MANAGER)
+            .containsExactly(TenantRole.TENANT_ADMINISTRATOR)
     }
 
     @Test
     fun `ignores flat-roles claim when it uses the wrong configured name`() {
         // Default config reads "roles" — strings in "myroles" should be ignored.
-        val token = converter.convert(jwt(mapOf("myroles" to listOf("ept_acme-corp_reader"))))
+        val token = converter.convert(jwt(mapOf("myroles" to listOf("ept_acme-corp_content-viewer"))))
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
         assertThat(principal.tenantMemberships).isEmpty()

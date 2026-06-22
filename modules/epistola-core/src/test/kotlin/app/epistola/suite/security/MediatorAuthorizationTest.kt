@@ -31,7 +31,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
             externalId = "restricted-user",
             email = "restricted@example.com",
             displayName = "Restricted User",
-            tenantMemberships = mapOf(TenantKey.of("other-tenant") to setOf(TenantRole.MANAGER)),
+            tenantMemberships = mapOf(TenantKey.of("other-tenant") to setOf(TenantRole.TENANT_ADMINISTRATOR)),
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),
             currentTenantId = null,
         )
@@ -63,7 +63,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
             email = "reader@example.com",
             displayName = "Reader User",
             tenantMemberships = emptyMap(),
-            globalRoles = setOf(TenantRole.READER), // Only READER role — no TEMPLATE_EDIT
+            globalRoles = setOf(TenantRole.CONTENT_VIEWER), // Only READER role — no TEMPLATE_EDIT
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),
             currentTenantId = null,
         )
@@ -99,7 +99,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
             email = "nonmanager@example.com",
             displayName = "Non Manager",
             tenantMemberships = emptyMap(),
-            globalRoles = setOf(TenantRole.MANAGER),
+            globalRoles = setOf(TenantRole.TENANT_ADMINISTRATOR),
             platformRoles = emptySet(), // No platform roles
             currentTenantId = null,
         )
