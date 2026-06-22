@@ -35,7 +35,7 @@ class CoreNavContributor : NavContributor {
 
         // Resources
         add(NavItem("resources", "environments", "Environments", "environments", 10))
-        add(NavItem("resources", "assets", "Assets", "assets", 20))
+        add(NavItem("resources", "images", "Images", "images", 20))
         if (context.hasPermission(Permission.REFERENCE_VIEW)) {
             add(NavItem("resources", "fonts", "Fonts", "fonts", 30))
             add(NavItem("resources", "attributes", "Attributes", "attributes", 40))

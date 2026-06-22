@@ -3,9 +3,9 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Assets',
-            searchPlaceholder='Search assets...',
-            searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
+            pageTitle='Images',
+            searchPlaceholder='Search images...',
+            searchUrl=@{/tenants/{tenantId}/images/search(tenantId=${tenantId})},
             searchTargetId='asset-grid-items',
             actions=~{::asset-list-actions}
         )}"></div>
@@ -22,7 +22,7 @@
                 document.getElementById('catalog-filter').addEventListener('change', function() {
                     var tenantId = /*[[${tenantId}]]*/ '';
                     var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/assets';
+                    var url = '/tenants/' + tenantId + '/images';
                     if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
                     window.location.href = url;
                 });
@@ -37,14 +37,14 @@
                     <div class="empty-state-icon">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
                     </div>
-                    <div class="empty-state-title">No assets yet</div>
+                    <div class="empty-state-title">No images yet</div>
                     <div class="empty-state-description">Upload images to use in your document templates.</div>
                 </div>
 
                 <div th:if="${!#lists.isEmpty(assets)}" class="asset-grid">
                     <div th:each="asset : ${assets}" class="asset-card">
                         <div class="asset-card-preview">
-                            <img th:src="@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
+                            <img th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
                                  th:alt="${asset.name}"
                                  loading="lazy" />
                         </div>
@@ -61,9 +61,9 @@
                             <th:block th:if="${asset.catalogType.name() == 'AUTHORED'}">
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                        title="Delete asset"
-                                        data-confirm-title="Delete Asset"
-                                        th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
+                                        title="Delete image"
+                                        data-confirm-title="Delete Image"
+                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/images/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
                                         data-confirm-target="#asset-grid-items"
                                         onclick="openConfirmDialog(this)">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
@@ -79,9 +79,9 @@
 
     </th:block>
     <th:block th:fragment="asset-list-actions">
-        <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+        <a th:href="@{/tenants/{tenantId}/images/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
-            Upload Asset
+            Upload Image
         </a>
     </th:block>
 
