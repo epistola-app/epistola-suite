@@ -18,12 +18,12 @@ class CatalogCanonicalizerTest {
     private val catalog = CatalogInfo(slug = "demo", name = "Demo", description = "d")
 
     private fun theme(slug: String, unit: Float) = ResourceDetail(
-        schemaVersion = CATALOG_MANIFEST_SCHEMA_VERSION,
+        schemaVersion = CATALOG_SCHEMA_VERSION,
         resource = ThemeResource(slug = slug, name = slug, spacingUnit = unit),
     )
 
     private fun asset(slug: String) = ResourceDetail(
-        schemaVersion = CATALOG_MANIFEST_SCHEMA_VERSION,
+        schemaVersion = CATALOG_SCHEMA_VERSION,
         resource = AssetResource(slug = slug, name = slug, mediaType = "image/png", contentUrl = "./resources/asset/$slug"),
     )
 
