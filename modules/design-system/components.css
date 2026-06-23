@@ -457,11 +457,14 @@
   .ep-table {
     width: 100%;
     border-collapse: collapse;
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--ep-shadow-sm);
     font-size: var(--ep-text-sm);
 
     & thead {
-      border-bottom: 1px solid var(--ep-border-color);
-
       & th {
         padding: var(--ep-space-3) var(--ep-space-4);
         text-align: left;
@@ -470,20 +473,22 @@
         color: var(--ep-muted-foreground);
         text-transform: uppercase;
         letter-spacing: var(--ep-tracking-wider);
+        background-color: var(--ep-stone-100);
+        border-bottom: 1px solid var(--ep-border-color);
       }
     }
 
     & tbody {
+      /* Zebra striping — warm ledger rhythm; carries row rhythm (no per-row borders) */
       & tr {
-        border-bottom: 1px solid var(--ep-border-color);
         transition: background-color var(--ep-transition-fast);
 
-        &:last-child {
-          border-bottom: none;
+        &:nth-child(even) {
+          background-color: var(--ep-stone-50);
         }
 
         &:hover {
-          background-color: var(--ep-muted);
+          background-color: var(--ep-terracotta-50);
         }
       }
 
@@ -492,6 +497,17 @@
         color: var(--ep-foreground);
         vertical-align: middle;
       }
+    }
+
+    /* Breathing room at the rounded outer edges */
+    & th:first-child,
+    & td:first-child {
+      padding-left: var(--ep-space-5);
+    }
+
+    & th:last-child,
+    & td:last-child {
+      padding-right: var(--ep-space-5);
     }
   }
 

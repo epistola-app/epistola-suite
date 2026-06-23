@@ -143,6 +143,7 @@ main.regular table {
   border-radius: var(--ep-radius-lg);
   overflow: hidden;
   font-size: var(--ep-text-sm);
+  box-shadow: var(--ep-shadow-sm);
 }
 
 main.regular th,
@@ -151,8 +152,19 @@ main.regular td {
   text-align: left;
 }
 
+/* Breathing room at the rounded outer edges */
+main.regular th:first-child,
+main.regular td:first-child {
+  padding-left: var(--ep-space-5);
+}
+
+main.regular th:last-child,
+main.regular td:last-child {
+  padding-right: var(--ep-space-5);
+}
+
 main.regular th {
-  background-color: var(--ep-stone-50);
+  background-color: var(--ep-stone-100);
   font-weight: 500;
   font-size: var(--ep-text-xs);
   color: var(--ep-muted-foreground);
@@ -161,16 +173,17 @@ main.regular th {
   border-bottom: 1px solid var(--ep-border-color);
 }
 
-main.regular td {
-  border-bottom: 1px solid var(--ep-border-color);
+/* Zebra striping — warm ledger rhythm; carries row rhythm so no per-row borders */
+main.regular tbody tr {
+  transition: background-color var(--ep-transition-fast);
+}
+
+main.regular tbody tr:nth-child(even) {
+  background-color: var(--ep-stone-50);
 }
 
 main.regular tbody tr:hover {
-  background-color: var(--ep-muted);
-}
-
-main.regular tbody tr:last-child td {
-  border-bottom: none;
+  background-color: var(--ep-terracotta-50);
 }
 
 main.regular .empty-message {
