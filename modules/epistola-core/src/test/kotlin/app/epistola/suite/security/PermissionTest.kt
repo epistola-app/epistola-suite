@@ -56,6 +56,7 @@ class PermissionTest {
             Permission.CATALOG_MANAGE,
             Permission.BACKUP_CREATE,
             Permission.DIAGNOSTICS_VIEW,
+            Permission.AUDIT_VIEW,
             Permission.TENANT_RESTORE,
         )
         assertThat(permissions).doesNotContain(Permission.TEMPLATE_PUBLISH, Permission.STENCIL_PUBLISH)

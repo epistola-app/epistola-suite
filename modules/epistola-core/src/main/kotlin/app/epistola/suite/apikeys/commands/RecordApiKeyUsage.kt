@@ -1,5 +1,6 @@
 package app.epistola.suite.apikeys.commands
 
+import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -18,7 +19,8 @@ import org.springframework.stereotype.Component
 data class RecordApiKeyUsage(
     val id: ApiKeyKey,
 ) : Command<Unit>,
-    SystemInternal
+    SystemInternal,
+    NotAudited
 
 @Component
 class RecordApiKeyUsageHandler(

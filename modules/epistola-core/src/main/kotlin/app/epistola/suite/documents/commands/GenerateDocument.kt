@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -55,7 +56,8 @@ data class GenerateDocument(
     val correlationId: String? = null,
     val routingKey: String? = null,
 ) : Command<DocumentGenerationRequest>,
-    RequiresPermission {
+    RequiresPermission,
+    NotAudited {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 

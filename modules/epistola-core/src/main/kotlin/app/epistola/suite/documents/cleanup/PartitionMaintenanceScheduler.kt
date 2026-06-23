@@ -13,11 +13,10 @@ import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.SmartInitializingSingleton
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.annotation.Bean
-import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -51,7 +50,8 @@ class PartitionMaintenanceScheduler(
     private val tableContributors: List<PartitionedTableContributor>,
     @Value("\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
     private val maintenanceCron: String,
-) : ClusterScheduledTaskHandler {
+) : ClusterScheduledTaskHandler,
+    SmartInitializingSingleton {
     private val logger = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
@@ -80,12 +80,15 @@ class PartitionMaintenanceScheduler(
     )
 
     /**
-     * Initialize partitions after application is ready and Flyway migrations have completed.
-     * Creates current month and next month partitions to bootstrap the system.
+     * Bootstrap partitions once all singletons are instantiated (so Flyway has migrated) but
+     * **before** Spring's `ApplicationRunner`s and the `ApplicationReadyEvent`. This matters because
+     * startup runners can dispatch commands that write to a partitioned table (e.g. the demo loader
+     * creating a tenant → an `audit_log` write); if bootstrap ran at `ApplicationReadyEvent` (after
+     * runners) the current month's partition wouldn't exist yet. Creates the current + next month
+     * partitions.
      */
-    @EventListener(ApplicationReadyEvent::class)
-    fun initializePartitions() {
-        logger.info("Initializing partitions after application ready (Flyway migrations completed)")
+    override fun afterSingletonsInstantiated() {
+        logger.info("Initializing partitions after singletons instantiated (Flyway migrations completed)")
         maintainPartitions()
     }
 

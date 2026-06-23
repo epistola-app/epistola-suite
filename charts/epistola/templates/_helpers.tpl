@@ -245,6 +245,14 @@ Rendered as a container list item.
       value: {{ .Values.jvm.options | quote }}
     {{- end }}
     {{- include "epistola.databaseEnv" . | nindent 4 }}
+    {{- /* Migration JVM diverges from the app's Hikari defaults (which it would
+           otherwise inherit from application.yaml): long DDL can read with no
+           socket traffic past the app's socketTimeout, and a long migration would
+           trip the app's 60s leak detector. Both are relaxed here only. */}}
+    - name: SPRING_DATASOURCE_HIKARI_DATASOURCEPROPERTIES_SOCKETTIMEOUT
+      value: {{ .Values.migration.socketTimeoutSeconds | default 0 | quote }}
+    - name: SPRING_DATASOURCE_HIKARI_LEAKDETECTIONTHRESHOLD
+      value: "0"
     {{- range $key, $value := .Values.config.env }}
     - name: {{ $key }}
       value: {{ $value | quote }}
