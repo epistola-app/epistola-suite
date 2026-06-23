@@ -225,6 +225,53 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `upgrade-check reports source-ahead when the source schema is newer than this Epistola`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Upgrade Check Source Ahead")
+            // Register while the source is at the current schema, then advance the
+            // source past what this Epistola understands. On the next check,
+            // fetchMigratedManifest throws CatalogSchemaTooNewException, which the
+            // handler must map to the "upgrade Epistola" state rather than a
+            // generic check failure. (Registration eagerly migrates, so a too-new
+            // source could never be registered in the first place — the state is
+            // only reachable when a live source moves ahead after subscription.)
+            val dir = Files.createTempDirectory("ahead-catalog")
+            val manifest = dir.resolve("catalog.json")
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
+            )
+            withMediator {
+                RegisterCatalog(testTenant.id, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
+            }
+            // Source advances to a wire schema newer than this instance supports.
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":99,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"2.0.0"},"resources":[]}""",
+            )
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/new-source/upgrade-check",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("upgrade Epistola")
+            assertThat(response.body).doesNotContain("check failed")
+        }
+    }
+
+    @Test
     fun `upgrade-check reports ZIP-managed for a ZIP-imported subscribed catalog (no source URL)`() = fixture {
         lateinit var consumer: Tenant
         given {

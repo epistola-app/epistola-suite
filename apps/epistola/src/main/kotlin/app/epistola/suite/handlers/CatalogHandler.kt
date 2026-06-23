@@ -285,6 +285,13 @@ class CatalogHandler {
                     CatalogSchemaSyncState.SOURCE_AHEAD -> "SOURCE_AHEAD"
                     CatalogSchemaSyncState.IN_SYNC -> if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
                 }
+            } catch (e: CatalogSchemaTooNewException) {
+                // The source publishes a wire schema newer than this instance can
+                // read — `fetchMigratedManifest` throws before a sync state can be
+                // derived, so surface the intended "upgrade Epistola" state here.
+                model["sourceSchemaVersion"] = e.version
+                model["currentSchemaVersion"] = e.current
+                model["state"] = "SOURCE_AHEAD"
             } catch (e: Exception) {
                 logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
                 model["state"] = "CHECK_FAILED"
