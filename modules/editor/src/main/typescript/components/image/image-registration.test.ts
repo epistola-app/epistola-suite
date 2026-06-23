@@ -8,7 +8,7 @@ const dummyOptions = {
     listAssets: async () => [],
     uploadAsset: async () => ({ id: 'a', name: 'a', contentType: 'image/png' }),
   },
-  contentUrlPattern: '/assets/{assetId}',
+  contentUrlPattern: '/images/{assetId}',
 };
 
 function imageDef(): ComponentDefinition {

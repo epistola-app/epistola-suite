@@ -19,7 +19,7 @@ export interface ImageOptions {
 }
 
 function resolveContentUrl(pattern: string | undefined, assetId: string): string {
-  return (pattern ?? '/assets/{assetId}').replace('{assetId}', assetId);
+  return (pattern ?? '/images/{assetId}').replace('{assetId}', assetId);
 }
 
 /** Parse a pt value, returning the numeric part or null for non-pt / empty values. */
