@@ -1,5 +1,6 @@
 package app.epistola.suite.users.commands
 
+import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -14,7 +15,8 @@ import org.springframework.stereotype.Component
 data class UpdateLastLogin(
     val userId: UserKey,
 ) : Command<Unit>,
-    SystemInternal
+    SystemInternal,
+    NotAudited
 
 @Component
 class UpdateLastLoginHandler(
