@@ -1,0 +1,214 @@
+/*
+ * JSON inspector (<epistola-json-inspector>)
+ *
+ * Toolbar trigger + popover showing the current data example or the effective
+ * template model, switchable via a segmented control. Read-only, copyable,
+ * pinnable + draggable.
+ */
+
+@layer components {
+  .json-inspector {
+    position: relative;
+  }
+
+  .json-inspector-popover {
+    position: absolute;
+    top: calc(100% + var(--ep-space-2));
+    right: 0;
+    width: min(40rem, calc(100vw - var(--ep-space-6)));
+    min-width: 352px;
+    border: 1px solid var(--ep-stone-200);
+    border-radius: var(--ep-radius-md);
+    background: var(--ep-white);
+    box-shadow: var(--ep-shadow-lg);
+    padding: var(--ep-space-2-5);
+    z-index: 40;
+    animation: ep-shortcuts-in 140ms ease-out;
+    display: flex;
+    flex-direction: column;
+
+    &.is-pinned {
+      position: fixed;
+      top: 0;
+      right: auto;
+      width: min(40rem, calc(100vw - var(--ep-space-6)));
+      min-height: 320px;
+      max-width: calc(100vw - var(--ep-space-6));
+      max-height: calc(100vh - var(--ep-space-6));
+      z-index: 41;
+    }
+
+    &:focus {
+      outline: none;
+      box-shadow: var(--ep-ring), var(--ep-shadow-lg);
+    }
+  }
+
+  .json-inspector-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-1);
+    min-height: 2.5rem;
+  }
+
+  /* Segmented Template | Data toggle. */
+  .json-inspector-tabs {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--ep-stone-200);
+    border-radius: var(--ep-radius-sm);
+    overflow: hidden;
+    background: var(--ep-stone-50);
+    flex-shrink: 0;
+  }
+
+  .json-inspector-tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ep-stone-600);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition:
+      background-color var(--ep-transition-fast),
+      color var(--ep-transition-fast);
+
+    & + .json-inspector-tab {
+      border-left: 1px solid var(--ep-stone-200);
+    }
+
+    &:hover:not(:disabled):not(.is-active) {
+      background: var(--ep-stone-100);
+      color: var(--ep-stone-800);
+    }
+
+    &.is-active {
+      background: var(--ep-white);
+      color: var(--ep-primary-strong);
+    }
+
+    &:disabled {
+      color: var(--ep-stone-400);
+      cursor: not-allowed;
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ep-ring);
+    }
+  }
+
+  .json-inspector-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    flex-shrink: 0;
+  }
+
+  .json-inspector-copy {
+    font-size: 11px;
+    font-weight: 600;
+
+    &:disabled {
+      color: var(--ep-stone-400);
+      cursor: not-allowed;
+      background: var(--ep-stone-50);
+    }
+
+    &.is-success {
+      color: var(--ep-green-700, #15803d);
+      border-color: var(--ep-green-300, #86efac);
+      background: var(--ep-green-50, #f0fdf4);
+    }
+
+    &.is-error {
+      color: var(--ep-red-700, #b91c1c);
+      border-color: var(--ep-red-300, #fca5a5);
+      background: var(--ep-red-50, #fef2f2);
+    }
+  }
+
+  .json-inspector-drag-handle {
+    width: 6.5rem;
+    gap: 4px;
+    border: 1px dashed var(--ep-stone-300);
+    background: var(--ep-stone-50);
+    color: var(--ep-stone-500);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 6px;
+
+    &:hover {
+      color: var(--ep-stone-700);
+      border-color: var(--ep-stone-400);
+      background: var(--ep-stone-100);
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  .json-inspector-drag-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--ep-stone-500);
+    margin-bottom: var(--ep-space-1);
+    white-space: nowrap;
+  }
+
+  .json-inspector-pin.is-active {
+    color: var(--ep-terracotta-700);
+    border-color: var(--ep-terracotta-300);
+    background: var(--ep-terracotta-50);
+  }
+
+  .json-inspector-meta {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-stone-700);
+    margin-bottom: var(--ep-space-2);
+    overflow-wrap: anywhere;
+  }
+
+  .json-inspector-json {
+    margin: 0;
+    width: 100%;
+    height: 20rem;
+    min-height: 10rem;
+    border: 1px solid var(--ep-stone-100);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-stone-50);
+    padding: var(--ep-space-2);
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--ep-stone-800);
+    font-family: var(--ep-font-mono);
+    resize: none;
+    overflow: auto;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  .json-inspector-popover.is-pinned .json-inspector-json {
+    flex: 1;
+    height: auto;
+    min-height: 14rem;
+  }
+
+  .json-inspector-empty {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-stone-500);
+    border: 1px dashed var(--ep-stone-200);
+    border-radius: var(--ep-radius-sm);
+    padding: var(--ep-space-2);
+  }
+}
