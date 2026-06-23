@@ -20,7 +20,7 @@ import java.util.zip.ZipOutputStream
 /**
  * The restore schema-compatibility gate ([app.epistola.suite.tenantbackup.schema.RestoreCompatibility]):
  * a cross-schema restore is allowed only when every crossed migration is declared compatible in the
- * right direction (`schema-backup-compatibility.yaml` for backward; the backup's recorded flags for
+ * right direction (each migration's `backup-restore-compatibility` header for backward; the backup's recorded flags for
  * forward), else refused before any write. The listed migration in the file (`20260618204750`, the
  * `support-compatibility-check` rename, marked backward+forward) is the fixture.
  */

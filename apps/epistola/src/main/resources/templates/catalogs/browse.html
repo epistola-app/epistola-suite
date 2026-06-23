@@ -65,7 +65,7 @@
                                        th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'asset'}"
-                                       th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId},catalog=${catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
                                 <!-- Subscribed: plain text -->

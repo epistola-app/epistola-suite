@@ -63,6 +63,29 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `afterSingletonsInstantiated bootstraps partitions in the pre-runner phase`() {
+        // Regression guard for the startup ORDERING. Partition bootstrap must run BEFORE Spring's
+        // ApplicationRunners, because a runner (e.g. the demo loader) can write to a partitioned table
+        // at startup and the partition has to already exist. The pre-runner phase is
+        // SmartInitializingSingleton.afterSingletonsInstantiated() — NOT
+        // @EventListener(ApplicationReadyEvent), which fires AFTER all runners (the bug that crashed
+        // demo load). Spring guarantees afterSingletonsInstantiated() runs before runners; this proves
+        // the bootstrap is wired to that hook, so the two together give "partitions exist before any
+        // runner". Drop a sentinel and prove the hook recreates it — if bootstrap regresses out of this
+        // hook, the sentinel stays gone and this fails.
+        val nextSuffix = YearMonth.now(testClock).plusMonths(1).format(DateTimeFormatter.ofPattern("yyyy_MM"))
+        val sentinel = "generation_results_$nextSuffix"
+        jdbi.useHandle<Exception> { handle -> handle.execute("DROP TABLE IF EXISTS $sentinel CASCADE") }
+        assertThat(tableExists(sentinel)).isFalse
+
+        scheduler.afterSingletonsInstantiated()
+
+        assertThat(tableExists(sentinel))
+            .`as`("the pre-runner hook afterSingletonsInstantiated() must bootstrap partitions")
+            .isTrue
+    }
+
+    @Test
     fun `cluster scheduled task poll runs partition maintenance handler after time advances past due`() = scenario {
         given {
             val task = scheduledTaskRegistry.find(PartitionMaintenanceScheduler.TASK_KEY)

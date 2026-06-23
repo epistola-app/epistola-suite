@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`datasource.hikari` — connection-pool sizing and app-side socket timeout.** `datasource.hikari.maximumPoolSize` (default `20`) sets the per-replica pool size, rendered as `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` and pinned to `MINIMUM_IDLE` (fixed-size pool). `datasource.hikari.socketTimeoutSeconds` (default `30`) sets the app's pgjdbc `socketTimeout` so a wedged read (post DB-failover / network blip) self-heals instead of pinning the pool. The base liveness settings (`keepalive-time`, `max-lifetime`, leak detection, `tcpKeepAlive`) ship in the app's `application.yaml` and apply by default. **Capacity note:** each replica owns its own pool, so ensure Postgres `max_connections` exceeds `(maxReplicas × maximumPoolSize) + migration job + reserve`. Replaces the previous commented `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` hint under `config.env`.
+- **`migration.socketTimeoutSeconds` — migration-JVM socket-timeout exemption.** Default `0` (no socket timeout). The migration container shares the app's `application.yaml` but runs long DDL that can read with no socket traffic past the app's 30s `socketTimeout`; it now overrides `socketTimeout` (and disables leak detection) so long migrations aren't aborted. Migrations stay bounded by `migration.job.activeDeadlineSeconds`.
+
 ## [0.7.0] - 2026-06-16
 
 ### Added

@@ -27,7 +27,7 @@ A backup captures every **tenant-scoped authoring table**, classified in
   verbatim), `feature_toggles`
 - the feedback feature tables when present (`feedback*`)
 
-It deliberately **excludes** (`DENY_TENANT_TABLES`): generated documents
+It deliberately **excludes** (classified as excluded by their owning module): generated documents
 (`documents`, `document_generation_requests`, `document_generation_batches`),
 the append-only collect feed and cursors (`generation_results`,
 `consumer_*`) — which must survive and stay monotonic for external consumers —
@@ -49,8 +49,9 @@ up automatically; only genuine special cases are hand-coded.
 - **Schema-version gate** — the artifact stamps the Flyway schema head
   (`flyway_schema_history`). Same stamp always restores. A _different_ stamp
   restores only when every migration crossed between the backup and the running
-  schema is declared compatible in `schema-backup-compatibility.yaml` (default
-  deny) — see [Schema compatibility](#schema-compatibility) below. Restore also
+  schema is declared compatible by a `backup-restore-compatibility` header in that
+  migration's `.sql` file (default deny) — see
+  [Schema compatibility](#schema-compatibility) below. Restore also
   verifies each backed-up table's column set still matches (the structural
   backstop), regardless of the stamp.
 - **Encryption at rest** — the whole archive is wrapped with the existing
@@ -84,25 +85,26 @@ theme is nulled during the merge and re-applied at the end), the deferred
 
 A backup taken at one schema can restore into a **different** schema only when
 every migration crossed between them is explicitly declared safe — otherwise the
-restore is refused (default deny). The declarations live in
-`modules/epistola-support-backups/src/main/resources/schema-backup-compatibility.yaml`,
-one entry per migration with two directional flags:
+restore is refused (default deny). The declaration lives as a header comment **in
+the migration's own `.sql` file** (so it ships with whichever module owns the
+migration; `RestoreCompatibility` scans `classpath*:db/migration/**/*.sql` and takes
+the version from the filename):
 
-```yaml
-migrations:
-  - version: "20260618204750"
-    backward: true # an OLDER backup may restore into a schema that HAS this migration
-    forward: true # a NEWER backup may restore into a schema that does NOT have it
-    reason: "Data-only migration; no structural change to backed-up tables."
+```sql
+-- backup-restore-compatibility: backward=true forward=true
+-- reason: Data-only migration; no structural change to backed-up tables.
+UPDATE feature_toggles SET ...;
 ```
 
-The two directions read the flags from different places, because a running app's
+`backward=true` means an OLDER backup may restore into a schema that HAS this
+migration; `forward=true` means a NEWER backup may restore into a schema that does
+NOT have it. The two directions read the flags from different places, because a running app's
 schema head equals its own code's migration head — so it can only _see_ the
 migrations up to itself:
 
 - **Backward** (restoring an older backup after an upgrade — the common case): the
   live (newer) app knows the crossed migrations and reads their `backward` flags
-  straight from this file.
+  straight from those migrations' headers.
 - **Forward** (restoring a newer backup after a downgrade): the live (older) app
   is blind to the newer migrations, so it reads the `forward` flags the backup
   **snapshotted into its manifest** (`appliedMigrations`) at build time. Backups in
@@ -112,11 +114,15 @@ migrations up to itself:
 directions as the automatic backstop — the flags only relax the _stamp_, never a
 structural change.
 
-**Maintaining the file:** when a migration is safe to cross, add an entry with the
-right flag(s); leave a restore-breaking migration out (it becomes the compatibility
-boundary). Every listed version must be a real migration —
-`SchemaBackupCompatibilityFileTest` fails CI on a typo. There is no manual "restore
-anyway" override; compatibility is decided solely by the file + the structural check.
+**Declaring compatibility:** when a migration is safe to cross, add the
+`backup-restore-compatibility` header to its `.sql` file with the right flag(s);
+leave a restore-breaking migration without one (it becomes the compatibility
+boundary). The version comes from the filename, so it can't drift;
+`SchemaBackupCompatibilityFileTest` guards the mechanism. Because the header lives in
+the migration file, a **feature module's** migrations carry their own flags — no
+central list to maintain, and the flags are present exactly where the migration is.
+There is no manual "restore anyway" override; compatibility is decided solely by the
+headers + the structural check.
 
 ## Storage and the Backups UI
 
@@ -139,20 +145,20 @@ Every tenant-scoped table must be classified INCLUDE or DENY in
 `TenantTableTopologyDriftIntegrationTest` until you decide — back it up (INCLUDE)
 or exclude it (DENY). See [`migrations.md`](migrations.md).
 
-### Why an explicit list (and when to change it)
+### Per-module classification (and how to change it)
 
-The `INCLUDE` / `DENY_TENANT_TABLES` lists are the **single, hand-maintained
-source of truth** for what leaves the database in a backup. That is deliberate:
-"what's in a backup" is a data-fidelity and security decision, and keeping it
-auditable in one place beats scattering it across migrations (e.g. as per-table
-SQL comments, which can't be reviewed at a glance, are easy to typo, and get lost
-in a migration consolidation). The drift test removes the only real downside —
-forgetting to update the list — by failing the build on any unclassified table.
+Every module classifies its **own** tenant-scoped tables as included or excluded via a
+`TenantBackupTableContributor` bean; `TenantTableTopology` only aggregates them over the
+discovered schema and derives FK order. So there's no central list and the backup module
+hard-codes no table names — each module owns the data-fidelity/security decision for its
+tables, kept auditable in that one bean:
 
-A few INCLUDE entries (the `feedback*` tables) are owned by other feature modules
-and referenced by name only (no compile dependency); a rename trips the drift test
-too. This is fine while **one** external module contributes tenant-scoped tables.
-When a **second** one does, evolve the central lists into a small per-module
-contribution SPI — each module declares its own include/exclude and the topology
-aggregates them — mirroring the existing `NavContributor` / `FooterContributor`
-pattern. Until then it would be premature; keep the explicit list.
+- `CoreBackupTables` (in `epistola-core`) — core's tables (the bulk).
+- `BackupsOwnTables` (in this module) — `tenant_backups`, excluded (never back up the backups).
+- `AuditBackupTables`, `FeedbackBackupTables`, `LoadTestBackupTables` — the audit/feedback/loadtest
+  feature modules' tables.
+
+The drift guard removes the only real downside — forgetting to classify a table — by failing
+the build on any unclassified one: `TenantTableTopologyDriftIntegrationTest` covers the tables
+visible in the backups module's own context, and `TenantBackupClassificationAppTest` covers the
+**full app** composition (so a feature module that adds an unclassified table is caught too).

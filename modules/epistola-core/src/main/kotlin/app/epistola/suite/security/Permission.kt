@@ -36,6 +36,9 @@ enum class Permission {
     /** Observability: application logs and diagnostics. */
     DIAGNOSTICS_VIEW,
 
+    /** Audit trail: view the PII-free "who did what, when" command log. */
+    AUDIT_VIEW,
+
     /** Non-destructive backup operations: list backups, back up now. */
     BACKUP_VIEW,
     BACKUP_CREATE,
@@ -88,6 +91,7 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.CATALOG_MANAGE,
         Permission.BACKUP_CREATE,
         Permission.DIAGNOSTICS_VIEW,
+        Permission.AUDIT_VIEW,
         Permission.TENANT_RESTORE,
     )
 }

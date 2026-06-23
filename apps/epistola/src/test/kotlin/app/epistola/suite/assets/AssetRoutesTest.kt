@@ -46,7 +46,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             payload.add("catalog", "default")
 
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/assets",
+                "/tenants/${testTenant.id}/images",
                 HttpEntity(payload, headers),
                 String::class.java,
             )
