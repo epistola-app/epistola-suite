@@ -130,23 +130,30 @@
                         Published templates are upgraded in a <strong>new draft</strong> — their live version stays unchanged until you publish that draft. Existing drafts are modified in place. Up to 100 templates can be upgraded at a time.
                     </p>
 
-                    <!-- Filter: show only upgradable rows. Carries the current filter/page
-                         so refreshUsageList() can re-fetch the same view after an upgrade. -->
+                    <!-- Filter (plain HTMX): the select re-requests the fragment on change,
+                         carrying its value as ?filter=…. The hidden state element lets
+                         refreshUsageList() re-fetch the same view after an upgrade. -->
                     <span id="usage-state" hidden
                           th:data-page="${usagePage.page}"
-                          th:data-upgradable-only="${usagePage.upgradableOnly}"></span>
+                          th:data-filter="${usagePage.filter}"></span>
                     <div class="ep-row ep-gap-3" style="margin-bottom: var(--ep-space-3); align-items: center;">
-                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},upgradableOnly=${!usagePage.upgradableOnly},page=1)}"
-                                hx-target="#usage-list" hx-swap="innerHTML"
-                                th:text="${usagePage.upgradableOnly} ? 'Show all' : 'Show only upgradable'"></button>
+                        <label class="ep-label" style="margin: 0; white-space: nowrap;">Show:</label>
+                        <select name="filter" class="ep-select form-control-auto"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
+                                hx-target="#usage-list" hx-swap="innerHTML">
+                            <option value="both" th:selected="${usagePage.filter == 'both'}">All</option>
+                            <option value="upgradable" th:selected="${usagePage.filter == 'upgradable'}">Upgradable</option>
+                            <option value="not-upgradable" th:selected="${usagePage.filter == 'not-upgradable'}">Not upgradable</option>
+                        </select>
                         <span class="text-muted" style="font-size: var(--ep-text-sm);"
                               th:text="${usagePage.upgradableCount} + ' of ' + ${usagePage.totalAll} + ' upgradable'"></span>
                     </div>
 
                     <div th:if="${#lists.isEmpty(usage)}" class="empty-state" style="padding: var(--ep-space-4);">
                         <div class="empty-state-description"
-                             th:text="${usagePage.upgradableOnly} ? 'No upgradable templates.' : 'No templates use this stencil.'"></div>
+                             th:text="${usagePage.filter == 'upgradable'} ? 'No upgradable templates.' :
+                                      (${usagePage.filter == 'not-upgradable'} ? 'No templates are blocked from upgrade.' :
+                                      'No templates use this stencil.')"></div>
                     </div>
 
                     <table th:unless="${#lists.isEmpty(usage)}" class="ep-table ep-table-compact">
@@ -208,13 +215,13 @@
                     <!-- Pagination (page size 100, matching the per-run upgrade cap) -->
                     <div th:if="${usagePage.totalPages > 1}" class="ep-row ep-gap-2" style="margin-top: var(--ep-space-3); align-items: center;">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},upgradableOnly=${usagePage.upgradableOnly},page=${usagePage.page - 1})}"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},filter=${usagePage.filter},page=${usagePage.page - 1})}"
                                 hx-target="#usage-list" hx-swap="innerHTML"
                                 th:disabled="${usagePage.page le 1}">Previous</button>
                         <span class="text-muted" style="font-size: var(--ep-text-sm);"
                               th:text="'Page ' + ${usagePage.page} + ' of ' + ${usagePage.totalPages}"></span>
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},upgradableOnly=${usagePage.upgradableOnly},page=${usagePage.page + 1})}"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},filter=${usagePage.filter},page=${usagePage.page + 1})}"
                                 hx-target="#usage-list" hx-swap="innerHTML"
                                 th:disabled="${usagePage.page >= usagePage.totalPages}">Next</button>
                     </div>
@@ -245,9 +252,9 @@
                     // Preserve the current filter + page so the refresh stays in place.
                     const st = document.getElementById('usage-state');
                     const page = (st && st.dataset.page) || '1';
-                    const only = !!(st && st.dataset.upgradableOnly === 'true');
+                    const filter = (st && st.dataset.filter) || 'both';
                     const url = '/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId
-                        + '/usage?page=' + page + '&upgradableOnly=' + only;
+                        + '/usage?page=' + page + '&filter=' + encodeURIComponent(filter);
                     htmx.ajax('GET', url, { target: '#usage-list', swap: 'innerHTML' });
                 }
 

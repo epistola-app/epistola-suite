@@ -283,17 +283,17 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX GET usage details with upgradableOnly filter excludes non-upgradable rows`() = fixture {
+    fun `HTMX GET usage details with filter=upgradable shows only upgradable rows`() = fixture {
         lateinit var seeded: SeededUsage
 
         given {
-            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter")
+            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter Upgradable")
         }
 
         whenever {
             val headers = HttpHeaders().apply { set("HX-Request", "true") }
             restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?upgradableOnly=true",
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?filter=upgradable",
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -302,14 +302,41 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             // The variant has a published (non-upgradable, "has draft") row and a draft
-            // (upgradable) row. Filtering to upgradable-only shows just the draft.
+            // (upgradable) row. filter=upgradable shows just the draft.
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("1 of 2 upgradable")
-            assertThat(response.body).contains("Show all") // toggle label when filter is active
             assertThat(response.body).contains("usage-select") // the draft row's checkbox
             // The filtered-out published row's block reason must not appear.
             assertThat(response.body).doesNotContain("already has an open draft")
+        }
+    }
+
+    @Test
+    fun `HTMX GET usage details with filter=not-upgradable shows only blocked rows`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter Blocked")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { set("HX-Request", "true") }
+            restTemplate.exchange(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?filter=not-upgradable",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            // filter=not-upgradable shows just the blocked published row (its reason),
+            // and no selectable checkbox.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("already has an open draft")
+            assertThat(response.body).doesNotContain("usage-select")
         }
     }
 

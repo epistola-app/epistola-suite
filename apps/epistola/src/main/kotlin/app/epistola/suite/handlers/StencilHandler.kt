@@ -43,6 +43,11 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
 
+/** Usage-table filter values (query param `filter`). */
+private const val USAGE_FILTER_BOTH = "both"
+private const val USAGE_FILTER_UPGRADABLE = "upgradable"
+private const val USAGE_FILTER_NOT_UPGRADABLE = "not-upgradable"
+
 /**
  * Stencil handler serving both the management UI (HTMX) and editor callbacks (JSON).
  * Content negotiation: HTMX requests (HX-Request header) get fragments, others get JSON.
@@ -255,7 +260,7 @@ class StencilHandler(
         val versions = ListStencilVersions(stencilId = stencilId).query()
         val usagePage = buildUsagePage(
             GetStencilUsageDetails(stencilId = stencilId).query(),
-            upgradableOnly = false,
+            filter = USAGE_FILTER_BOTH,
             page = 1,
         )
 
@@ -366,9 +371,9 @@ class StencilHandler(
                 )
         }
 
-        val upgradableOnly = request.param("upgradableOnly").map { it.toBoolean() }.orElse(false)
+        val filter = request.param("filter").orElse(USAGE_FILTER_BOTH)
         val page = request.param("page").map { it.toIntOrNull() ?: 1 }.orElse(1)
-        val usagePage = buildUsagePage(usage, upgradableOnly, page)
+        val usagePage = buildUsagePage(usage, filter, page)
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
@@ -398,22 +403,31 @@ class StencilHandler(
         val total: Int,
         val totalAll: Int,
         val upgradableCount: Int,
-        val upgradableOnly: Boolean,
+        /** Active filter: one of [USAGE_FILTER_BOTH], [USAGE_FILTER_UPGRADABLE], [USAGE_FILTER_NOT_UPGRADABLE]. */
+        val filter: String,
     )
 
     private fun buildUsagePage(
         all: List<app.epistola.suite.stencils.model.StencilUsageDetail>,
-        upgradableOnly: Boolean,
+        filter: String,
         page: Int,
     ): UsagePageView {
         val pageSize = 100
         val upgradableCount = all.count { it.upgradable }
-        val filtered = if (upgradableOnly) all.filter { it.upgradable } else all
+        val normalizedFilter = when (filter) {
+            USAGE_FILTER_UPGRADABLE, USAGE_FILTER_NOT_UPGRADABLE -> filter
+            else -> USAGE_FILTER_BOTH
+        }
+        val filtered = when (normalizedFilter) {
+            USAGE_FILTER_UPGRADABLE -> all.filter { it.upgradable }
+            USAGE_FILTER_NOT_UPGRADABLE -> all.filterNot { it.upgradable }
+            else -> all
+        }
         val total = filtered.size
         val totalPages = if (total == 0) 1 else (total + pageSize - 1) / pageSize
         val current = page.coerceIn(1, totalPages)
         val items = filtered.drop((current - 1) * pageSize).take(pageSize)
-        return UsagePageView(items, current, totalPages, total, all.size, upgradableCount, upgradableOnly)
+        return UsagePageView(items, current, totalPages, total, all.size, upgradableCount, normalizedFilter)
     }
 
     /** Upgrade a stencil in a specific template variant's draft. */
