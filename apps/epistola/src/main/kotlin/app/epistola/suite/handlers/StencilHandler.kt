@@ -31,12 +31,15 @@ import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
 import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
+import app.epistola.suite.stencils.queries.CountStencilUsageByVersion
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsageDetails
+import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilSummaries
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
+import app.epistola.suite.stencils.queries.USAGE_FILTER_BOTH
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -253,7 +256,7 @@ class StencilHandler(
             ?: return ServerResponse.notFound().build()
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
-        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
+        val usagePage = GetStencilUsagePage(stencilId = stencilId, filter = USAGE_FILTER_BOTH, page = 1).query()
 
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
@@ -261,7 +264,9 @@ class StencilHandler(
             "catalogId" to catalogId.value
             "stencil" to stencil
             "versions" to versions
-            "usage" to usage
+            "versionUsage" to CountStencilUsageByVersion(stencilId = stencilId).query()
+            "usage" to usagePage.items
+            "usagePage" to usagePage
         }
     }
 
@@ -339,9 +344,8 @@ class StencilHandler(
         val stencil = GetStencil(id = stencilId).query()
             ?: return ServerResponse.notFound().build()
 
-        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
-
         if (!request.isHtmx()) {
+            val usage = GetStencilUsageDetails(stencilId = stencilId).query()
             return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(
@@ -361,6 +365,10 @@ class StencilHandler(
                 )
         }
 
+        val filter = request.param("filter").orElse(USAGE_FILTER_BOTH)
+        val page = request.param("page").map { it.toIntOrNull() ?: 1 }.orElse(1)
+        val usagePage = GetStencilUsagePage(stencilId = stencilId, filter = filter, page = page).query()
+
         val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "usage") {
@@ -368,7 +376,8 @@ class StencilHandler(
                 "catalogId" to stencilId.catalogKey.value
                 "stencil" to stencil
                 "versions" to versions
-                "usage" to usage
+                "usage" to usagePage.items
+                "usagePage" to usagePage
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }
@@ -404,7 +413,7 @@ class StencilHandler(
         if (result == null) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "No draft version found for this template variant"))
+                .body(mapOf("error" to "Template variant not found"))
         }
 
         return ServerResponse.ok()
@@ -588,6 +597,7 @@ class StencilHandler(
                 "catalogId" to stencilId.catalogKey.value
                 "stencil" to stencil
                 "versions" to versions
+                "versionUsage" to CountStencilUsageByVersion(stencilId = stencilId).query()
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }

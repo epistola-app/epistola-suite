@@ -60,19 +60,22 @@
   }
 
   .ep-btn-primary {
-    --btn-bg: var(--ep-primary);
+    /* Fill is terracotta-700 (not --ep-primary/terra-600): white labels need
+       AA, and white-on-terra-600 is only 4.1:1. terra-700 is 5.4:1. terra-600
+       stays the accent for borders/ring/decoration. */
+    --btn-bg: var(--ep-terracotta-700);
     --btn-color: var(--ep-primary-foreground);
-    --btn-border-color: var(--ep-primary);
-    --btn-hover-bg: var(--ep-blue-700);
+    --btn-border-color: var(--ep-terracotta-700);
+    --btn-hover-bg: var(--ep-terracotta-800);
     --btn-hover-color: var(--ep-primary-foreground);
-    --btn-hover-border-color: var(--ep-blue-700);
+    --btn-hover-border-color: var(--ep-terracotta-800);
   }
 
   .ep-btn-secondary {
     --btn-bg: var(--ep-muted);
     --btn-color: var(--ep-accent-foreground);
     --btn-border-color: transparent;
-    --btn-hover-bg: var(--ep-gray-200);
+    --btn-hover-bg: var(--ep-stone-200);
     --btn-hover-color: var(--ep-accent-foreground);
     --btn-hover-border-color: transparent;
   }
@@ -244,6 +247,26 @@
     }
   }
 
+  /* Native search clear (×) button: WebKit ignores accent-color here, so it
+     would show the cool browser default against the warm palette. Recolor it
+     to the muted neutral (darkening on hover) with a masked × glyph. */
+  .ep-input[type='search']::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 0.85em;
+    width: 0.85em;
+    cursor: pointer;
+    background-color: var(--ep-muted-foreground);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+
+  .ep-input[type='search']::-webkit-search-cancel-button:hover {
+    background-color: var(--ep-foreground);
+  }
+
   .ep-textarea {
     --ep-form-control-padding-y: var(--ep-space-2);
     --ep-form-control-padding-x: var(--ep-space-3);
@@ -387,9 +410,9 @@
   }
 
   .badge-primary {
-    background-color: var(--ep-blue-100);
-    color: var(--ep-blue-800);
-    border-color: var(--ep-blue-200);
+    background-color: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-800);
+    border-color: var(--ep-terracotta-200);
   }
 
   .badge-success {
@@ -434,11 +457,14 @@
   .ep-table {
     width: 100%;
     border-collapse: collapse;
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--ep-shadow-sm);
     font-size: var(--ep-text-sm);
 
     & thead {
-      border-bottom: 1px solid var(--ep-border-color);
-
       & th {
         padding: var(--ep-space-3) var(--ep-space-4);
         text-align: left;
@@ -447,20 +473,22 @@
         color: var(--ep-muted-foreground);
         text-transform: uppercase;
         letter-spacing: var(--ep-tracking-wider);
+        background-color: var(--ep-stone-100);
+        border-bottom: 1px solid var(--ep-border-color);
       }
     }
 
     & tbody {
+      /* Zebra striping — warm ledger rhythm; carries row rhythm (no per-row borders) */
       & tr {
-        border-bottom: 1px solid var(--ep-border-color);
         transition: background-color var(--ep-transition-fast);
 
-        &:last-child {
-          border-bottom: none;
+        &:nth-child(even) {
+          background-color: var(--ep-stone-50);
         }
 
         &:hover {
-          background-color: var(--ep-muted);
+          background-color: var(--ep-terracotta-50);
         }
       }
 
@@ -469,6 +497,17 @@
         color: var(--ep-foreground);
         vertical-align: middle;
       }
+    }
+
+    /* Breathing room at the rounded outer edges */
+    & th:first-child,
+    & td:first-child {
+      padding-left: var(--ep-space-5);
+    }
+
+    & th:last-child,
+    & td:last-child {
+      padding-right: var(--ep-space-5);
     }
   }
 
@@ -552,7 +591,7 @@
       width: 3rem;
       height: 3rem;
       margin-bottom: var(--ep-space-4);
-      color: var(--ep-gray-300);
+      color: var(--ep-stone-300);
     }
 
     & .empty-state-title {
@@ -570,12 +609,17 @@
 
   /* ── Alerts ───────────────────────────────────────────────────────────── */
 
+  /* A solid 4px left accent bar (the severity signal) + a stronger -100 fill so
+     the box detaches from the warm-paper page. Each variant sets the thin border
+     (-200), the accent bar (-600) and dark text. Info is cool blue — distinct
+     from the warm brand, the red error and the amber warning. */
   .alert {
     display: flex;
     gap: var(--ep-space-3);
     padding: var(--ep-space-4);
     border-radius: var(--ep-radius-lg);
     border: 1px solid transparent;
+    border-left-width: 4px;
     font-size: var(--ep-text-sm);
     line-height: var(--ep-leading-normal);
 
@@ -585,27 +629,58 @@
     }
   }
 
+  /* Severity icon — a colour-blind-safe SHAPE cue (circle vs triangle) so a
+     variant is never conveyed by hue alone (WCAG 1.4.1 "Use of Color"). Injected
+     per-variant via --ep-alert-icon and masked to the text colour. Only the
+     variant classes carry it, so a bare .alert never paints a stray square. */
+  .alert-info::before,
+  .alert-success::before,
+  .alert-warning::before,
+  .alert-error::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.125rem;
+    background-color: currentColor;
+    -webkit-mask: var(--ep-alert-icon) no-repeat center / contain;
+    mask: var(--ep-alert-icon) no-repeat center / contain;
+  }
+
+  /* Don't double up where the markup already supplies its own leading icon. */
+  .alert:has(> svg)::before {
+    content: none;
+  }
+
   .alert-info {
-    background-color: var(--ep-blue-50);
+    --ep-alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E%3C/svg%3E");
+    background-color: var(--ep-blue-100);
     border-color: var(--ep-blue-200);
+    border-left-color: var(--ep-blue-600);
     color: var(--ep-blue-800);
   }
 
   .alert-success {
-    background-color: var(--ep-green-50);
-    border-color: var(--ep-green-100);
+    --ep-alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.801 10A10 10 0 1 1 17 3.335'/%3E%3Cpath d='m9 11 3 3L22 4'/%3E%3C/svg%3E");
+    background-color: var(--ep-green-100);
+    border-color: var(--ep-green-200);
+    border-left-color: var(--ep-green-600);
     color: var(--ep-green-800);
   }
 
   .alert-warning {
-    background-color: var(--ep-amber-50);
+    --ep-alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+    background-color: var(--ep-amber-100);
     border-color: var(--ep-amber-200);
+    border-left-color: var(--ep-amber-600);
     color: var(--ep-amber-800);
   }
 
   .alert-error {
-    background-color: var(--ep-red-50);
+    --ep-alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' x2='12' y1='8' y2='12'/%3E%3Cline x1='12' x2='12.01' y1='16' y2='16'/%3E%3C/svg%3E");
+    background-color: var(--ep-red-100);
     border-color: var(--ep-red-200);
+    border-left-color: var(--ep-red-600);
     color: var(--ep-red-700);
   }
 
@@ -624,7 +699,7 @@
   .panel-empty {
     padding: var(--ep-space-3);
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-600);
   }
 
   .panel-error {

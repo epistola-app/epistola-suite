@@ -74,7 +74,7 @@
   .theme-section {
     margin-bottom: var(--ep-space-6);
     padding-bottom: var(--ep-space-4);
-    border-bottom: 1px solid var(--ep-gray-100);
+    border-bottom: 1px solid var(--ep-stone-100);
   }
 
   .theme-section:last-child {
@@ -118,7 +118,7 @@
     transition: all var(--ep-transition-base);
 
     &[open] {
-      border-color: var(--ep-gray-300);
+      border-color: var(--ep-stone-300);
 
       & > .theme-preset-header {
         border-bottom: 1px solid var(--ep-border-color);
@@ -154,7 +154,7 @@
     }
 
     &:hover {
-      background-color: var(--ep-gray-200);
+      background-color: var(--ep-stone-200);
     }
 
     &:focus-visible {
@@ -262,17 +262,17 @@
     padding: 0 var(--ep-space-4);
     font-size: var(--ep-text-sm);
     font-weight: 500;
-    color: var(--ep-blue-700);
-    background-color: var(--ep-blue-50);
-    border: 1px dashed var(--ep-blue-300);
+    color: var(--ep-terracotta-700);
+    background-color: var(--ep-terracotta-50);
+    border: 1px dashed var(--ep-terracotta-300);
     border-radius: var(--ep-radius-md);
     cursor: pointer;
     transition: var(--ep-transition-colors);
     align-self: flex-start;
 
     &:hover {
-      background-color: var(--ep-blue-100);
-      border-color: var(--ep-blue-400);
+      background-color: var(--ep-terracotta-100);
+      border-color: var(--ep-terracotta-400);
     }
 
     &:focus-visible {
@@ -307,7 +307,7 @@
   }
 
   .theme-status-saving {
-    color: var(--ep-blue-500);
+    color: var(--ep-primary-strong);
   }
 
   .theme-status-saved {

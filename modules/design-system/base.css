@@ -16,6 +16,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* Tint native form controls (checkbox/radio/range) with the brand accent */
+    accent-color: var(--ep-primary);
   }
 
   body {
@@ -29,8 +31,8 @@
 
   /* Selection highlight */
   ::selection {
-    background-color: var(--ep-blue-200);
-    color: var(--ep-blue-900);
+    background-color: var(--ep-terracotta-200);
+    color: var(--ep-terracotta-900);
   }
 
   /* Global focus-visible ring */
@@ -90,7 +92,7 @@
 
   /* Links */
   a {
-    color: var(--ep-primary);
+    color: var(--ep-primary-strong);
     text-decoration: none;
 
     &:hover {

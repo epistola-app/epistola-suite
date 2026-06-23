@@ -21,4 +21,32 @@ data class StencilUsageDetail(
     val stencilVersion: Int,
     /** Number of instances of this stencil in this template version. */
     val instanceCount: Int,
-)
+    /**
+     * Whether this row is the single bulk-upgrade target for its variant.
+     *
+     * Upgrading always lands in the variant's draft (created from the latest
+     * published version when none exists), so exactly one row per variant is
+     * actionable: the draft if the variant has one, otherwise its latest
+     * published version. Other rows of the same variant (and subscribed/archived
+     * rows) are not upgradable. Computed by `GetStencilUsagePage` (raw rows from
+     * `GetStencilUsageDetails` leave this `false`).
+     */
+    val upgradable: Boolean = false,
+    /**
+     * Why this row is not upgradable, for the UI to explain to the operator.
+     * Null exactly when [upgradable] is true.
+     */
+    val upgradeBlockReason: UpgradeBlockReason? = null,
+) {
+    /** Reason a usage row cannot be the bulk-upgrade target. */
+    enum class UpgradeBlockReason {
+        /** Belongs to a subscribed (read-only) catalog. */
+        SUBSCRIBED,
+
+        /** The variant already has an open draft, which is the upgrade target instead. */
+        HAS_DRAFT,
+
+        /** A newer version of the variant is the upgrade target (this one is superseded/archived). */
+        SUPERSEDED,
+    }
+}

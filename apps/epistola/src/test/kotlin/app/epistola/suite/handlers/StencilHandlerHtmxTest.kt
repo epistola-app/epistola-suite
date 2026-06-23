@@ -11,12 +11,14 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -157,6 +159,32 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `POST upgrade against a published template creates a draft and upgrades it`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByPublishedTemplate("Upgrade Published Template")
+        }
+
+        whenever {
+            postJson(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/upgrade",
+                """{"templateId":"${seeded.templateKey}","variantId":"${seeded.variantKey}","catalogKey":"${seeded.templateCatalogKey}","newVersion":2}""",
+            )
+        }
+
+        then {
+            // Previously this returned 400 "No draft version found" — a published
+            // template with no open draft could not be bulk-upgraded. Now the command
+            // creates a draft seeded from the published version and upgrades there.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("\"upgraded\"")
+            assertThat(response.body).doesNotContain("No draft version found")
+        }
+    }
+
+    @Test
     fun `POST upgrade without catalogKey is rejected with the documented error`() = fixture {
         lateinit var seeded: SeededUsage
 
@@ -254,6 +282,88 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `HTMX GET usage details with filter=upgradable shows only upgradable rows`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter Upgradable")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { set("HX-Request", "true") }
+            restTemplate.exchange(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?filter=upgradable",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            // The variant has a published (non-upgradable, "has draft") row and a draft
+            // (upgradable) row. filter=upgradable shows just the draft.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("1 of 2 upgradable")
+            assertThat(response.body).contains("usage-select") // the draft row's checkbox
+            // The filtered-out published row's block reason must not appear.
+            assertThat(response.body).doesNotContain("already has an open draft")
+        }
+    }
+
+    @Test
+    fun `HTMX GET usage details with filter=not-upgradable shows only blocked rows`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter Blocked")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { set("HX-Request", "true") }
+            restTemplate.exchange(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?filter=not-upgradable",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            // filter=not-upgradable shows just the blocked published row (its reason),
+            // and no selectable checkbox.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("already has an open draft")
+            assertThat(response.body).doesNotContain("usage-select")
+        }
+    }
+
+    @Test
+    fun `stencil detail page shows a per-version Uses column`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByTemplateDraft("Version Usage Counts")
+        }
+
+        whenever {
+            restTemplate.getForEntity(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}",
+                String::class.java,
+            )
+        }
+
+        then {
+            // The versions table renders a Uses column (count of embedded instances
+            // across draft/published templates). v1 is embedded once by the seed.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Uses")
+        }
+    }
+
     private data class Seeded(
         val tenantId: TenantId,
         val catalogKey: String,
@@ -326,6 +436,79 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             tenantId = tenantId,
             // Same default catalog for both; captured separately to keep the wire
             // contract explicit (the bug was the client omitting the template catalog).
+            stencilCatalogKey = stencilId.catalogKey.value,
+            stencilKey = stencilId.key.value,
+            templateKey = templateKey.value,
+            variantKey = variantKey.value,
+            templateCatalogKey = stencilId.catalogKey.value,
+        )
+    }
+
+    /**
+     * Same as [seedStencilUsedByTemplateDraft], but the template version is
+     * published — leaving NO open draft. Exercises the published-template upgrade
+     * path (issue #598): the command must create a draft to upgrade into.
+     */
+    private fun seedStencilUsedByPublishedTemplate(name: String): SeededUsage = withMediator {
+        val tenant: Tenant = createTenant(name)
+        val tenantId = TenantId(tenant.id)
+        val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
+        CreateStencil(id = stencilId, name = name, content = stencilV1()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantId = VariantId(variantKey, templateId)
+        UpdateDraft(
+            variantId = variantId,
+            templateModel = templateEmbedding(stencilId.key.value),
+        ).execute()
+        // Publish the template version — now there is no draft to upgrade.
+        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+        CreateStencilVersion(stencilId = stencilId, content = stencilV2()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
+
+        SeededUsage(
+            tenantId = tenantId,
+            stencilCatalogKey = stencilId.catalogKey.value,
+            stencilKey = stencilId.key.value,
+            templateKey = templateKey.value,
+            variantKey = variantKey.value,
+            templateCatalogKey = stencilId.catalogKey.value,
+        )
+    }
+
+    /**
+     * A variant that has BOTH a published version and an open draft embedding the
+     * stencil — so its usage yields one non-upgradable row (the published, blocked
+     * by HAS_DRAFT) and one upgradable row (the draft). Used to exercise the
+     * "show only upgradable" filter.
+     */
+    private fun seedStencilUsedByPublishedAndDraftTemplate(name: String): SeededUsage = withMediator {
+        val tenant: Tenant = createTenant(name)
+        val tenantId = TenantId(tenant.id)
+        val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
+        CreateStencil(id = stencilId, name = name, content = stencilV1()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantId = VariantId(variantKey, templateId)
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
+        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+        // Re-open a draft → the variant now has a published v1 AND a draft v2.
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
+
+        CreateStencilVersion(stencilId = stencilId, content = stencilV2()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
+
+        SeededUsage(
+            tenantId = tenantId,
             stencilCatalogKey = stencilId.catalogKey.value,
             stencilKey = stencilId.key.value,
             templateKey = templateKey.value,

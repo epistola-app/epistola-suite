@@ -5,8 +5,8 @@
         <!-- Top bar (always visible) -->
         <div class="app-nav-bar">
             <div class="app-nav-left">
-                <a th:href="@{/tenants/{id}(id=${tenantId})}" class="app-nav-logo" title="Tenant home">
-                    <th:block th:replace="~{epistola-web/icon :: icon(name='mail', class='ep-icon')}" />
+                <a th:href="@{/tenants/{id}(id=${tenantId})}" class="app-nav-logo" title="Tenant home" aria-label="Epistola — Tenant home">
+                    <img class="ep-icon ep-icon-lg" th:src="@{/design-system/epistola-logo.svg}" alt="Epistola" />
                     <span>Epistola</span>
                 </a>
 
