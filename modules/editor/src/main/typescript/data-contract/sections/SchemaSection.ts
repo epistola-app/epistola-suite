@@ -230,6 +230,7 @@ const FIELD_TYPES: SchemaFieldType[] = [
   'integer',
   'boolean',
   'date',
+  'datetime',
   ...REF_TYPE_IDS,
   'array',
   'object',
@@ -242,14 +243,17 @@ const ARRAY_ITEM_TYPES: SchemaFieldType[] = [
   'integer',
   'boolean',
   'date',
+  'datetime',
   ...REF_TYPE_IDS,
   'object',
 ];
 
-/** String format options */
+/**
+ * String format options. Date and date-time are first-class field types (see
+ * FIELD_TYPES), not string formats, so only the non-date formats appear here.
+ */
 const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
   { value: '', label: 'None' },
-  { value: 'date-time', label: 'Date-Time' },
   { value: 'email', label: 'Email' },
   { value: 'uri', label: 'URI' },
 ];

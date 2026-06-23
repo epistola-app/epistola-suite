@@ -89,6 +89,16 @@ describe('visualSchemaToJsonSchema', () => {
     expect(result.required).toEqual(['birthDate']);
   });
 
+  it('converts datetime field to string with format:date-time', () => {
+    const visual: VisualSchema = {
+      fields: [{ id: '1', name: 'createdAt', type: 'datetime', required: true }],
+    };
+    const result = visualSchemaToJsonSchema(visual);
+
+    expect(result.properties?.createdAt).toEqual({ type: 'string', format: 'date-time' });
+    expect(result.required).toEqual(['createdAt']);
+  });
+
   it('converts object field with nested fields', () => {
     const visual: VisualSchema = {
       fields: [
@@ -244,6 +254,26 @@ describe('jsonSchemaToVisualSchema', () => {
     });
   });
 
+  it('converts string with format:date-time to datetime field', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+      required: ['createdAt'],
+    };
+    const result = jsonSchemaToVisualSchema(schema);
+
+    expect(result.fields[0]).toMatchObject({
+      id: 'field:createdAt',
+      name: 'createdAt',
+      type: 'datetime',
+      required: true,
+    });
+    // date-time is surfaced as its own type, not a leftover string `format`.
+    expect(result.fields[0]).not.toHaveProperty('format');
+  });
+
   it('handles union types (picks first)', () => {
     const schema: JsonSchema = {
       type: 'object',
@@ -331,6 +361,14 @@ describe('generateSchemaFromData', () => {
     const result = generateSchemaFromData(data);
 
     expect(result.fields.find((f) => f.name === 'birthDate')?.type).toBe('date');
+    expect(result.fields.find((f) => f.name === 'name')?.type).toBe('string');
+  });
+
+  it('infers datetime from ISO date-time string', () => {
+    const data = { createdAt: '2026-02-18T09:30:00Z', name: 'John' };
+    const result = generateSchemaFromData(data);
+
+    expect(result.fields.find((f) => f.name === 'createdAt')?.type).toBe('datetime');
     expect(result.fields.find((f) => f.name === 'name')?.type).toBe('string');
   });
 
@@ -563,6 +601,7 @@ describe('FIELD_TYPE_LABELS', () => {
     expect(FIELD_TYPE_LABELS.integer).toBe('Integer');
     expect(FIELD_TYPE_LABELS.boolean).toBe('Yes/No');
     expect(FIELD_TYPE_LABELS.date).toBe('Date');
+    expect(FIELD_TYPE_LABELS.datetime).toBe('Date & time');
     expect(FIELD_TYPE_LABELS.richTextInline).toBe('Rich text (inline)');
     expect(FIELD_TYPE_LABELS.richTextBlock).toBe('Rich text (block)');
     expect(FIELD_TYPE_LABELS.array).toBe('List');

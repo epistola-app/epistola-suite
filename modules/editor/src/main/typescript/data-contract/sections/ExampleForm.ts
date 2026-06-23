@@ -35,12 +35,34 @@ function resolvePropertyType(prop: JsonSchemaProperty | null | undefined): strin
   const raw = Array.isArray(prop.type) ? prop.type[0] : prop.type;
   if (raw === undefined) return 'string';
   if (raw === 'string' && prop.format === 'date') return 'date';
+  if (raw === 'string' && prop.format === 'date-time') return 'datetime';
   return raw;
 }
 
 /** True for any field type that the registry recognises as a ref-shaped value. */
 function isRefFieldType(type: string): type is RefTypeId {
   return type === 'richTextInline' || type === 'richTextBlock';
+}
+
+/**
+ * Coerce a stored ISO date-time into a value `<input type="datetime-local">`
+ * accepts. The control has no timezone/fractional-second support, so keep only
+ * the calendar date and wall-clock time.
+ */
+function toDateTimeLocal(value: JsonValue | undefined): string {
+  if (typeof value !== 'string' || value === '') return '';
+  const match = value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?/);
+  return match ? match[0] : value;
+}
+
+/**
+ * Normalize a `datetime-local` value to an ISO 8601 date-time. The control may
+ * omit seconds (`YYYY-MM-DDThh:mm`), but the schema's `date-time` format
+ * requires them, so append `:00` when absent.
+ */
+function normalizeDateTime(value: string): string {
+  if (value === '') return '';
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? `${value}:00` : value;
 }
 
 // ---------------------------------------------------------------------------
@@ -346,6 +368,29 @@ function renderFormField(
               ?disabled=${readOnly}
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+            />
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+              : nothing}
+          </div>
+        </div>
+      `;
+
+    case 'datetime':
+      return html`
+        <div class="dc-tree-row">
+          ${label}
+          <div class="dc-tree-input-wrapper">
+            <input
+              type="datetime-local"
+              step="1"
+              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              id=${fieldId}
+              .value=${toDateTimeLocal(value)}
+              ?disabled=${readOnly}
+              aria-describedby=${fieldError ? errorId : nothing}
+              @change=${(e: Event) =>
+                onChange(path, normalizeDateTime((e.target as HTMLInputElement).value))}
             />
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
@@ -813,6 +858,18 @@ function renderPrimitiveInput(
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
         />
       `;
+    case 'datetime':
+      return html`
+        <input
+          type="datetime-local"
+          step="1"
+          class="ep-input dc-array-item-input ${errorClass}"
+          .value=${toDateTimeLocal(value)}
+          ?disabled=${readOnly}
+          aria-label="${label}"
+          @change=${(e: Event) => onChange(normalizeDateTime((e.target as HTMLInputElement).value))}
+        />
+      `;
     case 'richTextInline':
     case 'richTextBlock':
       return html`
@@ -854,6 +911,7 @@ function getDefaultValueForType(type: string, schema?: JsonSchemaProperty | null
     case 'boolean':
       return false;
     case 'date':
+    case 'datetime':
       return '';
     case 'object': {
       if (!schema?.properties) return {};

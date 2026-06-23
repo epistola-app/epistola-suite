@@ -54,13 +54,15 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
     return prop;
   }
 
-  // Date is stored as { type: "string", format: "date" } in JSON Schema
+  // Date / date-time are stored as { type: "string", format: "date" | "date-time" }
   const prop: JsonSchemaProperty = {
-    type: field.type === 'date' ? 'string' : field.type,
+    type: field.type === 'date' || field.type === 'datetime' ? 'string' : field.type,
   };
 
   if (field.type === 'date') {
     prop.format = 'date';
+  } else if (field.type === 'datetime') {
+    prop.format = 'date-time';
   }
 
   // String format (e.g. "email") — date format is handled above
@@ -171,8 +173,13 @@ function jsonSchemaPropertyToField(
   }
 
   const rawType = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-  // Detect date: JSON Schema uses { type: "string", format: "date" }
-  const type = rawType === 'string' && prop.format === 'date' ? 'date' : rawType;
+  // Detect date / date-time: JSON Schema stores both as a string with a `format`.
+  const type =
+    rawType === 'string' && prop.format === 'date'
+      ? 'date'
+      : rawType === 'string' && prop.format === 'date-time'
+        ? 'datetime'
+        : rawType;
   const baseField = {
     id: `field:${path}`,
     name,
@@ -307,6 +314,9 @@ function inferFieldFromValue(name: string, value: JsonValue, path: string): Sche
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** ISO date-time pattern: YYYY-MM-DDThh:mm:ss with optional fractional seconds and timezone */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+
 function inferType(value: JsonValue): SchemaFieldType {
   if (value === null) {
     return 'string'; // Default null to string
@@ -329,6 +339,9 @@ function inferType(value: JsonValue): SchemaFieldType {
   }
   if (typeof value === 'string' && ISO_DATE_RE.test(value)) {
     return 'date';
+  }
+  if (typeof value === 'string' && ISO_DATETIME_RE.test(value)) {
+    return 'datetime';
   }
   return 'string';
 }
@@ -475,6 +488,7 @@ export const FIELD_TYPE_LABELS: Record<SchemaFieldType, string> = {
   integer: 'Integer',
   boolean: 'Yes/No',
   date: 'Date',
+  datetime: 'Date & time',
   richTextInline: 'Rich text (inline)',
   richTextBlock: 'Rich text (block)',
   array: 'List',

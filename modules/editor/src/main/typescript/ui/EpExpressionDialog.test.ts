@@ -9,6 +9,7 @@ type ExpressionResult = { ok: true; value: unknown } | { ok: false; error: strin
 const testFieldPaths: FieldPath[] = [
   { path: 'name', type: 'string' },
   { path: 'invoiceDate', type: 'date' },
+  { path: 'createdAt', type: 'datetime' },
   { path: 'customer.birthDate', type: 'date' },
   { path: 'total', type: 'number' },
   { path: 'items', type: 'array' },
@@ -363,6 +364,58 @@ describe('EpExpressionDialog builder mode', () => {
       '.expression-dialog-builder-format-select',
     );
     expect(formatSelect?.value).toBe('dd-MM-yyyy');
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('omits date-time format patterns for a plain date field', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatDate(invoiceDate, 'dd-MM-yyyy')";
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>(
+      '.expression-dialog-builder-format-select',
+    );
+    const values = Array.from(formatSelect?.options ?? []).map((o) => o.value);
+    expect(values).toContain('dd-MM-yyyy');
+    expect(values).not.toContain('dd-MM-yyyy HH:mm');
+    expect(values).not.toContain('yyyy-MM-dd HH:mm');
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('offers date-time format patterns for a datetime field', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatDate(createdAt, 'dd-MM-yyyy HH:mm')";
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>(
+      '.expression-dialog-builder-format-select',
+    );
+    const values = Array.from(formatSelect?.options ?? []).map((o) => o.value);
+    // Both the date-only and the date-time patterns are offered.
+    expect(values).toContain('dd-MM-yyyy');
+    expect(values).toContain('dd-MM-yyyy HH:mm');
+    // The date-time pattern round-trips into builder state.
+    expect(fresh['_builderFormatPattern']).toBe('dd-MM-yyyy HH:mm');
     fresh.close(null);
     fresh.remove();
   });
