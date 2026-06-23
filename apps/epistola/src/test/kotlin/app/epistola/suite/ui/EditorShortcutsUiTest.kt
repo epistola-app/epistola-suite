@@ -71,17 +71,32 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `leader e opens current data example viewer`() {
+    fun `leader e opens json inspector on the data view`() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
         openEditorPage(tenant, template, variantId)
 
         page.keyboard().press("Control+Space")
         page.keyboard().press("e")
 
-        val popover = page.getByTestId("data-example-popover")
+        val popover = page.getByTestId("inspector-popover")
         assertThat(popover).isVisible()
-        assertThat(popover).containsText("Current Data Example")
+        // Opened on the Data view: the data tab is selected and the example shows.
+        assertThat(page.getByTestId("inspector-tab-data")).hasAttribute("aria-selected", "true")
         assertThat(popover).containsText("Example 1")
+    }
+
+    @Test
+    fun `leader j opens json inspector on the template view`() {
+        val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
+        openEditorPage(tenant, template, variantId)
+
+        page.keyboard().press("Control+Space")
+        page.keyboard().press("j")
+
+        val popover = page.getByTestId("inspector-popover")
+        assertThat(popover).isVisible()
+        assertThat(page.getByTestId("inspector-tab-template")).hasAttribute("aria-selected", "true")
+        assertThat(popover).containsText("Effective template document")
     }
 
     @Test
