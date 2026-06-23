@@ -86,19 +86,20 @@
   --ep-yellow-800: var(--ep-amber-800);
 
   /* ── Semantic color aliases ─────────────────────────────────────────── */
-  /* Page background: warm paper, a touch lighter than the lightest ramp step
-     (stone-50) so it reads as near-white without losing the warm hue. Dial the
-     percentage down toward white to lighten further, up toward 100% for full
-     stone-50. */
-  --ep-background: color-mix(in srgb, var(--ep-stone-50) 55%, var(--ep-white));
+  /* Page background: warm "paper" — deep enough that white cards (--ep-card)
+     visibly detach from the page. Built from stone-100 (not stone-50) so the
+     surface separation that the cool-grey scheme had is restored without losing
+     the warm hue. Dial the percentage down toward white to lighten, up toward
+     100% for full stone-100. */
+  --ep-background: color-mix(in srgb, var(--ep-stone-100) 65%, var(--ep-white));
   --ep-foreground: var(--ep-stone-900);
   --ep-card: var(--ep-white);
   --ep-card-foreground: var(--ep-stone-900);
   --ep-muted: var(--ep-stone-100);
-  /* Secondary text. stone-600 (#6e5347, the site's body-copy color) clears WCAG
-     AA on both white and the muted/accent (stone-100) surfaces it sits on;
-     stone-500 was ~3.9:1 on muted backgrounds. */
-  --ep-muted-foreground: var(--ep-stone-600);
+  /* Secondary text. stone-700 (#573f38) gives a confident, clearly-readable
+     hierarchy on white and on the muted/accent (stone-100) surfaces it sits on —
+     comfortably past WCAG AA (stone-600 was only ~AA on muted; stone-500 ~3.9:1). */
+  --ep-muted-foreground: var(--ep-stone-700);
   --ep-accent: var(--ep-stone-100);
   --ep-accent-foreground: var(--ep-stone-900);
   --ep-primary: var(--ep-terracotta-600);
@@ -113,8 +114,11 @@
   --ep-success-foreground: var(--ep-white);
   --ep-warning: var(--ep-amber-600);
   --ep-warning-foreground: var(--ep-white);
-  --ep-border-color: var(--ep-stone-200);
-  --ep-input-border: var(--ep-stone-300);
+  /* Structural edges. stone-300/400 (vs the lighter 200/300) give panel, card
+     and divider borders — and input outlines — a visible edge on the warm paper
+     background, restoring the crispness the cool-grey scheme had. */
+  --ep-border-color: var(--ep-stone-300);
+  --ep-input-border: var(--ep-stone-400);
   --ep-ring: var(--ep-terracotta-500);
 
   /* ── Typography ─────────────────────────────────────────────────────── */

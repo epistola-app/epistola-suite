@@ -36,9 +36,9 @@ disabled states, exposed as the `--ep-stone-*` palette tokens.
 | Stone 200 | `#e9dace` | `stone-200` | Borders, dividers               |
 | Stone 300 | `#d8c2b2` | `stone-300` | Table borders, dashed borders   |
 | Stone 400 | `#b89e8c` | `stone-400` | Placeholder text, disabled text |
-| Stone 500 | `#8c7163` | `stone-500` | Secondary text, labels          |
+| Stone 500 | `#8c7163` | `stone-500` | Faint text, icons               |
 | Stone 600 | `#6e5347` | `stone-600` | Icon hover                      |
-| Stone 700 | `#573f38` | `stone-700` | Primary text                    |
+| Stone 700 | `#573f38` | `stone-700` | Secondary text, labels          |
 | Stone 900 | `#34221f` | `stone-900` | Headers, dark text              |
 
 ### Additional Neutral Tokens
@@ -99,25 +99,25 @@ disabled states, exposed as the `--ep-stone-*` palette tokens.
 
 Higher-level design tokens that reference the palette above. Use these in components for consistent theming.
 
-| Alias                  | CSS Variable                  | Resolves To      | Purpose                                |
-| ---------------------- | ----------------------------- | ---------------- | -------------------------------------- |
-| Background             | `--ep-background`             | `stone-50`       | Page background                        |
-| Foreground             | `--ep-foreground`             | `stone-900`      | Primary text                           |
-| Card                   | `--ep-card`                   | `white`          | Card/panel background                  |
-| Card Foreground        | `--ep-card-foreground`        | `stone-900`      | Card text                              |
-| Muted                  | `--ep-muted`                  | `stone-100`      | Muted background (secondary button bg) |
-| Muted Foreground       | `--ep-muted-foreground`       | `stone-500`      | Muted text (labels, placeholders)      |
-| Accent                 | `--ep-accent`                 | `stone-100`      | Hover/accent background                |
-| Accent Foreground      | `--ep-accent-foreground`      | `stone-900`      | Accent text                            |
-| Primary                | `--ep-primary`                | `terracotta-600` | Primary action color                   |
-| Primary Foreground     | `--ep-primary-foreground`     | `white`          | Text on primary                        |
-| Destructive            | `--ep-destructive`            | `red-600`        | Destructive action color               |
-| Destructive Foreground | `--ep-destructive-foreground` | `white`          | Text on destructive                    |
-| Success                | `--ep-success`                | `green-700`      | Success color                          |
-| Warning                | `--ep-warning`                | `amber-600`      | Warning color                          |
-| Border Color           | `--ep-border-color`           | `stone-200`      | Default border                         |
-| Input Border           | `--ep-input-border`           | `stone-300`      | Form input border                      |
-| Ring                   | `--ep-ring`                   | `terracotta-500` | Focus ring color                       |
+| Alias                  | CSS Variable                  | Resolves To             | Purpose                                           |
+| ---------------------- | ----------------------------- | ----------------------- | ------------------------------------------------- |
+| Background             | `--ep-background`             | `stone-100 / white mix` | Warm "paper" page background (white cards detach) |
+| Foreground             | `--ep-foreground`             | `stone-900`             | Primary text                                      |
+| Card                   | `--ep-card`                   | `white`                 | Card/panel background                             |
+| Card Foreground        | `--ep-card-foreground`        | `stone-900`             | Card text                                         |
+| Muted                  | `--ep-muted`                  | `stone-100`             | Muted background (secondary button bg)            |
+| Muted Foreground       | `--ep-muted-foreground`       | `stone-700`             | Muted text (labels, placeholders)                 |
+| Accent                 | `--ep-accent`                 | `stone-100`             | Hover/accent background                           |
+| Accent Foreground      | `--ep-accent-foreground`      | `stone-900`             | Accent text                                       |
+| Primary                | `--ep-primary`                | `terracotta-600`        | Primary action color                              |
+| Primary Foreground     | `--ep-primary-foreground`     | `white`                 | Text on primary                                   |
+| Destructive            | `--ep-destructive`            | `red-600`               | Destructive action color                          |
+| Destructive Foreground | `--ep-destructive-foreground` | `white`                 | Text on destructive                               |
+| Success                | `--ep-success`                | `green-700`             | Success color                                     |
+| Warning                | `--ep-warning`                | `amber-600`             | Warning color                                     |
+| Border Color           | `--ep-border-color`           | `stone-300`             | Default border                                    |
+| Input Border           | `--ep-input-border`           | `stone-400`             | Form input border                                 |
+| Ring                   | `--ep-ring`                   | `terracotta-500`        | Focus ring color                                  |
 
 ---
 
