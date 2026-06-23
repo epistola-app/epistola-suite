@@ -95,27 +95,44 @@ class CreateStencilVersionHandler(
                 throw ValidationException("versionId", "Maximum version limit (${VersionKey.MAX_VERSION}) reached for stencil ${command.stencilId.key}")
             }
 
-            // Use provided content or copy from latest published version
-            val contentJson = if (command.content != null) {
-                objectMapper.writeValueAsString(command.content)
+            // When no content is provided, copy from an existing version: prefer the
+            // latest published one, but fall back to the latest of any status so a
+            // stencil whose versions are all archived can still be reopened for
+            // editing (archiving is non-destructive). Only a stencil with no versions
+            // at all has nothing to copy.
+            val source = if (command.content != null) {
+                null
             } else {
                 handle.createQuery(
                     """
-                SELECT content::text FROM stencil_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND status = 'published'
-                ORDER BY id DESC LIMIT 1
+                SELECT content::text AS content, parameter_schema::text AS parameter_schema
+                FROM stencil_versions
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId
+                ORDER BY (status = 'published') DESC, id DESC
+                LIMIT 1
                 """,
                 )
                     .bind("tenantId", command.stencilId.tenantKey)
                     .bind("catalogKey", command.stencilId.catalogKey)
                     .bind("stencilId", command.stencilId.key)
-                    .mapTo(String::class.java)
+                    .mapToMap()
                     .findOne()
                     .orElse(null)
-                    ?: throw ValidationException("content", "No content provided and no published version to copy from for stencil ${command.stencilId.key}")
+                    ?: throw ValidationException("content", "No content provided and the stencil ${command.stencilId.key} has no version to copy from")
             }
 
-            val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
+            val contentJson = if (command.content != null) {
+                objectMapper.writeValueAsString(command.content)
+            } else {
+                source!!["content"].toString()
+            }
+
+            // Schema: explicit wins; otherwise carry over the copied version's schema.
+            val parameterSchemaJson = when {
+                command.parameterSchema != null -> objectMapper.writeValueAsString(command.parameterSchema)
+                command.content != null -> null
+                else -> source!!["parameter_schema"] as? String
+            }
 
             handle.createQuery(
                 """

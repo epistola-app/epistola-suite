@@ -193,6 +193,28 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `create version copies from the latest archived version when none is published`() = test {
+        val tenant = createTenant("All Archived")
+        val tenantId = TenantId(tenant.id)
+        val id = stencilId(tenantId)
+
+        CreateStencil(id = id, name = "Header", content = createTestContent()).execute()
+        val v1 = StencilVersionId(VersionKey.of(1), id)
+        PublishStencilVersion(versionId = v1).execute()
+        ArchiveStencilVersion(versionId = v1).execute()
+
+        // No published or draft remains. Reopening for editing must copy the
+        // archived content rather than failing (archiving is non-destructive).
+        val draft = CreateStencilVersion(stencilId = id).execute()
+        assertThat(draft).isNotNull
+        assertThat(draft!!.status).isEqualTo(StencilVersionStatus.DRAFT)
+        assertThat(draft.id.value).isEqualTo(2)
+
+        val retrieved = GetStencilVersion(versionId = StencilVersionId(VersionKey.of(2), id)).query()
+        assertThat(retrieved!!.content.nodes).containsKey("text1")
+    }
+
+    @Test
     fun `update draft content`() = test {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
