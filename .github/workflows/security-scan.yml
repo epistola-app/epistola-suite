@@ -14,13 +14,13 @@ jobs:
       security-events: write
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4
 
       - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
 
       - name: Build frontend
         run: pnpm install && pnpm build
@@ -33,7 +33,7 @@ jobs:
 
       - name: Scan backend SBOM for vulnerabilities
         id: trivy-backend
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # master
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -43,7 +43,7 @@ jobs:
 
       - name: Scan frontend SBOM for vulnerabilities
         id: trivy-frontend
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # master
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
@@ -52,7 +52,7 @@ jobs:
           severity: "CRITICAL,HIGH"
 
       - name: Scan backend SBOM (SARIF)
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # master
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -61,7 +61,7 @@ jobs:
           severity: "CRITICAL,HIGH"
 
       - name: Scan frontend SBOM (SARIF)
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # master
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
@@ -71,14 +71,14 @@ jobs:
 
       - name: Upload backend SARIF to Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
           sarif_file: backend-results.sarif
           category: trivy-backend
 
       - name: Upload frontend SARIF to Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
           sarif_file: frontend-results.sarif
           category: trivy-frontend
