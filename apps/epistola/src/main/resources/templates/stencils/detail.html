@@ -127,7 +127,7 @@
                     </div>
 
                     <p th:if="${auth.has('TEMPLATE_EDIT')}" class="text-muted" style="margin-bottom: var(--ep-space-3); font-size: var(--ep-text-sm);">
-                        Published templates are upgraded in a <strong>new draft</strong> — their live version stays unchanged until you publish that draft. Existing drafts are modified in place.
+                        Published templates are upgraded in a <strong>new draft</strong> — their live version stays unchanged until you publish that draft. Existing drafts are modified in place. Up to 100 templates can be upgraded at a time.
                     </p>
 
                     <table class="ep-table ep-table-compact">
@@ -198,6 +198,9 @@
                 const _catalogId = /*[[${catalogId}]]*/ '';
                 const _stencilId = /*[[${stencil.id}]]*/ '';
                 const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
+                // Cap a single bulk upgrade — each row is an individual request, so a
+                // huge selection would fire hundreds of sequential POSTs.
+                const _maxBatch = 100;
                 let _abortController = null;
 
                 function toggleSelectAll(checked) {
@@ -220,6 +223,11 @@
                     const selected = [...document.querySelectorAll('.usage-select:checked')];
                     if (selected.length === 0) {
                         document.getElementById('upgrade-status').textContent = 'No rows selected';
+                        return;
+                    }
+                    if (selected.length > _maxBatch) {
+                        document.getElementById('upgrade-status').textContent =
+                            `Select at most ${_maxBatch} templates to upgrade at once (${selected.length} selected).`;
                         return;
                     }
 
