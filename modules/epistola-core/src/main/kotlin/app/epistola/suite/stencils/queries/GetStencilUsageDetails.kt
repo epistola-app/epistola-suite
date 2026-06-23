@@ -65,5 +65,28 @@ class GetStencilUsageDetailsHandler(
                 )
             }
             .list()
+            .let(::markUpgradable)
+    }
+
+    /**
+     * Flags exactly one row per variant as the bulk-upgrade target. The upgrade
+     * always lands in the variant's draft (created from the latest published
+     * version when none exists), so only one row per variant is actionable: its
+     * draft if it has one, otherwise its latest published version. Subscribed
+     * catalogs are never upgradable.
+     */
+    private fun markUpgradable(rows: List<StencilUsageDetail>): List<StencilUsageDetail> {
+        val targetByVariant = rows
+            .filter { it.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED }
+            .groupBy { Triple(it.catalogKey, it.templateId, it.variantId) }
+            .mapValues { (_, variantRows) ->
+                val draft = variantRows.filter { it.versionStatus == "draft" }.maxByOrNull { it.versionId.value }
+                val published = variantRows.filter { it.versionStatus == "published" }.maxByOrNull { it.versionId.value }
+                (draft ?: published)?.versionId
+            }
+        return rows.map { row ->
+            val target = targetByVariant[Triple(row.catalogKey, row.templateId, row.variantId)]
+            row.copy(upgradable = target != null && row.versionId == target)
+        }
     }
 }

@@ -348,11 +348,13 @@ class StencilIntegrationTest : IntegrationTestBase() {
         UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
         PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
 
-        // Precondition: the only version is the published v1 (no draft to upgrade).
+        // Precondition: the only version is the published v1 (no draft to upgrade),
+        // and with no draft the published row is the variant's upgrade target.
         val before = ListStencilVersions(stencilId = stencilId).query()
         assertThat(before).isNotEmpty
         val usageBefore = GetStencilUsageDetails(stencilId = stencilId).query()
         assertThat(usageBefore).noneMatch { it.versionStatus == "draft" && it.templateId == templateKey }
+        assertThat(usageBefore.single { it.templateId == templateKey }.upgradable).isTrue()
 
         // Upgrade the published template — should create a fresh draft and upgrade it.
         val result = UpdateStencilInTemplate(
@@ -374,6 +376,11 @@ class StencilIntegrationTest : IntegrationTestBase() {
         val publishedRow = usageAfter.firstOrNull { it.versionStatus == "published" && it.templateId == templateKey }
         assertThat(publishedRow).isNotNull
         assertThat(publishedRow!!.stencilVersion).isEqualTo(1)
+
+        // Now that the variant has a draft, only the draft is the upgrade target —
+        // the published row is no longer separately upgradable (issue #598 follow-up).
+        assertThat(draftRow.upgradable).isTrue()
+        assertThat(publishedRow.upgradable).isFalse()
     }
 
     /** A template body embedding [stencilKey] v1 once (with a children slot so the upgrade can rewrite it). */

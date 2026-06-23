@@ -147,11 +147,10 @@
                         </thead>
                         <tbody>
                             <tr th:each="u : ${usage}"
-                                th:with="selectable=${(u.versionStatus == 'draft' or u.versionStatus == 'published') and u.catalogType.name() == 'AUTHORED'}"
-                                th:classappend="${selectable} ? 'usage-row-selectable' : ''"
+                                th:classappend="${u.upgradable} ? 'usage-row-selectable' : ''"
                                 th:style="${u.catalogType.name() == 'SUBSCRIBED'} ? 'opacity: 0.5;' : ''">
                                 <td>
-                                    <input th:if="${selectable}"
+                                    <input th:if="${u.upgradable}"
                                            type="checkbox" class="usage-select"
                                            th:data-template-id="${u.templateId}"
                                            th:data-variant-id="${u.variantId}"
@@ -207,17 +206,9 @@
 
                 async function applyUpgrade() {
                     const version = parseInt(document.getElementById('upgrade-version-select').value);
-                    // One upgrade per variant: a variant with both a published and a
-                    // draft row would otherwise be upgraded twice — the draft is the
-                    // single target either way (published rows create/seed a draft).
-                    const seen = new Set();
-                    const selected = [];
-                    for (const cb of document.querySelectorAll('.usage-select:checked')) {
-                        const key = cb.dataset.templateId + '|' + cb.dataset.variantId + '|' + cb.dataset.catalogKey;
-                        if (seen.has(key)) continue;
-                        seen.add(key);
-                        selected.push(cb);
-                    }
+                    // Selection is per variant: the server marks exactly one row per
+                    // variant as upgradable (its draft, else its latest published).
+                    const selected = [...document.querySelectorAll('.usage-select:checked')];
                     if (selected.length === 0) {
                         document.getElementById('upgrade-status').textContent = 'No rows selected';
                         return;

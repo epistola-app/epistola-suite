@@ -21,4 +21,14 @@ data class StencilUsageDetail(
     val stencilVersion: Int,
     /** Number of instances of this stencil in this template version. */
     val instanceCount: Int,
+    /**
+     * Whether this row is the single bulk-upgrade target for its variant.
+     *
+     * Upgrading always lands in the variant's draft (created from the latest
+     * published version when none exists), so exactly one row per variant is
+     * actionable: the draft if the variant has one, otherwise its latest
+     * published version. Other rows of the same variant (and subscribed/archived
+     * rows) are not upgradable. Computed by [app.epistola.suite.stencils.queries.GetStencilUsageDetails].
+     */
+    val upgradable: Boolean = false,
 )
