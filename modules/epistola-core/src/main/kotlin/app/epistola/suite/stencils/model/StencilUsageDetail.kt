@@ -31,4 +31,21 @@ data class StencilUsageDetail(
      * rows) are not upgradable. Computed by [app.epistola.suite.stencils.queries.GetStencilUsageDetails].
      */
     val upgradable: Boolean = false,
-)
+    /**
+     * Why this row is not upgradable, for the UI to explain to the operator.
+     * Null exactly when [upgradable] is true.
+     */
+    val upgradeBlockReason: UpgradeBlockReason? = null,
+) {
+    /** Reason a usage row cannot be the bulk-upgrade target. */
+    enum class UpgradeBlockReason {
+        /** Belongs to a subscribed (read-only) catalog. */
+        SUBSCRIBED,
+
+        /** The variant already has an open draft, which is the upgrade target instead. */
+        HAS_DRAFT,
+
+        /** A newer version of the variant is the upgrade target (this one is superseded/archived). */
+        SUPERSEDED,
+    }
+}

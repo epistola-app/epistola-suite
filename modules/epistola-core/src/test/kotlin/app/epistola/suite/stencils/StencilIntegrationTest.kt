@@ -20,6 +20,7 @@ import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
 import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
+import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsageDetails
@@ -378,9 +379,13 @@ class StencilIntegrationTest : IntegrationTestBase() {
         assertThat(publishedRow!!.stencilVersion).isEqualTo(1)
 
         // Now that the variant has a draft, only the draft is the upgrade target —
-        // the published row is no longer separately upgradable (issue #598 follow-up).
+        // the published row is no longer separately upgradable (issue #598 follow-up),
+        // and it carries the reason the UI explains on hover.
         assertThat(draftRow.upgradable).isTrue()
+        assertThat(draftRow.upgradeBlockReason).isNull()
         assertThat(publishedRow.upgradable).isFalse()
+        assertThat(publishedRow.upgradeBlockReason)
+            .isEqualTo(StencilUsageDetail.UpgradeBlockReason.HAS_DRAFT)
     }
 
     /** A template body embedding [stencilKey] v1 once (with a children slot so the upgrade can rewrite it). */

@@ -155,9 +155,18 @@
                                            th:data-template-id="${u.templateId}"
                                            th:data-variant-id="${u.variantId}"
                                            th:data-catalog-key="${u.catalogKey}">
-                                    <th:block th:if="${u.catalogType.name() == 'SUBSCRIBED'}">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
-                                    </th:block>
+                                    <span th:unless="${u.upgradable}"
+                                          class="text-muted"
+                                          style="cursor: help; display: inline-flex;"
+                                          tabindex="0"
+                                          th:with="reasonText=${u.upgradeBlockReason == null ? 'This template cannot be upgraded.' :
+                                              (u.upgradeBlockReason.name() == 'SUBSCRIBED' ? 'This stencil belongs to a subscribed catalog and is read-only.' :
+                                              (u.upgradeBlockReason.name() == 'HAS_DRAFT' ? 'This variant already has an open draft. Upgrade it on the draft row instead.' :
+                                              'Only the latest version of a variant can be upgraded.'))}"
+                                          th:title="${reasonText}"
+                                          th:aria-label="${reasonText}">
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-sm')}" />
+                                    </span>
                                 </td>
                                 <td>
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
