@@ -53,7 +53,7 @@ describe('shortcut helper projection', () => {
   });
 
   it('marks active shortcut rows when active strokes are provided', () => {
-    const projection = buildShortcutGroupsProjection({ activeStrokes: ['mod+space'] });
+    const projection = buildShortcutGroupsProjection({ activeStrokes: ['mod+period'] });
 
     const leaderKey = projection.groups.find((group) => group.title === 'Leader Key');
     expect(leaderKey?.items.some((item) => item.active)).toBe(true);

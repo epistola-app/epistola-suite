@@ -45,7 +45,7 @@ describe('editor shortcut runtime registry', () => {
     );
     expect(binding).toBeDefined();
     expect(binding?.context).toBe('global');
-    expect(binding?.keys).toContain('mod+code:space j');
+    expect(binding?.keys).toContain('mod+code:period j');
 
     expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.openTemplateJson)).toBe(
       'Leader + J',
@@ -70,14 +70,14 @@ describe('editor shortcut runtime registry', () => {
     );
     expect(previewBinding).toBeDefined();
     expect(previewBinding?.context).toBe('global');
-    expect(previewBinding?.keys).toContain('mod+code:space p');
+    expect(previewBinding?.keys).toContain('mod+code:period p');
 
     const cleanModeBinding = registry.keybindings.find(
       (binding) => binding.commandId === EDITOR_SHORTCUT_COMMAND_IDS.toggleCleanMode,
     );
     expect(cleanModeBinding).toBeDefined();
     expect(cleanModeBinding?.context).toBe('global');
-    expect(cleanModeBinding?.keys).toContain('mod+code:space c');
+    expect(cleanModeBinding?.keys).toContain('mod+code:period c');
   });
 
   it('preserves leader alias keys for opening shortcuts help', () => {
@@ -87,8 +87,8 @@ describe('editor shortcut runtime registry', () => {
     );
 
     expect(helpBinding).toBeDefined();
-    expect(helpBinding?.keys).toContain('mod+code:space /');
-    expect(helpBinding?.keys).toContain('mod+code:space shift+?');
+    expect(helpBinding?.keys).toContain('mod+code:period /');
+    expect(helpBinding?.keys).toContain('mod+code:period shift+?');
   });
 
   it('returns leader idle tokens from command ids', () => {

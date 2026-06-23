@@ -59,7 +59,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
         openEditorPage(tenant, template, variantId)
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("/")
 
         val popover = page.getByTestId("shortcuts-popover")
@@ -75,7 +75,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
         openEditorPage(tenant, template, variantId)
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("e")
 
         val popover = page.getByTestId("inspector-popover")
@@ -90,7 +90,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
         openEditorPage(tenant, template, variantId)
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("j")
 
         val popover = page.getByTestId("inspector-popover")
@@ -105,7 +105,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         // STICKY: the hint must not auto-hide while we assert it.
         openEditorPage(tenant, template, variantId, STICKY)
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
 
         val leaderHint = page.getByTestId("leader-hint")
         assertThat(leaderHint).isVisible()
@@ -121,7 +121,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         page.getByTestId("palette-item-container").click()
         val initialCount = page.getByTestId("canvas-block").count()
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("x")
 
         val leaderHint = page.getByTestId("leader-hint")
@@ -142,7 +142,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         val leaderHint = page.getByTestId("leader-hint")
         val leaderMessage = page.getByTestId("leader-message")
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         assertThat(leaderHint).isVisible()
         assertThat(leaderMessage).containsText("Waiting:")
 
@@ -160,7 +160,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         // command fired; the hint's job here is only to end hidden + cleared.
         openEditorPage(tenant, template, variantId, FAST)
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("/")
 
         // The command ran successfully (sticky proof, no TTL race).
@@ -180,7 +180,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         val leaderHint = page.getByTestId("leader-hint")
         val leaderMessage = page.getByTestId("leader-message")
 
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("x")
 
         assertThat(leaderHint).isVisible()
@@ -203,7 +203,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         assertThat(blocks).hasCount(1)
 
         blocks.first().click()
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("a")
 
         val insertDialog = page.getByTestId("insert-dialog")
@@ -231,7 +231,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         assertThat(blocks).hasCount(1)
 
         blocks.first().click()
-        page.keyboard().press("Control+Space")
+        page.keyboard().press("Control+Period")
         page.keyboard().press("a")
         page.keyboard().press("a")
 
