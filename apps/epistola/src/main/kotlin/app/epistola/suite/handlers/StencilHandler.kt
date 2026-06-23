@@ -404,7 +404,7 @@ class StencilHandler(
         if (result == null) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "No draft version found for this template variant"))
+                .body(mapOf("error" to "Template variant not found"))
         }
 
         return ServerResponse.ok()
