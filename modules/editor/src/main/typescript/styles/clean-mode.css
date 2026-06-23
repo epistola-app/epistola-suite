@@ -37,7 +37,7 @@
     left: var(--ep-space-1);
     font-size: 10px;
     font-weight: 500;
-    color: var(--ep-terracotta-500);
+    color: var(--ep-primary-strong);
     background: var(--ep-white);
     padding: 0 var(--ep-space-1);
     border-radius: var(--ep-radius-sm);

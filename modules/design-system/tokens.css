@@ -86,12 +86,19 @@
   --ep-yellow-800: var(--ep-amber-800);
 
   /* ── Semantic color aliases ─────────────────────────────────────────── */
-  --ep-background: var(--ep-stone-50);
+  /* Page background: warm paper, a touch lighter than the lightest ramp step
+     (stone-50) so it reads as near-white without losing the warm hue. Dial the
+     percentage down toward white to lighten further, up toward 100% for full
+     stone-50. */
+  --ep-background: color-mix(in srgb, var(--ep-stone-50) 55%, var(--ep-white));
   --ep-foreground: var(--ep-stone-900);
   --ep-card: var(--ep-white);
   --ep-card-foreground: var(--ep-stone-900);
   --ep-muted: var(--ep-stone-100);
-  --ep-muted-foreground: var(--ep-stone-500);
+  /* Secondary text. stone-600 (#6e5347, the site's body-copy color) clears WCAG
+     AA on both white and the muted/accent (stone-100) surfaces it sits on;
+     stone-500 was ~3.9:1 on muted backgrounds. */
+  --ep-muted-foreground: var(--ep-stone-600);
   --ep-accent: var(--ep-stone-100);
   --ep-accent-foreground: var(--ep-stone-900);
   --ep-primary: var(--ep-terracotta-600);

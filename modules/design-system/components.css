@@ -60,12 +60,15 @@
   }
 
   .ep-btn-primary {
-    --btn-bg: var(--ep-primary);
+    /* Fill is terracotta-700 (not --ep-primary/terra-600): white labels need
+       AA, and white-on-terra-600 is only 4.1:1. terra-700 is 5.4:1. terra-600
+       stays the accent for borders/ring/decoration. */
+    --btn-bg: var(--ep-terracotta-700);
     --btn-color: var(--ep-primary-foreground);
-    --btn-border-color: var(--ep-primary);
-    --btn-hover-bg: var(--ep-terracotta-700);
+    --btn-border-color: var(--ep-terracotta-700);
+    --btn-hover-bg: var(--ep-terracotta-800);
     --btn-hover-color: var(--ep-primary-foreground);
-    --btn-hover-border-color: var(--ep-terracotta-700);
+    --btn-hover-border-color: var(--ep-terracotta-800);
   }
 
   .ep-btn-secondary {
@@ -644,7 +647,7 @@
   .panel-empty {
     padding: var(--ep-space-3);
     font-size: var(--ep-text-sm);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   .panel-error {

@@ -32,7 +32,7 @@
   .datatable-label-icon {
     display: flex;
     align-items: center;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   /* -----------------------------------------------------------------------
@@ -170,12 +170,12 @@
   }
 
   .datatable-dialog-btn.insert {
-    background: var(--ep-terracotta-500);
+    background: var(--ep-terracotta-700);
     color: var(--ep-white);
-    border-color: var(--ep-terracotta-500);
+    border-color: var(--ep-terracotta-700);
   }
 
   .datatable-dialog-btn.insert:hover {
-    background: var(--ep-terracotta-600);
+    background: var(--ep-terracotta-800);
   }
 }

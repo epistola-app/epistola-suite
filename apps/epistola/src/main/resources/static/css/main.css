@@ -327,7 +327,7 @@ main.regular .empty-message {
 }
 
 .back-link:hover {
-  color: var(--ep-primary);
+  color: var(--ep-primary-strong);
 }
 
 .back-link:hover .ep-icon {
@@ -458,7 +458,7 @@ main.regular .empty-message {
   height: 2.5rem;
   border-radius: var(--ep-radius-lg);
   background-color: var(--ep-terracotta-50);
-  color: var(--ep-primary);
+  color: var(--ep-primary-strong);
   flex-shrink: 0;
 }
 
@@ -1084,7 +1084,7 @@ a.stat-card:hover {
 }
 
 .changelog-version-item.unreleased .changelog-version-label {
-  color: var(--ep-terracotta-600);
+  color: var(--ep-primary-strong);
 }
 
 .changelog-version-date {
@@ -1230,7 +1230,7 @@ a.stat-card:hover {
 }
 
 .whats-new-unseen .whats-new-summary {
-  color: var(--ep-terracotta-600);
+  color: var(--ep-primary-strong);
 }
 
 .whats-new-actions {
@@ -1507,7 +1507,7 @@ a.stat-card:hover {
 }
 
 .asset-upload-link {
-  color: var(--ep-primary);
+  color: var(--ep-primary-strong);
   cursor: pointer;
   font-weight: 500;
 }

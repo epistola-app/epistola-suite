@@ -307,7 +307,7 @@
   }
 
   .theme-status-saving {
-    color: var(--ep-terracotta-500);
+    color: var(--ep-primary-strong);
   }
 
   .theme-status-saved {

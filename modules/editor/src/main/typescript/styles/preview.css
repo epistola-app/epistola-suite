@@ -43,7 +43,7 @@
     align-items: center;
     gap: var(--ep-space-1);
     font-size: var(--ep-text-xs);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
 
     & svg {
       animation: ep-spin 1s linear infinite;
@@ -71,7 +71,7 @@
     justify-content: center;
     gap: var(--ep-space-2);
     height: 100%;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     font-size: var(--ep-text-sm);
 
     & .preview-placeholder-icon {
@@ -113,7 +113,7 @@
     padding: var(--ep-space-1) var(--ep-space-3);
     font-size: var(--ep-text-xs);
     font-weight: 500;
-    color: var(--ep-terracotta-600);
+    color: var(--ep-primary-strong);
     background: var(--ep-terracotta-50);
     border: 1px solid var(--ep-terracotta-200);
     border-radius: var(--ep-radius-sm);
@@ -166,14 +166,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: var(--ep-terracotta-50);
   }
 
   .resize-handle-grip {
     width: 2px;
     height: 24px;
     border-radius: 999px;
-    background: var(--ep-stone-300);
+    background: var(--ep-stone-500);
     transition:
       background-color var(--ep-transition-fast),
       transform var(--ep-transition-fast);

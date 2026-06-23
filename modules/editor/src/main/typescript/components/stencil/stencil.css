@@ -161,9 +161,9 @@
   }
 
   .stencil-picker-btn.insert {
-    background: var(--ep-primary);
+    background: var(--ep-terracotta-700);
     color: var(--ep-primary-foreground);
-    border-color: var(--ep-primary);
+    border-color: var(--ep-terracotta-700);
   }
 
   .stencil-picker-btn.insert:hover:not(:disabled) {

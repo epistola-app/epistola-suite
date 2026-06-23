@@ -365,7 +365,7 @@
 
     &.loading {
       background: var(--ep-stone-50);
-      color: var(--ep-stone-400);
+      color: var(--ep-stone-600);
       border: 1px solid var(--ep-stone-200);
       font-style: italic;
     }
@@ -430,7 +430,7 @@
     width: var(--ep-space-4);
     height: var(--ep-space-4);
     flex: 0 0 auto;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     pointer-events: none;
   }
 
@@ -479,7 +479,7 @@
   .expression-dialog-path-type {
     font-size: var(--ep-text-xs);
     line-height: var(--ep-leading-normal);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     margin-left: var(--ep-space-3);
   }
 
@@ -530,7 +530,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     transform: rotate(0deg);
     transform-origin: center;
     transition: transform var(--ep-transition-base);
@@ -602,13 +602,13 @@
     }
 
     &.save {
-      background: var(--ep-terracotta-600);
+      background: var(--ep-terracotta-700);
       color: white;
-      border-color: var(--ep-terracotta-600);
+      border-color: var(--ep-terracotta-700);
 
       &:hover {
-        background: var(--ep-terracotta-700);
-        border-color: var(--ep-terracotta-700);
+        background: var(--ep-terracotta-800);
+        border-color: var(--ep-terracotta-800);
       }
     }
   }
@@ -649,7 +649,7 @@
     }
 
     &.active {
-      background: var(--ep-terracotta-600);
+      background: var(--ep-terracotta-700);
       color: white;
     }
 
@@ -715,13 +715,13 @@
     background: none;
     padding: 0;
     font: inherit;
-    color: var(--ep-terracotta-600);
+    color: var(--ep-primary-strong);
     font-weight: 500;
     cursor: pointer;
     text-decoration: underline;
 
     &:hover {
-      color: var(--ep-terracotta-700);
+      color: var(--ep-terracotta-800);
     }
   }
 }

@@ -78,14 +78,14 @@
     }
 
     &.active {
-      color: var(--ep-terracotta-600);
+      color: var(--ep-primary-strong);
       background: var(--ep-terracotta-50);
       border-color: var(--ep-terracotta-200);
 
       &:hover {
         background: var(--ep-terracotta-100);
         border-color: var(--ep-terracotta-300);
-        color: var(--ep-terracotta-700);
+        color: var(--ep-terracotta-800);
       }
     }
   }
@@ -216,7 +216,7 @@
         background: var(--ep-white);
 
         &::placeholder {
-          color: var(--ep-stone-400);
+          color: var(--ep-stone-600);
         }
 
         &:focus {

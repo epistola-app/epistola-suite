@@ -36,7 +36,7 @@
 
   .canvas-slot-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   .canvas-block {
@@ -78,7 +78,7 @@
   }
 
   .canvas-block-id {
-    color: var(--ep-stone-300);
+    color: var(--ep-stone-400);
     margin-left: auto;
     font-family: var(--ep-font-mono);
     font-size: 10px;
@@ -93,7 +93,7 @@
     border: none;
     border-radius: var(--ep-radius-sm);
     background: transparent;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     cursor: pointer;
     padding: 0;
     transition:
@@ -137,12 +137,12 @@
 
   .canvas-pagebreak-label {
     font-size: var(--ep-text-xs);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   .canvas-leaf-default {
     font-size: var(--ep-text-xs);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   .canvas-columns {
@@ -164,7 +164,7 @@
     border: none;
     border-radius: var(--ep-radius-sm);
     background: transparent;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-500);
     cursor: pointer;
     padding: 0;
     transition:
@@ -185,7 +185,7 @@
   .canvas-block-child-count {
     font-size: 10px;
     font-weight: 500;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     background: var(--ep-stone-100);
     padding: 0 var(--ep-space-1);
     border-radius: var(--ep-radius-sm);

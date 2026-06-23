@@ -17,7 +17,7 @@
   .palette-category-label {
     font-size: 11px;
     font-weight: 600;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: var(--ep-space-1) var(--ep-space-2);

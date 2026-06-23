@@ -431,6 +431,6 @@
   epistola-canvas {
     flex: 1;
     overflow: auto;
-    background: var(--ep-stone-100);
+    background: var(--ep-white);
   }
 }

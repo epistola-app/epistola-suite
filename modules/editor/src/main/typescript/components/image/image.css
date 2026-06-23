@@ -107,7 +107,7 @@
   }
 
   .asset-picker-upload-link {
-    color: var(--ep-primary);
+    color: var(--ep-primary-strong);
     cursor: pointer;
     font-weight: 500;
   }
@@ -216,9 +216,9 @@
   }
 
   .asset-picker-btn.insert {
-    background: var(--ep-primary);
+    background: var(--ep-terracotta-700);
     color: var(--ep-primary-foreground);
-    border-color: var(--ep-primary);
+    border-color: var(--ep-terracotta-700);
   }
 
   .asset-picker-btn.insert:hover:not(:disabled) {

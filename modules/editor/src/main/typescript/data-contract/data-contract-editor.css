@@ -67,7 +67,7 @@
 
   .dc-section-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     margin: 0 0 var(--ep-space-3) 0;
   }
 
@@ -128,7 +128,7 @@
     border-bottom: 1px solid var(--ep-stone-200);
     font-size: 11px;
     font-weight: 600;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -178,7 +178,7 @@
   .dc-field-type-badge {
     font-size: 10px;
     font-weight: 500;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     background: var(--ep-stone-100);
     padding: 1px var(--ep-space-1-5);
     border-radius: var(--ep-radius-sm);
@@ -202,7 +202,7 @@
     justify-content: center;
     background: none;
     border: none;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     cursor: pointer;
     font-size: 9px;
     border-radius: var(--ep-radius-sm);
@@ -244,7 +244,7 @@
     align-items: center;
     justify-content: center;
     padding: var(--ep-space-10) var(--ep-space-4);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     font-size: var(--ep-text-sm);
   }
 
@@ -307,7 +307,7 @@
   .dc-detail-section-label {
     font-size: 10px;
     font-weight: 600;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: var(--ep-space-2);
@@ -424,7 +424,7 @@
     width: 64px;
     height: 64px;
     margin-bottom: var(--ep-space-3);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     background: var(--ep-white);
     border: 2px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-full);
@@ -444,7 +444,7 @@
 
   .dc-empty-state-hint {
     font-size: var(--ep-text-sm);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   /* --------------------------------------------------------------------------
@@ -518,7 +518,7 @@
   .dc-form-empty {
     padding: var(--ep-space-8) var(--ep-space-4);
     text-align: center;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     font-size: var(--ep-text-sm);
     background: var(--ep-stone-50);
     border: 1px dashed var(--ep-stone-300);
@@ -618,7 +618,7 @@
 
   .dc-tree-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   /* Collapsible groups (object / array) */
@@ -699,7 +699,7 @@
   /* Type and count badges */
   .dc-tree-type-badge {
     font-size: 10px;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     font-weight: 400;
     padding: 2px 6px;
     background: var(--ep-stone-100);
@@ -709,7 +709,7 @@
     text-transform: lowercase;
 
     &[data-type='list'] {
-      color: var(--ep-terracotta-600);
+      color: var(--ep-primary-strong);
       background: var(--ep-terracotta-50);
     }
 
@@ -788,7 +788,7 @@
     width: 28px;
     height: 28px;
     padding: 0;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     background: var(--ep-white);
     border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
@@ -892,7 +892,7 @@
     padding: var(--ep-space-2) var(--ep-space-3);
     font-size: var(--ep-text-xs);
     font-weight: 500;
-    color: var(--ep-terracotta-600);
+    color: var(--ep-primary-strong);
     background: var(--ep-terracotta-50);
     border: 1px dashed var(--ep-terracotta-300);
     border-radius: var(--ep-radius-md);
@@ -964,7 +964,7 @@
 
   .dc-example-field-optional {
     font-weight: 400;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   .dc-example-name-input {
@@ -979,7 +979,7 @@
     width: 36px;
     height: 36px;
     padding: 0;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     background: var(--ep-white);
     border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
@@ -1121,12 +1121,12 @@
   }
 
   .dc-example-chip-add {
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     border-style: dashed;
     transition: all var(--ep-transition-base);
 
     &:hover {
-      color: var(--ep-terracotta-600);
+      color: var(--ep-primary-strong);
       border-color: var(--ep-terracotta-300);
       background: var(--ep-terracotta-50);
     }
@@ -1373,7 +1373,7 @@
   }
 
   .dc-migration-arrow {
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
   }
 
   .dc-migration-expected {
@@ -1594,7 +1594,7 @@
   }
 
   .dc-json-summary:hover .dc-json-preview {
-    color: var(--ep-terracotta-600);
+    color: var(--ep-primary-strong);
   }
 
   .dc-json-content {
@@ -1614,7 +1614,7 @@
   }
 
   .dc-json-comma {
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-500);
   }
 
   .dc-json-string {
@@ -1630,7 +1630,7 @@
   }
 
   .dc-json-null {
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-500);
     font-style: italic;
   }
 
@@ -1640,7 +1640,7 @@
 
   .dc-json-preview {
     font-size: 10px;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     font-style: italic;
     margin-left: var(--ep-space-1);
   }
@@ -1782,7 +1782,7 @@
     align-items: center;
     gap: var(--ep-space-3);
     margin: var(--ep-space-3) 0;
-    color: var(--ep-stone-400);
+    color: var(--ep-stone-600);
     font-size: var(--ep-text-xs);
 
     &::before,
