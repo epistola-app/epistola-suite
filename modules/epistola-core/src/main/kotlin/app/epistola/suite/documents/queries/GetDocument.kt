@@ -1,5 +1,7 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.AuditedRead
+import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -30,9 +32,14 @@ data class GetDocument(
     val tenantId: TenantKey,
     val documentId: DocumentKey,
 ) : Query<Document?>,
-    RequiresPermission {
+    RequiresPermission,
+    EntityIdentifiable,
+    AuditedRead {
     override val permission get() = Permission.DOCUMENT_VIEW
     override val tenantKey get() = tenantId
+
+    // Audited read: record which document was accessed.
+    override val entityId: String get() = documentId.value.toString()
 }
 
 @Component

@@ -240,6 +240,40 @@ truststore` — a quick confirmation your certs were picked up.
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.
 
+## Connection pool (HikariCP)
+
+The app's base pool tuning lives in `application.yaml` and applies to every
+deployment without extra configuration: a fixed-size pool, proactive eviction of
+dead idle connections (`keepalive-time`/`max-lifetime`), leak detection, and —
+critically — a pgjdbc `socketTimeout`/`tcpKeepAlive` so a dead socket (node
+failover, network blip, a laptop resuming from sleep in dev) **self-heals**
+instead of wedging the pool until a restart. Without `socketTimeout` a thread can
+block forever on a half-open socket while holding its pool lease; the pool then
+drains to the stuck leases and never recovers.
+
+Two knobs are surfaced as chart values:
+
+- **`datasource.hikari.maximumPoolSize`** (default `20`) — the per-replica pool
+  size, pinned to `minimum-idle` (fixed-size pool). Because each replica owns its
+  own pool, the cluster total is `replicas × maximumPoolSize`. Ensure Postgres
+  `max_connections` comfortably exceeds
+  `(maxReplicas × maximumPoolSize) + migration job + reserve`; raise
+  `database.cnpg.parameters.max_connections` (or front Postgres with PgBouncer)
+  before scaling `replicaCount`/autoscaling.
+- **`datasource.hikari.socketTimeoutSeconds`** (default `30`) — the app's
+  per-socket read timeout. Keep it at or above your slowest normal query.
+
+The **migration JVM** shares `application.yaml` but runs long DDL (index builds,
+big `ALTER`s) that can read with no socket traffic past the app's 30s timeout, so
+the chart exempts it: `migration.socketTimeoutSeconds` (default `0` = no socket
+timeout) and leak detection off. Migrations stay bounded by
+`migration.job.activeDeadlineSeconds`.
+
+> If a PgBouncer / load balancer with a shorter idle cutoff sits in front of
+> Postgres, lower the app's `max-lifetime` below that cutoff (override
+> `SPRING_DATASOURCE_HIKARI_MAX_LIFETIME` via `config.env`) so stale connections
+> are retired before the proxy drops them.
+
 ## Observability
 
 Prometheus scrape, OpenTelemetry agent friendliness (`observability.otelAgent`)

@@ -4,14 +4,14 @@
     <th:block th:fragment="content">
 
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Upload Asset',
-            backLinkHref=@{/tenants/{tenantId}/assets(tenantId=${tenantId})},
-            backLinkLabel='Assets'
+            pageTitle='Upload Image',
+            backLinkHref=@{/tenants/{tenantId}/images(tenantId=${tenantId})},
+            backLinkLabel='Images'
         )}"></div>
 
         <div class="card create-form-card">
             <div class="card-content">
-                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
+                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select" required>
@@ -43,7 +43,7 @@
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
-                        <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
+                        <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -73,9 +73,9 @@
 
                 try {
                     var body = JSON.parse(xhr.responseText || '{}');
-                    uploadError.textContent = body.detail || body.error || 'Failed to upload asset. Please try again.';
+                    uploadError.textContent = body.detail || body.error || 'Failed to upload image. Please try again.';
                 } catch (e) {
-                    uploadError.textContent = 'Failed to upload asset. Please try again.';
+                    uploadError.textContent = 'Failed to upload image. Please try again.';
                 }
             });
 

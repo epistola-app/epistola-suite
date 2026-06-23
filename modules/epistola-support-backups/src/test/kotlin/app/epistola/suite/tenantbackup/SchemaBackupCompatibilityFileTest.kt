@@ -11,9 +11,9 @@ import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
 /**
- * Guards `schema-backup-compatibility.yaml`: every declared version must be a real migration (so a
- * typo can't silently mis-gate), and a fresh backup must record the file's flags into the manifest
- * for forward-restore support.
+ * Guards the per-migration `backup-restore-compatibility` headers: every version that declares flags
+ * resolves to a real applied migration (the version is the migration filename, so it cannot drift),
+ * and a fresh backup records those flags into the manifest for forward-restore support.
  */
 class SchemaBackupCompatibilityFileTest : IntegrationTestBase() {
     @Autowired

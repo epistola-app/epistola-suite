@@ -40,6 +40,8 @@ class SpringMediator(
     private val applicationContext: ApplicationContext,
     private val eventPublisher: ApplicationEventPublisher,
     private val meterRegistry: MeterRegistry,
+    private val commandListeners: List<CommandListener>,
+    private val queryListeners: List<QueryListener>,
 ) : Mediator {
 
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
@@ -79,10 +81,16 @@ class SpringMediator(
             // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
             eventPublisher.publishEvent(CommandCompleted(command, result))
 
+            // Notify cross-cutting listeners (audit, …) of the successful command.
+            // After the IMMEDIATE handlers so a handler that rolls the command back
+            // is reported as a failure (catch below), not a success.
+            notifyCommandListeners(command, DispatchOutcome.SUCCESS, null)
+
             result
         } catch (e: Exception) {
             outcome = "failure"
             logger.warn("Command {} failed: {}", commandName, e.message)
+            notifyCommandListeners(command, DispatchOutcome.FAILURE, e)
             throw e
         } finally {
             sample.stop(
@@ -113,10 +121,16 @@ class SpringMediator(
         try {
             val result = handler.handle(query)
             logger.debug("Query {} completed successfully", queryName)
+
+            // Notify cross-cutting query listeners (read auditing, …). Fired for
+            // every query; listeners record only the subset they care about.
+            notifyQueryListeners(query, DispatchOutcome.SUCCESS, null)
+
             result
         } catch (e: Exception) {
             outcome = "failure"
             logger.warn("Query {} failed: {}", queryName, e.message)
+            notifyQueryListeners(query, DispatchOutcome.FAILURE, e)
             throw e
         } finally {
             sample.stop(
@@ -156,6 +170,45 @@ class SpringMediator(
                         e,
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Notify every cross-cutting [CommandListener] of a dispatched command. Each
+     * listener is isolated: a listener that throws is logged and skipped so it can
+     * affect neither the command nor the other listeners (the contract says
+     * listeners must not throw, but we enforce it defensively).
+     */
+    private fun notifyCommandListeners(command: Command<*>, outcome: DispatchOutcome, error: Throwable?) {
+        for (listener in commandListeners) {
+            try {
+                listener.onCommand(command, outcome, error)
+            } catch (e: Exception) {
+                logger.error(
+                    "Command listener {} failed for {}: {}",
+                    listener::class.simpleName,
+                    command::class.simpleName,
+                    e.message,
+                    e,
+                )
+            }
+        }
+    }
+
+    /** Read-side counterpart of [notifyCommandListeners]; same error isolation. */
+    private fun notifyQueryListeners(query: Query<*>, outcome: DispatchOutcome, error: Throwable?) {
+        for (listener in queryListeners) {
+            try {
+                listener.onQuery(query, outcome, error)
+            } catch (e: Exception) {
+                logger.error(
+                    "Query listener {} failed for {}: {}",
+                    listener::class.simpleName,
+                    query::class.simpleName,
+                    e.message,
+                    e,
+                )
             }
         }
     }

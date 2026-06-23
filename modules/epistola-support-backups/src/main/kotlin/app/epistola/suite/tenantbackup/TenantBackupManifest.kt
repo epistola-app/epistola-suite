@@ -23,7 +23,7 @@ data class TenantBackupManifest(
     val blobs: List<BackupBlobEntry>,
     /**
      * Every migration applied when this backup was built, with its restore-compatibility flags
-     * snapshotted from `schema-backup-compatibility.yaml` at build time. Drives **forward** restore
+     * snapshotted from each migration's `backup-restore-compatibility` header at build time. Drives **forward** restore
      * (a newer backup into an older app, which can't read the flags of migrations newer than itself).
      * Null on v1 backups — forward restore is then refused; backward still works from [schemaStamp].
      */

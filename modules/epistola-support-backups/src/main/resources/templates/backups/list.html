@@ -82,7 +82,7 @@
     </th:block>
     <th:block th:fragment="backup-list-actions">
         <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
-            <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${status != 'OK'}">
+            <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${hubStatus != 'OK'}">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='upload-cloud', class='ep-icon')}" />
                 Back up now
             </button>

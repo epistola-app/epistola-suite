@@ -131,7 +131,7 @@ class BuildTenantBackupHandler(
 
     /**
      * Snapshots every applied migration version with its restore-compatibility flags (from
-     * `schema-backup-compatibility.yaml`), so a future **forward** restore — onto an app that can't
+     * each migration's `backup-restore-compatibility` header), so a future **forward** restore — onto an app that can't
      * see migrations newer than itself — can read them. Records *all* applied versions (unlisted →
      * `false,false`) so an unlisted crossed migration correctly reads as not forward-compatible.
      */
