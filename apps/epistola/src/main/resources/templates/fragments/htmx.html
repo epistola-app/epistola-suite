@@ -80,6 +80,21 @@
                         errorEl.textContent = 'An error occurred.';
                     }
                     errorEl.style.display = 'block';
+
+                    // The action is blocked (e.g. a catalog still referenced by
+                    // others), so re-submitting would only re-fail. Replace the
+                    // destructive submit with a Cancel button — the only sensible
+                    // remaining action is to dismiss the dialog.
+                    submitBtn.remove();
+                    if (!footerEl.querySelector('[data-testid="confirm-dialog-cancel"]')) {
+                        var cancelBtn = document.createElement('button');
+                        cancelBtn.type = 'button';
+                        cancelBtn.className = 'ep-btn ep-btn-ghost';
+                        cancelBtn.textContent = 'Cancel';
+                        cancelBtn.setAttribute('data-testid', 'confirm-dialog-cancel');
+                        cancelBtn.addEventListener('click', closeConfirmDialog);
+                        footerEl.appendChild(cancelBtn);
+                    }
                 });
 
                 dialog.showModal();
