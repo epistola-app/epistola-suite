@@ -77,6 +77,18 @@
   --ep-purple-500: #a855f7;
   --ep-purple-600: #9333ea;
 
+  /* ── Colors — blue palette (info status only) ───────────────────────── */
+  /* A cool accent reserved for the "info" alert. Deliberately kept OUT of brand
+     chrome (the brand accent is terracotta) — blue's only job is to make
+     informational notices read as distinct from the warm brand, the red error,
+     and the amber warning. */
+  --ep-blue-50: #eff6ff;
+  --ep-blue-100: #dbeafe;
+  --ep-blue-200: #bfdbfe;
+  --ep-blue-600: #2563eb;
+  --ep-blue-700: #1d4ed8;
+  --ep-blue-800: #1e40af;
+
   /* ── Colors — base ──────────────────────────────────────────────────── */
   --ep-white: #ffffff;
   --ep-black: #000000;

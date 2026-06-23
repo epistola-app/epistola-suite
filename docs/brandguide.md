@@ -85,7 +85,20 @@ disabled states, exposed as the `--ep-stone-*` palette tokens.
 | Red 600 | `#dc2626` | `--ep-red-600` | Error text, destructive semantic    |
 | Red 700 | `#b91c1c` | `--ep-red-700` | Error badge text, destructive hover |
 
-#### Info - Purple
+#### Info - Blue
+
+A cool accent reserved for the **info** alert only — kept out of brand chrome
+(the brand accent is terracotta) so informational notices read as distinct from
+the warm brand, the red error, and the amber warning.
+
+| Name     | Hex       | CSS Variable    | Usage             |
+| -------- | --------- | --------------- | ----------------- |
+| Blue 100 | `#dbeafe` | `--ep-blue-100` | Info alert bg     |
+| Blue 200 | `#bfdbfe` | `--ep-blue-200` | Info alert border |
+| Blue 600 | `#2563eb` | `--ep-blue-600` | Info accent bar   |
+| Blue 800 | `#1e40af` | `--ep-blue-800` | Info alert text   |
+
+#### Loop - Purple
 
 | Name       | Hex       | CSS Variable      | Usage          |
 | ---------- | --------- | ----------------- | -------------- |
@@ -477,15 +490,22 @@ Badges use the `.badge` base class combined with a variant. They render as inlin
 
 ### Alerts
 
-Inline alert blocks use `.alert` with a variant class.
+Inline alert blocks use `.alert` with a variant class. Each variant carries a
+solid 4px **left accent bar** (in the variant's `-600` color) and a `-100` fill,
+so it reads by severity and detaches from the warm-paper page.
 
-| Class            | Description                         |
-| ---------------- | ----------------------------------- |
-| `.alert`         | Base alert (required)               |
-| `.alert-info`    | Terracotta — informational messages |
-| `.alert-success` | Green — success feedback            |
-| `.alert-warning` | Amber — warning messages            |
-| `.alert-error`   | Red — error messages                |
+Each variant also injects a **severity icon** (via a masked `::before`, no markup
+needed) so the meaning is carried by _shape_, not colour alone — a colour-blind-safe
+cue per WCAG 1.4.1. The icon is suppressed automatically when the markup already
+supplies its own leading `<svg>` (`.alert:has(> svg)`), so icons never double up.
+
+| Class            | Color | Icon             | Use                   |
+| ---------------- | ----- | ---------------- | --------------------- |
+| `.alert`         | —     | —                | Base alert (required) |
+| `.alert-info`    | Blue  | `info`           | Informational         |
+| `.alert-success` | Green | `check-circle`   | Success feedback      |
+| `.alert-warning` | Amber | `alert-triangle` | Warnings              |
+| `.alert-error`   | Red   | `alert-circle`   | Errors                |
 
 ```html
 <div class="alert alert-warning">

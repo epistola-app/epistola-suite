@@ -619,8 +619,9 @@ main.regular .empty-message {
 }
 
 .alert-error {
-  background-color: var(--ep-red-50);
+  background-color: var(--ep-red-100);
   border: 1px solid var(--ep-red-200);
+  border-left: 4px solid var(--ep-red-600);
   color: var(--ep-red-700);
 }
 
