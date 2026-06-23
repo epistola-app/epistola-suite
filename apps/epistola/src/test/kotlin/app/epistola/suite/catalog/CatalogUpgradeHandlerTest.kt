@@ -13,10 +13,16 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.util.LinkedMultiValueMap
+import java.io.ByteArrayOutputStream
+import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
@@ -183,6 +189,89 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `upgrade-check reports out of sync when the source schema is older than this Epistola`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Upgrade Check Out Of Sync")
+            // A subscribed source that publishes at an older catalog schema
+            // version than this Epistola — the source must republish.
+            val dir = Files.createTempDirectory("oos-catalog")
+            val manifest = dir.resolve("catalog.json")
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":2,"catalog":{"slug":"old-source","name":"Old Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
+            )
+            withMediator {
+                RegisterCatalog(testTenant.id, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/old-source/upgrade-check",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("out of sync")
+            assertThat(response.body).doesNotContain("Up to date")
+        }
+    }
+
+    @Test
+    fun `upgrade-check reports source-ahead when the source schema is newer than this Epistola`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Upgrade Check Source Ahead")
+            // Register while the source is at the current schema, then advance the
+            // source past what this Epistola understands. On the next check,
+            // fetchMigratedManifest throws CatalogSchemaTooNewException, which the
+            // handler must map to the "upgrade Epistola" state rather than a
+            // generic check failure. (Registration eagerly migrates, so a too-new
+            // source could never be registered in the first place — the state is
+            // only reachable when a live source moves ahead after subscription.)
+            val dir = Files.createTempDirectory("ahead-catalog")
+            val manifest = dir.resolve("catalog.json")
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
+            )
+            withMediator {
+                RegisterCatalog(testTenant.id, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
+            }
+            // Source advances to a wire schema newer than this instance supports.
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":99,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"2.0.0"},"resources":[]}""",
+            )
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/new-source/upgrade-check",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("upgrade Epistola")
+            assertThat(response.body).doesNotContain("check failed")
+        }
+    }
+
+    @Test
     fun `upgrade-check reports ZIP-managed for a ZIP-imported subscribed catalog (no source URL)`() = fixture {
         lateinit var consumer: Tenant
         given {
@@ -215,6 +304,52 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("ZIP-managed")
+        }
+    }
+
+    @Test
+    fun `importing a too-old ZIP renders the inline schema-error fragment, not a server error`() = fixture {
+        lateinit var testTenant: Tenant
+        given { testTenant = tenant("Import Too Old") }
+
+        whenever {
+            // A minimal catalog ZIP at an older schema version → blocked by the import gate.
+            val baos = ByteArrayOutputStream()
+            ZipOutputStream(baos).use { zip ->
+                zip.putNextEntry(ZipEntry("catalog.json"))
+                zip.write(
+                    (
+                        """{"schemaVersion":2,"catalog":{"slug":"old-zip","name":"Old Zip"},""" +
+                            """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}"""
+                        ).toByteArray(),
+                )
+                zip.closeEntry()
+            }
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("catalogType", "AUTHORED")
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource(baos.toByteArray()) {
+                        override fun getFilename(): String = "old.zip"
+                    },
+                    HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+                ),
+            )
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/catalogs/import",
+                HttpEntity(payload, HttpHeaders().apply { contentType = MediaType.MULTIPART_FORM_DATA }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // The blocked import must render the inline schema-error fragment (HTTP
+            // 200, actionable message) — NOT crash with a TemplateInputException 500.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Import blocked")
+            assertThat(response.body).contains("too old")
         }
     }
 }
