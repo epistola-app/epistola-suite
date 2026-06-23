@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Audit',
+            pageDescription='Who did what, when. A privacy-safe, permanently retained record of actions taken in this tenant, plus system activity. Times are shown in your browser timezone.'
+        )}"></div>
+
+        <style>
+            /* Break the dense table out of the centered content column. */
+            .audit-fullbleed { width: 96vw; position: relative; left: 50%; margin-left: -48vw; }
+            .audit-table { table-layout: fixed; width: 100%; font-size: var(--ep-text-xs, 0.75rem); }
+            .audit-table th, .audit-table td { padding: var(--ep-space-1, 0.25rem) var(--ep-space-2, 0.5rem); }
+            .audit-table td { vertical-align: top; }
+            .audit-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+            .audit-action { font-weight: 600; }
+            .audit-read-tag { font-size: var(--ep-text-xs, 0.7rem); color: var(--ep-color-info, #2563eb); border: 1px solid currentColor; border-radius: 3px; padding: 0 0.25rem; margin-left: 0.25rem; vertical-align: middle; }
+            .audit-details { margin-top: 0.15rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+            .audit-detail { font-size: var(--ep-text-xs, 0.7rem); color: var(--ep-text-muted-color, #6b7280); background: var(--ep-color-surface-2, #f3f4f6); border-radius: 3px; padding: 0 0.3rem; white-space: nowrap; }
+            .audit-entity { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
+            .audit-outcome-SUCCESS { color: var(--ep-color-success, #15803d); }
+            .audit-outcome-FAILURE { color: var(--ep-color-danger, #c0392b); font-weight: 600; }
+            .audit-sentinel td { text-align: center; padding: var(--ep-space-2, 0.5rem); }
+            .audit-filters { margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3); align-items: flex-end; flex-wrap: wrap; }
+            .audit-filter { display: flex; flex-direction: column; gap: var(--ep-space-1, 0.25rem); }
+            .audit-filter > label { font-size: var(--ep-text-xs, 0.75rem); color: var(--ep-text-muted-color, #6b7280); font-weight: 500; }
+            .audit-filter > .ep-input { height: 2rem; box-sizing: border-box; }
+        </style>
+
+        <div class="audit-fullbleed">
+            <!-- Filters: changing any control re-renders #audit-results with a fresh newest-first page. -->
+            <form id="audit-filters" class="audit-filters">
+                <div class="audit-filter">
+                    <label for="audit-filter-action">Action</label>
+                    <input id="audit-filter-action" class="ep-input ep-input-sm" type="search" name="action"
+                           placeholder="e.g. CreateTheme" th:value="${actionFilter}" style="width: 18rem;"
+                           hx-get th:hx-get="@{/tenants/{tenantId}/audit/search(tenantId=${tenantId})}"
+                           hx-target="#audit-results" hx-swap="innerHTML" hx-include="#audit-filters"
+                           hx-trigger="search, keyup changed delay:400ms" />
+                </div>
+                <div class="audit-filter">
+                    <label for="audit-filter-operation">Type</label>
+                    <select id="audit-filter-operation" class="ep-input ep-input-sm" name="operation"
+                            hx-get th:hx-get="@{/tenants/{tenantId}/audit/search(tenantId=${tenantId})}"
+                            hx-target="#audit-results" hx-swap="innerHTML" hx-include="#audit-filters" hx-trigger="change">
+                        <option value="">All (reads + writes)</option>
+                        <option th:each="op : ${operations}" th:value="${op}" th:text="${op == 'READ' ? 'Reads' : 'Writes'}"
+                                th:selected="${selectedOperation != null && selectedOperation == op}">TYPE</option>
+                    </select>
+                </div>
+                <div class="audit-filter">
+                    <label for="audit-filter-outcome">Outcome</label>
+                    <select id="audit-filter-outcome" class="ep-input ep-input-sm" name="outcome"
+                            hx-get th:hx-get="@{/tenants/{tenantId}/audit/search(tenantId=${tenantId})}"
+                            hx-target="#audit-results" hx-swap="innerHTML" hx-include="#audit-filters" hx-trigger="change">
+                        <option value="">All outcomes</option>
+                        <option th:each="o : ${outcomes}" th:value="${o}" th:text="${o}"
+                                th:selected="${selectedOutcome != null && selectedOutcome == o}">OUTCOME</option>
+                    </select>
+                </div>
+                <div class="audit-filter">
+                    <label for="audit-filter-from">From</label>
+                    <input id="audit-filter-from" class="ep-input ep-input-sm" type="datetime-local" name="from"
+                           th:value="${fromValue}"
+                           hx-get th:hx-get="@{/tenants/{tenantId}/audit/search(tenantId=${tenantId})}"
+                           hx-target="#audit-results" hx-swap="innerHTML" hx-include="#audit-filters" hx-trigger="change" />
+                </div>
+                <div class="audit-filter">
+                    <label for="audit-filter-to">To</label>
+                    <input id="audit-filter-to" class="ep-input ep-input-sm" type="datetime-local" name="to"
+                           th:value="${toValue}"
+                           hx-get th:hx-get="@{/tenants/{tenantId}/audit/search(tenantId=${tenantId})}"
+                           hx-target="#audit-results" hx-swap="innerHTML" hx-include="#audit-filters" hx-trigger="change" />
+                </div>
+                <!-- Browser timezone, sent so the server interprets the From/To wall-clock values in it. -->
+                <input type="hidden" name="tz" id="audit-tz" />
+            </form>
+
+            <div id="audit-results">
+                <th:block th:fragment="results">
+                    <div th:if="${!hasRows}" class="empty-state">
+                        <div class="empty-state-title">No audit entries</div>
+                        <div class="empty-state-description">Nothing matches the current filters.</div>
+                    </div>
+
+                    <table th:if="${hasRows}" class="ep-table audit-table">
+                        <colgroup>
+                            <col style="width: 11rem;" />
+                            <col style="width: 14rem;" />
+                            <col style="width: 12rem;" />
+                            <col />
+                            <col style="width: 7rem;" />
+                            <col style="width: 8rem;" />
+                            <col style="width: 9rem;" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Action</th>
+                                <th>Actor</th>
+                                <th>Entity</th>
+                                <th>Outcome</th>
+                                <th>Tenant</th>
+                                <th>Instance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-rows">
+                            <th:block th:replace="~{audit/list :: newer-sentinel}" />
+                            <th:block th:replace="~{audit/list :: audit-rows(${entries})}" />
+                            <th:block th:replace="~{audit/list :: older-sentinel}" />
+                        </tbody>
+                    </table>
+                </th:block>
+            </div>
+        </div>
+
+        <!-- Render times in the browser's timezone (CSP-safe: no eval). Re-runs after
+             each HTMX swap so newly loaded rows are formatted too; falls back to the
+             server-rendered UTC text when JavaScript is unavailable. -->
+        <script>
+            (function () {
+                var tz = document.getElementById("audit-tz");
+                if (tz) {
+                    try {
+                        tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+                    } catch (e) {
+                        /* leave blank → server falls back to UTC */
+                    }
+                }
+                var fmt = new Intl.DateTimeFormat(undefined, {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false,
+                });
+                function formatAuditTimes() {
+                    document.querySelectorAll(".audit-time[data-ts]").forEach(function (el) {
+                        if (el.dataset.tsDone) return;
+                        var d = new Date(el.getAttribute("data-ts"));
+                        if (!isNaN(d.getTime())) {
+                            el.textContent = fmt.format(d);
+                            el.title = el.getAttribute("data-ts");
+                            el.dataset.tsDone = "1";
+                        }
+                    });
+                }
+                formatAuditTimes();
+                document.body.addEventListener("htmx:afterSettle", formatAuditTimes);
+            })();
+        </script>
+    </th:block>
+
+    <!-- Response for "Load older": rows appended below, then a refreshed older sentinel. -->
+    <th:block th:fragment="older-rows">
+        <th:block th:replace="~{audit/list :: audit-rows(${entries})}" />
+        <th:block th:replace="~{audit/list :: older-sentinel}" />
+    </th:block>
+
+    <!-- Response for "Load newer": a refreshed newer sentinel, then the new rows prepended above. -->
+    <th:block th:fragment="newer-rows">
+        <th:block th:replace="~{audit/list :: newer-sentinel}" />
+        <th:block th:replace="~{audit/list :: audit-rows(${entries})}" />
+    </th:block>
+
+    <!-- Reusable row markup (newest-first). -->
+    <tbody th:fragment="audit-rows(entries)" th:remove="tag">
+        <tr th:each="entry : ${entries}">
+            <td class="audit-time" th:data-ts="${entry.occurredAt}"
+                th:text="${#temporals.format(entry.occurredAt, 'yyyy-MM-dd HH:mm:ss')} + ' UTC'">2026-01-01 00:00:00 UTC</td>
+            <td>
+                <span class="audit-action" th:text="${entry.action}">CreateTheme</span>
+                <span th:if="${entry.isRead}" class="audit-read-tag" title="Data access (read)">read</span>
+                <div th:unless="${entry.details.isEmpty()}" class="audit-details">
+                    <span th:each="d : ${entry.details}" class="audit-detail"
+                          th:text="${d.key} + ': ' + ${d.value}">key: value</span>
+                </div>
+            </td>
+            <td th:text="${entry.actorLabel}" th:title="${entry.actorUserId}">actor</td>
+            <td class="audit-entity" th:with="link=${@auditEntityLinks.resolve(entry)}" th:title="${entry.entityId}">
+                <a th:if="${link.href != null}" th:href="@{${link.href}}" th:text="${link.label}">entity</a>
+                <span th:if="${link.href == null}" class="ep-text-muted" th:text="${link.label}">entity</span>
+            </td>
+            <td>
+                <span th:classappend="'audit-outcome-' + ${entry.outcome}" th:text="${entry.outcome}">SUCCESS</span>
+                <div th:if="${entry.errorCode != null}" class="ep-text-muted ep-text-xs" th:text="${entry.errorCode}">CODE</div>
+            </td>
+            <td>
+                <span th:if="${entry.tenantKey != null}" th:text="${entry.tenantKey}">tenant</span>
+                <span th:if="${entry.tenantKey == null}" class="ep-text-muted" title="System / root action">system</span>
+            </td>
+            <td class="ep-text-muted audit-entity" th:title="${entry.instanceId}" th:text="${entry.instanceId}">instance</td>
+        </tr>
+    </tbody>
+
+    <!-- Newer sentinel (top): self-replaces via outerHTML, prepending newer rows. -->
+    <tr th:fragment="newer-sentinel" id="audit-load-newer" class="audit-sentinel">
+        <td colspan="7">
+            <button type="button" class="ep-btn ep-btn-sm"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/audit/newer(tenantId=${tenantId}, ts=${newerCursorTs}, id=${newerCursorId})}"
+                    hx-include="#audit-filters" hx-target="#audit-load-newer" hx-swap="outerHTML">
+                Load newer
+            </button>
+        </td>
+    </tr>
+
+    <!-- Older sentinel (bottom): present only while more history exists; self-replaces, appending older rows. -->
+    <tr th:fragment="older-sentinel" id="audit-load-older" class="audit-sentinel" th:if="${hasOlder}">
+        <td colspan="7">
+            <button type="button" class="ep-btn ep-btn-sm"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/audit/older(tenantId=${tenantId}, ts=${olderCursorTs}, id=${olderCursorId})}"
+                    hx-include="#audit-filters" hx-target="#audit-load-older" hx-swap="outerHTML">
+                Load older
+            </button>
+        </td>
+    </tr>
+</body>
+</html>

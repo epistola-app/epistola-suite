@@ -51,22 +51,6 @@
                     </div>
 
                     <div th:if="${!#lists.isEmpty(versions)}">
-                        <!-- New Draft button when no draft exists -->
-                        <div th:if="${auth.has('STENCIL_EDIT') and stencil.catalogType.name() == 'AUTHORED'}" style="margin-bottom: var(--ep-space-3);">
-                            <th:block th:with="hasDraft=${versions.?[status.name() == 'DRAFT'].size() > 0}">
-                                <form th:unless="${hasDraft}"
-                                      th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
-                                      hx-target="#version-list"
-                                      hx-swap="innerHTML"
-                                      style="display: inline;">
-                                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
-                                        New Draft
-                                    </button>
-                                </form>
-                            </th:block>
-                        </div>
-
                         <table class="ep-table ep-table-compact">
                             <thead>
                                 <tr>
@@ -74,6 +58,7 @@
                                     <th>Status</th>
                                     <th>Created</th>
                                     <th>Published</th>
+                                    <th title="Times this version is embedded across draft and published templates">Uses</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -90,6 +75,10 @@
                                         <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
                                         <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
                                     </td>
+                                    <td th:with="uses=${versionUsage != null ? versionUsage.getOrDefault(version.id, 0) : 0}">
+                                        <span th:if="${uses > 0}" th:text="${uses}"></span>
+                                        <span th:unless="${uses > 0}" class="text-muted">—</span>
+                                    </td>
                                     <td class="actions">
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
@@ -99,7 +88,7 @@
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                               hx-target="#version-list" hx-swap="innerHTML"
-                                              hx-confirm="Archive version? It will no longer be available for insertion into templates."
+                                              hx-confirm="Archive version? It can no longer be inserted into templates. Templates already using it keep working; a draft still pinned to it must be upgraded before it can be published."
                                               style="display: inline;">
                                             <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Archive">Archive</button>
                                         </form>
@@ -113,7 +102,7 @@
         </div>
 
         <!-- Usage section -->
-        <div class="detail-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
+        <div class="detail-section" th:if="${usagePage != null and usagePage.totalAll > 0}">
             <div class="detail-section-header">
                 <h3>Templates using this stencil</h3>
             </div>
@@ -142,11 +131,41 @@
                         <span id="upgrade-status" style="font-size: var(--ep-text-sm); color: var(--ep-muted-foreground);"></span>
                     </div>
 
-                    <table class="ep-table ep-table-compact">
+                    <p th:if="${auth.has('TEMPLATE_EDIT')}" class="text-muted" style="margin-bottom: var(--ep-space-3); font-size: var(--ep-text-sm);">
+                        Published templates are upgraded in a <strong>new draft</strong> — their live version stays unchanged until you publish that draft. Existing drafts are modified in place. Up to 100 templates can be upgraded at a time.
+                    </p>
+
+                    <!-- Filter (plain HTMX): the select re-requests the fragment on change,
+                         carrying its value as ?filter=…. The hidden state element lets
+                         refreshUsageList() re-fetch the same view after an upgrade. -->
+                    <span id="usage-state" hidden
+                          th:data-page="${usagePage.page}"
+                          th:data-filter="${usagePage.filter}"></span>
+                    <div class="ep-row ep-gap-3" style="margin-bottom: var(--ep-space-3); align-items: center;">
+                        <label class="ep-label" style="margin: 0; white-space: nowrap;">Show:</label>
+                        <select name="filter" class="ep-select form-control-auto"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
+                                hx-target="#usage-list" hx-swap="innerHTML">
+                            <option value="both" th:selected="${usagePage.filter == 'both'}">All</option>
+                            <option value="upgradable" th:selected="${usagePage.filter == 'upgradable'}">Upgradable</option>
+                            <option value="not-upgradable" th:selected="${usagePage.filter == 'not-upgradable'}">Not upgradable</option>
+                        </select>
+                        <span class="text-muted" style="font-size: var(--ep-text-sm);"
+                              th:text="${usagePage.upgradableCount} + ' of ' + ${usagePage.totalAll} + ' upgradable'"></span>
+                    </div>
+
+                    <div th:if="${#lists.isEmpty(usage)}" class="empty-state" style="padding: var(--ep-space-4);">
+                        <div class="empty-state-description"
+                             th:text="${usagePage.filter == 'upgradable'} ? 'No upgradable templates.' :
+                                      (${usagePage.filter == 'not-upgradable'} ? 'No templates are blocked from upgrade.' :
+                                      'No templates use this stencil.')"></div>
+                    </div>
+
+                    <table th:unless="${#lists.isEmpty(usage)}" class="ep-table ep-table-compact">
                         <thead>
                             <tr>
                                 <th style="width: 2rem;">
-                                    <input type="checkbox" id="select-all-usage" onchange="toggleSelectAll(this.checked)" title="Select all editable draft rows">
+                                    <input type="checkbox" id="select-all-usage" onchange="toggleSelectAll(this.checked)" title="Select all editable rows">
                                 </th>
                                 <th>Template</th>
                                 <th>Catalog</th>
@@ -159,17 +178,26 @@
                         </thead>
                         <tbody>
                             <tr th:each="u : ${usage}"
-                                th:classappend="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'} ? 'usage-row-selectable' : ''"
+                                th:classappend="${u.upgradable} ? 'usage-row-selectable' : ''"
                                 th:style="${u.catalogType.name() == 'SUBSCRIBED'} ? 'opacity: 0.5;' : ''">
                                 <td>
-                                    <input th:if="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'}"
+                                    <input th:if="${u.upgradable}"
                                            type="checkbox" class="usage-select"
                                            th:data-template-id="${u.templateId}"
                                            th:data-variant-id="${u.variantId}"
                                            th:data-catalog-key="${u.catalogKey}">
-                                    <th:block th:if="${u.catalogType.name() == 'SUBSCRIBED'}">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
-                                    </th:block>
+                                    <span th:unless="${u.upgradable}"
+                                          class="text-muted"
+                                          style="cursor: help; display: inline-flex;"
+                                          tabindex="0"
+                                          th:with="reasonText=${u.upgradeBlockReason == null ? 'This template cannot be upgraded.' :
+                                              (u.upgradeBlockReason.name() == 'SUBSCRIBED' ? 'This stencil belongs to a subscribed catalog and is read-only.' :
+                                              (u.upgradeBlockReason.name() == 'HAS_DRAFT' ? 'This variant already has an open draft. Upgrade it on the draft row instead.' :
+                                              'Only the latest version of a variant can be upgraded.'))}"
+                                          th:title="${reasonText}"
+                                          th:aria-label="${reasonText}">
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-sm')}" />
+                                    </span>
                                 </td>
                                 <td>
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
@@ -189,88 +217,132 @@
                         </tbody>
                     </table>
 
-                    <script th:inline="javascript">
-                        const _tenantId = /*[[${tenantId}]]*/ '';
-                        const _catalogId = /*[[${catalogId}]]*/ '';
-                        const _stencilId = /*[[${stencil.id}]]*/ '';
-                        const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
-                        let _abortController = null;
-
-                        function toggleSelectAll(checked) {
-                            document.querySelectorAll('.usage-select:not(:disabled)').forEach(cb => cb.checked = checked);
-                        }
-
-                        async function applyUpgrade() {
-                            const version = parseInt(document.getElementById('upgrade-version-select').value);
-                            const selected = [...document.querySelectorAll('.usage-select:checked')];
-                            if (selected.length === 0) {
-                                document.getElementById('upgrade-status').textContent = 'No rows selected';
-                                return;
-                            }
-
-                            const versionLabel = document.getElementById('upgrade-version-select').selectedOptions[0].textContent;
-                            if (!await epistolaConfirm(`This will modify ${selected.length} template draft(s) to use stencil ${versionLabel}.\n\nThis operation modifies drafts only — published versions in environments are not affected.\n\nContinue?`, {
-                                title: 'Upgrade Stencil',
-                                confirmLabel: 'Upgrade',
-                                confirmClass: 'ep-btn-primary',
-                            })) {
-                                return;
-                            }
-
-                            const button = document.getElementById('apply-upgrade-btn');
-                            const status = document.getElementById('upgrade-status');
-                            _abortController = new AbortController();
-
-                            button.textContent = 'Cancel';
-                            button.onclick = () => { _abortController.abort(); };
-                            button.classList.remove('ep-btn-primary');
-                            button.classList.add('ep-btn-outline');
-                            status.textContent = '';
-
-                            let success = 0, failed = 0, cancelled = false;
-                            for (const cb of selected) {
-                                if (_abortController.signal.aborted) { cancelled = true; break; }
-                                const templateId = cb.dataset.templateId;
-                                const variantId = cb.dataset.variantId;
-                                // The template's own catalog — not _catalogId, which is the
-                                // stencil's catalog. Usage spans multiple catalogs, so this
-                                // must be the per-row value the handler resolves the template in.
-                                const catalogKey = cb.dataset.catalogKey;
-                                try {
-                                    const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId + '/upgrade', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
-                                        body: JSON.stringify({ templateId, variantId, catalogKey, newVersion: version }),
-                                        signal: _abortController.signal,
-                                    });
-                                    if (resp.ok) {
-                                        cb.closest('tr').style.opacity = '0.5';
-                                        cb.checked = false;
-                                        cb.disabled = true;
-                                        success++;
-                                    } else { failed++; }
-                                } catch (e) {
-                                    if (e.name === 'AbortError') { cancelled = true; break; }
-                                    failed++;
-                                }
-                                status.textContent = `${success + failed} / ${selected.length}...`;
-                            }
-
-                            button.textContent = 'Apply to selected';
-                            button.onclick = applyUpgrade;
-                            button.classList.remove('ep-btn-outline');
-                            button.classList.add('ep-btn-primary');
-                            _abortController = null;
-
-                            const parts = [];
-                            if (success > 0) parts.push(`${success} upgraded`);
-                            if (failed > 0) parts.push(`${failed} failed`);
-                            if (cancelled) parts.push('cancelled');
-                            status.textContent = parts.length > 0 ? parts.join(', ') : '';
-                        }
-                    </script>
+                    <!-- Pagination (page size 100, matching the per-run upgrade cap) -->
+                    <div th:if="${usagePage.totalPages > 1}" class="ep-row ep-gap-2" style="margin-top: var(--ep-space-3); align-items: center;">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},filter=${usagePage.filter},page=${usagePage.page - 1})}"
+                                hx-target="#usage-list" hx-swap="innerHTML"
+                                th:disabled="${usagePage.page le 1}">Previous</button>
+                        <span class="text-muted" style="font-size: var(--ep-text-sm);"
+                              th:text="'Page ' + ${usagePage.page} + ' of ' + ${usagePage.totalPages}"></span>
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},filter=${usagePage.filter},page=${usagePage.page + 1})}"
+                                hx-target="#usage-list" hx-swap="innerHTML"
+                                th:disabled="${usagePage.page >= usagePage.totalPages}">Next</button>
+                    </div>
                 </th:block>
             </div>
+            <!--
+                Defined outside the `usage` fragment so an HTMX refresh of #usage-list
+                re-renders the table without re-executing this script (re-running the
+                top-level `const`s would throw "already declared"). The handlers are
+                global; the refreshed fragment's inline onclick/onchange reach them.
+            -->
+            <script th:inline="javascript">
+                const _tenantId = /*[[${tenantId}]]*/ '';
+                const _catalogId = /*[[${catalogId}]]*/ '';
+                const _stencilId = /*[[${stencil.id}]]*/ '';
+                const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
+                // Cap a single bulk upgrade — each row is an individual request, so a
+                // huge selection would fire hundreds of sequential POSTs.
+                const _maxBatch = 100;
+                let _abortController = null;
+
+                function toggleSelectAll(checked) {
+                    document.querySelectorAll('.usage-select:not(:disabled)').forEach(cb => cb.checked = checked);
+                }
+
+                function refreshUsageList() {
+                    if (!window.htmx) return;
+                    // Preserve the current filter + page so the refresh stays in place.
+                    const st = document.getElementById('usage-state');
+                    const page = (st && st.dataset.page) || '1';
+                    const filter = (st && st.dataset.filter) || 'both';
+                    const url = '/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId
+                        + '/usage?page=' + page + '&filter=' + encodeURIComponent(filter);
+                    htmx.ajax('GET', url, { target: '#usage-list', swap: 'innerHTML' });
+                }
+
+                async function applyUpgrade() {
+                    const version = parseInt(document.getElementById('upgrade-version-select').value);
+                    // Selection is per variant: the server marks exactly one row per
+                    // variant as upgradable (its draft, else its latest published).
+                    const selected = [...document.querySelectorAll('.usage-select:checked')];
+                    if (selected.length === 0) {
+                        document.getElementById('upgrade-status').textContent = 'No rows selected';
+                        return;
+                    }
+                    if (selected.length > _maxBatch) {
+                        document.getElementById('upgrade-status').textContent =
+                            `Select at most ${_maxBatch} templates to upgrade at once (${selected.length} selected).`;
+                        return;
+                    }
+
+                    const versionLabel = document.getElementById('upgrade-version-select').selectedOptions[0].textContent;
+                    if (!await epistolaConfirm(`This will upgrade ${selected.length} template(s) to stencil ${versionLabel}.\n\nPublished templates are upgraded in a new draft — their live version stays unchanged until you publish that draft. Existing drafts are modified in place.\n\nContinue?`, {
+                        title: 'Upgrade Stencil',
+                        confirmLabel: 'Upgrade',
+                        confirmClass: 'ep-btn-primary',
+                    })) {
+                        return;
+                    }
+
+                    const button = document.getElementById('apply-upgrade-btn');
+                    const status = document.getElementById('upgrade-status');
+                    _abortController = new AbortController();
+
+                    button.textContent = 'Cancel';
+                    button.onclick = () => { _abortController.abort(); };
+                    button.classList.remove('ep-btn-primary');
+                    button.classList.add('ep-btn-outline');
+                    status.textContent = '';
+
+                    let success = 0, failed = 0, cancelled = false;
+                    for (const cb of selected) {
+                        if (_abortController.signal.aborted) { cancelled = true; break; }
+                        const templateId = cb.dataset.templateId;
+                        const variantId = cb.dataset.variantId;
+                        // The template's own catalog — not _catalogId, which is the
+                        // stencil's catalog. Usage spans multiple catalogs, so this
+                        // must be the per-row value the handler resolves the template in.
+                        const catalogKey = cb.dataset.catalogKey;
+                        try {
+                            const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId + '/upgrade', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
+                                body: JSON.stringify({ templateId, variantId, catalogKey, newVersion: version }),
+                                signal: _abortController.signal,
+                            });
+                            if (resp.ok) {
+                                cb.closest('tr').style.opacity = '0.5';
+                                cb.checked = false;
+                                cb.disabled = true;
+                                success++;
+                            } else { failed++; }
+                        } catch (e) {
+                            if (e.name === 'AbortError') { cancelled = true; break; }
+                            failed++;
+                        }
+                        status.textContent = `${success + failed} / ${selected.length}...`;
+                    }
+
+                    button.textContent = 'Apply to selected';
+                    button.onclick = applyUpgrade;
+                    button.classList.remove('ep-btn-outline');
+                    button.classList.add('ep-btn-primary');
+                    _abortController = null;
+
+                    const parts = [];
+                    if (success > 0) parts.push(`${success} upgraded`);
+                    if (failed > 0) parts.push(`${failed} failed`);
+                    if (cancelled) parts.push('cancelled');
+                    status.textContent = parts.length > 0 ? parts.join(', ') : '';
+
+                    // Reload the table so newly created drafts (from upgrading published
+                    // templates) and updated stencil versions are reflected accurately.
+                    if (success > 0) refreshUsageList();
+                }
+            </script>
         </div>
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>

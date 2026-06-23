@@ -1,5 +1,6 @@
 package app.epistola.suite.tenantbackup
 
+import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -34,17 +35,22 @@ import java.util.zip.ZipInputStream
 data class RestoreTenantBackup(
     override val tenantKey: TenantKey,
     val artifactBytes: ByteArray,
+    /** Id of the stored backup being restored — recorded in the audit trail (not used by the restore). */
+    val backupId: String? = null,
 ) : Command<TenantRestoreResult>,
-    RequiresPermission {
+    RequiresPermission,
+    AuditDetailed {
     override val permission get() = Permission.TENANT_RESTORE
+
+    override val auditDetails: Map<String, String> get() = backupId?.let { mapOf("backupId" to it) } ?: emptyMap()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is RestoreTenantBackup) return false
-        return tenantKey == other.tenantKey && artifactBytes.contentEquals(other.artifactBytes)
+        return tenantKey == other.tenantKey && backupId == other.backupId && artifactBytes.contentEquals(other.artifactBytes)
     }
 
-    override fun hashCode(): Int = 31 * tenantKey.hashCode() + artifactBytes.contentHashCode()
+    override fun hashCode(): Int = 31 * (31 * tenantKey.hashCode() + (backupId?.hashCode() ?: 0)) + artifactBytes.contentHashCode()
 }
 
 data class TenantRestoreResult(

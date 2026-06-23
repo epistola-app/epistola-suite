@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -18,12 +19,17 @@ import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
+import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
+import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.queries.GetStencil
+import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.validation.ValidationException
@@ -187,6 +193,28 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `create version copies from the latest archived version when none is published`() = test {
+        val tenant = createTenant("All Archived")
+        val tenantId = TenantId(tenant.id)
+        val id = stencilId(tenantId)
+
+        CreateStencil(id = id, name = "Header", content = createTestContent()).execute()
+        val v1 = StencilVersionId(VersionKey.of(1), id)
+        PublishStencilVersion(versionId = v1).execute()
+        ArchiveStencilVersion(versionId = v1).execute()
+
+        // No published or draft remains. Reopening for editing must copy the
+        // archived content rather than failing (archiving is non-destructive).
+        val draft = CreateStencilVersion(stencilId = id).execute()
+        assertThat(draft).isNotNull
+        assertThat(draft!!.status).isEqualTo(StencilVersionStatus.DRAFT)
+        assertThat(draft.id.value).isEqualTo(2)
+
+        val retrieved = GetStencilVersion(versionId = StencilVersionId(VersionKey.of(2), id)).query()
+        assertThat(retrieved!!.content.nodes).containsKey("text1")
+    }
+
+    @Test
     fun `update draft content`() = test {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
@@ -321,4 +349,90 @@ class StencilIntegrationTest : IntegrationTestBase() {
 
         assertThat(result?.upgradedCount).isEqualTo(0)
     }
+
+    @Test
+    fun `upgrade stencil in a published template creates a new draft and upgrades there`() = test {
+        val tenant = createTenant("Published Upgrade")
+        val tenantId = TenantId(tenant.id)
+        val stencilId = stencilId(tenantId)
+
+        // Stencil v1 and v2, both published.
+        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+        CreateStencilVersion(stencilId = stencilId, content = createTestContent()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
+
+        // Template embedding stencil v1, then published — leaving NO open draft.
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantId = VariantId(variantKey, templateId)
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
+        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+        // Precondition: the only version is the published v1 (no draft to upgrade),
+        // and with no draft the published row is the variant's upgrade target.
+        val before = ListStencilVersions(stencilId = stencilId).query()
+        assertThat(before).isNotEmpty
+        val usageBefore = GetStencilUsagePage(stencilId = stencilId).query().items
+        assertThat(usageBefore).noneMatch { it.versionStatus == "draft" && it.templateId == templateKey }
+        assertThat(usageBefore.single { it.templateId == templateKey }.upgradable).isTrue()
+
+        // Upgrade the published template — should create a fresh draft and upgrade it.
+        val result = UpdateStencilInTemplate(
+            variantId = variantId,
+            stencilId = stencilId,
+            newVersion = 2,
+        ).execute()
+
+        assertThat(result).isNotNull
+        assertThat(result!!.upgradedCount).isEqualTo(1)
+
+        // A new draft now exists pinned to stencil v2, while the published version
+        // is left untouched on stencil v1.
+        val pageAfter = GetStencilUsagePage(stencilId = stencilId).query()
+        // Counts come from SQL: 2 usage rows (published v1 + draft v2), 1 upgradable (the draft).
+        assertThat(pageAfter.totalAll).isEqualTo(2)
+        assertThat(pageAfter.upgradableCount).isEqualTo(1)
+        assertThat(pageAfter.page).isEqualTo(1)
+        assertThat(pageAfter.totalPages).isEqualTo(1)
+        val usageAfter = pageAfter.items
+        val draftRow = usageAfter.firstOrNull { it.versionStatus == "draft" && it.templateId == templateKey }
+        assertThat(draftRow).isNotNull
+        assertThat(draftRow!!.stencilVersion).isEqualTo(2)
+
+        val publishedRow = usageAfter.firstOrNull { it.versionStatus == "published" && it.templateId == templateKey }
+        assertThat(publishedRow).isNotNull
+        assertThat(publishedRow!!.stencilVersion).isEqualTo(1)
+
+        // Now that the variant has a draft, only the draft is the upgrade target —
+        // the published row is no longer separately upgradable (issue #598 follow-up),
+        // and it carries the reason the UI explains on hover.
+        assertThat(draftRow.upgradable).isTrue()
+        assertThat(draftRow.upgradeBlockReason).isNull()
+        assertThat(publishedRow.upgradable).isFalse()
+        assertThat(publishedRow.upgradeBlockReason)
+            .isEqualTo(StencilUsageDetail.UpgradeBlockReason.HAS_DRAFT)
+    }
+
+    /** A template body embedding [stencilKey] v1 once (with a children slot so the upgrade can rewrite it). */
+    private fun templateEmbedding(stencilKey: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "stencil-instance" to Node(
+                id = "stencil-instance",
+                type = "stencil",
+                slots = listOf("stencil-children"),
+                props = mapOf("stencilId" to stencilKey, "version" to 1),
+            ),
+        ),
+        slots = mapOf(
+            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-instance")),
+            "stencil-children" to Slot(id = "stencil-children", nodeId = "stencil-instance", name = "children", children = emptyList()),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
 }

@@ -30,6 +30,9 @@ dependencies {
     // by per-feature UI modules.
     implementation(project(":modules:epistola-web"))
 
+    // Audit feature (PII-free "who did what, when" trail: recorder, viewer, schema)
+    implementation(project(":modules:epistola-audit"))
+
     // Support module (optional commercial-tier hub integration; off by default)
     implementation(project(":modules:epistola-support"))
 

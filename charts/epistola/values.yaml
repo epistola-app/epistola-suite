@@ -310,8 +310,24 @@ config:
   profiles: ""
   # Additional environment variables
   env: {}
-  # Example:
-  #   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "20"
+
+# Connection pool (HikariCP) tuning. The base liveness/recovery settings
+# (socketTimeout, keepalive, leak detection, …) live in the app's
+# application.yaml and apply by default; these values let operators size the
+# pool and tune the app-side socket timeout per deployment without re-templating.
+datasource:
+  hikari:
+    # Per-replica pool size (fixed: minimum-idle is pinned to this). Each replica
+    # owns its own pool, so the cluster total is replicas * maximumPoolSize. Ensure
+    # Postgres max_connections comfortably exceeds
+    # (maxReplicas * maximumPoolSize) + migration job + reserve. Raise
+    # database.cnpg.parameters.max_connections (or front PG with PgBouncer) when
+    # scaling replicaCount / autoscaling.
+    maximumPoolSize: 20
+    # APP per-socket read timeout (SECONDS). Breaks a wedged active read (post
+    # DB-failover / network blip) so the pool self-heals without a restart. Keep
+    # it >= your slowest normal query. Migrations use migration.socketTimeoutSeconds.
+    socketTimeoutSeconds: 30
 
 # Database migration strategy. Migrations can run as a separate, explicit step
 # (recommended for multi-replica / production) or embedded at app startup.
@@ -331,6 +347,13 @@ config:
 # database, or pre-create the cluster / use cnpgExisting.
 migration:
   mode: job
+  # Migration-JVM per-socket read timeout (SECONDS). The migration JVM shares the
+  # app's application.yaml, but long DDL (index builds, big ALTERs) can read with
+  # no socket traffic for longer than the app's 30s socketTimeout, which would
+  # abort the migration — so migrations diverge here. 0 = no socket timeout; the
+  # migration is already bounded by job.activeDeadlineSeconds. Raise to a finite
+  # value (e.g. matching activeDeadlineSeconds) if you prefer a hard cap.
+  socketTimeoutSeconds: 0
   # Image for the wait-for-db init container (job / initContainer modes).
   waitImage: busybox:1.38
   # Resources for the migrate container.

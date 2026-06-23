@@ -27,6 +27,33 @@ spring:
           mcp-endpoint: /api/mcp
   application:
     name: epistola-suite
+  datasource:
+    # Base HikariCP tuning. This block is inherited by BOTH the app and the
+    # separate migration JVM (MigrationLauncher loads the same application.yaml).
+    # The URL/username/password are supplied per-environment (application-local.yaml
+    # locally, SPRING_DATASOURCE_* env from Helm in prod) and are orthogonal to these
+    # keys. Prod overrides pool size / socketTimeout via SPRING_DATASOURCE_HIKARI_*
+    # env (see charts/epistola). socketTimeout/tcpKeepAlive are pgjdbc driver props,
+    # NOT Hikari keys, so they live under data-source-properties.
+    hikari:
+      # Pool sizing — with virtual threads ON, the pool size is the real DB
+      # concurrency bound. Fixed-size (minimum-idle == maximum-pool-size): the
+      # sub-second background pollers keep the pool hot, so a lower floor would
+      # never take effect, and a fixed pool avoids growth latency / connection
+      # storms and makes max_connections planning deterministic.
+      maximum-pool-size: 20
+      minimum-idle: 20
+      # Liveness / recovery — so a dead socket (laptop sleep, DB failover, blip)
+      # self-heals instead of wedging the pool until restart.
+      connection-timeout: 30000 # borrower wait for a pooled conn (explicit; default)
+      validation-timeout: 5000 # bound the aliveness probe (explicit; default)
+      keepalive-time: 30000 # probe idle conns every 30s; evict dead ones before handout
+      max-lifetime: 1800000 # 30 min; keep BELOW any PgBouncer/LB idle cutoff in front of PG
+      leak-detection-threshold: 60000 # log a stack trace for any conn held > 60s
+      # pgjdbc driver props (forwarded verbatim to the driver).
+      data-source-properties:
+        socketTimeout: 30 # SECONDS — breaks an already-wedged active read; the keystone fix
+        tcpKeepAlive: true # kernel-level dead-socket teardown backstop
   servlet:
     multipart:
       max-file-size: 10MB
