@@ -83,7 +83,7 @@
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                               hx-target="#version-list" hx-swap="innerHTML"
-                                              hx-confirm="Archive version? It will no longer be available for insertion into templates."
+                                              hx-confirm="Archive version? It can no longer be inserted into templates. Templates already using it keep working; a draft still pinned to it must be upgraded before it can be published."
                                               style="display: inline;">
                                             <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Archive">Archive</button>
                                         </form>
