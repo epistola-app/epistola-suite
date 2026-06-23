@@ -13,10 +13,10 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
   it('renders shortcut trigger accessibility attributes', () => {
     const toolbar = new EpistolaToolbar();
     const toolbarAny = toolbar as unknown as {
-      _renderExampleSelector: (examples: object[]) => unknown;
+      _renderShortcuts: () => unknown;
     };
 
-    const template = toolbarAny._renderExampleSelector([{}]);
+    const template = toolbarAny._renderShortcuts();
     const markup = templateToMarkup(template);
 
     expect(markup).toContain('aria-label="Keyboard shortcuts"');
@@ -24,11 +24,22 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
     expect(markup).toContain('aria-controls=');
   });
 
+  it('renders the keyboard-shortcuts trigger independently of data examples', () => {
+    // The shortcuts trigger is the discovery surface for editor shortcuts
+    // (incl. Leader + J), so it must render even when the template has no
+    // data examples and _renderExampleSelector is skipped entirely.
+    const toolbar = new EpistolaToolbar();
+    const toolbarAny = toolbar as unknown as { _renderShortcuts: () => unknown };
+
+    const markup = templateToMarkup(toolbarAny._renderShortcuts());
+
+    expect(markup).toContain('data-testid="shortcuts-trigger"');
+  });
+
   it('defines popover dialog and filter input labels in render template', () => {
     const toolbar = new EpistolaToolbar();
     const renderSource = String(
-      (toolbar as unknown as { _renderExampleSelector: (examples: object[]) => unknown })
-        ._renderExampleSelector,
+      (toolbar as unknown as { _renderShortcuts: () => unknown })._renderShortcuts,
     );
 
     expect(renderSource).toContain('role="dialog"');

@@ -127,11 +127,19 @@
     cursor: default;
   }
 
-  .toolbar-example-selector {
+  /* Right-aligned toolbar cluster: data-example controls (when present) + the
+     always-present keyboard-shortcuts trigger. */
+  .toolbar-right {
     display: flex;
     align-items: center;
     gap: var(--ep-space-1-5);
     margin-left: auto;
+  }
+
+  .toolbar-example-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
   }
 
   .toolbar-example-label {

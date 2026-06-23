@@ -706,7 +706,10 @@ export class EpistolaToolbar extends LitElement {
           ${this.cleanMode ? icon('eye') : icon('sparkles')} Clean
         </button>
 
-        ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
+        <div class="toolbar-right">
+          ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
+          ${this._renderShortcuts()}
+        </div>
         ${this._renderPluginActions()}
       </div>
     `;
@@ -795,11 +798,6 @@ export class EpistolaToolbar extends LitElement {
   }
 
   private _renderExampleSelector(examples: object[]) {
-    const shortcutProjection = buildShortcutGroupsProjection({
-      query: this._shortcutsQuery,
-      activeStrokes: this._activeShortcutStrokes,
-    });
-    const shortcutGroups = shortcutProjection.groups;
     const currentExamplePreview = this._resolveCurrentExamplePreview();
     const dataPreviewPopoverClass = [
       'toolbar-data-preview-popover',
@@ -950,86 +948,99 @@ export class EpistolaToolbar extends LitElement {
               `
             : nothing}
         </div>
+      </div>
+    `;
+  }
 
-        <div class="toolbar-shortcuts">
-          <button
-            class="ep-btn ep-btn-outline ep-btn-sm ep-btn-icon toolbar-shortcuts-trigger"
-            data-testid="shortcuts-trigger"
-            type="button"
-            title="Keyboard shortcuts"
-            aria-label="Keyboard shortcuts"
-            aria-haspopup="dialog"
-            aria-controls=${SHORTCUTS_POPOVER_ID}
-            aria-expanded=${String(this._shortcutsOpen)}
-            @click=${this._toggleShortcutHelp}
-          >
-            ${icon('command')}
-          </button>
+  /**
+   * Keyboard-shortcuts trigger + help popover. Rendered independently of data
+   * examples so it is always available — it is the discovery surface for editor
+   * shortcuts, including the Leader + J template-JSON viewer.
+   */
+  private _renderShortcuts() {
+    const shortcutProjection = buildShortcutGroupsProjection({
+      query: this._shortcutsQuery,
+      activeStrokes: this._activeShortcutStrokes,
+    });
+    const shortcutGroups = shortcutProjection.groups;
 
-          ${this._shortcutsOpen
-            ? html`
-                <div
-                  id=${SHORTCUTS_POPOVER_ID}
-                  class="toolbar-shortcuts-popover"
-                  data-testid="shortcuts-popover"
-                  role="dialog"
-                  aria-label="Keyboard shortcuts"
-                >
-                  <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
-                  <div class="toolbar-shortcuts-search">
-                    <input
-                      class="toolbar-shortcuts-search-input"
-                      type="search"
-                      placeholder="Search shortcuts"
-                      .value=${this._shortcutsQuery}
-                      aria-label="Filter keyboard shortcuts"
-                      @input=${this._handleShortcutSearchInput}
-                    />
-                  </div>
-                  <div class="toolbar-shortcuts-groups">
-                    ${shortcutGroups.length === 0
-                      ? html`<div class="toolbar-shortcuts-empty">
-                          No shortcuts found for this filter.
-                        </div>`
-                      : shortcutGroups.map(
-                          (group: ShortcutGroup) => html`
-                            <div
-                              class="toolbar-shortcuts-group ${group.fullWidth
-                                ? 'is-full-width'
-                                : ''}"
-                            >
-                              <div class="toolbar-shortcuts-group-title">${group.title}</div>
-                              <div
-                                class="toolbar-shortcuts-items ${group.layout === 'two-column'
-                                  ? 'layout-two-column'
-                                  : 'layout-one-column'}"
-                              >
-                                ${group.items.map(
-                                  (item) => html`
-                                    <div
-                                      class="toolbar-shortcuts-row ${item.active
-                                        ? 'is-active'
-                                        : ''}"
-                                    >
-                                      <span class="toolbar-shortcuts-keys"
-                                        >${this._renderShortcutKeys(item.keys)}</span
-                                      >
-                                      <span class="toolbar-shortcuts-action">${item.action}</span>
-                                    </div>
-                                  `,
-                                )}
-                              </div>
-                            </div>
-                          `,
-                        )}
-                  </div>
-                  <div class="toolbar-shortcuts-footer">
-                    Tip: ${shortcutProjection.footerTip} opens this help
-                  </div>
+    return html`
+      <div class="toolbar-shortcuts">
+        <button
+          class="ep-btn ep-btn-outline ep-btn-sm ep-btn-icon toolbar-shortcuts-trigger"
+          data-testid="shortcuts-trigger"
+          type="button"
+          title="Keyboard shortcuts"
+          aria-label="Keyboard shortcuts"
+          aria-haspopup="dialog"
+          aria-controls=${SHORTCUTS_POPOVER_ID}
+          aria-expanded=${String(this._shortcutsOpen)}
+          @click=${this._toggleShortcutHelp}
+        >
+          ${icon('command')}
+        </button>
+
+        ${this._shortcutsOpen
+          ? html`
+              <div
+                id=${SHORTCUTS_POPOVER_ID}
+                class="toolbar-shortcuts-popover"
+                data-testid="shortcuts-popover"
+                role="dialog"
+                aria-label="Keyboard shortcuts"
+              >
+                <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
+                <div class="toolbar-shortcuts-search">
+                  <input
+                    class="toolbar-shortcuts-search-input"
+                    type="search"
+                    placeholder="Search shortcuts"
+                    .value=${this._shortcutsQuery}
+                    aria-label="Filter keyboard shortcuts"
+                    @input=${this._handleShortcutSearchInput}
+                  />
                 </div>
-              `
-            : nothing}
-        </div>
+                <div class="toolbar-shortcuts-groups">
+                  ${shortcutGroups.length === 0
+                    ? html`<div class="toolbar-shortcuts-empty">
+                        No shortcuts found for this filter.
+                      </div>`
+                    : shortcutGroups.map(
+                        (group: ShortcutGroup) => html`
+                          <div
+                            class="toolbar-shortcuts-group ${group.fullWidth
+                              ? 'is-full-width'
+                              : ''}"
+                          >
+                            <div class="toolbar-shortcuts-group-title">${group.title}</div>
+                            <div
+                              class="toolbar-shortcuts-items ${group.layout === 'two-column'
+                                ? 'layout-two-column'
+                                : 'layout-one-column'}"
+                            >
+                              ${group.items.map(
+                                (item) => html`
+                                  <div
+                                    class="toolbar-shortcuts-row ${item.active ? 'is-active' : ''}"
+                                  >
+                                    <span class="toolbar-shortcuts-keys"
+                                      >${this._renderShortcutKeys(item.keys)}</span
+                                    >
+                                    <span class="toolbar-shortcuts-action">${item.action}</span>
+                                  </div>
+                                `,
+                              )}
+                            </div>
+                          </div>
+                        `,
+                      )}
+                </div>
+                <div class="toolbar-shortcuts-footer">
+                  Tip: ${shortcutProjection.footerTip} opens this help
+                </div>
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }
