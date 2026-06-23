@@ -253,7 +253,11 @@ class StencilHandler(
             ?: return ServerResponse.notFound().build()
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
-        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
+        val usagePage = buildUsagePage(
+            GetStencilUsageDetails(stencilId = stencilId).query(),
+            upgradableOnly = false,
+            page = 1,
+        )
 
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
@@ -261,7 +265,8 @@ class StencilHandler(
             "catalogId" to catalogId.value
             "stencil" to stencil
             "versions" to versions
-            "usage" to usage
+            "usage" to usagePage.items
+            "usagePage" to usagePage
         }
     }
 
@@ -361,6 +366,10 @@ class StencilHandler(
                 )
         }
 
+        val upgradableOnly = request.param("upgradableOnly").map { it.toBoolean() }.orElse(false)
+        val page = request.param("page").map { it.toIntOrNull() ?: 1 }.orElse(1)
+        val usagePage = buildUsagePage(usage, upgradableOnly, page)
+
         val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "usage") {
@@ -368,10 +377,43 @@ class StencilHandler(
                 "catalogId" to stencilId.catalogKey.value
                 "stencil" to stencil
                 "versions" to versions
-                "usage" to usage
+                "usage" to usagePage.items
+                "usagePage" to usagePage
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }
+    }
+
+    /**
+     * A page of stencil usage rows for the bulk-upgrade table, with filter and
+     * pagination metadata. Page size matches the per-run upgrade cap (100), so a
+     * full page's selection never exceeds it. The `upgradable` flag is computed
+     * across all of a variant's rows, so filtering/paging happen here in memory on
+     * the already-computed full list (not at the SQL level).
+     */
+    private data class UsagePageView(
+        val items: List<app.epistola.suite.stencils.model.StencilUsageDetail>,
+        val page: Int,
+        val totalPages: Int,
+        val total: Int,
+        val totalAll: Int,
+        val upgradableCount: Int,
+        val upgradableOnly: Boolean,
+    )
+
+    private fun buildUsagePage(
+        all: List<app.epistola.suite.stencils.model.StencilUsageDetail>,
+        upgradableOnly: Boolean,
+        page: Int,
+    ): UsagePageView {
+        val pageSize = 100
+        val upgradableCount = all.count { it.upgradable }
+        val filtered = if (upgradableOnly) all.filter { it.upgradable } else all
+        val total = filtered.size
+        val totalPages = if (total == 0) 1 else (total + pageSize - 1) / pageSize
+        val current = page.coerceIn(1, totalPages)
+        val items = filtered.drop((current - 1) * pageSize).take(pageSize)
+        return UsagePageView(items, current, totalPages, total, all.size, upgradableCount, upgradableOnly)
     }
 
     /** Upgrade a stencil in a specific template variant's draft. */

@@ -97,7 +97,7 @@
         </div>
 
         <!-- Usage section -->
-        <div class="detail-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
+        <div class="detail-section" th:if="${usagePage != null and usagePage.totalAll > 0}">
             <div class="detail-section-header">
                 <h3>Templates using this stencil</h3>
             </div>
@@ -130,7 +130,26 @@
                         Published templates are upgraded in a <strong>new draft</strong> — their live version stays unchanged until you publish that draft. Existing drafts are modified in place. Up to 100 templates can be upgraded at a time.
                     </p>
 
-                    <table class="ep-table ep-table-compact">
+                    <!-- Filter: show only upgradable rows. Carries the current filter/page
+                         so refreshUsageList() can re-fetch the same view after an upgrade. -->
+                    <span id="usage-state" hidden
+                          th:data-page="${usagePage.page}"
+                          th:data-upgradable-only="${usagePage.upgradableOnly}"></span>
+                    <div class="ep-row ep-gap-3" style="margin-bottom: var(--ep-space-3); align-items: center;">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},upgradableOnly=${!usagePage.upgradableOnly},page=1)}"
+                                hx-target="#usage-list" hx-swap="innerHTML"
+                                th:text="${usagePage.upgradableOnly} ? 'Show all' : 'Show only upgradable'"></button>
+                        <span class="text-muted" style="font-size: var(--ep-text-sm);"
+                              th:text="${usagePage.upgradableCount} + ' of ' + ${usagePage.totalAll} + ' upgradable'"></span>
+                    </div>
+
+                    <div th:if="${#lists.isEmpty(usage)}" class="empty-state" style="padding: var(--ep-space-4);">
+                        <div class="empty-state-description"
+                             th:text="${usagePage.upgradableOnly} ? 'No upgradable templates.' : 'No templates use this stencil.'"></div>
+                    </div>
+
+                    <table th:unless="${#lists.isEmpty(usage)}" class="ep-table ep-table-compact">
                         <thead>
                             <tr>
                                 <th style="width: 2rem;">
@@ -185,6 +204,20 @@
                             </tr>
                         </tbody>
                     </table>
+
+                    <!-- Pagination (page size 100, matching the per-run upgrade cap) -->
+                    <div th:if="${usagePage.totalPages > 1}" class="ep-row ep-gap-2" style="margin-top: var(--ep-space-3); align-items: center;">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},upgradableOnly=${usagePage.upgradableOnly},page=${usagePage.page - 1})}"
+                                hx-target="#usage-list" hx-swap="innerHTML"
+                                th:disabled="${usagePage.page le 1}">Previous</button>
+                        <span class="text-muted" style="font-size: var(--ep-text-sm);"
+                              th:text="'Page ' + ${usagePage.page} + ' of ' + ${usagePage.totalPages}"></span>
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},upgradableOnly=${usagePage.upgradableOnly},page=${usagePage.page + 1})}"
+                                hx-target="#usage-list" hx-swap="innerHTML"
+                                th:disabled="${usagePage.page >= usagePage.totalPages}">Next</button>
+                    </div>
                 </th:block>
             </div>
             <!--
@@ -208,12 +241,14 @@
                 }
 
                 function refreshUsageList() {
-                    if (window.htmx) {
-                        htmx.ajax('GET', '/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId + '/usage', {
-                            target: '#usage-list',
-                            swap: 'innerHTML',
-                        });
-                    }
+                    if (!window.htmx) return;
+                    // Preserve the current filter + page so the refresh stays in place.
+                    const st = document.getElementById('usage-state');
+                    const page = (st && st.dataset.page) || '1';
+                    const only = !!(st && st.dataset.upgradableOnly === 'true');
+                    const url = '/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId
+                        + '/usage?page=' + page + '&upgradableOnly=' + only;
+                    htmx.ajax('GET', url, { target: '#usage-list', swap: 'innerHTML' });
                 }
 
                 async function applyUpgrade() {

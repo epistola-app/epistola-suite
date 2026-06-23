@@ -282,6 +282,37 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `HTMX GET usage details with upgradableOnly filter excludes non-upgradable rows`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { set("HX-Request", "true") }
+            restTemplate.exchange(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?upgradableOnly=true",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            // The variant has a published (non-upgradable, "has draft") row and a draft
+            // (upgradable) row. Filtering to upgradable-only shows just the draft.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("1 of 2 upgradable")
+            assertThat(response.body).contains("Show all") // toggle label when filter is active
+            assertThat(response.body).contains("usage-select") // the draft row's checkbox
+            // The filtered-out published row's block reason must not appear.
+            assertThat(response.body).doesNotContain("already has an open draft")
+        }
+    }
+
     private data class Seeded(
         val tenantId: TenantId,
         val catalogKey: String,
@@ -385,6 +416,42 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         ).execute()
         // Publish the template version — now there is no draft to upgrade.
         PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+        CreateStencilVersion(stencilId = stencilId, content = stencilV2()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
+
+        SeededUsage(
+            tenantId = tenantId,
+            stencilCatalogKey = stencilId.catalogKey.value,
+            stencilKey = stencilId.key.value,
+            templateKey = templateKey.value,
+            variantKey = variantKey.value,
+            templateCatalogKey = stencilId.catalogKey.value,
+        )
+    }
+
+    /**
+     * A variant that has BOTH a published version and an open draft embedding the
+     * stencil — so its usage yields one non-upgradable row (the published, blocked
+     * by HAS_DRAFT) and one upgradable row (the draft). Used to exercise the
+     * "show only upgradable" filter.
+     */
+    private fun seedStencilUsedByPublishedAndDraftTemplate(name: String): SeededUsage = withMediator {
+        val tenant: Tenant = createTenant(name)
+        val tenantId = TenantId(tenant.id)
+        val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
+        CreateStencil(id = stencilId, name = name, content = stencilV1()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantId = VariantId(variantKey, templateId)
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
+        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+        // Re-open a draft → the variant now has a published v1 AND a draft v2.
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
 
         CreateStencilVersion(stencilId = stencilId, content = stencilV2()).execute()
         PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
