@@ -3,19 +3,14 @@ package app.epistola.suite.templates.commands.versions
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
-import app.epistola.suite.templates.model.createDefaultTemplateModel
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * Creates a new draft version for a variant.
@@ -37,147 +32,12 @@ data class CreateVersion(
 @Component
 class CreateVersionHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
-    private val pathExtractor: app.epistola.suite.templates.analysis.TemplatePathExtractor,
+    private val draftVersionFactory: DraftVersionFactory,
 ) : CommandHandler<CreateVersion, TemplateVersion?> {
     override fun handle(command: CreateVersion): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
-        val auditUser = currentUserIdOrNull()?.value
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-            // Verify the variant exists and get template name for default model
-            val templateInfo = handle.createQuery(
-                """
-                SELECT dt.name as template_name
-                FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
-                WHERE tv.tenant_key = :tenantId AND tv.catalog_key = :catalogKey AND tv.id = :variantId
-                  AND tv.template_key = :templateId
-                """,
-            )
-                .bind("variantId", command.variantId.key)
-                .bind("templateId", command.variantId.templateKey)
-                .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
-                .mapToMap()
-                .findOne()
-                .orElse(null) ?: return@inTransaction null
-
-            val templateName = templateInfo["template_name"] as String
-
-            // Check if a draft already exists for this variant (idempotent behavior)
-            val existingDraft = handle.createQuery(
-                """
-                SELECT *
-                FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
-                  AND template_key = :templateId AND status = 'draft'
-                """,
-            )
-                .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
-                .bind("variantId", command.variantId.key)
-                .bind("templateId", command.variantId.templateKey)
-                .mapTo<TemplateVersion>()
-                .findOne()
-                .orElse(null)
-
-            // If draft exists, return it (idempotent - safe to call multiple times)
-            if (existingDraft != null) {
-                return@inTransaction existingDraft
-            }
-
-            // Calculate next version ID for this variant
-            val nextVersionId = handle.createQuery(
-                """
-                SELECT COALESCE(MAX(id), 0) + 1 as next_id
-                FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
-                  AND template_key = :templateId
-                """,
-            )
-                .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
-                .bind("variantId", command.variantId.key)
-                .bind("templateId", command.variantId.templateKey)
-                .mapTo(Int::class.java)
-                .one()
-
-            // Enforce max version limit
-            require(nextVersionId <= VersionKey.MAX_VERSION) {
-                "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId.key}"
-            }
-
-            val versionId = VersionKey.of(nextVersionId)
-
-            // Use provided model, or copy from latest published, or create default empty structure
-            val latestPublishedModelJson = if (command.templateModel == null) {
-                handle.createQuery(
-                    """
-                    SELECT template_model::text FROM template_versions
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND variant_key = :variantKey
-                      AND status = 'published'
-                    ORDER BY id DESC LIMIT 1
-                    """,
-                )
-                    .bind("tenantKey", command.variantId.tenantKey)
-                    .bind("catalogKey", command.variantId.catalogKey)
-                    .bind("templateKey", command.variantId.templateKey)
-                    .bind("variantKey", command.variantId.key)
-                    .mapTo(String::class.java)
-                    .findOne()
-                    .orElse(null)
-            } else {
-                null
-            }
-
-            val modelToSave = command.templateModel
-                ?: latestPublishedModelJson?.let { objectMapper.readValue(it, TemplateDocument::class.java) }
-                ?: createDefaultTemplateModel(templateName, command.variantId.key)
-            val templateModelJson = if (latestPublishedModelJson != null && command.templateModel == null) {
-                latestPublishedModelJson // Reuse the JSON string directly
-            } else {
-                objectMapper.writeValueAsString(modelToSave)
-            }
-            val referencedPaths = if (modelToSave is TemplateDocument) pathExtractor.extractReferencedPaths(modelToSave) else emptySet()
-            val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
-
-            // Resolve contract version: prefer draft (user is editing), fall back to published
-            val contractVersionId = handle.createQuery(
-                """
-                SELECT id FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
-                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-                LIMIT 1
-                """,
-            )
-                .bind("tenantKey", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
-                .bind("templateKey", command.variantId.templateKey)
-                .mapTo(Int::class.java)
-                .findOne()
-                .orElseThrow {
-                    IllegalStateException("No contract version found for template '${command.variantId.templateKey}'")
-                }
-
-            handle.createQuery(
-                """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
-                RETURNING *
-                """,
-            )
-                .bind("id", versionId)
-                .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
-                .bind("templateId", command.variantId.templateKey)
-                .bind("variantId", command.variantId.key)
-                .bind("templateModel", templateModelJson)
-                .bind("contractVersion", contractVersionId)
-                .bind("referencedPaths", referencedPathsJson)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .mapTo<TemplateVersion>()
-                .one()
+            draftVersionFactory.ensureDraft(handle, command.variantId, command.templateModel)
         }
     }
 }
