@@ -15,12 +15,12 @@
                 border-radius: var(--ep-radius-md);
                 padding: var(--ep-space-1-5) var(--ep-space-3);
                 font-size: var(--ep-text-sm);
-                color: var(--ep-gray-600);
+                color: var(--ep-stone-600);
                 cursor: pointer;
             }
             .consumer-toolbar-btn:hover {
-                background: var(--ep-gray-50);
-                color: var(--ep-gray-900);
+                background: var(--ep-stone-50);
+                color: var(--ep-stone-900);
             }
 
             /* ── Card ─────────────────────────────────────────────────── */
@@ -35,7 +35,7 @@
             }
             .consumer-card:hover { box-shadow: var(--ep-shadow-sm); }
             .consumer-card.is-disabled {
-                background: var(--ep-gray-50);
+                background: var(--ep-stone-50);
                 box-shadow: none;
             }
 
@@ -50,17 +50,17 @@
                 gap: var(--ep-space-4);
             }
             .consumer-card > summary::-webkit-details-marker { display: none; }
-            .consumer-card > summary:hover { background: var(--ep-gray-50); }
-            .consumer-card.is-disabled > summary:hover { background: var(--ep-gray-100); }
+            .consumer-card > summary:hover { background: var(--ep-stone-50); }
+            .consumer-card.is-disabled > summary:hover { background: var(--ep-stone-100); }
 
             /* Status dot */
             .consumer-status-dot {
                 width: 0.625rem;
                 height: 0.625rem;
                 border-radius: var(--ep-radius-full);
-                background: var(--ep-gray-300);
+                background: var(--ep-stone-300);
                 flex-shrink: 0;
-                box-shadow: 0 0 0 3px var(--ep-gray-100);
+                box-shadow: 0 0 0 3px var(--ep-stone-100);
             }
             .consumer-status-dot--HEALTHY {
                 background: var(--ep-green-500);
@@ -80,27 +80,27 @@
             .consumer-name {
                 font-size: var(--ep-text-base);
                 font-weight: 600;
-                color: var(--ep-gray-900);
+                color: var(--ep-stone-900);
                 line-height: 1.3;
                 margin: 0 0 var(--ep-space-1) 0;
             }
             .consumer-card.is-disabled .consumer-name {
                 text-decoration: line-through;
-                color: var(--ep-gray-500);
+                color: var(--ep-stone-500);
             }
             .consumer-meta-line {
                 display: flex;
                 align-items: center;
                 gap: var(--ep-space-2);
                 font-size: var(--ep-text-sm);
-                color: var(--ep-gray-500);
+                color: var(--ep-stone-500);
                 flex-wrap: wrap;
             }
             .consumer-key {
                 font-family: var(--ep-font-mono);
-                color: var(--ep-gray-600);
+                color: var(--ep-stone-600);
             }
-            .consumer-meta-sep { color: var(--ep-gray-300); }
+            .consumer-meta-sep { color: var(--ep-stone-300); }
 
             /* Activity pill on the right */
             .consumer-activity-pill {
@@ -111,8 +111,8 @@
                 border-radius: var(--ep-radius-full);
                 font-size: var(--ep-text-sm);
                 font-variant-numeric: tabular-nums;
-                background: var(--ep-gray-100);
-                color: var(--ep-gray-600);
+                background: var(--ep-stone-100);
+                color: var(--ep-stone-600);
                 white-space: nowrap;
             }
             .consumer-activity-pill--HEALTHY {
@@ -135,14 +135,14 @@
             }
 
             /* Chevron */
-            .consumer-chevron { color: var(--ep-gray-400); transition: transform 0.15s ease; flex-shrink: 0; }
+            .consumer-chevron { color: var(--ep-stone-400); transition: transform 0.15s ease; flex-shrink: 0; }
             .consumer-card[open] > summary > .consumer-chevron { transform: rotate(90deg); }
 
             /* ── Expanded body ────────────────────────────────────────── */
             .consumer-body {
                 padding: var(--ep-space-4) var(--ep-space-5) var(--ep-space-5);
                 border-top: 1px solid var(--ep-border-color);
-                background: linear-gradient(180deg, var(--ep-gray-50) 0%, transparent 60px);
+                background: linear-gradient(180deg, var(--ep-stone-50) 0%, transparent 60px);
             }
 
             /* Stats strip — three labelled tiles */
@@ -162,16 +162,16 @@
                 font-size: var(--ep-text-xs);
                 text-transform: uppercase;
                 letter-spacing: 0.04em;
-                color: var(--ep-gray-500);
+                color: var(--ep-stone-500);
                 margin-bottom: var(--ep-space-1);
             }
             .consumer-stat-value {
                 font-family: var(--ep-font-mono);
                 font-size: var(--ep-text-base);
-                color: var(--ep-gray-900);
+                color: var(--ep-stone-900);
                 font-variant-numeric: tabular-nums;
             }
-            .consumer-stat-value.is-empty { color: var(--ep-gray-400); font-family: var(--ep-font-sans); font-style: italic; font-size: var(--ep-text-sm); }
+            .consumer-stat-value.is-empty { color: var(--ep-stone-400); font-family: var(--ep-font-sans); font-style: italic; font-size: var(--ep-text-sm); }
 
             /* Nodes table — slightly tighter */
             .consumer-body .ep-table { margin-top: var(--ep-space-2); }
@@ -179,7 +179,7 @@
                 font-size: var(--ep-text-xs);
                 text-transform: uppercase;
                 letter-spacing: 0.04em;
-                color: var(--ep-gray-500);
+                color: var(--ep-stone-500);
             }
             .node-row-status {
                 display: inline-flex;
@@ -193,17 +193,17 @@
                 width: 0.5rem;
                 height: 0.5rem;
                 border-radius: var(--ep-radius-full);
-                background: var(--ep-gray-300);
+                background: var(--ep-stone-300);
             }
             .node-row-status.is-active { color: var(--ep-green-700); }
             .node-row-status.is-active::before { background: var(--ep-green-500); }
-            .node-row-status.is-stale { color: var(--ep-gray-500); }
+            .node-row-status.is-stale { color: var(--ep-stone-500); }
 
             .consumer-body-empty {
                 margin-top: var(--ep-space-3);
                 padding: var(--ep-space-4);
                 text-align: center;
-                color: var(--ep-gray-500);
+                color: var(--ep-stone-500);
                 font-size: var(--ep-text-sm);
                 background: var(--ep-card);
                 border: 1px dashed var(--ep-border-color);

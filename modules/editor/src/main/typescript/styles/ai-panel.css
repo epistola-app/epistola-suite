@@ -38,20 +38,20 @@
   }
 
   .ai-empty-icon {
-    color: var(--ep-gray-300);
+    color: var(--ep-stone-300);
     margin-bottom: var(--ep-space-3);
   }
 
   .ai-empty-title {
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     margin: 0 0 var(--ep-space-1) 0;
   }
 
   .ai-empty-text {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-600);
     margin: 0;
     line-height: var(--ep-leading-relaxed);
   }
@@ -69,8 +69,8 @@
   }
 
   .ai-message-user .ai-message-content {
-    background: var(--ep-blue-50);
-    color: var(--ep-blue-800);
+    background: var(--ep-terracotta-50);
+    color: var(--ep-terracotta-800);
     border-radius: var(--ep-radius-lg) var(--ep-radius-lg) var(--ep-radius-sm) var(--ep-radius-lg);
     padding: var(--ep-space-2) var(--ep-space-3);
     white-space: pre-wrap;
@@ -125,10 +125,10 @@
 
   .ai-proposal {
     margin-top: var(--ep-space-2);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     padding: var(--ep-space-2) var(--ep-space-3);
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
   }
 
   .ai-proposal-header {
@@ -141,7 +141,7 @@
   .ai-proposal-description {
     font-size: var(--ep-text-xs);
     font-weight: 500;
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
   }
 
   .ai-proposal-actions {
@@ -162,21 +162,21 @@
   }
 
   .ai-proposal-apply {
-    background: var(--ep-primary);
+    background: var(--ep-terracotta-700);
     color: var(--ep-primary-foreground);
 
     &:hover {
-      background: var(--ep-blue-700);
+      background: var(--ep-terracotta-800);
     }
   }
 
   .ai-proposal-reject {
     background: var(--ep-white);
-    color: var(--ep-gray-600);
-    border-color: var(--ep-gray-300);
+    color: var(--ep-stone-600);
+    border-color: var(--ep-stone-300);
 
     &:hover {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
     }
   }
 
@@ -196,8 +196,8 @@
   }
 
   .ai-proposal-badge-rejected {
-    background: var(--ep-gray-100);
-    color: var(--ep-gray-500);
+    background: var(--ep-stone-100);
+    color: var(--ep-stone-500);
   }
 
   /* ── Input area ──────────────────────────────────────────────────────── */
@@ -207,7 +207,7 @@
     flex-direction: column;
     gap: var(--ep-space-1);
     padding: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
+    border-top: 1px solid var(--ep-stone-200);
     background: var(--ep-white);
   }
 
@@ -237,7 +237,7 @@
     }
 
     &::placeholder {
-      color: var(--ep-gray-400);
+      color: var(--ep-stone-600);
     }
   }
 
@@ -256,27 +256,27 @@
   }
 
   .ai-send-btn {
-    background: var(--ep-primary);
+    background: var(--ep-terracotta-700);
     color: var(--ep-primary-foreground);
 
     &:hover:not(:disabled) {
-      background: var(--ep-blue-700);
+      background: var(--ep-terracotta-800);
     }
 
     &:disabled {
-      background: var(--ep-gray-200);
-      color: var(--ep-gray-400);
+      background: var(--ep-stone-200);
+      color: var(--ep-stone-400);
       cursor: default;
     }
   }
 
   .ai-stop-btn {
     background: var(--ep-white);
-    color: var(--ep-gray-600);
-    border: 1px solid var(--ep-gray-300);
+    color: var(--ep-stone-600);
+    border: 1px solid var(--ep-stone-300);
 
     &:hover {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
     }
   }
 
@@ -290,15 +290,15 @@
     width: 2rem;
     height: 2rem;
     border-radius: var(--ep-radius-full);
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     background: var(--ep-white);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     cursor: pointer;
     transition: var(--ep-transition-colors);
 
     &:hover {
-      background: var(--ep-gray-50);
-      color: var(--ep-gray-700);
+      background: var(--ep-stone-50);
+      color: var(--ep-stone-700);
     }
   }
 
@@ -315,8 +315,8 @@
     align-items: center;
     gap: var(--ep-space-1);
     padding: var(--ep-space-0-5) var(--ep-space-2);
-    background: var(--ep-blue-50);
-    color: var(--ep-blue-700);
+    background: var(--ep-terracotta-50);
+    color: var(--ep-terracotta-700);
     border-radius: var(--ep-radius-full);
     font-size: 0.6875rem;
     line-height: 1;
@@ -336,13 +336,13 @@
     padding: 0;
     border: none;
     background: none;
-    color: var(--ep-blue-400);
+    color: var(--ep-terracotta-600);
     cursor: pointer;
     border-radius: var(--ep-radius-full);
     flex-shrink: 0;
 
     &:hover {
-      color: var(--ep-blue-800);
+      color: var(--ep-terracotta-800);
     }
   }
 
@@ -368,8 +368,8 @@
     align-items: center;
     gap: 0.2rem;
     font-size: 0.625rem;
-    color: var(--ep-blue-600);
-    background: var(--ep-blue-50);
+    color: var(--ep-primary-strong);
+    background: var(--ep-terracotta-50);
     padding: var(--ep-space-0-5) var(--ep-space-1-5);
     border-radius: var(--ep-radius-full);
     line-height: 1;

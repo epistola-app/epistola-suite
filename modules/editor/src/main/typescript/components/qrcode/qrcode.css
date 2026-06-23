@@ -21,10 +21,10 @@
   .qrcode-preview-placeholder {
     border: 2px dashed var(--ep-border-color);
     background:
-      linear-gradient(45deg, var(--ep-gray-50) 25%, transparent 25%),
-      linear-gradient(-45deg, var(--ep-gray-50) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, var(--ep-gray-50) 75%),
-      linear-gradient(-45deg, transparent 75%, var(--ep-gray-50) 75%);
+      linear-gradient(45deg, var(--ep-stone-50) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--ep-stone-50) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--ep-stone-50) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--ep-stone-50) 75%);
     background-position:
       0 0,
       0 8px,

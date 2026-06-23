@@ -207,7 +207,7 @@
 
 .app-nav-tenant:hover {
   color: var(--ep-foreground);
-  border-color: var(--ep-gray-300);
+  border-color: var(--ep-stone-300);
   text-decoration: none;
 }
 
@@ -294,6 +294,7 @@
   border-radius: var(--ep-radius-lg);
   overflow: hidden;
   font-size: var(--ep-text-sm);
+  box-shadow: var(--ep-shadow-sm);
 }
 
 .main-content th,
@@ -302,8 +303,19 @@
   text-align: left;
 }
 
+/* Breathing room at the rounded outer edges */
+.main-content th:first-child,
+.main-content td:first-child {
+  padding-left: var(--ep-space-5);
+}
+
+.main-content th:last-child,
+.main-content td:last-child {
+  padding-right: var(--ep-space-5);
+}
+
 .main-content th {
-  background-color: var(--ep-gray-50);
+  background-color: var(--ep-stone-100);
   font-weight: 500;
   font-size: var(--ep-text-xs);
   color: var(--ep-muted-foreground);
@@ -312,16 +324,17 @@
   border-bottom: 1px solid var(--ep-border-color);
 }
 
-.main-content td {
-  border-bottom: 1px solid var(--ep-border-color);
+/* Zebra striping — warm ledger rhythm; carries row rhythm so no per-row borders */
+.main-content tbody tr {
+  transition: background-color var(--ep-transition-fast);
+}
+
+.main-content tbody tr:nth-child(even) {
+  background-color: var(--ep-stone-50);
 }
 
 .main-content tbody tr:hover {
-  background-color: var(--ep-muted);
-}
-
-.main-content tbody tr:last-child td {
-  border-bottom: none;
+  background-color: var(--ep-terracotta-50);
 }
 
 .main-content .empty-message {
@@ -491,7 +504,7 @@
 .toggle-switch-slider {
   position: absolute;
   inset: 0;
-  background-color: var(--ep-gray-300);
+  background-color: var(--ep-stone-300);
   border-radius: var(--ep-radius-full);
   cursor: pointer;
   transition: background-color 0.2s;

@@ -53,7 +53,7 @@
     opacity: 0.45;
     filter: grayscale(0.4);
     user-select: none;
-    border-bottom: 1px dashed var(--ep-primary, #2563eb);
+    border-bottom: 1px dashed var(--ep-primary, #b6684e);
     margin-bottom: var(--ep-space-1, 4px);
     padding-bottom: var(--ep-space-1, 4px);
   }
@@ -89,7 +89,7 @@
   .placeholder-inspector-readonly-name {
     display: inline-block;
     padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
-    background: var(--ep-gray-100, #f3f4f6);
+    background: var(--ep-stone-100);
     border-radius: var(--ep-radius-sm, 3px);
     font-family: var(--ep-font-mono, monospace);
     font-size: var(--ep-text-xs, 12px);
