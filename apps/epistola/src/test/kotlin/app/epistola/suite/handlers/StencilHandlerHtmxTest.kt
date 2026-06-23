@@ -340,6 +340,30 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `stencil detail page shows a per-version Uses column`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByTemplateDraft("Version Usage Counts")
+        }
+
+        whenever {
+            restTemplate.getForEntity(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}",
+                String::class.java,
+            )
+        }
+
+        then {
+            // The versions table renders a Uses column (count of embedded instances
+            // across draft/published templates). v1 is embedded once by the seed.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Uses")
+        }
+    }
+
     private data class Seeded(
         val tenantId: TenantId,
         val catalogKey: String,

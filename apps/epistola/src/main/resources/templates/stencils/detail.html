@@ -58,6 +58,7 @@
                                     <th>Status</th>
                                     <th>Created</th>
                                     <th>Published</th>
+                                    <th title="Times this version is embedded across draft and published templates">Uses</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -73,6 +74,10 @@
                                     <td>
                                         <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
                                         <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                                    </td>
+                                    <td th:with="uses=${versionUsage != null ? versionUsage.getOrDefault(version.id, 0) : 0}">
+                                        <span th:if="${uses > 0}" th:text="${uses}"></span>
+                                        <span th:unless="${uses > 0}" class="text-muted">—</span>
                                     </td>
                                     <td class="actions">
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT' and stencil.catalogType.name() == 'AUTHORED'}"

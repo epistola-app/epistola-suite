@@ -258,11 +258,8 @@ class StencilHandler(
             ?: return ServerResponse.notFound().build()
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
-        val usagePage = buildUsagePage(
-            GetStencilUsageDetails(stencilId = stencilId).query(),
-            filter = USAGE_FILTER_BOTH,
-            page = 1,
-        )
+        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
+        val usagePage = buildUsagePage(usage, filter = USAGE_FILTER_BOTH, page = 1)
 
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
@@ -270,6 +267,7 @@ class StencilHandler(
             "catalogId" to catalogId.value
             "stencil" to stencil
             "versions" to versions
+            "versionUsage" to versionUsageCounts(usage)
             "usage" to usagePage.items
             "usagePage" to usagePage
         }
@@ -638,14 +636,30 @@ class StencilHandler(
         val stencil = GetStencil(id = stencilId).query()
             ?: return ServerResponse.notFound().build()
         val versions = ListStencilVersions(stencilId = stencilId).query()
+        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "versions") {
                 "tenantId" to tenantId.key
                 "catalogId" to stencilId.catalogKey.value
                 "stencil" to stencil
                 "versions" to versions
+                "versionUsage" to versionUsageCounts(usage)
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }
     }
+
+    /**
+     * Per stencil-version usage counts — the total number of embedded instances
+     * across the tenant's draft and published template versions (archived
+     * template versions are historical and excluded). Keyed by stencil version
+     * number; versions with no live use are simply absent (→ 0 in the UI).
+     */
+    private fun versionUsageCounts(
+        usage: List<app.epistola.suite.stencils.model.StencilUsageDetail>,
+    ): Map<Int, Int> = usage.asSequence()
+        .filter { it.versionStatus == "draft" || it.versionStatus == "published" }
+        .filter { it.stencilVersion > 0 }
+        .groupBy { it.stencilVersion }
+        .mapValues { (_, rows) -> rows.sumOf { it.instanceCount } }
 }
