@@ -543,7 +543,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             zip.write(
                 """
                 {
-                  "schemaVersion": 3,
+                  "schemaVersion": 4,
                   "catalog": {
                     "slug": "needs-missing",
                     "name": "Needs Missing Dep",
