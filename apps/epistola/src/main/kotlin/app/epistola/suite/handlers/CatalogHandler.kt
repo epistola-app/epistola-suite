@@ -23,6 +23,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CatalogListRow
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
@@ -31,10 +32,12 @@ import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.common.paging.SortDirection
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.listParam
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -43,20 +46,35 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import org.springframework.web.util.UriComponentsBuilder
 
 @Component
 class CatalogHandler {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /**
+     * Unified list endpoint: full page on a normal request, the `#catalog-list` fragment on
+     * an htmx search/sort request. Search + sort state lives in (and is pushed back to) the
+     * query string, so the view is bookmarkable and survives a refresh. No pagination — the
+     * catalog count per tenant is small — so the table sorts but has no footer.
+     */
     fun list(request: ServerRequest): ServerResponse {
         val saved = request.param("saved").isPresent
 
-        return ServerResponse.ok().page("catalogs/list") {
-            "pageTitle" to "Catalogs - Epistola"
-            "activeNavSection" to "catalogs"
-            catalogListModel(request)
-            if (saved) "saved" to true
+        return request.htmx {
+            fragment("catalogs/list", "catalog-list") {
+                catalogListModel(request)
+            }
+            pushUrl(catalogListSort(request).canonicalUrl())
+            onNonHtmx {
+                page("catalogs/list") {
+                    "pageTitle" to "Catalogs - Epistola"
+                    "activeNavSection" to "catalogs"
+                    catalogListModel(request)
+                    if (saved) "saved" to true
+                }
+            }
         }
     }
 
@@ -707,8 +725,46 @@ class CatalogHandler {
      */
     private fun ModelBuilder.catalogListModel(request: ServerRequest) {
         val tenantKey = request.tenantId().key
+        val sort = catalogListSort(request)
+        val rows = ListCatalogsForManagement(tenantKey).query()
+            .let { all -> sort.search?.let { s -> all.filter { it.matchesSearch(s) } } ?: all }
+            .sortedWith(catalogComparator(sort.sortKey, sort.direction))
         "tenantId" to tenantKey
-        "catalogs" to ListCatalogsForManagement(tenantKey).query()
+        "catalogs" to rows
+        "searchValue" to sort.search
+        "query" to sort
+    }
+
+    /**
+     * Parse the catalog list's search + sort state from the request. On a mutation
+     * (create/delete/release/upgrade) the params ride [listParam]'s `HX-Current-URL`
+     * fallback, so the re-rendered list keeps the view the user was on.
+     */
+    private fun catalogListSort(request: ServerRequest): CatalogListSort {
+        val tenantKey = request.tenantId().key
+        val sortKey = request.listParam("sort")?.takeIf { it in CATALOG_SORT_KEYS } ?: DEFAULT_CATALOG_SORT
+        val direction = when (request.listParam("dir")?.lowercase()) {
+            "desc" -> SortDirection.DESC
+            "asc" -> SortDirection.ASC
+            else -> SortDirection.ASC
+        }
+        return CatalogListSort(
+            basePath = "/tenants/${tenantKey.value}/catalogs",
+            search = request.listParam("q"),
+            sortKey = sortKey,
+            direction = direction,
+        )
+    }
+
+    private fun catalogComparator(sortKey: String, direction: SortDirection): Comparator<CatalogListRow> {
+        val base: Comparator<CatalogListRow> = when (sortKey) {
+            "id" -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.catalog.id.value }
+            "type" -> compareBy<CatalogListRow> { it.catalog.type.name }
+                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.catalog.name }
+            "updated" -> compareBy { it.catalog.updatedAt }
+            else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.catalog.name }
+        }
+        return if (direction == SortDirection.ASC) base else base.reversed()
     }
 
     private fun listWithError(request: ServerRequest, error: String): ServerResponse = ServerResponse.ok().page("catalogs/list") {
@@ -716,5 +772,52 @@ class CatalogHandler {
         "activeNavSection" to "catalogs"
         catalogListModel(request)
         "error" to error
+    }
+}
+
+/** Logical sort keys the catalogs table allows; anything else falls back to [DEFAULT_CATALOG_SORT]. */
+private val CATALOG_SORT_KEYS = setOf("name", "id", "type", "updated")
+private const val DEFAULT_CATALOG_SORT = "name"
+
+/** Free-text match for the catalog search box: name or id, case-insensitive. */
+private fun CatalogListRow.matchesSearch(term: String): Boolean {
+    val needle = term.trim().lowercase()
+    if (needle.isEmpty()) return true
+    return catalog.name.lowercase().contains(needle) || catalog.id.value.lowercase().contains(needle)
+}
+
+/**
+ * The sort-link/URL authority for the (unpaginated) catalogs table — mirrors the data-table
+ * fragment's `ListQuery` API (`sortUrl` / `isSorted` / `ascending`) so the catalog table's
+ * sortable headers use identical markup, but builds clean `?q=&sort=&dir=` URLs with no
+ * `size`/`page` (catalogs deliberately do not paginate). The enclosing list `<form>` carries
+ * the search term; sort travels in these link URLs. See ADR 0007.
+ */
+class CatalogListSort(
+    val basePath: String,
+    val search: String?,
+    val sortKey: String,
+    val direction: SortDirection,
+) {
+    fun ascending(): Boolean = direction == SortDirection.ASC
+
+    fun isSorted(columnKey: String): Boolean = columnKey == sortKey
+
+    /** Sort by [columnKey]: ascending normally; flip to descending if it is already asc. */
+    fun sortUrl(columnKey: String): String {
+        val nextDirection =
+            if (columnKey == sortKey && direction == SortDirection.ASC) SortDirection.DESC else SortDirection.ASC
+        return url(columnKey, nextDirection)
+    }
+
+    /** Canonical URL for the current state — the handler pushes this with `HX-Push-Url`. */
+    fun canonicalUrl(): String = url(sortKey, direction)
+
+    private fun url(sort: String, dir: SortDirection): String {
+        val builder = UriComponentsBuilder.fromPath(basePath)
+        if (!search.isNullOrBlank()) builder.queryParam("q", search)
+        builder.queryParam("sort", sort)
+        builder.queryParam("dir", if (dir == SortDirection.ASC) "asc" else "desc")
+        return builder.build().encode().toUriString()
     }
 }

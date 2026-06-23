@@ -1,118 +1,24 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!--
+        The list-page chrome (form + header, with the htmx wiring and hx-disinherit) is the
+        shared epistola-web/list-page fragment; this page supplies the search box and the
+        inner swap content (the #catalog-list region, defined as a sibling fragment below so
+        it renders once and stays the mutation/OOB target). Catalogs sort but do not
+        paginate. See ADR 0007.
+    -->
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${query.basePath},
             pageTitle='Catalogs',
-            actions=~{::catalog-list-actions}
-        )}"></div>
-
-        <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
-            Catalog settings updated successfully.
-        </div>
-        <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
-
-        <!-- Single, always-present swap region for every list mutation
-             (create / remove / release / upgrade). It contains *either* the
-             empty state *or* the table, so an empty→first-catalog transition
-             has a stable target and HTMX never has to splice a bare <tbody>
-             (which the browser's fragment parser relocates). `oob` toggles
-             out-of-band replacement when the dialog fragment is the primary
-             response. -->
-        <div id="catalog-list" th:fragment="catalog-list"
-             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
-        <div th:if="${catalogs.isEmpty()}" class="empty-state">
-            <div class="empty-state-icon">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
-            </div>
-            <div class="empty-state-title">No catalogs yet</div>
-            <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
-        </div>
-
-        <table th:if="${!catalogs.isEmpty()}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>ID</th>
-                    <th>Type</th>
-                    <th>Version</th>
-                    <th>Last Modified</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
-                    <td style="font-weight: 500;">
-                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
-                           th:text="${catalog.name}"></a>
-                    </td>
-                    <td><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                    <td>
-                        <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
-                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
-                    </td>
-                    <td>
-                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
-                            <th:block th:if="${catalog.releasedVersion}">
-                                <span th:text="'v' + ${catalog.releasedVersion}"></span>
-                                <span th:if="${row.pendingChanges}"
-                                      class="text-muted"
-                                      th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
-                            </th:block>
-                            <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
-                        </th:block>
-                        <th:block th:unless="${catalog.type.name() == 'AUTHORED'}"
-                                  th:with="state=${catalog.sourceUrl != null ? 'UNCHECKED' : 'ZIP_MANAGED'},
-                                           catalogId=${catalog.id},
-                                           installedVersion=${catalog.installedReleaseVersion},
-                                           availableVersion=null">
-                            <span th:id="${'catver-' + catalog.id}">
-                                <th:block th:replace="~{catalogs/list :: version-status}"></th:block>
-                            </span>
-                        </th:block>
-                    </td>
-                    <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
-                    <td class="actions">
-                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
-                           class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                        </a>
-                        <button type="button"
-                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/export-check(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                hx-target="#export-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
-                        </button>
-                        <button type="button" th:if="${catalog.type.name() == 'AUTHORED'}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                hx-target="#release-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
-                        </button>
-                        <button type="button"
-                                th:if="${catalog.type.name() == 'SUBSCRIBED' and catalog.sourceUrl != null}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
-                        </button>
-                        <button type="button"
-                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                th:disabled="${catalog.id == 'default'}"
-                                th:title="${catalog.id == 'default'} ? 'The default catalog cannot be deleted' : (${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog and all its resources' : 'Remove catalog')"
-                                th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
-                                data-confirm-title="Delete Catalog"
-                                th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                data-confirm-target="#catalog-list"
-                                onclick="openConfirmDialog(this)">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                        </button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        </div>
-        <!-- /#catalog-list -->
+            pageDescription=null,
+            searchEnabled=true,
+            searchPlaceholder='Search catalogs...',
+            searchValue=${searchValue},
+            actions=~{::catalog-list-actions},
+            body=~{::catalog-list}
+        )}"></th:block>
 
         <!-- Create Catalog Dialog -->
         <dialog id="create-dialog" class="ep-dialog">
@@ -308,6 +214,160 @@
                 });
             })();
         </script>
+    </th:block>
+
+    <!--
+        The list's inner swap content, supplied to list-page as the [body] slot and rendered
+        into #data-table-container. Defined as a sibling of `content` (not nested) so it
+        renders once. The #catalog-list div is the single, always-present swap region for
+        every list mutation (create / remove / release / upgrade): it holds *either* the empty
+        state *or* the table, so an empty→first-catalog transition has a stable target and
+        HTMX never has to splice a bare <tbody>. `oob` toggles out-of-band replacement when a
+        dialog fragment is the primary response. Sortable headers use the CatalogListSort
+        authority (clean ?q=&sort=&dir= URLs; no pagination).
+    -->
+    <th:block th:fragment="catalog-list">
+        <div id="catalog-list"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
+            <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
+                Catalog settings updated successfully.
+            </div>
+            <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+
+            <div th:if="${catalogs.isEmpty() and searchValue == null}" class="empty-state">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No catalogs yet</div>
+                <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
+            </div>
+            <div th:if="${catalogs.isEmpty() and searchValue != null}" class="empty-state">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No catalogs match your search</div>
+                <div class="empty-state-description">No catalog name or ID contains “<span th:text="${searchValue}"></span>”.</div>
+            </div>
+
+            <table th:if="${!catalogs.isEmpty()}" class="ep-table">
+                <thead>
+                    <!-- Sortable headers: server-built hx-get sort links with the
+                         active-direction chevron, mirroring the data-table fragment's header
+                         markup but targeting #data-table-container (the search form's swap
+                         region). Version + actions are not sortable. Catalogs do not paginate. -->
+                    <tr>
+                        <th>
+                            <a th:href="${query.sortUrl('name')}" th:hx-get="${query.sortUrl('name')}"
+                               hx-target="#data-table-container" hx-swap="innerHTML" data-sort-key="name"
+                               class="ep-table-sort"
+                               th:classappend="${query.isSorted('name') ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
+                                <span>Name</span>
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+                            </a>
+                        </th>
+                        <th>
+                            <a th:href="${query.sortUrl('id')}" th:hx-get="${query.sortUrl('id')}"
+                               hx-target="#data-table-container" hx-swap="innerHTML" data-sort-key="id"
+                               class="ep-table-sort"
+                               th:classappend="${query.isSorted('id') ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
+                                <span>ID</span>
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+                            </a>
+                        </th>
+                        <th>
+                            <a th:href="${query.sortUrl('type')}" th:hx-get="${query.sortUrl('type')}"
+                               hx-target="#data-table-container" hx-swap="innerHTML" data-sort-key="type"
+                               class="ep-table-sort"
+                               th:classappend="${query.isSorted('type') ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
+                                <span>Type</span>
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+                            </a>
+                        </th>
+                        <th>Version</th>
+                        <th>
+                            <a th:href="${query.sortUrl('updated')}" th:hx-get="${query.sortUrl('updated')}"
+                               hx-target="#data-table-container" hx-swap="innerHTML" data-sort-key="updated"
+                               class="ep-table-sort"
+                               th:classappend="${query.isSorted('updated') ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
+                                <span>Last Modified</span>
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+                            </a>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
+                        <td style="font-weight: 500;">
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
+                               th:text="${catalog.name}"></a>
+                        </td>
+                        <td><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td>
+                            <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
+                            <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
+                        </td>
+                        <td>
+                            <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
+                                <th:block th:if="${catalog.releasedVersion}">
+                                    <span th:text="'v' + ${catalog.releasedVersion}"></span>
+                                    <span th:if="${row.pendingChanges}"
+                                          class="text-muted"
+                                          th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
+                                </th:block>
+                                <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
+                            </th:block>
+                            <th:block th:unless="${catalog.type.name() == 'AUTHORED'}"
+                                      th:with="state=${catalog.sourceUrl != null ? 'UNCHECKED' : 'ZIP_MANAGED'},
+                                               catalogId=${catalog.id},
+                                               installedVersion=${catalog.installedReleaseVersion},
+                                               availableVersion=null">
+                                <span th:id="${'catver-' + catalog.id}">
+                                    <th:block th:replace="~{catalogs/list :: version-status}"></th:block>
+                                </span>
+                            </th:block>
+                        </td>
+                        <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td class="actions">
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
+                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            </a>
+                            <button type="button"
+                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP"
+                                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/export-check(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                    hx-target="#export-dialog-container" hx-swap="innerHTML">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                            <button type="button" th:if="${catalog.type.name() == 'AUTHORED'}"
+                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
+                                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                    hx-target="#release-dialog-container" hx-swap="innerHTML">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                            <button type="button"
+                                    th:if="${catalog.type.name() == 'SUBSCRIBED' and catalog.sourceUrl != null}"
+                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
+                                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                    th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                            <button type="button"
+                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                    th:disabled="${catalog.id == 'default'}"
+                                    th:title="${catalog.id == 'default'} ? 'The default catalog cannot be deleted' : (${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog and all its resources' : 'Remove catalog')"
+                                    th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
+                                    data-confirm-title="Delete Catalog"
+                                    th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                    data-confirm-target="#catalog-list"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </th:block>
 
     <!-- Release dialog fragments — OUTSIDE the content block so the catalog

@@ -84,11 +84,72 @@ class HtmxRequestTest {
         assertThat(request.htmxPrompt).isEqualTo("user input")
     }
 
+    // -- listParam: list-view filter/sort param with HX-Current-URL fallback ---------------
+
+    @Test
+    fun `listParam uses the request's own param when present`() {
+        val request = request(params = mapOf("q" to "invoice"))
+
+        assertThat(request.listParam("q")).isEqualTo("invoice")
+    }
+
+    @Test
+    fun `listParam treats a present-but-blank param as cleared and does NOT fall back`() {
+        // A deliberately-cleared search must stay cleared even though the previous browser
+        // URL still carries the old term — otherwise clearing the box would resurrect it.
+        val request = request(
+            params = mapOf("q" to ""),
+            headers = mapOf("HX-Current-URL" to "http://localhost:8080/tenants/t/catalogs?q=stale"),
+        )
+
+        assertThat(request.listParam("q")).isNull()
+    }
+
+    @Test
+    fun `listParam falls back to HX-Current-URL when the param is absent from the request`() {
+        // A mutation (delete/release) POSTs to a fixed URL with no list state; the active
+        // filter is recovered from the browser URL htmx sends along.
+        val request = request(
+            headers = mapOf("HX-Current-URL" to "http://localhost:8080/tenants/t/catalogs?q=invoice&sort=name"),
+        )
+
+        assertThat(request.listParam("q")).isEqualTo("invoice")
+        assertThat(request.listParam("sort")).isEqualTo("name")
+    }
+
+    @Test
+    fun `listParam url-decodes the value recovered from HX-Current-URL`() {
+        val request = request(
+            headers = mapOf("HX-Current-URL" to "http://localhost:8080/tenants/t/catalogs?q=open%20sans"),
+        )
+
+        assertThat(request.listParam("q")).isEqualTo("open sans")
+    }
+
+    @Test
+    fun `listParam returns null when the param is absent everywhere`() {
+        assertThat(request().listParam("q")).isNull()
+        assertThat(
+            request(headers = mapOf("HX-Current-URL" to "http://localhost:8080/tenants/t/catalogs?sort=name"))
+                .listParam("q"),
+        ).isNull()
+    }
+
     private fun createRequest(vararg headers: Pair<String, String>): ServerRequest {
         val mockRequest = MockHttpServletRequest()
         headers.forEach { (name, value) ->
             mockRequest.addHeader(name, value)
         }
+        return ServerRequest.create(mockRequest, emptyList())
+    }
+
+    private fun request(
+        params: Map<String, String> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
+    ): ServerRequest {
+        val mockRequest = MockHttpServletRequest()
+        params.forEach { (name, value) -> mockRequest.setParameter(name, value) }
+        headers.forEach { (name, value) -> mockRequest.addHeader(name, value) }
         return ServerRequest.create(mockRequest, emptyList())
     }
 }

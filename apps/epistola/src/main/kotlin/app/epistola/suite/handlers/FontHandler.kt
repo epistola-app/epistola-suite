@@ -23,9 +23,12 @@ import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.listParam
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -35,6 +38,7 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import org.springframework.web.util.UriComponentsBuilder
 
 /**
  * UI handler for the backend-driven font picker (mirrors [AssetHandler]).
@@ -59,26 +63,50 @@ class FontHandler(
      * with its weight/italic faces and whether its catalog is editable
      * (AUTHORED) or read-only (SUBSCRIBED, e.g. `system`).
      */
+    /**
+     * Unified list endpoint: full page on a normal request, the inner grid fragment on an
+     * htmx request (the header search box + catalog filter submit the enclosing list form).
+     * Search/catalog state lives in the query string, so the view is bookmarkable and the
+     * box reflects it on refresh. Fonts stay a card grid — no sort/pagination.
+     */
     fun list(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val tenantId = request.tenantId()
+        val tenantKey = tenantId.key
+        val basePath = "/tenants/${tenantKey.value}/fonts"
+        val searchTerm = request.listParam("q")
+        val catalogFilter = request.listParam("catalog")?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "fonts/list",
-                "pageTitle" to "Fonts - Epistola",
-                "tenantId" to tenantKey.value,
-                "tenant" to tenant,
-                "catalogs" to catalogs,
-                "selectedCatalog" to (catalogFilter?.value ?: ""),
-                "fonts" to fonts.map { toFontView(tenantId, it) },
-                "activeNavSection" to "fonts",
-            ),
-        )
+        val fonts = ListFonts(tenantId = tenantId, catalogKey = catalogFilter, searchTerm = searchTerm).query()
+
+        val model: ModelBuilder.() -> Unit = {
+            "tenantId" to tenantKey.value
+            "tenant" to tenant
+            "catalogs" to catalogs
+            "selectedCatalog" to (catalogFilter?.value ?: "")
+            "searchValue" to searchTerm
+            "basePath" to basePath
+            "fonts" to fonts.map { toFontView(tenantId, it) }
+        }
+
+        return request.htmx {
+            fragment("fonts/list", "fonts-fragment", model)
+            pushUrl(fontsUrl(basePath, searchTerm, catalogFilter))
+            onNonHtmx {
+                page("fonts/list") {
+                    model(this)
+                    "pageTitle" to "Fonts - Epistola"
+                }
+            }
+        }
+    }
+
+    /** Canonical list URL (search + catalog filter) the handler pushes back to the browser. */
+    private fun fontsUrl(basePath: String, searchTerm: String?, catalogFilter: CatalogKey?): String {
+        val builder = UriComponentsBuilder.fromPath(basePath)
+        if (searchTerm != null) builder.queryParam("q", searchTerm)
+        if (catalogFilter != null) builder.queryParam("catalog", catalogFilter.value)
+        return builder.build().encode().toUriString()
     }
 
     /**
@@ -244,12 +272,17 @@ class FontHandler(
                 .body(mapOf("error" to e.message))
         }
 
+        // Re-render the grid honoring the view active when the row was deleted, so the
+        // result still matches the (untouched) search box and catalog filter.
+        val searchTerm = request.listParam("q")
+        val catalogFilter = request.listParam("catalog")?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId).query()
+        val fonts = ListFonts(tenantId = tenantId, catalogKey = catalogFilter, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("fonts/list", "font-grid-items") {
                 "tenantId" to tenantKey.value
                 "tenant" to tenant
+                "searchValue" to searchTerm
                 "fonts" to fonts.map { toFontView(tenantId, it) }
             }
             onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }

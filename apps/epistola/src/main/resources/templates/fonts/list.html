@@ -1,39 +1,59 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!--
+        Fonts stay a card grid (not a data-table), but reuse the shared list-page chrome for
+        the form + header so the search box and catalog filter submit together via htmx and
+        the active state lives in the URL. The grid (and its empty state) is the [body] slot;
+        the handler re-renders `fonts-fragment` by name on an htmx search/filter request, and
+        the smaller `font-grid-items` region on a row delete. See ADR 0007.
+    -->
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${basePath},
             pageTitle='Fonts',
-            actions=~{::font-list-actions}
-        )}"></div>
+            pageDescription=null,
+            searchEnabled=true,
+            searchPlaceholder='Search fonts...',
+            searchValue=${searchValue},
+            actions=~{::font-list-actions},
+            body=~{::fonts-fragment}
+        )}"></th:block>
 
+        <!-- Confirm dialog lives outside the swap region so a search/filter never re-renders
+             it; the delete buttons inside the grid reference it by id. -->
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+
+    <!-- Inner #data-table-container content: catalog filter (a plain form field submitted by
+         the enclosing list form) + the font grid. -->
+    <th:block th:fragment="fonts-fragment">
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select name="catalog" class="ep-select" data-testid="catalog-filter"
+                    aria-label="Filter by catalog" style="max-width: 300px;">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/fonts';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
         <div id="font-grid-items">
             <th:block th:fragment="font-grid-items">
-                <div th:if="${#lists.isEmpty(fonts)}" class="empty-state">
+                <div th:if="${#lists.isEmpty(fonts) and searchValue == null}" class="empty-state">
                     <div class="empty-state-icon">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                     </div>
                     <div class="empty-state-title">No fonts yet</div>
                     <div class="empty-state-description">Upload font families to use in your themes and templates.</div>
+                </div>
+                <div th:if="${#lists.isEmpty(fonts) and searchValue != null}" class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No fonts match your search</div>
+                    <div class="empty-state-description">No font name or slug contains “<span th:text="${searchValue}"></span>”.</div>
                 </div>
 
                 <div th:if="${!#lists.isEmpty(fonts)}" class="asset-grid">
@@ -71,10 +91,8 @@
                 </div>
             </th:block>
         </div>
-
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
-
     </th:block>
+
     <th:block th:fragment="font-list-actions">
         <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
