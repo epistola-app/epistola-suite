@@ -27,6 +27,7 @@ import type {
 } from '../plugins/types.js';
 import type { EpistolaSidebar } from './EpistolaSidebar.js';
 import type { EpistolaToolbar } from './EpistolaToolbar.js';
+import type { EpistolaTemplateJsonViewer } from './EpistolaTemplateJsonViewer.js';
 import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js';
 import {
   getAllLeaderIdleTokens,
@@ -62,6 +63,7 @@ import {
 import './EpistolaSidebar.js';
 import './EpistolaCanvas.js';
 import './EpistolaToolbar.js';
+import './EpistolaTemplateJsonViewer.js';
 import './EpistolaPreview.js';
 import './EpistolaResizeHandle.js';
 
@@ -460,6 +462,7 @@ export class EpistolaEditor extends LitElement {
       openInsertDialog: () => this._openInsertDialog(),
       openShortcutsHelp: () => this._openShortcutsHelp(),
       openDataPreview: () => this._openDataPreview(),
+      openTemplateJson: () => this._openTemplateJson(),
       focusBlocksPanel: () => this._focusPalette(),
       focusStructurePanel: () => this._focusTree(),
       focusInspectorPanel: () => this._focusInspector(),
@@ -592,6 +595,13 @@ export class EpistolaEditor extends LitElement {
     const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar');
     if (!toolbar) return false;
     toolbar.openDataPreview();
+    return true;
+  }
+
+  private _openTemplateJson(): boolean {
+    const viewer = this.querySelector<EpistolaTemplateJsonViewer>('epistola-template-json-viewer');
+    if (!viewer) return false;
+    viewer.open();
     return true;
   }
 
@@ -1546,6 +1556,9 @@ export class EpistolaEditor extends LitElement {
           .saveState=${this._saveState}
           .pluginActions=${this._pluginToolbarActions}
         ></epistola-toolbar>
+
+        <!-- Power-user debug viewer (Leader + J); self-managing visibility -->
+        <epistola-template-json-viewer .engine=${this._engine}></epistola-template-json-viewer>
 
         <!-- Main layout: sidebar | canvas | [resize-handle | preview] -->
         <div
