@@ -23,7 +23,7 @@ import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
 import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.queries.GetStencil
-import app.epistola.suite.stencils.queries.GetStencilUsageDetails
+import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
@@ -375,7 +375,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         // and with no draft the published row is the variant's upgrade target.
         val before = ListStencilVersions(stencilId = stencilId).query()
         assertThat(before).isNotEmpty
-        val usageBefore = GetStencilUsageDetails(stencilId = stencilId).query()
+        val usageBefore = GetStencilUsagePage(stencilId = stencilId).query().items
         assertThat(usageBefore).noneMatch { it.versionStatus == "draft" && it.templateId == templateKey }
         assertThat(usageBefore.single { it.templateId == templateKey }.upgradable).isTrue()
 
@@ -391,7 +391,13 @@ class StencilIntegrationTest : IntegrationTestBase() {
 
         // A new draft now exists pinned to stencil v2, while the published version
         // is left untouched on stencil v1.
-        val usageAfter = GetStencilUsageDetails(stencilId = stencilId).query()
+        val pageAfter = GetStencilUsagePage(stencilId = stencilId).query()
+        // Counts come from SQL: 2 usage rows (published v1 + draft v2), 1 upgradable (the draft).
+        assertThat(pageAfter.totalAll).isEqualTo(2)
+        assertThat(pageAfter.upgradableCount).isEqualTo(1)
+        assertThat(pageAfter.page).isEqualTo(1)
+        assertThat(pageAfter.totalPages).isEqualTo(1)
+        val usageAfter = pageAfter.items
         val draftRow = usageAfter.firstOrNull { it.versionStatus == "draft" && it.templateId == templateKey }
         assertThat(draftRow).isNotNull
         assertThat(draftRow!!.stencilVersion).isEqualTo(2)

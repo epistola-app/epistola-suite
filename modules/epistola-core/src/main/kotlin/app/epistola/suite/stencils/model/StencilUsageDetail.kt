@@ -28,7 +28,8 @@ data class StencilUsageDetail(
      * published version when none exists), so exactly one row per variant is
      * actionable: the draft if the variant has one, otherwise its latest
      * published version. Other rows of the same variant (and subscribed/archived
-     * rows) are not upgradable. Computed by [app.epistola.suite.stencils.queries.GetStencilUsageDetails].
+     * rows) are not upgradable. Computed by `GetStencilUsagePage` (raw rows from
+     * `GetStencilUsageDetails` leave this `false`).
      */
     val upgradable: Boolean = false,
     /**

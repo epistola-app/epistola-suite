@@ -31,22 +31,20 @@ import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
 import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
+import app.epistola.suite.stencils.queries.CountStencilUsageByVersion
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsageDetails
+import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilSummaries
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
+import app.epistola.suite.stencils.queries.USAGE_FILTER_BOTH
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
-
-/** Usage-table filter values (query param `filter`). */
-private const val USAGE_FILTER_BOTH = "both"
-private const val USAGE_FILTER_UPGRADABLE = "upgradable"
-private const val USAGE_FILTER_NOT_UPGRADABLE = "not-upgradable"
 
 /**
  * Stencil handler serving both the management UI (HTMX) and editor callbacks (JSON).
@@ -258,8 +256,7 @@ class StencilHandler(
             ?: return ServerResponse.notFound().build()
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
-        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
-        val usagePage = buildUsagePage(usage, filter = USAGE_FILTER_BOTH, page = 1)
+        val usagePage = GetStencilUsagePage(stencilId = stencilId, filter = USAGE_FILTER_BOTH, page = 1).query()
 
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
@@ -267,7 +264,7 @@ class StencilHandler(
             "catalogId" to catalogId.value
             "stencil" to stencil
             "versions" to versions
-            "versionUsage" to versionUsageCounts(usage)
+            "versionUsage" to CountStencilUsageByVersion(stencilId = stencilId).query()
             "usage" to usagePage.items
             "usagePage" to usagePage
         }
@@ -347,9 +344,8 @@ class StencilHandler(
         val stencil = GetStencil(id = stencilId).query()
             ?: return ServerResponse.notFound().build()
 
-        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
-
         if (!request.isHtmx()) {
+            val usage = GetStencilUsageDetails(stencilId = stencilId).query()
             return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(
@@ -371,7 +367,7 @@ class StencilHandler(
 
         val filter = request.param("filter").orElse(USAGE_FILTER_BOTH)
         val page = request.param("page").map { it.toIntOrNull() ?: 1 }.orElse(1)
-        val usagePage = buildUsagePage(usage, filter, page)
+        val usagePage = GetStencilUsagePage(stencilId = stencilId, filter = filter, page = page).query()
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
@@ -385,47 +381,6 @@ class StencilHandler(
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }
-    }
-
-    /**
-     * A page of stencil usage rows for the bulk-upgrade table, with filter and
-     * pagination metadata. Page size matches the per-run upgrade cap (100), so a
-     * full page's selection never exceeds it. The `upgradable` flag is computed
-     * across all of a variant's rows, so filtering/paging happen here in memory on
-     * the already-computed full list (not at the SQL level).
-     */
-    private data class UsagePageView(
-        val items: List<app.epistola.suite.stencils.model.StencilUsageDetail>,
-        val page: Int,
-        val totalPages: Int,
-        val total: Int,
-        val totalAll: Int,
-        val upgradableCount: Int,
-        /** Active filter: one of [USAGE_FILTER_BOTH], [USAGE_FILTER_UPGRADABLE], [USAGE_FILTER_NOT_UPGRADABLE]. */
-        val filter: String,
-    )
-
-    private fun buildUsagePage(
-        all: List<app.epistola.suite.stencils.model.StencilUsageDetail>,
-        filter: String,
-        page: Int,
-    ): UsagePageView {
-        val pageSize = 100
-        val upgradableCount = all.count { it.upgradable }
-        val normalizedFilter = when (filter) {
-            USAGE_FILTER_UPGRADABLE, USAGE_FILTER_NOT_UPGRADABLE -> filter
-            else -> USAGE_FILTER_BOTH
-        }
-        val filtered = when (normalizedFilter) {
-            USAGE_FILTER_UPGRADABLE -> all.filter { it.upgradable }
-            USAGE_FILTER_NOT_UPGRADABLE -> all.filterNot { it.upgradable }
-            else -> all
-        }
-        val total = filtered.size
-        val totalPages = if (total == 0) 1 else (total + pageSize - 1) / pageSize
-        val current = page.coerceIn(1, totalPages)
-        val items = filtered.drop((current - 1) * pageSize).take(pageSize)
-        return UsagePageView(items, current, totalPages, total, all.size, upgradableCount, normalizedFilter)
     }
 
     /** Upgrade a stencil in a specific template variant's draft. */
@@ -636,30 +591,15 @@ class StencilHandler(
         val stencil = GetStencil(id = stencilId).query()
             ?: return ServerResponse.notFound().build()
         val versions = ListStencilVersions(stencilId = stencilId).query()
-        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "versions") {
                 "tenantId" to tenantId.key
                 "catalogId" to stencilId.catalogKey.value
                 "stencil" to stencil
                 "versions" to versions
-                "versionUsage" to versionUsageCounts(usage)
+                "versionUsage" to CountStencilUsageByVersion(stencilId = stencilId).query()
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }
     }
-
-    /**
-     * Per stencil-version usage counts — the total number of embedded instances
-     * across the tenant's draft and published template versions (archived
-     * template versions are historical and excluded). Keyed by stencil version
-     * number; versions with no live use are simply absent (→ 0 in the UI).
-     */
-    private fun versionUsageCounts(
-        usage: List<app.epistola.suite.stencils.model.StencilUsageDetail>,
-    ): Map<Int, Int> = usage.asSequence()
-        .filter { it.versionStatus == "draft" || it.versionStatus == "published" }
-        .filter { it.stencilVersion > 0 }
-        .groupBy { it.stencilVersion }
-        .mapValues { (_, rows) -> rows.sumOf { it.instanceCount } }
 }
