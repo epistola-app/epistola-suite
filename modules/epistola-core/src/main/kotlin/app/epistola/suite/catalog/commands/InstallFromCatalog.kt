@@ -194,6 +194,7 @@ class InstallFromCatalogHandler(
             description = resource.description,
             tags = resource.tags,
             content = resource.content,
+            parameterSchema = resource.parameterSchema,
         ).execute().status
     }
 
