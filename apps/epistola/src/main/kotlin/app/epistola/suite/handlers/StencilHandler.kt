@@ -13,6 +13,9 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.common.paging.SortDirection
+import app.epistola.suite.common.paging.SortSpec
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -20,6 +23,8 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.stencilId
+import app.epistola.suite.htmx.table.Column
+import app.epistola.suite.htmx.table.ListViewState
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -53,53 +58,100 @@ class StencilHandler(
 ) {
     private fun ServerRequest.isHtmx(): Boolean = headers().firstHeader("HX-Request") != null
 
+    private val sortableColumns = setOf("name", "updated")
+    private val pageSizeOptions = listOf(10, 25, 50)
+    private val defaultSort = SortSpec("updated", SortDirection.DESC)
+
+    // Name and Description flex (width = null); the rest are fixed. Actions holds view +
+    // delete icons. See ADR 0007.
+    private val columns = listOf(
+        Column("Name", "name"),
+        Column("Catalog", width = "9rem"),
+        Column("Description"),
+        Column("Tags", width = "12rem"),
+        Column("Last Modified", "updated", width = "10rem"),
+        Column("", width = "6rem"),
+    )
+
     // ── List & Search ──────────────────────────────────────────────────────
 
+    /**
+     * Unified list endpoint: full page on a normal request, the data-table fragment on
+     * an HTMX request. Search/sort/filter/paging state is read from (and pushed back to)
+     * the query string, so the view is bookmarkable and survives a refresh.
+     */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val catalogs = ListCatalogs(tenantId.key).query()
-        val stencils = ListStencils(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().page("stencils/list") {
-            "pageTitle" to "Stencils - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "stencils" to stencils
+        val (pushUrl, model) = loadTableModel(request, tenantId)
+        return request.htmx {
+            fragment("stencils/list", "data-table-fragment", model)
+            pushUrl(pushUrl)
+            onNonHtmx {
+                page("stencils/list") {
+                    model(this)
+                    "pageTitle" to "Stencils - Epistola"
+                }
+            }
         }
     }
 
+    /** Parse the list state, run the paged query + filter-bar data; shared by list and delete. */
+    private fun loadTableModel(request: ServerRequest, tenantId: TenantId): Pair<String, ModelBuilder.() -> Unit> {
+        val basePath = "/tenants/${tenantId.key}/stencils"
+        val state = ListViewState.from(
+            request = request,
+            basePath = basePath,
+            sortable = sortableColumns,
+            defaultSort = defaultSort,
+            pageSizes = pageSizeOptions,
+            filterNames = listOf("q", "catalog"),
+        )
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val paged = ListStencils(
+            tenantId = tenantId,
+            searchTerm = state.filter("q"),
+            catalogKey = state.filter("catalog")?.let { CatalogKey.of(it) },
+            sort = state.sort,
+            page = state.pageRequest,
+        ).query()
+        val query = state.toQuery(paged.page)
+
+        val model: ModelBuilder.() -> Unit = {
+            "tenantId" to tenantId.key
+            "catalogs" to catalogs
+            "selectedCatalog" to (state.filter("catalog") ?: "")
+            "columns" to columns
+            "query" to query
+            "paged" to paged
+            "pageSizeOptions" to pageSizeOptions
+        }
+        return query.canonicalUrl() to model
+    }
+
+    /**
+     * JSON stencil search for the editor (non-HTMX). The management list page no longer uses
+     * this route — its search is a field of the unified list form (GET …/stencils).
+     */
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
         val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
 
-        if (!request.isHtmx()) {
-            val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
-            val items = summaries.map { s ->
-                mapOf(
-                    "id" to s.id.value,
-                    "catalogKey" to s.catalogKey.value,
-                    "name" to s.name,
-                    "description" to s.description,
-                    "tags" to s.tags,
-                    "latestPublishedVersion" to s.latestPublishedVersion,
-                    "latestVersion" to s.latestVersion,
-                )
-            }
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("items" to items))
+        val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
+        val items = summaries.map { s ->
+            mapOf(
+                "id" to s.id.value,
+                "catalogKey" to s.catalogKey.value,
+                "name" to s.name,
+                "description" to s.description,
+                "tags" to s.tags,
+                "latestPublishedVersion" to s.latestPublishedVersion,
+                "latestVersion" to s.latestVersion,
+            )
         }
-
-        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
-        return request.htmx {
-            fragment("stencils/list", "rows") {
-                "tenantId" to tenantId.key
-                "stencils" to stencils
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
-        }
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("items" to items))
     }
 
     // ── Create ─────────────────────────────────────────────────────────────
@@ -318,12 +370,11 @@ class StencilHandler(
                 .body(mapOf("error" to e.message))
         }
 
-        val stencils = ListStencils(tenantId = tenantId).query()
+        // Re-render the whole table after delete. The POST carries no list state, so this
+        // resets to the default view — acceptable for a row removal.
+        val (_, model) = loadTableModel(request, tenantId)
         return request.htmx {
-            fragment("stencils/list", "rows") {
-                "tenantId" to tenantId.key
-                "stencils" to stencils
-            }
+            fragment("stencils/list", "data-table-fragment", model)
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
         }
     }

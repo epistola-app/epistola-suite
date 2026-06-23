@@ -32,6 +32,7 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
@@ -126,7 +127,7 @@ class EpistolaTenantApi :
         catalogId: String,
     ): ResponseEntity<AttributeListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite, catalogKey = CatalogKey.of(catalogId)).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite, catalogKey = CatalogKey.of(catalogId), page = PageRequest.ALL).query().items
         return ResponseEntity.ok(AttributeListResponse(items = attributes.map { it.toDto() }))
     }
 
@@ -221,7 +222,7 @@ class EpistolaTenantApi :
         tenantId: String,
     ): ResponseEntity<EnvironmentListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val environments = ListEnvironments(tenantId = tenantIdComposite).query()
+        val environments = ListEnvironments(tenantId = tenantIdComposite, page = PageRequest.ALL).query().items
         return ResponseEntity.ok(EnvironmentListResponse(items = environments.map { it.toDto() }))
     }
 

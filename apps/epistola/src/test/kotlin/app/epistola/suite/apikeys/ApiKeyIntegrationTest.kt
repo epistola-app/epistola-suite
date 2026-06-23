@@ -86,7 +86,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         whenever {
             CreateApiKey(tenantId = tenant.id, name = "Key 1").execute()
             CreateApiKey(tenantId = tenant.id, name = "Key 2").execute()
-            keys = ListApiKeys(tenantId = tenant.id).query()
+            keys = ListApiKeys(tenantId = tenant.id).query().items
         }
 
         then {

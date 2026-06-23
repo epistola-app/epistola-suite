@@ -22,9 +22,8 @@ import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
-import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.table.Column
-import app.epistola.suite.htmx.table.ListQuery
+import app.epistola.suite.htmx.table.ListViewState
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -126,6 +125,7 @@ class DocumentTemplateHandler(
 
     private val sortableColumns = setOf("name", "variants", "updated", "published")
     private val pageSizeOptions = listOf(10, 25, 50)
+    private val defaultSort = SortSpec("updated", SortDirection.DESC)
 
     // Name flexes (width = null) to take the leftover space; the rest are fixed so the
     // layout stays predictable when content varies. Name, Catalog and ID truncate per-cell
@@ -149,43 +149,33 @@ class DocumentTemplateHandler(
         val basePath = "/tenants/${tenantId.key}/templates"
 
         // Parse + clamp untrusted query params at this boundary (ADR 0007).
-        val q = request.queryParam("q")?.ifBlank { null }
-        val catalog = request.queryParam("catalog")?.ifBlank { null }
-        val sortKey = request.queryParam("sort", "updated").let { if (it in sortableColumns) it else "updated" }
-        val direction =
-            if (request.queryParam("dir", "desc").equals("asc", ignoreCase = true)) SortDirection.ASC else SortDirection.DESC
-        // Default to the smallest page-size option (the list's first option) when the
-        // param is absent or not one of the offered sizes.
-        val defaultPageSize = pageSizeOptions.first()
-        val size = request.queryParamInt("size", defaultPageSize).let { if (it in pageSizeOptions) it else defaultPageSize }
-        val page = request.queryParamInt("page", 1).coerceAtLeast(1)
+        val state = ListViewState.from(
+            request = request,
+            basePath = basePath,
+            sortable = sortableColumns,
+            defaultSort = defaultSort,
+            pageSizes = pageSizeOptions,
+            filterNames = listOf("q", "catalog"),
+        )
 
         val catalogs = ListCatalogs(tenantId.key).query()
         val paged = ListTemplateSummaries(
             tenantId = tenantId,
-            searchTerm = q,
-            catalogKey = catalog?.let { CatalogKey.of(it) },
-            sort = SortSpec(sortKey, direction),
-            page = PageRequest(page, size),
+            searchTerm = state.filter("q"),
+            catalogKey = state.filter("catalog")?.let { CatalogKey.of(it) },
+            sort = state.sort,
+            page = state.pageRequest,
         ).query()
 
         // The query clamps a stale out-of-range page; rebuild the URL state from the
         // EFFECTIVE page so the canonical/pushed URL matches what is rendered.
-        val query = ListQuery(
-            basePath = basePath,
-            q = q,
-            catalog = catalog,
-            sortKey = sortKey,
-            direction = direction,
-            page = paged.page,
-            size = size,
-        )
+        val query = state.toQuery(paged.page)
 
         val model: ModelBuilder.() -> Unit = {
             "pageTitle" to "Document Templates - Epistola"
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (catalog ?: "")
+            "selectedCatalog" to (state.filter("catalog") ?: "")
             "columns" to templateColumns
             "query" to query
             "paged" to paged
@@ -399,7 +389,7 @@ class DocumentTemplateHandler(
         ).execute() ?: return ServerResponse.notFound().build()
 
         // Load available themes for the fragment
-        val themes = ListThemes(tenantId = tenantId).query()
+        val themes = ListThemes(tenantId = tenantId, page = PageRequest.ALL).query().items
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return request.htmx {
@@ -518,7 +508,7 @@ class DocumentTemplateHandler(
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
 
         val variants = GetVariantSummaries(templateId = ctx.templateId).query()
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId).query()
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId, page = PageRequest.ALL).query().items
         val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val decoratedVariants = decorateVariants(variants, attributeDescriptors)

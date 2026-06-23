@@ -1,32 +1,48 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- Shared list-page chrome (form + header + hx wiring); this page supplies the inner
+         swap content (data-table-fragment) and its slots. See ADR 0007. -->
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${query.basePath},
             pageTitle='Code lists',
-            actions=~{::code-list-list-actions}
-        )}"></div>
+            pageDescription=null,
+            searchEnabled=true,
+            searchPlaceholder='Search code lists...',
+            searchValue=${query.filters['q']},
+            actions=~{::code-list-list-actions},
+            body=~{::data-table-fragment}
+        )}"></th:block>
+    </th:block>
 
+    <!-- Inner #data-table-container content: page-specific catalog filter + the data-table. -->
+    <th:block th:fragment="data-table-fragment">
+        <!-- Page-specific filter bar: a plain form field, submitted by the enclosing form. -->
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select name="catalog" class="ep-select" data-testid="catalog-filter"
+                    aria-label="Filter by catalog" style="max-width: 300px;">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/code-lists';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
-        <div th:if="${#lists.isEmpty(codeLists)}" class="empty-state">
+        <div th:replace="~{epistola-web/data-table :: data-table(
+            columns=${columns},
+            query=${query},
+            paged=${paged},
+            rows=~{::rows},
+            pageSizeOptions=${pageSizeOptions},
+            emptyState=~{::empty-state}
+        )}"></div>
+    </th:block>
+
+    <!-- Shown by the data-table when there are no rows (passed in as the emptyState slot). -->
+    <th:block th:fragment="empty-state">
+        <div class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='list', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -42,49 +58,40 @@
                 New Code List
             </a>
         </div>
-
-        <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Slug</th>
-                    <th>Catalog</th>
-                    <th>Display Name</th>
-                    <th>Source</th>
-                    <th>Last refreshed</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="cl : ${codeLists}">
-                    <td>
-                        <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           th:text="${cl.slug}"></a>
-                    </td>
-                    <td>
-                        <span class="badge" th:text="${cl.catalogKey}"
-                              th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
-                    </td>
-                    <td style="font-weight: 500;" th:text="${cl.displayName}"></td>
-                    <td>
-                        <span class="badge badge-outline" th:text="${cl.sourceType}"></span>
-                    </td>
-                    <td>
-                        <span th:if="${cl.lastRefreshedAt != null}"
-                              th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                        <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
-                        <span th:if="${cl.lastRefreshError != null}"
-                              class="badge badge-error"
-                              th:title="${cl.lastRefreshError}"
-                              style="margin-left: var(--ep-space-2);">refresh failed</span>
-                    </td>
-                    <td class="actions">
-                        <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           class="ep-btn ep-btn-sm ep-btn-ghost">View</a>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
     </th:block>
+
+    <!-- Row markup passed into the data-table via ~{::rows}. Defined OUTSIDE the content
+         fragment so it renders only where injected (the table body). -->
+    <th:block th:fragment="rows">
+        <tr th:each="cl : ${paged.items}" data-testid="code-list-row">
+            <td class="ep-truncate" th:title="${cl.slug}">
+                <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
+                   th:text="${cl.slug}"></a>
+            </td>
+            <td class="ep-truncate" th:title="${cl.catalogKey}">
+                <span class="badge" th:text="${cl.catalogKey}"
+                      th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
+            </td>
+            <td class="ep-truncate" style="font-weight: 500;" th:title="${cl.displayName}" th:text="${cl.displayName}"></td>
+            <td>
+                <span class="badge badge-outline" th:text="${cl.sourceType}"></span>
+            </td>
+            <td>
+                <span th:if="${cl.lastRefreshedAt != null}"
+                      th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
+                <span th:if="${cl.lastRefreshError != null}"
+                      class="badge badge-error"
+                      th:title="${cl.lastRefreshError}"
+                      style="margin-left: var(--ep-space-2);">refresh failed</span>
+            </td>
+            <td class="actions">
+                <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
+                   class="ep-btn ep-btn-sm ep-btn-ghost">View</a>
+            </td>
+        </tr>
+    </th:block>
+
     <th:block th:fragment="code-list-list-actions">
         <a th:if="${auth.has('TENANT_SETTINGS')}"
            th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">

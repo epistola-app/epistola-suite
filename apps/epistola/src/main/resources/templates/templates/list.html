@@ -1,55 +1,47 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!--
+        The list-page chrome (form + header, with the hx wiring and hx-disinherit) is the
+        shared epistola-web/list-page fragment; this page supplies the inner swap content
+        (data-table-fragment) and its slots. See ADR 0007.
+    -->
     <th:block th:fragment="content">
-        <!--
-            One filter form drives the whole list. Every stateful control inside it — the
-            search box, the catalog filter, the page-size select, plus hidden sort/dir — is
-            a plain field; htmx submits the form (hx-get) on any change and swaps
-            #data-table-container, and the handler pushes the canonical URL. Adding a new
-            filter is just another <select name="…">, with no per-control htmx wiring. Sort
-            headers and pagination stay server-built <a hx-get> links. See ADR 0007.
-        -->
-        <form th:action="${query.basePath}" method="get"
-              th:hx-get="${query.basePath}"
-              hx-target="#data-table-container"
-              hx-swap="innerHTML"
-              hx-trigger="submit, change, input changed delay:300ms">
-            <div th:replace="~{epistola-web/page-header :: page-header(
-                pageTitle='Templates',
-                pageDescription='All of your templates are here.',
-                searchPlaceholder='Search templates...',
-                searchFormDriven=true,
-                searchValue=${query.q},
-                actions=~{::template-list-actions}
-            )}"></div>
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${query.basePath},
+            pageTitle='Templates',
+            pageDescription='All of your templates are here.',
+            searchEnabled=true,
+            searchPlaceholder='Search templates...',
+            searchValue=${query.filters['q']},
+            actions=~{::template-list-actions},
+            body=~{::data-table-fragment}
+        )}"></th:block>
+    </th:block>
 
-            <!-- Single HTMX swap target: every filter/sort/page request replaces this. -->
-            <div id="data-table-container">
-                <th:block th:fragment="data-table-fragment">
-                    <!-- Page-specific filter bar: a plain form field, submitted by the form. -->
-                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-                        <select name="catalog" class="ep-select" data-testid="catalog-filter"
-                                aria-label="Filter by catalog" style="max-width: 300px;">
-                            <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"
-                                    th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
-                        </select>
-                    </div>
+    <!-- Inner #data-table-container content: page-specific filter bar + the data-table.
+         Rendered directly by the handler on an htmx request, and via list-page on full load. -->
+    <th:block th:fragment="data-table-fragment">
+        <!-- Page-specific filter bar: a plain form field, submitted by the enclosing form. -->
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+            <select name="catalog" class="ep-select" data-testid="catalog-filter"
+                    aria-label="Filter by catalog" style="max-width: 300px;">
+                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
+            </select>
+        </div>
 
-                    <div th:replace="~{epistola-web/data-table :: data-table(
-                        columns=${columns},
-                        query=${query},
-                        paged=${paged},
-                        rows=~{::rows},
-                        pageSizeOptions=${pageSizeOptions},
-                        emptyState=~{::empty-state}
-                    )}"></div>
-                </th:block>
-            </div>
-        </form>
+        <div th:replace="~{epistola-web/data-table :: data-table(
+            columns=${columns},
+            query=${query},
+            paged=${paged},
+            rows=~{::rows},
+            pageSizeOptions=${pageSizeOptions},
+            emptyState=~{::empty-state}
+        )}"></div>
     </th:block>
 
     <!-- Shown by the data-table when there are no rows (passed in as the emptyState slot). -->

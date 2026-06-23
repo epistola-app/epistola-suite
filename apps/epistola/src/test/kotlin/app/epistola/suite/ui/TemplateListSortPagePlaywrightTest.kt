@@ -11,7 +11,9 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import com.microsoft.playwright.options.AriaRole
 import com.microsoft.playwright.options.SelectOption
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern
@@ -37,6 +39,24 @@ class TemplateListSortPagePlaywrightTest : BasePlaywrightTest() {
             ).execute()
         }
         tenant
+    }
+
+    @Test
+    fun `clicking New Template navigates to the create page instead of nesting it in the table`() {
+        val tenant = seedTenantWithTemplates(1)
+        gotoAndReady("/tenants/${tenant.id}/templates")
+
+        // The New Template action is a plain <a> nested inside the live-filter <form>.
+        // With body-wide hx-boost it would otherwise inherit the form's
+        // hx-target="#data-table-container" and swap the whole /new page into the table
+        // (the "nested shell" bug) — it must navigate as a full page instead.
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("New Template")).click()
+        page.htmxSettle()
+
+        assertThat(page).hasURL(Pattern.compile(".*/templates/new$"))
+        assertThat(page.getByTestId("create-form-submit")).isVisible()
+        // The create form must NOT be nested inside the list's swap target.
+        assertThat(page.locator("#data-table-container [data-testid='create-form-submit']")).hasCount(0)
     }
 
     @Test

@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mcp.dto.ThemeInfo
 import app.epistola.suite.mcp.dto.ThemeSummaryInfo
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -42,8 +43,9 @@ class ThemeMcpTools(
             tenantId = mcpTenantId(),
             catalogKey = catalogId?.let { CatalogKey.of(it) },
             searchTerm = search,
+            page = PageRequest.ALL,
         ),
-    ).map { ThemeSummaryInfo.from(it) }
+    ).items.map { ThemeSummaryInfo.from(it) }
 
     @McpTool(
         name = "get_theme",

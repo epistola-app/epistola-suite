@@ -4,6 +4,7 @@ import app.epistola.suite.attributes.codelists.queries.CodeListEntryExists
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mediator.query
 import app.epistola.suite.validation.validate
 
@@ -35,7 +36,7 @@ import app.epistola.suite.validation.validate
 fun validateAttributes(tenantId: TenantId, attributes: Map<String, String>) {
     if (attributes.isEmpty()) return
 
-    val definitions = ListAttributeDefinitions(tenantId).query()
+    val definitions = ListAttributeDefinitions(tenantId, page = PageRequest.ALL).query().items
     val byQualified = definitions.associateBy { "${it.catalogKey.value}.${it.id.value}" }
     val byBareSlug = definitions.associateBy { it.id.value }
 

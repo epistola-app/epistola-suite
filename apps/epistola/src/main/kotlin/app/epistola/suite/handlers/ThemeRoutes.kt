@@ -15,7 +15,6 @@ class ThemeRoutes(private val handler: ThemeHandler) {
 
             "/themes".nest {
                 GET("", handler::list)
-                GET("/search", handler::search)
                 GET("/new", handler::newForm)
                 POST("", handler::create)
 

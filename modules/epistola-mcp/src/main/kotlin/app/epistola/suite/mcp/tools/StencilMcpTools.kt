@@ -6,6 +6,7 @@ import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mcp.dto.StencilInfo
 import app.epistola.suite.mcp.dto.StencilVersionFullInfo
 import app.epistola.suite.mcp.dto.StencilVersionSummaryInfo
@@ -53,8 +54,9 @@ class StencilMcpTools(
             catalogKey = catalogId?.let { CatalogKey.of(it) },
             searchTerm = search,
             tag = tag,
+            page = PageRequest.ALL,
         ),
-    ).map { StencilInfo.from(it) }
+    ).items.map { StencilInfo.from(it) }
 
     @McpTool(
         name = "get_stencil",

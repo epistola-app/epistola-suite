@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mcp.dto.CodeListEntryInfo
 import app.epistola.suite.mcp.dto.CodeListInfo
 import app.epistola.suite.mcp.support.mcpTenantKey
@@ -42,8 +43,8 @@ class CodeListMcpTools(
     ): List<CodeListInfo> {
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
-        return mediator.query(ListCodeLists(tenantId = tenantId, catalogKey = filter))
-            .map { CodeListInfo.from(it) }
+        return mediator.query(ListCodeLists(tenantId = tenantId, catalogKey = filter, page = PageRequest.ALL))
+            .items.map { CodeListInfo.from(it) }
     }
 
     @McpTool(

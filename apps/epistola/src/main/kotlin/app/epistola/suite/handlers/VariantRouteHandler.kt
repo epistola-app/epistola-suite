@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
@@ -82,7 +83,7 @@ class VariantRouteHandler {
         val variant = GetVariant(variantId = variantId).query()
             ?: return ServerResponse.notFound().build()
 
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId, page = PageRequest.ALL).query().items
         val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val variantEntries = resolveVariantAttributes(variant.attributes, attributeDescriptors)
@@ -129,7 +130,7 @@ class VariantRouteHandler {
         val variants = GetVariantSummaries(templateId = templateId).query()
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId, page = PageRequest.ALL).query().items
         val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val decoratedVariants = decorateVariants(variants, attributeDescriptors)
@@ -199,7 +200,7 @@ class VariantRouteHandler {
         val variants = GetVariantSummaries(templateId = templateId).query()
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId, page = PageRequest.ALL).query().items
         val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val decoratedVariants = decorateVariants(variants, attributeDescriptors)
@@ -244,7 +245,7 @@ class VariantRouteHandler {
      * `resolveAttributeKey`).
      */
     private fun readAttributesFromForm(request: ServerRequest, tenantId: TenantId): Map<String, String> {
-        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(tenantId).query())
+        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(tenantId, page = PageRequest.ALL).query().items)
         val attributes = mutableMapOf<String, String>()
         for (descriptor in descriptors) {
             val qualifiedValue = request.params().getFirst("attr_${descriptor.qualifiedKey}")?.trim()

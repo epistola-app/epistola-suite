@@ -1,35 +1,52 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- Shared list-page chrome (form + header + hx wiring); this page supplies the inner
+         swap content (data-table-fragment) and its slots. See ADR 0007. -->
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${query.basePath},
             pageTitle='Stencils',
+            pageDescription=null,
+            searchEnabled=true,
             searchPlaceholder='Search stencils...',
-            searchUrl=@{/tenants/{tenantId}/stencils/search(tenantId=${tenantId})},
-            searchTargetId='stencil-rows',
-            actions=~{::stencil-list-actions}
-        )}"></div>
+            searchValue=${query.filters['q']},
+            actions=~{::stencil-list-actions},
+            body=~{::data-table-fragment}
+        )}"></th:block>
 
+        <!-- Rendered once in the page chrome, not part of the swapped table. -->
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+
+    <!-- Inner #data-table-container content: page-specific catalog filter + the data-table.
+         Rendered directly by the handler on an htmx request, and via list-page on full load. -->
+    <th:block th:fragment="data-table-fragment">
+        <!-- Page-specific filter bar: a plain form field, submitted by the enclosing form. -->
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select name="catalog" class="ep-select" data-testid="catalog-filter"
+                    aria-label="Filter by catalog" style="max-width: 300px;">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/stencils';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
-        <div th:if="${#lists.isEmpty(stencils)}" class="empty-state">
+        <div th:replace="~{epistola-web/data-table :: data-table(
+            columns=${columns},
+            query=${query},
+            paged=${paged},
+            rows=~{::rows},
+            pageSizeOptions=${pageSizeOptions},
+            emptyState=~{::empty-state}
+        )}"></div>
+    </th:block>
+
+    <!-- Shown by the data-table when there are no rows (passed in as the emptyState slot). -->
+    <th:block th:fragment="empty-state">
+        <div class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='puzzle', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -41,60 +58,49 @@
                 New Stencil
             </a>
         </div>
-
-        <table th:if="${!#lists.isEmpty(stencils)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Catalog</th>
-                    <th>Description</th>
-                    <th>Tags</th>
-                    <th>Last Modified</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="stencil-rows">
-                <th:block th:fragment="rows">
-                    <tr th:each="stencil : ${stencils}">
-                        <td>
-                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                               th:text="${stencil.name}" style="font-weight: 500;"></a>
-                        </td>
-                        <td><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
-                        <td>
-                            <span th:if="${stencil.description != null}" th:text="${stencil.description}" class="text-truncate"></span>
-                            <span th:unless="${stencil.description != null}" class="text-muted">-</span>
-                        </td>
-                        <td>
-                            <span th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
-                        </td>
-                        <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                            </a>
-                            <span th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                            <th:block th:if="${stencil.catalogType.name() == 'AUTHORED'}">
-                                <button th:if="${auth.has('STENCIL_EDIT')}"
-                                        type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                        title="Delete stencil"
-                                        data-confirm-title="Delete Stencil"
-                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                                        data-confirm-target="#stencil-rows"
-                                        onclick="openConfirmDialog(this)">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
-                            </th:block>
-                        </td>
-                    </tr>
-                </th:block>
-            </tbody>
-        </table>
-
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+
+    <!--
+        Row markup passed into the data-table via ~{::rows}. Defined OUTSIDE the content
+        fragment so it renders only where injected (the table body), not duplicated inline.
+    -->
+    <th:block th:fragment="rows">
+        <tr th:each="stencil : ${paged.items}" data-testid="stencil-row">
+            <td class="ep-truncate" th:title="${stencil.name}">
+                <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                   th:text="${stencil.name}" style="font-weight: 500;"></a>
+            </td>
+            <td class="ep-truncate" th:title="${stencil.catalogKey}"><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
+            <td class="ep-truncate" th:title="${stencil.description}">
+                <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
+                <span th:unless="${stencil.description != null}" class="text-muted">-</span>
+            </td>
+            <td class="ep-truncate">
+                <span th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
+            </td>
+            <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+            <td class="actions">
+                <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                </a>
+                <span th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                <th:block th:if="${stencil.catalogType.name() == 'AUTHORED'}">
+                    <button th:if="${auth.has('STENCIL_EDIT')}"
+                            type="button"
+                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                            title="Delete stencil"
+                            data-confirm-title="Delete Stencil"
+                            th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                            data-confirm-target="#data-table-container"
+                            onclick="openConfirmDialog(this)">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                    </button>
+                </th:block>
+            </td>
+        </tr>
+    </th:block>
+
     <th:block th:fragment="stencil-list-actions">
         <a th:if="${auth.has('STENCIL_EDIT')}"
            th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">

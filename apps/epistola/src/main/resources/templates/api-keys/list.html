@@ -1,14 +1,47 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- Shared list-page chrome (form + header + hx wiring); this page supplies the inner
+         swap content (data-table-fragment) and its slots. See ADR 0007. -->
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${query.basePath},
             pageTitle='API Keys',
             pageDescription='API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.',
-            actions=~{::api-key-list-actions}
-        )}"></div>
+            searchEnabled=true,
+            searchPlaceholder='Search API keys...',
+            searchValue=${query.filters['q']},
+            actions=~{::api-key-list-actions},
+            body=~{::data-table-fragment}
+        )}"></th:block>
 
-        <div th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
+        <!-- Rendered once in the page chrome, not part of the swapped table. -->
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <style>
+            .api-key-scope {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--ep-space-1);
+            }
+        </style>
+    </th:block>
+
+    <!-- Inner #data-table-container content: the data-table (api keys have no filter bar). -->
+    <th:block th:fragment="data-table-fragment">
+        <div th:replace="~{epistola-web/data-table :: data-table(
+            columns=${columns},
+            query=${query},
+            paged=${paged},
+            rows=~{::rows},
+            pageSizeOptions=${pageSizeOptions},
+            emptyState=~{::empty-state}
+        )}"></div>
+    </th:block>
+
+    <!-- Shown by the data-table when there are no rows (passed in as the emptyState slot). -->
+    <th:block th:fragment="empty-state">
+        <div class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -20,77 +53,54 @@
                 New API key
             </a>
         </div>
-
-        <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Prefix</th>
-                    <th>Scope</th>
-                    <th>Created by</th>
-                    <th>Created</th>
-                    <th>Last used</th>
-                    <th>Expires</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="api-key-rows">
-                <th:block th:fragment="rows">
-                    <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
-                        <td th:text="${apiKey.name}" style="font-weight: 500;"></td>
-                        <td>
-                            <code th:text="${apiKey.keyPrefix} + '…'"></code>
-                        </td>
-                        <td>
-                            <span class="api-key-scope">
-                                <span class="badge badge-outline"
-                                      th:each="role : ${apiKey.roles}"
-                                      th:text="${roleLabels.containsKey(role.name()) ? roleLabels.get(role.name()) : role.name()}">Viewer</span>
-                            </span>
-                        </td>
-                        <td>
-                            <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
-                            <span th:if="${apiKey.createdByDisplayName == null}" class="text-muted">—</span>
-                        </td>
-                        <td th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td>
-                            <span th:if="${apiKey.lastUsedAt != null}"
-                                  th:text="${#temporals.format(apiKey.lastUsedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                            <span th:if="${apiKey.lastUsedAt == null}" class="text-muted">Never</span>
-                        </td>
-                        <td>
-                            <span th:if="${apiKey.expiresAt != null}"
-                                  th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></span>
-                            <span th:if="${apiKey.expiresAt == null}" class="text-muted">Never</span>
-                        </td>
-                        <td class="actions">
-                            <button th:if="${auth.has('TENANT_USERS')}"
-                                    type="button"
-                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                    title="Delete API key"
-                                    data-testid="api-key-delete"
-                                    data-confirm-title="Delete API key"
-                                    th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"
-                                    data-confirm-target="#api-key-rows"
-                                    onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
-                        </td>
-                    </tr>
-                </th:block>
-            </tbody>
-        </table>
-
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
-
-        <style>
-            .api-key-scope {
-                display: flex;
-                flex-wrap: wrap;
-                gap: var(--ep-space-1);
-            }
-        </style>
     </th:block>
+
+    <!-- Row markup passed into the data-table via ~{::rows}. Defined OUTSIDE the content
+         fragment so it renders only where injected (the table body). -->
+    <th:block th:fragment="rows">
+        <tr th:each="apiKey : ${paged.items}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
+            <td class="ep-truncate" th:title="${apiKey.name}" th:text="${apiKey.name}" style="font-weight: 500;"></td>
+            <td>
+                <code th:text="${apiKey.keyPrefix} + '…'"></code>
+            </td>
+            <td>
+                <span class="api-key-scope">
+                    <span class="badge badge-outline"
+                          th:each="role : ${apiKey.roles}"
+                          th:text="${roleLabels.containsKey(role.name()) ? roleLabels.get(role.name()) : role.name()}">Viewer</span>
+                </span>
+            </td>
+            <td class="ep-truncate">
+                <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
+                <span th:if="${apiKey.createdByDisplayName == null}" class="text-muted">—</span>
+            </td>
+            <td th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+            <td>
+                <span th:if="${apiKey.lastUsedAt != null}"
+                      th:text="${#temporals.format(apiKey.lastUsedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                <span th:if="${apiKey.lastUsedAt == null}" class="text-muted">Never</span>
+            </td>
+            <td>
+                <span th:if="${apiKey.expiresAt != null}"
+                      th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></span>
+                <span th:if="${apiKey.expiresAt == null}" class="text-muted">Never</span>
+            </td>
+            <td class="actions">
+                <button th:if="${auth.has('TENANT_USERS')}"
+                        type="button"
+                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                        title="Delete API key"
+                        data-testid="api-key-delete"
+                        data-confirm-title="Delete API key"
+                        th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"
+                        data-confirm-target="#data-table-container"
+                        onclick="openConfirmDialog(this)">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                </button>
+            </td>
+        </tr>
+    </th:block>
+
     <th:block th:fragment="api-key-list-actions">
         <a th:if="${auth.has('TENANT_USERS')}"
            th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">

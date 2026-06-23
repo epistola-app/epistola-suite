@@ -7,6 +7,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.kotlin.mapTo
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
@@ -23,6 +25,9 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     @Test
     fun `GET list returns empty state when tenant has no keys`() = fixture {
@@ -107,7 +112,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             assertThat(match!!.value.length).isGreaterThan(20)
 
             // Persisted as enabled
-            val keys = withMediator { ListApiKeys(tenantId = testTenant.id).query() }
+            val keys = withMediator { ListApiKeys(tenantId = testTenant.id).query().items }
             assertThat(keys).hasSize(1)
             assertThat(keys[0].name).isEqualTo("CI integration")
             assertThat(keys[0].enabled).isTrue()
@@ -140,7 +145,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Name is required")
             // No key was persisted
-            val keys = withMediator { ListApiKeys(tenantId = testTenant.id).query() }
+            val keys = withMediator { ListApiKeys(tenantId = testTenant.id).query().items }
             assertThat(keys).isEmpty()
         }
     }
@@ -181,11 +186,19 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             assertThat(listResponse.body).contains("Live key")
             assertThat(listResponse.body).doesNotContain("Soon revoked")
 
-            // Underlying record still exists in DB but disabled
-            val all = withMediator { ListApiKeys(tenantId = testTenant.id).query() }
-            assertThat(all).hasSize(2)
-            assertThat(all.first { it.name == "Soon revoked" }.enabled).isFalse()
-            assertThat(all.first { it.name == "Live key" }.enabled).isTrue()
+            // The visible (enabled-only) list now shows just the live key — ListApiKeys filters
+            // revoked keys in SQL so the paged total stays correct.
+            val visible = withMediator { ListApiKeys(tenantId = testTenant.id).query().items }
+            assertThat(visible.map { it.name }).containsExactly("Live key")
+            // ...but the revoke is a soft delete: the row is retained, disabled, not hard-deleted.
+            // No query returns disabled keys, so read the row count directly (raw-SQL exception).
+            val totalRows = jdbi.withHandle<Int, Exception> { handle ->
+                handle.createQuery("SELECT COUNT(*) FROM api_keys WHERE tenant_key = :t")
+                    .bind("t", testTenant.id)
+                    .mapTo<Int>()
+                    .one()
+            }
+            assertThat(totalRows).isEqualTo(2)
         }
     }
 }

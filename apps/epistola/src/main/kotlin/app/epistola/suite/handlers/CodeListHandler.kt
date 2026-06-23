@@ -18,9 +18,13 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.paging.SortDirection
+import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.HxSwap
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.codeListId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -28,6 +32,8 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.table.Column
+import app.epistola.suite.htmx.table.ListViewState
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -44,20 +50,72 @@ class CodeListHandler(
     private val objectMapper: ObjectMapper,
 ) {
 
+    private val sortableColumns = setOf("slug", "name", "created")
+    private val pageSizeOptions = listOf(10, 25, 50)
+    private val defaultSort = SortSpec("name", SortDirection.ASC)
+
+    // Display Name flexes (width = null); the rest are fixed. See ADR 0007.
+    private val columns = listOf(
+        Column("Slug", "slug", width = "12rem"),
+        Column("Catalog", width = "9rem"),
+        Column("Display Name", "name"),
+        Column("Source", width = "8rem"),
+        Column("Last refreshed", width = "12rem"),
+        Column("", width = "5rem"),
+    )
+
+    /**
+     * Unified list endpoint: full page on a normal request, the data-table fragment on
+     * an HTMX request. Search/sort/filter/paging state is read from (and pushed back to)
+     * the query string, so the view is bookmarkable and survives a refresh.
+     */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
+        GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
+        val (pushUrl, model) = loadTableModel(request, tenantId)
+        return request.htmx {
+            fragment("code-lists/list", "data-table-fragment", model)
+            pushUrl(pushUrl)
+            onNonHtmx {
+                page("code-lists/list") {
+                    model(this)
+                    "pageTitle" to "Code lists - Epistola"
+                }
+            }
+        }
+    }
+
+    /** Parse the list state, run the paged query + filter-bar data; shared by list and delete. */
+    private fun loadTableModel(request: ServerRequest, tenantId: TenantId): Pair<String, ModelBuilder.() -> Unit> {
+        val basePath = "/tenants/${tenantId.key}/code-lists"
+        val state = ListViewState.from(
+            request = request,
+            basePath = basePath,
+            sortable = sortableColumns,
+            defaultSort = defaultSort,
+            pageSizes = pageSizeOptions,
+            filterNames = listOf("q", "catalog"),
+        )
         val catalogs = ListCatalogs(tenantId.key).query()
-        val codeLists = ListCodeLists(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().page("code-lists/list") {
-            "pageTitle" to "Code lists - Epistola"
-            "tenant" to tenant
+        val paged = ListCodeLists(
+            tenantId = tenantId,
+            searchTerm = state.filter("q"),
+            catalogKey = state.filter("catalog")?.let { CatalogKey.of(it) },
+            sort = state.sort,
+            page = state.pageRequest,
+        ).query()
+        val query = state.toQuery(paged.page)
+
+        val model: ModelBuilder.() -> Unit = {
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "codeLists" to codeLists
+            "selectedCatalog" to (state.filter("catalog") ?: "")
+            "columns" to columns
+            "query" to query
+            "paged" to paged
+            "pageSizeOptions" to pageSizeOptions
         }
+        return query.canonicalUrl() to model
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -167,18 +225,10 @@ class CodeListHandler(
         val codeListId = request.codeListId(tenantId) ?: return ServerResponse.badRequest().build()
         return try {
             DeleteCodeList(codeListId).execute()
-            val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
-            val catalogs = ListCatalogs(tenantId.key).query()
-            val codeLists = ListCodeLists(tenantId = tenantId).query()
+            // Deleted from the detail page: re-render the full list content into the main area.
+            val (_, model) = loadTableModel(request, tenantId)
             request.htmx {
-                fragment("code-lists/list", "content") {
-                    "pageTitle" to "Code lists - Epistola"
-                    "tenant" to tenant
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
-                    "selectedCatalog" to ""
-                    "codeLists" to codeLists
-                }
+                fragment("code-lists/list", "content", model)
                 pushUrl("/tenants/${tenantId.key}/code-lists")
                 onNonHtmx { redirect("/tenants/${tenantId.key}/code-lists") }
             }

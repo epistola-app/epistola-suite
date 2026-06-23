@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mcp.dto.AttributeInfo
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
@@ -39,8 +40,8 @@ class AttributeMcpTools(
     ): List<AttributeInfo> {
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
-        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalogKey = filter))
-            .map { AttributeInfo.from(it) }
+        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalogKey = filter, page = PageRequest.ALL))
+            .items.map { AttributeInfo.from(it) }
     }
 
     @McpTool(

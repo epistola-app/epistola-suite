@@ -9,12 +9,13 @@ import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.common.paging.PagedResult
 import app.epistola.suite.common.paging.SortDirection
 import app.epistola.suite.common.paging.SortSpec
+import app.epistola.suite.common.paging.SortWhitelist
+import app.epistola.suite.common.paging.pagedQuery
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
@@ -35,15 +36,18 @@ data class TemplateSummary(
 /**
  * Allowed sort columns: logical key → fixed SQL expression. `ORDER BY` cannot be
  * a bind parameter, so anything outside this whitelist is rejected (falls back to
- * [DEFAULT_TEMPLATE_SORT]) rather than reaching SQL. See ADR 0007.
+ * the default) rather than reaching SQL. See ADR 0007.
  */
-private val SORTABLE_TEMPLATE_COLUMNS = mapOf(
-    "name" to "dt.name",
-    "updated" to "dt.updated_at",
-    "variants" to "variant_count",
-    "published" to "published_version_count",
+private val TEMPLATE_SORT = SortWhitelist(
+    columns = mapOf(
+        "name" to "dt.name",
+        "updated" to "dt.updated_at",
+        "variants" to "variant_count",
+        "published" to "published_version_count",
+    ),
+    default = SortSpec("updated", SortDirection.DESC),
 )
-private val DEFAULT_TEMPLATE_SORT = SortSpec("updated", SortDirection.DESC)
+private val DEFAULT_TEMPLATE_SORT = TEMPLATE_SORT.default
 
 data class ListTemplateSummaries(
     val tenantId: TenantId,
@@ -119,56 +123,27 @@ class ListTemplateSummariesHandler(
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
-            val resolvedSort = if (SORTABLE_TEMPLATE_COLUMNS.containsKey(query.sort.column)) query.sort else DEFAULT_TEMPLATE_SORT
-            val orderColumn = SORTABLE_TEMPLATE_COLUMNS.getValue(resolvedSort.column)
-            val orderDirection = if (resolvedSort.direction == SortDirection.ASC) "ASC" else "DESC"
             // dt.id tiebreaker keeps offset paging deterministic when the sort column ties.
-            append(" ORDER BY $orderColumn $orderDirection, dt.id ASC")
+            append(" ORDER BY ${TEMPLATE_SORT.orderBy(query.sort, tiebreaker = "dt.id")}")
             append(" LIMIT :limit OFFSET :offset")
         }
 
-        val size = query.page.size
-
-        fun fetch(offset: Int): List<TemplateSummaryRow> {
-            val jdbiQuery = handle.createQuery(sql)
-                .bind("tenantId", query.tenantId.key)
-            if (query.catalogKey != null) {
-                jdbiQuery.bind("catalogKey", query.catalogKey)
-            }
-            if (!query.searchTerm.isNullOrBlank()) {
-                val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-                jdbiQuery.bind("searchTerm", "%$escaped%")
-            }
-            return jdbiQuery
-                .bind("limit", size)
-                .bind("offset", offset)
-                .mapTo<TemplateSummaryRow>()
-                .list()
-        }
-
-        var page = query.page.page
-        var rows = fetch((page - 1) * size)
-
-        // The windowed COUNT(*) returns no rows on an out-of-range page (e.g. a stale
-        // bookmark), so we can't read the total there. Re-fetch page 1 to learn the
-        // total, clamp to the last page, and fetch that. Only happens on a bad page.
-        if (rows.isEmpty() && page > 1) {
-            val firstPage = fetch(0)
-            val total = firstPage.firstOrNull()?.totalCount ?: 0L
-            val lastPage = if (total == 0L) 1 else ((total + size - 1) / size).toInt()
-            page = lastPage
-            rows = when {
-                total == 0L -> emptyList()
-                lastPage == 1 -> firstPage
-                else -> fetch((lastPage - 1) * size)
-            }
-        }
-
-        PagedResult(
-            items = rows.map { it.toSummary() },
-            page = page,
-            size = size,
-            total = rows.firstOrNull()?.totalCount ?: 0L,
+        handle.pagedQuery<TemplateSummaryRow, TemplateSummary>(
+            sql = sql,
+            page = query.page,
+            bind = { jdbiQuery ->
+                jdbiQuery.bind("tenantId", query.tenantId.key)
+                if (query.catalogKey != null) {
+                    jdbiQuery.bind("catalogKey", query.catalogKey)
+                }
+                if (!query.searchTerm.isNullOrBlank()) {
+                    val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                    jdbiQuery.bind("searchTerm", "%$escaped%")
+                }
+                jdbiQuery
+            },
+            totalOf = { it.totalCount },
+            map = { it.toSummary() },
         )
     }
 }

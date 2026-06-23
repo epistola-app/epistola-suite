@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -87,7 +88,7 @@ class LoadTestHandler(
                         "pageTitle" to "Start Load Test - Epistola"
                         "tenantId" to tenantKey
                         "templates" to ListDocumentTemplates(tenantId = tenantId).query()
-                        "environments" to ListEnvironments(tenantId = tenantId).query()
+                        "environments" to ListEnvironments(tenantId = tenantId, page = PageRequest.ALL).query().items
                     }
                 }
                 fragment("loadtest/new", "template-options-empty")
@@ -100,7 +101,7 @@ class LoadTestHandler(
         val variants = ListVariants(templateId = templateId).query()
         val contractVersion = GetLatestContractVersion(templateId = templateId).query()
         val dataExamples = contractVersion?.dataExamples ?: DataExamples.EMPTY
-        val environments = ListEnvironments(tenantId = tenantId).query()
+        val environments = ListEnvironments(tenantId = tenantId, page = PageRequest.ALL).query().items
 
         val triggerName = request.htmxTriggerName
         val resetsAll = triggerName == "templateId"
@@ -155,7 +156,7 @@ class LoadTestHandler(
                     "pageTitle" to "Start Load Test - Epistola"
                     "tenantId" to tenantKey
                     "templates" to ListDocumentTemplates(tenantId = tenantId).query()
-                    "environments" to ListEnvironments(tenantId = tenantId).query()
+                    "environments" to ListEnvironments(tenantId = tenantId, page = PageRequest.ALL).query().items
                 }
             }
             fragment("loadtest/new", "template-options") {
@@ -199,7 +200,7 @@ class LoadTestHandler(
                 }
                 onNonHtmx {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
-                    val environments = ListEnvironments(tenantId = tenantId).query()
+                    val environments = ListEnvironments(tenantId = tenantId, page = PageRequest.ALL).query().items
                     ServerResponse.badRequest().page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
                         "tenantId" to tenantKey
@@ -261,7 +262,7 @@ class LoadTestHandler(
                 }
                 onNonHtmx {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
-                    val environments = ListEnvironments(tenantId = tenantId).query()
+                    val environments = ListEnvironments(tenantId = tenantId, page = PageRequest.ALL).query().items
                     ServerResponse.badRequest().page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
                         "tenantId" to tenantKey

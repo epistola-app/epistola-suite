@@ -105,10 +105,10 @@ class StencilIntegrationTest : IntegrationTestBase() {
         CreateStencil(id = stencilId(tenantId), name = "Corporate Header").execute()
         CreateStencil(id = stencilId(tenantId), name = "Invoice Footer").execute()
 
-        val all = ListStencils(tenantId = tenantId).query()
+        val all = ListStencils(tenantId = tenantId).query().items
         assertThat(all).hasSize(2)
 
-        val searched = ListStencils(tenantId = tenantId, searchTerm = "Header").query()
+        val searched = ListStencils(tenantId = tenantId, searchTerm = "Header").query().items
         assertThat(searched).hasSize(1)
         assertThat(searched[0].name).isEqualTo("Corporate Header")
     }
@@ -262,8 +262,8 @@ class StencilIntegrationTest : IntegrationTestBase() {
         CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId1)), name = "T1 Stencil").execute()
         CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId2)), name = "T2 Stencil").execute()
 
-        val t1Stencils = ListStencils(tenantId = tenantId1).query()
-        val t2Stencils = ListStencils(tenantId = tenantId2).query()
+        val t1Stencils = ListStencils(tenantId = tenantId1).query().items
+        val t2Stencils = ListStencils(tenantId = tenantId2).query().items
 
         assertThat(t1Stencils).hasSize(1)
         assertThat(t1Stencils[0].name).isEqualTo("T1 Stencil")

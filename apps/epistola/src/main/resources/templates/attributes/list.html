@@ -1,32 +1,58 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- Shared list-page chrome (form + header + hx wiring); this page supplies the inner
+         swap content (data-table-fragment) and its slots. See ADR 0007. -->
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${query.basePath},
             pageTitle='Attributes',
-            actions=~{::attribute-list-actions}
-        )}"></div>
+            pageDescription=null,
+            searchEnabled=true,
+            searchPlaceholder='Search attributes...',
+            searchValue=${query.filters['q']},
+            actions=~{::attribute-list-actions},
+            body=~{::data-table-fragment}
+        )}"></th:block>
 
+        <!-- Rendered once in the page chrome, not part of the swapped table. -->
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <!-- Edit attribute dialog (content loaded via HTMX into the body). -->
+        <dialog id="edit-attribute-dialog" class="ep-dialog">
+            <div id="edit-attribute-dialog-body">
+                <!-- Content loaded via HTMX -->
+            </div>
+        </dialog>
+    </th:block>
+
+    <!-- Inner #data-table-container content: page-specific catalog filter + the data-table. -->
+    <th:block th:fragment="data-table-fragment">
+        <!-- Page-specific filter bar: a plain form field, submitted by the enclosing form. -->
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select name="catalog" class="ep-select" data-testid="catalog-filter"
+                    aria-label="Filter by catalog" style="max-width: 300px;">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/attributes';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
-        <div th:if="${#lists.isEmpty(attributes)}" class="empty-state">
+        <div th:replace="~{epistola-web/data-table :: data-table(
+            columns=${columns},
+            query=${query},
+            paged=${paged},
+            rows=~{::rows},
+            pageSizeOptions=${pageSizeOptions},
+            emptyState=~{::empty-state}
+        )}"></div>
+    </th:block>
+
+    <!-- Shown by the data-table when there are no rows (passed in as the emptyState slot). -->
+    <th:block th:fragment="empty-state">
+        <div class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -38,83 +64,63 @@
                 New Attribute
             </a>
         </div>
-
-        <table th:if="${!#lists.isEmpty(attributes)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Catalog</th>
-                    <th>Display Name</th>
-                    <th>Allowed Values</th>
-                    <th>Created</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="attribute-rows">
-                <th:block th:fragment="rows">
-                    <tr th:each="attr : ${attributes}">
-                        <td><code th:text="${attr.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                        <td><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
-                        <td style="font-weight: 500;" th:text="${attr.displayName}"></td>
-                        <td>
-                            <div th:if="${attr.codeListSlug != null}" class="tags">
-                                <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
-                                   class="badge badge-default"
-                                   th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
-                                   th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
-                            </div>
-                            <div th:if="${attr.codeListSlug == null and !attr.allowedValues.isEmpty()}" class="tags">
-                                <span th:each="val : ${attr.allowedValues}"
-                                      class="badge badge-outline"
-                                      th:text="${val}"></span>
-                            </div>
-                            <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
-                        </td>
-                        <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
-                            <span th:if="${attr.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                            <th:block th:if="${attr.catalogType.name() == 'AUTHORED'}">
-                                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                        th:hx-get="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/edit(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
-                                        hx-target="#edit-attribute-dialog-body"
-                                        hx-swap="innerHTML"
-                                        onclick="document.getElementById('edit-attribute-dialog').showModal()"
-                                        title="Edit attribute">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
-                                </button>
-                                <button type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                        title="Delete attribute"
-                                        data-confirm-title="Delete Attribute"
-                                        th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/delete(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
-                                        data-confirm-target="#attribute-rows"
-                                        onclick="openConfirmDialog(this)">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
-                            </th:block>
-                        </td>
-                    </tr>
-                </th:block>
-            </tbody>
-        </table>
-
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
-
-        <!-- Edit attribute dialog -->
-        <dialog id="edit-attribute-dialog" class="ep-dialog">
-            <div id="edit-attribute-dialog-body">
-                <!-- Content loaded via HTMX -->
-            </div>
-        </dialog>
     </th:block>
 
-    <!-- Fragment: edit attribute form (loaded into dialog via HTMX) -->
+    <!-- Row markup passed into the data-table via ~{::rows}. Defined OUTSIDE the content
+         fragment so it renders only where injected (the table body). -->
+    <th:block th:fragment="rows">
+        <tr th:each="attr : ${paged.items}" data-testid="attribute-row">
+            <td class="ep-truncate" th:title="${attr.id}"><code th:text="${attr.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+            <td class="ep-truncate" th:title="${attr.catalogKey}"><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
+            <td class="ep-truncate" style="font-weight: 500;" th:title="${attr.displayName}" th:text="${attr.displayName}"></td>
+            <td>
+                <div th:if="${attr.codeListSlug != null}" class="tags">
+                    <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
+                       class="badge badge-default"
+                       th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
+                       th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
+                </div>
+                <div th:if="${attr.codeListSlug == null and !attr.allowedValues.isEmpty()}" class="tags">
+                    <span th:each="val : ${attr.allowedValues}"
+                          class="badge badge-outline"
+                          th:text="${val}"></span>
+                </div>
+                <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
+            </td>
+            <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+            <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
+                <span th:if="${attr.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                <th:block th:if="${attr.catalogType.name() == 'AUTHORED'}">
+                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                            th:hx-get="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/edit(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
+                            hx-target="#edit-attribute-dialog-body"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('edit-attribute-dialog').showModal()"
+                            title="Edit attribute">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                    </button>
+                    <button type="button"
+                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                            title="Delete attribute"
+                            data-confirm-title="Delete Attribute"
+                            th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/delete(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
+                            data-confirm-target="#data-table-container"
+                            onclick="openConfirmDialog(this)">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                    </button>
+                </th:block>
+            </td>
+        </tr>
+    </th:block>
+
+    <!-- Fragment: edit attribute form (loaded into dialog via HTMX). On success it swaps the
+         whole table (#data-table-container); on error the handler retargets the dialog body. -->
     <th:block th:fragment="edit-attribute-form">
         <div class="ep-dialog-header">
             <h3>Edit Attribute: <code th:text="${attribute.id}"></code></h3>
         </div>
         <form th:hx-patch="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}(tenantId=${tenantId},catalogId=${attribute.catalogKey},attributeId=${attribute.id})}"
-              hx-target="#attribute-rows"
+              hx-target="#data-table-container"
               hx-swap="innerHTML"
 >
             <div class="ep-dialog-body">
@@ -210,6 +216,7 @@
             </div>
         </form>
     </th:block>
+
     <th:block th:fragment="attribute-list-actions">
         <a th:if="${auth.has('TENANT_SETTINGS')}"
            th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">

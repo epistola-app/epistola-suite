@@ -15,13 +15,19 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.paging.PageRequest
+import app.epistola.suite.common.paging.SortDirection
+import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.htmx.HxSwap
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.attributeId
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.table.Column
+import app.epistola.suite.htmx.table.ListViewState
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -33,26 +39,78 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class AttributeHandler {
 
+    private val sortableColumns = setOf("id", "name", "created")
+    private val pageSizeOptions = listOf(10, 25, 50)
+    private val defaultSort = SortSpec("name", SortDirection.ASC)
+
+    // Display Name and Allowed Values flex (width = null); the rest are fixed. See ADR 0007.
+    private val columns = listOf(
+        Column("ID", "id", width = "12rem"),
+        Column("Catalog", width = "9rem"),
+        Column("Display Name", "name"),
+        Column("Allowed Values"),
+        Column("Created", "created", width = "10rem"),
+        Column("", width = "6rem"),
+    )
+
+    /**
+     * Unified list endpoint: full page on a normal request, the data-table fragment on
+     * an HTMX request. Search/sort/filter/paging state is read from (and pushed back to)
+     * the query string, so the view is bookmarkable and survives a refresh.
+     */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
+        GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
+        val (pushUrl, model) = loadTableModel(request, tenantId)
+        return request.htmx {
+            fragment("attributes/list", "data-table-fragment", model)
+            pushUrl(pushUrl)
+            onNonHtmx {
+                page("attributes/list") {
+                    model(this)
+                    "pageTitle" to "Attributes - Epistola"
+                }
+            }
+        }
+    }
+
+    /** Parse the list state, run the paged query + filter-bar data; shared by list and row actions. */
+    private fun loadTableModel(request: ServerRequest, tenantId: TenantId): Pair<String, ModelBuilder.() -> Unit> {
+        val basePath = "/tenants/${tenantId.key}/attributes"
+        val state = ListViewState.from(
+            request = request,
+            basePath = basePath,
+            sortable = sortableColumns,
+            defaultSort = defaultSort,
+            pageSizes = pageSizeOptions,
+            filterNames = listOf("q", "catalog"),
+        )
         val catalogs = ListCatalogs(tenantId.key).query()
-        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().page("attributes/list") {
-            "pageTitle" to "Attributes - Epistola"
-            "tenant" to tenant
+        val paged = ListAttributeDefinitions(
+            tenantId = tenantId,
+            searchTerm = state.filter("q"),
+            catalogKey = state.filter("catalog")?.let { CatalogKey.of(it) },
+            sort = state.sort,
+            page = state.pageRequest,
+        ).query()
+        val query = state.toQuery(paged.page)
+
+        val model: ModelBuilder.() -> Unit = {
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "attributes" to attributes
+            "selectedCatalog" to (state.filter("catalog") ?: "")
+            "columns" to columns
+            "query" to query
+            "paged" to paged
+            "pageSizeOptions" to pageSizeOptions
         }
+        return query.canonicalUrl() to model
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        val codeLists = ListCodeLists(tenantId).query()
+        val codeLists = ListCodeLists(tenantId, page = PageRequest.ALL).query().items
         return ServerResponse.ok().page("attributes/new") {
             "pageTitle" to "New Attribute - Epistola"
             "tenantId" to tenantId.key
@@ -83,7 +141,7 @@ class AttributeHandler {
 
         val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        val codeLists = ListCodeLists(tenantId).query()
+        val codeLists = ListCodeLists(tenantId, page = PageRequest.ALL).query().items
 
         if (form.hasErrors()) {
             return ServerResponse.ok().page("attributes/new") {
@@ -150,7 +208,7 @@ class AttributeHandler {
         val attribute = GetAttributeDefinition(
             id = attributeId,
         ).query() ?: return ServerResponse.notFound().build()
-        val codeLists = ListCodeLists(tenantId).query()
+        val codeLists = ListCodeLists(tenantId, page = PageRequest.ALL).query().items
 
         return request.htmx {
             fragment("attributes/list", "edit-attribute-form") {
@@ -177,7 +235,7 @@ class AttributeHandler {
             field("codeList") {}
         }
 
-        val codeLists = ListCodeLists(tenantId).query()
+        val codeLists = ListCodeLists(tenantId, page = PageRequest.ALL).query().items
 
         if (form.hasErrors()) {
             val attribute = GetAttributeDefinition(
@@ -224,12 +282,11 @@ class AttributeHandler {
             }
         }
 
-        val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
+        // Re-render the whole table (the edit form targets #data-table-container) and close
+        // the dialog. The PATCH carries no list state, so this resets to the default view.
+        val (_, model) = loadTableModel(request, tenantId)
         return request.htmx {
-            fragment("attributes/list", "rows") {
-                "tenantId" to tenantId.key
-                "attributes" to attributes
-            }
+            fragment("attributes/list", "data-table-fragment", model)
             trigger("closeDialog")
             onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
         }
@@ -245,12 +302,10 @@ class AttributeHandler {
             id = attributeId,
         ).execute()
 
-        val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
+        // Re-render the whole table after delete; resets to the default view.
+        val (_, model) = loadTableModel(request, tenantId)
         return request.htmx {
-            fragment("attributes/list", "rows") {
-                "tenantId" to tenantId.key
-                "attributes" to attributes
-            }
+            fragment("attributes/list", "data-table-fragment", model)
             onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
         }
     }

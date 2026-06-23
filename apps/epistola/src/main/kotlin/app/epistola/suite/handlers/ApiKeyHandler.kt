@@ -4,9 +4,15 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.commands.RevokeApiKey
 import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.paging.SortDirection
+import app.epistola.suite.common.paging.SortSpec
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.table.Column
+import app.epistola.suite.htmx.table.ListViewState
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -22,15 +28,70 @@ import java.time.format.DateTimeParseException
 @Component
 class ApiKeyHandler {
 
+    private val sortableColumns = setOf("name", "created", "lastUsed", "expires")
+    private val pageSizeOptions = listOf(10, 25, 50)
+    private val defaultSort = SortSpec("created", SortDirection.DESC)
+
+    // Name flexes (width = null); the rest are fixed. See ADR 0007.
+    private val columns = listOf(
+        Column("Name", "name"),
+        Column("Prefix", width = "8rem"),
+        Column("Scope", width = "12rem"),
+        Column("Created by", width = "10rem"),
+        Column("Created", "created", width = "9rem"),
+        Column("Last used", "lastUsed", width = "9rem"),
+        Column("Expires", "expires", width = "8rem"),
+        Column("", width = "4rem"),
+    )
+
+    /**
+     * Unified list endpoint: full page on a normal request, the data-table fragment on
+     * an HTMX request. Search/sort/paging state is read from (and pushed back to) the query
+     * string, so the view is bookmarkable and survives a refresh.
+     */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val apiKeys = ListApiKeys(tenantId = tenantId.key).query().filter { it.enabled }
-        return ServerResponse.ok().page("api-keys/list") {
-            "pageTitle" to "API Keys - Epistola"
+        val (pushUrl, model) = loadTableModel(request, tenantId)
+        return request.htmx {
+            fragment("api-keys/list", "data-table-fragment", model)
+            pushUrl(pushUrl)
+            onNonHtmx {
+                page("api-keys/list") {
+                    model(this)
+                    "pageTitle" to "API Keys - Epistola"
+                }
+            }
+        }
+    }
+
+    /** Parse the list state and run the paged query — shared by list and the post-delete refresh. */
+    private fun loadTableModel(request: ServerRequest, tenantId: TenantId): Pair<String, ModelBuilder.() -> Unit> {
+        val basePath = "/tenants/${tenantId.key}/api-keys"
+        val state = ListViewState.from(
+            request = request,
+            basePath = basePath,
+            sortable = sortableColumns,
+            defaultSort = defaultSort,
+            pageSizes = pageSizeOptions,
+            filterNames = listOf("q"),
+        )
+        val paged = ListApiKeys(
+            tenantId = tenantId.key,
+            searchTerm = state.filter("q"),
+            sort = state.sort,
+            page = state.pageRequest,
+        ).query()
+        val query = state.toQuery(paged.page)
+
+        val model: ModelBuilder.() -> Unit = {
             "tenantId" to tenantId.key
-            "apiKeys" to apiKeys
+            "columns" to columns
+            "query" to query
+            "paged" to paged
+            "pageSizeOptions" to pageSizeOptions
             "roleLabels" to ROLE_LABELS
         }
+        return query.canonicalUrl() to model
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -103,13 +164,11 @@ class ApiKeyHandler {
             revokedBy = principal?.userId,
         ).execute()
 
-        val apiKeys = ListApiKeys(tenantId = tenantId.key).query().filter { it.enabled }
+        // Re-render the whole table after revoke. The POST carries no list state, so this
+        // resets to the default view — acceptable for a row removal.
+        val (_, model) = loadTableModel(request, tenantId)
         return request.htmx {
-            fragment("api-keys/list", "rows") {
-                "tenantId" to tenantId.key
-                "apiKeys" to apiKeys
-                "roleLabels" to ROLE_LABELS
-            }
+            fragment("api-keys/list", "data-table-fragment", model)
             onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
         }
     }

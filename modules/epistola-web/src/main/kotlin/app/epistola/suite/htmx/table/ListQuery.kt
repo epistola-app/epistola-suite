@@ -17,17 +17,22 @@ data class Column(val label: String, val sortKey: String? = null, val width: Str
 /**
  * Immutable, parsed-and-clamped state of a list view plus its base path, and the
  * authority for building the **navigation** URLs — sort headers and pagination —
- * server-side. Filter state (search term, catalog, page size) travels via the enclosing
+ * server-side. Filter state (search term, catalog, tag, …) travels via the enclosing
  * list `<form>` instead (htmx serializes its fields), so this builds only the `<a hx-get>`
  * link URLs, which the data-table fragment renders fresh on every swap. See ADR 0007.
+ *
+ * [filters] is the page's set of active, non-blank filter params (e.g. `q`, `catalog`,
+ * `tag`) in a stable order. The component itself knows nothing about which filters a page
+ * has — it just round-trips whatever the handler put here onto every sort/page link, so
+ * the active filter state is preserved when the user sorts or paginates. Build one with
+ * [ListViewState.toQuery].
  *
  * State lives entirely in the query string, so the same [basePath] serves both full-page
  * and HTMX requests, and the view is bookmarkable.
  */
 data class ListQuery(
     val basePath: String,
-    val q: String?,
-    val catalog: String?,
+    val filters: Map<String, String>,
     val sortKey: String,
     val direction: SortDirection,
     val page: Int,
@@ -54,16 +59,15 @@ data class ListQuery(
     fun ascending(): Boolean = direction == SortDirection.ASC
 
     private fun url(
-        q: String? = this.q,
-        catalog: String? = this.catalog,
         sort: String = this.sortKey,
         dir: SortDirection = this.direction,
         size: Int = this.size,
         page: Int = this.page,
     ): String {
         val builder = UriComponentsBuilder.fromPath(basePath)
-        if (!q.isNullOrBlank()) builder.queryParam("q", q)
-        if (!catalog.isNullOrBlank()) builder.queryParam("catalog", catalog)
+        // Filters first, in their stable insertion order, then the sort/page dimensions —
+        // so the canonical URL is deterministic and bookmarkable.
+        filters.forEach { (name, value) -> if (value.isNotBlank()) builder.queryParam(name, value) }
         builder.queryParam("sort", sort)
         builder.queryParam("dir", if (dir == SortDirection.ASC) "asc" else "desc")
         builder.queryParam("size", size)

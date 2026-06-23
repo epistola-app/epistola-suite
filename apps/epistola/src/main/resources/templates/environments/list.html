@@ -1,16 +1,40 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- Shared list-page chrome (form + header + hx wiring); this page supplies the inner
+         swap content (data-table-fragment) and its slots. See ADR 0007. -->
     <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
+        <th:block th:replace="~{epistola-web/list-page :: page(
+            basePath=${query.basePath},
             pageTitle='Environments',
+            pageDescription=null,
+            searchEnabled=true,
             searchPlaceholder='Search environments...',
-            searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
-            searchTargetId='environment-rows',
-            actions=~{::environment-list-actions}
-        )}"></div>
+            searchValue=${query.filters['q']},
+            actions=~{::environment-list-actions},
+            body=~{::data-table-fragment}
+        )}"></th:block>
 
-        <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
+        <!-- Rendered once in the page chrome, not part of the swapped table. -->
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+
+    <!-- Inner #data-table-container content: the data-table (environments have no filter bar).
+         Rendered directly by the handler on an htmx request, and via list-page on full load. -->
+    <th:block th:fragment="data-table-fragment">
+        <div th:replace="~{epistola-web/data-table :: data-table(
+            columns=${columns},
+            query=${query},
+            paged=${paged},
+            rows=~{::rows},
+            pageSizeOptions=${pageSizeOptions},
+            emptyState=~{::empty-state}
+        )}"></div>
+    </th:block>
+
+    <!-- Shown by the data-table when there are no rows (passed in as the emptyState slot). -->
+    <th:block th:fragment="empty-state">
+        <div class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -22,40 +46,31 @@
                 New Environment
             </a>
         </div>
-
-        <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>ID</th>
-                    <th>Created</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="environment-rows">
-                <th:block th:fragment="rows">
-                    <tr th:each="env : ${environments}">
-                        <td style="font-weight: 500;" th:text="${env.name}"></td>
-                        <td><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                        <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
-                            <button type="button"
-                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                    title="Delete environment"
-                                    data-confirm-title="Delete Environment"
-                                    th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
-                                    data-confirm-target="#environment-rows"
-                                    onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
-                        </td>
-                    </tr>
-                </th:block>
-            </tbody>
-        </table>
-
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+
+    <!--
+        Row markup passed into the data-table via ~{::rows}. Defined OUTSIDE the content
+        fragment so it renders only where injected (the table body), not duplicated inline.
+    -->
+    <th:block th:fragment="rows">
+        <tr th:each="env : ${paged.items}" data-testid="environment-row">
+            <td class="ep-truncate" style="font-weight: 500;" th:title="${env.name}" th:text="${env.name}"></td>
+            <td class="ep-truncate" th:title="${env.id}"><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+            <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+            <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
+                <button type="button"
+                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                        title="Delete environment"
+                        data-confirm-title="Delete Environment"
+                        th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
+                        data-confirm-target="#data-table-container"
+                        onclick="openConfirmDialog(this)">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                </button>
+            </td>
+        </tr>
+    </th:block>
+
     <th:block th:fragment="environment-list-actions">
         <a th:if="${auth.has('TENANT_SETTINGS')}"
            th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">

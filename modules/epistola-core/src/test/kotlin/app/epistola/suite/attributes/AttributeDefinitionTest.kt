@@ -109,7 +109,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             val attributes = ListAttributeDefinitions(
                 tenantId = tenantId,
                 catalogKey = CatalogKey.of("default"),
-            ).query()
+            ).query().items
 
             assertThat(attributes).hasSize(2)
             // Ordered by display_name ASC
@@ -139,11 +139,11 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             val tenant1Attrs = ListAttributeDefinitions(
                 tenantId = tenantId1,
                 catalogKey = CatalogKey.of("default"),
-            ).query()
+            ).query().items
             val tenant2Attrs = ListAttributeDefinitions(
                 tenantId = tenantId2,
                 catalogKey = CatalogKey.of("default"),
-            ).query()
+            ).query().items
 
             assertThat(tenant1Attrs).hasSize(1)
             assertThat(tenant1Attrs[0].id.value).isEqualTo("language")

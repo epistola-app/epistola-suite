@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
@@ -120,7 +121,7 @@ class DeploymentMatrixHandler(
     private fun loadDeploymentData(templateId: TemplateId): Map<String, Any> {
         val variants = GetVariantSummaries(templateId = templateId).query()
         val tenantId = TenantId(templateId.tenantKey)
-        val environments = ListEnvironments(tenantId = tenantId).query()
+        val environments = ListEnvironments(tenantId = tenantId, page = PageRequest.ALL).query().items
         val matrixCells = GetDeploymentMatrix(templateId = templateId).query()
         val publishableVersions = ListPublishableVersionsByTemplate(templateId = templateId).query()
 

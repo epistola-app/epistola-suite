@@ -13,8 +13,7 @@ class ListQueryTest {
 
     private val base = ListQuery(
         basePath = "/tenants/acme/templates",
-        q = null,
-        catalog = null,
+        filters = emptyMap(),
         sortKey = "updated",
         direction = SortDirection.DESC,
         page = 1,
@@ -48,13 +47,27 @@ class ListQueryTest {
     }
 
     @Test
-    fun `null and blank params are omitted`() {
+    fun `empty filters are omitted from the url`() {
         assertThat(base.canonicalUrl()).doesNotContain("catalog").doesNotContain("q=")
     }
 
     @Test
-    fun `query term is url-encoded so it cannot break out of the param`() {
-        assertThat(base.copy(q = "a&b").canonicalUrl()).contains("q=a%26b")
+    fun `active filters are rendered in their map order, before the sort dimensions`() {
+        val q = base.copy(filters = linkedMapOf("q" to "Invoice", "catalog" to "cat-a"))
+        assertThat(q.canonicalUrl())
+            .isEqualTo("/tenants/acme/templates?q=Invoice&catalog=cat-a&sort=updated&dir=desc&size=50&page=1")
+    }
+
+    @Test
+    fun `a filter value is url-encoded so it cannot break out of the param`() {
+        assertThat(base.copy(filters = mapOf("q" to "a&b")).canonicalUrl()).contains("q=a%26b")
+    }
+
+    @Test
+    fun `filters are preserved across a sort change`() {
+        val q = base.copy(filters = linkedMapOf("catalog" to "cat-a"))
+        assertThat(q.sortUrl("name"))
+            .isEqualTo("/tenants/acme/templates?catalog=cat-a&sort=name&dir=asc&size=50&page=1")
     }
 
     @Test

@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mediator.query
 import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.stereotype.Component
@@ -13,7 +14,7 @@ class SettingsTabHandler(
     fun settings(request: ServerRequest): ServerResponse {
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
 
-        val themes = ListThemes(tenantId = ctx.templateId.tenantId).query()
+        val themes = ListThemes(tenantId = ctx.templateId.tenantId, page = PageRequest.ALL).query().items
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return detailHelper.renderDetailPage(ctx, "settings", mapOf("themes" to themes, "themeCatalogs" to themeCatalogs))

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+    Shared chrome for a data-table list page. Owns the one piece every list page would
+    otherwise copy-paste — the live-filter <form> and the page header — so the htmx wiring
+    (and the hx-disinherit that stops nested boosted links inheriting the swap target) lives
+    in exactly one place. See ADR 0007 and epistola-web/data-table.html.
+
+    The enclosing <form> is the htmx requester: any field change (search box, a filter
+    <select>, the page-size <select>) submits GET {basePath} and swaps #data-table-container;
+    the handler sets HX-Push-Url to the canonical URL. hx-disinherit="*" keeps that target
+    from leaking to nested boosted controls (e.g. a "New X" <a> in the actions slot), which
+    under body-wide hx-boost would otherwise load a whole page into the table.
+
+    The page supplies the INNER swap content as the [body] slot — typically its own
+    `data-table-fragment` (page-specific filter fields + the data-table component) — because
+    that fragment is also what the handler renders by name on an htmx request.
+
+    Parameters:
+    - basePath:          the list URL; the form's action/hx-get
+    - pageTitle:         header title
+    - pageDescription:   header description (nullable)
+    - searchEnabled:     true to render the form-driven search box in the header
+    - searchPlaceholder: search box placeholder (when searchEnabled)
+    - searchValue:       active search term, so the box reflects it on full-page load (nullable)
+    - actions:           header action buttons, e.g. ~{::page-actions} (nullable)
+    - body:              the inner #data-table-container content, e.g. ~{::data-table-fragment}
+-->
+<body>
+<th:block th:fragment="page(basePath, pageTitle, pageDescription, searchEnabled, searchPlaceholder, searchValue, actions, body)">
+    <form th:action="${basePath}" method="get"
+          th:hx-get="${basePath}"
+          hx-target="#data-table-container"
+          hx-swap="innerHTML"
+          hx-disinherit="*"
+          hx-trigger="submit, change, input changed delay:300ms">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${pageTitle},
+            pageDescription=${pageDescription},
+            searchPlaceholder=${searchPlaceholder},
+            searchFormDriven=${searchEnabled},
+            searchValue=${searchValue},
+            actions=${actions}
+        )}"></div>
+
+        <!-- Single htmx swap target: every filter/sort/page request replaces this. -->
+        <div id="data-table-container">
+            <th:block th:replace="${body}"></th:block>
+        </div>
+    </form>
+</th:block>
+</body>
+</html>

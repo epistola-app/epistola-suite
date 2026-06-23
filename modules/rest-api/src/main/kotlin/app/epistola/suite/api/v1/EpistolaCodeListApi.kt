@@ -24,6 +24,7 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.springframework.http.HttpStatus
@@ -57,7 +58,7 @@ class EpistolaCodeListApi : CodeListsApi {
     ): ResponseEntity<CodeListListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)
-        val codeLists = ListCodeLists(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
+        val codeLists = ListCodeLists(tenantId = tenantIdComposite, catalogKey = catalogKey, page = PageRequest.ALL).query().items
         return ResponseEntity.ok(CodeListListResponse(items = codeLists.map { it.toDto() }))
     }
 
