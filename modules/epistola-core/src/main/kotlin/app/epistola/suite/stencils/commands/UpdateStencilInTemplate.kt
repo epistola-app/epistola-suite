@@ -1,18 +1,16 @@
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.stencils.model.StencilContentReplacer
-import app.epistola.suite.templates.commands.versions.CreateVersion
+import app.epistola.suite.templates.commands.versions.DraftVersionFactory
 import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
@@ -64,40 +62,21 @@ class UpdateStencilInTemplateHandler(
     private val objectMapper: ObjectMapper,
     private val placeholderValidator: PlaceholderValidator,
     private val nodeParameterBindingValidator: app.epistola.suite.templates.validation.NodeParameterBindingValidator,
+    private val draftVersionFactory: DraftVersionFactory,
 ) : CommandHandler<UpdateStencilInTemplate, UpdateStencilInTemplateResult?> {
     override fun handle(command: UpdateStencilInTemplate): UpdateStencilInTemplateResult? {
-        // Ensure the variant has an open draft to upgrade into. A published
-        // template has no draft, so this creates one seeded from the latest
-        // published version; the live published version stays untouched until the
-        // new draft is itself published. CreateVersion is idempotent — when a
-        // draft already exists it is returned and reused. Returns null when the
-        // variant does not exist (and throws if its catalog is not editable).
-        CreateVersion(variantId = command.variantId).execute() ?: return null
-
+        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
         return jdbi.inTransaction<UpdateStencilInTemplateResult?, Exception> { handle ->
-            // 1. Load the draft's template_model
-            val draftRow = handle.createQuery(
-                """
-            SELECT id, template_model
-            FROM template_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
-              AND variant_key = :variantId AND status = 'draft'
-            """,
-            )
-                .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
-                .bind("templateId", command.variantId.templateKey)
-                .bind("variantId", command.variantId.key)
-                .mapToMap()
-                .findOne()
-                .orElse(null) ?: return@inTransaction null
+            // 1. Ensure the variant has an open draft to upgrade into, atomically in
+            //    this transaction. A published template has no draft, so this creates
+            //    one seeded from the latest published version; the live published
+            //    version stays untouched until the new draft is itself published.
+            //    Idempotent — an existing draft is reused. Null = variant not found.
+            val draft = draftVersionFactory.ensureDraft(handle, command.variantId)
+                ?: return@inTransaction null
 
-            val draftVersionId = draftRow["id"] as Int
-            val templateModelJson = draftRow["template_model"].toString()
-            val templateModel = objectMapper.readValue(
-                templateModelJson,
-                app.epistola.template.model.TemplateDocument::class.java,
-            )
+            val draftVersionId = draft.id.value
+            val templateModel = draft.templateModel
 
             // 2. Count stencil instances before upgrade
             val stencilNodes = templateModel.nodes.values.filter { node ->
@@ -108,7 +87,6 @@ class UpdateStencilInTemplateHandler(
             if (stencilNodes.isEmpty()) return@inTransaction UpdateStencilInTemplateResult(upgradedCount = 0)
 
             // 3. Fetch the new stencil version's content + parameter schema
-            val newStencilVersionId = StencilVersionId(VersionKey.of(command.newVersion), command.stencilId)
             val newStencilRow = handle.createQuery(
                 """
             SELECT content::text AS content, parameter_schema::text AS parameter_schema
