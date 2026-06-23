@@ -14,7 +14,7 @@ data class GetCodeList(
     val id: CodeListId,
 ) : Query<CodeList?>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = id.tenantKey
 }
 

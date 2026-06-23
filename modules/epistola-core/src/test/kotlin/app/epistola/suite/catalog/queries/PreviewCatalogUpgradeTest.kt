@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
@@ -193,6 +194,38 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             assertThat(diff.removed).contains(UpgradeResourceChange("theme", "test-theme"))
             assertThat(diff.hasConflicts).isTrue()
             assertThat(diff.conflicts).anyMatch { it.contains("test-theme") && it.contains("Cross-Ref Template") }
+        }
+    }
+
+    @Test
+    fun `subscribed source on an older schema is reported out of sync`(@TempDir tmp: Path) {
+        val sourceUrl = copyFixture(tmp)
+        rewriteJson(tmp.resolve("catalog.json")) { it.put("schemaVersion", 4) } // publisher on an older Epistola
+        val tenant = createTenant("Schema Behind")
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+
+            val status = CheckCatalogUpgrade(tenant.id, depKey).query()
+
+            assertThat(status.sourceSchemaVersion).isEqualTo(4)
+            assertThat(status.currentSchemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
+            assertThat(status.schemaSyncState).isEqualTo(CatalogSchemaSyncState.SOURCE_BEHIND)
+        }
+    }
+
+    @Test
+    fun `subscribed source on the current schema is in sync`(@TempDir tmp: Path) {
+        val sourceUrl = copyFixture(tmp) // fixture manifest is at the current schema version
+        val tenant = createTenant("Schema InSync")
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+
+            val status = CheckCatalogUpgrade(tenant.id, depKey).query()
+
+            assertThat(status.sourceSchemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
+            assertThat(status.schemaSyncState).isEqualTo(CatalogSchemaSyncState.IN_SYNC)
         }
     }
 

@@ -38,7 +38,7 @@ data class CreateAttributeDefinition(
     val codeListId: CodeListId? = null,
 ) : Command<VariantAttributeDefinition>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey
 
     init {

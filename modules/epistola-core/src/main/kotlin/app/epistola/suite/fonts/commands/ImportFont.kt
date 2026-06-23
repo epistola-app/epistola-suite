@@ -47,7 +47,7 @@ data class ImportFont(
     val variants: List<ImportFontVariant> = emptyList(),
 ) : Command<InstallStatus>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 }
 

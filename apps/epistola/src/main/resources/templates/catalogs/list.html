@@ -2,27 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Catalogs</h1>
-            <div class="page-actions">
-                <button type="button" class="ep-btn ep-btn-outline"
-                        onclick="document.getElementById('import-dialog').showModal()">
-                    <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon')}" />
-                    Import ZIP
-                </button>
-                <button type="button" class="ep-btn ep-btn-outline"
-                        onclick="document.getElementById('subscribe-dialog').showModal()">
-                    <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon')}" />
-                    Subscribe
-                </button>
-                <button type="button" class="ep-btn ep-btn-primary"
-                        onclick="document.getElementById('create-dialog').showModal()"
-                        data-testid="catalog-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Catalog
-                </button>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Catalogs',
+            actions=~{::catalog-list-actions}
+        )}"></div>
 
         <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
             Catalog settings updated successfully.
@@ -40,7 +23,7 @@
              th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div th:if="${catalogs.isEmpty()}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No catalogs yet</div>
             <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
@@ -92,26 +75,26 @@
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
-                            <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </a>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/export-check(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 hx-target="#export-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{fragments/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button" th:if="${catalog.type.name() == 'AUTHORED'}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{fragments/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
                                 th:if="${catalog.type.name() == 'SUBSCRIBED' and catalog.sourceUrl != null}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
-                            <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
@@ -122,7 +105,7 @@
                                 th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 data-confirm-target="#catalog-list"
                                 onclick="openConfirmDialog(this)">
-                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
                     </td>
                 </tr>
@@ -400,7 +383,7 @@
             </div>
             <div class="ep-dialog-body">
                 <div class="alert alert-error">
-                    <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
                     <div>
                         <div class="alert-title">
                             Stencil version-pins in catalog '<span th:text="${catalogId}"></span>'
@@ -440,7 +423,7 @@
          opted in to renumber. Reuses the design-system alert-error pattern. -->
     <th:block th:fragment="import-conflict-content">
         <div class="alert alert-error">
-            <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
             <div>
                 <div class="alert-title">
                     Import blocked: stencil version conflicts in catalog '<span th:text="${catalogId}"></span>'.
@@ -469,10 +452,32 @@
          text is the migrator's actionable remediation message. -->
     <th:block th:fragment="import-schema-error">
         <div class="alert alert-error">
-            <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
             <div>
                 <div class="alert-title" th:text="${schemaErrorTitle}">Import blocked: incompatible catalog format</div>
                 <p style="margin: var(--ep-space-1) 0 0;" th:text="${schemaErrorDetail}"></p>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- Inline "update?" prompt for the Import ZIP dialog: an AUTHORED ZIP below
+         the current catalog schema version that the migration chain can upgrade.
+         Importing migrates (mutates) the content, so we confirm first. The button
+         is a submit inside the import form (this renders into the in-form
+         `#import-error` slot), so it re-submits the same file with
+         confirmMigration=true. SUBSCRIBED is never offered this — it is blocked. -->
+    <th:block th:fragment="import-migration-confirm">
+        <div class="alert alert-warning">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <div class="alert-title">Update available</div>
+                <p style="margin: var(--ep-space-1) 0 0;">
+                    This catalog is at schema version <span th:text="${fromSchemaVersion}">2</span>.
+                    Importing will update it to version <span th:text="${toSchemaVersion}">4</span>.
+                </p>
+                <button type="submit" name="confirmMigration" value="true"
+                        class="ep-btn ep-btn-primary ep-btn-sm" style="margin-top: var(--ep-space-2);"
+                        th:text="'Import &amp; update to v' + ${toSchemaVersion}">Import &amp; update</button>
             </div>
         </div>
     </th:block>
@@ -481,9 +486,12 @@
          cell's #catver-<id> span. Explicit/user-driven: the row's
          "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which
          returns this fragment swapped into that cell. `state` ∈ UNCHECKED |
-         UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED. Up to date
-         is green; an available update is grey + the new version, which is the
-         clickable entry to the Review dialog. CSP-safe (hx-get only). -->
+         UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED |
+         NOT_IN_SYNC | SOURCE_AHEAD. Up to date is green; an available update is
+         grey + the new version, which is the clickable entry to the Review
+         dialog. NOT_IN_SYNC (amber) means the source publishes an older catalog
+         schema version than this Epistola and must republish it. CSP-safe
+         (hx-get only). -->
     <th:block th:fragment="version-status" th:switch="${state}">
 
         <span th:case="'UNCHECKED'"
@@ -513,6 +521,19 @@
         <span th:case="'CHECK_FAILED'" title="Could not reach the source — try again later">
             <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
             <span class="text-muted" style="font-size: var(--ep-text-xs);">· check failed</span>
+        </span>
+
+        <span th:case="'NOT_IN_SYNC'"
+              style="color: var(--ep-amber-700); font-weight: 500;"
+              th:title="${'Out of sync — the source publishes catalog schema v' + sourceSchemaVersion + ', this Epistola expects v' + currentSchemaVersion + '. The source must republish the catalog at the current schema version.'}">
+            <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span style="font-size: var(--ep-text-xs);">· out of sync</span>
+        </span>
+
+        <span th:case="'SOURCE_AHEAD'" class="text-muted"
+              th:title="${'The source publishes catalog schema v' + sourceSchemaVersion + ', newer than this Epistola (v' + currentSchemaVersion + '). Upgrade Epistola to use it.'}">
+            <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span style="font-size: var(--ep-text-xs);">· upgrade Epistola</span>
         </span>
 
         <span th:case="*" class="text-muted"
@@ -603,5 +624,24 @@
          dialog) while #catalog-list updates via OOB (the row's lazy indicator
          re-checks on load and clears itself). -->
     <th:block th:fragment="upgrade-done"></th:block>
+    <th:block th:fragment="catalog-list-actions">
+        <button type="button" class="ep-btn ep-btn-outline"
+                onclick="document.getElementById('import-dialog').showModal()">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
+            Import ZIP
+        </button>
+        <button type="button" class="ep-btn ep-btn-outline"
+                onclick="document.getElementById('subscribe-dialog').showModal()">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
+            Subscribe
+        </button>
+        <button type="button" class="ep-btn ep-btn-primary"
+                onclick="document.getElementById('create-dialog').showModal()"
+                data-testid="catalog-create-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Catalog
+        </button>
+    </th:block>
+
 </body>
 </html>

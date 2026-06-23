@@ -23,7 +23,7 @@ data class ListCodeLists(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<CodeList>>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId.key
 }
 

@@ -28,7 +28,7 @@ data class DeleteCodeList(
     val id: CodeListId,
 ) : Command<Boolean>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey
 }
 

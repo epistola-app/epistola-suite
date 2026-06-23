@@ -35,7 +35,7 @@ class SupportNavContributor : NavContributor {
         val SUPPORT_FEATURES = listOf(
             KnownFeatures.SUPPORT_FEEDBACK,
             KnownFeatures.SUPPORT_BACKUPS,
-            KnownFeatures.SUPPORT_UPGRADING,
+            KnownFeatures.SUPPORT_COMPATIBILITY_CHECK,
         )
     }
 }

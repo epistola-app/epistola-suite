@@ -92,7 +92,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         // cross-catalog key carried through. The codeListBinding itself
         // lives on the resource detail inside the zip, not the manifest.
         val manifestJson = readZipEntry(zip.zipBytes, "catalog.json")
-        assertThat(manifestJson).contains("\"schemaVersion\" : 4")
+        assertThat(manifestJson).contains("\"schemaVersion\" : 5")
         assertThat(manifestJson).contains("\"type\" : \"codeList\"")
         assertThat(manifestJson).contains("\"catalogKey\" : \"system\"")
         assertThat(manifestJson).contains("\"slug\" : \"bcp-47\"")

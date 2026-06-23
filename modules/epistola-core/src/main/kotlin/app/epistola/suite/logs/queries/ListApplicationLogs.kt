@@ -54,7 +54,7 @@ data class ListApplicationLogs(
     val cursorId: UUID? = null,
 ) : Query<List<ApplicationLogEntry>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.DIAGNOSTICS_VIEW
     override val tenantKey get() = tenantId
 
     val hasCursor: Boolean get() = cursorOccurredAt != null && cursorId != null

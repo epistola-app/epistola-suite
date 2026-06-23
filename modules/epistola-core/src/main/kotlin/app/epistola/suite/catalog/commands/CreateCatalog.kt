@@ -19,7 +19,7 @@ data class CreateCatalog(
     val description: String? = null,
 ) : Command<Catalog>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_MANAGE
 }
 
 @Component

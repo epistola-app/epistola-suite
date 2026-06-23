@@ -2,11 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}">API Keys</a> &raquo; <span>Key created</span>
-        </nav>
 
-        <h1>API key created</h1>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='API key created',
+            backLinkHref=@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})},
+            backLinkLabel='API Keys'
+        )}"></div>
 
         <th:block th:replace="~{::created-panel}" />
     </th:block>
@@ -26,7 +27,7 @@
                            readonly
                            style="font-family: var(--ep-font-mono, monospace); flex: 1;">
                     <button type="button" id="api-key-copy-btn" class="ep-btn ep-btn-outline">
-                        <th:block th:replace="~{fragments/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
                         Copy
                     </button>
                 </div>

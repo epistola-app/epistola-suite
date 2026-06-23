@@ -2,15 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <div>
-                <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" class="back-link">&larr; Stencils</a>
-                <h1 th:text="${stencil.name}">Stencil Name</h1>
-                <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="text-muted" style="margin-top: var(--ep-space-1); font-size: var(--ep-text-sm);">
-                    <span class="badge badge-muted">Read-only</span> This stencil belongs to a subscribed catalog.
-                </p>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${stencil.name},
+            backLinkHref=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
+            backLinkLabel='Stencils'
+        )}"></div>
+
+        <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+            <span class="badge badge-muted">Read-only</span> This stencil belongs to a subscribed catalog.
+        </p>
 
         <!-- Details -->
         <div class="detail-section" style="margin-bottom: var(--ep-space-6);">
@@ -60,7 +60,7 @@
                                       hx-swap="innerHTML"
                                       style="display: inline;">
                                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">
-                                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                                         New Draft
                                     </button>
                                 </form>
@@ -168,7 +168,7 @@
                                            th:data-variant-id="${u.variantId}"
                                            th:data-catalog-key="${u.catalogKey}">
                                     <th:block th:if="${u.catalogType.name() == 'SUBSCRIBED'}">
-                                        <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                     </th:block>
                                 </td>
                                 <td>

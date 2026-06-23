@@ -2,30 +2,21 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>API Keys</h1>
-            <div class="page-actions">
-                <a th:if="${auth.has('TENANT_USERS')}"
-                   th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New API key
-                </a>
-            </div>
-        </div>
-
-        <p class="text-muted" style="margin-bottom: var(--ep-space-4);">
-            API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.
-        </p>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='API Keys',
+            pageDescription='API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.',
+            actions=~{::api-key-list-actions}
+        )}"></div>
 
         <div th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No API keys</div>
             <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
             <a th:if="${auth.has('TENANT_USERS')}"
                th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New API key
             </a>
         </div>
@@ -35,6 +26,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Prefix</th>
+                    <th>Scope</th>
                     <th>Created by</th>
                     <th>Created</th>
                     <th>Last used</th>
@@ -48,6 +40,13 @@
                         <td th:text="${apiKey.name}" style="font-weight: 500;"></td>
                         <td>
                             <code th:text="${apiKey.keyPrefix} + '…'"></code>
+                        </td>
+                        <td>
+                            <span class="api-key-scope">
+                                <span class="badge badge-outline"
+                                      th:each="role : ${apiKey.roles}"
+                                      th:text="${roleLabels.containsKey(role.name()) ? roleLabels.get(role.name()) : role.name()}">Viewer</span>
+                            </span>
                         </td>
                         <td>
                             <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
@@ -74,7 +73,7 @@
                                     th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"
                                     data-confirm-target="#api-key-rows"
                                     onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </td>
                     </tr>
@@ -83,6 +82,22 @@
         </table>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <style>
+            .api-key-scope {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--ep-space-1);
+            }
+        </style>
     </th:block>
+    <th:block th:fragment="api-key-list-actions">
+        <a th:if="${auth.has('TENANT_USERS')}"
+           th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New API key
+        </a>
+    </th:block>
+
 </body>
 </html>

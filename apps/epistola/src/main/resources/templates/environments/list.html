@@ -2,31 +2,23 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Environments</h1>
-            <div class="page-actions">
-                <div th:replace="~{fragments/search :: search-box(
-                    placeholder='Search environments...',
-                    searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
-                    targetId='environment-rows'
-                )}"></div>
-                <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Environment
-                </a>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Environments',
+            searchPlaceholder='Search environments...',
+            searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
+            searchTargetId='environment-rows',
+            actions=~{::environment-list-actions}
+        )}"></div>
 
         <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No environments yet</div>
             <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
                th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New Environment
             </a>
         </div>
@@ -54,7 +46,7 @@
                                     th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
                                     data-confirm-target="#environment-rows"
                                     onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </td>
                     </tr>
@@ -64,5 +56,13 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+    <th:block th:fragment="environment-list-actions">
+        <a th:if="${auth.has('TENANT_SETTINGS')}"
+           th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Environment
+        </a>
+    </th:block>
+
 </body>
 </html>

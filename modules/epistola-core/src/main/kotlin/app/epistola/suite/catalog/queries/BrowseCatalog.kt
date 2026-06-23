@@ -19,7 +19,7 @@ data class BrowseCatalog(
     val catalogKey: CatalogKey,
 ) : Query<BrowseResult>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class BrowseResult(

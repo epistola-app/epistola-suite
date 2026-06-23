@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Profile',
+            pageDescription='Your account as Epistola sees it — identity, the roles resolved for you, and (when you signed in through an identity provider) a read-only view of selected claims from your current login token, for debugging auth and role issues.'
+        )}"></div>
+
+        <div class="detail-section">
+            <div class="detail-section-header">
+                <h2>Identity</h2>
+            </div>
+            <div class="detail-section-body">
+                <table class="ep-table">
+                    <tbody>
+                        <tr>
+                            <th scope="row">Display name</th>
+                            <td th:text="${displayName}">Jane Doe</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Email</th>
+                            <td th:text="${email}">jane@example.com</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">External ID (sub)</th>
+                            <td th:text="${externalId}">abc-123</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <div class="detail-section-header">
+                <h2>Authorization</h2>
+                <p class="subtitle">The tenants you belong to and the roles Epistola resolved for you.</p>
+            </div>
+            <div class="detail-section-body">
+                <h3>Tenant memberships</h3>
+                <div th:if="${memberships.isEmpty()}" class="alert alert-info" role="status">
+                    You have no per-tenant memberships.
+                </div>
+                <table th:unless="${memberships.isEmpty()}" class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Tenant</th>
+                            <th>Roles</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="membership : ${memberships}">
+                            <td th:text="${membership.tenant}">acme-corp</td>
+                            <td>
+                                <span class="badge-list">
+                                    <span th:each="role : ${membership.roles}" class="badge badge-default" th:text="${role}">READER</span>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Global roles</h3>
+                <p th:if="${globalRoles.isEmpty()}" class="text-muted">None</p>
+                <div th:unless="${globalRoles.isEmpty()}" class="badge-list">
+                    <span th:each="role : ${globalRoles}" class="badge badge-default" th:text="${role}">READER</span>
+                </div>
+
+                <h3>Platform roles</h3>
+                <p th:if="${platformRoles.isEmpty()}" class="text-muted">None</p>
+                <div th:unless="${platformRoles.isEmpty()}" class="badge-list">
+                    <span th:each="role : ${platformRoles}" class="badge badge-default" th:text="${role}">TENANT_MANAGER</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <div class="detail-section-header">
+                <h2>Token claims</h2>
+            </div>
+            <div class="detail-section-body">
+                <div th:unless="${hasToken}" class="alert alert-info" role="status">
+                    You are signed in with a local (form-login) account, so there is no identity-provider
+                    token to inspect.
+                </div>
+                <th:block th:if="${hasToken}">
+                    <p class="subtitle">
+                        Selected decoded values from your current OIDC id token, shown for debugging. The raw
+                        token is intentionally never displayed.
+                    </p>
+                    <table class="ep-table">
+                        <thead>
+                            <tr>
+                                <th>Claim</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="row : ${claimRows}">
+                                <td><code th:text="${row.claim}">sub</code></td>
+                                <td th:text="${row.value}">abc-123</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </th:block>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

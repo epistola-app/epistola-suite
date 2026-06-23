@@ -18,7 +18,7 @@ data class FindCatalogCrossReferences(
     val catalogKey: CatalogKey,
 ) : Query<List<String>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component

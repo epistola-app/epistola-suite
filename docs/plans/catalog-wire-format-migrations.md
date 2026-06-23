@@ -73,8 +73,8 @@ raised `current` to `5`, so the chain now spans `[3, 5]`.
   → `TooNewException`; `< current` with an **empty** chain → **pass through** and
   bind as-is (how every payload imports today); `< baseline` (only reachable once
   a chain exists) → `TooOldException`. The too-old / chain-execution branches
-  exist and are unit-tested via the parameterised companion gate, just not
-  reachable with the live empty chain.
+  are exercised by the live chain (`[3, 5]`) and additionally unit-tested against
+  an arbitrary window via the parameterised companion gate.
 - **Detail-path import wiring — now wired.** `migrateAndBindResourceDetail` is
   invoked at both chokepoints (`ImportCatalogZip`'s stencil pre-scan + per-resource
   reads and `CatalogClient.fetchResourceDetail`), gating each detail by the same
@@ -109,8 +109,9 @@ Catalog import/export integration tests stay green.
    `migrateResourceDetail(type, node, ctx): ObjectNode` (both default to
    identity). One step reshapes a whole catalog from `from` to `to` — it may
    touch the manifest tree and/or any resource-detail tree.
-2. **`MigrationContext`** — `data class(sourceVersion, targetVersion)`; the
-   endpoints of the catalog chain (for logging / version-conditional logic).
+2. **`MigrationContext`** — `data class(sourceVersion, targetVersion, manifest?)`;
+   the endpoints of the catalog chain (for logging / version-conditional logic)
+   plus the migrated manifest tree exposed to cross-part detail steps.
 3. **`CatalogSchemaExceptions`** — `CatalogSchemaTooOldException`,
    `CatalogSchemaTooNewException`, `CatalogSchemaUnknownException`. Each carries
    the offending version and a remediation message; they extend
@@ -123,11 +124,13 @@ Catalog import/export integration tests stay green.
      `baseline … current-1` against `[CATALOG_BASELINE_SCHEMA_VERSION,
 CATALOG_SCHEMA_VERSION]`; a malformed chain fails application start.
      Unit-tested directly.
-   - `migrateAndBindManifest(raw): CatalogManifest` — gate the catalog version,
-     run each step's `migrateManifest`, then bind.
-   - `migrateAndBindResourceDetail(type, raw): ResourceDetail` — gate the same
-     catalog version (read off the detail's `schemaVersion`), run each step's
-     `migrateResourceDetail(type, …)`, then bind. _Invoked at both chokepoints._
+   - `migrateAndBindManifest(raw): MigratedManifest` — gate the catalog version,
+     run each step's `migrateManifest`, bind, and return the manifest plus a
+     `CatalogMigrationContext` (source version + migrated manifest tree).
+   - `migrateAndBindResourceDetail(type, raw, catalog): ResourceDetail` — verify the
+     detail's `schemaVersion` equals the catalog (manifest) version (a drifted stamp
+     is rejected), run each step's `migrateResourceDetail(type, …)`, then bind.
+     _Invoked at both chokepoints._
    - companion gate primitive — the pure gate+chain runner (no-op when
      `source == current`).
 5. **Wire into the chokepoints** (migrate → bind, replacing bind):

@@ -9,8 +9,11 @@ import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogImportContext
+import app.epistola.suite.catalog.CatalogImportSchemaAction
+import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
@@ -19,6 +22,7 @@ import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -91,6 +95,13 @@ data class ImportCatalogZip(
      * The database FKs still enforce referential integrity regardless of this flag.
      */
     val validateCrossCatalogDeps: Boolean = true,
+    /**
+     * Set when the operator has confirmed updating an **AUTHORED** ZIP whose catalog
+     * schema version is below current but migratable. Without it such an import is
+     * not run — the handler raises [CatalogMigrationConfirmationRequiredException] so
+     * the UI can prompt. The REST import sets it `true` (non-interactive).
+     */
+    val confirmMigration: Boolean = false,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -167,7 +178,30 @@ class ImportCatalogZipHandler(
         // schemaVersion and every resource detail echoes it, so details are gated
         // against the same version below. The chain is empty today, so
         // current-shape payloads pass straight through to binding.
-        val manifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        val manifest = migratedManifest.manifest
+        val catalogCtx = migratedManifest.catalog
+        // Decide what to do about an outdated-schema ZIP (a source-less transport
+        // we can't re-fetch). SUBSCRIBED mirrors are never migrated locally; an
+        // AUTHORED ZIP with no migration path is rejected; an AUTHORED ZIP the chain
+        // can upgrade prompts for confirmation (migrating mutates content) and then
+        // imports. `sourceVersion` is the pre-migration version; `manifest.schemaVersion`
+        // is current iff a chain upgraded it. Covers the UI and REST import paths.
+        when (
+            CatalogImportSchemaAction.decide(
+                catalogType = command.catalogType,
+                sourceVersion = catalogCtx.sourceVersion,
+                migratedVersion = manifest.schemaVersion,
+                current = CATALOG_SCHEMA_VERSION,
+                confirmed = command.confirmMigration,
+            )
+        ) {
+            CatalogImportSchemaAction.BLOCK_TOO_OLD ->
+                throw CatalogSchemaTooOldException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+            CatalogImportSchemaAction.CONFIRM_MIGRATION ->
+                throw CatalogMigrationConfirmationRequiredException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+            CatalogImportSchemaAction.IMPORT -> {} // proceed
+        }
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
         // A ZIP import targets a catalog *type*. A slug that already exists
@@ -284,7 +318,7 @@ class ImportCatalogZipHandler(
             .associate { entry ->
                 val detailBytes = entries[entry.detailUrl.removePrefix("./")]
                     ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                val parsed = schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes).resource
+                val parsed = schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
                 val stencil = parsed as? StencilResource
                     ?: throw IllegalArgumentException(
                         "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
@@ -315,7 +349,7 @@ class ImportCatalogZipHandler(
                     val detailPath = entry.detailUrl.removePrefix("./")
                     val detailBytes = entries[detailPath]
                         ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                    schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes).resource
+                    schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
                 }
 
                 val status = installResource(

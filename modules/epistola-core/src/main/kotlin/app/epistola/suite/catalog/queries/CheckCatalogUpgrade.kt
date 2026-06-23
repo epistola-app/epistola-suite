@@ -1,5 +1,6 @@
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -27,14 +28,41 @@ data class CheckCatalogUpgrade(
     val catalogKey: CatalogKey,
 ) : Query<CatalogUpgradeAvailability>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class CatalogUpgradeAvailability(
     val available: Boolean,
     val installedVersion: String?,
     val availableVersion: String,
+    /** The catalog **schema** version the source published (pre-migration). */
+    val sourceSchemaVersion: Int,
+    /** The app's current catalog schema version ([CATALOG_SCHEMA_VERSION]). */
+    val currentSchemaVersion: Int,
+    /** Whether the source's schema version is in sync with this Epistola. */
+    val schemaSyncState: CatalogSchemaSyncState,
 )
+
+/**
+ * Whether a subscribed catalog's **source** publishes at this Epistola's current
+ * catalog schema version. [SOURCE_BEHIND] is the actionable one: the source must
+ * republish at the current schema version. We never migrate subscribed content
+ * locally, so the mirror stays bound to whatever the source provides.
+ */
+enum class CatalogSchemaSyncState {
+    IN_SYNC,
+    SOURCE_BEHIND,
+    SOURCE_AHEAD,
+    ;
+
+    companion object {
+        fun of(sourceSchemaVersion: Int, currentSchemaVersion: Int): CatalogSchemaSyncState = when {
+            sourceSchemaVersion < currentSchemaVersion -> SOURCE_BEHIND
+            sourceSchemaVersion > currentSchemaVersion -> SOURCE_AHEAD
+            else -> IN_SYNC
+        }
+    }
+}
 
 @Component
 class CheckCatalogUpgradeHandler(
@@ -50,7 +78,9 @@ class CheckCatalogUpgradeHandler(
         val sourceUrl = catalog.sourceUrl
             ?: throw IllegalStateException("Catalog '${query.catalogKey}' has no source URL — only subscribed catalogs can be upgraded")
 
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val migrated = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
+        val manifest = migrated.manifest
+        val sourceSchemaVersion = migrated.catalog.sourceVersion
         val manifestFingerprint = manifest.release.fingerprint
 
         val available = if (manifestFingerprint != null) {
@@ -68,6 +98,9 @@ class CheckCatalogUpgradeHandler(
             available = available,
             installedVersion = catalog.installedReleaseVersion,
             availableVersion = manifest.release.version,
+            sourceSchemaVersion = sourceSchemaVersion,
+            currentSchemaVersion = CATALOG_SCHEMA_VERSION,
+            schemaSyncState = CatalogSchemaSyncState.of(sourceSchemaVersion, CATALOG_SCHEMA_VERSION),
         )
     }
 }

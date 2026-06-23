@@ -40,6 +40,9 @@ import tools.jackson.databind.node.ObjectNode
  * - `< baseline` (only reachable once a chain exists) — [CatalogSchemaTooOldException].
  * - missing / non-integer `schemaVersion`, or unparseable JSON —
  *   [CatalogSchemaUnknownException].
+ * - valid `schemaVersion` but a structure that fails to bind to the typed model
+ *   (missing required fields, wrong node types) — also [CatalogSchemaUnknownException],
+ *   so a broken-shape payload is a 400, not an unmapped 500.
  */
 @Component
 class CatalogSchemaMigrator(
@@ -64,23 +67,35 @@ class CatalogSchemaMigrator(
 
     /**
      * Parse [rawManifest], gate/upgrade it to the current catalog schema version,
-     * and bind it to [CatalogManifest]. Throws a [CatalogSchemaException] if the
-     * version is unreadable, too new, or too old.
+     * bind it to [CatalogManifest], and return it together with the
+     * [CatalogMigrationContext] (the catalog's source version + migrated manifest
+     * tree) that must be threaded into [migrateAndBindResourceDetail] for every
+     * detail of the same catalog. Throws a [CatalogSchemaException] if the version
+     * is unreadable, too new, or too old.
      */
-    fun migrateAndBindManifest(rawManifest: ByteArray): CatalogManifest {
-        val migrated = migrate(parse(rawManifest)) { step, node, ctx -> step.migrateManifest(node, ctx) }
-        return objectMapper.treeToValue(migrated, CatalogManifest::class.java)
+    fun migrateAndBindManifest(rawManifest: ByteArray): MigratedManifest {
+        val tree = parse(rawManifest)
+        val sourceVersion = readSchemaVersion(tree)
+        val migrated = migrate(tree, manifest = null) { step, node, ctx -> step.migrateManifest(node, ctx) }
+        return MigratedManifest(
+            manifest = bind(migrated, CatalogManifest::class.java, "catalog manifest"),
+            catalog = CatalogMigrationContext(sourceVersion = sourceVersion, migratedManifest = migrated),
+        )
     }
 
     /**
      * Parse [rawDetail], gate/upgrade it to the current catalog schema version,
-     * and bind it to [ResourceDetail]. Invoked at both import chokepoints.
+     * and bind it to [ResourceDetail]. Invoked at both import chokepoints with the
+     * [catalog] context from [migrateAndBindManifest].
      *
      * [type] is the manifest-declared resource type; the detail's own
-     * `resource.type` discriminator must agree with it (a mismatch is a malformed
-     * payload, rejected before any migration runs).
+     * `resource.type` discriminator must agree with it. The detail's own
+     * `schemaVersion` must equal the catalog (manifest) version — a catalog is a
+     * single bundle at one wire version, so a drifted per-detail stamp is a
+     * malformed payload, rejected before any migration runs. The migrated manifest
+     * tree is exposed to cross-part steps via [MigrationContext.manifest].
      */
-    fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail {
+    fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray, catalog: CatalogMigrationContext): ResourceDetail {
         val tree = parse(rawDetail)
         val declared = tree.get("resource")?.get("type")?.takeIf { it.isString }?.asString()
         if (declared != null && declared != type) {
@@ -88,15 +103,25 @@ class CatalogSchemaMigrator(
                 "resource detail declares type '$declared' but the manifest entry is '$type'",
             )
         }
-        val migrated = migrate(tree) { step, node, ctx -> step.migrateResourceDetail(type, node, ctx) }
-        return objectMapper.treeToValue(migrated, ResourceDetail::class.java)
+        val detailVersion = readSchemaVersion(tree)
+        if (detailVersion != catalog.sourceVersion) {
+            throw CatalogSchemaUnknownException(
+                "resource detail '$type' is at schemaVersion $detailVersion but the catalog manifest is at " +
+                    "${catalog.sourceVersion}; every part of a catalog must carry the same wire version",
+            )
+        }
+        val migrated = migrate(tree, manifest = catalog.migratedManifest) { step, node, ctx ->
+            step.migrateResourceDetail(type, node, ctx)
+        }
+        return bind(migrated, ResourceDetail::class.java, "resource detail '$type'")
     }
 
     /** Apply the catalog version gate + chain to an already-parsed tree. */
     private fun migrate(
         tree: ObjectNode,
+        manifest: ObjectNode?,
         apply: (CatalogSchemaMigration, ObjectNode, MigrationContext) -> ObjectNode,
-    ): ObjectNode = migrate(tree, chain, CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION, apply)
+    ): ObjectNode = migrate(tree, chain, CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION, manifest, apply)
 
     private fun parse(raw: ByteArray): ObjectNode {
         // Invalid JSON must surface as a schema-unknown error too (→ HTTP 400 /
@@ -109,6 +134,23 @@ class CatalogSchemaMigrator(
         }
         return tree as? ObjectNode
             ?: throw CatalogSchemaUnknownException("payload is not a JSON object")
+    }
+
+    /**
+     * Bind an already-gated, current-shape [tree] to the typed protocol model.
+     * A payload can carry a valid `schemaVersion` yet still be structurally
+     * malformed (missing required fields, wrong node types) — Jackson would throw
+     * a raw bind exception that escapes the gate as an unmapped 500. Mirror
+     * [parse]: surface it as a [CatalogSchemaUnknownException] (→ HTTP 400 / inline
+     * UI fragment) so a broken-shape payload is reported as a bad request, not a
+     * server error. [describe] names the part for the operator-facing message.
+     */
+    private fun <T : Any> bind(tree: ObjectNode, type: Class<T>, describe: String): T = try {
+        objectMapper.treeToValue(tree, type)
+    } catch (e: JacksonException) {
+        throw CatalogSchemaUnknownException(
+            "$describe has a valid schemaVersion but its structure does not bind: ${e.originalMessage}",
+        )
     }
 
     companion object {
@@ -140,6 +182,7 @@ class CatalogSchemaMigrator(
             byFrom: Map<Int, CatalogSchemaMigration>,
             baseline: Int,
             current: Int,
+            manifest: ObjectNode? = null,
             apply: (CatalogSchemaMigration, ObjectNode, MigrationContext) -> ObjectNode,
         ): ObjectNode {
             val source = readSchemaVersion(tree)
@@ -149,7 +192,7 @@ class CatalogSchemaMigrator(
                 // source < current
                 byFrom.isEmpty() -> tree // transitional: no chain yet — see class KDoc
                 source < baseline -> throw CatalogSchemaTooOldException(source, baseline)
-                else -> runChain(tree, source, byFrom, current, apply)
+                else -> runChain(tree, source, byFrom, current, manifest, apply)
             }
         }
 
@@ -158,9 +201,10 @@ class CatalogSchemaMigrator(
             source: Int,
             byFrom: Map<Int, CatalogSchemaMigration>,
             current: Int,
+            manifest: ObjectNode?,
             apply: (CatalogSchemaMigration, ObjectNode, MigrationContext) -> ObjectNode,
         ): ObjectNode {
-            val ctx = MigrationContext(sourceVersion = source, targetVersion = current)
+            val ctx = MigrationContext(sourceVersion = source, targetVersion = current, manifest = manifest)
             var node = tree
             var version = source
             while (version < current) {
@@ -224,3 +268,24 @@ class CatalogSchemaMigrator(
         }
     }
 }
+
+/**
+ * Catalog-level context captured when the manifest is migrated, needed to migrate
+ * every resource detail of the same catalog consistently.
+ */
+data class CatalogMigrationContext(
+    /** The catalog version the export was produced at — the manifest's pre-migration `schemaVersion`. */
+    val sourceVersion: Int,
+    /** The migrated (current-shape) manifest tree, available to cross-part detail migrations. */
+    val migratedManifest: ObjectNode,
+)
+
+/**
+ * Result of [CatalogSchemaMigrator.migrateAndBindManifest]: the bound manifest plus
+ * the [CatalogMigrationContext] to thread into each
+ * [CatalogSchemaMigrator.migrateAndBindResourceDetail] call for the same catalog.
+ */
+data class MigratedManifest(
+    val manifest: CatalogManifest,
+    val catalog: CatalogMigrationContext,
+)

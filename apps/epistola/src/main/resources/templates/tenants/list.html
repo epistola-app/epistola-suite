@@ -9,7 +9,9 @@
 </head>
 <body>
     <main class="regular">
-        <h1 data-testid="page-title">Tenants</h1>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Tenants'
+        )}"></div>
 
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
             <section class="form-section">
@@ -67,7 +69,7 @@
                             <td class="actions">
                                 <a th:href="@{/tenants/{id}(id=${tenant.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Open tenant">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <button th:if="${auth.has('TENANT_MANAGER')}"
                                         type="button"
@@ -77,7 +79,7 @@
                                         th:attr="data-confirm-message='Permanently delete tenant &quot;' + ${tenant.name} + '&quot; (' + ${tenant.id} + ')? This will delete all associated data including templates, themes, environments, assets, and memberships. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/delete(tenantId=${tenant.id})}"
                                         data-confirm-target="#tenant-rows"
                                         onclick="openConfirmDialog(this)">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </td>
                         </tr>

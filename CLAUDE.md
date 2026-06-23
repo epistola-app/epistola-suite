@@ -65,9 +65,9 @@ epistola-suite-modules/
 - **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `X-API-Key` auth). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
 - **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …).
 - **modules/epistola-support-feedback**: The complete feedback feature — domain (model + commands/queries + migrations + static JS), the sync engine (`FeedbackSyncPort` + drivers + no-op fallback), the UI (handlers + `templates/feedback/**`), and the `HubFeedbackSyncAdapter`. The feature is freely usable; only the hub **sync** (the paid server component) is gated on `epistola.support.enabled` (no-op adapter keeps feedback local otherwise). UI visibility is gated by the `support-feedback` feature toggle.
-- **modules/epistola-support-snapshots**: The **shared snapshot-sync layer** that both the Backups and Upgrading features depend on. Building/restoring a tenant snapshot is an `epistola-core` primitive (`catalog/snapshot/` — `BuildTenantSnapshot` / `RestoreTenantSnapshot`); this module owns moving it to/from the hub: `SnapshotSyncPort` + `HubSnapshotSyncAdapter` (client-streaming upload / server-streaming download over the hub `CatalogSyncService`) + a no-op fallback, the `TenantSnapshotSyncService` (build → fingerprint-dedup → upload, plus the `app_metadata` **last-sync timestamp** that lets the two features coordinate), and the background `snapshotSystemPrincipal`. The hub calls are gated on `epistola.support.enabled`; the snapshot build/restore are not. Backups and Upgrading depend on this module, not on each other.
-- **modules/epistola-support-backups**: The **Backups feature** — the daily retained-snapshot `BackupScheduler` (per tenant with `support-backups` on; a native `single_owner` scheduled task active when `epistola.support.backups.scheduled.enabled=true`) and the Backups UI (list / back up now / restore-with-confirmation, `templates/backups/**`). It rides `TenantSnapshotSyncService`; it owns no snapshot mechanics. UI visibility is gated by the `support-backups` feature toggle.
-- **modules/epistola-support-upgrading**: The **Upgrading (compatibility) feature** — a read-only `CompatibilitySyncPort` + `HubCompatibilitySyncAdapter` that fetch the company-side compatibility-check results live, the Upgrading UI (`templates/upgrading/**`), and its **own** native `single_owner` `UpgradingSnapshotScheduler` that tops up snapshot freshness: it makes a snapshot only when none was synced (by Backups _or_ itself) within `epistola.support.upgrading.snapshot.max-age` (default 24h), reading the shared last-sync timestamp. UI visibility is gated by the `support-upgrading` feature toggle.
+- **modules/epistola-support-snapshots**: The **catalog-export snapshot-sync layer**, now used by the **Upgrading** feature (the Backups feature moved to faithful local backups — see below). Building/restoring a tenant snapshot is an `epistola-core` primitive (`catalog/snapshot/` — `BuildTenantSnapshot` / `RestoreTenantSnapshot`); this module owns moving it to/from the hub: `SnapshotSyncPort` + `HubSnapshotSyncAdapter` (client-streaming upload / server-streaming download over the hub `CatalogSyncService`) + a no-op fallback, the `TenantSnapshotSyncService` (build → fingerprint-dedup → upload, plus the `app_metadata` **last-sync timestamp** that lets the two features coordinate), and the background `snapshotSystemPrincipal`. The hub calls are gated on `epistola.support.enabled`; the snapshot build/restore are not. Backups and Upgrading depend on this module, not on each other.
+- **modules/epistola-support-backups**: The **Backups feature** — daily faithful, full-fidelity tenant backups (the module's own `app.epistola.suite.tenantbackup` primitive: full version history, exact version numbers, merge-not-cascade restore, gated to the same schema version), stored **locally** in the `tenant_backups` table via the `TenantBackupStore` port and orchestrated by `TenantBackupService` (build → fingerprint-dedup → retain N). The daily `BackupScheduler` (per tenant with `support-backups` available; a native `single_owner` scheduled task active when `epistola.support.backups.scheduled.enabled=true`) and the Backups UI (list / back up now / restore-with-confirmation, `templates/backups/**`). It no longer rides `TenantSnapshotSyncService` (that stays with Upgrading), so the two features toggle independently. UI visibility is gated by the `support-backups` feature toggle. See [`docs/tenant-backup.md`](docs/tenant-backup.md).
+- **modules/epistola-support-upgrading**: The **Upgrading (compatibility) feature** — a read-only `CompatibilitySyncPort` + `HubCompatibilitySyncAdapter` that fetch the company-side compatibility-check results live, the Upgrading UI (`templates/upgrading/**`), and its **own** native `single_owner` `UpgradingSnapshotScheduler` that tops up snapshot freshness: it makes a snapshot only when none was synced (by Backups _or_ itself) within `epistola.support.upgrading.snapshot.max-age` (default 24h), reading the shared last-sync timestamp. UI visibility is gated by the `support-compatibility-check` feature toggle (the module/UI is still named "upgrading" pending a follow-up rename).
 - **modules/epistola-web**: Shared web/UI toolkit — the HTMX functional-web DSL (`app.epistola.suite.htmx`) used by the host app and any feature module that contributes UI.
 - **modules/testing**: Shared test infrastructure — `IntegrationTestBase`, Testcontainers, fixture/scenario DSLs (not production code)
 
@@ -338,6 +338,29 @@ Shared test infrastructure lives in `modules/testing/` (not duplicated across mo
 - **`BasePlaywrightTest`** (in `apps/epistola`) — extends `BaseIntegrationTest` with Playwright browser lifecycle for UI tests.
 
 To add tests to a new module: `testImplementation(project(":modules:testing"))` and extend `IntegrationTestBase`.
+
+### Seed test state through commands, not raw SQL
+
+When a test needs domain data to exist, create it by dispatching the **command**
+(`CreateApiKey`, `CreateTenant`, …) through the mediator — the same way production
+code does — rather than `INSERT`ing rows directly with JDBI. Command-seeded fixtures
+track schema and validation changes automatically (a raw `INSERT` silently rots when a
+column is added or a constraint tightens, and then fails the next unrelated change), and
+they exercise the real write path.
+
+Compose commands to reach the state you need instead of reaching for SQL:
+
+- Need the entity's id to link other rows? Use the id the command **returns** — don't
+  pre-generate one and force it in.
+- Need a non-default lifecycle state (disabled, revoked, used)? Apply the command that
+  produces it (e.g. `CreateApiKey` then `RevokeApiKey` for a disabled key;
+  `RecordApiKeyUsage` to mark one used).
+
+Raw SQL in a fixture is the **exception**, justified only when no command can produce the
+needed state — e.g. tables with no command (`consumer_nodes`, `consumer_partition_cursors`),
+or planting a **specific historical timestamp** the read path asserts against (commands
+write `NOW()`). When you do drop to SQL, add a one-line comment saying why so it doesn't
+read as the default.
 
 ### UI test rules (enforced — issue #418)
 

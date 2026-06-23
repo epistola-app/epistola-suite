@@ -10,7 +10,6 @@ import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
-import app.epistola.suite.security.TenantRole
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.commands.EnsureUser
 import io.micrometer.core.instrument.Counter
@@ -151,7 +150,7 @@ class ApiKeyAuthenticationFilter(
             externalId = "apikey:${apiKey.id}",
             email = "apikey-${apiKey.keyPrefix}@npa.epistola",
             displayName = apiKey.name,
-            tenantMemberships = mapOf(apiKey.tenantKey to TenantRole.entries.toSet()),
+            tenantMemberships = mapOf(apiKey.tenantKey to apiKey.roles),
             currentTenantId = apiKey.tenantKey,
         )
 

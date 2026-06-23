@@ -38,7 +38,7 @@ class AuthContextTest {
     @Test
     fun `from() includes tenant permission names`() {
         val auth = AuthContext.from(
-            principal(tenantMemberships = mapOf(acme to setOf(TenantRole.READER))),
+            principal(tenantMemberships = mapOf(acme to setOf(TenantRole.CONTENT_VIEWER))),
             acme,
         )
 
@@ -51,7 +51,7 @@ class AuthContextTest {
     @Test
     fun `from() merges multiple roles`() {
         val auth = AuthContext.from(
-            principal(tenantMemberships = mapOf(acme to setOf(TenantRole.READER, TenantRole.EDITOR))),
+            principal(tenantMemberships = mapOf(acme to setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR))),
             acme,
         )
 
@@ -64,7 +64,7 @@ class AuthContextTest {
     fun `from() includes platform roles`() {
         val auth = AuthContext.from(
             principal(
-                tenantMemberships = mapOf(acme to setOf(TenantRole.READER)),
+                tenantMemberships = mapOf(acme to setOf(TenantRole.CONTENT_VIEWER)),
                 platformRoles = setOf(PlatformRole.TENANT_MANAGER),
             ),
             acme,
@@ -77,19 +77,19 @@ class AuthContextTest {
     @Test
     fun `from() includes global roles for the tenant`() {
         val auth = AuthContext.from(
-            principal(globalRoles = setOf(TenantRole.MANAGER)),
+            principal(globalRoles = setOf(TenantRole.TENANT_ADMINISTRATOR)),
             acme,
         )
 
         assertThat(auth.has("TENANT_SETTINGS")).isTrue()
-        assertThat(auth.has("TEMPLATE_PUBLISH")).isTrue()
+        assertThat(auth.has("TENANT_USERS")).isTrue()
     }
 
     @Test
     fun `from() returns empty when user has no access to tenant`() {
         val other = TenantKey.of("other")
         val auth = AuthContext.from(
-            principal(tenantMemberships = mapOf(acme to setOf(TenantRole.READER))),
+            principal(tenantMemberships = mapOf(acme to setOf(TenantRole.CONTENT_VIEWER))),
             other,
         )
 
@@ -100,7 +100,7 @@ class AuthContextTest {
     fun `platformOnly() only includes platform roles`() {
         val auth = AuthContext.platformOnly(
             principal(
-                tenantMemberships = mapOf(acme to setOf(TenantRole.READER)),
+                tenantMemberships = mapOf(acme to setOf(TenantRole.CONTENT_VIEWER)),
                 platformRoles = setOf(PlatformRole.TENANT_MANAGER),
             ),
         )

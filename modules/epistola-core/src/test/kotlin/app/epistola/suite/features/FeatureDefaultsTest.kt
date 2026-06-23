@@ -32,6 +32,6 @@ class FeatureDefaultsTest {
         // derives their default from epistola.support.enabled. isEnabled treats them as unknown → false.
         val defaults = FeatureDefaults()
         assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_BACKUPS))
-        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_UPGRADING))
+        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_COMPATIBILITY_CHECK))
     }
 }

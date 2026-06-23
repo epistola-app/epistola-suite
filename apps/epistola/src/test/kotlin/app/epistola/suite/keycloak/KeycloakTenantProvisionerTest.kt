@@ -13,23 +13,25 @@ class KeycloakTenantProvisionerTest {
     fun `generates correct group paths for all roles`() {
         val tenantKey = TenantKey.of("acme-corp")
 
-        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.READER))
-            .isEqualTo("/epistola/tenants/acme-corp/reader")
-        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.EDITOR))
-            .isEqualTo("/epistola/tenants/acme-corp/editor")
-        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.GENERATOR))
-            .isEqualTo("/epistola/tenants/acme-corp/generator")
-        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.MANAGER))
-            .isEqualTo("/epistola/tenants/acme-corp/manager")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.CONTENT_VIEWER))
+            .isEqualTo("/epistola/tenants/acme-corp/content-viewer")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.CONTENT_AUTHOR))
+            .isEqualTo("/epistola/tenants/acme-corp/content-author")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.DOCUMENT_GENERATOR))
+            .isEqualTo("/epistola/tenants/acme-corp/document-generator")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.CONTENT_PUBLISHER))
+            .isEqualTo("/epistola/tenants/acme-corp/content-publisher")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.TENANT_ADMINISTRATOR))
+            .isEqualTo("/epistola/tenants/acme-corp/tenant-administrator")
     }
 
     @Test
-    fun `group paths use lowercase role names`() {
+    fun `group paths use kebab-case role names`() {
         val tenantKey = TenantKey.of("beta")
 
         TenantRole.entries.forEach { role ->
             val groupPath = KeycloakTenantProvisioner.groupPathFor(tenantKey, role)
-            assertThat(groupPath).isEqualTo("/epistola/tenants/beta/${role.name.lowercase()}")
+            assertThat(groupPath).isEqualTo("/epistola/tenants/beta/${role.name.lowercase().replace('_', '-')}")
         }
     }
 
