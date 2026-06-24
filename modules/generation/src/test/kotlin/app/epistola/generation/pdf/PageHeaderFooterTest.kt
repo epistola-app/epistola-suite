@@ -777,6 +777,56 @@ class PageHeaderFooterTest {
         )
     }
 
+    @Test
+    fun `address reservation respects the header height and shrinks to zero under a tall header`() {
+        // The address window bottom is at top+height = 45+45mm = 255pt. A header taller
+        // than that already pushes body content below the window, so the address block
+        // must reserve NO extra space: the body lands at the same Y with or without an
+        // address block. (Before this fix the reservation used the raw header height, so
+        // a tall auto-grown header still over-reserved ~the full window height.)
+        val withAddr = bodyMarkerY(buildTallHeaderDoc(withAddress = true), "BODYMARKER")
+        val withoutAddr = bodyMarkerY(buildTallHeaderDoc(withAddress = false), "BODYMARKER")
+        assertTrue(
+            abs(withAddr - withoutAddr) < 1.0f,
+            "Under a header taller than the address window, an address block must add no reservation; with=$withAddr without=$withoutAddr",
+        )
+    }
+
+    private fun buildTallHeaderDoc(withAddress: Boolean): TemplateDocument {
+        val rootSlot = "slot-root"
+        val headerSlot = "slot-header"
+        val addrSlot = "slot-addr"
+        val asideSlot = "slot-aside"
+        // Header content wraps to ~22 lines → effective band well over the 255pt window.
+        val tallHeaderText = "word ".repeat(220)
+        val nodes = mutableMapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf(rootSlot)),
+            "header" to Node(id = "header", type = "pageheader", slots = listOf(headerSlot)),
+            "header-text" to textNode("header-text", tallHeaderText),
+            "body-text" to textNode("body-text", "BODYMARKER content"),
+        )
+        val rootChildren = mutableListOf("header")
+        val slots = mutableMapOf(
+            rootSlot to Slot(rootSlot, "root", "children", rootChildren),
+            headerSlot to Slot(headerSlot, "header", "children", listOf("header-text")),
+        )
+        if (withAddress) {
+            nodes["addressblock"] = Node(
+                id = "addressblock",
+                type = "addressblock",
+                slots = listOf(addrSlot, asideSlot),
+                props = mapOf("top" to 45, "sideDistance" to 20, "addressWidth" to 85, "height" to 45),
+            )
+            nodes["addr-text"] = textNode("addr-text", "ADDR")
+            rootChildren.add("addressblock")
+            // Empty aside so the asideDiv carries only the (now zero) reservation.
+            slots[addrSlot] = Slot(addrSlot, "addressblock", "address", listOf("addr-text"))
+            slots[asideSlot] = Slot(asideSlot, "addressblock", "aside", emptyList())
+        }
+        rootChildren.add("body-text")
+        return TemplateDocument(root = "root", nodes = nodes, slots = slots)
+    }
+
     private fun extractFirstBaselineY(pdfBytes: ByteArray, text: String): Float = extractFirstBaselineYOnPage(pdfBytes, text, 1)
 
     private fun extractFirstBaselineYOnPage(pdfBytes: ByteArray, text: String, pageNumber: Int): Float {

@@ -519,7 +519,11 @@ class DirectPdfRenderer(
             iTextDocument.add(spacer)
         }
 
-        val elements = nodeRendererRegistry.renderNode(renderDocument.root, renderDocument, context)
+        // Resolved page-1 body content top (page margin + effective first-page band
+        // + spacer). A hoisted address block reserves its window space relative to
+        // THIS, so it accounts for the real (auto-grown) header height.
+        val bodyContext = context.copy(bodyContentTopPt = topMargin + firstPageSpacerHeight)
+        val elements = nodeRendererRegistry.renderNode(renderDocument.root, renderDocument, bodyContext)
         for (element in elements) {
             when (element) {
                 is com.itextpdf.layout.element.IBlockElement -> iTextDocument.add(element)

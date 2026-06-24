@@ -50,18 +50,23 @@ class AddressBlockNodeRenderer : NodeRenderer {
         val pageLeftMarginPt = effectivePageMarginPt(null, "marginLeft", context, MM_TO_PT)
         val pageRightMarginMm = effectivePageSettingsMarginMm("marginRight", context)
 
-        val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
-        val headerHeightPt = headerNode?.let {
-            parseNodeHeight(it, context) ?: context.renderingDefaults.pageHeaderHeight
-        } ?: 0f
-
-        // Mirror DirectPdfRenderer so the body-top Y matches the actual layout: when a
-        // header exists its own marginTop drives the page-edge offset (header sits at
-        // pageTop − headerMarginTop − headerHeight, body starts directly below).
-        val contentAreaTopPt = if (headerNode != null) {
-            effectivePageMarginPt(headerNode, "marginTop", context, MM_TO_PT) + headerHeightPt
-        } else {
-            effectivePageMarginPt(null, "marginTop", context, MM_TO_PT)
+        // Where page-1 body content begins. The renderer supplies the resolved
+        // first-page band (page margin + the EFFECTIVE, content-measured header
+        // height + any spacer) via [RenderContext.bodyContentTopPt]; prefer it so the
+        // reservation respects an auto-grown header (a tall header eats into — or
+        // fully covers — the window area, shrinking the reservation toward zero).
+        // Fall back to re-deriving from the raw header height when it isn't set
+        // (e.g. unit tests that call this renderer directly).
+        val contentAreaTopPt = context.bodyContentTopPt ?: run {
+            val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
+            val headerHeightPt = headerNode?.let {
+                parseNodeHeight(it, context) ?: context.renderingDefaults.pageHeaderHeight
+            } ?: 0f
+            if (headerNode != null) {
+                effectivePageMarginPt(headerNode, "marginTop", context, MM_TO_PT) + headerHeightPt
+            } else {
+                effectivePageMarginPt(null, "marginTop", context, MM_TO_PT)
+            }
         }
         val isRight = align == "right"
 
