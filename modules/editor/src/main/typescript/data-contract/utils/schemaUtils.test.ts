@@ -601,7 +601,7 @@ describe('FIELD_TYPE_LABELS', () => {
     expect(FIELD_TYPE_LABELS.integer).toBe('Integer');
     expect(FIELD_TYPE_LABELS.boolean).toBe('Yes/No');
     expect(FIELD_TYPE_LABELS.date).toBe('Date');
-    expect(FIELD_TYPE_LABELS.datetime).toBe('Date & time');
+    expect(FIELD_TYPE_LABELS.datetime).toBe('Date-time');
     expect(FIELD_TYPE_LABELS.richTextInline).toBe('Rich text (inline)');
     expect(FIELD_TYPE_LABELS.richTextBlock).toBe('Rich text (block)');
     expect(FIELD_TYPE_LABELS.array).toBe('List');

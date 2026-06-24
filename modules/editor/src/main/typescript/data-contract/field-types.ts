@@ -98,7 +98,7 @@ const SCALAR_DEFS: readonly FieldTypeDef[] = [
   },
   {
     id: 'datetime',
-    label: 'Date & time',
+    label: 'Date-time',
     kind: 'scalar',
     json: { type: 'string', format: 'date-time' },
     contractField: true,

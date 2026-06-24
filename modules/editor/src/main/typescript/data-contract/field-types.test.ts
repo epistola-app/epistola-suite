@@ -16,7 +16,7 @@ describe('field-types registry', () => {
     expect(FIELD_TYPE_LABELS.string).toBe('Text');
     expect(FIELD_TYPE_LABELS.boolean).toBe('Yes/No');
     expect(FIELD_TYPE_LABELS.date).toBe('Date');
-    expect(FIELD_TYPE_LABELS.datetime).toBe('Date & time');
+    expect(FIELD_TYPE_LABELS.datetime).toBe('Date-time');
     expect(FIELD_TYPE_LABELS.array).toBe('List');
     // fieldTypeLabel() agrees with the map.
     for (const def of FIELD_TYPE_DEFS) {
