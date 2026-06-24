@@ -6,6 +6,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mcp.dto.TemplateContentInfo
 import app.epistola.suite.mcp.dto.TemplateInfo
 import app.epistola.suite.mcp.dto.TemplateSummaryInfo
@@ -50,6 +51,7 @@ class TemplateMcpTools(
             tenantId = mcpTenantId(),
             catalogKey = catalogId?.let { CatalogKey.of(it) },
             searchTerm = search,
+            page = PageRequest.ALL,
         ),
     ).items.map { TemplateSummaryInfo.from(it) }
 

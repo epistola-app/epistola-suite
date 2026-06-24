@@ -95,6 +95,28 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `list_templates returns every template past the default page size`() {
+        val tenant = createTenant("MCP Many Templates")
+        val tenantId = TenantId(tenant.id)
+        withMediator {
+            repeat(51) { i ->
+                CreateDocumentTemplate(
+                    id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
+                    name = "Template ${"%02d".format(i)}",
+                ).execute()
+            }
+        }
+
+        val templates = runAsApiKey(tenantId) {
+            templateMcpTools.listTemplates(catalogId = "default", search = null)
+        }
+
+        // ListTemplateSummaries defaults to a 50-row window; the MCP tool must pass
+        // PageRequest.ALL so an assistant sees every template, not just the first page.
+        assertThat(templates).hasSize(51)
+    }
+
+    @Test
     fun `get_template returns metadata for an existing template`() {
         val tenant = createTenant("MCP Get Template Tenant")
         val tenantId = TenantId(tenant.id)
