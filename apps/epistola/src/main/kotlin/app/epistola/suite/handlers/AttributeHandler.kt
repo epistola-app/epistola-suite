@@ -28,6 +28,8 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -40,7 +42,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class AttributeHandler {
 
     private val sortableColumns = setOf("id", "name", "created")
-    private val pageSizeOptions = listOf(10, 25, 50)
+    private val pageSizeOptions = PAGE_SIZES
     private val defaultSort = SortSpec("name", SortDirection.ASC)
 
     // Display Name and Allowed Values flex (width = null); the rest are fixed. See ADR 0007.
@@ -62,16 +64,7 @@ class AttributeHandler {
         val tenantId = request.tenantId()
         GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val (pushUrl, model) = loadTableModel(request, tenantId)
-        return request.htmx {
-            fragment("attributes/list", "data-table-fragment", model)
-            pushUrl(pushUrl)
-            onNonHtmx {
-                page("attributes/list") {
-                    model(this)
-                    "pageTitle" to "Attributes - Epistola"
-                }
-            }
-        }
+        return request.dataTableResponse("attributes/list", "Attributes - Epistola", pushUrl, model)
     }
 
     /** Parse the list state, run the paged query + filter-bar data; shared by list and row actions. */

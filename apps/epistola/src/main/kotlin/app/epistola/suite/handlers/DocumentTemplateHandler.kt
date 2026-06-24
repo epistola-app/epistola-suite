@@ -24,6 +24,8 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -124,7 +126,7 @@ class DocumentTemplateHandler(
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
 
     private val sortableColumns = setOf("name", "variants", "updated", "published")
-    private val pageSizeOptions = listOf(10, 25, 50)
+    private val pageSizeOptions = PAGE_SIZES
     private val defaultSort = SortSpec("updated", SortDirection.DESC)
 
     // Name flexes (width = null) to take the leftover space; the rest are fixed so the
@@ -172,7 +174,6 @@ class DocumentTemplateHandler(
         val query = state.toQuery(paged.page)
 
         val model: ModelBuilder.() -> Unit = {
-            "pageTitle" to "Document Templates - Epistola"
             "tenantId" to tenantId.key
             "catalogs" to catalogs
             "selectedCatalog" to (state.filter("catalog") ?: "")
@@ -182,11 +183,7 @@ class DocumentTemplateHandler(
             "pageSizeOptions" to pageSizeOptions
         }
 
-        return request.htmx {
-            fragment("templates/list", "data-table-fragment", model)
-            pushUrl(query.canonicalUrl())
-            onNonHtmx { page("templates/list", model) }
-        }
+        return request.dataTableResponse("templates/list", "Document Templates - Epistola", query.canonicalUrl(), model)
     }
 
     fun newForm(request: ServerRequest): ServerResponse {

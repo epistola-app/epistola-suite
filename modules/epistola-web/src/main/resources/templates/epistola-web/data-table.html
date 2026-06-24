@@ -49,24 +49,7 @@
                 <col th:each="col : ${columns}" th:style="${col.width != null ? 'width: ' + col.width : null}">
             </colgroup>
             <thead>
-                <tr>
-                    <th th:each="col : ${columns}">
-                        <span th:if="${col.sortKey == null}" th:text="${col.label}"></span>
-                        <!-- Sortable: one chevron, always shown (muted) so the column reads as
-                             sortable; the active column is highlighted and rotates up for asc. -->
-                        <a th:if="${col.sortKey != null}"
-                           th:href="${query.sortUrl(col.sortKey)}"
-                           th:hx-get="${query.sortUrl(col.sortKey)}"
-                           hx-target="#data-table-container"
-                           hx-swap="innerHTML"
-                           th:data-sort-key="${col.sortKey}"
-                           class="ep-table-sort"
-                           th:classappend="${query.isSorted(col.sortKey) ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
-                            <span th:text="${col.label}"></span>
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
-                        </a>
-                    </th>
-                </tr>
+                <th:block th:replace="~{epistola-web/sortable-header :: sortable-header(columns=${columns}, query=${query})}"></th:block>
             </thead>
             <tbody>
                 <th:block th:replace="${rows}"></th:block>

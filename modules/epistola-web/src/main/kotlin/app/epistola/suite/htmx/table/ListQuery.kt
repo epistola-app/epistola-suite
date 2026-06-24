@@ -66,8 +66,9 @@ data class ListQuery(
     ): String {
         val builder = UriComponentsBuilder.fromPath(basePath)
         // Filters first, in their stable insertion order, then the sort/page dimensions —
-        // so the canonical URL is deterministic and bookmarkable.
-        filters.forEach { (name, value) -> if (value.isNotBlank()) builder.queryParam(name, value) }
+        // so the canonical URL is deterministic and bookmarkable. (ListViewState.from already
+        // dropped blank filter values, so every value here is non-blank.)
+        filters.forEach { (name, value) -> builder.queryParam(name, value) }
         builder.queryParam("sort", sort)
         builder.queryParam("dir", if (dir == SortDirection.ASC) "asc" else "desc")
         builder.queryParam("size", size)

@@ -23,16 +23,7 @@
          Rendered directly by the handler on an htmx request, and via list-page on full load. -->
     <th:block th:fragment="data-table-fragment">
         <!-- Page-specific filter bar: a plain form field, submitted by the enclosing form. -->
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select name="catalog" class="ep-select" data-testid="catalog-filter"
-                    aria-label="Filter by catalog" style="max-width: 300px;">
-                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
-                <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
-                        th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
-            </select>
-        </div>
+        <div th:replace="~{epistola-web/catalog-filter :: catalog-filter(catalogs=${catalogs}, selectedCatalog=${selectedCatalog})}"></div>
 
         <div th:replace="~{epistola-web/data-table :: data-table(
             columns=${columns},

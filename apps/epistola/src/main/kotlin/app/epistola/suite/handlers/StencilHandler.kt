@@ -25,6 +25,8 @@ import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.stencilId
 import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -59,7 +61,7 @@ class StencilHandler(
     private fun ServerRequest.isHtmx(): Boolean = headers().firstHeader("HX-Request") != null
 
     private val sortableColumns = setOf("name", "updated")
-    private val pageSizeOptions = listOf(10, 25, 50)
+    private val pageSizeOptions = PAGE_SIZES
     private val defaultSort = SortSpec("updated", SortDirection.DESC)
 
     // Name and Description flex (width = null); the rest are fixed. Actions holds view +
@@ -83,16 +85,7 @@ class StencilHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val (pushUrl, model) = loadTableModel(request, tenantId)
-        return request.htmx {
-            fragment("stencils/list", "data-table-fragment", model)
-            pushUrl(pushUrl)
-            onNonHtmx {
-                page("stencils/list") {
-                    model(this)
-                    "pageTitle" to "Stencils - Epistola"
-                }
-            }
-        }
+        return request.dataTableResponse("stencils/list", "Stencils - Epistola", pushUrl, model)
     }
 
     /** Parse the list state, run the paged query + filter-bar data; shared by list and delete. */

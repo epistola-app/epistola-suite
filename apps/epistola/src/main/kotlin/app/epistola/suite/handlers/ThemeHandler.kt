@@ -17,6 +17,8 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.themeId
 import app.epistola.suite.mediator.execute
@@ -57,7 +59,7 @@ class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
     private val sortableColumns = setOf("name", "updated")
-    private val pageSizeOptions = listOf(10, 25, 50)
+    private val pageSizeOptions = PAGE_SIZES
     private val defaultSort = SortSpec("updated", SortDirection.DESC)
 
     // Name and Description flex (width = null); the rest are fixed. Actions holds up to three
@@ -78,16 +80,7 @@ class ThemeHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val (pushUrl, model) = loadTableModel(request, tenantId)
-        return request.htmx {
-            fragment("themes/list", "data-table-fragment", model)
-            pushUrl(pushUrl)
-            onNonHtmx {
-                page("themes/list") {
-                    model(this)
-                    "pageTitle" to "Themes - Epistola"
-                }
-            }
-        }
+        return request.dataTableResponse("themes/list", "Themes - Epistola", pushUrl, model)
     }
 
     /**

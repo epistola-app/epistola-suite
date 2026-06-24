@@ -34,6 +34,8 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -51,7 +53,7 @@ class CodeListHandler(
 ) {
 
     private val sortableColumns = setOf("slug", "name", "created")
-    private val pageSizeOptions = listOf(10, 25, 50)
+    private val pageSizeOptions = PAGE_SIZES
     private val defaultSort = SortSpec("name", SortDirection.ASC)
 
     // Display Name flexes (width = null); the rest are fixed. See ADR 0007.
@@ -73,16 +75,7 @@ class CodeListHandler(
         val tenantId = request.tenantId()
         GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val (pushUrl, model) = loadTableModel(request, tenantId)
-        return request.htmx {
-            fragment("code-lists/list", "data-table-fragment", model)
-            pushUrl(pushUrl)
-            onNonHtmx {
-                page("code-lists/list") {
-                    model(this)
-                    "pageTitle" to "Code lists - Epistola"
-                }
-            }
-        }
+        return request.dataTableResponse("code-lists/list", "Code lists - Epistola", pushUrl, model)
     }
 
     /** Parse the list state, run the paged query + filter-bar data; shared by list and delete. */

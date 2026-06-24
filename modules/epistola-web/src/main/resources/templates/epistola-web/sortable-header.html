@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+    Shared sortable table-header row for list tables. Renders one <th> per Column: a plain
+    label when the column has no sortKey, else an `<a hx-get>` sort link with the active-
+    direction chevron, targeting #data-table-container. Used by epistola-web/data-table.html
+    (paginated lists) and the unpaginated catalogs table, so the `ep-table-sort` / `is-sorted`
+    CSS contract and the `data-sort-key` test hook live in ONE place.
+
+    [query] is any object exposing sortUrl(key) / isSorted(key) / ascending() — both the
+    data-table's ListQuery and the catalogs' CatalogListSort satisfy it. See ADR 0007.
+
+    Parameters:
+    - columns: List<Column> (label + optional sortKey)
+    - query:   the sort-link authority (ListQuery or CatalogListSort)
+-->
+<body>
+<tr th:fragment="sortable-header(columns, query)">
+    <th th:each="col : ${columns}">
+        <span th:if="${col.sortKey == null}" th:text="${col.label}"></span>
+        <!-- Sortable: one chevron, always shown (muted) so the column reads as sortable;
+             the active column is highlighted and rotates up for asc. -->
+        <a th:if="${col.sortKey != null}"
+           th:href="${query.sortUrl(col.sortKey)}"
+           th:hx-get="${query.sortUrl(col.sortKey)}"
+           hx-target="#data-table-container"
+           hx-swap="innerHTML"
+           th:data-sort-key="${col.sortKey}"
+           class="ep-table-sort"
+           th:classappend="${query.isSorted(col.sortKey) ? (query.ascending() ? 'is-sorted is-asc' : 'is-sorted is-desc') : ''}">
+            <span th:text="${col.label}"></span>
+            <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+        </a>
+    </th>
+</tr>
+</body>
+</html>

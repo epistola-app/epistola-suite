@@ -17,6 +17,8 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.table.ListQuery
 import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -29,7 +31,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class EnvironmentHandler {
     private val sortableColumns = setOf("name", "id", "created")
-    private val pageSizeOptions = listOf(10, 25, 50)
+    private val pageSizeOptions = PAGE_SIZES
     private val defaultSort = SortSpec("name", SortDirection.ASC)
 
     // Name flexes (width = null); the rest are fixed so the layout stays predictable.
@@ -51,7 +53,6 @@ class EnvironmentHandler {
         val table = loadTable(request, tenantId)
 
         val model: ModelBuilder.() -> Unit = {
-            "pageTitle" to "Environments - Epistola"
             "tenant" to tenant
             "tenantId" to tenantId.key
             "columns" to columns
@@ -60,11 +61,7 @@ class EnvironmentHandler {
             "pageSizeOptions" to pageSizeOptions
         }
 
-        return request.htmx {
-            fragment("environments/list", "data-table-fragment", model)
-            pushUrl(table.query.canonicalUrl())
-            onNonHtmx { page("environments/list", model) }
-        }
+        return request.dataTableResponse("environments/list", "Environments - Epistola", table.query.canonicalUrl(), model)
     }
 
     private data class EnvTable(val query: ListQuery, val paged: PagedResult<Environment>)

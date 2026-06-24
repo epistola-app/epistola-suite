@@ -13,6 +13,8 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -29,7 +31,7 @@ import java.time.format.DateTimeParseException
 class ApiKeyHandler {
 
     private val sortableColumns = setOf("name", "created", "lastUsed", "expires")
-    private val pageSizeOptions = listOf(10, 25, 50)
+    private val pageSizeOptions = PAGE_SIZES
     private val defaultSort = SortSpec("created", SortDirection.DESC)
 
     // Name flexes (width = null); the rest are fixed. See ADR 0007.
@@ -52,16 +54,7 @@ class ApiKeyHandler {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val (pushUrl, model) = loadTableModel(request, tenantId)
-        return request.htmx {
-            fragment("api-keys/list", "data-table-fragment", model)
-            pushUrl(pushUrl)
-            onNonHtmx {
-                page("api-keys/list") {
-                    model(this)
-                    "pageTitle" to "API Keys - Epistola"
-                }
-            }
-        }
+        return request.dataTableResponse("api-keys/list", "API Keys - Epistola", pushUrl, model)
     }
 
     /** Parse the list state and run the paged query — shared by list and the post-delete refresh. */
