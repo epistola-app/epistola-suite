@@ -28,10 +28,35 @@ data class TemplateSummary(
     val publishedVersionCount: Int,
 )
 
+/**
+ * Sortable columns for the templates list. The [column] strings are a fixed
+ * whitelist baked into the SQL — never interpolate raw user input into ORDER BY.
+ *
+ * @property param The stable query-parameter value used in UI links.
+ * @property defaultDescending The natural direction when the column is first selected.
+ */
+enum class TemplateSort(
+    val param: String,
+    val column: String,
+    val defaultDescending: Boolean,
+) {
+    NAME("name", "dt.name", false),
+    CATALOG("catalog", "dt.catalog_key", false),
+    VARIANTS("variants", "variant_count", true),
+    UPDATED("updated", "dt.updated_at", true),
+    ;
+
+    companion object {
+        fun fromParam(param: String?): TemplateSort = entries.find { it.param == param } ?: UPDATED
+    }
+}
+
 data class ListTemplateSummaries(
     val tenantId: TenantId,
     val searchTerm: String? = null,
     val catalogKey: CatalogKey? = null,
+    val sort: TemplateSort = TemplateSort.UPDATED,
+    val descending: Boolean = true,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<TemplateSummary>>,
@@ -74,7 +99,9 @@ class ListTemplateSummariesHandler(
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
-            append(" ORDER BY dt.updated_at DESC")
+            // ORDER BY column comes from the TemplateSort whitelist, never raw input.
+            val direction = if (query.descending) "DESC" else "ASC"
+            append(" ORDER BY ${query.sort.column} $direction, dt.catalog_key ASC, dt.id ASC")
             append(" LIMIT :limit OFFSET :offset")
         }
 
@@ -92,5 +119,47 @@ class ListTemplateSummariesHandler(
             .bind("offset", query.offset)
             .mapTo<TemplateSummary>()
             .list()
+    }
+}
+
+/**
+ * Total number of templates matching the same filters as [ListTemplateSummaries]
+ * (catalog + search), ignoring paging. Used to render pagination controls.
+ */
+data class CountTemplateSummaries(
+    val tenantId: TenantId,
+    val searchTerm: String? = null,
+    val catalogKey: CatalogKey? = null,
+) : Query<Int>,
+    RequiresPermission {
+    override val permission: Permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = tenantId.key
+}
+
+@Component
+class CountTemplateSummariesHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<CountTemplateSummaries, Int> {
+    override fun handle(query: CountTemplateSummaries): Int = jdbi.withHandle<Int, Exception> { handle ->
+        val sql = buildString {
+            append("SELECT COUNT(*) FROM document_templates dt WHERE dt.tenant_key = :tenantId")
+            if (query.catalogKey != null) {
+                append(" AND dt.catalog_key = :catalogKey")
+            }
+            if (!query.searchTerm.isNullOrBlank()) {
+                append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
+            }
+        }
+
+        val jdbiQuery = handle.createQuery(sql)
+            .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
+        if (!query.searchTerm.isNullOrBlank()) {
+            val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            jdbiQuery.bind("searchTerm", "%$escaped%")
+        }
+        jdbiQuery.mapTo<Int>().one()
     }
 }

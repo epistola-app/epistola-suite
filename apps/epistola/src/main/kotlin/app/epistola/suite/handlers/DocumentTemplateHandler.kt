@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
@@ -18,6 +19,7 @@ import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -32,9 +34,11 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
+import app.epistola.suite.templates.queries.CountTemplateSummaries
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
+import app.epistola.suite.templates.queries.TemplateSort
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -116,32 +120,85 @@ class DocumentTemplateHandler(
     private val localeResolver: TenantLocaleResolver,
 ) {
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
+
+    private companion object {
+        const val PAGE_SIZE = 10
+    }
+
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
         val catalogs = ListCatalogs(tenantId.key).query()
-        val templates = ListTemplateSummaries(tenantId = tenantId, catalogKey = catalogFilter).query()
+        val model = templateListModel(request, tenantId)
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
-            "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "templates" to templates
+            model.forEach { (key, value) -> key to value }
         }
     }
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val searchTerm = request.queryParam("q")
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
+        val model = templateListModel(request, tenantId)
         return request.htmx {
-            fragment("templates/list", "rows") {
-                "tenantId" to tenantId.key
-                "templates" to templates
+            fragment("templates/list", "table") {
+                model.forEach { (key, value) -> key to value }
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
         }
+    }
+
+    /**
+     * Builds the shared model for the templates list table: the current page of
+     * rows plus the sort and pagination state both `list` (full page) and
+     * `search` (HTMX fragment swap) need to render identical controls.
+     */
+    private fun templateListModel(
+        request: ServerRequest,
+        tenantId: TenantId,
+    ): Map<String, Any?> {
+        val searchTerm = request.queryParam("q")?.ifBlank { null }
+        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
+
+        val sort = TemplateSort.fromParam(request.queryParam("sort"))
+        val descending = when (request.queryParam("dir")) {
+            "asc" -> false
+            "desc" -> true
+            else -> sort.defaultDescending
+        }
+
+        val total = CountTemplateSummaries(
+            tenantId = tenantId,
+            searchTerm = searchTerm,
+            catalogKey = catalogFilter,
+        ).query()
+        val totalPages = if (total == 0) 1 else ((total + PAGE_SIZE - 1) / PAGE_SIZE)
+        val page = request.queryParamInt("page", 1).coerceIn(1, totalPages)
+
+        val templates = ListTemplateSummaries(
+            tenantId = tenantId,
+            searchTerm = searchTerm,
+            catalogKey = catalogFilter,
+            sort = sort,
+            descending = descending,
+            limit = PAGE_SIZE,
+            offset = (page - 1) * PAGE_SIZE,
+        ).query()
+
+        return mapOf(
+            "tenantId" to tenantId.key,
+            "templates" to templates,
+            "selectedCatalog" to (catalogFilter?.value ?: ""),
+            "searchTerm" to (searchTerm ?: ""),
+            "sort" to sort.param,
+            "sortDir" to if (descending) "desc" else "asc",
+            "total" to total,
+            "page" to page,
+            "totalPages" to totalPages,
+            "hasPrev" to (page > 1),
+            "hasNext" to (page < totalPages),
+            "prevPage" to (page - 1),
+            "nextPage" to (page + 1),
+        )
     }
 
     fun newForm(request: ServerRequest): ServerResponse {

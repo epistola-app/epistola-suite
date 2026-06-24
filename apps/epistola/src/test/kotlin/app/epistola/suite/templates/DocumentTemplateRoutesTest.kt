@@ -172,6 +172,127 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
     }
 
+    private fun rowCount(body: String): Int = body.split("data-testid=\"template-row\"").size - 1
+
+    @Test
+    fun `GET templates paginates at 10 rows per page`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(rowCount(response.body!!)).isEqualTo(10)
+            assertThat(response.body).contains("Page 1 of 3")
+            assertThat(response.body).contains("data-testid=\"template-pagination\"")
+            assertThat(response.body).contains("data-testid=\"pagination-next\"")
+            // First page has no Previous link, only the disabled placeholder.
+            assertThat(response.body).doesNotContain("data-testid=\"pagination-prev\"")
+            assertThat(response.body).contains("data-testid=\"sort-name\"")
+        }
+    }
+
+    @Test
+    fun `GET templates last page returns the remaining rows`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=3", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(rowCount(response.body!!)).isEqualTo(5)
+            assertThat(response.body).contains("Page 3 of 3")
+        }
+    }
+
+    @Test
+    fun `GET templates search sorts by name ascending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Banana")
+            template(testTenant, "Apple")
+            template(testTenant, "Cherry")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            val request = HttpEntity<Void>(headers)
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/templates/search?sort=name&dir=asc",
+                HttpMethod.GET,
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("Apple")).isLessThan(body.indexOf("Banana"))
+            assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Cherry"))
+            // All 4 sortable columns always carry exactly one chevron (no layout
+            // shift); the active column (name, asc) is the only up-chevron.
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body.split("icon-chevron-up").size - 1).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `GET templates search sorts by name descending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Banana")
+            template(testTenant, "Apple")
+            template(testTenant, "Cherry")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            val request = HttpEntity<Void>(headers)
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/templates/search?sort=name&dir=desc",
+                HttpMethod.GET,
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("Cherry")).isLessThan(body.indexOf("Banana"))
+            assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Apple"))
+            // All 4 sortable columns always carry exactly one chevron (no layout
+            // shift); sorting descending means none point up.
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body).doesNotContain("icon-chevron-up")
+        }
+    }
+
     @Test
     fun `POST templates creates new template`() = fixture {
         lateinit var testTenant: Tenant
