@@ -24,6 +24,7 @@ export const EDITOR_SHORTCUT_COMMAND_IDS = {
   openInsertDialog: 'insertDialog.open',
   openShortcutsHelp: 'editor.shortcuts.open-help',
   openDataPreview: 'editor.data-example.open-viewer',
+  openTemplateJson: 'editor.template-json.open-viewer',
   focusBlocksPanel: 'editor.panel.blocks.focus',
   focusStructurePanel: 'editor.panel.structure.focus',
   focusInspectorPanel: 'editor.panel.inspector.focus',
@@ -53,6 +54,7 @@ export interface EditorShortcutRuntimeContext {
   openInsertDialog: () => boolean;
   openShortcutsHelp: () => boolean;
   openDataPreview: () => boolean;
+  openTemplateJson: () => boolean;
   focusBlocksPanel: () => boolean;
   focusStructurePanel: () => boolean;
   focusInspectorPanel: () => boolean;
@@ -203,6 +205,17 @@ const EDITOR_SHORTCUT_COMMANDS: readonly CommandDefinition<EditorShortcutRuntime
       'Cannot open data example viewer',
     ),
     metadata: { idleToken: 'E' },
+  },
+  {
+    id: C.openTemplateJson,
+    label: 'Open template JSON',
+    category: 'Leader',
+    run: leaderRun(
+      (ctx) => ctx.openTemplateJson(),
+      'Opened template JSON viewer',
+      'Cannot open template JSON viewer',
+    ),
+    metadata: { idleToken: 'J' },
   },
   {
     id: C.focusBlocksPanel,
@@ -358,6 +371,13 @@ const EDITOR_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition<EditorShortcutR
     keys: leaderKeys('e'),
     preventDefault: true,
     display: 'Leader + E',
+  },
+  {
+    commandId: C.openTemplateJson,
+    context: 'global',
+    keys: leaderKeys('j'),
+    preventDefault: true,
+    display: 'Leader + J',
   },
   {
     commandId: C.focusBlocksPanel,

@@ -13,10 +13,10 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
   it('renders shortcut trigger accessibility attributes', () => {
     const toolbar = new EpistolaToolbar();
     const toolbarAny = toolbar as unknown as {
-      _renderExampleSelector: (examples: object[]) => unknown;
+      _renderShortcuts: () => unknown;
     };
 
-    const template = toolbarAny._renderExampleSelector([{}]);
+    const template = toolbarAny._renderShortcuts();
     const markup = templateToMarkup(template);
 
     expect(markup).toContain('aria-label="Keyboard shortcuts"');
@@ -24,43 +24,35 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
     expect(markup).toContain('aria-controls=');
   });
 
+  it('renders the keyboard-shortcuts trigger independently of data examples', () => {
+    // The shortcuts trigger is the discovery surface for editor shortcuts
+    // (incl. Leader + J), so it must render even when the template has no
+    // data examples and _renderExampleSelector is skipped entirely.
+    const toolbar = new EpistolaToolbar();
+    const toolbarAny = toolbar as unknown as { _renderShortcuts: () => unknown };
+
+    const markup = templateToMarkup(toolbarAny._renderShortcuts());
+
+    expect(markup).toContain('data-testid="shortcuts-trigger"');
+  });
+
   it('defines popover dialog and filter input labels in render template', () => {
     const toolbar = new EpistolaToolbar();
     const renderSource = String(
-      (toolbar as unknown as { _renderExampleSelector: (examples: object[]) => unknown })
-        ._renderExampleSelector,
+      (toolbar as unknown as { _renderShortcuts: () => unknown })._renderShortcuts,
     );
 
     expect(renderSource).toContain('role="dialog"');
     expect(renderSource).toContain('aria-label="Filter keyboard shortcuts"');
   });
 
-  it('defines data preview copy, drag hint, and textarea in render template', () => {
+  it('renders the JSON inspector element in the toolbar regardless of data examples', () => {
+    // The inspector (data + template views) is a dedicated component the toolbar
+    // hosts; it must be present even with no examples so the template view is
+    // reachable (Leader + J).
     const toolbar = new EpistolaToolbar();
-    const renderSource = String(
-      (toolbar as unknown as { _renderExampleSelector: (examples: object[]) => unknown })
-        ._renderExampleSelector,
-    );
-
-    expect(renderSource).toContain('data-example-copy');
-    expect(renderSource).toContain('data-example-drag-handle');
-    expect(renderSource).toContain('Drag to move');
-    expect(renderSource).toContain('Pin to keep this viewer open and movable');
-    expect(renderSource).toContain('Current data example JSON');
-  });
-
-  it('renders current-data trigger accessibility attributes', () => {
-    const toolbar = new EpistolaToolbar();
-    const toolbarAny = toolbar as unknown as {
-      _renderExampleSelector: (examples: object[]) => unknown;
-    };
-
-    const template = toolbarAny._renderExampleSelector([{}]);
-    const markup = templateToMarkup(template);
-
-    expect(markup).toContain('aria-label="Current data example"');
-    expect(markup).toContain('data-testid="data-example-trigger"');
-    expect(markup).toContain('aria-haspopup="dialog"');
+    const markup = templateToMarkup(toolbar.render());
+    expect(markup).toContain('<epistola-json-inspector');
   });
 
   it('closes shortcut popover on Escape and prevents default', () => {
@@ -83,64 +75,19 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
     expect(toolbarAny._shortcutsOpen).toBe(false);
   });
 
-  it('closes current-data popover on Escape and prevents default', () => {
+  it('delegates inspector open requests to the json-inspector child', () => {
     const toolbar = new EpistolaToolbar();
-    const toolbarAny = toolbar as unknown as {
-      _dataPreviewOpen: boolean;
-      _dataPreviewPinned: boolean;
-      _onWindowKeydown: (e: KeyboardEvent) => void;
+    const calls: string[] = [];
+    const fakeInspector = {
+      openData: () => calls.push('data'),
+      openTemplate: () => calls.push('template'),
     };
-    toolbarAny._dataPreviewOpen = true;
-    toolbarAny._dataPreviewPinned = false;
+    // Stub the child lookup the toolbar uses to reach its inspector.
+    (toolbar as unknown as { _inspector: () => unknown })._inspector = () => fakeInspector;
 
-    let prevented = false;
-    toolbarAny._onWindowKeydown({
-      key: 'Escape',
-      preventDefault: () => {
-        prevented = true;
-      },
-    } as KeyboardEvent);
+    toolbar.openDataPreview();
+    toolbar.openTemplateJson();
 
-    expect(prevented).toBe(true);
-    expect(toolbarAny._dataPreviewOpen).toBe(false);
-  });
-
-  it('keeps pinned current-data popover open on Escape', () => {
-    const toolbar = new EpistolaToolbar();
-    const toolbarAny = toolbar as unknown as {
-      _dataPreviewOpen: boolean;
-      _dataPreviewPinned: boolean;
-      _onWindowKeydown: (e: KeyboardEvent) => void;
-    };
-    toolbarAny._dataPreviewOpen = true;
-    toolbarAny._dataPreviewPinned = true;
-
-    let prevented = false;
-    toolbarAny._onWindowKeydown({
-      key: 'Escape',
-      preventDefault: () => {
-        prevented = true;
-      },
-    } as KeyboardEvent);
-
-    expect(prevented).toBe(false);
-    expect(toolbarAny._dataPreviewOpen).toBe(true);
-  });
-
-  it('builds current example preview content from the active payload', () => {
-    const toolbar = new EpistolaToolbar();
-    toolbar.engine = {
-      dataExamples: [{ id: 'ex-1', name: 'Customer Sample', data: { customer: { name: 'Ada' } } }],
-      getExampleData: () => ({ customer: { name: 'Ada' } }),
-    } as unknown as EpistolaToolbar['engine'];
-
-    const toolbarAny = toolbar as unknown as {
-      _resolveCurrentExamplePreview: () => { header: string; json: string | null };
-    };
-    const preview = toolbarAny._resolveCurrentExamplePreview();
-
-    expect(preview.header).toBe('Customer Sample (1/1)');
-    expect(preview.json).toContain('"customer"');
-    expect(preview.json).toContain('"Ada"');
+    expect(calls).toEqual(['data', 'template']);
   });
 });

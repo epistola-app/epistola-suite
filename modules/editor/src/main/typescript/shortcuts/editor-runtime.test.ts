@@ -31,6 +31,30 @@ describe('editor shortcut runtime registry', () => {
     ).toBe(true);
   });
 
+  it('registers the template JSON viewer as a global leader chord (Leader + J)', () => {
+    const registry = getEditorShortcutRegistry();
+
+    const command = registry.commands.find(
+      (c) => c.id === EDITOR_SHORTCUT_COMMAND_IDS.openTemplateJson,
+    );
+    expect(command).toBeDefined();
+    expect(command?.category).toBe('Leader');
+
+    const binding = registry.keybindings.find(
+      (b) => b.commandId === EDITOR_SHORTCUT_COMMAND_IDS.openTemplateJson,
+    );
+    expect(binding).toBeDefined();
+    expect(binding?.context).toBe('global');
+    expect(binding?.keys).toContain('mod+code:period j');
+
+    expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.openTemplateJson)).toBe(
+      'Leader + J',
+    );
+    expect(
+      getLeaderIdleTokensForCommandIds([EDITOR_SHORTCUT_COMMAND_IDS.openTemplateJson]),
+    ).toEqual(['J']);
+  });
+
   it('uses editor context for core shortcuts and global context for leader chords', () => {
     const registry = getEditorShortcutRegistry();
 
@@ -46,14 +70,14 @@ describe('editor shortcut runtime registry', () => {
     );
     expect(previewBinding).toBeDefined();
     expect(previewBinding?.context).toBe('global');
-    expect(previewBinding?.keys).toContain('mod+code:space p');
+    expect(previewBinding?.keys).toContain('mod+code:period p');
 
     const cleanModeBinding = registry.keybindings.find(
       (binding) => binding.commandId === EDITOR_SHORTCUT_COMMAND_IDS.toggleCleanMode,
     );
     expect(cleanModeBinding).toBeDefined();
     expect(cleanModeBinding?.context).toBe('global');
-    expect(cleanModeBinding?.keys).toContain('mod+code:space c');
+    expect(cleanModeBinding?.keys).toContain('mod+code:period c');
   });
 
   it('preserves leader alias keys for opening shortcuts help', () => {
@@ -63,8 +87,8 @@ describe('editor shortcut runtime registry', () => {
     );
 
     expect(helpBinding).toBeDefined();
-    expect(helpBinding?.keys).toContain('mod+code:space /');
-    expect(helpBinding?.keys).toContain('mod+code:space shift+?');
+    expect(helpBinding?.keys).toContain('mod+code:period /');
+    expect(helpBinding?.keys).toContain('mod+code:period shift+?');
   });
 
   it('returns leader idle tokens from command ids', () => {
