@@ -179,7 +179,10 @@ class DocumentTemplateHandler(
         // they can't disagree. An out-of-range page returns empty with no window
         // value, so when that happens we recover the real total from page 1 and
         // clamp the request down to the last page (preserving the old behavior).
-        val requestedPage = request.queryParamInt("page", 1).coerceAtLeast(1)
+        // Cap the page so (page - 1) * PAGE_SIZE can't overflow Int into a
+        // negative SQL OFFSET (Postgres rejects it). A too-high page still
+        // returns empty here and is clamped to the last page below.
+        val requestedPage = request.queryParamInt("page", 1).coerceIn(1, Int.MAX_VALUE / PAGE_SIZE)
         var result = fetchPage(requestedPage)
         var page = requestedPage
         if (result.items.isEmpty() && requestedPage > 1) {

@@ -253,6 +253,29 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET templates with an overflowing page does not 500`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            // (page - 1) * PAGE_SIZE would overflow Int to a negative OFFSET if
+            // the page were not capped; must clamp to the last page, not 500.
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=2147483647", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(rowCount(response.body!!)).isEqualTo(5)
+            assertThat(response.body).contains("Page 3 of 3")
+        }
+    }
+
+    @Test
     fun `GET templates clamps an out-of-range page to the last page`() = fixture {
         lateinit var testTenant: Tenant
 
