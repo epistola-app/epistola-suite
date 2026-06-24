@@ -344,7 +344,7 @@ class DocumentTemplateHandler(
         ).execute() ?: return ServerResponse.notFound().build()
 
         // Load available themes for the fragment
-        val themes = ListThemes(tenantId = tenantId).query()
+        val themes = ListThemes(tenantId = tenantId).query().items
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return request.htmx {

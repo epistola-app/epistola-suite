@@ -54,7 +54,7 @@ class TenantHandler(
 
         // Get counts for each section
         val templateCount = ListDocumentTemplates(tenantId).query().size
-        val themeCount = ListThemes(tenantId).query().size
+        val themeCount = ListThemes(tenantId).query().total.toInt()
         val loadTestCount = ListLoadTestRuns(tenantId.key, limit = 100).query().size
         val environmentCount = ListEnvironments(tenantId).query().size
 

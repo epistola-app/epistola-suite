@@ -4,14 +4,21 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.paging.SortDirection
+import app.epistola.suite.common.paging.SortSpec
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
-import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.table.Column
+import app.epistola.suite.htmx.table.ListViewState
+import app.epistola.suite.htmx.table.PAGE_SIZES
+import app.epistola.suite.htmx.table.dataTableResponse
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.themeId
 import app.epistola.suite.mediator.execute
@@ -51,36 +58,68 @@ data class UpdateThemeRequest(
 class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
+    private val sortableColumns = setOf("name", "updated")
+    private val pageSizeOptions = PAGE_SIZES
+    private val defaultSort = SortSpec("updated", SortDirection.DESC)
+
+    // Name and Description flex (width = null); the rest are fixed. Actions holds up to three
+    // icons (set/clear default, edit, delete). See ADR 0007.
+    private val columns = listOf(
+        Column("Name", "name"),
+        Column("Catalog", width = "9rem"),
+        Column("Description"),
+        Column("Last Modified", "updated", width = "10rem"),
+        Column("", width = "8rem"),
+    )
+
+    /**
+     * Unified list endpoint: full page on a normal request, the data-table fragment on
+     * an HTMX request. Search/sort/filter/paging state is read from (and pushed back to)
+     * the query string, so the view is bookmarkable and survives a refresh.
+     */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val (pushUrl, model) = loadTableModel(request, tenantId)
+        return request.dataTableResponse("themes/list", "Themes - Epistola", pushUrl, model)
+    }
+
+    /**
+     * Parse the list state, run the paged query plus the filter-bar data (catalogs) and the
+     * tenant (for the default-theme badge), and return the canonical URL + the data-table
+     * model — shared by the list view and the row actions that re-render the table.
+     */
+    private fun loadTableModel(request: ServerRequest, tenantId: TenantId): Pair<String, ModelBuilder.() -> Unit> {
+        val basePath = "/tenants/${tenantId.key}/themes"
+        val state = ListViewState.from(
+            request = request,
+            basePath = basePath,
+            sortable = sortableColumns,
+            defaultSort = defaultSort,
+            pageSizes = pageSizeOptions,
+            filterNames = listOf("q", "catalog"),
+        )
         val tenant = GetTenant(id = tenantId.key).query()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().page("themes/list") {
-            "pageTitle" to "Themes - Epistola"
+        val paged = ListThemes(
+            tenantId = tenantId,
+            searchTerm = state.filter("q"),
+            catalogKey = state.filter("catalog")?.let { CatalogKey.of(it) },
+            sort = state.sort,
+            page = state.pageRequest,
+        ).query()
+        val query = state.toQuery(paged.page)
+
+        val model: ModelBuilder.() -> Unit = {
             "tenantId" to tenantId.key
             "tenant" to tenant
             "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "themes" to themes
+            "selectedCatalog" to (state.filter("catalog") ?: "")
+            "columns" to columns
+            "query" to query
+            "paged" to paged
+            "pageSizeOptions" to pageSizeOptions
         }
-    }
-
-    fun search(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val searchTerm = request.queryParam("q")
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
-        return request.htmx {
-            fragment("themes/list", "rows") {
-                "tenantId" to tenantId.key
-                "tenant" to tenant
-                "themes" to themes
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
-        }
+        return query.canonicalUrl() to model
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -249,15 +288,11 @@ class ThemeHandler(
                 .body(mapOf("error" to e.message))
         }
 
-        // Return updated rows for HTMX
-        val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId).query()
+        // Re-render the whole table (rows + footer) after delete. The POST carries no list
+        // state, so this resets to the default view — acceptable for a row removal.
+        val (_, model) = loadTableModel(request, tenantId)
         return request.htmx {
-            fragment("themes/list", "rows") {
-                "tenantId" to tenantId.key
-                "tenant" to tenant
-                "themes" to themes
-            }
+            fragment("themes/list", "data-table-fragment", model)
             onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
         }
     }
@@ -285,15 +320,11 @@ class ThemeHandler(
             return ServerResponse.notFound().build()
         }
 
-        // Return updated rows for HTMX
-        val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId).query()
+        // Re-render the whole table so the moved Default badge shows. The POST carries no
+        // list state, so this resets to the default view — acceptable for a row action.
+        val (_, model) = loadTableModel(request, tenantId)
         return request.htmx {
-            fragment("themes/list", "rows") {
-                "tenantId" to tenantId.key
-                "tenant" to tenant
-                "themes" to themes
-            }
+            fragment("themes/list", "data-table-fragment", model)
             onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
         }
     }

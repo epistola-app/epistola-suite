@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.themes.ThemeNotFoundException
@@ -45,7 +46,8 @@ class EpistolaThemeApi(
             tenantId = tenantIdComposite,
             searchTerm = q,
             catalogKey = CatalogKey.of(catalogId),
-        ).query()
+            page = PageRequest.ALL,
+        ).query().items
 
         return ResponseEntity.ok(
             ThemeListResponse(
