@@ -109,6 +109,31 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET templates with empty catalog filter shows catalog-specific empty state not onboarding`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            // Tenant has a template (in the default catalog), so it is not a
+            // first-run tenant; filtering to an empty catalog must not claim it is.
+            template(testTenant, "Invoice Template")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body).contains("No templates in this catalog")
+            assertThat(body).doesNotContain("No templates yet")
+            assertThat(body).doesNotContain("Create your first document template")
+        }
+    }
+
+    @Test
     fun `GET templates search filters by name`() = fixture {
         lateinit var testTenant: Tenant
 

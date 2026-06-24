@@ -33,6 +33,7 @@
         <div id="template-table">
             <th:block th:fragment="table">
                 <div th:if="${total == 0}" class="empty-state">
+                    <!--/* Active search filtered everything out. */-->
                     <th:block th:if="${searchTerm != ''}">
                         <div class="empty-state-icon">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon ep-icon-xl')}" />
@@ -40,7 +41,23 @@
                         <div class="empty-state-title">No matching templates</div>
                         <div class="empty-state-description">No templates match your search.</div>
                     </th:block>
-                    <th:block th:unless="${searchTerm != ''}">
+                    <!--/* A catalog filter is active (no search): this catalog is empty, but
+                           the tenant may have templates in other catalogs — so don't show the
+                           "create your first" onboarding CTA, which would be misleading. */-->
+                    <th:block th:if="${searchTerm == '' and selectedCatalog != ''}">
+                        <div class="empty-state-icon">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                        </div>
+                        <div class="empty-state-title">No templates in this catalog</div>
+                        <div class="empty-state-description">This catalog has no templates. Choose another catalog or create one here.</div>
+                        <a th:if="${auth.has('TEMPLATE_EDIT')}"
+                           th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                            New Template
+                        </a>
+                    </th:block>
+                    <!--/* Genuinely empty tenant: first-run onboarding. */-->
+                    <th:block th:if="${searchTerm == '' and selectedCatalog == ''}">
                         <div class="empty-state-icon">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                         </div>
