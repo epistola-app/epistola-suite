@@ -86,6 +86,16 @@ data class RenderContext(
     val inheritedStyles: Map<String, Any> = documentStyles
         ?.filterKeys { it in StyleApplicator.INHERITABLE_KEYS }
         ?: emptyMap(),
+    /**
+     * Y position (points, from the page top) where page-1 body content begins:
+     * the resolved first-page band = page top margin + the effective,
+     * content-measured first-page header height (+ any first-page spacer). Set by
+     * the renderer when it lays out the body so a hoisted address block reserves
+     * its window space *relative to the real header height* instead of
+     * re-deriving it from the raw `height` prop (which ignores auto-grow). Null
+     * outside body layout, where the address block falls back to its own estimate.
+     */
+    val bodyContentTopPt: Float? = null,
 ) {
     /**
      * Returns a copy of this context with updated inherited styles based on a node's
