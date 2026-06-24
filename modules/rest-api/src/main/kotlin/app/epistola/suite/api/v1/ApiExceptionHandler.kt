@@ -44,6 +44,7 @@ import app.epistola.suite.templates.VersionNotDraftException
 import app.epistola.suite.templates.VersionNotPublishedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
+import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.templates.validation.DataModelValidationException
@@ -239,6 +240,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CodeListInUseException::class,
         CodeListNotRefreshableException::class,
         ApiOperationNotImplementedException::class,
+        ContractPublishConflictException::class,
     )
     fun handleMappedApiException(
         ex: Throwable,
