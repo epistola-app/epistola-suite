@@ -70,7 +70,11 @@ export function toDateTimeLocal(value: JsonValue | undefined): string {
  */
 export function dateTimeOffset(value: JsonValue | undefined): string {
   if (typeof value !== 'string') return '';
-  return value.match(/(Z|[+-]\d{2}:\d{2})$/)?.[0] ?? '';
+  const offset = value.match(/(Z|[+-]\d{2}:\d{2})$/)?.[0] ?? '';
+  // `DATETIME_OFFSET_OPTIONS` represents UTC as `Z` and omits `+00:00`, so map a
+  // stored `+00:00` onto `Z` — otherwise the `<select>` has no matching option
+  // and silently drops the zone until the user re-touches it.
+  return offset === '+00:00' ? 'Z' : offset;
 }
 
 /**

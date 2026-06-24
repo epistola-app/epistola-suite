@@ -76,8 +76,9 @@ class JsonSchemaValidator(
      * converts to the render timezone when an offset *is* present. So an author
      * may set, or omit, a timezone on a date-time field, and both must validate.
      *
-     * The strict networknt `date-time` format assertion (Draft-07 asserts format
-     * by default) rejects the offset-less form, so for validation we replace
+     * networknt asserts the `date-time` format here (its strict format check is
+     * enabled for the configured 2020-12 dialect), which rejects the offset-less
+     * form, so for validation we replace
      * `format: date-time` with a pattern accepting both an offset-bearing RFC 3339
      * instant and a naive local date-time. The relaxation applies only to the
      * copy handed to the validator — the stored contract schema keeps
@@ -341,10 +342,18 @@ class JsonSchemaValidator(
 
         /**
          * Accepts an RFC 3339 instant (`…Z` / `±HH:MM`) **or** a naive local
-         * date-time (no offset). Seconds and fractional seconds are optional.
+         * date-time (no offset). Seconds are optional; fractional seconds are
+         * only allowed when seconds are present (a bare `…:mm.fff` is invalid).
+         *
+         * Uppercase `T` / `Z` only: the generation-side renderer parses these
+         * values with `OffsetDateTime.parse` / `LocalDateTime.parse`, which are
+         * case-sensitive ISO. Accepting lowercase here would green-light values
+         * the renderer later rejects. This still can't range-check fields, so
+         * `2026-13-40T25:99` passes the shape check — calendar validity is left
+         * to the parser at render time.
          */
         private const val LENIENT_DATE_TIME_PATTERN =
-            "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}(:\\d{2})?(\\.\\d+)?([Zz]|[+-]\\d{2}:\\d{2})?$"
+            "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:\\d{2})?$"
     }
 
     /**

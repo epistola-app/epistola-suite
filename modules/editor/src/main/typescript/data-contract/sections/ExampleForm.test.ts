@@ -44,6 +44,10 @@ describe('dateTimeOffset', () => {
     expect(dateTimeOffset(undefined)).toBe('');
     expect(dateTimeOffset(42)).toBe('');
   });
+
+  it('normalizes +00:00 to Z so UTC stays representable in the dropdown', () => {
+    expect(dateTimeOffset('2026-02-18T09:30:00+00:00')).toBe('Z');
+  });
 });
 
 describe('combineDateTime', () => {

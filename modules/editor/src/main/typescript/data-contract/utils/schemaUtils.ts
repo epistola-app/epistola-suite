@@ -323,8 +323,14 @@ function inferFieldFromValue(name: string, value: JsonValue, path: string): Sche
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** ISO date-time pattern: YYYY-MM-DDThh:mm:ss with optional fractional seconds and timezone */
-const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+/**
+ * ISO date-time pattern: YYYY-MM-DDThh:mm with optional seconds, optional
+ * fractional seconds (only when seconds are present), and optional timezone.
+ * Seconds are optional to match the `datetime-local` picker and the backend
+ * validator, which both accept `…Thh:mm` — otherwise inference would fall back
+ * to `string` for seconds-less but valid date-times.
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
 
 function inferType(value: JsonValue): SchemaFieldType {
   if (value === null) {

@@ -405,6 +405,15 @@ describe('generateSchemaFromData', () => {
     expect(result.fields.find((f) => f.name === 'name')?.type).toBe('string');
   });
 
+  it('infers datetime from a seconds-less ISO date-time string', () => {
+    // The picker and validator both accept `…Thh:mm`; inference must agree
+    // rather than falling back to `string`.
+    const data = { createdAt: '2026-02-18T09:30' };
+    const result = generateSchemaFromData(data);
+
+    expect(result.fields.find((f) => f.name === 'createdAt')?.type).toBe('datetime');
+  });
+
   it('handles null values as string', () => {
     const data = { nullable: null };
     const result = generateSchemaFromData(data);
