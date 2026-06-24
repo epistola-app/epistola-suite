@@ -198,6 +198,9 @@ class DocumentTemplateHandler(
             "searchTerm" to (searchTerm ?: ""),
             "sort" to sort.param,
             "sortDir" to if (descending) "desc" else "asc",
+            // Per-column natural direction so a first click on an inactive column
+            // honors its TemplateSort.defaultDescending instead of always going asc.
+            "sortDefaultDirs" to TemplateSort.entries.associate { it.param to if (it.defaultDescending) "desc" else "asc" },
             "total" to total,
             "page" to page,
             "totalPages" to totalPages,

@@ -317,6 +317,31 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET templates sort headers honor each column's default direction`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Apple")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // A first click on an inactive column uses its TemplateSort.defaultDescending:
+            // Variants/Last Modified are naturally descending, Name/Catalog ascending.
+            assertThat(body).contains("sort=variants&amp;dir=desc")
+            assertThat(body).contains("sort=name&amp;dir=asc")
+            assertThat(body).contains("sort=catalog&amp;dir=asc")
+        }
+    }
+
+    @Test
     fun `POST templates creates new template`() = fixture {
         lateinit var testTenant: Tenant
 

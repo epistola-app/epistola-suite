@@ -117,7 +117,7 @@
            table wrapper so the active-sort indicator and pagination update too);
            the th:href is a no-JS fallback that reloads the full list page. */-->
     <th th:fragment="sort-header(label, col)"
-        th:with="active=${sort == col},nextDir=${(sort == col and sortDir == 'asc') ? 'desc' : 'asc'}"
+        th:with="active=${sort == col},nextDir=${active ? (sortDir == 'asc' ? 'desc' : 'asc') : sortDefaultDirs.get(col)}"
         th:attr="aria-sort=${active ? (sortDir == 'asc' ? 'ascending' : 'descending') : 'none'}">
         <a class="ep-sort"
            th:classappend="${active} ? 'is-active' : ''"
