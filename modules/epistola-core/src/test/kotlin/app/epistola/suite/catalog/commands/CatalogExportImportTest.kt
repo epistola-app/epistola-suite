@@ -811,6 +811,61 @@ class CatalogExportImportTest : IntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `re-importing a stencil version with a different parameter schema is a conflict, not a skip`() {
+        // Issue #383 idempotency probe: the parameter schema is part of a
+        // version's identity. A re-import carrying byte-identical content but a
+        // *different* parameter_schema must be a genuine conflict (FAIL throws;
+        // RENUMBER writes MAX+1), not a false-positive idempotent SKIP. Content
+        // is held constant across every import so only the schema varies.
+        val tenant = createTenant("Stencil Schema Conflict")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("schema-conflict")
+        val content = stencilContentWithRoot("conflict-root")
+
+        val schemaA: Map<String, Any?> = mapOf(
+            "type" to "object",
+            "properties" to mapOf("a" to mapOf("type" to "string")),
+        )
+        val schemaB: Map<String, Any?> = mapOf(
+            "type" to "object",
+            "properties" to mapOf("b" to mapOf("type" to "string")),
+        )
+
+        fun importWidget(
+            parameterSchema: Map<String, Any?>?,
+            onConflict: OnStencilConflict = OnStencilConflict.FAIL,
+        ) = ImportStencil(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = "widget",
+            version = 1,
+            name = "Widget",
+            content = content,
+            parameterSchema = parameterSchema,
+            onConflict = onConflict,
+        )
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Schema Conflict").execute()
+
+            // First import establishes (slug=widget, v1) with schema A.
+            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.INSTALLED)
+
+            // Same content, same schema → idempotent re-import is a SKIP.
+            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.SKIPPED)
+
+            // Same content, DIFFERENT schema, FAIL (default) → genuine conflict.
+            assertThatThrownBy { importWidget(schemaB).execute() }
+                .isInstanceOf(StencilVersionConflictException::class.java)
+
+            // Same content, DIFFERENT schema, RENUMBER → installs as MAX+1 (v2).
+            val renumbered = importWidget(schemaB, OnStencilConflict.RENUMBER).execute()
+            assertThat(renumbered.wasRenumbered).isTrue()
+            assertThat(renumbered.assignedVersion).isEqualTo(2)
+        }
+    }
+
     /**
      * A template that embeds the parametrised "greeting" stencil: a stencil node
      * carrying the schema snapshot + a binding for `recipientName`, whose slot holds
