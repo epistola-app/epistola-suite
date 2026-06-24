@@ -16,13 +16,12 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.commands.DeleteFont
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
-import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.fonts.model.FontInUseException
 import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
+import app.epistola.suite.fonts.queries.FontWithVariants
 import app.epistola.suite.fonts.queries.GetFontVariantContent
-import app.epistola.suite.fonts.queries.GetFontVariants
-import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.fonts.queries.ListFontsWithVariants
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -77,7 +76,7 @@ class FontHandler(
         val catalogFilter = request.listParam("catalog")?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId, catalogKey = catalogFilter, searchTerm = searchTerm).query()
+        val fonts = ListFontsWithVariants(tenantId = tenantId, catalogKey = catalogFilter, searchTerm = searchTerm).query()
 
         val model: ModelBuilder.() -> Unit = {
             "tenantId" to tenantKey.value
@@ -86,7 +85,7 @@ class FontHandler(
             "selectedCatalog" to (catalogFilter?.value ?: "")
             "searchValue" to searchTerm
             "basePath" to basePath
-            "fonts" to fonts.map { toFontView(tenantId, it) }
+            "fonts" to fonts.map { toFontView(it) }
         }
 
         return request.htmx {
@@ -277,23 +276,22 @@ class FontHandler(
         val searchTerm = request.listParam("q")
         val catalogFilter = request.listParam("catalog")?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId, catalogKey = catalogFilter, searchTerm = searchTerm).query()
+        val fonts = ListFontsWithVariants(tenantId = tenantId, catalogKey = catalogFilter, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("fonts/list", "font-grid-items") {
                 "tenantId" to tenantKey.value
                 "tenant" to tenant
                 "searchValue" to searchTerm
-                "fonts" to fonts.map { toFontView(tenantId, it) }
+                "fonts" to fonts.map { toFontView(it) }
             }
             onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
         }
     }
 
-    /** List-row view model: family metadata + its weight/italic faces. */
-    private fun toFontView(tenantId: TenantId, font: Font): Map<String, Any?> {
-        val faces = GetFontVariants(
-            fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
-        ).query().map { row ->
+    /** List-row view model: family metadata + its pre-fetched weight/italic faces. */
+    private fun toFontView(fontWithVariants: FontWithVariants): Map<String, Any?> {
+        val font = fontWithVariants.font
+        val faces = fontWithVariants.variants.map { row ->
             mapOf(
                 "weight" to row.weight,
                 "italic" to row.italic,
@@ -323,21 +321,21 @@ class FontHandler(
         // dedupe by (catalogKey, slug) so an owning-catalog override of a
         // system slug wins.
         val owningFonts = if (catalogFilter != null && catalogFilter != SYSTEM_CATALOG_KEY) {
-            ListFonts(tenantId = tenantId, catalogKey = catalogFilter).query()
+            ListFontsWithVariants(tenantId = tenantId, catalogKey = catalogFilter).query()
         } else {
             emptyList()
         }
-        val systemFonts = ListFonts(tenantId = tenantId, catalogKey = SYSTEM_CATALOG_KEY).query()
+        val systemFonts = ListFontsWithVariants(tenantId = tenantId, catalogKey = SYSTEM_CATALOG_KEY).query()
 
-        val merged = LinkedHashMap<Pair<String, String>, Font>()
-        for (font in owningFonts + systemFonts) {
-            merged.putIfAbsent(font.catalogKey.value to font.slug.value, font)
+        val merged = LinkedHashMap<Pair<String, String>, FontWithVariants>()
+        for (fontWithVariants in owningFonts + systemFonts) {
+            val font = fontWithVariants.font
+            merged.putIfAbsent(font.catalogKey.value to font.slug.value, fontWithVariants)
         }
 
-        val fontInfoList = merged.values.map { font ->
-            val rows = GetFontVariants(
-                fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
-            ).query()
+        val fontInfoList = merged.values.map { fontWithVariants ->
+            val font = fontWithVariants.font
+            val rows = fontWithVariants.variants
 
             val family = "epistola-${font.catalogKey.value}-${font.slug.value}"
             mapOf(
