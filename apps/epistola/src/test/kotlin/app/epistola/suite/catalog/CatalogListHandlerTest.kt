@@ -39,32 +39,103 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         add("HX-Request", "true")
     }
 
+    private fun plainForm() = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_FORM_URLENCODED
+    }
+
     @Test
-    fun `creating the first catalog returns the #catalog-list region with a table`() = fixture {
+    fun `creating a catalog from the form page redirects to the list, which then shows it`() = fixture {
         lateinit var t: Tenant
         given { t = tenant("Catalog List Create") }
 
         whenever {
+            // The New Catalog form is a full page (not a dialog): a plain POST that
+            // redirects back to the list on success.
             val payload = LinkedMultiValueMap<String, String>()
             payload.add("slug", "list-region-cat")
             payload.add("name", "List Region Cat")
             restTemplate.postForEntity(
                 "/tenants/${t.id}/catalogs/create",
-                HttpEntity(payload, htmxForm()),
+                HttpEntity(payload, plainForm()),
                 String::class.java,
             )
         }
 
         then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val body = response.body!!
-            // The stable wrapper, containing the table (not a bare <tbody>),
-            // swapped directly into #catalog-list (no OOB marker).
+            // The list now renders the new catalog inside the stable #catalog-list region.
+            val list = restTemplate.getForEntity("/tenants/${t.id}/catalogs", String::class.java)
+            assertThat(list.statusCode).isEqualTo(HttpStatus.OK)
+            val body = list.body!!
             assertThat(body).contains("id=\"catalog-list\"")
             assertThat(body).contains("<table")
             assertThat(body).contains("List Region Cat")
-            assertThat(body).doesNotContain("hx-swap-oob")
+        }
+    }
+
+    @Test
+    fun `the New Catalog form page renders`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog New Form") }
+
+        whenever { restTemplate.getForEntity("/tenants/${t.id}/catalogs/new", String::class.java) }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body!!).contains("New Catalog").contains("name=\"slug\"")
+        }
+    }
+
+    @Test
+    fun `the Subscribe form page renders`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Subscribe Form") }
+
+        whenever { restTemplate.getForEntity("/tenants/${t.id}/catalogs/subscribe", String::class.java) }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body!!).contains("Subscribe to Catalog").contains("name=\"sourceUrl\"")
+        }
+    }
+
+    @Test
+    fun `the Import ZIP form page renders`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Import Form") }
+
+        whenever { restTemplate.getForEntity("/tenants/${t.id}/catalogs/import", String::class.java) }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body!!).contains("Import Catalog from ZIP").contains("multipart/form-data")
+        }
+    }
+
+    @Test
+    fun `creating a catalog with an invalid slug re-renders the form page with an error`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Create Error") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, String>()
+            payload.add("slug", "X") // too short + uppercase: fails the slug pattern
+            payload.add("name", "Bad Slug Cat")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/create",
+                HttpEntity(payload, plainForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            // Page flow: a validation failure re-renders the New Catalog form (200) with the
+            // error, rather than redirecting.
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body!!).contains("New Catalog").contains("required")
         }
     }
 

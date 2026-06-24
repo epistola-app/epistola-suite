@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='New Catalog',
+            backLinkHref=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            backLinkLabel='Catalogs'
+        )}"></div>
+
+        <div class="card create-form-card">
+            <div class="card-content">
+                <div class="alert alert-danger" th:if="${error != null}" th:text="${error}" data-testid="form-error"></div>
+                <form th:action="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}" method="post">
+                    <div class="form-group">
+                        <label class="ep-label" for="name">Name</label>
+                        <input type="text" id="name" name="name" class="ep-input"
+                               required placeholder="My Templates" data-slug-source="slug"
+                               th:value="${formData?.name}">
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="slug">Catalog ID (Slug)</label>
+                        <input type="text" id="slug" name="slug" class="ep-input"
+                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                               minlength="3" maxlength="50"
+                               placeholder="my-templates"
+                               th:value="${formData?.slug}">
+                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create Catalog</button>
+                        <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

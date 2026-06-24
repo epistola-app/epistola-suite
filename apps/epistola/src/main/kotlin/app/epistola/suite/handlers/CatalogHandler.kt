@@ -39,6 +39,7 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.listParam
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.table.Column
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -78,6 +79,15 @@ class CatalogHandler {
         }
     }
 
+    /** New-catalog form page (mirrors `ThemeHandler.newForm`). */
+    fun newForm(request: ServerRequest): ServerResponse = catalogFormPage(request, "catalogs/new", "New Catalog - Epistola")
+
+    /** Subscribe-to-catalog form page. */
+    fun subscribeForm(request: ServerRequest): ServerResponse = catalogFormPage(request, "catalogs/subscribe", "Subscribe to Catalog - Epistola")
+
+    /** Import-ZIP form page. */
+    fun importForm(request: ServerRequest): ServerResponse = catalogFormPage(request, "catalogs/import", "Import Catalog - Epistola")
+
     fun createCatalog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
 
@@ -94,7 +104,7 @@ class CatalogHandler {
         }
 
         if (form.hasErrors()) {
-            return listWithError(request, "Catalog slug and name are required.")
+            return formPageWithError(request, "catalogs/new", "New Catalog - Epistola", "Catalog slug and name are required.", form.formData)
         }
 
         return try {
@@ -104,17 +114,10 @@ class CatalogHandler {
                 name = form["name"],
             ).execute()
 
-            request.htmx {
-                fragment("catalogs/list", "catalog-list") {
-                    catalogListModel(request)
-                }
-                onNonHtmx {
-                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
-                }
-            }
+            redirectToList(request, saved = true)
         } catch (e: Exception) {
             logger.warn("Failed to create catalog: ${e.message}", e)
-            listWithError(request, "Failed to create catalog. The slug may already be in use.")
+            formPageWithError(request, "catalogs/new", "New Catalog - Epistola", "Failed to create catalog. The slug may already be in use.", form.formData)
         }
     }
 
@@ -129,7 +132,7 @@ class CatalogHandler {
         }
 
         if (form.hasErrors()) {
-            return listWithError(request, "Catalog URL is required.")
+            return formPageWithError(request, "catalogs/subscribe", "Subscribe to Catalog - Epistola", "Catalog URL is required.", form.formData)
         }
 
         val sourceUrl = form.formData["sourceUrl"]!!
@@ -149,12 +152,10 @@ class CatalogHandler {
                 authCredential = authCredential,
             ).execute()
 
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs?saved=true")
-                .build()
+            redirectToList(request, saved = true)
         } catch (e: Exception) {
             logger.warn("Failed to register catalog: ${e.message}", e)
-            listWithError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
+            formPageWithError(request, "catalogs/subscribe", "Subscribe to Catalog - Epistola", "Failed to register catalog. Check that the URL points to a valid catalog manifest.", form.formData)
         }
     }
 
@@ -520,7 +521,7 @@ class CatalogHandler {
 
         val multipartData = request.multipartData()
         val filePart = multipartData["file"]?.firstOrNull()
-            ?: return importError(request, "No file provided")
+            ?: return importFormWithError(request, error = "No file provided")
 
         val zipBytes = filePart.inputStream.use { it.readAllBytes() }
 
@@ -530,7 +531,7 @@ class CatalogHandler {
         val catalogType = try {
             CatalogType.valueOf(catalogTypeStr)
         } catch (_: Exception) {
-            return importError(request, "Invalid catalog type: $catalogTypeStr")
+            return importFormWithError(request, error = "Invalid catalog type: $catalogTypeStr")
         }
 
         // Only consulted when the catalog already exists as AUTHORED; ignored
@@ -558,29 +559,11 @@ class CatalogHandler {
                 onStencilConflict = onStencilConflict,
             ).execute()
 
-            val failed = result.results.count { it.status == InstallStatus.FAILED }
-            val installed = result.results.count { it.status == InstallStatus.INSTALLED }
-            val updated = result.results.count { it.status == InstallStatus.UPDATED }
-
-            val message = if (failed > 0) {
-                "Imported catalog '${result.catalogName}' with $failed failures."
-            } else {
-                val parts = listOfNotNull(
-                    if (installed > 0) "$installed installed" else null,
-                    if (updated > 0) "$updated updated" else null,
-                )
-                "Imported catalog '${result.catalogName}': ${parts.joinToString(", ")}."
-            }
-
-            if (request.isHtmx) {
-                ServerResponse.ok()
-                    .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
-                    .build()
-            } else {
-                ServerResponse.status(303)
-                    .header("Location", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
-                    .build()
-            }
+            // The import succeeded — land the operator on the imported catalog (the per-resource
+            // installed/updated/failed breakdown is shown on the browse page).
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
+                .build()
         } catch (e: StencilVersionImportConflictsException) {
             // Render a structured dialog listing every conflicting stencil
             // version so the operator can see the full picture and choose
@@ -593,13 +576,7 @@ class CatalogHandler {
                     version = "v${c.version}",
                 )
             }
-            ServerResponse.ok().render(
-                "catalogs/list :: import-conflict-content",
-                mapOf(
-                    "catalogId" to e.catalogKey.value,
-                    "stencilImportConflicts" to conflicts,
-                ),
-            )
+            importFormWithError(request, stencilImportConflicts = conflicts, catalogId = e.catalogKey.value)
         } catch (e: CatalogSchemaException) {
             // The uploaded catalog's wire format is too new, too old, or
             // unrecognised — the migrator rejected it before binding. Render the
@@ -612,16 +589,10 @@ class CatalogHandler {
                 is CatalogSchemaTooOldException -> "Import blocked: catalog format is too old"
                 is CatalogSchemaUnknownException -> "Import blocked: unrecognised catalog format"
             }
-            ServerResponse.ok().render(
-                "catalogs/list :: import-schema-error",
-                mapOf(
-                    "schemaErrorTitle" to title,
-                    "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
-                ),
-            )
+            importFormWithError(request, schemaErrorTitle = title, schemaErrorDetail = e.message ?: "Incompatible catalog wire format.")
         } catch (e: Exception) {
             logger.warn("Failed to import catalog from ZIP: ${e.message}", e)
-            importError(request, e.message ?: "Failed to import catalog")
+            importFormWithError(request, error = e.message ?: "Failed to import catalog")
         }
     }
 
@@ -631,15 +602,51 @@ class CatalogHandler {
         val version: String,
     )
 
-    private fun importError(request: ServerRequest, error: String): ServerResponse {
-        if (request.isHtmx) {
-            val escaped = error.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            return ServerResponse.ok()
-                .header("Content-Type", "text/html")
-                .body("""<div class="alert alert-danger">$escaped</div>""")
-        }
-        return listWithError(request, error)
+    /** A blank catalog form page (GET): no error, no prefilled values. */
+    private fun catalogFormPage(request: ServerRequest, view: String, title: String): ServerResponse = ServerResponse.ok().page(view) {
+        "pageTitle" to title
+        "activeNavSection" to "catalogs"
+        "tenantId" to request.tenantId().key
     }
+
+    /** Re-render a catalog form page after a POST failure, with the error message and entered values. */
+    private fun formPageWithError(
+        request: ServerRequest,
+        view: String,
+        title: String,
+        error: String,
+        formData: Map<String, String>,
+    ): ServerResponse = ServerResponse.ok().page(view) {
+        "pageTitle" to title
+        "activeNavSection" to "catalogs"
+        "tenantId" to request.tenantId().key
+        "error" to error
+        "formData" to formData
+    }
+
+    /** Re-render the import page with a structured failure: a generic message, stencil conflicts, or a schema error. */
+    private fun importFormWithError(
+        request: ServerRequest,
+        error: String? = null,
+        stencilImportConflicts: List<StencilImportConflictView>? = null,
+        catalogId: String? = null,
+        schemaErrorTitle: String? = null,
+        schemaErrorDetail: String? = null,
+    ): ServerResponse = ServerResponse.ok().page("catalogs/import") {
+        "pageTitle" to "Import Catalog - Epistola"
+        "activeNavSection" to "catalogs"
+        "tenantId" to request.tenantId().key
+        if (error != null) "error" to error
+        if (stencilImportConflicts != null) "stencilImportConflicts" to stencilImportConflicts
+        if (catalogId != null) "catalogId" to catalogId
+        if (schemaErrorTitle != null) "schemaErrorTitle" to schemaErrorTitle
+        if (schemaErrorDetail != null) "schemaErrorDetail" to schemaErrorDetail
+    }
+
+    /** 303 back to the catalog list (POST-redirect-GET after a successful create/subscribe). */
+    private fun redirectToList(request: ServerRequest, saved: Boolean): ServerResponse = ServerResponse.status(303)
+        .header("Location", "/tenants/${request.tenantId().key}/catalogs" + if (saved) "?saved=true" else "")
+        .build()
 
     /**
      * HTMX precheck for the export button. Runs the cheap conflict query and
@@ -733,6 +740,7 @@ class CatalogHandler {
         "catalogs" to rows
         "searchValue" to sort.search
         "query" to sort
+        "columns" to CATALOG_COLUMNS
     }
 
     /**
@@ -778,6 +786,16 @@ class CatalogHandler {
 /** Logical sort keys the catalogs table allows; anything else falls back to [DEFAULT_CATALOG_SORT]. */
 private val CATALOG_SORT_KEYS = setOf("name", "id", "type", "updated")
 private const val DEFAULT_CATALOG_SORT = "name"
+
+/** Header columns for the catalogs table; non-sortable Version + actions columns have a null sortKey. */
+private val CATALOG_COLUMNS = listOf(
+    Column("Name", "name"),
+    Column("ID", "id"),
+    Column("Type", "type"),
+    Column("Version"),
+    Column("Last Modified", "updated"),
+    Column(""),
+)
 
 /** Free-text match for the catalog search box: name or id, case-insensitive. */
 private fun CatalogListRow.matchesSearch(term: String): Boolean {

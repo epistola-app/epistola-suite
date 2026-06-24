@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Subscribe to Catalog',
+            backLinkHref=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            backLinkLabel='Catalogs'
+        )}"></div>
+
+        <div class="card create-form-card">
+            <div class="card-content">
+                <div class="alert alert-danger" th:if="${error != null}" th:text="${error}" data-testid="form-error"></div>
+                <form th:action="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}" method="post">
+                    <div class="form-group">
+                        <label class="ep-label" for="sourceUrl">Catalog URL</label>
+                        <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
+                               required placeholder="https://example.com/catalog.json"
+                               th:value="${formData != null ? formData.sourceUrl : 'classpath:epistola/catalogs/demo/catalog.json'}">
+                        <span class="form-hint">
+                            URL to the catalog manifest (<code>.json</code>). Supports <code>https://</code>, <code>classpath:</code>, and <code>file:///</code>.
+                        </span>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="authType">Authentication</label>
+                        <select id="authType" name="authType" class="ep-select">
+                            <option value="NONE" th:selected="${formData?.authType == null or formData?.authType == 'NONE'}">None (public catalog)</option>
+                            <option value="BEARER" th:selected="${formData?.authType == 'BEARER'}">Bearer Token</option>
+                            <option value="API_KEY" th:selected="${formData?.authType == 'API_KEY'}">API Key</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="credential-group"
+                         th:style="${formData?.authType != null and formData?.authType != 'NONE'} ? 'display: block;' : 'display: none;'">
+                        <label class="ep-label" for="authCredential">Credential</label>
+                        <input type="password" id="authCredential" name="authCredential" class="ep-input"
+                               placeholder="Token or API key">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="ep-btn ep-btn-primary">Subscribe</button>
+                        <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
+                    </div>
+                </form>
+                <!-- Show the credential field only for token-based auth. CSP-safe (no eval, no hx-on). -->
+                <script>
+                    document.getElementById('authType').addEventListener('change', function () {
+                        document.getElementById('credential-group').style.display =
+                            this.value === 'NONE' ? 'none' : 'block';
+                    });
+                </script>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>
