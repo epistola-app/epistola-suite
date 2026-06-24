@@ -24,6 +24,7 @@ import {
   type JsonValue,
 } from '../types.js';
 import { findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
+import { scalarFromJsonSchema } from '../field-types.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
 import './EpistolaRichTextInput.js';
 
@@ -34,9 +35,9 @@ function resolvePropertyType(prop: JsonSchemaProperty | null | undefined): strin
   if (refType !== null) return refType.id;
   const raw = Array.isArray(prop.type) ? prop.type[0] : prop.type;
   if (raw === undefined) return 'string';
-  if (raw === 'string' && prop.format === 'date') return 'date';
-  if (raw === 'string' && prop.format === 'date-time') return 'datetime';
-  return raw;
+  // Collapse scalars (incl. date / date-time) via the registry; non-scalars
+  // (containers, email/uri strings) keep their raw type.
+  return scalarFromJsonSchema(raw, prop.format) ?? raw;
 }
 
 /** True for any field type that the registry recognises as a ref-shaped value. */
@@ -49,21 +50,60 @@ function isRefFieldType(type: string): type is RefTypeId {
  * accepts. The control has no timezone/fractional-second support, so keep only
  * the calendar date and wall-clock time.
  */
-function toDateTimeLocal(value: JsonValue | undefined): string {
+export function toDateTimeLocal(value: JsonValue | undefined): string {
   if (typeof value !== 'string' || value === '') return '';
-  const match = value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?/);
-  return match ? match[0] : value;
+  // `datetime-local` needs `YYYY-MM-DDTHH:MM(:SS)`. Show the local wall-clock
+  // part, dropping any zone designator — the zone is shown/edited separately via
+  // the offset dropdown and re-applied on save by `combineDateTime`. A date-only
+  // value is widened to midnight so it still renders; anything else unparseable
+  // yields '' rather than a value the control silently rejects (which would
+  // blank the picker and mask the data).
+  const dateTime = value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?/);
+  if (dateTime) return dateTime[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${value}T00:00`;
+  return '';
 }
 
 /**
- * Normalize a `datetime-local` value to an ISO 8601 date-time. The control may
- * omit seconds (`YYYY-MM-DDThh:mm`), but the schema's `date-time` format
- * requires them, so append `:00` when absent.
+ * The zone designator of a stored date-time (`Z` / `±HH:MM`), or `''` when the
+ * value carries none ("time is time"). Drives the offset dropdown's selection.
  */
-function normalizeDateTime(value: string): string {
-  if (value === '') return '';
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? `${value}:00` : value;
+export function dateTimeOffset(value: JsonValue | undefined): string {
+  if (typeof value !== 'string') return '';
+  return value.match(/(Z|[+-]\d{2}:\d{2})$/)?.[0] ?? '';
 }
+
+/**
+ * Recombine a `datetime-local` wall-clock part with an explicit zone offset
+ * (from the offset dropdown) into the stored value. Seconds are filled in so an
+ * offset-bearing result is a valid RFC 3339 instant; an empty offset leaves the
+ * value naive ("time is time"). `offset` is `''` (none), `'Z'`, or `'±HH:MM'`.
+ */
+export function combineDateTime(localPart: string, offset: string): string {
+  if (localPart === '') return '';
+  const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(localPart)
+    ? `${localPart}:00`
+    : localPart;
+  return `${withSeconds}${offset}`;
+}
+
+/**
+ * Zone-offset choices offered next to a date-time picker. `''` means "no
+ * timezone" (stored naive); `Z` is UTC; the rest are whole-hour offsets across
+ * the valid range. Half-hour/quarter zones are omitted (rare); a value that
+ * already carries one still round-trips via [dateTimeOffset].
+ */
+export const DATETIME_OFFSET_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'No timezone' },
+  { value: 'Z', label: 'UTC (Z)' },
+  ...Array.from({ length: 27 }, (_, i) => {
+    const hours = 14 - i; // +14 … -12
+    if (hours === 0) return null; // Z already covers +00:00
+    const sign = hours > 0 ? '+' : '-';
+    const hh = String(Math.abs(hours)).padStart(2, '0');
+    return { value: `${sign}${hh}:00`, label: `${sign}${hh}:00` };
+  }).filter((o): o is { value: string; label: string } => o !== null),
+];
 
 // ---------------------------------------------------------------------------
 // Deep value helpers
@@ -381,17 +421,40 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="datetime-local"
-              step="1"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              id=${fieldId}
-              .value=${toDateTimeLocal(value)}
-              ?disabled=${readOnly}
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) =>
-                onChange(path, normalizeDateTime((e.target as HTMLInputElement).value))}
-            />
+            <div class="dc-datetime-group">
+              <input
+                type="datetime-local"
+                step="1"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                id=${fieldId}
+                .value=${toDateTimeLocal(value)}
+                ?disabled=${readOnly}
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) =>
+                  onChange(
+                    path,
+                    combineDateTime((e.target as HTMLInputElement).value, dateTimeOffset(value)),
+                  )}
+              />
+              <select
+                class="ep-input dc-datetime-offset"
+                aria-label="Timezone"
+                ?disabled=${readOnly}
+                .value=${dateTimeOffset(value)}
+                @change=${(e: Event) =>
+                  onChange(
+                    path,
+                    combineDateTime(toDateTimeLocal(value), (e.target as HTMLSelectElement).value),
+                  )}
+              >
+                ${DATETIME_OFFSET_OPTIONS.map(
+                  (o) =>
+                    html`<option value=${o.value} ?selected=${o.value === dateTimeOffset(value)}>
+                      ${o.label}
+                    </option>`,
+                )}
+              </select>
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -860,15 +923,37 @@ function renderPrimitiveInput(
       `;
     case 'datetime':
       return html`
-        <input
-          type="datetime-local"
-          step="1"
-          class="ep-input dc-array-item-input ${errorClass}"
-          .value=${toDateTimeLocal(value)}
-          ?disabled=${readOnly}
-          aria-label="${label}"
-          @change=${(e: Event) => onChange(normalizeDateTime((e.target as HTMLInputElement).value))}
-        />
+        <div class="dc-datetime-group">
+          <input
+            type="datetime-local"
+            step="1"
+            class="ep-input dc-array-item-input ${errorClass}"
+            .value=${toDateTimeLocal(value)}
+            ?disabled=${readOnly}
+            aria-label="${label}"
+            @change=${(e: Event) =>
+              onChange(
+                combineDateTime((e.target as HTMLInputElement).value, dateTimeOffset(value)),
+              )}
+          />
+          <select
+            class="ep-input dc-datetime-offset"
+            aria-label="Timezone"
+            ?disabled=${readOnly}
+            .value=${dateTimeOffset(value)}
+            @change=${(e: Event) =>
+              onChange(
+                combineDateTime(toDateTimeLocal(value), (e.target as HTMLSelectElement).value),
+              )}
+          >
+            ${DATETIME_OFFSET_OPTIONS.map(
+              (o) =>
+                html`<option value=${o.value} ?selected=${o.value === dateTimeOffset(value)}>
+                  ${o.label}
+                </option>`,
+            )}
+          </select>
+        </div>
       `;
     case 'richTextInline':
     case 'richTextBlock':

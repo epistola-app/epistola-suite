@@ -56,12 +56,6 @@ const DATE_FORMAT_PATTERNS: string[] = [
  */
 const DATE_TIME_FORMAT_PATTERNS: string[] = ['dd-MM-yyyy HH:mm', 'yyyy-MM-dd HH:mm'];
 
-/** Non-empty date patterns the builder's Format dropdown can represent (date + date-time). */
-const BUILDER_FORMAT_PATTERNS: ReadonlySet<string> = new Set([
-  ...DATE_FORMAT_PATTERNS,
-  ...DATE_TIME_FORMAT_PATTERNS,
-]);
-
 /**
  * Number format presets for the format dropdown. `value` is the
  * `$formatLocaleNumber` picture; `name` is the human-readable label; `sample`
@@ -552,7 +546,17 @@ export class EpExpressionDialog extends LitElement {
   private _parseBuilder(expr: string): BuilderState | null {
     const parsed = tryParseAsBuilderExpression(expr, this.fieldPaths);
     if (!parsed) return null;
-    if (parsed.formatType === 'date' && !BUILDER_FORMAT_PATTERNS.has(parsed.formatPattern)) {
+    // Accept a date pattern only if it's valid for THIS field's type — a plain
+    // `date` field must not keep a time-of-day pattern. Checking the field-
+    // specific set (not the union) here means an existing time pattern on a
+    // date field opens in code mode with the "unsupported format" warning,
+    // rather than silently surviving in a builder dropdown that can't show it.
+    if (
+      parsed.formatType === 'date' &&
+      !this._dateFormatPatternsFor(this._fieldTypeForPath(parsed.fieldPath)).includes(
+        parsed.formatPattern,
+      )
+    ) {
       return null;
     }
     if (

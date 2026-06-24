@@ -420,6 +420,31 @@ describe('EpExpressionDialog builder mode', () => {
     fresh.remove();
   });
 
+  it('opens in code mode (not builder) for a time pattern on a plain date field', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    // invoiceDate is a `date` field; a time-of-day pattern is invalid for it.
+    fresh.initialValue = "$formatDate(invoiceDate, 'dd-MM-yyyy HH:mm')";
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    // The invalid time pattern must NOT survive in builder state; the dialog
+    // falls back to code mode rather than showing a dropdown that can't
+    // represent it.
+    const codePanel = fresh.querySelector('[data-mode-panel="code"]');
+    expect(codePanel?.getAttribute('style')).not.toContain('display: none');
+    expect(fresh['_builderFormatPattern']).toBe('');
+    fresh.close(null);
+    fresh.remove();
+  });
+
   it('hides format dropdown for non-date fields in builder mode', async () => {
     component.remove();
     const fresh = new EpExpressionDialog();

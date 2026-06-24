@@ -6,7 +6,7 @@
  */
 
 import jsonata from 'jsonata';
-import { DEFAULT_LOCALE } from './locale.js';
+import { DEFAULT_LOCALE, DEFAULT_RENDER_TIMEZONE } from './locale.js';
 
 // ---------------------------------------------------------------------------
 // Custom JSONata functions
@@ -82,20 +82,51 @@ function localizedWeekdayNames(locale: string): { full: string[]; short: string[
  * UTC datetimes (`2024-01-15T14:30:00Z`), and offset datetimes
  * (`2024-01-15T14:30:00+02:00`).
  *
- * For the editor preview, datetimes are displayed in UTC. The Kotlin renderer
- * (PDF generation) uses the configured timezone (default: Europe/Amsterdam)
- * and supports the full Java `DateTimeFormatter` pattern spec. Custom patterns
- * using unsupported tokens will render correctly in the PDF but may show
- * unresolved tokens in the editor preview.
+ * Timezone handling matches the PDF renderer (`JsonataEvaluator.parseDateTime`):
+ * a datetime carrying an offset (`…Z` / `±HH:MM`) is an instant and is converted
+ * to [timeZone] before its time-of-day is read; a datetime with **no** offset is
+ * taken as wall-clock in [timeZone] and shown as-is ("time is time"). The Kotlin
+ * renderer supports the full Java `DateTimeFormatter` pattern spec; custom
+ * patterns using unsupported tokens render in the PDF but may show unresolved
+ * tokens in the editor preview.
  *
  * Returns the original value if it cannot be parsed.
  */
+/**
+ * If [value] carries a zone offset (`…Z` / `±HH:MM`), convert the instant to its
+ * wall-clock time in [timeZone] and return it as a naive `YYYY-MM-DDTHH:MM:SS`
+ * string, so the literal-token formatter below shows the zone-correct time
+ * (matching the PDF renderer). A value with no offset is returned unchanged.
+ */
+function toZonedWallClock(value: string, timeZone: string): string {
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return value;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return value;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(instant);
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? '00';
+  // en-CA with hour12:false can emit '24' for midnight on some engines.
+  const hour = get('hour') === '24' ? '00' : get('hour');
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}`;
+}
+
 export function formatDateValue(
   value: string,
   pattern: string,
   locale: string = DEFAULT_LOCALE,
+  timeZone: string = DEFAULT_RENDER_TIMEZONE,
 ): string {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  const match = toZonedWallClock(value, timeZone).match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/,
+  );
   if (!match) return value;
   const [, year, monthDigits, dayDigits, hours = '00', minutes = '00', seconds = '00'] = match;
   const month = parseInt(monthDigits, 10);
@@ -259,10 +290,14 @@ function composeFromPattern(pattern: string, digits: string): string {
  * Register custom functions on a JSONata expression instance.
  * Must be called before `expr.evaluate()`.
  */
-function registerCustomFunctions(expr: jsonata.Expression, locale: string): void {
+function registerCustomFunctions(
+  expr: jsonata.Expression,
+  locale: string,
+  timeZone: string = DEFAULT_RENDER_TIMEZONE,
+): void {
   expr.registerFunction('formatDate', (value: unknown, pattern: unknown) => {
     if (typeof value !== 'string' || typeof pattern !== 'string') return value;
-    return formatDateValue(value, pattern, locale);
+    return formatDateValue(value, pattern, locale, timeZone);
   });
   expr.registerFunction('formatLocaleNumber', (value: unknown, picture: unknown) => {
     // Missing-field semantics match $formatDate: a `null`/`undefined` value
@@ -287,13 +322,14 @@ export async function evaluateExpression(
   expression: string,
   data: Record<string, unknown>,
   locale: string = DEFAULT_LOCALE,
+  timeZone: string = DEFAULT_RENDER_TIMEZONE,
 ): Promise<unknown> {
   const trimmed = expression.trim();
   if (!trimmed) return undefined;
 
   try {
     const expr = jsonata(trimmed);
-    registerCustomFunctions(expr, locale);
+    registerCustomFunctions(expr, locale, timeZone);
     return await expr.evaluate(data);
   } catch {
     return undefined;
@@ -330,13 +366,14 @@ export async function tryEvaluateExpression(
   expression: string,
   data: Record<string, unknown>,
   locale: string = DEFAULT_LOCALE,
+  timeZone: string = DEFAULT_RENDER_TIMEZONE,
 ): Promise<ExpressionResult> {
   const trimmed = expression.trim();
   if (!trimmed) return { ok: false, error: 'Expression is empty' };
 
   try {
     const expr = jsonata(trimmed);
-    registerCustomFunctions(expr, locale);
+    registerCustomFunctions(expr, locale, timeZone);
     const value = await expr.evaluate(data);
     return { ok: true, value };
   } catch (error: unknown) {

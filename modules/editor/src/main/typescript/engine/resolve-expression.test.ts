@@ -389,6 +389,33 @@ describe('formatDateValue', () => {
     expect(formatDateValue('2024-01-15', 'dd-MM-yyyy')).toBe('15-01-2024');
   });
 
+  describe('timezone handling (Option B — matches the PDF renderer)', () => {
+    it('shows a naive datetime as-is ("time is time")', () => {
+      expect(formatDateValue('2026-05-04T11:32:00', 'HH:mm', 'en-US', 'Europe/Amsterdam')).toBe(
+        '11:32',
+      );
+    });
+
+    it('converts a UTC instant to the render timezone (summer / CEST +02:00)', () => {
+      expect(formatDateValue('2026-05-04T11:32:00Z', 'HH:mm', 'en-US', 'Europe/Amsterdam')).toBe(
+        '13:32',
+      );
+    });
+
+    it('converts a UTC instant to the render timezone (winter / CET +01:00)', () => {
+      expect(formatDateValue('2026-01-04T11:32:00Z', 'HH:mm', 'en-US', 'Europe/Amsterdam')).toBe(
+        '12:32',
+      );
+    });
+
+    it('converts an explicit offset to the render timezone', () => {
+      // 11:32+00:00 == 13:32 in Amsterdam (CEST) in May.
+      expect(
+        formatDateValue('2026-05-04T11:32:00+00:00', 'HH:mm', 'en-US', 'Europe/Amsterdam'),
+      ).toBe('13:32');
+    });
+  });
+
   it('formats yyyy-MM-dd (identity)', () => {
     expect(formatDateValue('2024-01-15', 'yyyy-MM-dd')).toBe('2024-01-15');
   });
@@ -449,8 +476,10 @@ describe('formatDateValue', () => {
     expect(formatDateValue('2024-01-15T14:30:00', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 14:30');
   });
 
-  it('formats a UTC datetime (time displayed as-is in preview)', () => {
-    expect(formatDateValue('2024-01-15T14:30:00Z', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 14:30');
+  it('converts a UTC datetime to the default render timezone (CET +01:00 in January)', () => {
+    // Option B: an offset-bearing instant is shown in the render timezone
+    // (default Europe/Amsterdam), matching the PDF renderer. 14:30Z → 15:30 CET.
+    expect(formatDateValue('2024-01-15T14:30:00Z', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 15:30');
   });
 
   it('formats time with seconds', () => {

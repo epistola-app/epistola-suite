@@ -53,6 +53,39 @@ describe('visualSchemaToJsonSchema', () => {
     });
   });
 
+  it('converts array of date / date-time items to string+format (not a bare type)', () => {
+    const visual: VisualSchema = {
+      fields: [
+        { id: '1', name: 'holidays', type: 'array', arrayItemType: 'date', required: false },
+        { id: '2', name: 'reminders', type: 'array', arrayItemType: 'datetime', required: false },
+      ],
+    };
+    const result = visualSchemaToJsonSchema(visual);
+
+    expect(result.properties?.holidays).toEqual({
+      type: 'array',
+      items: { type: 'string', format: 'date' },
+    });
+    expect(result.properties?.reminders).toEqual({
+      type: 'array',
+      items: { type: 'string', format: 'date-time' },
+    });
+  });
+
+  it('round-trips an array of date-time items through both directions', () => {
+    const visual: VisualSchema = {
+      fields: [
+        { id: '1', name: 'reminders', type: 'array', arrayItemType: 'datetime', required: false },
+      ],
+    };
+    const back = jsonSchemaToVisualSchema(visualSchemaToJsonSchema(visual));
+    const field = back.fields[0];
+    expect(field.type).toBe('array');
+    if (field.type === 'array') {
+      expect(field.arrayItemType).toBe('datetime');
+    }
+  });
+
   it('converts array field with object items', () => {
     const visual: VisualSchema = {
       fields: [

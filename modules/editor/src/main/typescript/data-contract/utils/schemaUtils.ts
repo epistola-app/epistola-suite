@@ -95,6 +95,14 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
       }
     } else if (isRefFieldType(field.arrayItemType)) {
       prop.items = { $ref: getRefTypeById(field.arrayItemType).url };
+    } else if (isScalarFieldType(field.arrayItemType)) {
+      // Scalars (incl. date / date-time) must map through the registry so a
+      // list item serializes to a valid JSON Schema `{ type, format? }` —
+      // `{ type: 'string', format: 'date-time' }`, not `{ type: 'datetime' }`.
+      const itemScalar = scalarToJsonSchema(field.arrayItemType);
+      prop.items = itemScalar.format
+        ? { type: itemScalar.type, format: itemScalar.format }
+        : { type: itemScalar.type };
     } else {
       prop.items = { type: field.arrayItemType };
     }
@@ -187,13 +195,15 @@ function jsonSchemaPropertyToField(
 
   if (type === 'array') {
     const itemRefType = findRefType(prop.items?.$ref);
+    const itemRawType = Array.isArray(prop.items?.type) ? prop.items?.type[0] : prop.items?.type;
     const itemType: SchemaFieldType =
       itemRefType !== null
         ? itemRefType.id
-        : prop.items
-          ? (((Array.isArray(prop.items.type) ? prop.items.type[0] : prop.items.type) ??
-              'string') as SchemaFieldType)
-          : 'string';
+        : // Recover date / date-time list items from `{ type, format }`, mirroring
+          // the top-level scalar resolution above.
+          ((scalarFromJsonSchema(itemRawType, prop.items?.format) ??
+            itemRawType ??
+            'string') as SchemaFieldType);
     const nestedFields =
       itemType === 'object' && prop.items?.properties
         ? Object.entries(prop.items.properties).map(([n, p]) =>

@@ -12,6 +12,8 @@
  * their layer rather than baking that knowledge in here.
  */
 
+import { scalarFromJsonSchema } from '../data-contract/field-types.js';
+
 export interface FieldPath {
   /** Dot-notation path, e.g. "customer.address.city" */
   path: string;
@@ -64,12 +66,10 @@ function walk(
     const path = prefix ? `${prefix}.${key}` : key;
     const ref = typeof propSchema.$ref === 'string' ? propSchema.$ref : undefined;
     const rawType = String(propSchema.type ?? (ref ? 'unknown' : 'unknown'));
-    const type =
-      rawType === 'string' && propSchema.format === 'date'
-        ? 'date'
-        : rawType === 'string' && propSchema.format === 'date-time'
-          ? 'datetime'
-          : rawType;
+    const format = typeof propSchema.format === 'string' ? propSchema.format : undefined;
+    // Collapse `string + format: date`/`date-time` to `'date'`/`'datetime'` via
+    // the shared registry; everything else keeps its raw JSON Schema type.
+    const type = scalarFromJsonSchema(rawType, format) ?? rawType;
 
     result.push(ref ? { path, type, ref } : { path, type });
 
