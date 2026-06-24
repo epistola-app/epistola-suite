@@ -18,8 +18,12 @@ import type {
   VisualSchema,
 } from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
-import { FIELD_TYPE_LABELS, isValidFieldName } from '../utils/schemaUtils.js';
-import { REF_TYPES } from '../ref-types.js';
+import { isValidFieldName } from '../utils/schemaUtils.js';
+import {
+  ARRAY_ITEM_FIELD_TYPES as ARRAY_ITEM_TYPES,
+  CONTRACT_FIELD_TYPES as FIELD_TYPES,
+  FIELD_TYPE_LABELS,
+} from '../field-types.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
 import { renderValidationMessages } from './ValidationMessages.js';
 
@@ -219,34 +223,6 @@ function renderFieldList(
 // =============================================================================
 // Right panel: detail form
 // =============================================================================
-
-/** Logical ids of every registered ref type (rich text inline/block today). */
-const REF_TYPE_IDS = REF_TYPES.map((t) => t.id) as SchemaFieldType[];
-
-/** All field types available in the type dropdown */
-const FIELD_TYPES: SchemaFieldType[] = [
-  'string',
-  'number',
-  'integer',
-  'boolean',
-  'date',
-  'datetime',
-  ...REF_TYPE_IDS,
-  'array',
-  'object',
-];
-
-/** Item types available for arrays */
-const ARRAY_ITEM_TYPES: SchemaFieldType[] = [
-  'string',
-  'number',
-  'integer',
-  'boolean',
-  'date',
-  'datetime',
-  ...REF_TYPE_IDS,
-  'object',
-];
 
 /**
  * String format options. Date and date-time are first-class field types (see

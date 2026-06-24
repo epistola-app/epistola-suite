@@ -13,6 +13,11 @@ import {
   type VisualSchema,
 } from '../types.js';
 import { classifyValue, findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
+import { isScalarFieldType, scalarFromJsonSchema, scalarToJsonSchema } from '../field-types.js';
+
+// Re-exported so existing importers keep their `schemaUtils` import path; the
+// labels themselves are defined once in the field-type registry.
+export { FIELD_TYPE_LABELS } from '../field-types.js';
 
 /** True when a SchemaFieldType is one of the registered ref-typed field types. */
 function isRefFieldType(type: SchemaFieldType): type is RefTypeId {
@@ -54,18 +59,15 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
     return prop;
   }
 
-  // Date / date-time are stored as { type: "string", format: "date" | "date-time" }
-  const prop: JsonSchemaProperty = {
-    type: field.type === 'date' || field.type === 'datetime' ? 'string' : field.type,
-  };
-
-  if (field.type === 'date') {
-    prop.format = 'date';
-  } else if (field.type === 'datetime') {
-    prop.format = 'date-time';
+  // Scalars map to a JSON Schema { type, format? } per the field-type registry
+  // (date → string/date, date-time → string/date-time, etc.).
+  const scalar = isScalarFieldType(field.type) ? scalarToJsonSchema(field.type) : null;
+  const prop: JsonSchemaProperty = { type: scalar ? scalar.type : field.type };
+  if (scalar?.format) {
+    prop.format = scalar.format;
   }
 
-  // String format (e.g. "email") — date format is handled above
+  // String format (e.g. "email"/"uri") — the date formats are covered above.
   if (field.type === 'string' && 'format' in field && field.format) {
     prop.format = field.format;
   }
@@ -173,13 +175,9 @@ function jsonSchemaPropertyToField(
   }
 
   const rawType = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-  // Detect date / date-time: JSON Schema stores both as a string with a `format`.
-  const type =
-    rawType === 'string' && prop.format === 'date'
-      ? 'date'
-      : rawType === 'string' && prop.format === 'date-time'
-        ? 'datetime'
-        : rawType;
+  // Resolve scalars (incl. date / date-time) via the registry; everything else
+  // (array, object, or a string carrying an email/uri format) keeps rawType.
+  const type = scalarFromJsonSchema(rawType, prop.format) ?? rawType;
   const baseField = {
     id: `field:${path}`,
     name,
@@ -236,8 +234,9 @@ function jsonSchemaPropertyToField(
     type: type as PrimitiveFieldType,
   };
 
-  // String format (non-date, since date is already handled via type conversion)
-  if (type === 'string' && prop.format && prop.format !== 'date') {
+  // A `string` that survived scalar resolution carries a non-date format
+  // constraint (email/uri); the date formats already became their own types.
+  if (type === 'string' && prop.format) {
     (primitiveField as PrimitiveField).format = prop.format as StringFormat;
   }
 
@@ -478,19 +477,3 @@ export function getSchemaFieldPaths(schema: VisualSchema): Set<string> {
   traverse(schema.fields);
   return paths;
 }
-
-/**
- * Type display names for the UI.
- */
-export const FIELD_TYPE_LABELS: Record<SchemaFieldType, string> = {
-  string: 'Text',
-  number: 'Number',
-  integer: 'Integer',
-  boolean: 'Yes/No',
-  date: 'Date',
-  datetime: 'Date & time',
-  richTextInline: 'Rich text (inline)',
-  richTextBlock: 'Rich text (block)',
-  array: 'List',
-  object: 'Object',
-};
