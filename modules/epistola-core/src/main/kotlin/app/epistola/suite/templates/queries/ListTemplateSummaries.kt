@@ -29,6 +29,17 @@ data class TemplateSummary(
 )
 
 /**
+ * One page of [TemplateSummary] rows plus [total], the count of all rows
+ * matching the same filters (ignoring paging). Both come from a single query
+ * (`COUNT(*) OVER()`), so the count can never disagree with the rows the page
+ * renders — there is no second query to drift out of sync.
+ */
+data class TemplateSummaryPage(
+    val items: List<TemplateSummary>,
+    val total: Int,
+)
+
+/**
  * Sortable columns for the templates list. The [column] strings are a fixed
  * whitelist baked into the SQL — never interpolate raw user input into ORDER BY.
  *
@@ -59,7 +70,7 @@ data class ListTemplateSummaries(
     val descending: Boolean = true,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<List<TemplateSummary>>,
+) : Query<TemplateSummaryPage>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = tenantId.key
@@ -68,8 +79,8 @@ data class ListTemplateSummaries(
 @Component
 class ListTemplateSummariesHandler(
     private val jdbi: Jdbi,
-) : QueryHandler<ListTemplateSummaries, List<TemplateSummary>> {
-    override fun handle(query: ListTemplateSummaries): List<TemplateSummary> = jdbi.withHandle<List<TemplateSummary>, Exception> { handle ->
+) : QueryHandler<ListTemplateSummaries, TemplateSummaryPage> {
+    override fun handle(query: ListTemplateSummaries): TemplateSummaryPage = jdbi.withHandle<TemplateSummaryPage, Exception> { handle ->
         val sql = buildString {
             append(
                 """
@@ -87,7 +98,10 @@ class ListTemplateSummariesHandler(
                     COALESCE((SELECT COUNT(*)
                               FROM template_versions ver
                               JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
-                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id AND ver.status = 'published'), 0)::int as published_version_count
+                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id AND ver.status = 'published'), 0)::int as published_version_count,
+                    -- Total matching rows before LIMIT/OFFSET; Postgres evaluates the
+                    -- window over the full filtered set, so it cannot drift from the page.
+                    COUNT(*) OVER()::int AS total_count
                 FROM document_templates dt
                 JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
                 WHERE dt.tenant_key = :tenantId
@@ -114,52 +128,44 @@ class ListTemplateSummariesHandler(
             val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             jdbiQuery.bind("searchTerm", "%$escaped%")
         }
-        jdbiQuery
+        val rows = jdbiQuery
             .bind("limit", query.limit)
             .bind("offset", query.offset)
-            .mapTo<TemplateSummary>()
+            .mapTo<TemplateSummaryRow>()
             .list()
+
+        // An out-of-range page returns zero rows, so there is no window value to
+        // read — total is 0 there and the caller re-queries a valid page.
+        TemplateSummaryPage(
+            items = rows.map { it.toSummary() },
+            total = rows.firstOrNull()?.totalCount ?: 0,
+        )
     }
 }
 
 /**
- * Total number of templates matching the same filters as [ListTemplateSummaries]
- * (catalog + search), ignoring paging. Used to render pagination controls.
+ * Row shape for [ListTemplateSummariesHandler]: a [TemplateSummary] plus the
+ * `COUNT(*) OVER()` window total carried on every returned row.
  */
-data class CountTemplateSummaries(
-    val tenantId: TenantId,
-    val searchTerm: String? = null,
-    val catalogKey: CatalogKey? = null,
-) : Query<Int>,
-    RequiresPermission {
-    override val permission: Permission get() = Permission.TEMPLATE_VIEW
-    override val tenantKey: TenantKey get() = tenantId.key
-}
-
-@Component
-class CountTemplateSummariesHandler(
-    private val jdbi: Jdbi,
-) : QueryHandler<CountTemplateSummaries, Int> {
-    override fun handle(query: CountTemplateSummaries): Int = jdbi.withHandle<Int, Exception> { handle ->
-        val sql = buildString {
-            append("SELECT COUNT(*) FROM document_templates dt WHERE dt.tenant_key = :tenantId")
-            if (query.catalogKey != null) {
-                append(" AND dt.catalog_key = :catalogKey")
-            }
-            if (!query.searchTerm.isNullOrBlank()) {
-                append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
-            }
-        }
-
-        val jdbiQuery = handle.createQuery(sql)
-            .bind("tenantId", query.tenantId.key)
-        if (query.catalogKey != null) {
-            jdbiQuery.bind("catalogKey", query.catalogKey)
-        }
-        if (!query.searchTerm.isNullOrBlank()) {
-            val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            jdbiQuery.bind("searchTerm", "%$escaped%")
-        }
-        jdbiQuery.mapTo<Int>().one()
-    }
+private data class TemplateSummaryRow(
+    val id: TemplateKey,
+    val catalogKey: CatalogKey,
+    val catalogType: CatalogType,
+    val name: String,
+    val updatedAt: OffsetDateTime,
+    val variantCount: Int,
+    val hasDraft: Boolean,
+    val publishedVersionCount: Int,
+    val totalCount: Int,
+) {
+    fun toSummary() = TemplateSummary(
+        id = id,
+        catalogKey = catalogKey,
+        catalogType = catalogType,
+        name = name,
+        updatedAt = updatedAt,
+        variantCount = variantCount,
+        hasDraft = hasDraft,
+        publishedVersionCount = publishedVersionCount,
+    )
 }

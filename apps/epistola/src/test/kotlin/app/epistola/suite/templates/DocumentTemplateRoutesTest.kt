@@ -222,6 +222,29 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET templates clamps an out-of-range page to the last page`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=99", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Page 99 overshoots; the windowed count recovers the real total and
+            // the request is clamped to the last page (3) with its 5 rows.
+            assertThat(rowCount(response.body!!)).isEqualTo(5)
+            assertThat(response.body).contains("Page 3 of 3")
+        }
+    }
+
+    @Test
     fun `GET templates search sorts by name ascending`() = fixture {
         lateinit var testTenant: Tenant
 

@@ -51,7 +51,7 @@ class TemplateMcpTools(
             catalogKey = catalogId?.let { CatalogKey.of(it) },
             searchTerm = search,
         ),
-    ).map { TemplateSummaryInfo.from(it) }
+    ).items.map { TemplateSummaryInfo.from(it) }
 
     @McpTool(
         name = "get_template",

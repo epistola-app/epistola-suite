@@ -34,7 +34,6 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
-import app.epistola.suite.templates.queries.CountTemplateSummaries
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
@@ -166,15 +165,7 @@ class DocumentTemplateHandler(
             else -> sort.defaultDescending
         }
 
-        val total = CountTemplateSummaries(
-            tenantId = tenantId,
-            searchTerm = searchTerm,
-            catalogKey = catalogFilter,
-        ).query()
-        val totalPages = if (total == 0) 1 else ((total + PAGE_SIZE - 1) / PAGE_SIZE)
-        val page = request.queryParamInt("page", 1).coerceIn(1, totalPages)
-
-        val templates = ListTemplateSummaries(
+        fun fetchPage(page: Int) = ListTemplateSummaries(
             tenantId = tenantId,
             searchTerm = searchTerm,
             catalogKey = catalogFilter,
@@ -184,9 +175,25 @@ class DocumentTemplateHandler(
             offset = (page - 1) * PAGE_SIZE,
         ).query()
 
+        // The page count and the rows come from one query (COUNT(*) OVER()), so
+        // they can't disagree. An out-of-range page returns empty with no window
+        // value, so when that happens we recover the real total from page 1 and
+        // clamp the request down to the last page (preserving the old behavior).
+        val requestedPage = request.queryParamInt("page", 1).coerceAtLeast(1)
+        var result = fetchPage(requestedPage)
+        var page = requestedPage
+        if (result.items.isEmpty() && requestedPage > 1) {
+            val firstPage = fetchPage(1)
+            page = requestedPage.coerceAtMost(pageCount(firstPage.total))
+            result = if (page == 1) firstPage else fetchPage(page)
+        }
+
+        val total = result.total
+        val totalPages = pageCount(total)
+
         return mapOf(
             "tenantId" to tenantId.key,
-            "templates" to templates,
+            "templates" to result.items,
             "selectedCatalog" to (catalogFilter?.value ?: ""),
             "searchTerm" to (searchTerm ?: ""),
             "sort" to sort.param,
@@ -200,6 +207,9 @@ class DocumentTemplateHandler(
             "nextPage" to (page + 1),
         )
     }
+
+    /** Number of pages for [total] rows at [PAGE_SIZE] per page (min 1). */
+    private fun pageCount(total: Int): Int = if (total == 0) 1 else ((total + PAGE_SIZE - 1) / PAGE_SIZE)
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
