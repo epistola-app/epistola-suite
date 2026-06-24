@@ -82,12 +82,12 @@
                     errorEl.style.display = 'block';
 
                     // Only a client error (4xx) is non-recoverable: the request was
-                    // rejected on its merits (e.g. a catalog still referenced by
-                    // others → 422), so re-submitting the same request would only
-                    // re-fail. Replace the destructive submit with a Cancel button —
-                    // the only sensible remaining action is to dismiss the dialog.
-                    // A 5xx is transient; leave Delete in place so the user can retry
-                    // without re-opening the dialog.
+                    // rejected on its merits (e.g. deleting a resource other
+                    // resources depend on → 422), so re-submitting the same request
+                    // would only re-fail. Replace the destructive submit with a
+                    // Cancel button — the only sensible remaining action is to
+                    // dismiss the dialog. A 5xx is transient; leave Delete in place
+                    // so the user can retry without re-opening the dialog.
                     var status = event.detail.xhr.status;
                     if (status >= 400 && status < 500) {
                         submitBtn.remove();
