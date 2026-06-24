@@ -7,15 +7,20 @@ This document explains how to configure Keycloak for use with Epistola Suite.
 Epistola accepts memberships from **two JWT claim shapes**, in parallel — pick whichever
 your IdP can produce; the app reads both and takes the union:
 
-1. **Hierarchical groups** (`/epistola/...` paths in the `groups` claim) — the recommended
-   path when you control Keycloak. Mapped via Keycloak's **Group Membership Mapper**.
-2. **Flat roles** (prefix-encoded strings in a configurable claim, default `roles`) — for
-   IdPs that cannot emit hierarchical groups (Auth0, Cognito, AD-federated, …). Mapped
-   via Keycloak's **Realm Role Mapper**, or by any IdP that can put a list of role labels
-   in a JWT claim.
+1. **Hierarchical groups** (`/epistola/...` paths in the `groups` claim) — a navigable group
+   tree. Mapped via Keycloak's **Group Membership Mapper**.
+2. **Flat roles** (prefix-encoded strings in a configurable claim, default `roles`) — also
+   the path for IdPs that cannot emit hierarchical groups (Auth0, Cognito, AD-federated, …).
+   On Keycloak the claim can be fed by either **client roles** (recommended — keeps the
+   Epistola model scoped to its own client) or **realm roles**; any IdP that can put a list
+   of role labels in a JWT claim works too.
 
-Both mappers are auto-provisioned on startup when running against Keycloak (see
-[Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning)).
+If you control Keycloak, the recommended setup is **client roles → flat `roles` claim** —
+see [Recommended: client roles (step by step)](#recommended-client-roles-step-by-step).
+
+The realm-role and group mappers are auto-provisioned on startup when running against
+Keycloak (see [Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning));
+the client-role mapper is the one manual step.
 
 ## Choosing a claim shape
 
@@ -204,19 +209,119 @@ different mechanisms.
 
 ## Keycloak Configuration
 
-### 1. Client Setup
+Epistola's memberships can be carried into the JWT three ways — pick **one** (or combine
+them; the parsers read every shape and take the **union**, which is handy during a
+migration):
+
+- **Client roles → flat `roles` claim** — **recommended**. Keeps the Epistola authorization
+  model scoped to the `epistola-suite` client instead of polluting the shared realm-role
+  namespace or modelling a group tree. Step-by-step below.
+- **Realm roles → flat `roles` claim** — identical wire format, but the roles live in the
+  realm namespace. This is the shape the app **auto-provisions**
+  ([Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning)).
+- **Hierarchical groups → `groups` claim** — a navigable group tree; see
+  [Group Membership Mapper](#group-membership-mapper-groups-path) below.
+
+All three resolve to the same effective memberships.
+
+### 1. Create the client
 
 Create an OpenID Connect client named `epistola-suite`:
 
 - Client authentication: ON (confidential)
 - Standard flow: ON
 - Service accounts: ON (needed for tenant group provisioning)
-- Redirect URIs: your app URL (e.g., `http://localhost:4000/*`)
+- Valid redirect URIs: your app URL (e.g., `http://localhost:4000/*`)
 
-### 2. Group Membership Mapper
+### Recommended: client roles (step by step)
 
-This can be configured manually via the admin UI (steps below), or auto-provisioned by the
-app — see [Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning) for the
+Here the `epistola-suite` client owns a set of **client roles** whose names encode the
+Epistola membership, and one mapper copies them into the flat `roles` claim.
+
+#### 2a. Define the client roles
+
+Go to **Clients → `epistola-suite` → Roles → Create role** and add one role per membership
+you need, naming each with Epistola's flat-role encoding (the same `ept_*` / `epg_*` /
+`eps_*` vocabulary as [Flat Roles](#flat-roles-for-idps-without-groups)):
+
+| Role name (in Keycloak)              | Grants                                       |
+| ------------------------------------ | -------------------------------------------- |
+| `ept_acme-corp_content-viewer`       | `content-viewer` on tenant `acme-corp`       |
+| `ept_acme-corp_tenant-administrator` | `tenant-administrator` on tenant `acme-corp` |
+| `epg_content-viewer`                 | `content-viewer` on **all** tenants (global) |
+| `eps_tenant-manager`                 | platform role `tenant-manager`               |
+
+> **The encoding is mandatory.** A client role named `admin` or `viewer` is **silently
+> ignored** — only names matching a known prefix _and_ a known role resolve, so a
+> misconfigured user logs in successfully but has zero access. Tenant keys follow the slug
+> rules (lowercase letters/digits/hyphens, never underscores) and `_` is the segment
+> separator, hence `ept_<tenantKey>_<role>`. See the
+> [Flat Roles](#flat-roles-for-idps-without-groups) table for the full prefix/role
+> vocabulary.
+
+For a multi-tenant deployment you'll have one `ept_<tenant>_<role>` client role per
+tenant/role pair; use `epg_<role>` to grant a role across **all** tenants without repeating
+it per tenant.
+
+#### 2b. Assign client roles to users (or groups)
+
+For each user: **Users → _user_ → Role mapping → Assign role → Filter by clients →** select
+the `epistola-suite` roles. To manage at scale, assign the client roles to a plain Keycloak
+**group** and add users to that group instead — the assignment can be indirect.
+
+#### 2c. Add the client-role protocol mapper
+
+Add a protocol mapper to the `epistola-suite` client (**Clients → `epistola-suite` → Client
+scopes → `epistola-suite-dedicated` → Add mapper → By configuration → User Client Role**):
+
+| Setting             | Value                                                      |
+| ------------------- | ---------------------------------------------------------- |
+| Name                | `epistola-client-roles`                                    |
+| Mapper type         | `User Client Role` (`oidc-usermodel-client-role-mapper`)   |
+| Client ID           | `epistola-suite`                                           |
+| Client Role prefix  | _(leave blank)_                                            |
+| Token Claim Name    | `roles` (must equal `epistola.auth.flat-roles.claim-name`) |
+| Claim JSON Type     | `String`                                                   |
+| Multivalued         | **ON**                                                     |
+| Add to ID token     | ON                                                         |
+| Add to access token | ON                                                         |
+| Add to userinfo     | ON                                                         |
+
+**Why each field matters:**
+
+- **Client Role prefix must be blank** — Keycloak would otherwise prepend it to every value
+  and break the `ept_*`/`epg_*`/`eps_*` encoding.
+- **Token Claim Name = `roles`** — this is the claim Epistola's `parseFlatRoles()` reads.
+  Change it only if you also set `epistola.auth.flat-roles.claim-name` to match.
+- **Multivalued ON** — emits a JSON array; the parser expects a string array.
+- **Enable all three token destinations** — the REST API path reads the **access token**
+  while the browser OAuth2 login path reads the **ID token / userinfo**; omitting one breaks
+  that surface.
+
+> **Coexistence with auto-provisioning.** If the app runs with mapper auto-provisioning
+> (`ensureGroups: true`) it also ensures a realm-role mapper named `epistola-realm-roles`
+> that writes the **same** `roles` claim. Multiple multivalued mappers targeting one claim
+> are merged into a single array, so the two coexist fine — the realm-role mapper simply
+> contributes nothing when you assign no realm roles. The app will not touch your
+> differently-named `epistola-client-roles` mapper (it logs a one-line WARN that another
+> mapper writes `roles`, then leaves it alone).
+
+#### 2d. Verify
+
+1. Sign in and decode the issued token (e.g. <https://jwt.io>). Confirm a top-level
+   **`roles`** array containing your encoded values — e.g.
+   `["ept_acme-corp_content-viewer", "eps_tenant-manager"]`. If the client roles appear only
+   under `resource_access.epistola-suite.roles`, the mapper isn't writing the flat claim —
+   recheck step 2c.
+2. Open **`/profile`** in the app — it lists the resolved tenant memberships, global roles
+   and platform roles. Empty here despite roles in the token means the **names** don't match
+   the encoding (step 2a).
+
+### Group Membership Mapper (groups path)
+
+Prefer hierarchical groups instead of (or alongside) client roles? This can be configured
+manually via the admin UI (steps below), or auto-provisioned by the app — see
+[Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning) for the
 managed-Keycloak setup.
 
 Add a protocol mapper to the `epistola-suite` client:
@@ -233,7 +338,7 @@ Add a protocol mapper to the `epistola-suite` client:
 
 **Important:** `Full group path` must be ON so the JWT contains full paths like `/epistola/tenants/demo/content-viewer`.
 
-### 3. Create Groups
+#### Create groups
 
 Create the hierarchical group structure:
 
@@ -246,7 +351,7 @@ Create the hierarchical group structure:
 
 Alternatively, configure the chart with `oidc.enabled: true` and `keycloakAdmin.ensureGroups: true` to have the app create the base structure automatically on startup (see below).
 
-### 4. Assign Users to Groups
+#### Assign users to groups
 
 Assign users to the leaf groups (e.g., `/epistola/tenants/demo/content-viewer`). Assigning to intermediate groups (e.g., `/epistola/tenants/demo`) has no effect on authorization.
 
@@ -304,8 +409,8 @@ For each mapper:
 
 If the service account is missing the `manage-clients` realm-management role, the app
 logs a warning and the rest of startup continues. In that case, configure the mappers
-manually (see [Group Membership Mapper](#2-group-membership-mapper) above) or grant the
-role.
+manually (see [Group Membership Mapper](#group-membership-mapper-groups-path) above) or
+grant the role.
 
 ### Configuration
 
