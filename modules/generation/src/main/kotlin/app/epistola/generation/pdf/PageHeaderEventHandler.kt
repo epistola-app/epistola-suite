@@ -8,10 +8,8 @@ import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
 import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 import com.itextpdf.layout.Canvas
-import com.itextpdf.layout.element.AreaBreak
-import com.itextpdf.layout.element.Div
-import com.itextpdf.layout.element.IBlockElement
-import com.itextpdf.layout.element.Image
+import com.itextpdf.layout.properties.OverflowPropertyValue
+import com.itextpdf.layout.properties.Property
 
 /**
  * Event handler that renders a page header on every page.
@@ -20,14 +18,17 @@ import com.itextpdf.layout.element.Image
  *  - 1 header → applies to every page.
  *  - 2 headers → index 0 applies to page 1; index 1 applies to pages 2 and onward.
  *
- * The body's top margin is computed by the caller from the maximum header height
- * across the list, so the body never overlaps either variant.
+ * [effectiveHeights] maps each header node id to the band height the caller
+ * reserved for it — `max(configured height, measured content height)` — so the
+ * drawn rectangle matches the body's top margin and tall content is never
+ * clipped. The body's top margin is computed by the caller from the same map.
  */
 class PageHeaderEventHandler(
     private val headerNodeIds: List<String>,
     private val document: TemplateDocument,
     private val context: RenderContext,
     private val registry: NodeRendererRegistry,
+    private val effectiveHeights: Map<String, Float>,
 ) : AbstractPdfDocumentEventHandler() {
 
     init {
@@ -57,7 +58,11 @@ class PageHeaderEventHandler(
         val topMargin = effectivePageMarginPt(headerNode, "marginTop", context)
         val leftMargin = effectivePageMarginPt(headerNode, "marginLeft", context)
         val rightMargin = effectivePageMarginPt(headerNode, "marginRight", context)
-        val headerHeight = parseNodeHeight(headerNode, context)
+        // Pre-measured effective band height (max of configured and content height),
+        // so tall header content is never clipped. Falls back to the configured /
+        // default height when no measurement was supplied.
+        val headerHeight = effectiveHeights[selectedId]
+            ?: parseNodeHeight(headerNode, context)
             ?: context.renderingDefaults.pageHeaderHeight
 
         // Rectangle y is measured from the bottom of the page.
@@ -77,35 +82,22 @@ class PageHeaderEventHandler(
 
         // Constrain layout to the header rectangle
         val canvas = Canvas(pdfCanvas, headerRect)
+        // Safety net: if a measurement edge case under-sizes the band, render the
+        // overflow instead of silently dropping content.
+        canvas.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.VISIBLE)
+        canvas.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.VISIBLE)
 
-        // Render the header node's slots with page-scoped system parameters
         val totalPages = context.totalPages ?: pdfDoc.numberOfPages
-        val pageContext = context.withInheritedStylesFrom(headerNode).withPageParams(pageNumber, totalPages)
-        val elements = registry.renderSlots(headerNode, document, pageContext)
-
-        // Wrap slot children in a Div so header node styles (borders, background, padding) apply.
-        // The margin sides consumed above for rectangle positioning are stripped from the
-        // wrapper styles so the same values aren't applied again inside the rectangle.
-        val wrapper = Div()
-        val wrapperStyles = headerNode.styleMapExcluding(setOf("marginTop", "marginLeft", "marginRight"))
-        StyleApplicator.applyStylesWithPreset(
-            wrapper,
-            wrapperStyles,
-            headerNode.stylePreset,
-            context.blockStylePresets,
-            context.inheritedStyles,
-            context.fontCache,
-            context.renderingDefaults.componentDefaults("pageheader"),
-            context.renderingDefaults.baseFontSizePt,
-            context.spacingUnit,
+        val wrapper = buildBandWrapper(
+            node = headerNode,
+            document = document,
+            baseContext = context,
+            registry = registry,
+            consumedMarginKeys = HEADER_CONSUMED_MARGINS,
+            componentDefaultsKey = HEADER_COMPONENT_KEY,
+            pageNumber = pageNumber,
+            totalPages = totalPages,
         )
-        for (element in elements) {
-            when (element) {
-                is IBlockElement -> wrapper.add(element)
-                is Image -> wrapper.add(element)
-                is AreaBreak -> Unit
-            }
-        }
         canvas.add(wrapper)
 
         canvas.close()

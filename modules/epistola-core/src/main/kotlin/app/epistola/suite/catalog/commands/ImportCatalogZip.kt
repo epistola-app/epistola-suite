@@ -630,6 +630,7 @@ class ImportCatalogZipHandler(
                 description = resource.description,
                 tags = resource.tags ?: emptyList(),
                 content = resource.content,
+                parameterSchema = resource.parameterSchema,
                 onConflict = onStencilConflict,
             ).execute()
             if (result.wasRenumbered) {
