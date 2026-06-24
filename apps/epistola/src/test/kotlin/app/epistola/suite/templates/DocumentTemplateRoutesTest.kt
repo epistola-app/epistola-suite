@@ -1,10 +1,16 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -363,6 +369,157 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(body).contains("sort=variants&amp;dir=desc")
             assertThat(body).contains("sort=name&amp;dir=asc")
             assertThat(body).contains("sort=catalog&amp;dir=asc")
+        }
+    }
+
+    @Test
+    fun `GET templates with invalid sort param falls back to updated`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Apple")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=not-a-column", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // An unknown sort resolves to UPDATED descending: only the active
+            // column carries a non-none aria-sort, and its header toggles to asc.
+            assertThat(body).contains("aria-sort=\"descending\"")
+            assertThat(body).contains("sort=updated&amp;dir=asc")
+        }
+    }
+
+    @Test
+    fun `GET templates sorts by variant count descending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            val many = template(testTenant, "ManyVariants")
+            val some = template(testTenant, "SomeVariants")
+            template(testTenant, "FewVariants")
+            repeat(2) { variant(testTenant, many) }
+            variant(testTenant, some)
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=variants&dir=desc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("ManyVariants")).isLessThan(body.indexOf("SomeVariants"))
+            assertThat(body.indexOf("SomeVariants")).isLessThan(body.indexOf("FewVariants"))
+        }
+    }
+
+    @Test
+    fun `GET templates sorts by catalog ascending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            val tenantId = TenantId(testTenant.id)
+            // Default catalog template created first (older); marketing second.
+            // Under sort=updated the marketing row would lead, so an asserted
+            // default-before-marketing order proves the catalog sort is applied.
+            template(testTenant, "DefaultCatalogTemplate")
+            withMediator {
+                CreateCatalog(tenantKey = testTenant.id, id = CatalogKey.of("marketing"), name = "Marketing").execute()
+                CreateDocumentTemplate(
+                    id = TemplateId(TemplateKey.of("mkt-tpl"), CatalogId(CatalogKey.of("marketing"), tenantId)),
+                    name = "MarketingCatalogTemplate",
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=catalog&dir=asc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // catalog asc: "default" precedes "marketing".
+            assertThat(body.indexOf("DefaultCatalogTemplate")).isLessThan(body.indexOf("MarketingCatalogTemplate"))
+        }
+    }
+
+    @Test
+    fun `GET templates sorts by last modified descending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "OldestTemplate")
+            template(testTenant, "MiddleTemplate")
+            val newest = template(testTenant, "ToBeTouched")
+            // Re-touch in a strictly later transaction so its updated_at (NOW())
+            // is newest regardless of creation-time tie resolution.
+            withMediator {
+                UpdateDocumentTemplate(
+                    id = TemplateId(newest.id, CatalogId(CatalogKey.of("default"), TenantId(testTenant.id))),
+                    name = "RecentlyTouched",
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=updated&dir=desc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("RecentlyTouched")).isLessThan(body.indexOf("OldestTemplate"))
+            assertThat(body.indexOf("RecentlyTouched")).isLessThan(body.indexOf("MiddleTemplate"))
+        }
+    }
+
+    @Test
+    fun `GET templates paginates within an active catalog filter`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            val tenantId = TenantId(testTenant.id)
+            template(testTenant, "Default Catalog Only")
+            withMediator {
+                CreateCatalog(tenantKey = testTenant.id, id = CatalogKey.of("marketing"), name = "Marketing").execute()
+                repeat(12) { i ->
+                    CreateDocumentTemplate(
+                        id = TemplateId(TemplateKey.of("mkt-%02d".format(i)), CatalogId(CatalogKey.of("marketing"), tenantId)),
+                        name = "Marketing %02d".format(i),
+                    ).execute()
+                }
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing&page=2", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // 12 marketing templates → 2 pages; page 2 holds the remaining 2, the
+            // default-catalog template is excluded, and the filter rides the links.
+            assertThat(body).contains("Page 2 of 2")
+            assertThat(rowCount(body)).isEqualTo(2)
+            assertThat(body).doesNotContain("Default Catalog Only")
+            assertThat(body).contains("catalog=marketing")
         }
     }
 
