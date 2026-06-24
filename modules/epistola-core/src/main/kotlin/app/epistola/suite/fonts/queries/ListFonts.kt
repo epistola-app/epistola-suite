@@ -2,6 +2,7 @@ package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.paging.ilikeContains
 import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -61,7 +62,7 @@ class ListFontsHandler(
             q.bind("catalogKey", query.catalogKey)
         }
         if (search != null) {
-            q.bind("search", "%$search%")
+            q.bind("search", ilikeContains(search))
         }
         q.mapTo<Font>().list()
     }

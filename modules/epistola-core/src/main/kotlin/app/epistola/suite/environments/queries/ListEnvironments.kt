@@ -9,6 +9,7 @@ import app.epistola.suite.common.paging.PagedResult
 import app.epistola.suite.common.paging.SortDirection
 import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.common.paging.SortWhitelist
+import app.epistola.suite.common.paging.ilikeContains
 import app.epistola.suite.common.paging.pagedQuery
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.mediator.Query
@@ -82,7 +83,7 @@ class ListEnvironmentsHandler(
                 // the pre-conversion LOWER(id) behaviour that also forced it to text). CAST(),
                 // not `id::text` — `::` collides with JDBI's `:name` parameter parser. No
                 // explicit ESCAPE clause: Postgres' default LIKE escape is already '\' (the
-                // char we escape with below), and a paired `ESCAPE '\'` confuses JDBI's
+                // char `ilikeContains` escapes with), and a paired `ESCAPE '\'` confuses JDBI's
                 // string-literal tracking across the two ILIKEs.
                 append(" AND (name ILIKE :searchTerm OR CAST(id AS text) ILIKE :searchTerm)")
             }
@@ -97,8 +98,7 @@ class ListEnvironmentsHandler(
             bind = { jdbiQuery ->
                 jdbiQuery.bind("tenantId", query.tenantId.key)
                 if (!query.searchTerm.isNullOrBlank()) {
-                    val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-                    jdbiQuery.bind("searchTerm", "%$escaped%")
+                    jdbiQuery.bind("searchTerm", ilikeContains(query.searchTerm))
                 }
                 jdbiQuery
             },

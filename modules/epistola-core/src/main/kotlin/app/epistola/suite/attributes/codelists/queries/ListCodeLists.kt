@@ -8,6 +8,7 @@ import app.epistola.suite.common.paging.PagedResult
 import app.epistola.suite.common.paging.SortDirection
 import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.common.paging.SortWhitelist
+import app.epistola.suite.common.paging.ilikeContains
 import app.epistola.suite.common.paging.pagedQuery
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -81,8 +82,9 @@ class ListCodeListsHandler(
                 // CAST(slug AS text), not `slug::text` — `::` collides with JDBI's `:name` parser.
                 append(" AND (cl.display_name ILIKE :searchTerm OR CAST(cl.slug AS text) ILIKE :searchTerm)")
             }
-            // cl.slug tiebreaker keeps offset paging deterministic when the sort column ties.
-            append(" ORDER BY ${CODE_LIST_SORT.orderBy(query.sort, tiebreaker = "cl.slug")}")
+            // (catalog_key, slug) tiebreaker: slug alone is unique only within a catalog, but
+            // this lists across all catalogs, so a bare slug can tie and break deterministic paging.
+            append(" ORDER BY ${CODE_LIST_SORT.orderBy(query.sort, tiebreaker = "cl.catalog_key, cl.slug")}")
             append(" LIMIT :limit OFFSET :offset")
         }
 
@@ -95,7 +97,7 @@ class ListCodeListsHandler(
                     jdbiQuery.bind("catalogKey", query.catalogKey)
                 }
                 if (!query.searchTerm.isNullOrBlank()) {
-                    jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
+                    jdbiQuery.bind("searchTerm", ilikeContains(query.searchTerm))
                 }
                 jdbiQuery
             },

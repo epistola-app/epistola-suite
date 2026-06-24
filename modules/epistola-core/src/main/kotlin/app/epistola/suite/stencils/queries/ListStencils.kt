@@ -8,6 +8,7 @@ import app.epistola.suite.common.paging.PagedResult
 import app.epistola.suite.common.paging.SortDirection
 import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.common.paging.SortWhitelist
+import app.epistola.suite.common.paging.ilikeContains
 import app.epistola.suite.common.paging.pagedQuery
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -70,8 +71,9 @@ class ListStencilsHandler(
             if (!query.tag.isNullOrBlank()) {
                 append(" AND s.tags @> :tag::jsonb")
             }
-            // s.id tiebreaker keeps offset paging deterministic when the sort column ties.
-            append(" ORDER BY ${STENCIL_SORT.orderBy(query.sort, tiebreaker = "s.id")}")
+            // (catalog_key, id) tiebreaker: id alone is unique only within a catalog, but this
+            // lists across all catalogs, so a bare id can tie and break deterministic paging.
+            append(" ORDER BY ${STENCIL_SORT.orderBy(query.sort, tiebreaker = "s.catalog_key, s.id")}")
             append(" LIMIT :limit OFFSET :offset")
         }
 
@@ -84,7 +86,7 @@ class ListStencilsHandler(
                     jdbiQuery.bind("catalogKey", query.catalogKey)
                 }
                 if (!query.searchTerm.isNullOrBlank()) {
-                    jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
+                    jdbiQuery.bind("searchTerm", ilikeContains(query.searchTerm))
                 }
                 if (!query.tag.isNullOrBlank()) {
                     jdbiQuery.bind("tag", "[\"${query.tag}\"]")

@@ -1,7 +1,10 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.paging.PageRequest
 import app.epistola.suite.common.paging.SortDirection
@@ -162,5 +165,46 @@ class ListTemplateSummariesTest : IntegrationTestBase() {
 
         assertThat(seen.map { it.id }).doesNotHaveDuplicates()
         assertThat(seen.map { it.name }).containsExactlyInAnyOrder("Alpha", "Bravo", "Charlie")
+    }
+
+    @Test
+    fun `paging stays deterministic across catalogs that share a template id`(): Unit = withMediator {
+        val tenantId = TenantId(createTenant("Cross Catalog").id)
+        // Two catalogs each hold a template with the SAME id and name (the product's
+        // catalog-override model). Sorting by name ties on name AND on the bare id, so paging is
+        // deterministic only because catalog_key is part of the tiebreaker — without it a row
+        // could be skipped or duplicated across the page boundary.
+        val catA = CatalogKey.of("cat-a")
+        val catB = CatalogKey.of("cat-b")
+        CreateCatalog(tenantKey = tenantId.key, id = catA, name = "Catalog A").execute()
+        CreateCatalog(tenantKey = tenantId.key, id = catB, name = "Catalog B").execute()
+        CreateDocumentTemplate(id = TemplateId(TemplateKey.of("shared"), CatalogId(catA, tenantId)), name = "Shared").execute()
+        CreateDocumentTemplate(id = TemplateId(TemplateKey.of("shared"), CatalogId(catB, tenantId)), name = "Shared").execute()
+
+        val sort = SortSpec("name", SortDirection.ASC)
+        val seen = (1..2).map { p ->
+            ListTemplateSummaries(tenantId = tenantId, sort = sort, page = PageRequest(page = p, size = 1)).query().items.single()
+        }
+
+        // Each same-id row appears exactly once across the two pages — none skipped or duplicated.
+        assertThat(seen.map { it.catalogKey.value }).containsExactlyInAnyOrder("cat-a", "cat-b")
+    }
+
+    @Test
+    fun `a huge page number clamps to the last page without overflowing the offset`(): Unit = withMediator {
+        val tenantId = TenantId(createTenant("Huge Page").id)
+        createTemplates(tenantId, "Alpha", "Bravo", "Charlie")
+
+        // page = Int.MAX_VALUE: an Int offset (page-1)*size would overflow to a negative SQL
+        // OFFSET (a 500); computed in Long it stays positive, the fetch is empty, and the
+        // stale-deep-link clamp returns the last page instead of throwing.
+        val result = ListTemplateSummaries(
+            tenantId = tenantId,
+            page = PageRequest(page = Int.MAX_VALUE, size = 2),
+        ).query()
+
+        assertThat(result.page).isEqualTo(2)
+        assertThat(result.total).isEqualTo(3L)
+        assertThat(result.items).hasSize(1)
     }
 }

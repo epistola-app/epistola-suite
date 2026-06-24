@@ -10,6 +10,7 @@ import app.epistola.suite.common.paging.PagedResult
 import app.epistola.suite.common.paging.SortDirection
 import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.common.paging.SortWhitelist
+import app.epistola.suite.common.paging.ilikeContains
 import app.epistola.suite.common.paging.pagedQuery
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -121,10 +122,11 @@ class ListTemplateSummariesHandler(
                 append(" AND dt.catalog_key = :catalogKey")
             }
             if (!query.searchTerm.isNullOrBlank()) {
-                append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
+                append(" AND dt.name ILIKE :searchTerm")
             }
-            // dt.id tiebreaker keeps offset paging deterministic when the sort column ties.
-            append(" ORDER BY ${TEMPLATE_SORT.orderBy(query.sort, tiebreaker = "dt.id")}")
+            // (catalog_key, id) tiebreaker: id alone is unique only within a catalog, but this
+            // lists across all catalogs, so a bare id can tie and break deterministic paging.
+            append(" ORDER BY ${TEMPLATE_SORT.orderBy(query.sort, tiebreaker = "dt.catalog_key, dt.id")}")
             append(" LIMIT :limit OFFSET :offset")
         }
 
@@ -137,8 +139,7 @@ class ListTemplateSummariesHandler(
                     jdbiQuery.bind("catalogKey", query.catalogKey)
                 }
                 if (!query.searchTerm.isNullOrBlank()) {
-                    val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-                    jdbiQuery.bind("searchTerm", "%$escaped%")
+                    jdbiQuery.bind("searchTerm", ilikeContains(query.searchTerm))
                 }
                 jdbiQuery
             },

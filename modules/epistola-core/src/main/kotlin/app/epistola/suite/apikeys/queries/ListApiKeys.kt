@@ -8,6 +8,7 @@ import app.epistola.suite.common.paging.PagedResult
 import app.epistola.suite.common.paging.SortDirection
 import app.epistola.suite.common.paging.SortSpec
 import app.epistola.suite.common.paging.SortWhitelist
+import app.epistola.suite.common.paging.ilikeContains
 import app.epistola.suite.common.paging.pagedQuery
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -77,7 +78,7 @@ class ListApiKeysHandler(
             bind = { jdbiQuery ->
                 jdbiQuery.bind("tenantId", query.tenantId)
                 if (!query.searchTerm.isNullOrBlank()) {
-                    jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
+                    jdbiQuery.bind("searchTerm", ilikeContains(query.searchTerm))
                 }
                 jdbiQuery
             },
