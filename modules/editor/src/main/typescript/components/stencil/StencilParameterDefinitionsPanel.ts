@@ -20,7 +20,8 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { JsonSchema, JsonSchemaProperty } from '../../data-contract/types.js';
+import type { JsonSchema, JsonSchemaProperty, SchemaFieldType } from '../../data-contract/types.js';
+import { FIELD_TYPE_LABELS } from '../../data-contract/utils/schemaUtils.js';
 
 interface ParamRow {
   /** Stable identifier so list selection survives renames. */
@@ -36,14 +37,28 @@ interface ParamRow {
 const NAME_RE = /^[a-z][a-zA-Z0-9_]{0,63}$/;
 const RESERVED = new Set(['params', 'item', 'sys', 'index']);
 
-const TYPE_OPTIONS: Array<{ value: ParamRow['type']; label: string }> = [
-  { value: 'string', label: 'String' },
-  { value: 'number', label: 'Number' },
-  { value: 'integer', label: 'Integer' },
-  { value: 'boolean', label: 'Boolean' },
-  { value: 'date', label: 'Date' },
-  { value: 'date-time', label: 'Date-time' },
-];
+/**
+ * Map a stencil parameter type to the data-contract field type whose label we
+ * reuse. The data-contract editor's `FIELD_TYPE_LABELS` is the single source of
+ * truth for type names ("Text", "Yes/No", "Date & time", …), so the two
+ * editors never drift apart; only the `date-time` ⇄ `datetime` spelling differs.
+ */
+const TYPE_LABEL_KEY: Record<ParamRow['type'], SchemaFieldType> = {
+  string: 'string',
+  number: 'number',
+  integer: 'integer',
+  boolean: 'boolean',
+  date: 'date',
+  'date-time': 'datetime',
+};
+
+function paramTypeLabel(type: ParamRow['type']): string {
+  return FIELD_TYPE_LABELS[TYPE_LABEL_KEY[type]];
+}
+
+const TYPE_OPTIONS: Array<{ value: ParamRow['type']; label: string }> = (
+  ['string', 'number', 'integer', 'boolean', 'date', 'date-time'] as ParamRow['type'][]
+).map((value) => ({ value, label: paramTypeLabel(value) }));
 
 @customElement('stencil-parameter-definitions-panel')
 export class StencilParameterDefinitionsPanel extends LitElement {
@@ -144,7 +159,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
   private _renderListItem(row: ParamRow) {
     const isSelected = row.id === this._selectedId;
     const hasError = row.id in this._errors;
-    const typeLabel = row.isList ? `${row.type}[]` : row.type;
+    const typeLabel = row.isList ? `${paramTypeLabel(row.type)}[]` : paramTypeLabel(row.type);
     return html`
       <div
         @click=${() => this._select(row.id)}
