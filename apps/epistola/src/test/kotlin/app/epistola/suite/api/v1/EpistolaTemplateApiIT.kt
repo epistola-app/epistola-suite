@@ -345,6 +345,50 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a rejected breaking change leaves no draft, so data validation still uses the published model`() {
+        // Regression: the create -> update -> publish steps each commit separately, so a
+        // publish rejected as breaking must not leave a dangling draft holding the rejected
+        // schema. validate-data reads the draft-preferred contract, so it would observe such
+        // a leak: data valid under the published model would be rejected by the leaked draft.
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "leak-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "No Leak"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        // Publish v1 with name:string.
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // Breaking change name:string -> name:integer without forceUpdate is rejected (409).
+        val rejected = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
+
+        // A string name is valid under the published model. If the rejected draft (name:integer)
+        // had leaked, validate-data would mark it invalid.
+        val validate = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/validate",
+            HttpMethod.POST,
+            HttpEntity("""{"data": {"name": "hello"}}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(validate.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Boolean>(validate.body!!, "$.valid")).isTrue
+    }
+
+    @Test
     fun `delete template returns 204 and subsequent get returns 404`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "del-${randomSuffix()}"
