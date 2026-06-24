@@ -19,8 +19,10 @@ import app.epistola.suite.htmx.variantId
 import app.epistola.suite.htmx.versionId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.DraftHasNoPublishedBaseException
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
+import app.epistola.suite.templates.commands.versions.DiscardDraft
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
@@ -98,6 +100,32 @@ class VersionRouteHandler(
         }
 
         // Redirect to reload the page with updated state
+        val redirectUrl = "/tenants/${tenantId.key.value}/templates/${catalogId.value}/${templateId.key.value}"
+        return ServerResponse.ok()
+            .header("HX-Redirect", redirectUrl)
+            .build()
+    }
+
+    fun discardDraft(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val variantId = request.variantId(templateId)
+            ?: return ServerResponse.badRequest().build()
+
+        try {
+            DiscardDraft(variantId = variantId).execute()
+        } catch (e: DraftHasNoPublishedBaseException) {
+            return variantRouteHandler.renderVariantsSection(
+                request = request,
+                tenantId = tenantId,
+                templateId = templateId,
+                errorMessage = e.message,
+            )
+        }
+
+        // Redirect to reload the page with the draft gone and editor state reset
         val redirectUrl = "/tenants/${tenantId.key.value}/templates/${catalogId.value}/${templateId.key.value}"
         return ServerResponse.ok()
             .header("HX-Redirect", redirectUrl)

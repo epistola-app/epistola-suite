@@ -78,6 +78,7 @@ class DocumentTemplateRoutes(
             POST("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::createDraft)
             PUT("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::updateDraft)
             POST("/{catalogId}/{id}/variants/{variantId}/draft/publish", versionHandler::publishDraft)
+            POST("/{catalogId}/{id}/variants/{variantId}/draft/discard", versionHandler::discardDraft)
 
             // Version lifecycle
             POST("/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)

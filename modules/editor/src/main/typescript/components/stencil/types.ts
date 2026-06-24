@@ -62,7 +62,7 @@ export type GetStencilVersionFn = (
 
 /** Check which stencil instances in the document have newer versions available. */
 export type CheckStencilUpgradesFn = (
-  refs: Array<{ stencilId: string; version: number; catalogKey?: string }>,
+  refs: Array<{ stencilId: string; version: number; catalogKey: string }>,
 ) => Promise<Array<{ stencilId: string; currentVersion: number; latestVersion: number }>>;
 
 /** Create a new stencil entity with an empty draft. */
