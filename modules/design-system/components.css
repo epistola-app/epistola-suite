@@ -509,6 +509,110 @@
     & td:last-child {
       padding-right: var(--ep-space-5);
     }
+    /* Content/header links read as plain text, not default blue links. */
+    & a:not(.ep-btn) {
+      color: inherit;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
+
+  /* Fixed-layout variant: predictable column widths (from <col>) regardless of content.
+     A readable min-width means a narrow viewport scrolls (see .ep-table-scroll) rather
+     than crushing the columns. */
+  .ep-table-fixed {
+    table-layout: fixed;
+    min-width: var(--ep-table-min-width, 50rem);
+
+    /* Headers stay on one line (and clip rather than wrap if a column is too narrow). */
+    & th {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Body cells WRAP by default — and break even a single unbroken token (a long id with
+       no spaces/dashes) — so content never overflows its column into the next one. */
+    & td {
+      overflow-wrap: anywhere;
+    }
+
+    /* Opt a cell IN to one-line truncation with an ellipsis. Pair it with a `title`
+       attribute carrying the full value so it stays reachable on hover. */
+    & td.ep-truncate {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  /* Horizontal-scroll wrapper for a table. Shows a scrollbar ONLY when the table can't
+     fit (narrow viewports); on desktop the table fits and nothing scrolls. */
+  .ep-table-scroll {
+    overflow-x: auto;
+  }
+
+  /* ── Sortable column headers ──────────────────────────────────────────── */
+
+  .ep-table-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    cursor: pointer;
+  }
+
+  /* One chevron, muted by default so the column reads as sortable; the active
+     column is full-strength and rotates up for ascending. */
+  .ep-sort-icon {
+    opacity: 0.3;
+    transition:
+      opacity var(--ep-transition-fast),
+      transform var(--ep-transition-fast);
+  }
+
+  .ep-table-sort:hover .ep-sort-icon {
+    opacity: 0.6;
+  }
+
+  .ep-table-sort.is-sorted .ep-sort-icon {
+    opacity: 1;
+  }
+
+  .ep-table-sort.is-asc .ep-sort-icon {
+    transform: rotate(180deg);
+  }
+
+  /* ── Table footer (pagination + per-page) ─────────────────────────────── */
+
+  .ep-table-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-3);
+    margin-top: var(--ep-space-3);
+  }
+
+  .ep-pagination {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  /* Summary text + per-page select, grouped and pinned to the right. */
+  .ep-table-meta {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
+  .ep-page-indicator {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
   }
 
   /* ── Icons ────────────────────────────────────────────────────────────── */

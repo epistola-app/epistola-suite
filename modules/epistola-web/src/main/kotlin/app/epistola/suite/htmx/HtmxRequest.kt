@@ -23,6 +23,9 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import org.springframework.web.servlet.function.ServerRequest
+import org.springframework.web.util.UriComponentsBuilder
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 /**
  * Extension properties for detecting and reading HTMX request headers.
@@ -194,6 +197,27 @@ fun ServerRequest.feedbackId(tenantId: TenantId): FeedbackId? {
 fun ServerRequest.queryParam(name: String): String? = param(name).orElse(null)
 
 fun ServerRequest.queryParam(name: String, default: String): String = param(name).orElse(default)
+
+/**
+ * Read a list-view filter/sort param, preserving it across row mutations.
+ *
+ * On the list GET — a full-page load or an htmx search/sort/filter request — the param is
+ * on the request URL and is returned verbatim, *including a present-but-blank value*, which
+ * means the user deliberately cleared that filter. Only when the param is entirely **absent**
+ * from the request — a mutation (create/delete/release/upgrade) POSTs to a fixed URL that
+ * carries no list state — do we fall back to the browser URL htmx sends in `HX-Current-URL`,
+ * so the re-rendered list fragment keeps the active search/sort instead of snapping back to
+ * defaults (and contradicting the still-populated search box).
+ *
+ * Returns null when the param is absent everywhere or resolves to blank.
+ */
+fun ServerRequest.listParam(name: String): String? {
+    val own = param(name)
+    if (own.isPresent) return own.get().ifBlank { null }
+    val current = htmxCurrentUrl ?: return null
+    val raw = UriComponentsBuilder.fromUriString(current).build().queryParams.getFirst(name) ?: return null
+    return URLDecoder.decode(raw, StandardCharsets.UTF_8).ifBlank { null }
+}
 
 /**
  * Get a query parameter as an integer with optional default value.

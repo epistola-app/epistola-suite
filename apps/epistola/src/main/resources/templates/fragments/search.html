@@ -12,17 +12,35 @@
 
     Parameters:
     - placeholder: The placeholder text for the search input
-    - searchUrl: The URL to fetch search results from (should return HTMX-compatible fragment)
-    - targetId: The ID of the element to swap with search results
+    - searchUrl: The URL to fetch search results from (standalone mode only)
+    - targetId: The ID of the element to swap with search results (standalone mode only)
+    - searchFormDriven: when true, render a plain field with no htmx of its own — the
+      enclosing list <form> makes the request (used by data-table pages, where search is
+      one of several fields submitted together). When false/absent, the input drives its
+      own htmx request to searchUrl (the standalone mode used by non-data-table list pages).
+    - searchValue: (optional) the active search term, so the box reflects it on a full-page
+      load / refresh of a bookmarked filtered URL. Null renders an empty box.
 -->
 <body>
 
 <!--/* Search box fragment with HTMX integration */-->
-<div class="search-box" th:fragment="search-box(placeholder, searchUrl, targetId)">
-    <input type="search"
+<div class="search-box" th:fragment="search-box(placeholder, searchUrl, targetId, searchFormDriven, searchValue)">
+    <!-- Form-driven: a plain field; the enclosing list <form> serializes and submits it. -->
+    <input th:if="${searchFormDriven}"
+           type="search"
            name="q"
            data-testid="search-input"
            th:placeholder="${placeholder}"
+           th:value="${searchValue}"
+           class="ep-input form-control-auto"
+           >
+    <!-- Standalone: the input drives its own htmx request (legacy non-data-table pages). -->
+    <input th:unless="${searchFormDriven}"
+           type="search"
+           name="q"
+           data-testid="search-input"
+           th:placeholder="${placeholder}"
+           th:value="${searchValue}"
            th:hx-get="${searchUrl}"
            hx-trigger="input changed delay:300ms, search"
            th:hx-target="${'#' + targetId}"

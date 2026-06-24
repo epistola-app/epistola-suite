@@ -10,6 +10,8 @@
             searchPlaceholder=${searchPlaceholder} ?: 'Search...',
             searchUrl=${searchUrl} ?: null,
             searchTargetId=${searchTargetId} ?: null,
+            searchFormDriven=${searchFormDriven} ?: false,
+            searchValue=${searchValue} ?: null,
             actions=${actions} ?: null,
             stage=${stage} ?: null
          "
@@ -31,12 +33,14 @@
             <p th:if="${!#strings.isEmpty(pageDescription)}" th:text="${pageDescription}"></p>
         </div>
 
-        <div th:if="${searchUrl != null or actions != null}" class="page-actions">
-            <th:block th:if="${searchUrl != null}">
+        <div th:if="${searchUrl != null or searchFormDriven or actions != null}" class="page-actions">
+            <th:block th:if="${searchUrl != null or searchFormDriven}">
                 <th:block th:replace="~{fragments/search :: search-box(
                     placeholder=${searchPlaceholder},
                     searchUrl=${searchUrl},
-                    targetId=${searchTargetId}
+                    targetId=${searchTargetId},
+                    searchFormDriven=${searchFormDriven},
+                    searchValue=${searchValue}
                 )}"></th:block>
             </th:block>
 

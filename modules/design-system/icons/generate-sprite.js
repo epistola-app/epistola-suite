@@ -51,6 +51,7 @@ const ICONS = [
   'key',
   'layout-template',
   'list',
+  'lock',
   'log-in',
   'log-out',
   'mail',
