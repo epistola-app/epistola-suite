@@ -1,6 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 
 class VersionNotDraftException(
@@ -17,3 +18,8 @@ class VersionArchivedException(
     val tenantId: TenantKey,
     val versionId: VersionKey,
 ) : RuntimeException("Version $versionId is archived and cannot be published")
+
+class DraftHasNoPublishedBaseException(
+    val tenantId: TenantKey,
+    val variantId: VariantKey,
+) : RuntimeException("Variant $variantId has no published version to revert to; the draft cannot be discarded")
