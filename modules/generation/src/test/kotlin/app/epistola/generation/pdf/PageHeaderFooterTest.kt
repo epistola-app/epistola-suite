@@ -723,6 +723,53 @@ class PageHeaderFooterTest {
     }
 
     @Test
+    fun `auto-grow works on the two-pass render path`() {
+        // A `sys.pages.total` expression forces TWO-PASS rendering (page count is
+        // resolved in a first pass). The tall header must still auto-grow and render
+        // through that path — the effective heights are threaded into both passes, not
+        // just the single-pass path.
+        val rootSlot = "slot-root"
+        val headerSlot = "slot-header"
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlot)),
+                "header" to Node(id = "header", type = "pageheader", slots = listOf(headerSlot), props = mapOf("height" to "10pt")),
+                "header-text" to tallContentNode("header-text"),
+                "body-text" to textNode("body-text", "Body content."),
+                "pages" to expressionTextNode("pages", "sys.pages.total"),
+            ),
+            slots = mapOf(
+                rootSlot to Slot(rootSlot, "root", "children", listOf("header", "body-text", "pages")),
+                headerSlot to Slot(headerSlot, "header", "children", listOf("header-text")),
+            ),
+        )
+        assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc), "test doc must take the two-pass path")
+        val text = renderAndExtract(doc)
+        assertContains(
+            text,
+            tallMarker,
+            message = "Tall header content taller than the 10pt height must still render via the two-pass path",
+        )
+    }
+
+    private fun expressionTextNode(id: String, expression: String) = Node(
+        id = id,
+        type = "text",
+        props = mapOf(
+            "content" to mapOf(
+                "type" to "doc",
+                "content" to listOf(
+                    mapOf(
+                        "type" to "paragraph",
+                        "content" to listOf(mapOf("type" to "expression", "attrs" to mapOf("expression" to expression))),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    @Test
     fun `address block authored inside a header does not inflate the header band`() {
         // An address block is a page-absolute element: its window is drawn absolutely
         // and an in-flow spacer reserves its height in the BODY. Whether it is authored

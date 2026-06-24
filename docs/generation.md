@@ -249,7 +249,9 @@ A `pageheader` / `pagefooter` carries an optional `height` prop (e.g. `"60pt"`).
 That height is a **minimum**, not a fixed clip: the band reserves
 `max(configured height, measured content height)`. So increasing `height` adds
 whitespace, content shorter than it is unaffected, and content **taller** than it
-grows the band instead of being dropped.
+grows the band instead of being dropped. The decision and the options weighed
+(clip, warn, reject, auto-grow) are recorded in
+[ADR 0008](adr/0008-header-footer-height-minimum.md).
 
 Why this matters: a header/footer is drawn as an iText overlay into a fixed
 `Canvas` rectangle. If content overflows that rectangle, iText discards the
