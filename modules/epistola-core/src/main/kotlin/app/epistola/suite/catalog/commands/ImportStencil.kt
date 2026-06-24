@@ -41,6 +41,7 @@ data class ImportStencil(
     val description: String? = null,
     val tags: List<String> = emptyList(),
     val content: TemplateDocument,
+    val parameterSchema: Map<String, Any?>? = null,
     val onConflict: OnStencilConflict = OnStencilConflict.FAIL,
 ) : Command<ImportStencilResult>,
     RequiresPermission {
@@ -70,6 +71,7 @@ class ImportStencilHandler(
         val stencilKey = StencilKey.of(command.slug)
         val tagsJson = objectMapper.writeValueAsString(command.tags)
         val contentJson = objectMapper.writeValueAsString(command.content)
+        val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
         val auditUser = currentUserIdOrNull()?.value
 
         return jdbi.inTransaction<ImportStencilResult, Exception> { handle ->
@@ -113,10 +115,14 @@ class ImportStencilHandler(
 
             // Is there already a published row for the requested (stencil, version)?
             // Compare JSONB by value, not text — postgres normalises whitespace and
-            // object-key order so semantic equality is the right call.
+            // object-key order so semantic equality is the right call. The parameter
+            // schema is part of the version's identity, so a row that matches the
+            // content but carries a different schema is a genuine conflict, not an
+            // idempotent re-import (`IS NOT DISTINCT FROM` treats NULL = NULL).
             val existingMatchOrNull = handle.createQuery(
                 """
-                SELECT (content = :content::jsonb) AS matches
+                SELECT (content = :content::jsonb
+                        AND parameter_schema IS NOT DISTINCT FROM :parameterSchema::jsonb) AS matches
                 FROM stencil_versions
                 WHERE tenant_key = :tenantKey
                   AND catalog_key = :catalogKey
@@ -129,6 +135,7 @@ class ImportStencilHandler(
                 .bind("stencilKey", stencilKey)
                 .bind("version", VersionKey.of(command.version))
                 .bind("content", contentJson)
+                .bind("parameterSchema", parameterSchemaJson)
                 .mapTo(Boolean::class.java)
                 .findOne()
                 .orElse(null)
@@ -136,7 +143,7 @@ class ImportStencilHandler(
             when {
                 existingMatchOrNull == null -> {
                     // No row at this (slug, version) — install at the requested version.
-                    insertVersion(handle, command, stencilKey, command.version, contentJson, auditUser)
+                    insertVersion(handle, command, stencilKey, command.version, contentJson, parameterSchemaJson, auditUser)
                     ImportStencilResult(
                         status = if (stencilRowExisted) InstallStatus.UPDATED else InstallStatus.INSTALLED,
                         assignedVersion = command.version,
@@ -167,7 +174,7 @@ class ImportStencilHandler(
                             .bind("stencilKey", stencilKey)
                             .mapTo(Int::class.java)
                             .one()
-                        insertVersion(handle, command, stencilKey, newVersion, contentJson, auditUser)
+                        insertVersion(handle, command, stencilKey, newVersion, contentJson, parameterSchemaJson, auditUser)
                         ImportStencilResult(
                             status = if (stencilRowExisted) InstallStatus.UPDATED else InstallStatus.INSTALLED,
                             assignedVersion = newVersion,
@@ -185,12 +192,13 @@ class ImportStencilHandler(
         stencilKey: StencilKey,
         version: Int,
         contentJson: String,
+        parameterSchemaJson: String?,
         auditUser: java.util.UUID?,
     ) {
         handle.createUpdate(
             """
-            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at, created_at, created_by)
-            VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'published', NOW(), NOW(), :createdBy)
+            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, published_at, created_at, created_by)
+            VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, :parameterSchema::jsonb, 'published', NOW(), NOW(), :createdBy)
             """,
         )
             .bind("id", VersionKey.of(version))
@@ -198,6 +206,7 @@ class ImportStencilHandler(
             .bind("catalogKey", command.catalogKey)
             .bind("stencilKey", stencilKey)
             .bind("content", contentJson)
+            .bind("parameterSchema", parameterSchemaJson)
             .bind("createdBy", auditUser)
             .execute()
     }

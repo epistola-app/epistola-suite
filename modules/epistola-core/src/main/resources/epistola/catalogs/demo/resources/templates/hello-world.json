@@ -8,6 +8,10 @@
     "dataModel": {
       "type": "object",
       "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Company name shown in the header"
+        },
         "name": {
           "type": "string",
           "description": "Name of the person to greet"
@@ -22,6 +26,7 @@
       {
         "name": "Default",
         "data": {
+          "companyName": "Globex Corporation",
           "name": "World",
           "message": "Welcome to Epistola! This template was installed from a catalog."
         }
@@ -46,7 +51,22 @@
           "props": {
             "stencilId": "company-header",
             "catalogKey": "epistola-demo",
-            "version": 1
+            "version": 1,
+            "paramsAlias": "params",
+            "parameterBindings": {
+              "companyName": "companyName"
+            },
+            "parameterSchemaSnapshot": {
+              "type": "object",
+              "properties": {
+                "companyName": {
+                  "type": "string",
+                  "description": "Company name shown in the header",
+                  "default": "Acme Corporation"
+                }
+              },
+              "required": ["companyName"]
+            }
           }
         },
         "n-heading": {

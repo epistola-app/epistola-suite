@@ -302,12 +302,12 @@ the canvas converges to the resolved value. The cache invalidates on
 | Shared row helper             | `modules/editor/src/main/typescript/components/stencil/binding-row.ts`                                      |
 | Picker dialog (step 4)        | `modules/editor/src/main/typescript/components/stencil/stencil-picker-dialog.ts`                            |
 | Inspector                     | `modules/editor/src/main/typescript/components/stencil/StencilInspector.ts`                                 |
+| Catalog wire field            | `StencilResource.parameterSchema` in `epistola-model` (`app.epistola.catalog.protocol.ResourceDetail`)      |
+| Catalog export                | `modules/epistola-core/src/main/kotlin/.../catalog/queries/ExportResources.kt` (`ExportStencilsHandler`)    |
+| Catalog import                | `modules/epistola-core/src/main/kotlin/.../catalog/commands/ImportStencil.kt`                               |
 
 ## 9. Known limitations (future work)
 
-- **Catalog round-trip** — `epistola-catalog` import/export does not yet
-  carry `parameterSchema`. Stencils exported via the catalog will lose
-  their schema on round-trip. (Tracked separately.)
 - **Public REST API contract** — the internal `StencilHandler` accepts
   `parameterSchema`, but the public `StencilVersionDto` in
   `epistola-contract` doesn't expose it yet.

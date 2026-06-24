@@ -7,6 +7,17 @@
     "version": 1,
     "description": "Reusable company header block with company name and separator.",
     "tags": ["header", "branding"],
+    "parameterSchema": {
+      "type": "object",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Company name shown in the header",
+          "default": "Acme Corporation"
+        }
+      },
+      "required": ["companyName"]
+    },
     "content": {
       "modelVersion": 1,
       "root": "n-root",
@@ -33,7 +44,9 @@
                 {
                   "type": "heading",
                   "attrs": { "level": 1 },
-                  "content": [{ "type": "text", "text": "Company Name" }]
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "params.companyName" } }
+                  ]
                 }
               ]
             }
