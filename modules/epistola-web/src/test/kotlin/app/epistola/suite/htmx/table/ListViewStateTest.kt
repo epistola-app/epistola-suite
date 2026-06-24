@@ -69,6 +69,14 @@ class ListViewStateTest {
     }
 
     @Test
+    fun `a very large page is accepted (floored only), for the backing query to clamp`() {
+        // There is no upper clamp here: a huge page passes through (the query clamps a stale,
+        // out-of-range page to the last page). The offset is computed in Long downstream, so
+        // (page - 1) * size can't overflow to a negative SQL OFFSET. See ADR 0007.
+        assertThat(state("page" to "2000000000").pageRequest.page).isEqualTo(2000000000)
+    }
+
+    @Test
     fun `defaults apply when nothing is supplied`() {
         val s = state()
         assertThat(s.sort).isEqualTo(SortSpec("updated", SortDirection.DESC))

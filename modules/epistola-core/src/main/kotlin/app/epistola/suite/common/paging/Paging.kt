@@ -50,7 +50,7 @@ data class PagedResult<T>(
     val total: Long,
 ) {
     /** Total number of pages; at least 1 even when empty. */
-    val totalPages: Int get() = if (total == 0L) 1 else ((total + size - 1) / size).toInt()
+    val totalPages: Int get() = lastPage(total, size)
 
     /** 1-based index of the first item on this page (0 when empty). For "Showing 1–50 of N". */
     val from: Long get() = if (total == 0L) 0 else ((page - 1).toLong() * size) + 1
@@ -58,6 +58,13 @@ data class PagedResult<T>(
     /** 1-based index of the last item on this page (0 when empty). */
     val to: Long get() = minOf(page.toLong() * size, total)
 }
+
+/**
+ * The 1-based index of the last page for a [total]-row set windowed at [size] rows per page;
+ * at least 1 even when empty. Single source of the ceil-division so [PagedResult.totalPages]
+ * and the stale-deep-link clamp in [pagedResult] can't drift apart.
+ */
+internal fun lastPage(total: Long, size: Int): Int = if (total == 0L) 1 else ((total + size - 1) / size).toInt()
 
 /**
  * A per-query allow-list mapping *logical* sort keys (the keys the UI and URL use,
@@ -85,7 +92,13 @@ class SortWhitelist(
     /**
      * Render a safe `ORDER BY` body for [requested], falling back to [default] when the
      * requested key is not whitelisted. [tiebreaker] is appended `ASC` to keep offset
-     * paging deterministic when the sort column ties (e.g. the primary key).
+     * paging deterministic when the sort column ties.
+     *
+     * [tiebreaker] MUST be a key that is unique across the *whole result set*, not just per
+     * parent scope — otherwise offset paging can skip/duplicate rows on a tie. For a
+     * catalog-scoped list spanning all catalogs, that means the full `(catalog_key, id)`, not
+     * a bare `id` (which is only unique within one catalog). Pass fixed column SQL only,
+     * never user input.
      */
     fun orderBy(requested: SortSpec, tiebreaker: String): String {
         val spec = if (columns.containsKey(requested.column)) requested else default

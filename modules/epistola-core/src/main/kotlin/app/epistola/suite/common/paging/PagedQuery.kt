@@ -16,20 +16,23 @@ import java.sql.ResultSet
  * total (the same value on every row). The two [pagedQuery] overloads wrap this with the row
  * mapping; call this directly only for a bespoke fetch.
  */
-fun <T> pagedResult(page: PageRequest, fetch: (offset: Int) -> List<Pair<T, Long>>): PagedResult<T> {
+fun <T> pagedResult(page: PageRequest, fetch: (offset: Long) -> List<Pair<T, Long>>): PagedResult<T> {
     val size = page.size
     var pageNumber = page.page
-    var rows = fetch((pageNumber - 1) * size)
+    // Long offset: page is untrusted (a URL param floored at 1 but not ceiled), so an Int
+    // (page-1)*size would overflow to a negative OFFSET on a huge page. In Long it just yields
+    // a large offset → empty fetch → the clamp below returns the last page.
+    var rows = fetch((pageNumber - 1).toLong() * size)
 
     if (rows.isEmpty() && pageNumber > 1) {
-        val firstPage = fetch(0)
+        val firstPage = fetch(0L)
         val total = firstPage.firstOrNull()?.second ?: 0L
-        val lastPage = if (total == 0L) 1 else ((total + size - 1) / size).toInt()
+        val lastPage = lastPage(total, size)
         pageNumber = lastPage
         rows = when {
             total == 0L -> emptyList()
             lastPage == 1 -> firstPage
-            else -> fetch((lastPage - 1) * size)
+            else -> fetch((lastPage - 1).toLong() * size)
         }
     }
 
