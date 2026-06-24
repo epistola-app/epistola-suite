@@ -19,6 +19,7 @@ import { createImageDefinition } from './components/image/image-registration.js'
 import type { AssetInfo } from './components/image/asset-picker-dialog.js';
 import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
 import { createStencilDefinition } from './components/stencil/stencil-registration.js';
+import { collectStencilUpgradeRefs } from './components/stencil/upgrade-refs.js';
 import type { StencilCallbacks } from './components/stencil/types.js';
 import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
 import { nanoid } from 'nanoid';
@@ -235,12 +236,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
 
   // Check for stencil upgrades after mount
   if (options.stencilOptions?.checkUpgrades) {
-    const stencilRefs = Object.values(doc.nodes)
-      .filter((n) => n.type === 'stencil' && n.props?.stencilId && n.props?.version)
-      .map((n) => ({
-        stencilId: n.props!.stencilId as string,
-        version: n.props!.version as number,
-      }));
+    const stencilRefs = collectStencilUpgradeRefs(doc);
 
     if (stencilRefs.length > 0) {
       options.stencilOptions.checkUpgrades(stencilRefs).then((upgrades) => {
