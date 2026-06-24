@@ -172,6 +172,35 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET templates wires the search box to the live sort state`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Apple")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=name&dir=asc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The search box (in the page header, outside the swapped table)
+            // includes [data-search-param] elements, so searching after a sort
+            // doesn't silently revert to the page-load sort.
+            assertThat(body).contains("hx-include=\"[data-search-param]\"")
+            // The swapped fragment carries the current sort/dir, each tagged
+            // data-search-param (selector + 2 hidden inputs = 3 occurrences).
+            assertThat(body).contains("name=\"sort\" value=\"name\"")
+            assertThat(body).contains("name=\"dir\" value=\"asc\"")
+            assertThat(body.split("data-search-param").size - 1).isGreaterThanOrEqualTo(3)
+        }
+    }
+
+    @Test
     fun `GET templates search with empty query returns all templates`() = fixture {
         lateinit var testTenant: Tenant
 

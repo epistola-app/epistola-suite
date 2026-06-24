@@ -2,11 +2,14 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
+        <!--/* searchUrl omits sort/dir on purpose: they change via HTMX without
+               re-rendering this header, so the search box reads the live values
+               from the [data-search-param] hidden inputs in #template-table. */-->
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Templates',
             pageDescription='All of your templates are here.',
             searchPlaceholder='Search templates...',
-            searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},catalog=${selectedCatalog},sort=${sort},dir=${sortDir})},
+            searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},catalog=${selectedCatalog})},
             searchTargetId='template-table',
             actions=~{::template-list-actions}
         )}"></div>
@@ -32,6 +35,11 @@
 
         <div id="template-table">
             <th:block th:fragment="table">
+                <!--/* Live sort/dir state, re-rendered on every swap. Tagged
+                       data-search-param so the search box's hx-include carries
+                       the current sort and searching doesn't revert it. */-->
+                <input type="hidden" name="sort" th:value="${sort}" data-search-param />
+                <input type="hidden" name="dir" th:value="${sortDir}" data-search-param />
                 <div th:if="${total == 0}" class="empty-state">
                     <!--/* Active search filtered everything out. */-->
                     <th:block th:if="${searchTerm != ''}">
