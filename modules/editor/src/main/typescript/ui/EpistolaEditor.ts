@@ -460,6 +460,7 @@ export class EpistolaEditor extends LitElement {
       openInsertDialog: () => this._openInsertDialog(),
       openShortcutsHelp: () => this._openShortcutsHelp(),
       openDataPreview: () => this._openDataPreview(),
+      openTemplateJson: () => this._openTemplateJson(),
       focusBlocksPanel: () => this._focusPalette(),
       focusStructurePanel: () => this._focusTree(),
       focusInspectorPanel: () => this._focusInspector(),
@@ -592,6 +593,13 @@ export class EpistolaEditor extends LitElement {
     const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar');
     if (!toolbar) return false;
     toolbar.openDataPreview();
+    return true;
+  }
+
+  private _openTemplateJson(): boolean {
+    const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar');
+    if (!toolbar) return false;
+    toolbar.openTemplateJson();
     return true;
   }
 

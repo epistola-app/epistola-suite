@@ -87,6 +87,9 @@ class EpistolaCatalogApi : CatalogsApi {
             zipBytes = file.bytes,
             catalogType = type,
             authoredMode = mode,
+            // REST is non-interactive: an AUTHORED migratable-old import migrates
+            // without a confirmation round-trip (the UI prompts; REST does not).
+            confirmMigration = true,
         ).execute()
 
         val installed = result.results.count { it.status == InstallStatus.INSTALLED }
