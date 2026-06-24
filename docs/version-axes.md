@@ -61,6 +61,13 @@ the map; each axis links to its detailed doc.
   bumps the `schemaVersion` but not the release. The fingerprint **excludes**
   `schemaVersion` by construction, so a wire-format migration is fingerprint-
   transparent (see [catalog-versioning.md](catalog-versioning.md#fingerprint-algorithm)).
+- **A below-current `schemaVersion` is handled differently per catalog type and
+  transport.** A SUBSCRIBED mirror is never migrated locally (its source must
+  republish — the catalog list flags this as _out of sync_); an AUTHORED ZIP is
+  blocked when no migration path exists, or prompts for confirmation when one
+  does (migrating mutates the imported content). See
+  [exchange/README.md → Import action for a below-current payload](exchange/README.md#import-action-for-a-below-current-payload)
+  and [Subscribed source schema sync](exchange/README.md#subscribed-source-schema-sync).
 
 ## See also
 

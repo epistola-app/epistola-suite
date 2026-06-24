@@ -5,33 +5,39 @@
  * Import this file first in any entry point.
  *
  * Inspired by shadcn/ui design principles: clean, minimal, precise.
+ *
+ * Palette: "Peach Paper" — a warm, paper-like scheme shared with the marketing
+ * site. Neutrals are warm taupe/brown (not cool gray); the accent is terracotta
+ * (not blue). This is NOT a dark theme — Epistola is light only.
  */
 
 :root {
-  /* ── Colors — gray palette ──────────────────────────────────────────── */
-  --ep-gray-50: #f9fafb;
-  --ep-gray-100: #f3f4f6;
-  --ep-gray-200: #e5e7eb;
-  --ep-gray-300: #d1d5db;
-  --ep-gray-400: #9ca3af;
-  --ep-gray-500: #6b7280;
-  --ep-gray-600: #4b5563;
-  --ep-gray-700: #374151;
-  --ep-gray-800: #1f2937;
-  --ep-gray-900: #111827;
-  --ep-gray-950: #030712;
+  /* ── Colors — warm neutral (paper) palette ──────────────────────────── */
+  /* Warm taupe→brown ramp. Anchored on the site's #6e5347 copy / #46302b heading. */
+  --ep-stone-50: #fdf8f4;
+  --ep-stone-100: #f6ede6;
+  --ep-stone-200: #e9dace;
+  --ep-stone-300: #d8c2b2;
+  --ep-stone-400: #b89e8c;
+  --ep-stone-500: #8c7163;
+  --ep-stone-600: #6e5347;
+  --ep-stone-700: #573f38;
+  --ep-stone-800: #46302b;
+  --ep-stone-900: #34221f;
+  --ep-stone-950: #241513;
 
-  /* ── Colors — blue palette ──────────────────────────────────────────── */
-  --ep-blue-50: #eff6ff;
-  --ep-blue-100: #dbeafe;
-  --ep-blue-200: #bfdbfe;
-  --ep-blue-300: #93c5fd;
-  --ep-blue-400: #60a5fa;
-  --ep-blue-500: #3b82f6;
-  --ep-blue-600: #2563eb;
-  --ep-blue-700: #1d4ed8;
-  --ep-blue-800: #1e40af;
-  --ep-blue-900: #1e3a8a;
+  /* ── Colors — terracotta accent palette ─────────────────────────────── */
+  /* Anchored on the site accent hsl(15 42% 51%) = #b6684e and hover #9d5741. */
+  --ep-terracotta-50: #fdf4ef;
+  --ep-terracotta-100: #f9e3d8;
+  --ep-terracotta-200: #f2c9b7;
+  --ep-terracotta-300: #e8a98f;
+  --ep-terracotta-400: #d4825f;
+  --ep-terracotta-500: #c47155;
+  --ep-terracotta-600: #b6684e;
+  --ep-terracotta-700: #9d5741;
+  --ep-terracotta-800: #7f4636;
+  --ep-terracotta-900: #683a2d;
 
   /* ── Colors — red palette ───────────────────────────────────────────── */
   --ep-red-50: #fef2f2;
@@ -71,6 +77,18 @@
   --ep-purple-500: #a855f7;
   --ep-purple-600: #9333ea;
 
+  /* ── Colors — blue palette (info status only) ───────────────────────── */
+  /* A cool accent reserved for the "info" alert. Deliberately kept OUT of brand
+     chrome (the brand accent is terracotta) — blue's only job is to make
+     informational notices read as distinct from the warm brand, the red error,
+     and the amber warning. */
+  --ep-blue-50: #eff6ff;
+  --ep-blue-100: #dbeafe;
+  --ep-blue-200: #bfdbfe;
+  --ep-blue-600: #2563eb;
+  --ep-blue-700: #1d4ed8;
+  --ep-blue-800: #1e40af;
+
   /* ── Colors — base ──────────────────────────────────────────────────── */
   --ep-white: #ffffff;
   --ep-black: #000000;
@@ -80,25 +98,40 @@
   --ep-yellow-800: var(--ep-amber-800);
 
   /* ── Semantic color aliases ─────────────────────────────────────────── */
-  --ep-background: var(--ep-gray-50);
-  --ep-foreground: var(--ep-gray-900);
+  /* Page background: warm "paper" — deep enough that white cards (--ep-card)
+     visibly detach from the page. Built from stone-100 (not stone-50) so the
+     surface separation that the cool-grey scheme had is restored without losing
+     the warm hue. Dial the percentage down toward white to lighten, up toward
+     100% for full stone-100. */
+  --ep-background: color-mix(in srgb, var(--ep-stone-100) 65%, var(--ep-white));
+  --ep-foreground: var(--ep-stone-900);
   --ep-card: var(--ep-white);
-  --ep-card-foreground: var(--ep-gray-900);
-  --ep-muted: var(--ep-gray-100);
-  --ep-muted-foreground: var(--ep-gray-500);
-  --ep-accent: var(--ep-gray-100);
-  --ep-accent-foreground: var(--ep-gray-900);
-  --ep-primary: var(--ep-blue-600);
+  --ep-card-foreground: var(--ep-stone-900);
+  --ep-muted: var(--ep-stone-100);
+  /* Secondary text. stone-700 (#573f38) gives a confident, clearly-readable
+     hierarchy on white and on the muted/accent (stone-100) surfaces it sits on —
+     comfortably past WCAG AA (stone-600 was only ~AA on muted; stone-500 ~3.9:1). */
+  --ep-muted-foreground: var(--ep-stone-700);
+  --ep-accent: var(--ep-stone-100);
+  --ep-accent-foreground: var(--ep-stone-900);
+  --ep-primary: var(--ep-terracotta-600);
   --ep-primary-foreground: var(--ep-white);
+  /* Darker terracotta for primary-colored *text/icons on light* (links, labels):
+     --ep-primary (#b6684e) is ~4.1:1 on white — below WCAG AA for normal text;
+     --ep-primary-strong (#9d5741) is ~5.4:1. Use fills with --ep-primary. */
+  --ep-primary-strong: var(--ep-terracotta-700);
   --ep-destructive: var(--ep-red-600);
   --ep-destructive-foreground: var(--ep-white);
   --ep-success: var(--ep-green-700);
   --ep-success-foreground: var(--ep-white);
   --ep-warning: var(--ep-amber-600);
   --ep-warning-foreground: var(--ep-white);
-  --ep-border-color: var(--ep-gray-200);
-  --ep-input-border: var(--ep-gray-300);
-  --ep-ring: var(--ep-blue-500);
+  /* Structural edges. stone-300/400 (vs the lighter 200/300) give panel, card
+     and divider borders — and input outlines — a visible edge on the warm paper
+     background, restoring the crispness the cool-grey scheme had. */
+  --ep-border-color: var(--ep-stone-300);
+  --ep-input-border: var(--ep-stone-400);
+  --ep-ring: var(--ep-terracotta-500);
 
   /* ── Typography ─────────────────────────────────────────────────────── */
   --ep-font-sans:
@@ -161,7 +194,7 @@
 
   /* ── Focus ring ─────────────────────────────────────────────────────── */
   --ep-ring-width: 2px;
-  --ep-ring-color: var(--ep-blue-500);
+  --ep-ring-color: var(--ep-terracotta-500);
   --ep-ring-offset: 2px;
   --ep-ring:
     0 0 0 var(--ep-ring-offset) var(--ep-white),

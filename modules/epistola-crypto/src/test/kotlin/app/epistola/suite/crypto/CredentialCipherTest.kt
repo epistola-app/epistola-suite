@@ -4,7 +4,6 @@ import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -145,7 +144,11 @@ class CredentialCipherTest {
         val token = cipher(primary = "k1", keys = listOf(EncryptionProperties.KeyMaterial("k1", keyMaterial(1)))).encrypt("x")
         // A cipher that doesn't know k1.
         val other = cipher(primary = "k9", keys = listOf(EncryptionProperties.KeyMaterial("k9", keyMaterial(9))))
-        assertFalse(token.contains("k9"))
+        // The token is keyed under k1, so `other` (which only knows k9) hits the
+        // unknown-key path. Assert on the envelope's key-id field — not a bare
+        // substring of the whole token, whose random base64 ciphertext can
+        // contain "k9" by chance and flake the test.
+        assertTrue(token.startsWith("enc:v1:k1:"))
         assertFailsWith<EncryptionException> { other.decrypt(token) }
     }
 }

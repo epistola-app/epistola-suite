@@ -144,6 +144,16 @@
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </form>
+                        <form th:if="${auth.has('TEMPLATE_EDIT') and editable and variant.hasDraft and !variant.publishedVersions.isEmpty()}"
+                              th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft/discard(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                              hx-target="#variants-section"
+                              hx-swap="outerHTML"
+                              hx-confirm="Discard draft changes? The variant will revert to the last published version."
+                              style="display: inline;">
+                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon" title="Discard draft">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='undo-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </form>
                         <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                 th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"

@@ -8,7 +8,7 @@
     justify-content: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-8);
-    background-color: var(--ep-gray-50);
+    background-color: var(--ep-stone-50);
     border: 2px dashed var(--ep-border-color);
     border-radius: var(--ep-radius-md);
     color: var(--ep-muted-foreground);
@@ -98,7 +98,7 @@
 
   .asset-picker-upload-zone.dragover {
     border-color: var(--ep-primary);
-    background-color: var(--ep-blue-50);
+    background-color: var(--ep-terracotta-50);
   }
 
   .asset-picker-upload-zone.uploading {
@@ -107,7 +107,7 @@
   }
 
   .asset-picker-upload-link {
-    color: var(--ep-primary);
+    color: var(--ep-primary-strong);
     cursor: pointer;
     font-weight: 500;
   }
@@ -161,7 +161,7 @@
   }
 
   .asset-picker-card:hover {
-    border-color: var(--ep-gray-400);
+    border-color: var(--ep-stone-400);
   }
 
   .asset-picker-card.selected {
@@ -171,7 +171,7 @@
 
   .asset-picker-card-img {
     aspect-ratio: 1;
-    background-color: var(--ep-gray-50);
+    background-color: var(--ep-stone-50);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -212,13 +212,13 @@
   }
 
   .asset-picker-btn:hover {
-    background: var(--ep-gray-50);
+    background: var(--ep-stone-50);
   }
 
   .asset-picker-btn.insert {
-    background: var(--ep-primary);
+    background: var(--ep-terracotta-700);
     color: var(--ep-primary-foreground);
-    border-color: var(--ep-primary);
+    border-color: var(--ep-terracotta-700);
   }
 
   .asset-picker-btn.insert:hover:not(:disabled) {

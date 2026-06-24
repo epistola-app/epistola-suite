@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div id="contract-status-bar"
              th:data-status-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/status-bar(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-             class="ep-row ep-gap-3" style="padding: var(--ep-space-2) var(--ep-space-3); margin-bottom: var(--ep-space-3); border: 1px solid var(--ep-gray-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm);">
+             class="ep-row ep-gap-3" style="padding: var(--ep-space-2) var(--ep-space-3); margin-bottom: var(--ep-space-3); border: 1px solid var(--ep-stone-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm);">
 
             <!-- Edit mode: Done button -->
             <th:block th:if="${editMode}">
