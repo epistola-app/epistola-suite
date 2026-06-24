@@ -212,14 +212,18 @@ class DirectPdfRenderer(
             clock = clock,
         )
 
-        val headerNodes = pageHeaderNodesInDocumentOrder(document)
-        val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
+        // Measure header/footer bands against the hoisted graph (address block moved
+        // to root) so an address block authored inside a band doesn't inflate it;
+        // performRenderWithContext hoists identically for rendering.
+        val measuredDocument = hoistAddressBlock(document)
+        val headerNodes = pageHeaderNodesInDocumentOrder(measuredDocument)
+        val footerNode = measuredDocument.nodes.values.firstOrNull { it.type == "pagefooter" }
 
         // Reserve `max(configured, content)` for each header/footer so tall content
         // is never clipped; these heights drive both the body margins and the
         // rectangles the event handlers draw.
         val effectiveHeights = measureEffectiveBandHeights(
-            document,
+            measuredDocument,
             headerNodes,
             footerNode,
             context,
@@ -309,11 +313,16 @@ class DirectPdfRenderer(
             clock = clock,
         )
 
+        // Measure header/footer bands against the hoisted graph (address block moved
+        // to root) so an address block authored inside a band doesn't inflate it;
+        // performRenderWithContext hoists identically for rendering.
+        val measuredDocument = hoistAddressBlock(document)
+
         // Reserve `max(configured, content)` for each header/footer so tall content
         // is never clipped; these heights drive both the body margins and the
         // rectangles the event handlers draw.
         val effectiveHeights = measureEffectiveBandHeights(
-            document,
+            measuredDocument,
             headerNodes,
             footerNode,
             heightContext,
@@ -448,11 +457,20 @@ class DirectPdfRenderer(
         iTextDocument.setFont(context.fontCache.regular)
         iTextDocument.setMargins(topMargin, rightMargin, bottomMargin, leftMargin)
 
+        // Hoist the address block to the document root up front. An address block is a
+        // page-absolute element (its window is drawn by AddressBlockEventHandler; an
+        // in-flow spacer reserves the window height in the BODY). Header/footer bands
+        // must render the SAME hoisted graph as the body — otherwise an address block
+        // authored inside a header/footer would also be rendered there and inflate that
+        // band by its full window height. The caller measured the bands against the
+        // same hoisted graph.
+        val renderDocument = hoistAddressBlock(document)
+
         if (enableHeaderFooter) {
             val headerHandler = if (headerNodes.isNotEmpty()) {
                 PageHeaderEventHandler(
                     headerNodeIds = headerNodes.map { it.id },
-                    document = document,
+                    document = renderDocument,
                     context = context,
                     registry = nodeRendererRegistry,
                     effectiveHeights = effectiveHeights,
@@ -463,7 +481,7 @@ class DirectPdfRenderer(
             val footerHandler = footerNode?.let {
                 PageFooterEventHandler(
                     footerNodeId = it.id,
-                    document = document,
+                    document = renderDocument,
                     context = context,
                     registry = nodeRendererRegistry,
                     effectiveHeights = effectiveHeights,
@@ -476,7 +494,6 @@ class DirectPdfRenderer(
 
         // Address block: aside rendered in flow (hoisted to first child of root),
         // address content rendered at absolute coordinates via event handler.
-        val renderDocument = hoistAddressBlock(document)
         val addressNode = renderDocument.nodes.values.firstOrNull { it.type == "addressblock" }
         addressNode?.let {
             pdfDocument.addEventHandler(

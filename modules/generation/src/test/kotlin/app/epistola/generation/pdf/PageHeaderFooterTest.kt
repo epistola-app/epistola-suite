@@ -722,6 +722,61 @@ class PageHeaderFooterTest {
         )
     }
 
+    @Test
+    fun `address block authored inside a header does not inflate the header band`() {
+        // An address block is a page-absolute element: its window is drawn absolutely
+        // and an in-flow spacer reserves its height in the BODY. Whether it is authored
+        // in the body or nested inside a page header, it must hoist to the body root and
+        // the header band must NOT reserve its (~200pt) window height. So a document with
+        // the address in the header must render the body at the same Y as one with the
+        // address in the body — the two are identical after hoisting.
+        val marker = "BODYMARKER"
+        val inBody = bodyMarkerY(buildHeaderWithAddressDoc(addressInHeader = false), marker)
+        val inHeader = bodyMarkerY(buildHeaderWithAddressDoc(addressInHeader = true), marker)
+        assertTrue(
+            abs(inBody - inHeader) < 1.0f,
+            "Address block in a header must hoist like a body address and not inflate the band; bodyY=$inBody headerY=$inHeader",
+        )
+    }
+
+    private fun bodyMarkerY(doc: TemplateDocument, marker: String): Float {
+        val pdfBytes = ByteArrayOutputStream().also { renderer.render(doc, emptyMap(), it) }.toByteArray()
+        return extractFirstBaselineYOnPage(pdfBytes, marker, 1)
+    }
+
+    private fun buildHeaderWithAddressDoc(addressInHeader: Boolean): TemplateDocument {
+        val rootSlot = "slot-root"
+        val headerSlot = "slot-header"
+        val addrSlot = "slot-addr"
+        val asideSlot = "slot-aside"
+        val addressNode = Node(
+            id = "addressblock",
+            type = "addressblock",
+            slots = listOf(addrSlot, asideSlot),
+            props = mapOf("top" to 45, "sideDistance" to 20, "addressWidth" to 85, "height" to 45),
+        )
+        val headerChildren = if (addressInHeader) listOf("header-text", "addressblock") else listOf("header-text")
+        val rootChildren = if (addressInHeader) listOf("header", "body-text") else listOf("header", "addressblock", "body-text")
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlot)),
+                "header" to Node(id = "header", type = "pageheader", slots = listOf(headerSlot)),
+                "header-text" to textNode("header-text", "HDR"),
+                "addressblock" to addressNode,
+                "addr-text" to textNode("addr-text", "ADDR"),
+                "aside-text" to textNode("aside-text", "ASIDE"),
+                "body-text" to textNode("body-text", "BODYMARKER content"),
+            ),
+            slots = mapOf(
+                rootSlot to Slot(rootSlot, "root", "children", rootChildren),
+                headerSlot to Slot(headerSlot, "header", "children", headerChildren),
+                addrSlot to Slot(addrSlot, "addressblock", "address", listOf("addr-text")),
+                asideSlot to Slot(asideSlot, "addressblock", "aside", listOf("aside-text")),
+            ),
+        )
+    }
+
     private fun extractFirstBaselineY(pdfBytes: ByteArray, text: String): Float = extractFirstBaselineYOnPage(pdfBytes, text, 1)
 
     private fun extractFirstBaselineYOnPage(pdfBytes: ByteArray, text: String, pageNumber: Int): Float {
