@@ -17,13 +17,18 @@ import org.slf4j.LoggerFactory
  * [ListAppender] — no Spring context, no database.
  */
 class HeartbeatFailureLogTest {
-    private val logger = LoggerFactory.getLogger(HeartbeatFailureLogTest::class.java) as Logger
+    // A uniquely-named logger per test instance keeps each test hermetic. The
+    // ListAppender and the per-logger level live on the process-wide logback
+    // LoggerContext; a logger named after the test *class* is shared global state,
+    // so under JUnit class-level concurrency (mode.classes.default=concurrent) the
+    // level save/restore and event capture could race with another test, producing
+    // flaky counts. A private, unique logger is touched by this instance only.
+    private val logger =
+        LoggerFactory.getLogger("${HeartbeatFailureLogTest::class.java.name}#${instances.incrementAndGet()}") as Logger
     private val appender = ListAppender<ILoggingEvent>()
-    private var previousLevel: Level? = null
 
     @BeforeEach
     fun attachAppender() {
-        previousLevel = logger.level
         logger.level = Level.DEBUG // so DEBUG repeats are captured too
         appender.start()
         logger.addAppender(appender)
@@ -33,7 +38,6 @@ class HeartbeatFailureLogTest {
     fun detachAppender() {
         logger.detachAppender(appender)
         appender.stop()
-        logger.level = previousLevel
     }
 
     private fun events(level: Level) = appender.list.filter { it.level == level }
@@ -95,5 +99,10 @@ class HeartbeatFailureLogTest {
 
         assertThat(events(Level.WARN)).hasSize(2)
         assertThat(events(Level.INFO)).hasSize(1)
+    }
+
+    private companion object {
+        /** Source of unique logger names so each test instance is fully isolated. */
+        private val instances = java.util.concurrent.atomic.AtomicInteger()
     }
 }
