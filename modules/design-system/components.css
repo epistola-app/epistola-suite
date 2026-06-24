@@ -562,7 +562,10 @@
     color: var(--ep-muted-foreground);
   }
 
-  .is-disabled {
+  /* Scoped to pagination: a bare global .is-disabled collides with consumer
+     cards (consumers/dashboard.html) which already use that class on an
+     interactive <details> and would lose pointer-events. */
+  .ep-pagination .is-disabled {
     opacity: 0.5;
     pointer-events: none;
   }
