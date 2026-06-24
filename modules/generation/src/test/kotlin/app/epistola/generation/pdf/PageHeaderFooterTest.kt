@@ -623,6 +623,105 @@ class PageHeaderFooterTest {
         return extractFirstBaselineY(pdfBytes, "FOOTER CONTENT")
     }
 
+    // -----------------------------------------------------------------------
+    // Auto-grow: a header/footer band reserves max(configured, content) height,
+    // so content taller than the configured height is never clipped away.
+    // -----------------------------------------------------------------------
+
+    private val tallMarker = "TALLBANDMARKER"
+
+    /** A header/footer content node that wraps to many lines — clearly taller than a small band. */
+    private fun tallContentNode(id: String) = textNode(id, "$tallMarker " + "word ".repeat(160))
+
+    private fun buildSingleBandDoc(
+        bandType: String,
+        bandHeight: String,
+        contentNode: Node,
+        bodyParagraphCount: Int = 6,
+    ): TemplateDocument {
+        val rootSlotId = "slot-root"
+        val bandSlotId = "slot-band"
+        val longText = "This is a paragraph of text that is long enough to take up significant vertical space. " +
+            "It contains multiple sentences so the content wraps across several lines in the PDF output."
+        val bodyNodes = (1..bodyParagraphCount).associate { i ->
+            val t = if (i == 1) "BODYSTART $longText" else "$longText (p$i)"
+            "body-$i" to textNode("body-$i", t)
+        }
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "band" to Node(
+                    id = "band",
+                    type = bandType,
+                    slots = listOf(bandSlotId),
+                    props = mapOf("height" to bandHeight),
+                ),
+                contentNode.id to contentNode,
+            ) + bodyNodes,
+            slots = mapOf(
+                rootSlotId to Slot(rootSlotId, "root", "children", listOf("band") + bodyNodes.keys.toList()),
+                bandSlotId to Slot(bandSlotId, "band", "children", listOf(contentNode.id)),
+            ),
+        )
+    }
+
+    private fun bodyStartY(doc: TemplateDocument): Float {
+        val pdfBytes = ByteArrayOutputStream().also { renderer.render(doc, emptyMap(), it) }.toByteArray()
+        return extractFirstBaselineYOnPage(pdfBytes, "BODYSTART", 1)
+    }
+
+    @Test
+    fun `header content taller than the configured height still renders (not clipped)`() {
+        // Reproduces the reported bug: a header whose content (letterhead, address
+        // block, many lines) exceeds the configured height used to be dropped by
+        // iText, leaving a blank band. The band must now grow to fit the content.
+        val doc = buildSingleBandDoc("pageheader", "10pt", tallContentNode("band-text"))
+        val text = renderAndExtract(doc)
+        assertContains(
+            text,
+            tallMarker,
+            message = "Header content taller than the 10pt configured height must still render (band auto-grows), not be clipped away",
+        )
+    }
+
+    @Test
+    fun `footer content taller than the configured height still renders (not clipped)`() {
+        val doc = buildSingleBandDoc("pagefooter", "10pt", tallContentNode("band-text"))
+        val text = renderAndExtract(doc)
+        assertContains(
+            text,
+            tallMarker,
+            message = "Footer content taller than the configured height must still render (band auto-grows)",
+        )
+    }
+
+    @Test
+    fun `header band auto-grows so the body clears tall content`() {
+        // Same tiny configured height; only the content height differs. With a
+        // short header the body sits high; with tall content the band grows and
+        // pushes the body well down. Pre-fix both used the 10pt band (content
+        // clipped) and the body sat at the same Y.
+        val shortY = bodyStartY(buildSingleBandDoc("pageheader", "10pt", textNode("band-text", "SHORT HEADER")))
+        val tallY = bodyStartY(buildSingleBandDoc("pageheader", "10pt", tallContentNode("band-text")))
+        assertTrue(
+            tallY < shortY - 40f,
+            "Tall header content should push the body down because the band auto-grows; shortY=$shortY tallY=$tallY",
+        )
+    }
+
+    @Test
+    fun `configured height is honoured as a minimum when taller than the content`() {
+        // A configured height larger than the content must still reserve that space
+        // (height is a minimum, not an exact clip).
+        val smallY = bodyStartY(buildSingleBandDoc("pageheader", "10pt", textNode("band-text", "SHORT HEADER")))
+        val bigY = bodyStartY(buildSingleBandDoc("pageheader", "150pt", textNode("band-text", "SHORT HEADER")))
+        assertTrue(
+            bigY < smallY - 100f,
+            "A configured height larger than content must still reserve that space; smallY=$smallY bigY=$bigY",
+        )
+    }
+
     private fun extractFirstBaselineY(pdfBytes: ByteArray, text: String): Float = extractFirstBaselineYOnPage(pdfBytes, text, 1)
 
     private fun extractFirstBaselineYOnPage(pdfBytes: ByteArray, text: String, pageNumber: Int): Float {
