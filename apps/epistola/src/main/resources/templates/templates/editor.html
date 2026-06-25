@@ -153,7 +153,8 @@
                     return await resp.json();
                 },
                 listAssets: async (catalog) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/images/search?catalog=' + catalog, {
+                    const params = new URLSearchParams({ catalog });
+                    const resp = await fetch('/tenants/' + tenantId + '/images/search?' + params.toString(), {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) throw new Error('Failed to list assets');
