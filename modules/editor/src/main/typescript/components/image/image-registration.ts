@@ -16,10 +16,24 @@ const IMAGE_STYLES = ['padding', 'margin'];
 export interface ImageOptions {
   assetPicker?: AssetPickerCallbacks;
   contentUrlPattern?: string;
+  /** Template's own catalog — used for images whose node carries no catalogKey. */
+  defaultCatalogKey?: string;
 }
 
-function resolveContentUrl(pattern: string | undefined, assetId: string): string {
-  return (pattern ?? '/images/{assetId}').replace('{assetId}', assetId);
+/**
+ * Build the content URL for an image, substituting both the catalog and the
+ * asset id. A cross-catalog image carries its own `catalogKey`; legacy nodes
+ * without one fall back to the template's [defaultCatalogKey].
+ */
+export function resolveContentUrl(
+  pattern: string | undefined,
+  assetId: string,
+  catalogKey: string | undefined,
+  defaultCatalogKey: string | undefined,
+): string {
+  return (pattern ?? '/images/{assetId}')
+    .replace('{catalogId}', catalogKey ?? defaultCatalogKey ?? '')
+    .replace('{assetId}', assetId);
 }
 
 /** Parse a pt value, returning the numeric part or null for non-pt / empty values. */
@@ -37,7 +51,7 @@ function pxToPt(px: number): number {
 }
 
 export function createImageDefinition(options?: ImageOptions): ComponentDefinition {
-  const { assetPicker, contentUrlPattern } = options || {};
+  const { assetPicker, contentUrlPattern, defaultCatalogKey } = options || {};
   const hasPicker = assetPicker !== undefined && assetPicker !== null;
 
   return {
@@ -58,6 +72,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
     ],
     defaultProps: {
       assetId: null,
+      catalogKey: null,
       alt: '',
       decorative: false,
       width: '',
@@ -113,7 +128,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       {
         name: 'with-asset',
         description:
-          'An image node referencing a real asset (the Epistola logo from the demo catalog: slug 01966a00-0000-7000-8000-000000000001). Width and height are set in points — the renderer fetches the asset binary when producing the PDF.',
+          'An image node referencing a real asset (the Epistola logo from the demo catalog: slug 01966a00-0000-7000-8000-000000000001). The catalogKey records which catalog the asset lives in, so the reference works across catalogs. Width and height are set in points — the renderer fetches the asset binary when producing the PDF.',
         fragment: {
           rootNodeId: 'n-image-logo',
           nodes: {
@@ -123,6 +138,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
               slots: [],
               props: {
                 assetId: '01966a00-0000-7000-8000-000000000001',
+                catalogKey: 'epistola-demo',
                 alt: 'Epistola Logo',
                 width: '80pt',
                 height: '20pt',
@@ -149,6 +165,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
           props: {
             ...node.props,
             assetId: asset.id,
+            catalogKey: asset.catalogKey,
             alt: asset.name,
             width: asset.width ? `${pxToPt(asset.width)}pt` : '',
             height: asset.height ? `${pxToPt(asset.height)}pt` : '',
@@ -178,7 +195,8 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
         </div>`;
       }
 
-      const src = resolveContentUrl(contentUrlPattern, assetId);
+      const nodeCatalogKey = node.props?.catalogKey as string | undefined;
+      const src = resolveContentUrl(contentUrlPattern, assetId, nodeCatalogKey, defaultCatalogKey);
       const alt = (node.props?.alt as string) || '';
       const width = node.props?.width as string | undefined;
       const height = node.props?.height as string | undefined;
@@ -210,6 +228,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
 
           return {
             assetId: asset.id,
+            catalogKey: asset.catalogKey,
             alt: asset.name,
             width: asset.width ? `${pxToPt(asset.width)}pt` : '',
             height: asset.height ? `${pxToPt(asset.height)}pt` : '',

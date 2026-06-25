@@ -3,6 +3,12 @@
  *
  * Uses native <dialog> element, same pattern as table-dialog.ts.
  * Returns a Promise that resolves with the selected asset info or null.
+ *
+ * A catalog chooser lets the author pick images from any catalog the tenant
+ * can access (defaulting to the template's own catalog). The chosen asset
+ * carries its `catalogKey`, so the reference works across catalogs. Uploads
+ * are only possible into AUTHORED catalogs, so the upload zone is disabled
+ * while a read-only (SUBSCRIBED) catalog is selected.
  */
 
 export interface AssetInfo {
@@ -12,12 +18,23 @@ export interface AssetInfo {
   sizeBytes: number;
   width: number | null;
   height: number | null;
+  catalogKey: string;
   contentUrl: string;
 }
 
+export interface CatalogInfo {
+  key: string;
+  name: string;
+  /** AUTHORED catalogs accept uploads; SUBSCRIBED ones are read-only. */
+  type: string;
+}
+
 export interface AssetPickerCallbacks {
-  listAssets: () => Promise<AssetInfo[]>;
-  uploadAsset: (file: File) => Promise<AssetInfo>;
+  /** The template's own catalog — the chooser's initial selection. */
+  defaultCatalogKey: string;
+  listCatalogs: () => Promise<CatalogInfo[]>;
+  listAssets: (catalogKey: string) => Promise<AssetInfo[]>;
+  uploadAsset: (file: File, catalogKey: string) => Promise<AssetInfo>;
 }
 
 export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<AssetInfo | null> {
@@ -30,6 +47,11 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         <div class="asset-picker-header">
           <h3>Select Image</h3>
           <button type="button" class="asset-picker-close" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="asset-picker-catalog">
+          <label class="asset-picker-catalog-label" for="asset-picker-catalog">Catalog</label>
+          <select class="asset-picker-catalog-select" id="asset-picker-catalog"></select>
         </div>
 
         <div class="asset-picker-upload-zone" id="asset-picker-upload">
@@ -52,6 +74,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       </div>
     `;
 
+    const catalogSelect = dialog.querySelector<HTMLSelectElement>('.asset-picker-catalog-select')!;
     const grid = dialog.querySelector<HTMLElement>('#asset-picker-grid')!;
     const uploadZone = dialog.querySelector<HTMLElement>('#asset-picker-upload')!;
     const fileInput = dialog.querySelector<HTMLInputElement>('#asset-picker-file')!;
@@ -61,6 +84,8 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     const insertBtn = dialog.querySelector<HTMLButtonElement>('.insert')!;
 
     let selectedAsset: AssetInfo | null = null;
+    let currentCatalogKey = callbacks.defaultCatalogKey;
+    const catalogTypeByKey = new Map<string, string>();
 
     const close = (result: AssetInfo | null) => {
       dialog.close();
@@ -70,8 +95,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
 
     function renderGrid(assets: AssetInfo[]) {
       if (assets.length === 0) {
-        grid.innerHTML =
-          '<div class="asset-picker-empty">No assets yet. Upload an image above.</div>';
+        grid.innerHTML = '<div class="asset-picker-empty">No images in this catalog yet.</div>';
         return;
       }
 
@@ -103,24 +127,69 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       }
     }
 
-    // Load existing assets
+    /** Load the images for the active catalog, resetting any current selection. */
+    function loadAssets(catalogKey: string) {
+      grid.innerHTML = '<div class="asset-picker-loading">Loading assets...</div>';
+      selectedAsset = null;
+      insertBtn.disabled = true;
+      callbacks
+        .listAssets(catalogKey)
+        .then((assets) => renderGrid(assets))
+        .catch(() => {
+          grid.innerHTML = '<div class="asset-picker-empty">Failed to load assets.</div>';
+        });
+    }
+
+    /** Uploads need an AUTHORED catalog; lock the zone for read-only catalogs. */
+    function applyUploadAvailability(catalogKey: string) {
+      const readOnly =
+        catalogTypeByKey.get(catalogKey) !== undefined &&
+        catalogTypeByKey.get(catalogKey) !== 'AUTHORED';
+      uploadZone.classList.toggle('disabled', readOnly);
+      fileInput.disabled = readOnly;
+    }
+
+    // Populate the catalog chooser, defaulting to the template's catalog.
     callbacks
-      .listAssets()
-      .then((assets) => {
-        renderGrid(assets);
+      .listCatalogs()
+      .then((catalogs) => {
+        catalogSelect.innerHTML = '';
+        for (const catalog of catalogs) {
+          catalogTypeByKey.set(catalog.key, catalog.type);
+          const option = document.createElement('option');
+          option.value = catalog.key;
+          option.textContent = catalog.name;
+          catalogSelect.appendChild(option);
+        }
+        if (catalogs.some((c) => c.key === currentCatalogKey)) {
+          catalogSelect.value = currentCatalogKey;
+        } else if (catalogs.length > 0) {
+          currentCatalogKey = catalogs[0].key;
+          catalogSelect.value = currentCatalogKey;
+        }
+        applyUploadAvailability(currentCatalogKey);
       })
       .catch(() => {
-        grid.innerHTML = '<div class="asset-picker-empty">Failed to load assets.</div>';
+        // Leave the chooser empty; assets still load for the default catalog.
       });
+
+    catalogSelect.addEventListener('change', () => {
+      currentCatalogKey = catalogSelect.value;
+      applyUploadAvailability(currentCatalogKey);
+      loadAssets(currentCatalogKey);
+    });
+
+    // Load images for the template's catalog up front.
+    loadAssets(currentCatalogKey);
 
     // Upload handling
     const handleUpload = async (file: File) => {
       uploadError.textContent = '';
       uploadZone.classList.add('uploading');
       try {
-        const asset = await callbacks.uploadAsset(file);
+        const asset = await callbacks.uploadAsset(file, currentCatalogKey);
         // Refresh the grid and auto-select the new asset
-        const assets = await callbacks.listAssets();
+        const assets = await callbacks.listAssets(currentCatalogKey);
         renderGrid(assets);
         // Select the newly uploaded asset
         const newCard = grid.querySelector(`[data-asset-id="${asset.id}"]`);
@@ -145,6 +214,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
 
     uploadZone.addEventListener('dragover', (e) => {
       e.preventDefault();
+      if (fileInput.disabled) return;
       uploadZone.classList.add('dragover');
     });
     uploadZone.addEventListener('dragleave', () => {
@@ -153,6 +223,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     uploadZone.addEventListener('drop', (e) => {
       e.preventDefault();
       uploadZone.classList.remove('dragover');
+      if (fileInput.disabled) return;
       const file = e.dataTransfer?.files[0];
       if (file) handleUpload(file);
     });

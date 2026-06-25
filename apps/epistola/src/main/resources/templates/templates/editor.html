@@ -143,18 +143,26 @@
                 },
             },
             imageOptions: {
-                contentUrlPattern: '/tenants/' + tenantId + '/images/' + catalogId + '/{assetId}/content',
-                listAssets: async () => {
-                    const resp = await fetch('/tenants/' + tenantId + '/images/search?catalog=' + catalogId, {
+                defaultCatalogKey: catalogId,
+                contentUrlPattern: '/tenants/' + tenantId + '/images/{catalogId}/{assetId}/content',
+                listCatalogs: async () => {
+                    const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) throw new Error('Failed to list catalogs');
+                    return await resp.json();
+                },
+                listAssets: async (catalog) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/images/search?catalog=' + catalog, {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) throw new Error('Failed to list assets');
                     return await resp.json();
                 },
-                uploadAsset: async (file) => {
+                uploadAsset: async (file, catalog) => {
                     const formData = new FormData();
                     formData.append('file', file);
-                    formData.append('catalog', catalogId);
+                    formData.append('catalog', catalog);
                     const resp = await fetch('/tenants/' + tenantId + '/images', {
                         method: 'POST',
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
