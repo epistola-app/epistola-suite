@@ -125,4 +125,20 @@ describe('openAssetPickerDialog catalog selector', () => {
     const uploadZone = document.querySelector<HTMLElement>('#asset-picker-upload')!;
     expect(uploadZone.classList.contains('disabled')).toBe(true);
   });
+
+  it('disables uploads when the catalog list fails to load', async () => {
+    const cb = makeCallbacks();
+    cb.listCatalogs.mockRejectedValueOnce(new Error('boom'));
+    openAssetPickerDialog(cb);
+    await flush();
+    await flush();
+
+    // The default catalog's type is unknown, so uploads stay locked rather
+    // than defaulting to enabled. Assets are still loaded for browsing.
+    const uploadZone = document.querySelector<HTMLElement>('#asset-picker-upload')!;
+    const fileInput = document.querySelector<HTMLInputElement>('#asset-picker-file')!;
+    expect(uploadZone.classList.contains('disabled')).toBe(true);
+    expect(fileInput.disabled).toBe(true);
+    expect(cb.listAssets).toHaveBeenCalledWith('epistola-demo');
+  });
 });

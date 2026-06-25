@@ -183,7 +183,11 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       })
       .catch(() => {
         // Chooser stays empty; fall back to loading the template's catalog.
-        applyUploadAvailability(currentCatalogKey);
+        // We couldn't enumerate catalogs, so the default catalog's type is
+        // unknown — disable uploads rather than assume it's editable (the
+        // backend guards too). loadAssets still shows whatever it can read.
+        uploadZone.classList.add('disabled');
+        fileInput.disabled = true;
         loadAssets(currentCatalogKey);
       });
 
