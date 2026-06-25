@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(ui): **Input length limits for names and titles.** Name and title fields (tenant, theme, template, stencil and catalog names, plus the template-variant title) now cap at 100 characters in both the form (`maxlength`) and server-side validation, replacing the previously unenforced 255. Adds the missing server-side length checks for the template-variant title, catalog name and font name, and the missing `minlength`/`maxlength` on the template-variant slug. Database columns are unchanged (they remain a looser ceiling). The shared limit lives in one `FieldLimits.MAX_NAME_LENGTH` constant, with guard tests keeping the UI `maxlength` and the server limit in sync.
+
 ## [1.0.0-RC1] - 2026-06-25
 
 Epistola Suite 1.0.0-RC1 is the first stable release: from this version onward the database is no longer reset between upgrades — your data persists across versions, with every schema change delivered as a forward migration. This release also fixes template creation failing for long slugs, and lands the 1.0.0-RC1 database consolidation — monthly-partitioned event log with retention, UUIDv7 ids, and a schema cleanup.
