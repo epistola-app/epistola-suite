@@ -62,7 +62,7 @@ CREATE TABLE assets (
 CREATE INDEX idx_assets_tenant_created ON assets(tenant_key, created_at DESC);
 CREATE INDEX idx_assets_tenant_name ON assets(tenant_key, name);
 
-COMMENT ON TABLE assets IS 'Tenant-scoped, catalog-scoped image assets stored as BYTEA. Used in template image blocks and PDF generation.';
+COMMENT ON TABLE assets IS 'Tenant-scoped, catalog-scoped image assets. Metadata lives here; binary content lives in content_store. Used in template image blocks and PDF generation.';
 COMMENT ON COLUMN assets.id IS 'UUIDv7-based asset identifier';
 COMMENT ON COLUMN assets.tenant_key IS 'Owning tenant';
 COMMENT ON COLUMN assets.catalog_key IS 'Catalog this asset belongs to';

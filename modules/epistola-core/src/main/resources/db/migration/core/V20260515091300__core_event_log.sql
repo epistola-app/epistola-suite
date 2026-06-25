@@ -13,8 +13,8 @@ CREATE TABLE event_log (
 
 -- Performance indexes for common queries
 CREATE INDEX idx_event_log_type ON event_log(event_type);
-CREATE INDEX idx_event_log_tenant ON event_log(tenant_key) WHERE tenant_key IS NOT NULL;
 CREATE INDEX idx_event_log_occurred ON event_log(occurred_at DESC);
+-- tenant_key-only scans are served by the leftmost prefix of idx_event_log_tenant_occurred.
 CREATE INDEX idx_event_log_tenant_occurred ON event_log(tenant_key, occurred_at DESC) WHERE tenant_key IS NOT NULL;
 
 COMMENT ON TABLE event_log IS 'Append-only audit trail of command executions, for observability and future replay/recovery.';

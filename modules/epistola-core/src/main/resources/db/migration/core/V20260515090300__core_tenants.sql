@@ -13,7 +13,14 @@ CREATE TABLE tenants (
     name VARCHAR(255) NOT NULL,
     default_theme_catalog_key CATALOG_KEY, -- FK added in V5 after themes table exists
     default_theme_key VARCHAR(20),  -- FK added in V5 after themes table exists
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Per-tenant override of the application-wide default locale
+    -- (epistola.i18n.default-locale). NULL = use the app default. Authoritative
+    -- validation against the `system.bcp-47` code list happens application-side
+    -- (SetTenantDefaultLocale); the CHECK below is only a BCP-47 shape guard.
+    default_locale VARCHAR(35),
+    CONSTRAINT tenants_default_locale_format
+        CHECK (default_locale IS NULL OR default_locale ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
 );
 
 CREATE INDEX idx_tenants_name ON tenants(name);
@@ -23,6 +30,8 @@ COMMENT ON COLUMN tenants.id IS 'URL-safe slug identifier (e.g., acme-corp)';
 COMMENT ON COLUMN tenants.name IS 'Human-readable display name';
 COMMENT ON COLUMN tenants.default_theme_key IS 'Fallback theme applied when templates and variants do not specify one. FK added in V5.';
 COMMENT ON COLUMN tenants.created_at IS 'When the tenant was created';
+COMMENT ON COLUMN tenants.default_locale IS
+    'Per-tenant override of epistola.i18n.default-locale. Validated against system.bcp-47 in application code. NULL = use app default.';
 
 -- ============================================================================
 -- TENANT MEMBERSHIPS
