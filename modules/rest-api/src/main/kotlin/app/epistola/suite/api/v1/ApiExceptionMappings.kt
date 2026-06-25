@@ -39,6 +39,7 @@ import app.epistola.suite.templates.VersionNotDraftException
 import app.epistola.suite.templates.VersionNotPublishedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
+import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.tenants.TenantNotFoundException
@@ -548,6 +549,13 @@ object ApiExceptionMappings {
             defaultDetail = "API operation is not implemented",
             extensions = { mapOf("operation" to it.operation) },
             logMessage = { "API operation not implemented: ${it.operation}" },
+        )
+
+        builder.register<ContractPublishConflictException>(
+            problemType = ApiProblemTypes.CONTRACT_PUBLISH_CONFLICT,
+            defaultDetail = "Schema change is backwards-incompatible; retry with forceUpdate=true to confirm",
+            extensions = { mapOf("breakingChanges" to it.breakingChanges) },
+            logMessage = { "Contract publish rejected as breaking: ${it.breakingChanges}" },
         )
 
         registry = builder.build()

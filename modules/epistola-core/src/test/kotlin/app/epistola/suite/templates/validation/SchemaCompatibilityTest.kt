@@ -257,4 +257,56 @@ class SchemaCompatibilityTest {
             assertThat(result.migrations).isEmpty()
         }
     }
+
+    @Nested
+    inner class DateTimeFormatTest {
+
+        private fun validateValue(value: String): List<ValidationError> {
+            val schema = createSchema(
+                """{"type":"object","properties":{"at":{"type":"string","format":"date-time"}}}""",
+            )
+            return validator.validate(schema, objectMapper.readValue("""{"at":"$value"}""", ObjectNode::class.java))
+        }
+
+        @Test
+        fun `accepts a naive local date-time (no timezone)`() {
+            assertThat(validateValue("2026-06-24T14:14:10")).isEmpty()
+        }
+
+        @Test
+        fun `accepts an offset-bearing RFC 3339 instant`() {
+            assertThat(validateValue("2026-06-24T14:14:10Z")).isEmpty()
+            assertThat(validateValue("2026-06-24T14:14:10+02:00")).isEmpty()
+        }
+
+        @Test
+        fun `accepts a naive date-time without seconds`() {
+            assertThat(validateValue("2026-06-24T14:14")).isEmpty()
+        }
+
+        @Test
+        fun `accepts fractional seconds when seconds are present`() {
+            assertThat(validateValue("2026-06-24T14:14:10.123Z")).isEmpty()
+        }
+
+        @Test
+        fun `still rejects a non-date-time string`() {
+            assertThat(validateValue("not a date")).isNotEmpty()
+        }
+
+        @Test
+        fun `rejects fractional seconds without seconds`() {
+            // `…:mm.fff` is not a valid time; the render-time parser rejects it,
+            // so the validator must too.
+            assertThat(validateValue("2026-06-24T14:14.123Z")).isNotEmpty()
+        }
+
+        @Test
+        fun `rejects lowercase t and z designators`() {
+            // OffsetDateTime/LocalDateTime parsing at render time is case-sensitive
+            // ISO; accepting these here would green-light unrenderable values.
+            assertThat(validateValue("2026-06-24t14:14:10")).isNotEmpty()
+            assertThat(validateValue("2026-06-24T14:14:10z")).isNotEmpty()
+        }
+    }
 }

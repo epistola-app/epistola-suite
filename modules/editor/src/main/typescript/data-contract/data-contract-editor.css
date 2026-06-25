@@ -1203,6 +1203,25 @@
     min-width: 0;
   }
 
+  /* Date-time picker + its timezone-offset dropdown sit on one row. */
+  .dc-datetime-group {
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .dc-datetime-group .dc-tree-input,
+  .dc-datetime-group .dc-array-item-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dc-datetime-offset {
+    flex: 0 0 auto;
+    width: auto;
+  }
+
   .dc-input-error {
     border-color: var(--ep-red-400) !important;
     background: var(--ep-red-50) !important;

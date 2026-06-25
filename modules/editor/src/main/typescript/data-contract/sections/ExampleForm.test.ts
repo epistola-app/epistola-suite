@@ -1,6 +1,74 @@
 import { describe, expect, it } from 'vitest';
-import { validationPathToFormPath, buildFieldErrorMap, hasChildErrors } from './ExampleForm.js';
+import {
+  validationPathToFormPath,
+  buildFieldErrorMap,
+  hasChildErrors,
+  toDateTimeLocal,
+  dateTimeOffset,
+  combineDateTime,
+} from './ExampleForm.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
+
+describe('toDateTimeLocal', () => {
+  it('keeps a zoneless local date-time for the picker', () => {
+    expect(toDateTimeLocal('2026-02-18T09:30:00')).toBe('2026-02-18T09:30:00');
+    expect(toDateTimeLocal('2026-02-18T09:30')).toBe('2026-02-18T09:30');
+  });
+
+  it('strips a zone designator for display (re-applied on save)', () => {
+    expect(toDateTimeLocal('2026-02-18T09:30:00Z')).toBe('2026-02-18T09:30:00');
+    expect(toDateTimeLocal('2026-02-18T09:30:00+02:00')).toBe('2026-02-18T09:30:00');
+  });
+
+  it('widens a date-only value to midnight so it still renders', () => {
+    expect(toDateTimeLocal('2026-02-18')).toBe('2026-02-18T00:00');
+  });
+
+  it('returns empty for unparseable / empty / non-string input', () => {
+    expect(toDateTimeLocal('not a date')).toBe('');
+    expect(toDateTimeLocal('')).toBe('');
+    expect(toDateTimeLocal(undefined)).toBe('');
+    expect(toDateTimeLocal(42)).toBe('');
+  });
+});
+
+describe('dateTimeOffset', () => {
+  it('extracts the zone designator for the offset dropdown', () => {
+    expect(dateTimeOffset('2026-02-18T09:30:00Z')).toBe('Z');
+    expect(dateTimeOffset('2026-02-18T09:30:00+02:00')).toBe('+02:00');
+    expect(dateTimeOffset('2026-02-18T09:30:00-05:00')).toBe('-05:00');
+  });
+
+  it('returns empty for a naive value or non-string', () => {
+    expect(dateTimeOffset('2026-02-18T09:30:00')).toBe('');
+    expect(dateTimeOffset(undefined)).toBe('');
+    expect(dateTimeOffset(42)).toBe('');
+  });
+
+  it('normalizes +00:00 to Z so UTC stays representable in the dropdown', () => {
+    expect(dateTimeOffset('2026-02-18T09:30:00+00:00')).toBe('Z');
+  });
+});
+
+describe('combineDateTime', () => {
+  it('fills in seconds the control omitted', () => {
+    expect(combineDateTime('2026-02-18T09:30', '')).toBe('2026-02-18T09:30:00');
+  });
+
+  it('appends the chosen offset (UTC or numeric)', () => {
+    expect(combineDateTime('2026-02-18T10:00', 'Z')).toBe('2026-02-18T10:00:00Z');
+    expect(combineDateTime('2026-02-18T10:00', '+02:00')).toBe('2026-02-18T10:00:00+02:00');
+  });
+
+  it('stays naive when no offset is chosen ("time is time")', () => {
+    expect(combineDateTime('2026-02-18T10:00', '')).toBe('2026-02-18T10:00:00');
+    expect(combineDateTime('2026-02-18T10:00:30', '')).toBe('2026-02-18T10:00:30');
+  });
+
+  it('returns empty for an empty local part', () => {
+    expect(combineDateTime('', 'Z')).toBe('');
+  });
+});
 
 describe('validationPathToFormPath', () => {
   it('strips leading $. prefix', () => {

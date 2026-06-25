@@ -716,6 +716,215 @@ class CatalogExportImportTest : IntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `round-trip preserves stencil parameter schema and template parameter bindings`() {
+        // Issue #383: a parametrised stencil and a template that binds to it must
+        // survive a full catalog export → import into a clean tenant — the stencil
+        // version's parameter_schema and the consuming node's binding props
+        // (parameterBindings / paramsAlias / parameterSchemaSnapshot) all round-trip,
+        // and the imported template still renders.
+        val source = createTenant("Stencil Params Source")
+        val sourceTenantId = TenantId(source.id)
+        val catalogKey = CatalogKey.of("stencil-params-roundtrip")
+        val sourceCatalogId = CatalogId(catalogKey, sourceTenantId)
+
+        val parameterSchema = ObjectMapper().readValue(
+            """{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""",
+            ObjectNode::class.java,
+        )
+
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+
+        val zipBytes = withMediator {
+            CreateCatalog(tenantKey = source.id, id = catalogKey, name = "Stencil Params Round-Trip").execute()
+
+            // Parametrised stencil, published as v1.
+            val stencilKey = StencilKey.of("greeting")
+            val stencilId = StencilId(stencilKey, sourceCatalogId)
+            CreateStencil(
+                id = stencilId,
+                name = "Greeting",
+                content = stencilContentWithRoot("greeting-root"),
+                parameterSchema = parameterSchema,
+            ).execute()
+            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+
+            // Template embedding the stencil with a binding + snapshot, published.
+            val templateId = TemplateId(templateKey, sourceCatalogId)
+            CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+            val variantId = VariantId(variantKey, templateId)
+            app.epistola.suite.templates.commands.versions.UpdateDraft(
+                variantId = variantId,
+                templateModel = templateEmbeddingParametrisedStencil(stencilSlug = stencilKey.value),
+            ).execute()
+            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+            ExportCatalogZip(tenantKey = source.id, catalogKey = catalogKey).execute().zipBytes
+        }
+
+        // Import into a clean tenant — the catalog does not exist there yet.
+        val target = createTenant("Stencil Params Target")
+        val targetTenantId = TenantId(target.id)
+        val targetCatalogId = CatalogId(catalogKey, targetTenantId)
+
+        withMediator {
+            val importResult = ImportCatalogZip(
+                tenantKey = target.id,
+                zipBytes = zipBytes,
+                catalogType = CatalogType.AUTHORED,
+            ).execute()
+            assertThat(importResult.results).allSatisfy { result ->
+                assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)
+            }
+
+            // 1. The stencil version's parameter_schema survived export + import.
+            val versions = app.epistola.suite.stencils.queries.ListStencilVersions(
+                stencilId = StencilId(StencilKey.of("greeting"), targetCatalogId),
+            ).query()
+            assertThat(versions).hasSize(1)
+            assertThat(versions.single().parameterSchema).isEqualTo(parameterSchema)
+
+            // 2. The consuming template's stencil node kept its parameter binding props.
+            val imported = app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion(
+                variantId = VariantId(variantKey, TemplateId(templateKey, targetCatalogId)),
+            ).query()
+            assertThat(imported).isNotNull
+            val stencilNode = imported!!.templateModel.nodes.values.single { it.type == "stencil" }
+            assertThat(stencilNode.props?.get("parameterBindings"))
+                .isEqualTo(mapOf("recipientName" to "'Alice'"))
+            assertThat(stencilNode.props?.get("paramsAlias")).isEqualTo("params")
+            assertThat(stencilNode.props?.get("parameterSchemaSnapshot")).isNotNull()
+
+            // 3. The imported template renders end-to-end with its bound parameter.
+            //    (Text-level parameter rendering is asserted by StencilParameterRenderTest
+            //    in :modules:generation; here we prove the imported artifacts render.)
+            val pdf = app.epistola.suite.documents.queries.PreviewVariant(
+                tenantId = target.id,
+                catalogKey = catalogKey,
+                templateId = templateKey,
+                variantId = variantKey,
+                data = ObjectMapper().createObjectNode(),
+            ).query()
+            assertThat(pdf).isNotEmpty()
+            assertThat(String(pdf.copyOfRange(0, 4))).isEqualTo("%PDF")
+        }
+    }
+
+    @Test
+    fun `re-importing a stencil version with a different parameter schema is a conflict, not a skip`() {
+        // Issue #383 idempotency probe: the parameter schema is part of a
+        // version's identity. A re-import carrying byte-identical content but a
+        // *different* parameter_schema must be a genuine conflict (FAIL throws;
+        // RENUMBER writes MAX+1), not a false-positive idempotent SKIP. Content
+        // is held constant across every import so only the schema varies.
+        val tenant = createTenant("Stencil Schema Conflict")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("schema-conflict")
+        val content = stencilContentWithRoot("conflict-root")
+
+        val schemaA: Map<String, Any?> = mapOf(
+            "type" to "object",
+            "properties" to mapOf("a" to mapOf("type" to "string")),
+        )
+        val schemaB: Map<String, Any?> = mapOf(
+            "type" to "object",
+            "properties" to mapOf("b" to mapOf("type" to "string")),
+        )
+
+        fun importWidget(
+            parameterSchema: Map<String, Any?>?,
+            onConflict: OnStencilConflict = OnStencilConflict.FAIL,
+        ) = ImportStencil(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = "widget",
+            version = 1,
+            name = "Widget",
+            content = content,
+            parameterSchema = parameterSchema,
+            onConflict = onConflict,
+        )
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Schema Conflict").execute()
+
+            // First import establishes (slug=widget, v1) with schema A.
+            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.INSTALLED)
+
+            // Same content, same schema → idempotent re-import is a SKIP.
+            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.SKIPPED)
+
+            // Same content, DIFFERENT schema, FAIL (default) → genuine conflict.
+            assertThatThrownBy { importWidget(schemaB).execute() }
+                .isInstanceOf(StencilVersionConflictException::class.java)
+
+            // Same content, DIFFERENT schema, RENUMBER → installs as MAX+1 (v2).
+            val renumbered = importWidget(schemaB, OnStencilConflict.RENUMBER).execute()
+            assertThat(renumbered.wasRenumbered).isTrue()
+            assertThat(renumbered.assignedVersion).isEqualTo(2)
+        }
+    }
+
+    /**
+     * A template that embeds the parametrised "greeting" stencil: a stencil node
+     * carrying the schema snapshot + a binding for `recipientName`, whose slot holds
+     * a text body rendering `{{ params.recipientName }}`. Mirrors the in-template
+     * shape produced by inserting a parametrised stencil through the editor.
+     */
+    private fun templateEmbeddingParametrisedStencil(stencilSlug: String): TemplateDocument {
+        val schemaSnapshot = mapOf(
+            "type" to "object",
+            "properties" to mapOf("recipientName" to mapOf("type" to "string")),
+            "required" to listOf("recipientName"),
+        )
+        return TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "stencil1" to Node(
+                    id = "stencil1",
+                    type = "stencil",
+                    slots = listOf("stencil1-slot"),
+                    props = mapOf(
+                        "stencilId" to stencilSlug,
+                        "version" to 1,
+                        "parameterSchemaSnapshot" to schemaSnapshot,
+                        "parameterBindings" to mapOf("recipientName" to "'Alice'"),
+                        "paramsAlias" to "params",
+                    ),
+                ),
+                "body" to Node(
+                    id = "body",
+                    type = "text",
+                    slots = emptyList(),
+                    props = mapOf(
+                        "content" to mapOf(
+                            "type" to "doc",
+                            "content" to listOf(
+                                mapOf(
+                                    "type" to "paragraph",
+                                    "content" to listOf(
+                                        mapOf(
+                                            "type" to "expression",
+                                            "attrs" to mapOf("expression" to "params.recipientName"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil1")),
+                "stencil1-slot" to Slot(id = "stencil1-slot", nodeId = "stencil1", name = "children", children = listOf("body")),
+            ),
+            themeRef = ThemeRef.Inherit,
+        )
+    }
+
     private fun stencilContentWithRoot(rootId: String): TemplateDocument {
         val slotId = "slot-$rootId"
         return TemplateDocument(

@@ -12,21 +12,30 @@
  * host (the inspector) drops it onto the stencil node's `parameterSchemaSnapshot`
  * prop, and `saveDraft` persists it via `PUT /draft`.
  *
- * V1 surfaces the primitive subset users actually need (string / number /
- * integer / boolean / date / date-time, and "list of <primitive>"). The
- * canonical storage stays JSON Schema, so v2 can lift restrictions without
- * a migration.
+ * V1 surfaces the scalar subset of the shared field-type registry
+ * (`STENCIL_PARAM_TYPES` — string / number / integer / boolean / date /
+ * date-time, and "list of <scalar>"). Type values, UI labels and the JSON
+ * Schema mapping all come from `data-contract/field-types.ts`, so the stencil
+ * and data-contract editors stay in lockstep. The canonical storage stays JSON
+ * Schema, so v2 can lift restrictions without a migration.
  */
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { JsonSchema, JsonSchemaProperty } from '../../data-contract/types.js';
+import {
+  fieldTypeLabel,
+  scalarFromJsonSchema,
+  scalarToJsonSchema,
+  STENCIL_PARAM_TYPES,
+  type ScalarFieldType,
+} from '../../data-contract/field-types.js';
 
 interface ParamRow {
   /** Stable identifier so list selection survives renames. */
   id: string;
   name: string;
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'date-time';
+  type: ScalarFieldType;
   isList: boolean;
   required: boolean;
   description: string;
@@ -36,14 +45,13 @@ interface ParamRow {
 const NAME_RE = /^[a-z][a-zA-Z0-9_]{0,63}$/;
 const RESERVED = new Set(['params', 'item', 'sys', 'index']);
 
-const TYPE_OPTIONS: Array<{ value: ParamRow['type']; label: string }> = [
-  { value: 'string', label: 'String' },
-  { value: 'number', label: 'Number' },
-  { value: 'integer', label: 'Integer' },
-  { value: 'boolean', label: 'Boolean' },
-  { value: 'date', label: 'Date' },
-  { value: 'date-time', label: 'Date-time' },
-];
+// Type values, labels and JSON Schema mapping all come from the shared
+// field-type registry (the data-contract editor's full set; stencils use the
+// scalar subset flagged `stencilParam`). A new shared data type is one entry
+// there — both editors pick it up, with identical naming.
+const TYPE_OPTIONS: Array<{ value: ScalarFieldType; label: string }> = STENCIL_PARAM_TYPES.map(
+  (t) => ({ value: t.id as ScalarFieldType, label: t.label }),
+);
 
 @customElement('stencil-parameter-definitions-panel')
 export class StencilParameterDefinitionsPanel extends LitElement {
@@ -144,7 +152,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
   private _renderListItem(row: ParamRow) {
     const isSelected = row.id === this._selectedId;
     const hasError = row.id in this._errors;
-    const typeLabel = row.isList ? `${row.type}[]` : row.type;
+    const typeLabel = row.isList ? `${fieldTypeLabel(row.type)}[]` : fieldTypeLabel(row.type);
     return html`
       <div
         @click=${() => this._select(row.id)}
@@ -408,13 +416,9 @@ function paramRowFromProp(name: string, prop: JsonSchemaProperty, isRequired: bo
   const isList = (Array.isArray(prop.type) ? prop.type[0] : prop.type) === 'array';
   const inner: JsonSchemaProperty | undefined = isList ? prop.items : prop;
   const innerType = (Array.isArray(inner?.type) ? inner?.type[0] : inner?.type) ?? 'string';
-  const format = inner?.format;
-  let type: ParamRow['type'] = 'string';
-  if (innerType === 'string' && format === 'date') type = 'date';
-  else if (innerType === 'string' && format === 'date-time') type = 'date-time';
-  else if (innerType === 'number') type = 'number';
-  else if (innerType === 'integer') type = 'integer';
-  else if (innerType === 'boolean') type = 'boolean';
+  // Resolve to a scalar type via the shared registry; anything non-scalar
+  // (object, ref, …) isn't expressible as a stencil parameter, so fall to text.
+  const type: ScalarFieldType = scalarFromJsonSchema(innerType, inner?.format) ?? 'string';
 
   const defaultRaw = (prop as JsonSchemaProperty & { default?: unknown }).default;
   const defaultText = stringifyDefault(defaultRaw, isList);
@@ -452,17 +456,7 @@ function rowToProperty(row: ParamRow): JsonSchemaProperty {
 }
 
 function innerProp(row: ParamRow): JsonSchemaProperty {
-  switch (row.type) {
-    case 'date':
-      return { type: 'string', format: 'date' };
-    case 'date-time':
-      return { type: 'string', format: 'date-time' };
-    case 'string':
-    case 'number':
-    case 'integer':
-    case 'boolean':
-      return { type: row.type };
-  }
+  return scalarToJsonSchema(row.type);
 }
 
 function parseDefault(row: ParamRow): unknown {
@@ -507,7 +501,7 @@ function defaultPlaceholder(row: ParamRow): string {
       return row.isList ? 'true, false' : 'true';
     case 'date':
       return row.isList ? '2024-01-01, 2024-12-31' : '2024-01-01';
-    case 'date-time':
+    case 'datetime':
       return '2024-01-01T12:00:00Z';
     default:
       return row.isList ? 'one, two, three' : '';

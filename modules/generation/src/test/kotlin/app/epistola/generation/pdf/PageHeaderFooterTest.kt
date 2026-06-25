@@ -623,6 +623,257 @@ class PageHeaderFooterTest {
         return extractFirstBaselineY(pdfBytes, "FOOTER CONTENT")
     }
 
+    // -----------------------------------------------------------------------
+    // Auto-grow: a header/footer band reserves max(configured, content) height,
+    // so content taller than the configured height is never clipped away.
+    // -----------------------------------------------------------------------
+
+    private val tallMarker = "TALLBANDMARKER"
+
+    /** A header/footer content node that wraps to many lines — clearly taller than a small band. */
+    private fun tallContentNode(id: String) = textNode(id, "$tallMarker " + "word ".repeat(160))
+
+    private fun buildSingleBandDoc(
+        bandType: String,
+        bandHeight: String,
+        contentNode: Node,
+        bodyParagraphCount: Int = 6,
+    ): TemplateDocument {
+        val rootSlotId = "slot-root"
+        val bandSlotId = "slot-band"
+        val longText = "This is a paragraph of text that is long enough to take up significant vertical space. " +
+            "It contains multiple sentences so the content wraps across several lines in the PDF output."
+        val bodyNodes = (1..bodyParagraphCount).associate { i ->
+            val t = if (i == 1) "BODYSTART $longText" else "$longText (p$i)"
+            "body-$i" to textNode("body-$i", t)
+        }
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "band" to Node(
+                    id = "band",
+                    type = bandType,
+                    slots = listOf(bandSlotId),
+                    props = mapOf("height" to bandHeight),
+                ),
+                contentNode.id to contentNode,
+            ) + bodyNodes,
+            slots = mapOf(
+                rootSlotId to Slot(rootSlotId, "root", "children", listOf("band") + bodyNodes.keys.toList()),
+                bandSlotId to Slot(bandSlotId, "band", "children", listOf(contentNode.id)),
+            ),
+        )
+    }
+
+    private fun bodyStartY(doc: TemplateDocument): Float {
+        val pdfBytes = ByteArrayOutputStream().also { renderer.render(doc, emptyMap(), it) }.toByteArray()
+        return extractFirstBaselineYOnPage(pdfBytes, "BODYSTART", 1)
+    }
+
+    @Test
+    fun `header content taller than the configured height still renders (not clipped)`() {
+        // Reproduces the reported bug: a header whose content (letterhead, address
+        // block, many lines) exceeds the configured height used to be dropped by
+        // iText, leaving a blank band. The band must now grow to fit the content.
+        val doc = buildSingleBandDoc("pageheader", "10pt", tallContentNode("band-text"))
+        val text = renderAndExtract(doc)
+        assertContains(
+            text,
+            tallMarker,
+            message = "Header content taller than the 10pt configured height must still render (band auto-grows), not be clipped away",
+        )
+    }
+
+    @Test
+    fun `footer content taller than the configured height still renders (not clipped)`() {
+        val doc = buildSingleBandDoc("pagefooter", "10pt", tallContentNode("band-text"))
+        val text = renderAndExtract(doc)
+        assertContains(
+            text,
+            tallMarker,
+            message = "Footer content taller than the configured height must still render (band auto-grows)",
+        )
+    }
+
+    @Test
+    fun `header band auto-grows so the body clears tall content`() {
+        // Same tiny configured height; only the content height differs. With a
+        // short header the body sits high; with tall content the band grows and
+        // pushes the body well down. Pre-fix both used the 10pt band (content
+        // clipped) and the body sat at the same Y.
+        val shortY = bodyStartY(buildSingleBandDoc("pageheader", "10pt", textNode("band-text", "SHORT HEADER")))
+        val tallY = bodyStartY(buildSingleBandDoc("pageheader", "10pt", tallContentNode("band-text")))
+        assertTrue(
+            tallY < shortY - 40f,
+            "Tall header content should push the body down because the band auto-grows; shortY=$shortY tallY=$tallY",
+        )
+    }
+
+    @Test
+    fun `configured height is honoured as a minimum when taller than the content`() {
+        // A configured height larger than the content must still reserve that space
+        // (height is a minimum, not an exact clip).
+        val smallY = bodyStartY(buildSingleBandDoc("pageheader", "10pt", textNode("band-text", "SHORT HEADER")))
+        val bigY = bodyStartY(buildSingleBandDoc("pageheader", "150pt", textNode("band-text", "SHORT HEADER")))
+        assertTrue(
+            bigY < smallY - 100f,
+            "A configured height larger than content must still reserve that space; smallY=$smallY bigY=$bigY",
+        )
+    }
+
+    @Test
+    fun `auto-grow works on the two-pass render path`() {
+        // A `sys.pages.total` expression forces TWO-PASS rendering (page count is
+        // resolved in a first pass). The tall header must still auto-grow and render
+        // through that path — the effective heights are threaded into both passes, not
+        // just the single-pass path.
+        val rootSlot = "slot-root"
+        val headerSlot = "slot-header"
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlot)),
+                "header" to Node(id = "header", type = "pageheader", slots = listOf(headerSlot), props = mapOf("height" to "10pt")),
+                "header-text" to tallContentNode("header-text"),
+                "body-text" to textNode("body-text", "Body content."),
+                "pages" to expressionTextNode("pages", "sys.pages.total"),
+            ),
+            slots = mapOf(
+                rootSlot to Slot(rootSlot, "root", "children", listOf("header", "body-text", "pages")),
+                headerSlot to Slot(headerSlot, "header", "children", listOf("header-text")),
+            ),
+        )
+        assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc), "test doc must take the two-pass path")
+        val text = renderAndExtract(doc)
+        assertContains(
+            text,
+            tallMarker,
+            message = "Tall header content taller than the 10pt height must still render via the two-pass path",
+        )
+    }
+
+    private fun expressionTextNode(id: String, expression: String) = Node(
+        id = id,
+        type = "text",
+        props = mapOf(
+            "content" to mapOf(
+                "type" to "doc",
+                "content" to listOf(
+                    mapOf(
+                        "type" to "paragraph",
+                        "content" to listOf(mapOf("type" to "expression", "attrs" to mapOf("expression" to expression))),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    @Test
+    fun `address block authored inside a header does not inflate the header band`() {
+        // An address block is a page-absolute element: its window is drawn absolutely
+        // and an in-flow spacer reserves its height in the BODY. Whether it is authored
+        // in the body or nested inside a page header, it must hoist to the body root and
+        // the header band must NOT reserve its (~200pt) window height. So a document with
+        // the address in the header must render the body at the same Y as one with the
+        // address in the body — the two are identical after hoisting.
+        val marker = "BODYMARKER"
+        val inBody = bodyMarkerY(buildHeaderWithAddressDoc(addressInHeader = false), marker)
+        val inHeader = bodyMarkerY(buildHeaderWithAddressDoc(addressInHeader = true), marker)
+        assertTrue(
+            abs(inBody - inHeader) < 1.0f,
+            "Address block in a header must hoist like a body address and not inflate the band; bodyY=$inBody headerY=$inHeader",
+        )
+    }
+
+    private fun bodyMarkerY(doc: TemplateDocument, marker: String): Float {
+        val pdfBytes = ByteArrayOutputStream().also { renderer.render(doc, emptyMap(), it) }.toByteArray()
+        return extractFirstBaselineYOnPage(pdfBytes, marker, 1)
+    }
+
+    private fun buildHeaderWithAddressDoc(addressInHeader: Boolean): TemplateDocument {
+        val rootSlot = "slot-root"
+        val headerSlot = "slot-header"
+        val addrSlot = "slot-addr"
+        val asideSlot = "slot-aside"
+        val addressNode = Node(
+            id = "addressblock",
+            type = "addressblock",
+            slots = listOf(addrSlot, asideSlot),
+            props = mapOf("top" to 45, "sideDistance" to 20, "addressWidth" to 85, "height" to 45),
+        )
+        val headerChildren = if (addressInHeader) listOf("header-text", "addressblock") else listOf("header-text")
+        val rootChildren = if (addressInHeader) listOf("header", "body-text") else listOf("header", "addressblock", "body-text")
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlot)),
+                "header" to Node(id = "header", type = "pageheader", slots = listOf(headerSlot)),
+                "header-text" to textNode("header-text", "HDR"),
+                "addressblock" to addressNode,
+                "addr-text" to textNode("addr-text", "ADDR"),
+                "aside-text" to textNode("aside-text", "ASIDE"),
+                "body-text" to textNode("body-text", "BODYMARKER content"),
+            ),
+            slots = mapOf(
+                rootSlot to Slot(rootSlot, "root", "children", rootChildren),
+                headerSlot to Slot(headerSlot, "header", "children", headerChildren),
+                addrSlot to Slot(addrSlot, "addressblock", "address", listOf("addr-text")),
+                asideSlot to Slot(asideSlot, "addressblock", "aside", listOf("aside-text")),
+            ),
+        )
+    }
+
+    @Test
+    fun `address reservation respects the header height and shrinks to zero under a tall header`() {
+        // The address window bottom is at top+height = 45+45mm = 255pt. A header taller
+        // than that already pushes body content below the window, so the address block
+        // must reserve NO extra space: the body lands at the same Y with or without an
+        // address block. (Before this fix the reservation used the raw header height, so
+        // a tall auto-grown header still over-reserved ~the full window height.)
+        val withAddr = bodyMarkerY(buildTallHeaderDoc(withAddress = true), "BODYMARKER")
+        val withoutAddr = bodyMarkerY(buildTallHeaderDoc(withAddress = false), "BODYMARKER")
+        assertTrue(
+            abs(withAddr - withoutAddr) < 1.0f,
+            "Under a header taller than the address window, an address block must add no reservation; with=$withAddr without=$withoutAddr",
+        )
+    }
+
+    private fun buildTallHeaderDoc(withAddress: Boolean): TemplateDocument {
+        val rootSlot = "slot-root"
+        val headerSlot = "slot-header"
+        val addrSlot = "slot-addr"
+        val asideSlot = "slot-aside"
+        // Header content wraps to ~22 lines → effective band well over the 255pt window.
+        val tallHeaderText = "word ".repeat(220)
+        val nodes = mutableMapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf(rootSlot)),
+            "header" to Node(id = "header", type = "pageheader", slots = listOf(headerSlot)),
+            "header-text" to textNode("header-text", tallHeaderText),
+            "body-text" to textNode("body-text", "BODYMARKER content"),
+        )
+        val rootChildren = mutableListOf("header")
+        val slots = mutableMapOf(
+            rootSlot to Slot(rootSlot, "root", "children", rootChildren),
+            headerSlot to Slot(headerSlot, "header", "children", listOf("header-text")),
+        )
+        if (withAddress) {
+            nodes["addressblock"] = Node(
+                id = "addressblock",
+                type = "addressblock",
+                slots = listOf(addrSlot, asideSlot),
+                props = mapOf("top" to 45, "sideDistance" to 20, "addressWidth" to 85, "height" to 45),
+            )
+            nodes["addr-text"] = textNode("addr-text", "ADDR")
+            rootChildren.add("addressblock")
+            // Empty aside so the asideDiv carries only the (now zero) reservation.
+            slots[addrSlot] = Slot(addrSlot, "addressblock", "address", listOf("addr-text"))
+            slots[asideSlot] = Slot(asideSlot, "addressblock", "aside", emptyList())
+        }
+        rootChildren.add("body-text")
+        return TemplateDocument(root = "root", nodes = nodes, slots = slots)
+    }
+
     private fun extractFirstBaselineY(pdfBytes: ByteArray, text: String): Float = extractFirstBaselineYOnPage(pdfBytes, text, 1)
 
     private fun extractFirstBaselineYOnPage(pdfBytes: ByteArray, text: String, pageNumber: Int): Float {

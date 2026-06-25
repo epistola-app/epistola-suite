@@ -243,6 +243,77 @@ Out of scope for this iteration (filed as follow-ups): last-page header,
 per-section / page-range headers, odd/even alternating headers, and the same
 variant model for footers.
 
+### Header & footer band height (auto-grow)
+
+A `pageheader` / `pagefooter` carries an optional `height` prop (e.g. `"60pt"`).
+That height is a **minimum**, not a fixed clip: the band reserves
+`max(configured height, measured content height)`. So increasing `height` adds
+whitespace, content shorter than it is unaffected, and content **taller** than it
+grows the band instead of being dropped. The decision and the options weighed
+(clip, warn, reject, auto-grow) are recorded in
+[ADR 0008](adr/0008-header-footer-height-minimum.md).
+
+Why this matters: a header/footer is drawn as an iText overlay into a fixed
+`Canvas` rectangle. If content overflows that rectangle, iText discards the
+overflow — so a header sized smaller than its content (a letterhead with a logo,
+an address block, several lines) would silently render blank. Auto-grow removes
+that failure mode.
+
+How it works — a small pre-pass before the real render:
+
+1. **Measure** (`DirectPdfRenderer.measureEffectiveBandHeights`). For each header
+   and footer node, build the exact content wrapper the event handler will draw
+   (`buildBandWrapper`, shared with the handlers so measured == rendered) and lay
+   it out via an iText **dry layout** (`measureBandContentHeight`:
+   `renderer.layout(...)` into a tall area, read `occupiedArea.bBox.height` — draws
+   nothing). The pass runs in a throwaway `PdfDocument` with its **own**
+   `FontCache`, because `PdfFont`s are bound to a single document and must not leak
+   into the real render. It runs only when the document has a header or footer, and
+   any measurement error falls back to the configured/default height, so it can
+   never make a previously-working render fail.
+2. **Resolve** (`resolveBandLayout` → `computeHeaderBands`). The effective heights
+   (`nodeId → height`) drive both the body top/bottom margin and the rectangle each
+   event handler draws, so the reserved space and the drawn band always agree.
+   `computeHeaderBands` turns the (up to two) header heights into the running-page
+   `topMargin` plus the page-1 spacer described above.
+3. **Render** (`performRenderWithContext`). The effective-height map is handed to
+   `PageHeaderEventHandler` / `PageFooterEventHandler`, which also set
+   `OVERFLOW_Y/X = VISIBLE` on the band canvas as a safety net so content is never
+   silently dropped even if a measurement edge case under-sizes the band.
+
+### Address blocks vs. header/footer bands
+
+An `addressblock` is a **page-absolute** element: its window is drawn at a fixed
+page position by `AddressBlockEventHandler`, and an in-flow spacer reserves the
+window's height in the **body** so body text clears it. `hoistAddressBlock` moves
+the address block to the document root so the body owns that reservation.
+
+Two consequences for bands, both handled so an address block authored _inside_ a
+header/footer doesn't break the layout:
+
+- **The graph is hoisted before the bands are measured and rendered.** Each render
+  path hoists once (`renderDocument`) and passes that graph to band measurement,
+  `computeHeaderBands`, the event handlers and the body alike. So an address block
+  nested in a header/footer is moved to the body and never renders inside the band
+  — otherwise its ~window-height spacer would inflate the band with empty space.
+- **The body reservation respects the real header height.** The renderer passes the
+  resolved page-1 body-content top (page margin + effective first-page band +
+  spacer) to the body via `RenderContext.bodyContentTopPt`; the address block
+  reserves down to its window bottom **relative to that**. Under a header tall
+  enough to already cover the window, the reservation shrinks to zero instead of
+  always reserving the full window height from the raw `height` prop.
+
+Note that an address block's fixed window position (`top`/`height`, in mm from the
+page top) can still geometrically overlap a tall header — address blocks are body
+elements and aren't _meant_ to live inside a header; the renderer just no longer
+blows the layout apart when one does.
+
+Code map: `HeaderFooterBand.kt` (`buildBandWrapper`, `measureBandContentHeight`),
+`DirectPdfRenderer.kt` (`measureEffectiveBandHeights`, `resolveBandLayout`,
+`computeHeaderBands`, `hoistAddressBlock`, `performRenderWithContext`),
+`PageHeaderEventHandler` / `PageFooterEventHandler`, `AddressBlockNodeRenderer`,
+and `RenderContext.bodyContentTopPt`.
+
 ### Page Settings
 
 ```kotlin

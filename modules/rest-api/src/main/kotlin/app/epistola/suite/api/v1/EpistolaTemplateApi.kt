@@ -53,8 +53,14 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
+import app.epistola.suite.templates.contracts.ContractPublishConflictException
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
+import app.epistola.suite.templates.contracts.queries.PreviewContractUpdate
+import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -67,6 +73,7 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
@@ -145,6 +152,51 @@ class EpistolaTemplateApi(
             id = templateIdComposite,
             name = updateTemplateRequest.name,
         ).execute() ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+
+        val dataModel = updateTemplateRequest.dataModel
+        val dataExamples = updateTemplateRequest.dataExamples?.map { dto ->
+            DataExample(id = dto.id, name = dto.name, data = dto.data)
+        }
+        if (dataModel != null || dataExamples != null) {
+            val confirmBreaking = updateTemplateRequest.forceUpdate ?: false
+
+            // Decide accept/reject up front, before any draft is created. The
+            // create -> update -> publish commands below each commit in their own
+            // transaction, so rejecting only at publish time would leave a dangling
+            // draft contract version behind (observable to validation/preview reads).
+            val preview = PreviewContractUpdate(
+                templateId = templateIdComposite,
+                dataModel = dataModel,
+                dataExamples = dataExamples,
+            ).query()
+            // Data examples must always be valid against the schema — a published
+            // contract is never allowed to carry examples it would reject (422).
+            if (preview.exampleValidationErrors.isNotEmpty()) {
+                throw DataModelValidationException(preview.exampleValidationErrors)
+            }
+            // A backwards-incompatible schema change is only published when the caller
+            // confirms it via forceUpdate; otherwise surface a 409.
+            if (!preview.compatible && !confirmBreaking) {
+                throw ContractPublishConflictException(preview.breakingChanges)
+            }
+
+            // The REST caller is authoritative: stage the change on a draft, then publish it
+            // immediately so the change is readable back via GET (read-your-write).
+            CreateContractVersion(templateId = templateIdComposite).execute()
+                ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+            UpdateContractVersion(
+                templateId = templateIdComposite,
+                dataModel = dataModel,
+                dataExamples = dataExamples,
+                forceUpdate = false,
+            ).execute() ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+            val publish = PublishContractVersion(templateId = templateIdComposite, confirmed = confirmBreaking).execute()
+            // Backstop for a concurrent change landing between the preview and the publish.
+            if (publish != null && !publish.published) {
+                throw ContractPublishConflictException(publish.breakingChanges.map { it.description })
+            }
+        }
+
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))

@@ -38,7 +38,7 @@ import type { ExpressionDialogResult } from './expression-dialog.js';
 /** Sample instant used to render locale-aware date format examples. */
 const DATE_FORMAT_SAMPLE = '2024-01-15T14:30:00';
 
-/** Date format patterns offered by the format dropdown, in display order. */
+/** Date-only format patterns offered by the format dropdown, in display order. */
 const DATE_FORMAT_PATTERNS: string[] = [
   'dd-MM-yyyy',
   'yyyy-MM-dd',
@@ -47,12 +47,14 @@ const DATE_FORMAT_PATTERNS: string[] = [
   'd MMMM yyyy',
   'EEEE MMMM d yyyy',
   'EEEE d MMMM yyyy',
-  'dd-MM-yyyy HH:mm',
-  'yyyy-MM-dd HH:mm',
 ];
 
-/** Non-empty date patterns the builder's Format dropdown can represent. */
-const BUILDER_FORMAT_PATTERNS: ReadonlySet<string> = new Set(DATE_FORMAT_PATTERNS);
+/**
+ * Patterns offered only for date-time fields — they include a time-of-day
+ * component, which is meaningless for a plain `date` field (whose value carries
+ * no time), so they are hidden when a `date` field is selected.
+ */
+const DATE_TIME_FORMAT_PATTERNS: string[] = ['dd-MM-yyyy HH:mm', 'yyyy-MM-dd HH:mm'];
 
 /**
  * Number format presets for the format dropdown. `value` is the
@@ -185,10 +187,26 @@ export class EpExpressionDialog extends LitElement {
     return this._systemFields.filter(this._isPickableForBuilder);
   }
 
-  private get _selectedFieldType(): string {
-    if (!this._builderFieldPath) return '';
-    const fp = this.fieldPaths.find((f) => f.path === this._builderFieldPath);
+  /** The declared type of the field at `path`, or `''` when unknown. */
+  private _fieldTypeForPath(path: string): string {
+    if (!path) return '';
+    const fp = this.fieldPaths.find((f) => f.path === path);
     return fp ? fp.type : '';
+  }
+
+  private get _selectedFieldType(): string {
+    return this._fieldTypeForPath(this._builderFieldPath);
+  }
+
+  /**
+   * Date patterns to offer for a field of `fieldType`. A `datetime` field gets
+   * both date-only and date-time patterns; a plain `date` field gets only the
+   * date-only patterns (time-of-day patterns make no sense without a time).
+   */
+  private _dateFormatPatternsFor(fieldType: string): string[] {
+    return fieldType === 'datetime'
+      ? [...DATE_FORMAT_PATTERNS, ...DATE_TIME_FORMAT_PATTERNS]
+      : DATE_FORMAT_PATTERNS;
   }
 
   private get _isDateFieldSelected(): boolean {
@@ -226,10 +244,10 @@ export class EpExpressionDialog extends LitElement {
    * same in every locale (by design — only month-name tokens localize, mirroring
    * the PDF renderer), so those examples don't change between cultures.
    */
-  private _dateFormatPresets(): { value: string; label: string }[] {
+  private _dateFormatPresets(fieldType: string): { value: string; label: string }[] {
     return [
       { value: '', label: 'No formatting' },
-      ...DATE_FORMAT_PATTERNS.map((pattern) => ({
+      ...this._dateFormatPatternsFor(fieldType).map((pattern) => ({
         value: pattern,
         label: `${pattern} (${formatDateValue(DATE_FORMAT_SAMPLE, pattern, this.locale)})`,
       })),
@@ -240,12 +258,14 @@ export class EpExpressionDialog extends LitElement {
   private get _selectedFormatPresets(): { value: string; label: string }[] {
     return this._selectedFormatType === 'number'
       ? this._numberFormatPresets()
-      : this._dateFormatPresets();
+      : this._dateFormatPresets(this._selectedFieldType);
   }
 
   /** Non-empty patterns the builder can represent for the selected field's format kind. */
   private get _selectedFormatPatterns(): ReadonlySet<string> {
-    if (this._selectedFormatType === 'date') return BUILDER_FORMAT_PATTERNS;
+    if (this._selectedFormatType === 'date') {
+      return new Set(this._dateFormatPatternsFor(this._selectedFieldType));
+    }
     if (this._selectedFormatType === 'number') return BUILDER_NUMBER_FORMAT_PATTERNS;
     return new Set();
   }
@@ -526,7 +546,17 @@ export class EpExpressionDialog extends LitElement {
   private _parseBuilder(expr: string): BuilderState | null {
     const parsed = tryParseAsBuilderExpression(expr, this.fieldPaths);
     if (!parsed) return null;
-    if (parsed.formatType === 'date' && !BUILDER_FORMAT_PATTERNS.has(parsed.formatPattern)) {
+    // Accept a date pattern only if it's valid for THIS field's type — a plain
+    // `date` field must not keep a time-of-day pattern. Checking the field-
+    // specific set (not the union) here means an existing time pattern on a
+    // date field opens in code mode with the "unsupported format" warning,
+    // rather than silently surviving in a builder dropdown that can't show it.
+    if (
+      parsed.formatType === 'date' &&
+      !this._dateFormatPatternsFor(this._fieldTypeForPath(parsed.fieldPath)).includes(
+        parsed.formatPattern,
+      )
+    ) {
       return null;
     }
     if (
@@ -891,7 +921,9 @@ export class EpExpressionDialog extends LitElement {
             ${this._renderFormatOptions(
               this._codeFormatType() === 'number'
                 ? this._numberFormatPresets()
-                : this._dateFormatPresets(),
+                : this._dateFormatPresets(
+                    this._fieldTypeForPath(this._getBarePath(this._expression.trim())),
+                  ),
               this._codeFormatValue(),
             )}
           </select>

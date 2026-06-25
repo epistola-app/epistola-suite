@@ -276,6 +276,39 @@ describe('validateDataAgainstSchema', () => {
     expect(invalid.errors[0].message).toContain('valid date');
   });
 
+  // Mirror of the backend corpus in
+  // `SchemaCompatibilityTest.DateTimeFormatTest` — these two validators (plus
+  // the renderer's `JsonataEvaluator.parseDateTime`) must accept/reject the
+  // same date-time strings. Keep the two lists in sync when either changes.
+  describe('date-time format (string with format:date-time)', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        at: { type: 'string', format: 'date-time' },
+      },
+    };
+    const isValid = (value: string) => validateDataAgainstSchema({ at: value }, schema).valid;
+
+    it.each([
+      '2026-06-24T14:14:10', // naive, with seconds
+      '2026-06-24T14:14:10Z', // offset-bearing instant
+      '2026-06-24T14:14:10+02:00',
+      '2026-06-24T14:14', // naive, without seconds (the P1 case: backend + renderer accept this)
+      '2026-06-24T14:14:10.123Z', // fractional seconds when seconds present
+    ])('accepts %s', (value) => {
+      expect(isValid(value)).toBe(true);
+    });
+
+    it.each([
+      'not a date',
+      '2026-06-24T14:14.123Z', // fractional seconds without seconds
+      '2026-06-24t14:14:10', // lowercase t — render-time parsing is case-sensitive
+      '2026-06-24T14:14:10z', // lowercase z
+    ])('rejects %s', (value) => {
+      expect(isValid(value)).toBe(false);
+    });
+  });
+
   it('allows empty string on a non-required field', () => {
     const schema: JsonSchema = {
       type: 'object',

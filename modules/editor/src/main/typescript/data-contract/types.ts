@@ -39,6 +39,7 @@ export type SchemaFieldType =
   | 'integer'
   | 'boolean'
   | 'date'
+  | 'datetime'
   | 'richTextInline'
   | 'richTextBlock'
   | 'array'
@@ -51,6 +52,7 @@ export type PrimitiveFieldType =
   | 'integer'
   | 'boolean'
   | 'date'
+  | 'datetime'
   | 'richTextInline'
   | 'richTextBlock';
 
