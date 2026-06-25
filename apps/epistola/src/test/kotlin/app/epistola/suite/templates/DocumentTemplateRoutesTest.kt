@@ -722,7 +722,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Name must be 255 characters or less")
+            assertThat(response.body).contains("Name must be 100 characters or less")
 
             val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
             assertThat(templates).isEmpty()
