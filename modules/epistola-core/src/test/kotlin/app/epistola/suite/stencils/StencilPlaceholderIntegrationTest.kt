@@ -151,7 +151,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter").execute()
-        val variantId = VariantId(VariantKey.of("initial"), templateId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
         UpdateDraft(
             variantId = variantId,
             templateModel = templateEmbeddingStencilWithFilledPlaceholder(sId.key.value),
@@ -220,7 +220,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter").execute()
-        val variantId = VariantId(VariantKey.of("initial"), templateId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
         UpdateDraft(
             variantId = variantId,
             templateModel = templateEmbeddingStencilWithFilledPlaceholder(sId.key.value),
@@ -253,7 +253,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Recursive").execute()
-        val variantId = VariantId(VariantKey.of("initial"), templateId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
 
         // root → stencil('header') → children → stencil('header') — recursion.
         val recursive = TemplateDocument(
@@ -296,7 +296,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Bare placeholder").execute()
-        val variantId = VariantId(VariantKey.of("initial"), templateId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
 
         // root → placeholder (illegal at template level — must be inside a stencil).
         val invalid = TemplateDocument(
@@ -406,7 +406,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter").execute()
-        val variantId = VariantId(VariantKey.of("initial"), templateId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
 
         val templateBody = TemplateDocument(
             modelVersion = 1,

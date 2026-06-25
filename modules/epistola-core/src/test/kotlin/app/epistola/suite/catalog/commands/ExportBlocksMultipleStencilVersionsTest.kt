@@ -146,7 +146,7 @@ class ExportBlocksMultipleStencilVersionsTest : IntegrationTestBase() {
         val templateId = TemplateId(templateKey, catalogId)
         CreateDocumentTemplate(id = templateId, name = templateSlug).execute()
 
-        val variantKey = VariantKey.of("initial")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
             variantId = variantId,

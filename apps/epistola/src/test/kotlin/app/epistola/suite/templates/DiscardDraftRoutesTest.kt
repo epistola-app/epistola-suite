@@ -38,7 +38,7 @@ class DiscardDraftRoutesTest : BaseIntegrationTest() {
             val template = template(testTenant, "Invoice Template")
             templateId = template.id.value
             val tplId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))
-            variantKey = "initial"
+            variantKey = VariantKey.INITIAL.value
             variantId = VariantId(VariantKey.of(variantKey), tplId)
 
             // Publish the auto-created v1 draft, then open a fresh draft (v2) on top.
@@ -80,7 +80,7 @@ class DiscardDraftRoutesTest : BaseIntegrationTest() {
             val template = template(testTenant, "Invoice Template")
             templateId = template.id.value
             val tplId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))
-            variantKey = "initial"
+            variantKey = VariantKey.INITIAL.value
             variantId = VariantId(VariantKey.of(variantKey), tplId)
             // Fresh template: a draft v1 exists but nothing has been published.
         }

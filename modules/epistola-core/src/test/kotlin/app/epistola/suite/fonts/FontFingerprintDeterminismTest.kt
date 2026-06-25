@@ -156,7 +156,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 themeCatalogKey = CatalogKey.DEFAULT,
             ).execute()
 
-            val variantId = VariantId(VariantKey.of("initial"), templateId)
+            val variantId = VariantId(VariantKey.INITIAL, templateId)
             UpdateDraft(variantId = variantId, templateModel = templateModel()).execute()
             UpdateContractVersion(
                 templateId = templateId,

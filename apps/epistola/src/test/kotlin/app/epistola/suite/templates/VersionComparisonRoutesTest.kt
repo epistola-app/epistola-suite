@@ -46,7 +46,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
-                variantKey = "initial"
+                variantKey = VariantKey.INITIAL.value
                 CreateVersion(
                     variantId = VariantId(VariantKey.of(variantKey), tplId),
                 ).execute()
@@ -153,7 +153,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
-                variantKey = "initial"
+                variantKey = VariantKey.INITIAL.value
                 val varId = VariantId(VariantKey.of(variantKey), tplId)
 
                 // Create a draft version
@@ -204,7 +204,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
-                variantKey = "initial"
+                variantKey = VariantKey.INITIAL.value
                 val varId = VariantId(VariantKey.of(variantKey), tplId)
 
                 val version = CreateVersion(variantId = varId).execute()!!

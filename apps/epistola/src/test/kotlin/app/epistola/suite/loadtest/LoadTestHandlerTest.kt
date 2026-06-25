@@ -152,7 +152,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = "default/${template.id.value}"
                 CreateVersion(
-                    variantId = VariantId(VariantKey.of("initial"), tplId),
+                    variantId = VariantId(VariantKey.INITIAL, tplId),
                 ).execute()
                 val envKey = TestIdHelpers.nextEnvironmentId()
                 CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
@@ -198,7 +198,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = "default/${template.id.value}"
-                defaultVariantKey = "initial"
+                defaultVariantKey = VariantKey.INITIAL.value
                 val defaultVariantId = VariantKey.of(defaultVariantKey)
                 CreateVersion(
                     variantId = VariantId(defaultVariantId, tplId),

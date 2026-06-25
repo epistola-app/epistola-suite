@@ -37,7 +37,7 @@ class DiscardDraftTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "discard-draft-test").execute()
         }
         defaultVariantId = VariantId(
-            VariantKey.of("initial"),
+            VariantKey.INITIAL,
             templateId,
         )
     }

@@ -218,7 +218,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
             CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
-            val variantKey = VariantKey.of("initial")
+            val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             UpdateDraft(
                 variantId = variantId,
@@ -241,7 +241,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Welcome Letter").execute()
-        val variantKey = VariantKey.of("initial")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
             variantId = variantId,
@@ -273,7 +273,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Receipt").execute()
-        val variantKey = VariantKey.of("initial")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
             variantId = variantId,

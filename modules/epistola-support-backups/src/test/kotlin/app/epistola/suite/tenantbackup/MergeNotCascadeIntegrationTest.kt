@@ -37,7 +37,7 @@ class MergeNotCascadeIntegrationTest : IntegrationTestBase() {
         val main = CatalogKey.of("main")
         val catalogId = CatalogId(main, tenantId)
         val templateKey = TestIdHelpers.nextTemplateId()
-        val variantKey = "initial"
+        val variantKey = VariantKey.INITIAL.value
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = main, name = "Main").execute()

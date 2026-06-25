@@ -65,7 +65,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "scenario-template").execute()
         }
         defaultVariantId = VariantId(
-            VariantKey.of("initial"),
+            VariantKey.INITIAL,
             templateId,
         )
     }

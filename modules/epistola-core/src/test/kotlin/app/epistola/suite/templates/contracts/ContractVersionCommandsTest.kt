@@ -86,7 +86,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
         @Test
         fun `template version draft links to contract v1`() {
             val defaultVariantId = VariantId(
-                VariantKey.of("initial"),
+                VariantKey.INITIAL,
                 templateId,
             )
             val draft = withMediator { GetDraft(defaultVariantId).query() }
@@ -222,7 +222,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
 
             // Get the default variant's draft and check its contract version
             val defaultVariantId = VariantId(
-                VariantKey.of("initial"),
+                VariantKey.INITIAL,
                 templateId,
             )
             // Template version draft still points to contract v1 (published)
@@ -257,7 +257,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
         @Test
         fun `breaking change only upgrades draft template versions`() {
             val defaultVariantId = VariantId(
-                VariantKey.of("initial"),
+                VariantKey.INITIAL,
                 templateId,
             )
 
@@ -333,7 +333,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
 
             val defaultVariantId = VariantId(
-                VariantKey.of("initial"),
+                VariantKey.INITIAL,
                 templateId,
             )
             val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
@@ -378,7 +378,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
 
             val defaultVariantId = VariantId(
-                VariantKey.of("initial"),
+                VariantKey.INITIAL,
                 templateId,
             )
             val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
