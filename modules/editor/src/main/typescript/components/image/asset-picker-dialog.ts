@@ -127,15 +127,24 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       }
     }
 
+    // Bumped on every load so a slow earlier response can't overwrite a newer one.
+    let assetLoadSeq = 0;
+
     /** Load the images for the active catalog, resetting any current selection. */
     function loadAssets(catalogKey: string) {
+      const loadSeq = ++assetLoadSeq;
       grid.innerHTML = '<div class="asset-picker-loading">Loading assets...</div>';
       selectedAsset = null;
       insertBtn.disabled = true;
       callbacks
         .listAssets(catalogKey)
-        .then((assets) => renderGrid(assets))
+        .then((assets) => {
+          // Drop the response if the author has since switched catalogs.
+          if (loadSeq !== assetLoadSeq) return;
+          renderGrid(assets);
+        })
         .catch(() => {
+          if (loadSeq !== assetLoadSeq) return;
           grid.innerHTML = '<div class="asset-picker-empty">Failed to load assets.</div>';
         });
     }
@@ -168,9 +177,14 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
           catalogSelect.value = currentCatalogKey;
         }
         applyUploadAvailability(currentCatalogKey);
+        // Load only once the effective catalog is settled, so the grid and the
+        // chooser never disagree.
+        loadAssets(currentCatalogKey);
       })
       .catch(() => {
-        // Leave the chooser empty; assets still load for the default catalog.
+        // Chooser stays empty; fall back to loading the template's catalog.
+        applyUploadAvailability(currentCatalogKey);
+        loadAssets(currentCatalogKey);
       });
 
     catalogSelect.addEventListener('change', () => {
@@ -179,17 +193,18 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       loadAssets(currentCatalogKey);
     });
 
-    // Load images for the template's catalog up front.
-    loadAssets(currentCatalogKey);
-
     // Upload handling
     const handleUpload = async (file: File) => {
       uploadError.textContent = '';
       uploadZone.classList.add('uploading');
+      // Pin the target catalog so a switch mid-upload can't redirect the result.
+      const uploadCatalogKey = currentCatalogKey;
       try {
-        const asset = await callbacks.uploadAsset(file, currentCatalogKey);
+        const asset = await callbacks.uploadAsset(file, uploadCatalogKey);
         // Refresh the grid and auto-select the new asset
-        const assets = await callbacks.listAssets(currentCatalogKey);
+        const assets = await callbacks.listAssets(uploadCatalogKey);
+        // The author switched catalogs while uploading — don't render here.
+        if (uploadCatalogKey !== currentCatalogKey) return;
         renderGrid(assets);
         // Select the newly uploaded asset
         const newCard = grid.querySelector(`[data-asset-id="${asset.id}"]`);
