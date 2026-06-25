@@ -107,6 +107,22 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `get asset content filters by catalog key when provided`(): Unit = withMediator {
+        val tenant = createTenant("Test Tenant")
+        val uploaded = UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
+
+        // Matching catalog → resolves
+        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalogKey = CatalogKey.DEFAULT).query())
+            .isNotNull
+        // Different catalog → not found (cross-catalog identity is respected)
+        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalogKey = CatalogKey.of("other-catalog")).query())
+            .isNull()
+        // No catalog supplied → assetId-only fallback still resolves
+        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id).query())
+            .isNotNull
+    }
+
+    @Test
     fun `get asset returns null for non-existent asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
