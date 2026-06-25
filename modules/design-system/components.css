@@ -511,6 +511,65 @@
     }
   }
 
+  /* ── Sortable table headers ───────────────────────────────────────────── */
+
+  .ep-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color var(--ep-transition-fast);
+
+    &:hover {
+      color: var(--ep-foreground);
+    }
+
+    &.is-active {
+      color: var(--ep-foreground);
+    }
+  }
+
+  /* Every sortable header keeps one chevron (so the column never shifts width):
+     faint as a neutral sort hint, solid on the active sort column. */
+  .ep-sort-icon {
+    opacity: 0.3;
+    transition: opacity var(--ep-transition-fast);
+  }
+
+  .ep-sort:hover .ep-sort-icon {
+    opacity: 0.55;
+  }
+
+  .ep-sort.is-active .ep-sort-icon {
+    opacity: 1;
+    color: var(--ep-foreground);
+  }
+
+  /* ── Pagination ───────────────────────────────────────────────────────── */
+
+  .ep-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--ep-space-3);
+    margin-top: var(--ep-space-4);
+  }
+
+  .ep-pagination-info {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-muted-foreground);
+  }
+
+  /* Scoped to pagination: a bare global .is-disabled collides with consumer
+     cards (consumers/dashboard.html) which already use that class on an
+     interactive <details> and would lose pointer-events. */
+  .ep-pagination .is-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
   /* ── Icons ────────────────────────────────────────────────────────────── */
 
   .ep-icon {

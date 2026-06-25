@@ -2,12 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
+        <!--/* searchUrl omits sort/dir on purpose: they change via HTMX without
+               re-rendering this header, so the search box reads the live values
+               from the [data-search-param] hidden inputs in #template-table. */-->
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Templates',
             pageDescription='All of your templates are here.',
             searchPlaceholder='Search templates...',
-            searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
-            searchTargetId='template-rows',
+            searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},catalog=${selectedCatalog})},
+            searchTargetId='template-table',
             actions=~{::template-list-actions}
         )}"></div>
 
@@ -30,53 +33,141 @@
             </script>
         </div>
 
-        <div th:if="${#lists.isEmpty(templates)}" class="empty-state">
-            <div class="empty-state-icon">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
-            </div>
-            <div class="empty-state-title">No templates yet</div>
-            <div class="empty-state-description">Create your first document template to get started.</div>
-            <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                New Template
-            </a>
-        </div>
+        <div id="template-table">
+            <th:block th:fragment="table">
+                <!--/* Live sort/dir state, re-rendered on every swap. Tagged
+                       data-search-param so the search box's hx-include carries
+                       the current sort and searching doesn't revert it. */-->
+                <input type="hidden" name="sort" th:value="${sort}" data-search-param />
+                <input type="hidden" name="dir" th:value="${sortDir}" data-search-param />
+                <div th:if="${total == 0}" class="empty-state">
+                    <!--/* Active search filtered everything out. */-->
+                    <th:block th:if="${searchTerm != ''}">
+                        <div class="empty-state-icon">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon ep-icon-xl')}" />
+                        </div>
+                        <div class="empty-state-title">No matching templates</div>
+                        <div class="empty-state-description">No templates match your search.</div>
+                    </th:block>
+                    <!--/* A catalog filter is active (no search): this catalog is empty, but
+                           the tenant may have templates in other catalogs — so don't show the
+                           "create your first" onboarding CTA, which would be misleading. */-->
+                    <th:block th:if="${searchTerm == '' and selectedCatalog != ''}">
+                        <div class="empty-state-icon">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                        </div>
+                        <div class="empty-state-title">No templates in this catalog</div>
+                        <div class="empty-state-description">This catalog has no templates. Choose another catalog or create one here.</div>
+                        <a th:if="${auth.has('TEMPLATE_EDIT')}"
+                           th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                            New Template
+                        </a>
+                    </th:block>
+                    <!--/* Genuinely empty tenant: first-run onboarding. */-->
+                    <th:block th:if="${searchTerm == '' and selectedCatalog == ''}">
+                        <div class="empty-state-icon">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                        </div>
+                        <div class="empty-state-title">No templates yet</div>
+                        <div class="empty-state-description">Create your first document template to get started.</div>
+                        <a th:if="${auth.has('TEMPLATE_EDIT')}"
+                           th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                            New Template
+                        </a>
+                    </th:block>
+                </div>
 
-        <table th:if="${!#lists.isEmpty(templates)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Catalog</th>
-                    <th>ID</th>
-                    <th>Variants</th>
-                    <th>Last Modified</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="template-rows">
-                <th:block th:fragment="rows">
-                    <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
-                        <td>
-                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               th:text="${template.name}" style="font-weight: 500;"></a>
-                        </td>
-                        <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
-                        <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                        <td th:text="${template.variantCount}"></td>
-                        <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions">
-                            <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                            </a>
-                        </td>
-                    </tr>
-                </th:block>
-            </tbody>
-        </table>
+                <table th:if="${total > 0}" class="ep-table">
+                    <thead>
+                        <tr>
+                            <th th:replace="~{templates/list :: sort-header('Name', 'name')}"></th>
+                            <th th:replace="~{templates/list :: sort-header('Catalog', 'catalog')}"></th>
+                            <th>ID</th>
+                            <th th:replace="~{templates/list :: sort-header('Variants', 'variants')}"></th>
+                            <th th:replace="~{templates/list :: sort-header('Last Modified', 'updated')}"></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
+                            <td>
+                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                                   th:text="${template.name}" style="font-weight: 500;"></a>
+                            </td>
+                            <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
+                            <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                            <td th:text="${template.variantCount}"></td>
+                            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td class="actions">
+                                <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <nav th:if="${totalPages > 1}" class="ep-pagination" aria-label="Templates pagination" data-testid="template-pagination">
+                    <a th:if="${hasPrev}"
+                       class="ep-btn ep-btn-ghost ep-btn-sm"
+                       data-testid="pagination-prev"
+                       th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
+                       th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
+                       hx-include="[name='q']"
+                       hx-target="#template-table"
+                       hx-swap="innerHTML">Previous</a>
+                    <span th:unless="${hasPrev}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Previous</span>
+
+                    <span class="ep-pagination-info" th:text="'Page ' + ${page} + ' of ' + ${totalPages}"></span>
+
+                    <a th:if="${hasNext}"
+                       class="ep-btn ep-btn-ghost ep-btn-sm"
+                       data-testid="pagination-next"
+                       th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
+                       th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
+                       hx-include="[name='q']"
+                       hx-target="#template-table"
+                       hx-swap="innerHTML">Next</a>
+                    <span th:unless="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Next</span>
+                </nav>
+            </th:block>
+        </div>
     </th:block>
+
+    <!--/* Sortable column header. Clicking re-sorts via HTMX (swapping the whole
+           table wrapper so the active-sort indicator and pagination update too);
+           the th:href is a no-JS fallback that reloads the full list page. */-->
+    <th th:fragment="sort-header(label, col)"
+        th:with="active=${sort == col},nextDir=${active ? (sortDir == 'asc' ? 'desc' : 'asc') : sortDefaultDirs.get(col)}"
+        th:attr="aria-sort=${active ? (sortDir == 'asc' ? 'ascending' : 'descending') : 'none'}">
+        <a class="ep-sort"
+           th:classappend="${active} ? 'is-active' : ''"
+           th:data-testid="'sort-' + ${col}"
+           th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},sort=${col},dir=${nextDir},catalog=${selectedCatalog})}"
+           th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},sort=${col},dir=${nextDir},catalog=${selectedCatalog})}"
+           hx-include="[name='q']"
+           hx-target="#template-table"
+           hx-swap="innerHTML">
+            <span th:text="${label}"></span>
+            <!--/* Every sortable column always renders exactly ONE chevron so the
+                   header never shifts width: chevron-up only when this column is the
+                   active ascending sort, chevron-down otherwise (active desc, or a
+                   faint neutral hint on inactive columns — see .ep-sort-icon CSS).
+                   th:if and th:replace must NOT share a tag (th:replace has higher
+                   precedence and would run first, ignoring th:if), so keep them split. */-->
+            <th:block th:if="${active and sortDir == 'asc'}">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-up', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+            </th:block>
+            <th:block th:unless="${active and sortDir == 'asc'}">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm ep-sort-icon')}" />
+            </th:block>
+        </a>
+    </th>
+
     <th:block th:fragment="template-list-actions">
         <a th:if="${auth.has('TEMPLATE_EDIT')}"
            th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"

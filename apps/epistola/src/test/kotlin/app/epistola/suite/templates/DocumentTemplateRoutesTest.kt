@@ -1,10 +1,16 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -109,6 +115,31 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET templates with empty catalog filter shows catalog-specific empty state not onboarding`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            // Tenant has a template (in the default catalog), so it is not a
+            // first-run tenant; filtering to an empty catalog must not claim it is.
+            template(testTenant, "Invoice Template")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body).contains("No templates in this catalog")
+            assertThat(body).doesNotContain("No templates yet")
+            assertThat(body).doesNotContain("Create your first document template")
+        }
+    }
+
+    @Test
     fun `GET templates search filters by name`() = fixture {
         lateinit var testTenant: Tenant
 
@@ -141,6 +172,35 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET templates wires the search box to the live sort state`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Apple")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=name&dir=asc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The search box (in the page header, outside the swapped table)
+            // includes [data-search-param] elements, so searching after a sort
+            // doesn't silently revert to the page-load sort.
+            assertThat(body).contains("hx-include=\"[data-search-param]\"")
+            // The swapped fragment carries the current sort/dir, each tagged
+            // data-search-param (selector + 2 hidden inputs = 3 occurrences).
+            assertThat(body).contains("name=\"sort\" value=\"name\"")
+            assertThat(body).contains("name=\"dir\" value=\"asc\"")
+            assertThat(body.split("data-search-param").size - 1).isGreaterThanOrEqualTo(3)
+        }
+    }
+
+    @Test
     fun `GET templates search with empty query returns all templates`() = fixture {
         lateinit var testTenant: Tenant
 
@@ -169,6 +229,349 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("Invoice Template")
             assertThat(response.body).contains("Contract Template")
             assertThat(response.body).contains("Letter Template")
+        }
+    }
+
+    private fun rowCount(body: String): Int = body.split("data-testid=\"template-row\"").size - 1
+
+    @Test
+    fun `GET templates paginates at 10 rows per page`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(rowCount(response.body!!)).isEqualTo(10)
+            assertThat(response.body).contains("Page 1 of 3")
+            assertThat(response.body).contains("data-testid=\"template-pagination\"")
+            assertThat(response.body).contains("data-testid=\"pagination-next\"")
+            // First page has no Previous link, only the disabled placeholder.
+            assertThat(response.body).doesNotContain("data-testid=\"pagination-prev\"")
+            assertThat(response.body).contains("data-testid=\"sort-name\"")
+        }
+    }
+
+    @Test
+    fun `GET templates last page returns the remaining rows`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=3", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(rowCount(response.body!!)).isEqualTo(5)
+            assertThat(response.body).contains("Page 3 of 3")
+        }
+    }
+
+    @Test
+    fun `GET templates with an overflowing page does not 500`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            // (page - 1) * PAGE_SIZE would overflow Int to a negative OFFSET if
+            // the page were not capped; must clamp to the last page, not 500.
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=2147483647", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(rowCount(response.body!!)).isEqualTo(5)
+            assertThat(response.body).contains("Page 3 of 3")
+        }
+    }
+
+    @Test
+    fun `GET templates clamps an out-of-range page to the last page`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            repeat(25) { i -> template(testTenant, "Template %02d".format(i)) }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=99", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Page 99 overshoots; the windowed count recovers the real total and
+            // the request is clamped to the last page (3) with its 5 rows.
+            assertThat(rowCount(response.body!!)).isEqualTo(5)
+            assertThat(response.body).contains("Page 3 of 3")
+        }
+    }
+
+    @Test
+    fun `GET templates search sorts by name ascending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Banana")
+            template(testTenant, "Apple")
+            template(testTenant, "Cherry")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            val request = HttpEntity<Void>(headers)
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/templates/search?sort=name&dir=asc",
+                HttpMethod.GET,
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("Apple")).isLessThan(body.indexOf("Banana"))
+            assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Cherry"))
+            // All 4 sortable columns always carry exactly one chevron (no layout
+            // shift); the active column (name, asc) is the only up-chevron.
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body.split("icon-chevron-up").size - 1).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `GET templates search sorts by name descending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Banana")
+            template(testTenant, "Apple")
+            template(testTenant, "Cherry")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            val request = HttpEntity<Void>(headers)
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/templates/search?sort=name&dir=desc",
+                HttpMethod.GET,
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("Cherry")).isLessThan(body.indexOf("Banana"))
+            assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Apple"))
+            // All 4 sortable columns always carry exactly one chevron (no layout
+            // shift); sorting descending means none point up.
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body).doesNotContain("icon-chevron-up")
+        }
+    }
+
+    @Test
+    fun `GET templates sort headers honor each column's default direction`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Apple")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // A first click on an inactive column uses its TemplateSort.defaultDescending:
+            // Variants/Last Modified are naturally descending, Name/Catalog ascending.
+            assertThat(body).contains("sort=variants&amp;dir=desc")
+            assertThat(body).contains("sort=name&amp;dir=asc")
+            assertThat(body).contains("sort=catalog&amp;dir=asc")
+        }
+    }
+
+    @Test
+    fun `GET templates with invalid sort param falls back to updated`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "Apple")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=not-a-column", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // An unknown sort resolves to UPDATED descending: only the active
+            // column carries a non-none aria-sort, and its header toggles to asc.
+            assertThat(body).contains("aria-sort=\"descending\"")
+            assertThat(body).contains("sort=updated&amp;dir=asc")
+        }
+    }
+
+    @Test
+    fun `GET templates sorts by variant count descending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            val many = template(testTenant, "ManyVariants")
+            val some = template(testTenant, "SomeVariants")
+            template(testTenant, "FewVariants")
+            repeat(2) { variant(testTenant, many) }
+            variant(testTenant, some)
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=variants&dir=desc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("ManyVariants")).isLessThan(body.indexOf("SomeVariants"))
+            assertThat(body.indexOf("SomeVariants")).isLessThan(body.indexOf("FewVariants"))
+        }
+    }
+
+    @Test
+    fun `GET templates sorts by catalog ascending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            val tenantId = TenantId(testTenant.id)
+            // Default catalog template created first (older); marketing second.
+            // Under sort=updated the marketing row would lead, so an asserted
+            // default-before-marketing order proves the catalog sort is applied.
+            template(testTenant, "DefaultCatalogTemplate")
+            withMediator {
+                CreateCatalog(tenantKey = testTenant.id, id = CatalogKey.of("marketing"), name = "Marketing").execute()
+                CreateDocumentTemplate(
+                    id = TemplateId(TemplateKey.of("mkt-tpl"), CatalogId(CatalogKey.of("marketing"), tenantId)),
+                    name = "MarketingCatalogTemplate",
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=catalog&dir=asc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // catalog asc: "default" precedes "marketing".
+            assertThat(body.indexOf("DefaultCatalogTemplate")).isLessThan(body.indexOf("MarketingCatalogTemplate"))
+        }
+    }
+
+    @Test
+    fun `GET templates sorts by last modified descending`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            template(testTenant, "OldestTemplate")
+            template(testTenant, "MiddleTemplate")
+            val newest = template(testTenant, "ToBeTouched")
+            // Re-touch in a strictly later transaction so its updated_at (NOW())
+            // is newest regardless of creation-time tie resolution.
+            withMediator {
+                UpdateDocumentTemplate(
+                    id = TemplateId(newest.id, CatalogId(CatalogKey.of("default"), TenantId(testTenant.id))),
+                    name = "RecentlyTouched",
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=updated&dir=desc", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(body.indexOf("RecentlyTouched")).isLessThan(body.indexOf("OldestTemplate"))
+            assertThat(body.indexOf("RecentlyTouched")).isLessThan(body.indexOf("MiddleTemplate"))
+        }
+    }
+
+    @Test
+    fun `GET templates paginates within an active catalog filter`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+            val tenantId = TenantId(testTenant.id)
+            template(testTenant, "Default Catalog Only")
+            withMediator {
+                CreateCatalog(tenantKey = testTenant.id, id = CatalogKey.of("marketing"), name = "Marketing").execute()
+                repeat(12) { i ->
+                    CreateDocumentTemplate(
+                        id = TemplateId(TemplateKey.of("mkt-%02d".format(i)), CatalogId(CatalogKey.of("marketing"), tenantId)),
+                        name = "Marketing %02d".format(i),
+                    ).execute()
+                }
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing&page=2", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // 12 marketing templates → 2 pages; page 2 holds the remaining 2, the
+            // default-catalog template is excluded, and the filter rides the links.
+            assertThat(body).contains("Page 2 of 2")
+            assertThat(rowCount(body)).isEqualTo(2)
+            assertThat(body).doesNotContain("Default Catalog Only")
+            assertThat(body).contains("catalog=marketing")
         }
     }
 
