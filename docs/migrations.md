@@ -61,11 +61,13 @@ Within a module, keep **one file per table or cohesive domain group**. When you
 add a column or constraint to a table you own and the change has not yet
 shipped, prefer a new timestamped migration with a plain `ALTER TABLE`. Periodic
 consolidation — folding accumulated `ALTER`s back into the original `CREATE
-TABLE` so the schema reads cleanly — is a **deliberate, gated activity**, not
-something to do casually (it rewrites migration history). Recent consolidations:
+TABLE` so the schema reads cleanly — rewrites migration history and is therefore
+**no longer permitted**: as of **1.0.0-RC1** the database is stable and is never
+reset, so a history rewrite would discard existing data. Past consolidations (all
+pre-RC1, when the database could still be wiped):
 [#413](https://github.com/epistola-app/epistola-suite/issues/413) (per-module
 restructure), the schema-standardization rewrite that established the current
-conventions, and the **1.0.0-RC1** pass (the last pre-production clear) — folding
+conventions, and the **1.0.0-RC1** pass (the last such clear) — folding
 the post-baseline `ALTER`/rename/drop patches back into their `CREATE`s, collapsing
 the cluster scheduled-task migrations, and pruning redundant indexes — canonical
 `created_at`/`updated_at` and `created_by`/`updated_by`
@@ -177,7 +179,10 @@ in dev: if Flyway validation fails (which it does after a history rewrite — ev
 checksum changed), it auto-`clean()`s and re-migrates from the new baseline.
 **Your local dev database will be wiped and rebuilt on the next app start** after
 pulling a consolidation change; `DemoLoader` repopulates demo data automatically.
-Tests use throwaway Testcontainers databases and are unaffected. Production runs
-the separated migration step with `clean-disabled: true` (rethrows instead) and
-app pods in `validate` mode — irrelevant pre-1.0 since no production database
-exists.
+Tests use throwaway Testcontainers databases and are unaffected. This auto-clean
+is a **local-dev convenience only**; in normal operation it no longer triggers,
+since history-rewriting consolidations are no longer permitted (see above).
+Production runs the separated migration step with
+`clean-disabled: true` (rethrows instead) and app pods in `validate` mode, so a
+real database is never cleaned — the 1.0.0-RC1 guarantee that data persists
+across versions.

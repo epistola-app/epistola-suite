@@ -9,11 +9,13 @@ Epistola Suite is a document suite application with:
 - **Client Components**: Vite + TypeScript editor module (Node.js 24) for rich editing
 - **Architecture**: Multi-module Gradle monorepo
 
-## Production Status
+## Release Status
 
-**This project is NOT yet in production.** Breaking changes to database schema, APIs, and architecture are acceptable without migration paths. When the project goes to production, this section will be updated.
+**Epistola Suite 1.0.0-RC1 is released — the first stable release (25 June 2026). 1.0.0-GA is planned for July 2026.**
 
-YOU DO NOT HAVE TO BUILD ANYTHING BACKWARDS COMPATIBLE AT THIS TIME.
+**The database is now stable and is NO LONGER reset between versions.** Every schema change MUST ship as a forward Flyway migration that preserves existing data. Do **not** write destructive migrations that drop or reset user data, and do **not** rewrite or "fold back" a released migration — add a new timestamped one (see [`docs/migrations.md`](docs/migrations.md)). The RC1 consolidation was the **last** history-rewriting clear; there are no more.
+
+While in the release-candidate phase, the REST APIs, catalog wire formats, configuration, and internal architecture MAY still change before 1.0.0-GA — but such changes must be **deliberate and explicitly flagged as breaking** (`feat!:` / `fix!:` / `BREAKING CHANGE:`), never casual. After 1.0.0-GA these become stable too. Data stability is not negotiable at any point from RC1 onward.
 
 ## Project Structure
 
