@@ -51,7 +51,7 @@
           "props": {
             "stencilId": "company-header",
             "catalogKey": "epistola-demo",
-            "version": 1,
+            "version": 2,
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"

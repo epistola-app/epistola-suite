@@ -4,7 +4,7 @@
     "type": "stencil",
     "slug": "company-header",
     "name": "Company Header",
-    "version": 1,
+    "version": 2,
     "description": "Reusable company header block with company name and separator.",
     "tags": ["header", "branding"],
     "parameterSchema": {

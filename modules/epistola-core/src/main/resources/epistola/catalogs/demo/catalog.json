@@ -10,9 +10,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.11.0",
-    "releasedAt": "2026-06-24T00:00:00Z",
-    "fingerprint": "afea75fbe30867768394318e526bf6e4d2e16660ab275d67c82a70107b8f7da3"
+    "version": "5.12.0",
+    "releasedAt": "2026-06-25T00:00:00Z",
+    "fingerprint": "25c7983f7ae7fb358be6c470e749bc345f0c1bd68ba2a3ee63bfeccfc23bc30f"
   },
   "resources": [
     {
@@ -44,7 +44,7 @@
       "slug": "company-header",
       "name": "Company Header",
       "description": "Reusable company header block with logo placeholder and company name.",
-      "updatedAt": "2026-04-10T00:00:00Z",
+      "updatedAt": "2026-06-25T00:00:00Z",
       "detailUrl": "./resources/stencils/company-header.json"
     },
     {
@@ -60,7 +60,7 @@
       "slug": "hello-world",
       "name": "Hello World",
       "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
-      "updatedAt": "2026-04-03T00:00:00Z",
+      "updatedAt": "2026-06-25T00:00:00Z",
       "detailUrl": "./resources/templates/hello-world.json"
     },
     {
