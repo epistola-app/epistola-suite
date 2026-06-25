@@ -75,7 +75,7 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
         }
 
         then {
-            // CreateTenant is not NotEventLogged, so the stream records it. (CreateTenant is
+            // CreateTenant carries no opt-out marker, so the stream records it. (CreateTenant is
             // RequiresPlatformRole, not TenantScoped, so its event_log row has a NULL tenant_key —
             // match on event_type, which is the command's simple name.)
             val count = jdbi.withHandle<Int, Exception> { handle ->
