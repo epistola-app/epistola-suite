@@ -53,7 +53,7 @@ END
 $$;
 
 COMMENT ON TABLE event_log IS 'Append-only, PII-bearing record of command executions (full payload), for observability and future replay/recovery. Monthly RANGE-partitioned on occurred_at with retention (epistola.partitions.event-log-retention-months). Distinct from audit_log (PII-free, kept forever) and application_log (~1-week logger output).';
-COMMENT ON COLUMN event_log.id IS 'UUIDv7 — time-ordered, generated app-side; with occurred_at forms the PK. The embedded timestamp lets a by-id lookup derive the partition month. Matches audit_log/application_log.';
+COMMENT ON COLUMN event_log.id IS 'UUIDv7 — time-ordered, generated app-side; with occurred_at forms the PK. Matches audit_log/application_log. The id''s embedded timestamp and occurred_at are independent clocks, so a by-id lookup must still constrain occurred_at to prune partitions.';
 COMMENT ON COLUMN event_log.event_type IS 'Fully-qualified command/event name (e.g., the command class name)';
 COMMENT ON COLUMN event_log.tenant_key IS 'Tenant slug this event belongs to (NULL for system-level events). Intentionally NOT a foreign key — the log is append-only and must survive tenant deletion.';
 COMMENT ON COLUMN event_log.entity_id IS 'Identifier of the entity the event acted on, when applicable';

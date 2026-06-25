@@ -212,8 +212,10 @@ CREATE TABLE event_log (
 ```
 
 Because the table is partitioned on `occurred_at`, a lookup by **id alone** can't
-prune partitions — constrain `occurred_at` too, or derive the month from the
-UUIDv7 timestamp. There is no single-event read path today.
+prune partitions — constrain `occurred_at` too. The UUIDv7 id is time-ordered, but
+its embedded timestamp is stamped on a separate clock from `occurred_at` (same as
+`audit_log`), so it can't be relied on to pick the exact partition. There is no
+single-event read path today.
 
 ## Interfaces
 
