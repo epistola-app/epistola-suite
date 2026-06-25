@@ -13,11 +13,13 @@ their migrations, under:
 <module>/src/main/resources/db/migration/<module>/VYYYYMMDDHHMMSS__<module>_<desc>.sql
 ```
 
-| Module                  | Subfolder                | Owns                                                                       |
-| ----------------------- | ------------------------ | -------------------------------------------------------------------------- |
-| `modules/epistola-core` | `db/migration/core/`     | Everything except the tables below (tenants, templates, documents, …)      |
-| `modules/feedback`      | `db/migration/feedback/` | `feedback`, `feedback_comments`, `feedback_assets`, `feedback_sync_config` |
-| `modules/loadtest`      | `db/migration/loadtest/` | `load_test_runs`                                                           |
+| Module                              | Subfolder                | Owns                                                                  |
+| ----------------------------------- | ------------------------ | --------------------------------------------------------------------- |
+| `modules/epistola-core`             | `db/migration/core/`     | Everything except the tables below (tenants, templates, documents, …) |
+| `modules/epistola-audit`            | `db/migration/audit/`    | `audit_log`                                                           |
+| `modules/epistola-support-feedback` | `db/migration/feedback/` | `feedback`, `feedback_comments`, `feedback_assets`                    |
+| `modules/epistola-support-backups`  | `db/migration/backups/`  | `tenant_backups`                                                      |
+| `modules/loadtest`                  | `db/migration/loadtest/` | `load_test_runs`                                                      |
 
 There is one **global Flyway namespace**: at application runtime every module's
 `src/main/resources` is merged onto one classpath, so `apps/epistola` sees all
@@ -62,8 +64,11 @@ consolidation — folding accumulated `ALTER`s back into the original `CREATE
 TABLE` so the schema reads cleanly — is a **deliberate, gated activity**, not
 something to do casually (it rewrites migration history). Recent consolidations:
 [#413](https://github.com/epistola-app/epistola-suite/issues/413) (per-module
-restructure) and the schema-standardization rewrite that established the current
-conventions — canonical `created_at`/`updated_at` and `created_by`/`updated_by`
+restructure), the schema-standardization rewrite that established the current
+conventions, and the **1.0.0-RC1** pass (the last pre-production clear) — folding
+the post-baseline `ALTER`/rename/drop patches back into their `CREATE`s, collapsing
+the cluster scheduled-task migrations, and pruning redundant indexes — canonical
+`created_at`/`updated_at` and `created_by`/`updated_by`
 audit columns (audit FKs to `users(id)` are `ON DELETE SET NULL`, the sole
 exception being `feedback.created_by`, which is mandatory `NOT NULL`),
 `correlation_id` (not `correlation_key`), `TIMESTAMPTZ`, lowercase boolean

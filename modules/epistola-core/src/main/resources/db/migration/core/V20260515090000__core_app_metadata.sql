@@ -9,8 +9,6 @@ CREATE TABLE app_metadata (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_app_metadata_key ON app_metadata(key);
-
 COMMENT ON TABLE app_metadata IS 'Key-value store for application-level settings and internal state';
 COMMENT ON COLUMN app_metadata.key IS 'Setting identifier (e.g., demo_version)';
 COMMENT ON COLUMN app_metadata.value IS 'Setting value as JSONB (string, number, object, array, …)';

@@ -11,7 +11,11 @@ CREATE TABLE api_keys (
     expires_at   TIMESTAMPTZ,
     created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
     revoked_at   TIMESTAMPTZ,
-    revoked_by   UUID REFERENCES users(id) ON DELETE SET NULL
+    revoked_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+    -- Least-privilege scope: each key authenticates as exactly this subset of tenant
+    -- roles. No column default — CreateApiKey validates a non-empty set, so a bare
+    -- INSERT can't silently mint an all-roles key.
+    roles        VARCHAR(30)[] NOT NULL
 );
 
 CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash);
@@ -30,3 +34,5 @@ COMMENT ON COLUMN api_keys.expires_at IS 'Optional expiry. NULL means the key ne
 COMMENT ON COLUMN api_keys.created_by IS 'User who created this API key';
 COMMENT ON COLUMN api_keys.revoked_at IS 'When this API key was revoked (set when enabled flips to false)';
 COMMENT ON COLUMN api_keys.revoked_by IS 'User who revoked this API key';
+COMMENT ON COLUMN api_keys.roles IS
+    'Tenant roles granted to this key (least-privilege scope). Subset of TenantRole names; the auth filter grants exactly these for the key''s tenant.';
