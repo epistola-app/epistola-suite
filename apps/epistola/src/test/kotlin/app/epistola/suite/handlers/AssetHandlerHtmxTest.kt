@@ -14,6 +14,8 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 
 /**
  * Regression cover for the assets list HTMX render flow.
@@ -144,6 +146,60 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
             // request so an HTMX refresh stays consistent with the dropdown.
             assertThat(response.body).contains("/images/search?")
             assertThat(response.body).contains("catalog=default")
+        }
+    }
+
+    @Test
+    fun `JSON GET search includes each asset's catalog key`() = fixture {
+        var tenantKey = ""
+
+        given {
+            tenantKey = seedTenantWithPngAsset("Asset Search Json", "logo.png")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }
+            restTemplate.exchange(
+                "/tenants/$tenantKey/images/search",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The editor picker needs the catalog each image lives in to build a
+            // cross-catalog reference, so the JSON list carries it.
+            assertThat(response.body).contains("\"catalogKey\"")
+            assertThat(response.body).contains("\"default\"")
+        }
+    }
+
+    @Test
+    fun `JSON GET catalogs returns the tenant catalogs for the picker chooser`() = fixture {
+        var tenantKey = ""
+
+        given {
+            tenantKey = seedTenantWithPngAsset("Asset Catalogs Json", "logo.png")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }
+            restTemplate.exchange(
+                "/tenants/$tenantKey/images/catalogs",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("\"key\"")
+            assertThat(response.body).contains("\"default\"")
         }
     }
 

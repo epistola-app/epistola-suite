@@ -15,6 +15,7 @@ class AssetRoutes(private val handler: AssetHandler) {
             GET("/new", handler::newForm)
             POST("", handler::upload)
             GET("/search", handler::search)
+            GET("/catalogs", handler::catalogs)
 
             GET("/{catalogId}/{assetId}/content", handler::content)
             POST("/{catalogId}/{assetId}/delete", handler::delete)
