@@ -62,7 +62,9 @@ class AssetIntegrationTest : IntegrationTestBase() {
         testClock.advanceBy(java.time.Duration.ofSeconds(1))
         UploadAsset(tenant.id, "second.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
-        val assets = ListAssets(tenantId = tenant.id).query()
+        // Scope to the authored catalog: every tenant also subscribes to the
+        // shared `system` catalog, which seeds its own asset (the System Badge).
+        val assets = ListAssets(tenantId = tenant.id, catalogKey = CatalogKey.DEFAULT).query()
 
         assertThat(assets).hasSize(2)
         assertThat(assets[0].name).isEqualTo("second.png")
@@ -160,8 +162,11 @@ class AssetIntegrationTest : IntegrationTestBase() {
         UploadAsset(tenant1.id, "tenant1-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
         UploadAsset(tenant2.id, "tenant2-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
-        val tenant1Assets = ListAssets(tenantId = tenant1.id).query()
-        val tenant2Assets = ListAssets(tenantId = tenant2.id).query()
+        // Scope to the authored catalog: the shared `system` catalog every
+        // tenant subscribes to seeds its own asset (the System Badge), which is
+        // not a cross-tenant leak.
+        val tenant1Assets = ListAssets(tenantId = tenant1.id, catalogKey = CatalogKey.DEFAULT).query()
+        val tenant2Assets = ListAssets(tenantId = tenant2.id, catalogKey = CatalogKey.DEFAULT).query()
 
         assertThat(tenant1Assets).hasSize(1)
         assertThat(tenant1Assets[0].name).isEqualTo("tenant1-logo.png")
