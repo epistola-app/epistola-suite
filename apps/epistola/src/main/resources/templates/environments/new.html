@@ -15,7 +15,7 @@
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                         <label class="ep-label" for="name">Name</label>
                         <input type="text" id="name" name="name" class="ep-input"
-                               required placeholder="Production" data-slug-source="slug"
+                               required maxlength="100" placeholder="Production" data-slug-source="slug"
                                th:value="${formData?.name}">
                         <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
