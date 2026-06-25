@@ -196,16 +196,24 @@ data class CommandCompleted<C : Command<*>>(
 ### Event Log Table
 
 ```sql
+-- Monthly RANGE-partitioned on occurred_at; PartitionMaintenanceScheduler creates
+-- partitions and drops those past epistola.partitions.event-log-retention-months
+-- (default 6) — the payload is PII-bearing, so it ages out structurally.
 CREATE TABLE event_log (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID NOT NULL,                          -- UUIDv7, generated app-side (matches audit_log/application_log)
     event_type VARCHAR(255) NOT NULL,          -- e.g., "CreateTheme", "PublishToEnvironment"
-    tenant_key VARCHAR(100),                    -- extracted from TenantScoped commands
+    tenant_key TENANT_KEY,                      -- extracted from TenantScoped commands
     entity_id VARCHAR(255),                    -- optional: primary entity affected
-    payload JSONB NOT NULL,                    -- serialized command
-    occurred_at TIMESTAMPTZ NOT NULL,
-    instance_id VARCHAR(255)                   -- which app instance processed it
-);
+    payload JSONB NOT NULL,                    -- serialized command (PII-bearing)
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),  -- also the RANGE partition key
+    instance_id VARCHAR(255),                  -- which app instance processed it
+    PRIMARY KEY (occurred_at, id)              -- partition key must be in the PK
+) PARTITION BY RANGE (occurred_at);
 ```
+
+Because the table is partitioned on `occurred_at`, a lookup by **id alone** can't
+prune partitions — constrain `occurred_at` too, or derive the month from the
+UUIDv7 timestamp. There is no single-event read path today.
 
 ## Interfaces
 

@@ -14,12 +14,13 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 /**
- * Smoke coverage for RANGE-partition maintenance across all three managed
- * tables. The scheduler treats every partitioned table the same way; this test
- * pins the behavior on `generation_results` because it's the new addition and
- * has its own retention setting (`generation-results-retention-months`,
- * default 1) distinct from the default `retention-months` (3) used by
- * documents/document_generation_requests.
+ * Smoke coverage for RANGE-partition maintenance across the core managed
+ * tables (documents, document_generation_requests, generation_results,
+ * event_log). The scheduler treats every partitioned table the same way; this
+ * test pins the behavior on `generation_results` because it has its own
+ * retention setting (`generation-results-retention-months`, default 1) distinct
+ * from the default `retention-months` (3), and asserts the per-table
+ * current-month partition for each (incl. event_log, now retention-bounded).
  */
 @Isolated("Drops and recreates shared partition tables while asserting scheduler side effects")
 class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
@@ -122,6 +123,7 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
         assertThat(countTablesLike("generation_results_$curSuffix")).isEqualTo(1)
         assertThat(countTablesLike("documents_$curSuffix")).isEqualTo(1)
         assertThat(countTablesLike("document_generation_requests_$curSuffix")).isEqualTo(1)
+        assertThat(countTablesLike("event_log_$curSuffix")).isEqualTo(1)
     }
 
     @Test

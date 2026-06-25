@@ -2,6 +2,7 @@ package app.epistola.suite.mediator
 
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
+import app.epistola.suite.common.UUIDv7
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -50,10 +51,11 @@ class EventLogSubscriber(
             jdbi.withHandle<Unit, Exception> { handle ->
                 handle.createUpdate(
                     """
-                    INSERT INTO event_log (event_type, tenant_key, entity_id, payload, occurred_at)
-                    VALUES (:eventType, :tenantId, :entityId, :payload::jsonb, :occurredAt)
+                    INSERT INTO event_log (id, event_type, tenant_key, entity_id, payload, occurred_at)
+                    VALUES (:id, :eventType, :tenantId, :entityId, :payload::jsonb, :occurredAt)
                     """,
                 ).apply {
+                    bind("id", UUIDv7.generate())
                     bind("eventType", eventType)
                     bind("tenantId", tenantId)
                     bind("entityId", entityId)
