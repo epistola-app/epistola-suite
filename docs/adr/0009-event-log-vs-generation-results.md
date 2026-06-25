@@ -1,6 +1,6 @@
 # ADR 0009: `event_log` vs. `generation_results` — overlap, redundancy, and convergence
 
-- **Status:** Proposed
+- **Status:** Accepted — **Option A** (keep `event_log`, exclude the generation path)
 - **Date:** 2026-06-25
 - **Deciders:** Epistola team
 - **Tags:** eventing, generation, data-retention, pii, architecture
@@ -120,27 +120,63 @@ A/B/C.
 
 ## Decision
 
-**Open — recorded as _Proposed_ for the team to ratify.** This ADR is a scaffold capturing the
-question RC1 deliberately deferred; no option is ratified yet.
+**Accepted: Option A — keep `event_log`, exclude the generation path.**
 
-Leaning (not binding): **Option A** as the immediate step — it removes the largest, reader-less,
-PII-heavy chunk of `event_log` writes at the source with a small, reversible change, without
-prejudging the bigger "does `event_log` survive `audit_log`" question. If, after Option A,
-`event_log` still has no consumer by the time replay is concretely scoped, escalate to **Option
-C** (drop it) rather than carrying a permanently-unread store. Choose **Option B** only if a
-uniform "every command is logged, no exceptions" rule is valued above the duplication.
+`event_log` is **retained with a defined purpose**, which resolves the "does it earn its keep"
+question the scaffold left open: it is the log of **successfully executed commands** — the event
+is "this command succeeded" — and is intended to become the **basis for reacting to activity**
+(event-driven behaviour) and, later, to carry **other event kinds that are not commands**. So it
+is not merely a forensic/replay store; it is the system's nascent event stream. That future
+consumer is the reader the scaffold noted was missing, so escalation to Option C (drop it) is
+**off the table**.
+
+Two design commitments follow from treating it as an event stream rather than a best-effort log:
+
+1. **The event is part of the command's commit.** Recording "command X succeeded" must be atomic
+   with X's state change — a transactional outbox — so a reactor can never observe an effect
+   without its event, nor an event without its effect. This **changes the current contract**: today
+   the write is `AFTER_COMMIT` in a separate connection with failures swallowed (events can be
+   silently lost), which is acceptable for an unread audit aid but **not** for a stream other
+   behaviour keys off. See Consequences for why this is a separate, mediator-level change.
+2. **Generation is excluded for now.** The per-document generation path is high-volume, PII-dense
+   (input `data`), and not relevant to react to at this stage. It is already excluded from
+   `audit_log` (via `SystemInternal` / `NotAudited`); `event_log` now excludes it too, via a
+   dedicated `NotEventLogged` marker. `generation_results` remains its system of record.
+
+Option B (log everything, incl. generation) is rejected: generation churn is exactly what we do
+not want in the stream. Option C (drop `event_log`) is rejected because the store now has a named
+future purpose.
 
 ## Consequences
 
-- **If A:** add a `NotEventLogged` marker and apply it to the generation commands; document the
-  two-marker model (`NotAudited` for `audit_log`, `NotEventLogged` for `event_log`).
-  `generation_results` is unaffected.
-- **If B:** no change; this ADR is closed as "intentionally keep the duplication", and the
-  redundancy is documented so it is not re-litigated.
-- **If C:** remove `event_log` + `EventLogSubscriber` + the persistence path and the migration;
-  confirm nothing has grown a dependency on it; `audit_log`/`generation_results` remain.
-- The RC1 partitioning/retention/UUIDv7 work on `event_log` stands regardless — it bounds the
-  table under any option and is not wasted even if C is chosen later.
+**Done in this change (generation exclusion):**
+
+- A `NotEventLogged` marker (in `app.epistola.suite.common`, mirroring `NotAudited`) is added and
+  applied to the generation commands (`GenerateDocument`, `GenerateDocumentBatch`,
+  `EmitGenerationResult`); `EventLogSubscriber` skips any command carrying it. This establishes the
+  **two-marker model**: `NotAudited` opts out of the PII-free `audit_log`, `NotEventLogged` opts out
+  of the `event_log` stream — kept independent on purpose, because a command can be audit-worthy but
+  not stream-worthy (or vice versa) as `event_log` grows into a general event stream.
+- `generation_results` is unaffected and remains the generation system of record.
+
+**Deferred to a focused follow-up (transactional outbox):**
+
+- Making the event write **part of the command commit** is a **mediator-level transaction change**,
+  not a subscriber tweak: today there is no uniform command transaction boundary (handlers mix
+  `@Transactional`, `jdbi.inTransaction`, and bare `withHandle`), and the write runs post-commit on a
+  separate connection. Wrapping dispatch in one transaction so the event and the domain writes commit
+  atomically risks double-managing the JDBI/Spring connection for handlers that open their own
+  transaction, so it needs its own PR with broad command-path testing. Until then, the
+  `AFTER_COMMIT`-with-swallowed-failures contract stands, and **no behaviour should yet depend on
+  `event_log` being gap-free.**
+- When non-command event kinds are introduced, `event_log`'s shape (currently `event_type` = command
+  class name, `payload` = serialized command) generalises to carry them; that schema/typing work is
+  part of building the first reactor, not this change.
+
+**Standing:**
+
+- The RC1 partitioning/retention/UUIDv7 work on `event_log` is the right foundation for an event
+  stream (bounded growth, time-ordered ids) and is unaffected.
 
 ## Related
 

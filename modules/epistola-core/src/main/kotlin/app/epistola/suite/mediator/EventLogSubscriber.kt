@@ -1,6 +1,7 @@
 package app.epistola.suite.mediator
 
 import app.epistola.suite.common.EntityIdentifiable
+import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.UUIDv7
 import io.micrometer.core.instrument.Counter
@@ -39,6 +40,10 @@ class EventLogSubscriber(
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun persist(event: CommandCompleted<*>) {
+        // Commands opted out of the event stream (high-volume, low-signal work tracked in its
+        // own system of record — e.g. the document-generation path, recorded in generation_results).
+        if (event.command is NotEventLogged) return
+
         val sample = Timer.start()
         var outcome = "success"
         try {
