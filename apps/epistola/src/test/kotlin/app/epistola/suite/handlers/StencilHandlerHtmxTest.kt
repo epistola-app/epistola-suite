@@ -423,7 +423,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
-        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantKey = VariantKey.INITIAL
         UpdateDraft(
             variantId = VariantId(variantKey, templateId),
             templateModel = templateEmbedding(stencilId.key.value),
@@ -459,7 +459,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
-        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
             variantId = variantId,
@@ -497,7 +497,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
-        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
         PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()

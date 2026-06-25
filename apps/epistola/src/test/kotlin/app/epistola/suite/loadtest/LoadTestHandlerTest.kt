@@ -152,7 +152,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = "default/${template.id.value}"
                 CreateVersion(
-                    variantId = VariantId(VariantKey.of("${template.id}-default"), tplId),
+                    variantId = VariantId(VariantKey.INITIAL, tplId),
                 ).execute()
                 val envKey = TestIdHelpers.nextEnvironmentId()
                 CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
@@ -174,9 +174,9 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                // Should contain variant dropdown with default selected
+                // Should contain variant dropdown with the default (initial) variant selected
                 assertThat(response.body).contains("variantId")
-                assertThat(response.body).contains("default")
+                assertThat(response.body).contains("initial")
                 // Should contain version dropdown with the draft version
                 assertThat(response.body).contains("versionId")
                 assertThat(response.body).contains("DRAFT")
@@ -198,7 +198,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = "default/${template.id.value}"
-                defaultVariantKey = "${template.id}-default"
+                defaultVariantKey = VariantKey.INITIAL.value
                 val defaultVariantId = VariantKey.of(defaultVariantKey)
                 CreateVersion(
                     variantId = VariantId(defaultVariantId, tplId),

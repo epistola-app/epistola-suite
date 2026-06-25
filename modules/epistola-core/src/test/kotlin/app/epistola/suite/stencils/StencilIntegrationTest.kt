@@ -338,7 +338,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
             name = "Test Template",
         ).execute()
 
-        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
 
         val result = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
@@ -366,7 +366,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter").execute()
-        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
         PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()

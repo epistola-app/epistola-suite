@@ -168,7 +168,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, catalogId)
                 CreateDocumentTemplate(id = templateId, name = "Stencil Consumer").execute()
-                val variantKey = VariantKey.of("${templateKey.value}-default")
+                val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
                 UpdateDraft(
                     variantId = variantId,
@@ -206,7 +206,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, catalogId)
                 CreateDocumentTemplate(id = templateId, name = "Force Consumer").execute()
-                val variantKey = VariantKey.of("${templateKey.value}-default")
+                val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
                 UpdateDraft(
                     variantId = variantId,
@@ -244,7 +244,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
                 CreateDocumentTemplate(id = templateId, name = "Asset Consumer").execute()
-                val variantKey = VariantKey.of("${templateKey.value}-default")
+                val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
                 UpdateDraft(
                     variantId = variantId,
@@ -279,7 +279,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
                 CreateDocumentTemplate(id = templateId, name = "Force Asset Consumer").execute()
-                val variantKey = VariantKey.of("${templateKey.value}-default")
+                val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
                 UpdateDraft(
                     variantId = variantId,

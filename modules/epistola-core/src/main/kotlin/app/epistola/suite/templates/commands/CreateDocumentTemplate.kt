@@ -65,8 +65,9 @@ class CreateDocumentTemplateHandler(
                     .mapTo<DocumentTemplate>()
                     .one()
 
-                // 2. Create default variant with template-specific ID to avoid conflicts
-                val variantId = VariantKey.of("${command.id.key}-default")
+                // 2. Create the default variant with the fixed VariantKey.INITIAL id — a
+                // role-neutral provenance slug, not the mutable is_default role. See its KDoc.
+                val variantId = VariantKey.INITIAL
                 handle.createUpdate(
                     """
                 INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, attributes, is_default, created_at, updated_at, created_by, updated_by)

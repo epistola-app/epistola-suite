@@ -84,7 +84,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Examples Render Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val variantId = VariantKey.of("${templateId.key.value}-default")
+        val variantId = VariantKey.INITIAL
 
         withMediator {
             CreateDocumentTemplate(id = templateId, name = "Examples Test Template").execute()
