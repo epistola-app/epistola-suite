@@ -50,8 +50,8 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         </div>
 
         <div class="asset-picker-catalog">
-          <label class="asset-picker-catalog-label" for="asset-picker-catalog">Catalog</label>
-          <select class="asset-picker-catalog-select" id="asset-picker-catalog"></select>
+          <label class="ep-label asset-picker-catalog-label" for="asset-picker-catalog">Catalog</label>
+          <select class="ep-select ep-select-sm form-control-auto asset-picker-catalog-select" id="asset-picker-catalog"></select>
         </div>
 
         <div class="asset-picker-upload-zone" id="asset-picker-upload">

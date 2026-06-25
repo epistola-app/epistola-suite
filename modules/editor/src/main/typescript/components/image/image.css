@@ -79,6 +79,19 @@
     color: var(--ep-foreground);
   }
 
+  /* Catalog chooser: layout only — the control uses the design-system
+     .ep-label / .ep-select classes. */
+  .asset-picker-catalog {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin: var(--ep-space-4) var(--ep-space-6) 0;
+  }
+
+  .asset-picker-catalog .ep-label {
+    margin-bottom: 0;
+  }
+
   .asset-picker-upload-zone {
     margin: var(--ep-space-4) var(--ep-space-6);
     padding: var(--ep-space-4);
