@@ -36,6 +36,19 @@ export function resolveContentUrl(
     .replace('{assetId}', assetId);
 }
 
+/**
+ * The catalogKey to store on an image node. Same-catalog references stay bare
+ * (null) — matching the convention used for fonts and code lists — so only a
+ * genuinely cross-catalog image carries its catalog. The catalog dependency
+ * scanner relies on this: a non-null catalogKey marks a cross-catalog asset.
+ */
+export function crossCatalogKey(
+  assetCatalogKey: string,
+  defaultCatalogKey: string | undefined,
+): string | null {
+  return assetCatalogKey === defaultCatalogKey ? null : assetCatalogKey;
+}
+
 /** Parse a pt value, returning the numeric part or null for non-pt / empty values. */
 function parsePt(value: unknown): number | null {
   if (typeof value !== 'string') return null;
@@ -165,7 +178,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
           props: {
             ...node.props,
             assetId: asset.id,
-            catalogKey: asset.catalogKey,
+            catalogKey: crossCatalogKey(asset.catalogKey, defaultCatalogKey),
             alt: asset.name,
             width: asset.width ? `${pxToPt(asset.width)}pt` : '',
             height: asset.height ? `${pxToPt(asset.height)}pt` : '',
@@ -228,7 +241,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
 
           return {
             assetId: asset.id,
-            catalogKey: asset.catalogKey,
+            catalogKey: crossCatalogKey(asset.catalogKey, defaultCatalogKey),
             alt: asset.name,
             width: asset.width ? `${pxToPt(asset.width)}pt` : '',
             height: asset.height ? `${pxToPt(asset.height)}pt` : '',

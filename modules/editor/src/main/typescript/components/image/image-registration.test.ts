@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createImageDefinition, resolveContentUrl } from './image-registration.js';
+import { createImageDefinition, resolveContentUrl, crossCatalogKey } from './image-registration.js';
 import type { ComponentDefinition } from '../../engine/registry.js';
 
 /** Minimal stubs — the asset picker is unused in onPropChange tests. */
@@ -45,6 +45,20 @@ describe('resolveContentUrl', () => {
     expect(resolveContentUrl(pattern, 'a1', undefined, 'epistola-demo')).toBe(
       '/tenants/t1/images/epistola-demo/a1/content',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// crossCatalogKey — only record a catalog for genuinely cross-catalog images
+// ---------------------------------------------------------------------------
+
+describe('crossCatalogKey', () => {
+  it('returns null when the asset is in the template catalog', () => {
+    expect(crossCatalogKey('epistola-demo', 'epistola-demo')).toBeNull();
+  });
+
+  it('returns the asset catalog when it differs from the template catalog', () => {
+    expect(crossCatalogKey('system', 'epistola-demo')).toBe('system');
   });
 });
 
