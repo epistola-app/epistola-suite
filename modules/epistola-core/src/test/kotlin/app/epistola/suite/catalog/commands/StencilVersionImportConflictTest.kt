@@ -447,7 +447,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         val templateId = TemplateId(templateKey, catalogId)
         CreateDocumentTemplate(id = templateId, name = templateSlug).execute()
 
-        val variantId = VariantId(VariantKey.of("${templateKey.value}-default"), templateId)
+        val variantId = VariantId(VariantKey.of("initial"), templateId)
         UpdateDraft(
             variantId = variantId,
             templateModel = templateReferencingStencil(templateKey, stencilKey, stencilVersion),

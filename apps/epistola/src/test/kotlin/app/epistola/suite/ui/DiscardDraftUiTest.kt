@@ -79,7 +79,7 @@ class DiscardDraftUiTest : BasePlaywrightTest() {
             id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
             name = "Discard UI Template",
         ).execute()
-        val variantId = VariantId(VariantKey.of("${template.id}-default"), TemplateId(template.id, CatalogId.default(tenantId)))
+        val variantId = VariantId(VariantKey.of("initial"), TemplateId(template.id, CatalogId.default(tenantId)))
         val draft = GetDraft(variantId).query()!!
         PublishVersion(versionId = VersionId(draft.id, variantId)).execute()
         CreateVersion(variantId = variantId).execute()

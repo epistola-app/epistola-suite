@@ -69,7 +69,7 @@ class PublishVersionTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "publish-version-test").execute()
         }
         defaultVariantId = VariantId(
-            VariantKey.of("${templateId.key.value}-default"),
+            VariantKey.of("initial"),
             templateId,
         )
     }

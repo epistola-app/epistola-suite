@@ -51,7 +51,7 @@ class TenantBackupRoundTripIntegrationTest : IntegrationTestBase() {
             SetTenantDefaultTheme(tenantId = tenant.id, themeId = ThemeKey.of("brand"), catalogKey = main).execute()
 
             // Publish the auto-created default version (v1) so it is a published row with a fixed number.
-            val defaultVariant = VariantId(VariantKey.of("${templateKey.value}-default"), TemplateId(templateKey, catalogId))
+            val defaultVariant = VariantId(VariantKey.of("initial"), TemplateId(templateKey, catalogId))
             PublishVersion(versionId = VersionId(VersionKey.of(1), defaultVariant)).execute()
         }
 

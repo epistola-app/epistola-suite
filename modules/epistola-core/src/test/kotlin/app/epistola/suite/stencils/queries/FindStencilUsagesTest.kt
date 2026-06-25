@@ -48,7 +48,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, catalogId)
             CreateDocumentTemplate(id = templateId, name = "Letter Template").execute()
-            val variantKey = VariantKey.of("${templateKey.value}-default")
+            val variantKey = VariantKey.of("initial")
             val variantId = VariantId(variantKey, templateId)
             UpdateDraft(
                 variantId = variantId,
@@ -141,7 +141,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             val templateKey1 = TestIdHelpers.nextTemplateId()
             val templateId1 = TemplateId(templateKey1, catalogId)
             CreateDocumentTemplate(id = templateId1, name = "Invoice Template").execute()
-            val variantKey1 = VariantKey.of("${templateKey1.value}-default")
+            val variantKey1 = VariantKey.of("initial")
             val variantId1 = VariantId(variantKey1, templateId1)
             UpdateDraft(
                 variantId = variantId1,
@@ -151,7 +151,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             val templateKey2 = TestIdHelpers.nextTemplateId()
             val templateId2 = TemplateId(templateKey2, catalogId)
             CreateDocumentTemplate(id = templateId2, name = "Receipt Template").execute()
-            val variantKey2 = VariantKey.of("${templateKey2.value}-default")
+            val variantKey2 = VariantKey.of("initial")
             val variantId2 = VariantId(variantKey2, templateId2)
             UpdateDraft(
                 variantId = variantId2,

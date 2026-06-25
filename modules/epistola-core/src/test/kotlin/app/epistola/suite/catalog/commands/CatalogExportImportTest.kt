@@ -131,7 +131,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             PublishContractVersion(templateId = templateId).execute()
 
             // Publish the default template version so it gets included in the export
-            val defaultVariantKey = VariantKey.of("${templateKey.value}-default")
+            val defaultVariantKey = VariantKey.of("initial")
             val defaultVariantId = VariantId(defaultVariantKey, templateId)
             val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
             PublishVersion(versionId = defaultVersionId).execute()
@@ -303,7 +303,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             PublishContractVersion(templateId = templateId).execute()
 
             // Publish the default version so the template ends up in the export.
-            val defaultVariantKey = VariantKey.of("${templateKey.value}-default")
+            val defaultVariantKey = VariantKey.of("initial")
             val defaultVariantId = VariantId(defaultVariantKey, templateId)
             val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
             PublishVersion(versionId = defaultVersionId).execute()
@@ -734,7 +734,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
         )
 
         val templateKey = TestIdHelpers.nextTemplateId()
-        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantKey = VariantKey.of("initial")
 
         val zipBytes = withMediator {
             CreateCatalog(tenantKey = source.id, id = catalogKey, name = "Stencil Params Round-Trip").execute()

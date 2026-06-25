@@ -230,7 +230,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
-                val defaultVariantId = VariantKey.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("initial")
 
                 mediator.send(
                     CreateVariant(
@@ -265,7 +265,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )
 
                 // Give the auto-created default variant some attributes
-                val defaultVariantId = VariantKey.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("initial")
                 mediator.send(
                     SetDefaultVariant(variantId = VariantId(defaultVariantId, templateId)),
                 )
@@ -456,7 +456,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
-                val defaultVariantId = VariantKey.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("initial")
 
                 val resolved = variantResolver.resolve(
                     tenantId = tenant.id,

@@ -72,7 +72,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
                 CreateDocumentTemplate(id = templateId, name = "Diacritics Letter").execute()
-                val variantId = VariantId(VariantKey.of("${templateKey.value}-default"), templateId)
+                val variantId = VariantId(VariantKey.of("initial"), templateId)
                 Seed(tenantId.key.value, templateId.catalogKey.value, templateKey.value, variantId)
             }
         }

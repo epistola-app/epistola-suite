@@ -71,7 +71,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }
 
             // Preview the default variant's draft — no contract edits, no version edits
-            val defaultVariantId = app.epistola.suite.common.ids.VariantKey.of("fresh-preview-default")
+            val defaultVariantId = app.epistola.suite.common.ids.VariantKey.of("initial")
             val pdfBytes = withMediator {
                 PreviewVariant(
                     tenantId = tenant.id,
