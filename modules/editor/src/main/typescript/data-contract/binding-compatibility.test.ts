@@ -12,6 +12,9 @@ const inline: FieldPath = { path: 'greeting', type: 'unknown', ref: RICH_TEXT_IN
 const block: FieldPath = { path: 'bio', type: 'unknown', ref: RICH_TEXT_BLOCK_SCHEMA_REF };
 const stringFp: FieldPath = { path: 'name', type: 'string' };
 const arrayFp: FieldPath = { path: 'items', type: 'array' };
+const dateFp: FieldPath = { path: 'born', type: 'date' };
+const datetimeFp: FieldPath = { path: 'seenAt', type: 'datetime' };
+const unknownFp: FieldPath = { path: 'mystery', type: 'unknown' };
 
 describe('formatFieldPathTypeLabel', () => {
   it('uses the registered label for a known ref', () => {
@@ -19,8 +22,14 @@ describe('formatFieldPathTypeLabel', () => {
     expect(formatFieldPathTypeLabel(block)).toBe('Rich text (block)');
   });
 
-  it('falls back to FieldPath.type for non-ref paths', () => {
-    expect(formatFieldPathTypeLabel(stringFp)).toBe('string');
+  it('uses the shared registry label for scalar field types', () => {
+    expect(formatFieldPathTypeLabel(stringFp)).toBe('Text');
+    expect(formatFieldPathTypeLabel(dateFp)).toBe('Date');
+    expect(formatFieldPathTypeLabel(datetimeFp)).toBe('Date-time');
+  });
+
+  it('falls back to the raw type for an unregistered type', () => {
+    expect(formatFieldPathTypeLabel(unknownFp)).toBe('unknown');
   });
 });
 

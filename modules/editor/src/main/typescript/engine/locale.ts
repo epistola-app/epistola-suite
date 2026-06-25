@@ -15,3 +15,13 @@
  * locale" is one edit, not five.
  */
 export const DEFAULT_LOCALE = 'en-US';
+
+/**
+ * Editor-side render-timezone default, mirroring the server's
+ * `DEFAULT_RENDER_TIMEZONE` (`Europe/Amsterdam`) in the generation module. An
+ * offset-bearing date-time is converted to this zone for the inline preview so
+ * it matches the PDF renderer; a date-time with no offset is shown as-is
+ * ("time is time"). Timezone has no per-tenant resolution yet — when it does,
+ * the host forwards the resolved zone through `mountEditor` like `locale`.
+ */
+export const DEFAULT_RENDER_TIMEZONE = 'Europe/Amsterdam';
