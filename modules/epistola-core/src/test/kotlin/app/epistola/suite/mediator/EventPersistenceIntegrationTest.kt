@@ -67,4 +67,23 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
             assertThat(tenant!!.name).isEqualTo("Test Tenant")
         }
     }
+
+    @Test
+    fun `an ordinary command is recorded in event_log`() = fixture {
+        whenever {
+            createTenant("Logged Tenant")
+        }
+
+        then {
+            // CreateTenant is not NotEventLogged, so the stream records it. (CreateTenant is
+            // RequiresPlatformRole, not TenantScoped, so its event_log row has a NULL tenant_key —
+            // match on event_type, which is the command's simple name.)
+            val count = jdbi.withHandle<Int, Exception> { handle ->
+                handle.createQuery("SELECT COUNT(*) FROM event_log WHERE event_type = 'CreateTenant'")
+                    .mapTo(Int::class.java)
+                    .one()
+            }
+            assertThat(count).isGreaterThanOrEqualTo(1)
+        }
+    }
 }

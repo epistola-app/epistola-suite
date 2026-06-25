@@ -1,6 +1,7 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.NotAudited
+import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -95,7 +96,8 @@ data class GenerateDocumentBatch(
     val batchRoutingKey: String? = null,
 ) : Command<BatchKey>,
     RequiresPermission,
-    NotAudited {
+    NotAudited,
+    NotEventLogged {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 
