@@ -25,11 +25,11 @@
                             </div>
                             <div class="feature-toggle-description" th:if="${feature['description'] != ''}" th:text="${feature['description']}"></div>
                         </div>
-                        <label class="toggle-switch">
+                        <label class="ep-toggle">
                             <input type="checkbox"
                                    th:name="${feature['key']}"
                                    th:checked="${feature['enabled']}">
-                            <span class="toggle-switch-slider" data-testid="feature-toggle-switch"></span>
+                            <span class="ep-toggle-slider" data-testid="feature-toggle-switch"></span>
                         </label>
                     </div>
 

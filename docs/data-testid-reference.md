@@ -76,7 +76,7 @@ for that consumer.
 | `data-testid`           | Attached to                                                                          | Covers                     |
 | ----------------------- | ------------------------------------------------------------------------------------ | -------------------------- |
 | `feature-toggle`        | `.feature-toggle-item` container on `features.html` (paired with `data-feature-key`) | Each individual toggle row |
-| `feature-toggle-switch` | `.toggle-switch-slider` inside the toggle item                                       | The visual switch element  |
+| `feature-toggle-switch` | `.ep-toggle-slider` inside the toggle item                                           | The visual switch element  |
 
 ### API Keys
 
