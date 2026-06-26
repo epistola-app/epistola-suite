@@ -371,7 +371,7 @@ export class EditorEngine {
     );
     this._resolvedPageSettings = resolvePageSettings(
       this._theme?.pageSettings as PageSettings | undefined,
-      this._doc.pageSettingsOverride as PageSettings | undefined,
+      this._doc.pageSettingsOverride,
     );
   }
 

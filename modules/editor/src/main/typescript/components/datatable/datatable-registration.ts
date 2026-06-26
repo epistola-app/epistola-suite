@@ -181,9 +181,9 @@ export function createDatatableDefinition(): ComponentDefinition {
         return html`
           <div
             class="datatable-body-cell ${isSelected ? 'column-selected' : ''}"
-            @click=${(e: MouseEvent) => handleColumnClick(e, cn.id as NodeId)}
+            @click=${(e: MouseEvent) => handleColumnClick(e, cn.id)}
           >
-            ${bodySlotId ? renderSlot(bodySlotId as SlotId) : nothing}
+            ${bodySlotId ? renderSlot(bodySlotId) : nothing}
           </div>
         `;
       });
@@ -240,7 +240,7 @@ export function createDatatableDefinition(): ComponentDefinition {
           type: 'InsertNode',
           node: colNode,
           slots: [bodySlot],
-          targetSlotId: columnsSlotId as SlotId,
+          targetSlotId: columnsSlotId,
           index: -1,
         });
       };
@@ -250,7 +250,7 @@ export function createDatatableDefinition(): ComponentDefinition {
         const lastColId = columnsSlot.children[columnsSlot.children.length - 1];
         engine.dispatch({
           type: 'RemoveNode',
-          nodeId: lastColId as NodeId,
+          nodeId: lastColId,
         });
       };
 

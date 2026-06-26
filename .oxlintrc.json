@@ -26,7 +26,8 @@
     "no-underscore-dangle": "off",
     "no-async-await": "off",
     "no-explicit-any": "warn",
-    "no-non-null-assertion": "warn"
+    "no-non-null-assertion": "warn",
+    "no-unnecessary-type-assertion": "error"
   },
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"]
 }

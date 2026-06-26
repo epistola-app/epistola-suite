@@ -260,7 +260,7 @@ describe('Column management', () => {
     const columns = getColumnNodes(engine, datatableNodeId);
     const lastColId = columns[2].id;
 
-    engine.dispatch({ type: 'RemoveNode', nodeId: lastColId as NodeId });
+    engine.dispatch({ type: 'RemoveNode', nodeId: lastColId });
 
     const updatedSlot = getColumnsSlot(engine, datatableNodeId);
     expect(updatedSlot.children).toHaveLength(2);
@@ -291,7 +291,7 @@ describe('Column management', () => {
     const columns = getColumnNodes(engine, datatableNodeId);
     const lastColId = columns[2].id;
 
-    engine.dispatch({ type: 'RemoveNode', nodeId: lastColId as NodeId });
+    engine.dispatch({ type: 'RemoveNode', nodeId: lastColId });
     engine.undo();
 
     const updatedSlot = getColumnsSlot(engine, datatableNodeId);
@@ -308,8 +308,8 @@ describe('Column management', () => {
     // Move first column to the end
     engine.dispatch({
       type: 'MoveNode',
-      nodeId: firstColId as NodeId,
-      targetSlotId: columnsSlot.id as SlotId,
+      nodeId: firstColId,
+      targetSlotId: columnsSlot.id,
       index: 2,
     });
 
@@ -350,7 +350,7 @@ describe('Content inside column body slots', () => {
       type: 'InsertNode',
       node: textNode,
       slots: textSlots,
-      targetSlotId: bodySlotId as SlotId,
+      targetSlotId: bodySlotId,
       index: -1,
     });
 
@@ -371,7 +371,7 @@ describe('Content inside column body slots', () => {
       type: 'InsertNode',
       node: textNode,
       slots: textSlots,
-      targetSlotId: bodySlotId as SlotId,
+      targetSlotId: bodySlotId,
       index: -1,
     });
 
@@ -391,7 +391,7 @@ describe('Content inside column body slots', () => {
       type: 'InsertNode',
       node: textNode,
       slots: textSlots,
-      targetSlotId: bodySlotId as SlotId,
+      targetSlotId: bodySlotId,
       index: -1,
     });
 

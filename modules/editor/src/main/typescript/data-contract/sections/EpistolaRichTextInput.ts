@@ -152,7 +152,7 @@ export class EpistolaRichTextInput extends LitElement {
   private _docFromValue(value: JsonValue | null): ProsemirrorNode {
     const raw =
       value && typeof value === 'object' && !Array.isArray(value)
-        ? (value as JsonObject)
+        ? (value)
         : this._emptyDoc;
     try {
       return ProsemirrorNode.fromJSON(this._schema, raw as Record<string, unknown>);

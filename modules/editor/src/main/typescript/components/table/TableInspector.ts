@@ -360,7 +360,7 @@ export class TableInspector extends LitElement {
         <div class="inspector-field">
           <label class="inspector-field-label">Border</label>
           <epistola-border-input
-            .value=${readBorderFromStyles(currentStyles as Record<string, unknown>)}
+            .value=${readBorderFromStyles(currentStyles)}
             .units=${['pt', 'sp']}
             @change=${(e: CustomEvent) => this._handleCellBorderChange(e.detail as BorderValue)}
           ></epistola-border-input>

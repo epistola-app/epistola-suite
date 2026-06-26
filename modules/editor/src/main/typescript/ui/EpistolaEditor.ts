@@ -260,7 +260,7 @@ export class EpistolaEditor extends LitElement {
     if (this.plugins) {
       const context: PluginContext = {
         engine: this._engine,
-        doc: this._doc!,
+        doc: this._doc,
         selectedNodeId: this._selectedNodeId,
       };
       this._pluginDisposers = this.plugins.map((p) => p.init(context));
@@ -1226,7 +1226,7 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _insertDialogQuickSelectLabel(): string {
-    const quickSelectKeys = INSERT_DIALOG_SHORTCUTS.navigation.quickSelect as readonly string[];
+    const quickSelectKeys = INSERT_DIALOG_SHORTCUTS.navigation.quickSelect;
     if (quickSelectKeys.length === 0) return '';
 
     const singleDigitSequence = quickSelectKeys.every((value) => /^[0-9]$/.test(value));
