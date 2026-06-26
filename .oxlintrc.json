@@ -27,7 +27,8 @@
     "no-async-await": "off",
     "no-explicit-any": "warn",
     "no-non-null-assertion": "warn",
-    "no-unnecessary-type-assertion": "error"
+    "no-unnecessary-type-assertion": "error",
+    "no-unnecessary-type-arguments": "error"
   },
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"]
 }
