@@ -1,69 +1,9 @@
 /*
- * Cards: nav, info box, presets, detail sections, descriptions, quick links
+ * Cards: info box, presets, detail sections, descriptions, quick links
  *
  * Part of the app stylesheet — imported by main.css.
  * All colors, radii, shadows, transitions must use --ep-* tokens.
  */
-
-/* ── Navigation cards (tenant home) ───────────────────────────────────── */
-
-.nav-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--ep-space-4);
-}
-
-.nav-card {
-  display: flex;
-  align-items: center;
-  gap: var(--ep-space-4);
-  padding: var(--ep-space-5);
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  text-decoration: none;
-  color: var(--ep-foreground);
-  transition:
-    border-color var(--ep-transition-base),
-    box-shadow var(--ep-transition-base),
-    transform var(--ep-transition-base);
-}
-
-.nav-card:hover {
-  border-color: var(--ep-stone-300);
-  box-shadow: var(--ep-shadow-md);
-  transform: translateY(-1px);
-  text-decoration: none;
-  color: var(--ep-foreground);
-}
-
-.nav-card-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: var(--ep-radius-lg);
-  background-color: var(--ep-terracotta-50);
-  color: var(--ep-primary-strong);
-  flex-shrink: 0;
-}
-
-.nav-card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.nav-card-title {
-  font-weight: 600;
-  font-size: var(--ep-text-sm);
-  margin-bottom: var(--ep-space-0-5);
-}
-
-.nav-card-description {
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-}
 
 /* ── Info box ─────────────────────────────────────────────────────────── */
 

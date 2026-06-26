@@ -1,41 +1,9 @@
 /*
- * Load test (metrics, progress, errors, key-value, row errors)
+ * Load test (progress, errors, key-value, row errors)
  *
  * Part of the app stylesheet — imported by main.css.
  * All colors, radii, shadows, transitions must use --ep-* tokens.
  */
-
-/* ── Load test metrics grid ───────────────────────────────────────────── */
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--ep-space-4);
-  margin-bottom: var(--ep-space-6);
-}
-
-.metric-card {
-  background-color: var(--ep-card);
-  padding: var(--ep-space-5);
-  border-radius: var(--ep-radius-lg);
-  border: 1px solid var(--ep-border-color);
-}
-
-.metric-label {
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  font-weight: 500;
-  margin-bottom: var(--ep-space-2);
-  text-transform: uppercase;
-  letter-spacing: var(--ep-tracking-wider);
-}
-
-.metric-value {
-  font-size: var(--ep-text-2xl);
-  font-weight: 600;
-  color: var(--ep-foreground);
-  line-height: var(--ep-leading-tight);
-}
 
 /* ── Progress bar ─────────────────────────────────────────────────────── */
 
