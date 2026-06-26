@@ -111,7 +111,7 @@
                              contributes the catalog prefix (visible in the
                              badge so the user can tell `system.locale=en-US`
                              apart from a hypothetical `default.locale`). -->
-                        <div class="tags" th:if="${!#lists.isEmpty(variant.entries)}">
+                        <div class="badge-list" th:if="${!#lists.isEmpty(variant.entries)}">
                             <span th:each="entry : ${variant.entries}" class="badge badge-outline"
                                   th:data-attr-key="${entry.key}" th:data-attr-value="${entry.value}"
                                   th:title="${entry.descriptor != null ? entry.descriptor.qualifiedKey + ' = ' + entry.value : entry.key + ' = ' + entry.value}">
@@ -121,7 +121,7 @@
                                       th:text="${entry.slug + ' = ' + entry.value}"></span>
                             </span>
                         </div>
-                        <div class="variant-card-status">
+                        <div class="badge-list">
                             <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
                             <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-published"
                                   th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>

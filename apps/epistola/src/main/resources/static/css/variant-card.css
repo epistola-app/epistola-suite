@@ -79,14 +79,8 @@
   padding: var(--ep-space-2) var(--ep-space-4) var(--ep-space-3);
 }
 
-.variant-card-body .tags {
+.variant-card-body .badge-list {
   margin-bottom: var(--ep-space-2);
-}
-
-.variant-card-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ep-space-1);
 }
 
 .variant-card-footer {

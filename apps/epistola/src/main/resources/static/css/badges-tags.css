@@ -20,11 +20,7 @@
   font-weight: 500;
 }
 
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ep-space-1);
-}
+/* Wrapping chip containers use the design system's .badge-list. */
 
 /* ── Action buttons in tables ─────────────────────────────────────────── */
 
