@@ -94,7 +94,7 @@
             <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
                 <span th:text="${error}"></span>
             </div>
-            <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
+            <div th:if="${!#lists.isEmpty(variants)}" class="ep-auto-grid variant-grid">
                 <div th:each="variant : ${variants}"
                      class="variant-card" th:classappend="${variant.isDefault} ? 'variant-card-default'"
                      th:data-variant-id="${variant.id}">

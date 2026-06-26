@@ -36,7 +36,7 @@
                     <div class="empty-state-description">Upload font families to use in your themes and templates.</div>
                 </div>
 
-                <div th:if="${!#lists.isEmpty(fonts)}" class="asset-grid">
+                <div th:if="${!#lists.isEmpty(fonts)}" class="ep-auto-grid asset-grid">
                     <div th:each="font : ${fonts}" class="asset-card">
                         <div class="asset-card-info">
                             <div class="asset-card-name" th:text="${font.name}" th:title="${font.name}"></div>

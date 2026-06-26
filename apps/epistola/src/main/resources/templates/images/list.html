@@ -41,7 +41,7 @@
                     <div class="empty-state-description">Upload images to use in your document templates.</div>
                 </div>
 
-                <div th:if="${!#lists.isEmpty(assets)}" class="asset-grid">
+                <div th:if="${!#lists.isEmpty(assets)}" class="ep-auto-grid asset-grid">
                     <div th:each="asset : ${assets}" class="asset-card">
                         <div class="asset-card-preview">
                             <img th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"

@@ -27,10 +27,9 @@
   margin-bottom: var(--ep-space-1);
 }
 
+/* Tile width for .ep-auto-grid; grid/gap come from the design-system primitive. */
 .variant-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--ep-space-4);
+  --ep-grid-min: 280px;
 }
 
 .variant-card {

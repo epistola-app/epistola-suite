@@ -7,10 +7,9 @@
 
 /* ── Dashboard stats grid ────────────────────────────────────────────── */
 
+/* Tile width for .ep-auto-grid; grid/gap come from the design-system primitive. */
 .dashboard-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--ep-space-4);
+  --ep-grid-min: 180px;
   margin-bottom: var(--ep-space-8);
 }
 

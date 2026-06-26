@@ -43,10 +43,9 @@
   text-decoration: underline;
 }
 
+/* Tile width for .ep-auto-grid; grid/gap come from the design-system primitive. */
 .asset-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--ep-space-4);
+  --ep-grid-min: 200px;
 }
 
 .asset-card {
