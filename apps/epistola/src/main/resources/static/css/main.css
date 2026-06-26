@@ -133,58 +133,8 @@ main.regular section {
   margin-top: var(--ep-space-6);
 }
 
-/* ── Table styles (scoped to regular pages) ───────────────────────────── */
-
-main.regular table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  overflow: hidden;
-  font-size: var(--ep-text-sm);
-  box-shadow: var(--ep-shadow-sm);
-}
-
-main.regular th,
-main.regular td {
-  padding: var(--ep-space-3) var(--ep-space-4);
-  text-align: left;
-}
-
-/* Breathing room at the rounded outer edges */
-main.regular th:first-child,
-main.regular td:first-child {
-  padding-left: var(--ep-space-5);
-}
-
-main.regular th:last-child,
-main.regular td:last-child {
-  padding-right: var(--ep-space-5);
-}
-
-main.regular th {
-  background-color: var(--ep-stone-100);
-  font-weight: 500;
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: var(--ep-tracking-wider);
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-/* Zebra striping — warm ledger rhythm; carries row rhythm so no per-row borders */
-main.regular tbody tr {
-  transition: background-color var(--ep-transition-fast);
-}
-
-main.regular tbody tr:nth-child(even) {
-  background-color: var(--ep-stone-50);
-}
-
-main.regular tbody tr:hover {
-  background-color: var(--ep-terracotta-50);
-}
+/* ── Table empty state (scoped to regular pages) ──────────────────────── */
+/* Table styling itself lives in the design system (.ep-table). */
 
 main.regular .empty-message {
   text-align: center;
@@ -241,59 +191,7 @@ main.regular .empty-message {
   text-decoration: underline;
 }
 
-/* ── Status badges ────────────────────────────────────────────────────── */
-
-/* Legacy badge variants mapped to new naming */
-.badge-draft {
-  background-color: var(--ep-terracotta-100);
-  color: var(--ep-terracotta-800);
-  border-color: var(--ep-terracotta-200);
-}
-
-.badge-published {
-  background-color: var(--ep-green-100);
-  color: var(--ep-green-800);
-  border-color: var(--ep-green-100);
-}
-
-.badge-archived {
-  background-color: var(--ep-stone-100);
-  color: var(--ep-stone-600);
-  border-color: var(--ep-border-color);
-}
-
-/* Load test status badges */
-.badge-success {
-  background-color: var(--ep-green-100);
-  color: var(--ep-green-800);
-}
-
-.badge-info {
-  background-color: var(--ep-terracotta-100);
-  color: var(--ep-terracotta-800);
-}
-
-.badge-error {
-  background-color: var(--ep-red-100);
-  color: var(--ep-red-700);
-}
-
-.badge-warning {
-  background-color: var(--ep-amber-100);
-  color: var(--ep-amber-800);
-}
-
-.badge-default {
-  background-color: var(--ep-stone-100);
-  color: var(--ep-stone-600);
-}
-
-/* Horizontal, wrapping list of badges with consistent spacing. */
-.badge-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ep-space-1);
-}
+/* Badge variants (.badge*) live in the design system (components.css). */
 
 /* ── Variant tags ─────────────────────────────────────────────────────── */
 

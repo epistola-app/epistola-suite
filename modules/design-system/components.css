@@ -452,6 +452,52 @@
     border-color: var(--ep-amber-300);
   }
 
+  /* Status / lifecycle variants */
+  .badge-draft {
+    background-color: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-800);
+    border-color: var(--ep-terracotta-200);
+  }
+
+  .badge-published {
+    background-color: var(--ep-green-100);
+    color: var(--ep-green-800);
+    border-color: var(--ep-green-100);
+  }
+
+  .badge-archived {
+    background-color: var(--ep-stone-100);
+    color: var(--ep-stone-600);
+    border-color: var(--ep-border-color);
+  }
+
+  .badge-info {
+    background-color: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-800);
+  }
+
+  .badge-error {
+    background-color: var(--ep-red-100);
+    color: var(--ep-red-700);
+  }
+
+  .badge-default {
+    background-color: var(--ep-stone-100);
+    color: var(--ep-stone-600);
+  }
+
+  .badge-muted {
+    background-color: var(--ep-stone-100);
+    color: var(--ep-stone-600);
+  }
+
+  /* Horizontal, wrapping list of badges with consistent spacing. */
+  .badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-1);
+  }
+
   /* ── Tables ───────────────────────────────────────────────────────────── */
 
   .ep-table {
