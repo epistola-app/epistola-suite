@@ -5,24 +5,30 @@
  * Loaded after tokens.css, base.css, and components.css.
  *
  * This file only composes the per-concern partials below; rules live in them.
+ * Everything is imported into the `app` layer (and utilities into the highest
+ * `app-utilities` layer) so app styles sit above the design system's
+ * `base`/`components` layers — preserving the previous unlayered precedence.
  * All colors, radii, shadows, transitions must use --ep-* tokens.
  */
 
-@import url('layout.css');
-@import url('forms.css');
-@import url('badges-tags.css');
-@import url('navigation.css');
-@import url('utilities.css');
-@import url('feedback.css');
-@import url('dialogs.css');
-@import url('cards.css');
-@import url('dashboard.css');
-@import url('changelog.css');
-@import url('version-comparison.css');
-@import url('deployment-matrix.css');
-@import url('variant-card.css');
-@import url('asset-manager.css');
-@import url('feature-toggle.css');
-@import url('pages/login.css');
-@import url('pages/tenant-home.css');
-@import url('pages/load-test.css');
+/* Declare layer order once: design-system layers first, then app, then utilities. */
+@layer base, components, app, app-utilities;
+
+@import url('layout.css') layer(app);
+@import url('forms.css') layer(app);
+@import url('badges-tags.css') layer(app);
+@import url('navigation.css') layer(app);
+@import url('utilities.css') layer(app-utilities);
+@import url('feedback.css') layer(app);
+@import url('dialogs.css') layer(app);
+@import url('cards.css') layer(app);
+@import url('dashboard.css') layer(app);
+@import url('changelog.css') layer(app);
+@import url('version-comparison.css') layer(app);
+@import url('deployment-matrix.css') layer(app);
+@import url('variant-card.css') layer(app);
+@import url('asset-manager.css') layer(app);
+@import url('feature-toggle.css') layer(app);
+@import url('pages/login.css') layer(app);
+@import url('pages/tenant-home.css') layer(app);
+@import url('pages/load-test.css') layer(app);
