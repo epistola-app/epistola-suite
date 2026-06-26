@@ -7,11 +7,9 @@
 
 /* ── Form styles ──────────────────────────────────────────────────────── */
 
+/* Card chrome via .ep-panel; this adds padding and a resting shadow. */
 .form-section {
-  background-color: var(--ep-card);
   padding: var(--ep-space-6);
-  border-radius: var(--ep-radius-lg);
-  border: 1px solid var(--ep-border-color);
   box-shadow: var(--ep-shadow-sm);
 }
 

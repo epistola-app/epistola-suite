@@ -222,11 +222,11 @@
              hx-swap="outerHTML">
 
             <div class="ep-auto-grid dashboard-stats" style="margin-bottom: var(--ep-space-6);">
-                <div class="stat-card">
+                <div class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${report.totals.consumerCount}">0</div>
                     <div class="stat-card-label">Consumers</div>
                 </div>
-                <div class="stat-card">
+                <div class="ep-panel stat-card">
                     <div class="stat-card-value">
                         <span th:text="${report.totals.activeNodeCount}">0</span><span
                             class="ep-text-muted"
@@ -234,7 +234,7 @@
                     </div>
                     <div class="stat-card-label">Active nodes</div>
                 </div>
-                <div class="stat-card">
+                <div class="ep-panel stat-card">
                     <div class="stat-card-value" style="font-size: var(--ep-text-xl);"
                          th:text="${report.totals.mostRecentNodeActivity != null
                                    ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')

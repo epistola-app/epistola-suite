@@ -48,19 +48,19 @@
 
         <div class="dashboard-grid">
             <div class="ep-auto-grid dashboard-stats">
-                <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="stat-card">
+                <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${templateCount}">0</div>
                     <div class="stat-card-label">Templates</div>
                 </a>
-                <a th:href="@{/tenants/{id}/themes(id=${tenant.id})}" class="stat-card">
+                <a th:href="@{/tenants/{id}/themes(id=${tenant.id})}" class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${themeCount}">0</div>
                     <div class="stat-card-label">Themes</div>
                 </a>
-                <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="stat-card">
+                <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${environmentCount}">0</div>
                     <div class="stat-card-label">Environments</div>
                 </a>
-                <a th:href="@{/tenants/{id}/load-tests(id=${tenant.id})}" class="stat-card">
+                <a th:href="@{/tenants/{id}/load-tests(id=${tenant.id})}" class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${loadTestCount}">0</div>
                     <div class="stat-card-label">Load Tests</div>
                 </a>

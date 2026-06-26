@@ -63,7 +63,7 @@
         <!-- VIEW MODE (default) -->
         <!-- ================================================================ -->
         <th:block th:if="${!editMode}">
-            <div class="detail-section">
+            <div class="ep-panel detail-section">
                 <div class="detail-section-header">
                     <h3 style="font-size: var(--ep-text-base); margin: 0;">Schema</h3>
                 </div>
@@ -99,7 +99,7 @@
 
             <!-- Examples summary (names only, edit for full details) -->
             <th:block th:if="${contractDataExamples != null && !contractDataExamples.isEmpty()}">
-                <div class="detail-section">
+                <div class="ep-panel detail-section">
                     <div class="detail-section-header">
                         <h3 style="font-size: var(--ep-text-base); margin: 0;">
                             Examples

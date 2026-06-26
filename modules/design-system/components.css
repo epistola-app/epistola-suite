@@ -159,6 +159,15 @@
 
   /* ── Cards ────────────────────────────────────────────────────────────── */
 
+  /* Bare card chrome — surface + border + radius, no shadow. Compose it with a
+     feature class for the specifics (.ep-panel detail-section). .card below is
+     this same chrome plus a resting shadow. */
+  .ep-panel {
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+  }
+
   .card {
     background-color: var(--ep-card);
     border: 1px solid var(--ep-border-color);

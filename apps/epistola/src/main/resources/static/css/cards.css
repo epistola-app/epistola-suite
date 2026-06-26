@@ -54,10 +54,8 @@
 
 /* ── Detail sections (card-wrapped) ──────────────────────────────────── */
 
+/* Card chrome via .ep-panel; this adds only the section spacing. */
 .detail-section {
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
   margin-bottom: var(--ep-space-6);
 }
 

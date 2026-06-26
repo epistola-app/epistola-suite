@@ -48,10 +48,8 @@
   --ep-grid-min: 200px;
 }
 
+/* Card chrome via .ep-panel; this adds clipping + hover elevation. */
 .asset-card {
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
   overflow: hidden;
   transition: box-shadow var(--ep-transition-base);
 }

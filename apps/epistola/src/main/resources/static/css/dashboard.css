@@ -13,10 +13,8 @@
   margin-bottom: var(--ep-space-8);
 }
 
+/* Card chrome via .ep-panel; this adds the link/padding/hover specifics. */
 .stat-card {
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
   padding: var(--ep-space-5);
   text-decoration: none;
   color: var(--ep-foreground);

@@ -8,19 +8,19 @@
 
         <!-- Statistics -->
         <div class="ep-auto-grid dashboard-stats" style="margin-bottom: var(--ep-space-6);">
-            <div class="stat-card">
+            <div class="ep-panel stat-card">
                 <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
                 <div class="stat-card-label">Total Generated</div>
             </div>
-            <div class="stat-card">
+            <div class="ep-panel stat-card">
                 <div class="stat-card-value" th:text="${stats.inQueue}">0</div>
                 <div class="stat-card-label">In Queue</div>
             </div>
-            <div class="stat-card">
+            <div class="ep-panel stat-card">
                 <div class="stat-card-value" th:text="${stats.completed}">0</div>
                 <div class="stat-card-label">Completed</div>
             </div>
-            <div class="stat-card">
+            <div class="ep-panel stat-card">
                 <div class="stat-card-value" th:text="${stats.failed}">0</div>
                 <div class="stat-card-label">Failed</div>
             </div>

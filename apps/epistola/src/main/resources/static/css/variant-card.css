@@ -32,12 +32,10 @@
   --ep-grid-min: 280px;
 }
 
+/* Card chrome via .ep-panel; this adds the column layout + hover elevation. */
 .variant-card {
   display: flex;
   flex-direction: column;
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
   transition: box-shadow var(--ep-transition-base);
 }
 
