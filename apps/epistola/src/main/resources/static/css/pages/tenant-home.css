@@ -1,0 +1,22 @@
+/*
+ * Tenant home
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Tenant home ──────────────────────────────────────────────────────── */
+
+.tenant-header {
+  margin-bottom: var(--ep-space-8);
+}
+
+.tenant-header h1 {
+  margin-bottom: var(--ep-space-1);
+}
+
+.tenant-header .tenant-id {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+  font-family: var(--ep-font-mono);
+}

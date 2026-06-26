@@ -1,0 +1,58 @@
+/*
+ * Dashboard stats & grid
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Dashboard stats grid ────────────────────────────────────────────── */
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--ep-space-4);
+  margin-bottom: var(--ep-space-8);
+}
+
+.stat-card {
+  background-color: var(--ep-card);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-lg);
+  padding: var(--ep-space-5);
+  text-decoration: none;
+  color: var(--ep-foreground);
+  transition:
+    border-color var(--ep-transition-base),
+    box-shadow var(--ep-transition-base);
+}
+
+a.stat-card:hover {
+  border-color: var(--ep-stone-300);
+  box-shadow: var(--ep-shadow-md);
+  text-decoration: none;
+  color: var(--ep-foreground);
+}
+
+.stat-card-value {
+  font-size: var(--ep-text-2xl);
+  font-weight: 600;
+  line-height: var(--ep-leading-tight);
+  margin-bottom: var(--ep-space-1);
+}
+
+.stat-card-label {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+/* ── Dashboard grid ──────────────────────────────────────────────────── */
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-6);
+}
+
+.dashboard-actions h2 {
+  margin-bottom: var(--ep-space-3);
+}

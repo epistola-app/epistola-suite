@@ -1,0 +1,118 @@
+/*
+ * Load test (metrics, progress, errors, key-value, row errors)
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Load test metrics grid ───────────────────────────────────────────── */
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--ep-space-4);
+  margin-bottom: var(--ep-space-6);
+}
+
+.metric-card {
+  background-color: var(--ep-card);
+  padding: var(--ep-space-5);
+  border-radius: var(--ep-radius-lg);
+  border: 1px solid var(--ep-border-color);
+}
+
+.metric-label {
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  font-weight: 500;
+  margin-bottom: var(--ep-space-2);
+  text-transform: uppercase;
+  letter-spacing: var(--ep-tracking-wider);
+}
+
+.metric-value {
+  font-size: var(--ep-text-2xl);
+  font-weight: 600;
+  color: var(--ep-foreground);
+  line-height: var(--ep-leading-tight);
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+
+.progress-container {
+  width: 100%;
+  height: 0.5rem;
+  background-color: var(--ep-muted);
+  border-radius: var(--ep-radius-full);
+  overflow: hidden;
+  margin: var(--ep-space-4) 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--ep-primary);
+  border-radius: var(--ep-radius-full);
+  transition: width 0.3s ease;
+}
+
+/* ── Error summary table ──────────────────────────────────────────────── */
+
+.error-summary {
+  margin-top: var(--ep-space-8);
+}
+
+.error-summary h3 {
+  margin-bottom: var(--ep-space-4);
+  color: var(--ep-destructive);
+}
+
+.error-summary table {
+  background-color: var(--ep-card);
+}
+
+/* ── Action bar ───────────────────────────────────────────────────────── */
+
+.actions-bar {
+  display: flex;
+  gap: var(--ep-space-3);
+  margin-top: var(--ep-space-8);
+}
+
+/* ── Key-value table (for configuration) ──────────────────────────────── */
+
+.key-value-table {
+  width: 100%;
+}
+
+.key-value-table th {
+  text-align: right;
+  width: 200px;
+  padding-right: var(--ep-space-4);
+  font-weight: 600;
+  color: var(--ep-muted-foreground);
+  vertical-align: top;
+}
+
+.key-value-table td {
+  color: var(--ep-foreground);
+}
+
+/* ── Row error highlight (load test requests) ─────────────────────────── */
+
+.row-error {
+  background-color: var(--ep-red-50);
+}
+
+.error-type {
+  display: block;
+  font-weight: 500;
+  color: var(--ep-destructive);
+  font-size: var(--ep-text-xs);
+}
+
+.error-message {
+  display: block;
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  margin-top: var(--ep-space-0-5);
+}
