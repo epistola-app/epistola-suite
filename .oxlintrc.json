@@ -28,7 +28,8 @@
     "no-explicit-any": "warn",
     "no-non-null-assertion": "warn",
     "no-unnecessary-type-assertion": "error",
-    "no-unnecessary-type-arguments": "error"
+    "no-unnecessary-type-arguments": "error",
+    "no-unnecessary-boolean-literal-compare": "error"
   },
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"]
 }
