@@ -9,7 +9,7 @@
     "pedantic": "off",
     "perf": "warn",
     "style": "off",
-    "restriction": "warn"
+    "restriction": "off"
   },
   "overrides": [
     {
@@ -24,7 +24,9 @@
   ],
   "rules": {
     "no-underscore-dangle": "off",
-    "no-async-await": "off"
+    "no-async-await": "off",
+    "no-explicit-any": "warn",
+    "no-non-null-assertion": "warn"
   },
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"]
 }
