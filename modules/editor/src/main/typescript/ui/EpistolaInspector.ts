@@ -789,7 +789,7 @@ export class EpistolaInspector extends LitElement {
       delete newMargins[side];
     }
     const newSettings = {
-      ...(this.doc.pageSettingsOverride ?? {}),
+      ...this.doc.pageSettingsOverride,
       margins: newMargins,
     } as PageSettings;
 
