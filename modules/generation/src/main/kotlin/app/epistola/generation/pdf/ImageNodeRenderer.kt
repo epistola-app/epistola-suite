@@ -62,7 +62,10 @@ class ImageNodeRenderer(
             return emptyList()
         }
 
-        val resolution = resolver.resolve(assetId)
+        // Cross-catalog references carry the catalog the asset lives in; absent
+        // it, the resolver falls back to an assetId-only lookup.
+        val catalogKey = (props["catalogKey"] as? String)?.takeIf { it.isNotBlank() }
+        val resolution = resolver.resolve(assetId, catalogKey)
         if (resolution == null) {
             logger.warn("Asset {} not found, skipping image node {}", assetId, node.id)
             return emptyList()

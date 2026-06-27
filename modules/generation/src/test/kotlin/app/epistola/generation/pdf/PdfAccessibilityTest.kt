@@ -219,7 +219,7 @@ class PdfAccessibilityTest {
         return output.toByteArray()
     }
 
-    private val resolverWithTestPng = AssetResolver { assetId ->
+    private val resolverWithTestPng = AssetResolver { assetId, _ ->
         if (assetId == "asset-123") AssetResolution(content = testPngBytes, mimeType = "image/png") else null
     }
 

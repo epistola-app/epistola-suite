@@ -81,6 +81,30 @@ class DependencyScannerTest {
     }
 
     @Test
+    fun `scan excludes cross-catalog image asset refs`() {
+        val doc = TemplateDocument(
+            modelVersion = 1,
+            root = "n-root",
+            nodes = mapOf(
+                "n-root" to Node(id = "n-root", type = "root", slots = listOf("s-children")),
+                "n-img" to Node(
+                    id = "n-img",
+                    type = "image",
+                    slots = emptyList(),
+                    props = mapOf("assetId" to "abc-123", "catalogKey" to "system"),
+                ),
+            ),
+            slots = mapOf("s-children" to Slot(id = "s-children", nodeId = "n-root", name = "children", children = listOf("n-img"))),
+        )
+
+        val deps = DependencyScanner.scan(doc)
+        // A cross-catalog image (explicit catalogKey) is declared on
+        // manifest.dependencies and checked at install-time, not auto-pulled
+        // here — same rule as cross-catalog fonts and code lists.
+        assertThat(deps.assetRefs).isEmpty()
+    }
+
+    @Test
     fun `scan with variant attributes includes them`() {
         val doc = TemplateDocument(
             modelVersion = 1,
