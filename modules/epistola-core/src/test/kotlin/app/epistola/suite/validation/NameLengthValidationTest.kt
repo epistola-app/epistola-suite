@@ -1,8 +1,19 @@
 package app.epistola.suite.validation
 
+import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
@@ -13,6 +24,8 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.UpdateStencil
@@ -46,6 +59,9 @@ class NameLengthValidationTest {
     private val variantId = VariantId(VariantKey("english"), templateId)
     private val stencilId = StencilId(StencilKey("mystencil"), catalogId)
     private val themeId = ThemeId(ThemeKey("mytheme"), catalogId)
+    private val codeListId = CodeListId(CodeListKey.of("mycodelist"), catalogId)
+    private val attributeId = AttributeId(AttributeKey.of("myattribute"), catalogId)
+    private val environmentId = EnvironmentId(EnvironmentKey.of("myenvironment"), tenantId)
 
     /** label -> builder that puts the given string in the command's name/title field. */
     private val cases: List<Pair<String, (String) -> Any>> = listOf(
@@ -60,6 +76,15 @@ class NameLengthValidationTest {
         "CreateVariant.title" to { s -> CreateVariant(variantId, title = s, description = null) },
         "UpdateVariant.title" to { s -> UpdateVariant(variantId, title = s, attributes = emptyMap()) },
         "ImportFont.name" to { s -> ImportFont(tenantId, CatalogKey.DEFAULT, slug = "myfont", name = s, kind = "sans") },
+        "CreateApiKey.name" to { s -> CreateApiKey(tenantKey, s) },
+        // URL-sourced so only the displayName length can fail (INLINE would also require entries).
+        "CreateCodeList.displayName" to { s ->
+            CreateCodeList(codeListId, displayName = s, sourceType = CodeListSource.URL, sourceUrl = "https://example.com/codes.json")
+        },
+        "CreateAttributeDefinition.displayName" to { s -> CreateAttributeDefinition(attributeId, displayName = s) },
+        "UpdateAttributeDefinition.displayName" to { s -> UpdateAttributeDefinition(attributeId, displayName = s) },
+        "CreateEnvironment.name" to { s -> CreateEnvironment(environmentId, s) },
+        "UpdateEnvironment.name" to { s -> UpdateEnvironment(environmentId, s) },
     )
 
     @Test
