@@ -53,6 +53,7 @@ data class ImportFont(
     override val tenantKey: TenantKey get() = tenantId.key
 
     init {
+        validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
     }
 }

@@ -24,6 +24,7 @@ data class CreateCatalog(
     override val permission get() = Permission.CATALOG_MANAGE
 
     init {
+        validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
     }
 }
