@@ -8,10 +8,11 @@ import kotlin.test.assertTrue
 
 /**
  * Build-time gate for issue #633 (UI side): every name/title input in a
- * create/edit form must carry `maxlength="100"`, and the template-variant slug
- * input must carry `minlength="3" maxlength="50"`. Plain unit test — no Spring,
- * no Docker — so it runs in the fast `unitTest` cycle and gates every PR (same
- * posture as [IconUsageTest]).
+ * create/edit form must carry `maxlength="100"`, and each slug input carries its
+ * own min/max length bounds (the template-variant slug at `minlength="3"
+ * maxlength="50"`, the font slug at `minlength="2" maxlength="64"`). Plain unit
+ * test — no Spring, no Docker — so it runs in the fast `unitTest` cycle and gates
+ * every PR (same posture as [IconUsageTest]).
  *
  * Why this exists: a UI `maxlength` is the only place the browser stops a user
  * before the server rejects the value. These inputs historically shipped with no
@@ -53,11 +54,19 @@ class InputMaxLengthTest {
         name("$base/catalogs/list.html", "catalogName"),
         name("$base/templates/detail/variants.html", "title"),
         name("$base/templates/detail.html", "edit-variant-title"),
+        name("$base/api-keys/new.html", "name"),
+        name("$base/fonts/new.html", "name"),
         // The "template variant is different" case from #633: slug needs both bounds.
         Target(
             "$base/templates/detail/variants.html",
             "slug",
             listOf("minlength" to "3", "maxlength" to "50"),
+        ),
+        // Font slug carries its own bounds (2..64) — pin them like the variant slug.
+        Target(
+            "$base/fonts/new.html",
+            "slug",
+            listOf("minlength" to "2", "maxlength" to "64"),
         ),
     )
 
