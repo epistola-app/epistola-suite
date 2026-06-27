@@ -2,6 +2,7 @@ package app.epistola.suite.validation
 
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.commands.UpdateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
@@ -81,6 +82,8 @@ class NameLengthValidationTest {
         "CreateCodeList.displayName" to { s ->
             CreateCodeList(codeListId, displayName = s, sourceType = CodeListSource.URL, sourceUrl = "https://example.com/codes.json")
         },
+        // entries default to null, so the displayName length is the only failure mode.
+        "UpdateCodeList.displayName" to { s -> UpdateCodeList(codeListId, displayName = s) },
         "CreateAttributeDefinition.displayName" to { s -> CreateAttributeDefinition(attributeId, displayName = s) },
         "UpdateAttributeDefinition.displayName" to { s -> UpdateAttributeDefinition(attributeId, displayName = s) },
         "CreateEnvironment.name" to { s -> CreateEnvironment(environmentId, s) },
