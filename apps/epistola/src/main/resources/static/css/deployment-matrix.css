@@ -1,0 +1,40 @@
+/*
+ * Deployment matrix
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Deployment matrix ───────────────────────────────────────────────── */
+
+.deployment-matrix-table th {
+  text-align: center;
+}
+
+.deployment-matrix-table th:first-child {
+  text-align: left;
+}
+
+.deployment-matrix-variant {
+  white-space: nowrap;
+}
+
+.deployment-matrix-cell {
+  text-align: center;
+  min-width: 8rem;
+}
+
+.deployment-cell-active {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-1);
+}
+
+.deployment-cell-actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.deployment-matrix-cell:hover .deployment-cell-actions {
+  opacity: 1;
+}

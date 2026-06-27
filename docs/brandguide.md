@@ -288,13 +288,14 @@ All buttons use the base `.ep-btn` class combined with a variant class. Buttons 
 
 Form controls use the `.ep-*` prefix. All include built-in focus ring (box-shadow approach) and disabled styling.
 
-| Class          | Description                            |
-| -------------- | -------------------------------------- |
-| `.ep-input`    | Standard text input                    |
-| `.ep-select`   | Native select dropdown                 |
-| `.ep-textarea` | Multi-line text area                   |
-| `.ep-label`    | Form label (block display, 500 weight) |
-| `.ep-checkbox` | Styled checkbox                        |
+| Class          | Description                             |
+| -------------- | --------------------------------------- |
+| `.ep-input`    | Standard text input                     |
+| `.ep-select`   | Native select dropdown                  |
+| `.ep-textarea` | Multi-line text area                    |
+| `.ep-label`    | Form label (block display, 500 weight)  |
+| `.ep-checkbox` | Styled checkbox                         |
+| `.ep-toggle`   | On/off switch (wraps a hidden checkbox) |
 
 ```html
 <label class="ep-label">Name</label>
@@ -308,6 +309,12 @@ Form controls use the `.ep-*` prefix. All include built-in focus ring (box-shado
 
 <!-- Monospace input (for code/expressions) -->
 <input class="ep-input mono" type="text" />
+
+<!-- On/off switch -->
+<label class="ep-toggle">
+  <input type="checkbox" />
+  <span class="ep-toggle-slider"></span>
+</label>
 ```
 
 ### Panels

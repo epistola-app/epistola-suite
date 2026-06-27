@@ -1,0 +1,86 @@
+/*
+ * Load test (progress, errors, key-value, row errors)
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+
+.progress-container {
+  width: 100%;
+  height: 0.5rem;
+  background-color: var(--ep-muted);
+  border-radius: var(--ep-radius-full);
+  overflow: hidden;
+  margin: var(--ep-space-4) 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--ep-primary);
+  border-radius: var(--ep-radius-full);
+  transition: width 0.3s ease;
+}
+
+/* ── Error summary table ──────────────────────────────────────────────── */
+
+.error-summary {
+  margin-top: var(--ep-space-8);
+}
+
+.error-summary h3 {
+  margin-bottom: var(--ep-space-4);
+  color: var(--ep-destructive);
+}
+
+.error-summary table {
+  background-color: var(--ep-card);
+}
+
+/* ── Action bar ───────────────────────────────────────────────────────── */
+
+.actions-bar {
+  display: flex;
+  gap: var(--ep-space-3);
+  margin-top: var(--ep-space-8);
+}
+
+/* ── Key-value table (for configuration) ──────────────────────────────── */
+
+.key-value-table {
+  width: 100%;
+}
+
+.key-value-table th {
+  text-align: right;
+  width: 200px;
+  padding-right: var(--ep-space-4);
+  font-weight: 600;
+  color: var(--ep-muted-foreground);
+  vertical-align: top;
+}
+
+.key-value-table td {
+  color: var(--ep-foreground);
+}
+
+/* ── Row error highlight (load test requests) ─────────────────────────── */
+
+.row-error {
+  background-color: var(--ep-red-50);
+}
+
+.error-type {
+  display: block;
+  font-weight: 500;
+  color: var(--ep-destructive);
+  font-size: var(--ep-text-xs);
+}
+
+.error-message {
+  display: block;
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  margin-top: var(--ep-space-0-5);
+}

@@ -94,9 +94,9 @@
             <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
                 <span th:text="${error}"></span>
             </div>
-            <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
+            <div th:if="${!#lists.isEmpty(variants)}" class="ep-auto-grid variant-grid">
                 <div th:each="variant : ${variants}"
-                     class="variant-card" th:classappend="${variant.isDefault} ? 'variant-card-default'"
+                     class="ep-panel variant-card" th:classappend="${variant.isDefault} ? 'variant-card-default'"
                      th:data-variant-id="${variant.id}">
                     <div class="variant-card-header">
                         <div>
@@ -111,7 +111,7 @@
                              contributes the catalog prefix (visible in the
                              badge so the user can tell `system.locale=en-US`
                              apart from a hypothetical `default.locale`). -->
-                        <div class="tags" th:if="${!#lists.isEmpty(variant.entries)}">
+                        <div class="badge-list" th:if="${!#lists.isEmpty(variant.entries)}">
                             <span th:each="entry : ${variant.entries}" class="badge badge-outline"
                                   th:data-attr-key="${entry.key}" th:data-attr-value="${entry.value}"
                                   th:title="${entry.descriptor != null ? entry.descriptor.qualifiedKey + ' = ' + entry.value : entry.key + ' = ' + entry.value}">
@@ -121,7 +121,7 @@
                                       th:text="${entry.slug + ' = ' + entry.value}"></span>
                             </span>
                         </div>
-                        <div class="variant-card-status">
+                        <div class="badge-list">
                             <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
                             <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-published"
                                   th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>
@@ -196,7 +196,7 @@
                 </div>
                 <div class="variant-no-matches" id="variant-no-matches">No variants match the selected filters.</div>
             </div>
-            <div th:if="${#lists.isEmpty(variants)}" class="detail-section">
+            <div th:if="${#lists.isEmpty(variants)}" class="ep-panel detail-section">
                 <div class="detail-section-body">
                     <div class="empty-state" style="padding: var(--ep-space-8);">
                         <div class="empty-state-title">No variants yet</div>

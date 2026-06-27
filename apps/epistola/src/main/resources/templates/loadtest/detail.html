@@ -21,7 +21,7 @@
         </div>
 
         <!-- Configuration -->
-        <div class="detail-section">
+        <div class="ep-panel detail-section">
             <div class="detail-section-header">
                 <h2>Configuration</h2>
             </div>
@@ -62,7 +62,7 @@
              hx-swap="outerHTML">
 
             <!-- Progress (shown when RUNNING) -->
-            <div th:if="${run.status.name() == 'RUNNING'}" class="detail-section">
+            <div th:if="${run.status.name() == 'RUNNING'}" class="ep-panel detail-section">
                 <div class="detail-section-header">
                     <h2>Progress</h2>
                     <span class="text-muted" style="font-size: var(--ep-text-sm);">
@@ -81,17 +81,17 @@
             </div>
 
             <!-- Results (shown when COMPLETED or FAILED) -->
-            <div th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}" class="detail-section">
+            <div th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}" class="ep-panel detail-section">
                 <div class="detail-section-header">
                     <h2>Results</h2>
                 </div>
                 <div class="detail-section-body">
-                    <div class="dashboard-stats">
-                        <div class="stat-card">
+                    <div class="ep-auto-grid dashboard-stats">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value" th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></div>
                             <div class="stat-card-label">Requests</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.successRatePercent != null}"
                                       th:text="${#numbers.formatDecimal(run.successRatePercent, 1, 1)} + '%'"></span>
@@ -99,7 +99,7 @@
                             </div>
                             <div class="stat-card-label">Success Rate</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.avgResponseTimeMs != null}"
                                       th:text="${#numbers.formatDecimal(run.avgResponseTimeMs, 1, 0)} + ' ms'"></span>
@@ -107,7 +107,7 @@
                             </div>
                             <div class="stat-card-label">Avg Response Time</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.requestsPerSecond != null}"
                                       th:text="${#numbers.formatDecimal(run.requestsPerSecond, 1, 2)}"></span>
@@ -115,7 +115,7 @@
                             </div>
                             <div class="stat-card-label">Requests/sec</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.p50ResponseTimeMs != null}"
                                       th:text="${run.p50ResponseTimeMs} + ' ms'"></span>
@@ -123,7 +123,7 @@
                             </div>
                             <div class="stat-card-label">p50 (Median)</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.p95ResponseTimeMs != null}"
                                       th:text="${run.p95ResponseTimeMs} + ' ms'"></span>
@@ -131,7 +131,7 @@
                             </div>
                             <div class="stat-card-label">p95</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.p99ResponseTimeMs != null}"
                                       th:text="${run.p99ResponseTimeMs} + ' ms'"></span>
@@ -139,7 +139,7 @@
                             </div>
                             <div class="stat-card-label">p99</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}"
                                       th:text="${run.minResponseTimeMs + ' / ' + run.maxResponseTimeMs + ' ms'}"></span>
@@ -147,7 +147,7 @@
                             </div>
                             <div class="stat-card-label">Min / Max</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="ep-panel stat-card">
                             <div class="stat-card-value">
                                 <span th:if="${run.totalDurationMs != null}"
                                       th:text="${#numbers.formatDecimal(run.totalDurationMs / 1000.0, 1, 2)} + ' sec'"></span>
@@ -160,7 +160,7 @@
             </div>
 
             <!-- Error Summary (if any failures) -->
-            <div th:if="${run.failedCount > 0 and run.errorSummary != null}" class="detail-section">
+            <div th:if="${run.failedCount > 0 and run.errorSummary != null}" class="ep-panel detail-section">
                 <div class="detail-section-header">
                     <h2>Error Summary</h2>
                 </div>

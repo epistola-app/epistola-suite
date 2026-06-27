@@ -1,0 +1,57 @@
+/*
+ * Login page
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Login page ───────────────────────────────────────────────────────── */
+
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--ep-space-4);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 24rem;
+  background-color: var(--ep-card);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-xl);
+  box-shadow: var(--ep-shadow-lg);
+  padding: var(--ep-space-8);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: var(--ep-space-8);
+}
+
+.login-header h1 {
+  font-size: var(--ep-text-2xl);
+  margin-bottom: var(--ep-space-2);
+}
+
+.login-header p {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-4);
+  margin: var(--ep-space-6) 0;
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--ep-border-color);
+}

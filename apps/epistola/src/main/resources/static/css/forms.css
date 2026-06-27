@@ -1,0 +1,130 @@
+/*
+ * Forms (sections, groups, inline, rows)
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Form styles ──────────────────────────────────────────────────────── */
+
+/* Card chrome via .ep-panel; this adds padding and a resting shadow. */
+.form-section {
+  padding: var(--ep-space-6);
+  box-shadow: var(--ep-shadow-sm);
+}
+
+.form-group {
+  margin-bottom: var(--ep-space-4);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--ep-space-1-5);
+  font-size: var(--ep-text-sm);
+  font-weight: 500;
+  color: var(--ep-foreground);
+}
+
+/* Text-like fields stretch; radios/checkboxes keep their intrinsic size
+   (they are full-width otherwise — e.g. the import-type radios and the
+   upgrade-dialog opt-in checkboxes). */
+.form-group input:not([type='radio']):not([type='checkbox']),
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  height: var(--ep-h-9);
+  padding: var(--ep-space-1-5) var(--ep-space-3);
+  font-size: var(--ep-text-sm);
+  color: var(--ep-foreground);
+  border: 1px solid var(--ep-input-border);
+  border-radius: var(--ep-radius-md);
+  background-color: var(--ep-white);
+  transition: var(--ep-transition-colors);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--ep-ring-color);
+  box-shadow: var(--ep-ring);
+}
+
+.form-group textarea {
+  height: auto;
+  min-height: 5rem;
+  resize: vertical;
+  line-height: var(--ep-leading-normal);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--ep-muted-foreground);
+}
+
+/* Form validation error states */
+.form-group.error input,
+.form-group.error textarea,
+.form-group.error select {
+  border-color: var(--ep-destructive);
+}
+
+.form-group.error input:focus,
+.form-group.error textarea:focus,
+.form-group.error select:focus {
+  border-color: var(--ep-destructive);
+  box-shadow:
+    0 0 0 var(--ep-ring-offset) var(--ep-white),
+    0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-red-500);
+}
+
+.form-error {
+  display: block;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-destructive);
+  margin-top: var(--ep-space-1);
+}
+
+.form-hint {
+  display: block;
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  margin-top: var(--ep-space-1);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--ep-space-3);
+  margin-top: var(--ep-space-6);
+}
+
+/* ── Inline form (for create variant) ─────────────────────────────────── */
+
+.inline-form {
+  display: flex;
+  gap: var(--ep-space-2);
+  align-items: flex-end;
+  margin-top: var(--ep-space-4);
+}
+
+.inline-form .form-group {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.inline-form input {
+  width: 100%;
+}
+
+/* ── Form row (multi-column layout) ───────────────────────────────────── */
+
+.form-row {
+  display: flex;
+  gap: var(--ep-space-4);
+  flex-wrap: wrap;
+}
+
+.form-row .form-group {
+  flex: 1;
+  min-width: 200px;
+}

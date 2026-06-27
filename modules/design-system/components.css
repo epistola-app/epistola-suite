@@ -159,6 +159,15 @@
 
   /* ── Cards ────────────────────────────────────────────────────────────── */
 
+  /* Bare card chrome — surface + border + radius, no shadow. Compose it with a
+     feature class for the specifics (.ep-panel detail-section). .card below is
+     this same chrome plus a resting shadow. */
+  .ep-panel {
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+  }
+
   .card {
     background-color: var(--ep-card);
     border: 1px solid var(--ep-border-color);
@@ -370,6 +379,15 @@
     gap: var(--ep-space-2);
   }
 
+  /* Responsive card grid: columns auto-fill to a minimum tile width.
+     Override --ep-grid-min per use (e.g. style="--ep-grid-min: 280px"
+     or a thin class) to tune the tile size; gap defaults to space-4. */
+  .ep-auto-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--ep-grid-min, 220px), 1fr));
+    gap: var(--ep-space-4);
+  }
+
   .ep-gap-1 {
     gap: var(--ep-space-1);
   }
@@ -392,6 +410,56 @@
     border-radius: var(--ep-radius-sm);
     border: 1px solid var(--ep-input-border);
     accent-color: var(--ep-primary);
+  }
+
+  /* On/off switch — wrap a visually-hidden checkbox in a <label class="ep-toggle">
+     alongside <span class="ep-toggle-slider">. */
+  .ep-toggle {
+    position: relative;
+    display: inline-block;
+    width: 2.75rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .ep-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .ep-toggle-slider {
+    position: absolute;
+    inset: 0;
+    background-color: var(--ep-stone-300);
+    border-radius: var(--ep-radius-full);
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .ep-toggle-slider::before {
+    content: '';
+    position: absolute;
+    height: 1.125rem;
+    width: 1.125rem;
+    left: 0.1875rem;
+    bottom: 0.1875rem;
+    background-color: var(--ep-white);
+    border-radius: var(--ep-radius-full);
+    transition: transform 0.2s;
+  }
+
+  .ep-toggle input:checked + .ep-toggle-slider {
+    background-color: var(--ep-primary);
+  }
+
+  .ep-toggle input:checked + .ep-toggle-slider::before {
+    transform: translateX(1.25rem);
+  }
+
+  .ep-toggle input:focus-visible + .ep-toggle-slider {
+    outline: 2px solid var(--ep-primary);
+    outline-offset: 2px;
   }
 
   /* ── Badges ───────────────────────────────────────────────────────────── */
@@ -450,6 +518,52 @@
     background-color: var(--ep-amber-100);
     color: var(--ep-amber-800);
     border-color: var(--ep-amber-300);
+  }
+
+  /* Status / lifecycle variants */
+  .badge-draft {
+    background-color: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-800);
+    border-color: var(--ep-terracotta-200);
+  }
+
+  .badge-published {
+    background-color: var(--ep-green-100);
+    color: var(--ep-green-800);
+    border-color: var(--ep-green-100);
+  }
+
+  .badge-archived {
+    background-color: var(--ep-stone-100);
+    color: var(--ep-stone-600);
+    border-color: var(--ep-border-color);
+  }
+
+  .badge-info {
+    background-color: var(--ep-terracotta-100);
+    color: var(--ep-terracotta-800);
+  }
+
+  .badge-error {
+    background-color: var(--ep-red-100);
+    color: var(--ep-red-700);
+  }
+
+  .badge-default {
+    background-color: var(--ep-stone-100);
+    color: var(--ep-stone-600);
+  }
+
+  .badge-muted {
+    background-color: var(--ep-stone-100);
+    color: var(--ep-stone-600);
+  }
+
+  /* Horizontal, wrapping list of badges with consistent spacing. */
+  .badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-1);
   }
 
   /* ── Tables ───────────────────────────────────────────────────────────── */

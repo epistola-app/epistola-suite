@@ -1,0 +1,95 @@
+/*
+ * Back link, section headers, tabs, page actions
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Back link (detail page header) ───────────────────────────────────── */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-1);
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  text-decoration: none;
+  margin-bottom: var(--ep-space-3);
+  transition: color var(--ep-transition-fast);
+}
+
+.back-link .ep-icon {
+  transition: transform var(--ep-transition-fast);
+}
+
+.back-link:hover {
+  color: var(--ep-primary-strong);
+}
+
+.back-link:hover .ep-icon {
+  transform: translateX(-2px);
+}
+
+/* ── Section headers ──────────────────────────────────────────────────── */
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--ep-space-4);
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+
+.tab-nav {
+  display: flex;
+  border-bottom: 1px solid var(--ep-border-color);
+  margin-bottom: var(--ep-space-6);
+  gap: 0;
+}
+
+.tab-nav-item {
+  padding: var(--ep-space-2) var(--ep-space-4);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--ep-muted-foreground);
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-size: var(--ep-text-sm);
+}
+
+.tab-nav-item:hover {
+  color: var(--ep-foreground);
+}
+
+.tab-nav-item.active {
+  color: var(--ep-foreground);
+  border-bottom-color: var(--ep-primary);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* (Expand/collapse toggle and variant detail row styles removed — deployment matrix replaces inline versions) */
+
+/* ── Page actions (right-aligned button group in page header) ────────── */
+
+.page-actions {
+  display: flex;
+  gap: var(--ep-space-2);
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(css): **Stylesheets reorganized into per-concern partials with `@layer` discipline.** The monolithic `main.css` is split into focused partials (`layout`, `forms`, `badges-tags`, `navigation`, `cards`, `dashboard`, `dialogs`, plus page-specific files under `pages/`) re-imported via `@import ... layer(app)`, so there is still a single entry point but each concern lives in its own file. The app now declares explicit cascade layers (`app`, `app-utilities`), and duplicated table/badge rules move into the design system: chip rows reuse `.badge-list`, the toggle switch is promoted to `.ep-toggle`, responsive card grids share a `.ep-auto-grid` primitive, and card chrome shares a `.ep-panel` base. Dead `nav-card`/`metric-card` rule sets are removed and text utilities are formalized in `utilities.css`. No behavior change — templates consume the shared classes and `docs/brandguide.md` is refreshed accordingly.
+
 ## [1.0.0-RC1] - 2026-06-25
 
 Epistola Suite 1.0.0-RC1 is the first stable release: from this version onward the database is no longer reset between upgrades — your data persists across versions, with every schema change delivered as a forward migration. This release also fixes template creation failing for long slugs, and lands the 1.0.0-RC1 database consolidation — monthly-partitioned event log with retention, UUIDv7 ids, and a schema cleanup.
