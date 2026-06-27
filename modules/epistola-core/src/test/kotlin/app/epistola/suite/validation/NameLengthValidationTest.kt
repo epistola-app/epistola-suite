@@ -50,6 +50,15 @@ import kotlin.test.fail
  * The canonical limit (100) is duplicated here on purpose: this test is the
  * independent oracle, so it catches both a command drifting from the limit AND an
  * accidental change to [FieldLimits.MAX_NAME_LENGTH].
+ *
+ * Sibling oracle: `InputMaxLengthTest` (in `apps/epistola`) guards the matching
+ * `maxlength` on the UI inputs. The two cover the same limit from opposite ends
+ * and are intentionally NOT 1:1 — this one has a case per command that validates a
+ * name/title; the UI one has a target per input a user can type into. Keep them in
+ * step: a new name/title command belongs here, a new editable name/title input
+ * belongs there. Where they diverge it is by design — themes, stencils, code lists
+ * and environments expose no rename in the UI, so their `Update*` commands are
+ * guarded only here while their names are UI-guarded on the create form alone.
  */
 class NameLengthValidationTest {
 

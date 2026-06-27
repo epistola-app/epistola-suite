@@ -19,6 +19,13 @@ import kotlin.test.assertTrue
  * test is the independent oracle for the UI layer — the expected values (100 / 50)
  * are duplicated here on purpose so the test catches a template drifting from the
  * limit.
+ *
+ * Sibling oracle: `NameLengthValidationTest` (in `epistola-core`) guards the same
+ * limit server-side in each command's `init {}`. Keep the two in step: an editable
+ * name/title input a user can type into belongs here; a name/title command belongs
+ * there. They are intentionally NOT 1:1 — entities without a UI rename (themes,
+ * stencils, code lists, environments) are guarded server-side on update but only
+ * appear here via their create (`new`) form.
  */
 class InputMaxLengthTest {
 
