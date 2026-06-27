@@ -20,12 +20,12 @@
                     <div class="form-group">
                         <label class="ep-label" for="slug">Slug (ID)</label>
                         <input type="text" id="slug" name="slug" class="ep-input" required
-                               pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" placeholder="english-newsletter">
+                               pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" minlength="3" maxlength="50" placeholder="english-newsletter">
                         <span class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="title">Title (optional)</label>
-                        <input type="text" id="title" name="title" class="ep-input" placeholder="English Newsletter">
+                        <input type="text" id="title" name="title" class="ep-input" maxlength="100" placeholder="English Newsletter">
                     </div>
                     <div th:if="${attributeDescriptors != null and !#lists.isEmpty(attributeDescriptors)}"
                          id="create-attr-rows" data-attr-rows>

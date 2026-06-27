@@ -9,7 +9,7 @@
                 <dl class="description-list">
                     <dt>Name</dt>
                     <dd>
-                        <input type="text" id="template-name-input" class="ep-input"
+                        <input type="text" id="template-name-input" class="ep-input" maxlength="100"
                                th:value="${template.name}" th:disabled="${!editable}"
                                th:attr="data-original-name=${template.name}"
                                style="max-width: 300px;"
