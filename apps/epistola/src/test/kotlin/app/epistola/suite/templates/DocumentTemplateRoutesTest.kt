@@ -700,7 +700,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `POST templates with name exceeding 255 characters returns validation error`() = fixture {
+    fun `POST templates with name exceeding 100 characters returns validation error`() = fixture {
         lateinit var testTenant: Tenant
 
         given {
@@ -713,7 +713,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "valid-slug")
-            formData.add("name", "a".repeat(256))
+            formData.add("name", "a".repeat(101))
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
