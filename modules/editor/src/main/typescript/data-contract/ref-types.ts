@@ -54,7 +54,7 @@ const inlineDocCheck = (value: unknown): string | null => {
     only === null ||
     typeof only !== 'object' ||
     Array.isArray(only) ||
-    (only).type !== 'paragraph'
+    only.type !== 'paragraph'
   ) {
     return 'inline rich text must contain a single paragraph node';
   }

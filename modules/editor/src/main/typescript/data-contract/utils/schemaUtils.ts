@@ -246,13 +246,13 @@ function jsonSchemaPropertyToField(
   // A `string` that survived scalar resolution carries a non-date format
   // constraint (email/uri); the date formats already became their own types.
   if (type === 'string' && prop.format) {
-    (primitiveField).format = prop.format as StringFormat;
+    primitiveField.format = prop.format as StringFormat;
   }
 
   // Numeric constraints
   if (type === 'number' || type === 'integer') {
-    if (prop.minimum !== undefined) (primitiveField).minimum = prop.minimum;
-    if (prop.maximum !== undefined) (primitiveField).maximum = prop.maximum;
+    if (prop.minimum !== undefined) primitiveField.minimum = prop.minimum;
+    if (prop.maximum !== undefined) primitiveField.maximum = prop.maximum;
   }
 
   return primitiveField;
@@ -442,15 +442,12 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
   const isString = type === 'string' || type === 'date';
 
   // Format: only relevant for string types, carry over only if type didn't change
-  const existingFormat =
-    sameType && isString && oldIsPrimitive ? (field).format : undefined;
+  const existingFormat = sameType && isString && oldIsPrimitive ? field.format : undefined;
   const format = 'format' in updates ? updates.format : existingFormat;
 
   // Minimum/maximum: only relevant for numeric types, carry over only if type didn't change
-  const existingMinimum =
-    sameType && isNumeric && oldIsPrimitive ? (field).minimum : undefined;
-  const existingMaximum =
-    sameType && isNumeric && oldIsPrimitive ? (field).maximum : undefined;
+  const existingMinimum = sameType && isNumeric && oldIsPrimitive ? field.minimum : undefined;
+  const existingMaximum = sameType && isNumeric && oldIsPrimitive ? field.maximum : undefined;
   const minimum = 'minimum' in updates ? updates.minimum : existingMinimum;
   const maximum = 'maximum' in updates ? updates.maximum : existingMaximum;
 

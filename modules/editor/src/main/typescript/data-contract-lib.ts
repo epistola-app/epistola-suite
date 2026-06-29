@@ -45,9 +45,7 @@ export function mountDataContractEditor(
 ): DataContractEditorInstance {
   const { container, initialSchema, initialExamples, callbacks, readonly = false } = options;
 
-  const editorEl = document.createElement(
-    'epistola-data-contract-editor',
-  );
+  const editorEl = document.createElement('epistola-data-contract-editor');
   editorEl.style.display = 'block';
 
   editorEl.init(initialSchema, initialExamples, callbacks, readonly);

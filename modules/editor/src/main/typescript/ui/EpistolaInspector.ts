@@ -361,7 +361,7 @@ export class EpistolaInspector extends LitElement {
     if (!this.engine) return nothing;
 
     const groups = this.engine.styleRegistry.groups;
-    const inlineStyles = (node.styles ?? {});
+    const inlineStyles = node.styles ?? {};
 
     return html`
       <div class="inspector-section">
