@@ -392,9 +392,10 @@ class StencilIntegrationTest : IntegrationTestBase() {
         // A new draft now exists pinned to stencil v2, while the published version
         // is left untouched on stencil v1.
         val pageAfter = GetStencilUsagePage(stencilId = stencilId).query()
-        // Counts come from SQL: 2 usage rows (published v1 + draft v2), 1 upgradable (the draft).
+        // Counts come from SQL: 2 usage rows (published v1 + draft v2). The draft now
+        // pins the latest stencil version (v2), so nothing is left to upgrade.
         assertThat(pageAfter.totalAll).isEqualTo(2)
-        assertThat(pageAfter.upgradableCount).isEqualTo(1)
+        assertThat(pageAfter.upgradableCount).isEqualTo(0)
         assertThat(pageAfter.page).isEqualTo(1)
         assertThat(pageAfter.totalPages).isEqualTo(1)
         val usageAfter = pageAfter.items
@@ -406,14 +407,46 @@ class StencilIntegrationTest : IntegrationTestBase() {
         assertThat(publishedRow).isNotNull
         assertThat(publishedRow!!.stencilVersion).isEqualTo(1)
 
-        // Now that the variant has a draft, only the draft is the upgrade target —
-        // the published row is no longer separately upgradable (issue #598 follow-up),
-        // and it carries the reason the UI explains on hover.
-        assertThat(draftRow.upgradable).isTrue()
-        assertThat(draftRow.upgradeBlockReason).isNull()
+        // The draft now pins the latest stencil version (v2), so it is up to date —
+        // no longer a pending upgrade target. The published row remains superseded by
+        // the draft. Each carries the reason the UI explains on hover.
+        assertThat(draftRow.upgradable).isFalse()
+        assertThat(draftRow.upgradeBlockReason)
+            .isEqualTo(StencilUsageDetail.UpgradeBlockReason.UP_TO_DATE)
         assertThat(publishedRow.upgradable).isFalse()
         assertThat(publishedRow.upgradeBlockReason)
             .isEqualTo(StencilUsageDetail.UpgradeBlockReason.HAS_DRAFT)
+    }
+
+    @Test
+    fun `a template already pinned to the latest stencil version is not upgradable`() = test {
+        val tenant = createTenant("Already Latest")
+        val tenantId = TenantId(tenant.id)
+        val stencilId = stencilId(tenantId)
+
+        // Stencil v1 and v2, both published.
+        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+        CreateStencilVersion(stencilId = stencilId, content = createTestContent()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
+
+        // Template embedding the stencil, upgraded to v2 (the latest) and published —
+        // so its only (published) version already pins the latest stencil version.
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
+        UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 2).execute()
+        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+        val page = GetStencilUsagePage(stencilId = stencilId).query()
+        val row = page.items.single { it.templateId == templateKey }
+        assertThat(row.stencilVersion).isEqualTo(2)
+        assertThat(row.upgradable).isFalse()
+        assertThat(row.upgradeBlockReason)
+            .isEqualTo(StencilUsageDetail.UpgradeBlockReason.UP_TO_DATE)
+        assertThat(page.upgradableCount).isEqualTo(0)
     }
 
     /** A template body embedding [stencilKey] v1 once (with a children slot so the upgrade can rewrite it). */

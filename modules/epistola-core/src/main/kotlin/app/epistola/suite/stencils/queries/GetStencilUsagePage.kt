@@ -44,12 +44,23 @@ data class GetStencilUsagePage(
 }
 
 /**
- * Shared CTEs: `usage` (one row per template-version/stencil-version with an
- * instance count), `flagged` (adds the per-variant `upgradable` flag), and
- * `reasoned` (adds the block reason for non-upgradable rows).
+ * Shared CTEs: `latest_stencil` (the stencil's latest published version),
+ * `usage` (one row per template-version/stencil-version with an instance count),
+ * `flagged` (adds the per-variant candidate flag), and `reasoned` (adds the
+ * `upgradable` flag and the block reason for non-upgradable rows).
+ *
+ * A candidate row is only `upgradable` when it pins a version other than the
+ * stencil's latest published version — a row already on the latest version has
+ * nothing to upgrade to and is reported as `UP_TO_DATE`, not upgradable.
  */
 private val USAGE_CTES = """
-    WITH usage AS (
+    WITH latest_stencil AS (
+        SELECT COALESCE(MAX(id), 0) AS latest_published_version
+        FROM stencil_versions
+        WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
+          AND stencil_key = :stencilId AND status = 'published'
+    ),
+    usage AS (
         SELECT tv.template_key, tv.catalog_key, c.type AS catalog_type, dt.name AS template_name,
                tv.variant_key, tv.id AS version_id, tv.status AS version_status,
                COALESCE((node.value -> 'props' ->> 'version')::int, 0) AS stencil_version,
@@ -79,14 +90,16 @@ private val USAGE_CTES = """
     ),
     reasoned AS (
         SELECT f.*,
-               (f.is_candidate AND f.rn = 1) AS upgradable,
+               (f.is_candidate AND f.rn = 1 AND f.stencil_version <> ls.latest_published_version) AS upgradable,
                CASE
-                   WHEN f.is_candidate AND f.rn = 1 THEN NULL
+                   WHEN f.is_candidate AND f.rn = 1 AND f.stencil_version <> ls.latest_published_version THEN NULL
                    WHEN f.catalog_type <> 'AUTHORED' THEN 'SUBSCRIBED'
+                   WHEN f.is_candidate AND f.rn = 1 THEN 'UP_TO_DATE'
                    WHEN f.variant_has_draft THEN 'HAS_DRAFT'
                    ELSE 'SUPERSEDED'
                END AS block_reason
         FROM flagged f
+        CROSS JOIN latest_stencil ls
     )
 """
 
@@ -105,6 +118,7 @@ class GetStencilUsagePageHandler(
             "$USAGE_CTES SELECT COUNT(*) AS total_all, COUNT(*) FILTER (WHERE upgradable) AS upgradable_count FROM reasoned",
         )
             .bind("tenantId", query.stencilId.tenantKey)
+            .bind("catalogKey", query.stencilId.catalogKey)
             .bind("stencilId", query.stencilId.key.value)
             .map { rs, _ -> rs.getInt("total_all") to rs.getInt("upgradable_count") }
             .one()
@@ -134,6 +148,7 @@ class GetStencilUsagePageHandler(
             """,
         )
             .bind("tenantId", query.stencilId.tenantKey)
+            .bind("catalogKey", query.stencilId.catalogKey)
             .bind("stencilId", query.stencilId.key.value)
             .bind("filter", filter)
             .bind("limit", USAGE_PAGE_SIZE)
