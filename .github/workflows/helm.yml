@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Helm
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: "v4.2.2"
 
@@ -33,7 +33,7 @@ jobs:
         run: helm lint charts/epistola
 
       - name: Scan Helm chart for misconfigurations
-        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
+        uses: aquasecurity/trivy-action@df678dbccf677bc6937338d569ba0da18964a8cc # master
         with:
           scan-type: "config"
           scan-ref: "charts/epistola"
@@ -68,7 +68,7 @@ jobs:
           echo "Release version: $VERSION"
 
       - name: Set up Helm
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: "v4.2.2"
 
