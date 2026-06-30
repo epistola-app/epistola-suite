@@ -366,17 +366,20 @@ class CatalogHandler {
             val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usageCounts = usages.mapValues { it.value.size }
-            // Per-stencil version-conflict map (slug → "pinned v1, v2 (latest v3)").
-            // Empty when the catalog is exportable. Used by the browse view to flag
-            // stencils that block export — mirrors the precheck the export endpoint
-            // runs. The check also fires when templates pin a single stale version
-            // (not just multi-version usage), hence the explicit `latest` callout.
+            // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
+            // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
+            // the browse view to flag stencils that block export — mirrors the precheck
+            // the export endpoint runs. The check also fires when templates pin a single
+            // stale version (not just multi-version usage), hence the explicit `latest`
+            // callout.
             val stencilVersionConflicts = FindStencilVersionExportConflicts(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
             ).query().associate { c ->
+                val staleVersions = c.pins.map { it.pinnedVersion }.distinct().sorted()
+                    .joinToString(", v", prefix = "v")
                 c.stencilKey.value to
-                    "pinned v${c.versions.joinToString(", v")} (latest v${c.latestPublishedVersion})"
+                    "$staleVersions still pinned by ${c.pins.size} template(s) (latest v${c.latestPublishedVersion})"
             }
 
             ServerResponse.ok().page("catalogs/browse") {
@@ -686,8 +689,13 @@ class CatalogHandler {
                 StencilConflictView(
                     name = s.stencilName,
                     slug = s.stencilKey.value,
-                    versionsDisplay = s.versions.joinToString(", ") { "v$it" },
                     latestPublishedVersion = "v${s.latestPublishedVersion}",
+                    pins = s.pins.map { p ->
+                        StencilConflictView.PinView(
+                            templateLabel = p.displayLabel,
+                            pinned = "v${p.pinnedVersion}",
+                        )
+                    },
                 )
             },
         )
@@ -727,9 +735,15 @@ class CatalogHandler {
     data class StencilConflictView(
         val name: String,
         val slug: String,
-        val versionsDisplay: String,
         val latestPublishedVersion: String,
-    )
+        /** The published template-variants that still pin an outdated version. */
+        val pins: List<PinView>,
+    ) {
+        data class PinView(
+            val templateLabel: String,
+            val pinned: String,
+        )
+    }
 
     /**
      * The shared model for **every** render of the catalog list — the full

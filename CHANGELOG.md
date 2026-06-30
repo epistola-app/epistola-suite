@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalog): **Export-conflict dialog names the templates to fix.** When a catalog export is blocked because templates pin an outdated stencil version, the dialog (and the REST/exception message) now lists each published template that still pins an older version and tells you to upgrade and publish it, instead of an ambiguous version list that mixed already-correct templates in. The browse-view pin-drift hint is likewise rephrased.
+- **[user]** fix(stencils): **Stencil usage page no longer marks up-to-date templates as upgradable.** On a stencil's "Templates using this stencil" page, the **Upgradable** filter and count now exclude templates already pinned to the stencil's latest published version (they show a "already uses the latest stencil version" reason instead). The page also makes clear that upgrading creates a **draft you must publish yourself** — and that environment-deployed templates must be re-published to their environment.
+
 ## [1.0.0-RC1] - 2026-06-25
 
 Epistola Suite 1.0.0-RC1 is the first stable release: from this version onward the database is no longer reset between upgrades — your data persists across versions, with every schema change delivered as a forward migration. This release also fixes template creation failing for long slugs, and lands the 1.0.0-RC1 database consolidation — monthly-partitioned event log with retention, UUIDv7 ids, and a schema cleanup.
