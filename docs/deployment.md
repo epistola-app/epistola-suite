@@ -274,6 +274,33 @@ timeout) and leak detection off. Migrations stay bounded by
 > `SPRING_DATASOURCE_HIKARI_MAX_LIFETIME` via `config.env`) so stale connections
 > are retired before the proxy drops them.
 
+## Logging
+
+Two chart values set the log level on the app pods (both empty by default, so
+the application's built-in defaults apply):
+
+- **`logging.level`** — the root logger, rendered as `LOGGING_LEVEL_ROOT`
+  (e.g. `WARN`, `INFO`, `DEBUG`).
+- **`logging.appLevel`** — the application's own `app.epistola` packages,
+  rendered as `LOGGING_LEVEL_APP_EPISTOLA`. Set this to `DEBUG` to trace the
+  app's own behaviour without turning every library verbose.
+
+```yaml
+logging:
+  level: INFO
+  appLevel: DEBUG
+```
+
+These apply to the app pods only; the migration step keeps its own minimal
+logging. For any **other** logger, set the corresponding `LOGGING_LEVEL_<LOGGER>`
+env var via `config.env` — e.g. quiet a noisy library:
+
+```yaml
+config:
+  env:
+    LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB: WARN
+```
+
 ## Observability
 
 Prometheus scrape, OpenTelemetry agent friendliness (`observability.otelAgent`)
