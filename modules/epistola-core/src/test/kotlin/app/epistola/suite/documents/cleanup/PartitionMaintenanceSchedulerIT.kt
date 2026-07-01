@@ -113,6 +113,22 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `startup bootstrap provisions the test-clock month partition (not just real wall-clock)`() {
+        // Regression guard for the CI break on 2026-07-01: partition provisioning at
+        // startup ran under the real system clock, but integration tests stamp
+        // occurred_at with the frozen test clock (MutableClock, 2026-06-10). Once real
+        // time drifted into a later month, the frozen month had no event_log partition
+        // and every command insert failed ("no partition of relation event_log found").
+        // PartitionBootstrapTestConfiguration re-runs maintenance under the test clock at
+        // startup; this asserts the frozen-month partition exists WITHOUT this test
+        // calling maintainPartitions() itself.
+        val monthSuffix = YearMonth.now(testClock).format(DateTimeFormatter.ofPattern("yyyy_MM"))
+        assertThat(tableExists("event_log_$monthSuffix"))
+            .`as`("test-clock month event_log partition must be bootstrapped at startup")
+            .isTrue
+    }
+
+    @Test
     fun `is idempotent — re-running maintenance does not throw or create duplicates`() {
         scheduler.maintainPartitions()
         scheduler.maintainPartitions()

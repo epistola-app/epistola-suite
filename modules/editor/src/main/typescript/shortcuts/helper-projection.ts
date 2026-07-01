@@ -165,7 +165,7 @@ function buildCommandRowsFromRegistry<TContext>(
   }
 
   return [...commandRowsById.values()]
-    .sort((left, right) => left.order - right.order)
+    .toSorted((left, right) => left.order - right.order)
     .map((row) => {
       const keys = [...row.displays].join(' / ');
       return {

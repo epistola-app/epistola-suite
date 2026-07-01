@@ -264,7 +264,7 @@ export async function openStencilPickerDialog(
       }
 
       // Sort: draft first, then published (newest first), then archived
-      const sorted = [...versions].sort((a, b) => {
+      const sorted = [...versions].toSorted((a, b) => {
         const order: Record<string, number> = { draft: 0, published: 1, archived: 2 };
         if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
         return b.version - a.version;
