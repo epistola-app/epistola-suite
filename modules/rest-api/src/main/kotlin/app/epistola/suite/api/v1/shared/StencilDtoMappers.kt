@@ -5,6 +5,7 @@ import app.epistola.api.model.StencilSummaryDto
 import app.epistola.api.model.StencilUsageDto
 import app.epistola.api.model.StencilVersionDto
 import app.epistola.api.model.StencilVersionSummaryDto
+import app.epistola.api.model.TemplateDocumentDto
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.StencilSummaryWithVersionInfo
 import app.epistola.suite.stencils.model.StencilUsage
@@ -12,6 +13,7 @@ import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.model.StencilVersionSummary
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 internal fun Stencil.toDto(versions: List<StencilVersionSummary>) = StencilDto(
     id = id.value,
@@ -50,7 +52,8 @@ internal fun StencilVersion.toDto(objectMapper: ObjectMapper) = StencilVersionDt
     id = id.value,
     stencilId = stencilKey.value,
     status = status.toApiStatus(),
-    content = objectMapper.valueToTree(content),
+    content = objectMapper.convertValue(content, TemplateDocumentDto::class.java),
+    parameterSchema = parameterSchema as? ObjectNode,
     createdAt = createdAt,
     publishedAt = publishedAt,
     archivedAt = archivedAt,

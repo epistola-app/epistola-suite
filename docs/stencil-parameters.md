@@ -308,9 +308,6 @@ the canvas converges to the resolved value. The cache invalidates on
 
 ## 9. Known limitations (future work)
 
-- **Public REST API contract** — the internal `StencilHandler` accepts
-  `parameterSchema`, but the public `StencilVersionDto` in
-  `epistola-contract` doesn't expose it yet.
 - **Alias collision warnings** — the validator hard-rejects reserved
   aliases (`sys`, `item`, `index`), but doesn't warn when a chosen alias
   collides with a visible ancestor scope's alias (e.g. picking `letter`
