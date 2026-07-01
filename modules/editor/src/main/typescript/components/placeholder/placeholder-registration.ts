@@ -14,7 +14,7 @@
 
 import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import type { Node, NodeId, SlotId } from '../../types/index.js';
+import type { Node, NodeId } from '../../types/index.js';
 import { html, nothing } from 'lit';
 import { nanoid } from 'nanoid';
 import { placeholderContext } from '../stencil/ancestry.js';
@@ -78,13 +78,13 @@ export function createPlaceholderDefinition(): ComponentDefinition {
 
     createInitialSlots: (nodeId: NodeId) => [
       {
-        id: nanoid() as SlotId,
+        id: nanoid(),
         nodeId,
         name: PLACEHOLDER_SLOT_DEFAULT,
         children: [],
       },
       {
-        id: nanoid() as SlotId,
+        id: nanoid(),
         nodeId,
         name: PLACEHOLDER_SLOT_FILL,
         children: [],

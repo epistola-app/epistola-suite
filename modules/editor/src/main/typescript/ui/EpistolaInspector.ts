@@ -103,7 +103,7 @@ export class EpistolaInspector extends LitElement {
         </div>
 
         <!-- Component-specific inspector (columns, table, etc.) -->
-        ${def?.renderInspector ? def.renderInspector({ node, engine: this.engine! }) : nothing}
+        ${def?.renderInspector ? def.renderInspector({ node, engine: this.engine }) : nothing}
 
         <!-- Props -->
         ${!presentation?.suppressPropsSection && def?.inspector && def.inspector.length > 0
@@ -361,7 +361,7 @@ export class EpistolaInspector extends LitElement {
     if (!this.engine) return nothing;
 
     const groups = this.engine.styleRegistry.groups;
-    const inlineStyles = (node.styles ?? {}) as Record<string, unknown>;
+    const inlineStyles = node.styles ?? {};
 
     return html`
       <div class="inspector-section">
@@ -719,7 +719,7 @@ export class EpistolaInspector extends LitElement {
     const node = this.doc!.nodes[this.selectedNodeId];
     if (!node) return;
 
-    const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>;
+    const newStyles = structuredClone(node.styles ?? {});
 
     const compound = type ? COMPOUND_STYLE_TYPES[type] : undefined;
     if (compound && value != null && typeof value === 'object') {
@@ -789,7 +789,7 @@ export class EpistolaInspector extends LitElement {
       delete newMargins[side];
     }
     const newSettings = {
-      ...(this.doc.pageSettingsOverride ?? {}),
+      ...this.doc.pageSettingsOverride,
       margins: newMargins,
     } as PageSettings;
 
@@ -826,7 +826,7 @@ export class EpistolaInspector extends LitElement {
 
     openExpressionDialog({
       initialValue: currentValue,
-      fieldPaths: this.engine.getAvailableVariablesAt(this.selectedNodeId!),
+      fieldPaths: this.engine.getAvailableVariablesAt(this.selectedNodeId),
       getExampleData: () => this.engine?.getEvaluationContextAt(this.selectedNodeId!) ?? {},
       locale: this.engine.locale,
       label: isLoopExpr ? 'Loop Expression' : isConditionalExpr ? 'Condition' : 'Expression',

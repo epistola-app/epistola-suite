@@ -143,7 +143,7 @@ describe('block clipboard helpers', () => {
 
   it('skips missing child nodes and missing slots while extracting', () => {
     const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren();
-    const missingSlotId = slotId('missing-slot') as SlotId;
+    const missingSlotId = slotId('missing-slot');
     const missingChildId = nodeId('missing-child');
 
     doc.nodes[containerNodeId].slots.push(missingSlotId);
