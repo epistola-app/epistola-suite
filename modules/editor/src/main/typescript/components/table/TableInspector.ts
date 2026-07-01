@@ -360,7 +360,7 @@ export class TableInspector extends LitElement {
         <div class="inspector-field">
           <label class="inspector-field-label">Border</label>
           <epistola-border-input
-            .value=${readBorderFromStyles(currentStyles as Record<string, unknown>)}
+            .value=${readBorderFromStyles(currentStyles)}
             .units=${['pt', 'sp']}
             @change=${(e: CustomEvent) => this._handleCellBorderChange(e.detail as BorderValue)}
           ></epistola-border-input>
@@ -372,12 +372,12 @@ export class TableInspector extends LitElement {
   private _handleCellBorderChange(borderValue: BorderValue) {
     const sel = normalizeSelection(this._cellSelection!);
     const props = this.node.props ?? {};
-    const cellStyles = { ...((props.cellStyles as Record<string, Record<string, unknown>>) ?? {}) };
+    const cellStyles = { ...(props.cellStyles as Record<string, Record<string, unknown>>) };
 
     for (let row = sel.startRow; row <= sel.endRow; row++) {
       for (let col = sel.startCol; col <= sel.endCol; col++) {
         const cellKey = `${row}-${col}`;
-        const existing = { ...(cellStyles[cellKey] ?? {}) };
+        const existing = { ...cellStyles[cellKey] };
         expandBorderToStyles(borderValue, existing);
         if (Object.keys(existing).length > 0) {
           cellStyles[cellKey] = existing;
@@ -397,13 +397,13 @@ export class TableInspector extends LitElement {
   private _handleCellStyleChange(styleKey: string, value: unknown) {
     const sel = normalizeSelection(this._cellSelection!);
     const props = this.node.props ?? {};
-    const cellStyles = { ...((props.cellStyles as Record<string, Record<string, unknown>>) ?? {}) };
+    const cellStyles = { ...(props.cellStyles as Record<string, Record<string, unknown>>) };
 
     // Apply to all cells in selection
     for (let row = sel.startRow; row <= sel.endRow; row++) {
       for (let col = sel.startCol; col <= sel.endCol; col++) {
         const cellKey = `${row}-${col}`;
-        const existing = { ...(cellStyles[cellKey] ?? {}) };
+        const existing = { ...cellStyles[cellKey] };
         if (value === undefined || value === '') {
           delete existing[styleKey];
         } else {

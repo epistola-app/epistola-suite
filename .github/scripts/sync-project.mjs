@@ -83,7 +83,7 @@ function graphql(query, variables = {}) {
       try {
         const response = JSON.parse(error.stdout);
         if (response.errors) {
-          throw new Error(response.errors.map((e) => e.message).join('; '));
+          throw new Error(response.errors.map((e) => e.message).join('; '), { cause: error });
         }
       } catch {
         // Ignore parse errors, use original error

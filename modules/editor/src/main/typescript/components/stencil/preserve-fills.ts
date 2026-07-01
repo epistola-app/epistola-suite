@@ -66,7 +66,7 @@ export interface ReKeyedFill {
 export function reKeyCapturedFill(capture: CapturedFill): ReKeyedFill {
   const nodeIdMap = new Map<string, NodeId>();
   const slotIdMap = new Map<string, string>();
-  for (const id of capture.nodes.keys()) nodeIdMap.set(id, nanoid() as NodeId);
+  for (const id of capture.nodes.keys()) nodeIdMap.set(id, nanoid());
   for (const id of capture.slots.keys()) slotIdMap.set(id, nanoid());
 
   const nodes: Node[] = [];
@@ -87,7 +87,7 @@ export function reKeyCapturedFill(capture: CapturedFill): ReKeyedFill {
       ...s,
       id: newId as unknown as Slot['id'],
       nodeId: nodeIdMap.get(s.nodeId as string)!,
-      children: s.children.map((c) => nodeIdMap.get(c as string)!) as Slot['children'],
+      children: s.children.map((c) => nodeIdMap.get(c as string)!),
     });
   }
   const rootChildIds = capture.rootChildIds.map((c) => nodeIdMap.get(c)!);

@@ -12,6 +12,7 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -41,7 +42,7 @@ data class UpdateTheme(
     init {
         if (name != null) {
             validate("name", name.isNotBlank()) { "Name cannot be blank" }
-            validate("name", name.length <= 255) { "Name must be 255 characters or less" }
+            validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         }
     }
 }

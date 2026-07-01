@@ -9,7 +9,6 @@
 
 import './theme-editor/theme-editor.css';
 import './theme-editor/EpistolaThemeEditor.js';
-import type { EpistolaThemeEditor } from './theme-editor/EpistolaThemeEditor.js';
 import type { ThemeData } from './theme-editor/ThemeEditorState.js';
 import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
 
@@ -51,7 +50,7 @@ export interface ThemeEditorInstance {
 export function mountThemeEditor(options: ThemeEditorOptions): ThemeEditorInstance {
   const { container, theme, onSave, readonly } = options;
 
-  const editorEl = document.createElement('epistola-theme-editor') as EpistolaThemeEditor;
+  const editorEl = document.createElement('epistola-theme-editor');
   editorEl.style.display = 'block';
 
   editorEl.init(theme, onSave, readonly);

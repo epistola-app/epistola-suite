@@ -14,6 +14,7 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import app.epistola.template.model.ThemeRef
@@ -32,7 +33,7 @@ data class CreateDocumentTemplate(
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
-        validate("name", name.length <= 255) { "Name must be 255 characters or less" }
+        validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
     }
 }
 

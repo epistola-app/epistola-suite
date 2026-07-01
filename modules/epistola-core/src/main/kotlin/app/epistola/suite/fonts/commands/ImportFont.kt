@@ -12,6 +12,8 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -49,6 +51,11 @@ data class ImportFont(
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
+
+    init {
+        validate("name", name.isNotBlank()) { "Name is required" }
+        validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+    }
 }
 
 @Component

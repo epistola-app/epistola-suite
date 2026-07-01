@@ -131,6 +131,28 @@ class TenantApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `creating a tenant with an over-long name returns 400 validation problem details`() {
+        val (_, apiKey) = seedTenantAndKey()
+        val overLongName = "x".repeat(101)
+
+        val response = restTemplate.exchange(
+            "/api/tenants",
+            HttpMethod.POST,
+            HttpEntity("""{"id":"over-long-name-tenant","name":"$overLongName"}""", baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/validation-error")
+        assertThat(JsonPath.read<String>(body, "$.detail")).isEqualTo("Name must be 100 characters or less")
+        assertThat(JsonPath.read<String>(body, "$.errors[0].field")).isEqualTo("name")
+        assertThat(JsonPath.read<String>(body, "$.errors[0].message")).isEqualTo("Name must be 100 characters or less")
+    }
+
+    @Test
     fun `unsupported media type returns 415 problem details`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val headers = baseHeaders(apiKey).apply {

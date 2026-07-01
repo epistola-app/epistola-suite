@@ -637,7 +637,7 @@ export class ShortcutResolver<TContext> {
         }
         return matchesStroke(nextStroke, normalizedEvent);
       })
-      .sort((left, right) => left.entry.order - right.entry.order);
+      .toSorted((left, right) => left.entry.order - right.entry.order);
 
     if (matchingCandidates.length === 0) {
       this.activeChord = null;

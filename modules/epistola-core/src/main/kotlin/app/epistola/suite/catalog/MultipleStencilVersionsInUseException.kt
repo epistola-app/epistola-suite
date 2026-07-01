@@ -22,16 +22,36 @@ class MultipleStencilVersionsInUseException(
     val catalogKey: CatalogKey,
     val stencils: List<StencilVersionConflict>,
 ) : RuntimeException(
-    "Cannot export catalog '${catalogKey.value}': stencil version-pins out of sync with latest published — ${
-        stencils.joinToString(", ") {
-            "'${it.stencilKey.value}' templates pin v${it.versions.joinToString(", v")}, latest published is v${it.latestPublishedVersion}"
-        }
-    }",
+    buildString {
+        append("Cannot export catalog '${catalogKey.value}': ")
+        append(
+            stencils.joinToString("; ") { s ->
+                "stencil '${s.stencilKey.value}' (latest published v${s.latestPublishedVersion}) is still pinned at " +
+                    "an older version by ${s.pins.joinToString(", ") { p -> "'${p.displayLabel}' v${p.pinnedVersion}" }}"
+            },
+        )
+        append(". Upgrade and publish those template variants, then export.")
+    },
 ) {
     data class StencilVersionConflict(
         val stencilKey: StencilKey,
         val stencilName: String,
-        val versions: List<Int>,
         val latestPublishedVersion: Int,
+        /** The published template-variants that pin an out-of-date version of this stencil. */
+        val pins: List<TemplatePin>,
     )
+
+    /**
+     * One published template-variant whose latest published version pins a
+     * version of the stencil other than the latest published one.
+     */
+    data class TemplatePin(
+        val templateName: String,
+        val variantKey: String,
+        val variantTitle: String?,
+        val pinnedVersion: Int,
+    ) {
+        /** Human label: the template name, plus the variant title when it has one. */
+        val displayLabel: String get() = variantTitle?.let { "$templateName · $it" } ?: templateName
+    }
 }

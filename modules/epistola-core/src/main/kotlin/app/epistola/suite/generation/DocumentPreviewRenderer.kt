@@ -91,10 +91,11 @@ class DocumentPreviewRenderer(
                 resolvedTheme,
                 renderingDefaults,
                 metadataWithEngine,
-                pdfaCompliant = false,
+                pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
                 culture = culture,
+                watermarkText = PREVIEW_WATERMARK,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -108,15 +109,26 @@ class DocumentPreviewRenderer(
                 template.themeKey,
                 tenant.defaultThemeKey,
                 metadataWithEngine,
-                pdfaCompliant = false,
+                pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
                 culture = culture,
+                watermarkText = PREVIEW_WATERMARK,
             )
         }
 
         return outputStream.toByteArray()
+    }
+
+    companion object {
+        /**
+         * Watermark stamped on every preview/draft render. Marks the output as a
+         * preview so the fast synchronous preview path (editor, REST `/preview`,
+         * MCP `preview_document`) can't be mistaken for — or abused as — the real
+         * generation endpoint. Final/batch generation passes no watermark.
+         */
+        const val PREVIEW_WATERMARK = "PREVIEW"
     }
 }

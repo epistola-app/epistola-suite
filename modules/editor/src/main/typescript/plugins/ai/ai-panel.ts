@@ -21,10 +21,10 @@ import { applyProposal } from './apply-proposal.js';
 import { icon } from '../../ui/icons.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const ACCEPTED_TYPES = [
+const ACCEPTED_TYPES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
+]);
 const ACCEPT_STRING =
   '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -141,7 +141,7 @@ export class EpistolaAiPanel extends LitElement {
     if (!input.files?.length) return;
 
     for (const file of Array.from(input.files)) {
-      if (!ACCEPTED_TYPES.includes(file.type)) {
+      if (!ACCEPTED_TYPES.has(file.type)) {
         this._showAttachError(
           `"${file.name}" is not a supported file type. Only PDF and DOCX are allowed.`,
         );

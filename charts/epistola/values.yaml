@@ -311,6 +311,19 @@ config:
   # Additional environment variables
   env: {}
 
+# Logging levels (optional). Blank values fall back to the application's
+# built-in defaults. Applied to the app pods only; the migration step keeps
+# its own minimal logging. For any logger other than the two below, set the
+# corresponding LOGGING_LEVEL_<LOGGER> env var via config.env.
+logging:
+  # Root logger level → LOGGING_LEVEL_ROOT. One of TRACE, DEBUG, INFO, WARN,
+  # ERROR, OFF.
+  level: ""
+  # Level for the application's own `app.epistola` packages →
+  # LOGGING_LEVEL_APP_EPISTOLA. Raise to DEBUG to trace app behaviour without
+  # turning the whole root logger (and all libraries) verbose.
+  appLevel: ""
+
 # Connection pool (HikariCP) tuning. The base liveness/recovery settings
 # (socketTimeout, keepalive, leak detection, …) live in the app's
 # application.yaml and apply by default; these values let operators size the

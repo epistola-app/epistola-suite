@@ -71,8 +71,8 @@ describe('handleDrop', () => {
     handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
 
     const childrenBefore = engine.doc.slots[rootSlotId].children;
-    const header1 = childrenBefore[0]!; // first-page variant
-    const header2 = childrenBefore[1]!; // running variant
+    const header1 = childrenBefore[0]; // first-page variant
+    const header2 = childrenBefore[1]; // running variant
 
     // Drop header1 just past header2. The drop UI uses original-list coords:
     // header2 is at index 1, so the "after header2" edge yields index 2.

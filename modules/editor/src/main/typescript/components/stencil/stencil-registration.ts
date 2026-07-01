@@ -15,7 +15,6 @@ import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
-import type { JsonSchema } from '../../data-contract/types.js';
 import { openStencilPickerDialog } from './stencil-picker-dialog.js';
 import { reKeyContent } from './rekey-content.js';
 import { computeAncestorScope } from './ancestry.js';
@@ -352,7 +351,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     // same field in the future by returning a constant.
     parameters: (node: Node) => {
       if (!isStencil(node)) return null;
-      const snapshot = node.props.parameterSchemaSnapshot as JsonSchema | undefined;
+      const snapshot = node.props.parameterSchemaSnapshot;
       return snapshot ?? null;
     },
 
