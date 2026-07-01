@@ -2,7 +2,6 @@ package app.epistola.suite.config
 
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
-import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import ch.qos.logback.core.spi.FilterReply
@@ -21,7 +20,7 @@ class SpringAiMcpNoiseRewriterTest {
 
     @BeforeEach
     fun attachAppender() {
-        replacementLogger = logbackLogger("app.epistola.suite.mcp.SpringAiNoise")
+        replacementLogger = LoggerFactory.getLogger("app.epistola.suite.mcp.SpringAiNoise") as Logger
         listAppender = ListAppender<ILoggingEvent>().apply { start() }
         replacementLogger.addAppender(listAppender)
     }
@@ -29,25 +28,6 @@ class SpringAiMcpNoiseRewriterTest {
     @AfterEach
     fun detachAppender() {
         replacementLogger.detachAppender(listAppender)
-    }
-
-    /**
-     * Returns the logback [Logger] for [name], robust to SLF4J's lazy, one-time
-     * initialization window. During that window `LoggerFactory` hands out
-     * `SubstituteLogger` / `SubstituteLoggerFactory` instances; under parallel
-     * test-class execution this class could land in it and the old direct cast
-     * `LoggerFactory.getLogger(name) as Logger` then threw `ClassCastException`
-     * (an intermittent, parallel-only flake). Logback is the bound backend, so
-     * the real [LoggerContext] appears within a few ms — we wait for it rather
-     * than cast whatever SLF4J returns mid-initialization.
-     */
-    private fun logbackLogger(name: String): Logger {
-        repeat(500) {
-            val factory = LoggerFactory.getILoggerFactory()
-            if (factory is LoggerContext) return factory.getLogger(name)
-            Thread.sleep(5)
-        }
-        error("SLF4J/logback backend did not finish initializing")
     }
 
     @Test
