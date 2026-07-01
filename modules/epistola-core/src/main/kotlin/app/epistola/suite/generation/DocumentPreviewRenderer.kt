@@ -64,8 +64,8 @@ class DocumentPreviewRenderer(
             title = template.name,
             author = tenant.name,
         )
-        val assetResolver = AssetResolver { assetId ->
-            mediator.query(GetAssetContent(tenantId, AssetKey.of(assetId)))
+        val assetResolver = AssetResolver { assetId, catalogKey ->
+            mediator.query(GetAssetContent(tenantId, AssetKey.of(assetId), catalogKey?.let { CatalogKey.of(it) }))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
         // Owning catalog for unqualified font refs: same cascade the theme
@@ -91,10 +91,11 @@ class DocumentPreviewRenderer(
                 resolvedTheme,
                 renderingDefaults,
                 metadataWithEngine,
-                pdfaCompliant = false,
+                pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
                 culture = culture,
+                watermarkText = PREVIEW_WATERMARK,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -108,15 +109,26 @@ class DocumentPreviewRenderer(
                 template.themeKey,
                 tenant.defaultThemeKey,
                 metadataWithEngine,
-                pdfaCompliant = false,
+                pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
                 culture = culture,
+                watermarkText = PREVIEW_WATERMARK,
             )
         }
 
         return outputStream.toByteArray()
+    }
+
+    companion object {
+        /**
+         * Watermark stamped on every preview/draft render. Marks the output as a
+         * preview so the fast synchronous preview path (editor, REST `/preview`,
+         * MCP `preview_document`) can't be mistaken for — or abused as — the real
+         * generation endpoint. Final/batch generation passes no watermark.
+         */
+        const val PREVIEW_WATERMARK = "PREVIEW"
     }
 }

@@ -25,7 +25,7 @@ export type TextShortcutCommandId =
 // Commands — text shortcuts are marker-only (ProseMirror handles execution)
 // ---------------------------------------------------------------------------
 
-const TEXT_SHORTCUT_COMMANDS: readonly CommandDefinition<unknown>[] = [
+const TEXT_SHORTCUT_COMMANDS: readonly CommandDefinition[] = [
   {
     id: TEXT_SHORTCUT_COMMAND_IDS.bold,
     label: 'Bold',
@@ -99,7 +99,7 @@ const TEXT_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] = [
 // Registry
 // ---------------------------------------------------------------------------
 
-export const TEXT_SHORTCUT_REGISTRY: ShortcutRegistryDefinition<unknown> = defineShortcutRegistry({
+export const TEXT_SHORTCUT_REGISTRY: ShortcutRegistryDefinition = defineShortcutRegistry({
   commands: TEXT_SHORTCUT_COMMANDS,
   keybindings: TEXT_SHORTCUT_KEYBINDINGS,
 });
@@ -125,7 +125,7 @@ for (const binding of TEXT_SHORTCUT_REGISTRY.keybindings) {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function getTextShortcutRegistry(): ShortcutRegistryDefinition<unknown> {
+export function getTextShortcutRegistry(): ShortcutRegistryDefinition {
   return TEXT_SHORTCUT_REGISTRY;
 }
 

@@ -131,9 +131,20 @@
                         <span id="upgrade-status" style="font-size: var(--ep-text-sm); color: var(--ep-muted-foreground);"></span>
                     </div>
 
-                    <p th:if="${auth.has('TEMPLATE_EDIT')}" class="text-muted" style="margin-bottom: var(--ep-space-3); font-size: var(--ep-text-sm);">
-                        Published templates are upgraded in a <strong>new draft</strong> — their live version stays unchanged until you publish that draft. Existing drafts are modified in place. Up to 100 templates can be upgraded at a time.
-                    </p>
+                    <div th:if="${auth.has('TEMPLATE_EDIT')}" class="alert alert-info" style="margin-bottom: var(--ep-space-3);">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-lg')}" />
+                        <div>
+                            <div class="alert-title">Upgrading creates a draft — you must publish it yourself</div>
+                            <p style="margin: var(--ep-space-1) 0 0; font-size: var(--ep-text-sm);">
+                                Upgrading a published template lands the change in a <strong>new draft</strong>; its
+                                live version stays unchanged until <strong>you open that template and publish the
+                                draft</strong> (existing drafts are modified in place). The upgrade alone does
+                                <strong>not</strong> change what the template renders, and templates that are
+                                deployed to an environment also need to be <strong>published to that environment</strong>
+                                again. Up to 100 templates can be upgraded at a time.
+                            </p>
+                        </div>
+                    </div>
 
                     <!-- Filter (plain HTMX): the select re-requests the fragment on change,
                          carrying its value as ?filter=…. The hidden state element lets
@@ -193,7 +204,8 @@
                                           th:with="reasonText=${u.upgradeBlockReason == null ? 'This template cannot be upgraded.' :
                                               (u.upgradeBlockReason.name() == 'SUBSCRIBED' ? 'This stencil belongs to a subscribed catalog and is read-only.' :
                                               (u.upgradeBlockReason.name() == 'HAS_DRAFT' ? 'This variant already has an open draft. Upgrade it on the draft row instead.' :
-                                              'Only the latest version of a variant can be upgraded.'))}"
+                                              (u.upgradeBlockReason.name() == 'UP_TO_DATE' ? 'This template already uses the latest stencil version.' :
+                                              'Only the latest version of a variant can be upgraded.')))}"
                                           th:title="${reasonText}"
                                           th:aria-label="${reasonText}">
                                         <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-sm')}" />

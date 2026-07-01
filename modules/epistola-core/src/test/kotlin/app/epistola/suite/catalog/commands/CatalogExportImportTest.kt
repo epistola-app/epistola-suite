@@ -58,10 +58,12 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
@@ -531,6 +533,63 @@ class CatalogExportImportTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `export records a cross-catalog image's asset as a manifest dependency`() {
+        // Regression cover for #555: a template that embeds an image whose asset
+        // lives in ANOTHER catalog must declare that asset as a cross-catalog
+        // dependency in the exported manifest, so an importer knows to resolve it.
+        // (Asset slugs are UUIDs — globally unambiguous — so the dependency is
+        // recorded by slug alone, unlike stencils which also carry a catalogKey.)
+        val tenant = createTenant("CrossCatalogAssetExport")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val sourceKey = CatalogKey.of("xcat-asset-source")
+        val sourceCatalogId = CatalogId(sourceKey, tenantId)
+        val assetCatalogKey = CatalogKey.of("xcat-asset-store")
+
+        val zipBytes: ByteArray
+        val assetId: String
+
+        val exported = withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = sourceKey, name = "Cross-Catalog Asset Source").execute()
+            CreateCatalog(tenantKey = tenantKey, id = assetCatalogKey, name = "Cross-Catalog Asset Store").execute()
+
+            // The asset lives in the OTHER catalog.
+            val asset = UploadAsset(
+                tenantId = tenantKey,
+                name = "shared-logo",
+                mediaType = AssetMediaType.PNG,
+                content = createMinimalPng(),
+                width = 1,
+                height = 1,
+                catalogKey = assetCatalogKey,
+            ).execute()
+
+            // A template in the source catalog references that asset, qualified by
+            // its owning catalog (the cross-catalog reference shape the picker writes).
+            val templateKey = TestIdHelpers.nextTemplateId()
+            val templateId = TemplateId(templateKey, sourceCatalogId)
+            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute()
+            val variantKey = VariantKey.INITIAL
+            val variantId = VariantId(variantKey, templateId)
+            app.epistola.suite.templates.commands.versions.UpdateDraft(
+                variantId = variantId,
+                templateModel = templateWithCrossCatalogImage(asset.id.value.toString(), assetCatalogKey.value),
+            ).execute()
+            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+            ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute() to asset.id.value.toString()
+        }
+        zipBytes = exported.first.zipBytes
+        assetId = exported.second
+
+        val deps = readManifestDependencies(zipBytes)
+        assertThat(deps).anySatisfy { dep ->
+            assertThat(dep.get("type").asString()).isEqualTo("asset")
+            assertThat(dep.get("slug").asString()).isEqualTo(assetId)
+        }
+    }
+
+    @Test
     fun `import fails clearly when cross-catalog code-list dependency is missing`() {
         val tenant = createTenant("MissingDep")
 
@@ -923,6 +982,43 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ),
             themeRef = ThemeRef.Inherit,
         )
+    }
+
+    /**
+     * A template whose single image node references an asset in another catalog,
+     * qualified by that catalog's key (the cross-catalog reference the picker writes).
+     */
+    private fun templateWithCrossCatalogImage(assetId: String, catalogKey: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "image1" to Node(
+                id = "image1",
+                type = "image",
+                slots = emptyList(),
+                props = mapOf("assetId" to assetId, "catalogKey" to catalogKey),
+            ),
+        ),
+        slots = mapOf(
+            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("image1")),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    /** Reads the `dependencies` array from the `catalog.json` inside an export ZIP. */
+    private fun readManifestDependencies(zipBytes: ByteArray): List<JsonNode> {
+        ZipInputStream(zipBytes.inputStream()).use { zin ->
+            var entry = zin.nextEntry
+            while (entry != null) {
+                if (entry.name == "catalog.json") {
+                    val root = ObjectMapper().readTree(zin.readBytes())
+                    return root.get("dependencies")?.toList() ?: emptyList()
+                }
+                entry = zin.nextEntry
+            }
+        }
+        return emptyList()
     }
 
     private fun stencilContentWithRoot(rootId: String): TemplateDocument {

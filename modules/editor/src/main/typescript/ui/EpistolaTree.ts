@@ -129,7 +129,7 @@ export class EpistolaTree extends LitElement {
             );
           },
           canDrop: ({ source }) => {
-            const dragData = source.data as Record<string, unknown>;
+            const dragData = source.data;
             if (!isDragData(dragData)) return false;
 
             // Can't drop a block on itself
@@ -176,7 +176,7 @@ export class EpistolaTree extends LitElement {
           onDrop: ({ self, source }) => {
             labelEl.removeAttribute('data-drop-indicator');
 
-            const dragData = source.data as Record<string, unknown>;
+            const dragData = source.data;
             if (!isDragData(dragData)) return;
 
             const instruction = extractInstruction(self.data);

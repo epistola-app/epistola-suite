@@ -1,19 +1,66 @@
 import { describe, it, expect } from 'vitest';
-import { createImageDefinition } from './image-registration.js';
+import { createImageDefinition, resolveContentUrl, crossCatalogKey } from './image-registration.js';
 import type { ComponentDefinition } from '../../engine/registry.js';
 
 /** Minimal stubs — the asset picker is unused in onPropChange tests. */
+const dummyAsset = {
+  id: 'a',
+  name: 'a',
+  mediaType: 'image/png',
+  sizeBytes: 1,
+  width: null,
+  height: null,
+  catalogKey: 'epistola-demo',
+  contentUrl: '/images/a',
+};
 const dummyOptions = {
   assetPicker: {
+    defaultCatalogKey: 'epistola-demo',
+    listCatalogs: async () => [],
     listAssets: async () => [],
-    uploadAsset: async () => ({ id: 'a', name: 'a', contentType: 'image/png' }),
+    uploadAsset: async () => dummyAsset,
   },
-  contentUrlPattern: '/images/{assetId}',
+  contentUrlPattern: '/tenants/t1/images/{catalogId}/{assetId}/content',
+  defaultCatalogKey: 'epistola-demo',
 };
 
 function imageDef(): ComponentDefinition {
   return createImageDefinition(dummyOptions);
 }
+
+// ---------------------------------------------------------------------------
+// resolveContentUrl — cross-catalog content URL building
+// ---------------------------------------------------------------------------
+
+describe('resolveContentUrl', () => {
+  const pattern = '/tenants/t1/images/{catalogId}/{assetId}/content';
+
+  it("substitutes the node's catalog key and asset id", () => {
+    expect(resolveContentUrl(pattern, 'a1', 'system', 'epistola-demo')).toBe(
+      '/tenants/t1/images/system/a1/content',
+    );
+  });
+
+  it('falls back to the default catalog when the node has none', () => {
+    expect(resolveContentUrl(pattern, 'a1', undefined, 'epistola-demo')).toBe(
+      '/tenants/t1/images/epistola-demo/a1/content',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// crossCatalogKey — only record a catalog for genuinely cross-catalog images
+// ---------------------------------------------------------------------------
+
+describe('crossCatalogKey', () => {
+  it('returns null when the asset is in the template catalog', () => {
+    expect(crossCatalogKey('epistola-demo', 'epistola-demo')).toBeNull();
+  });
+
+  it('returns the asset catalog when it differs from the template catalog', () => {
+    expect(crossCatalogKey('system', 'epistola-demo')).toBe('system');
+  });
+});
 
 // ---------------------------------------------------------------------------
 // onPropChange — aspect ratio lock

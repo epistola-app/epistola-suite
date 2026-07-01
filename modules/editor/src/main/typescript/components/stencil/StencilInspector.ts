@@ -183,7 +183,7 @@ export class StencilInspector extends LitElement {
     const schema = props.parameterSchemaSnapshot;
     if (!schema?.properties || Object.keys(schema.properties).length === 0) return nothing;
 
-    const bindings = (props.parameterBindings ?? {}) as Record<string, string>;
+    const bindings = props.parameterBindings ?? {};
     const declared = Object.keys(schema.properties);
     const required = new Set(schema.required ?? []);
     const boundCount = declared.filter((name) => (bindings[name] ?? '').trim().length > 0).length;
@@ -235,7 +235,7 @@ export class StencilInspector extends LitElement {
 
     const result = await openParameterBindingsDialog({
       schema,
-      initialBindings: (this.node.props.parameterBindings ?? {}) as Record<string, string>,
+      initialBindings: this.node.props.parameterBindings ?? {},
       initialAlias: this.node.props.paramsAlias ?? 'params',
       fieldPaths,
       getExampleData,

@@ -72,7 +72,12 @@ object DependencyScanner {
                 }
                 "image" -> {
                     val assetId = node.props?.get("assetId") as? String
-                    if (assetId != null) assetRefs.add(assetId)
+                    val assetCatalogKey = node.props?.get("catalogKey") as? String
+                    // Same-catalog image assets (no explicit catalogKey) are
+                    // auto-pulled; cross-catalog ones are declared on
+                    // manifest.dependencies and checked at install-time, the
+                    // same rule applied to fonts and code lists.
+                    if (assetId != null && assetCatalogKey == null) assetRefs.add(assetId)
                 }
             }
         }

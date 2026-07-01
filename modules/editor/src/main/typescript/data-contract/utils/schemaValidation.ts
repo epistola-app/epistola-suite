@@ -157,7 +157,7 @@ function validateProperty(
 
   // Validate object properties
   if (expectedType === 'object' && typeof value === 'object' && !Array.isArray(value)) {
-    const objValue = value as JsonObject;
+    const objValue = value;
 
     // Check required nested fields
     if (schema.required) {

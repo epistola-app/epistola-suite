@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -41,7 +42,7 @@ data class CreateCodeList(
 
     init {
         validate("displayName", displayName.isNotBlank()) { "Display name is required" }
-        validate("displayName", displayName.length <= 100) { "Display name must be 100 characters or less" }
+        validate("displayName", displayName.length <= MAX_NAME_LENGTH) { "Display name must be $MAX_NAME_LENGTH characters or less" }
         when (sourceType) {
             CodeListSource.INLINE -> {
                 validate("sourceUrl", sourceUrl == null) { "Inline code lists must not have a source URL" }

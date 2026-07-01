@@ -37,7 +37,7 @@ withListNodes = withListNodes.update('ordered_list', {
     {
       tag: 'ol',
       getAttrs(dom) {
-        const el = dom as HTMLElement;
+        const el = dom;
         return {
           order: el.hasAttribute('start') ? +el.getAttribute('start')! : 1,
           listType: el.getAttribute('data-list-type') || 'decimal',
@@ -64,7 +64,7 @@ withListNodes = withListNodes.update('bullet_list', {
     {
       tag: 'ul',
       getAttrs(dom) {
-        const el = dom as HTMLElement;
+        const el = dom;
         return { listStyle: el.getAttribute('data-list-style') || 'disc' };
       },
     },

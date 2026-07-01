@@ -50,4 +50,4 @@
 
 ## Related parts
 
-- Referenced by [Template](template.md) (image nodes), [Theme](theme.md), and [Font](font.md) (each font variant points at an asset). Asset dependencies in the [Manifest](manifest.md) are tenant-global (no `catalogKey`).
+- Referenced by [Template](template.md) (image nodes), [Theme](theme.md), and [Font](font.md) (each font variant points at an asset). An image node whose asset lives in another catalog carries `node.props.catalogKey` to mark it cross-catalog (a same-catalog image leaves it bare); either way the asset dependency in the [Manifest](manifest.md) stays tenant-global (no `catalogKey`).

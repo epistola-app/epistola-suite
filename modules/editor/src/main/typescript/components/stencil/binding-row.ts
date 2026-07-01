@@ -202,7 +202,7 @@ function leafTypeLabel(prop: JsonSchemaProperty | undefined): string {
   const t = Array.isArray(prop.type) ? prop.type[0] : prop.type;
   const scalar = scalarFromJsonSchema(t, prop.format);
   if (scalar) return fieldTypeLabel(scalar);
-  return fieldTypeLabel((t ?? 'string') as Parameters<typeof fieldTypeLabel>[0]);
+  return fieldTypeLabel(t ?? 'string');
 }
 
 function typeOf(prop: JsonSchemaProperty | undefined): string {

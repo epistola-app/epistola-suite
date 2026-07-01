@@ -67,7 +67,7 @@ export function createTableDefinition(): ComponentDefinition {
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < columns; c++) {
           slots.push({
-            id: nanoid() as SlotId,
+            id: nanoid(),
             nodeId,
             name: cellSlotName(r, c),
             children: [],

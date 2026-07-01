@@ -9,6 +9,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -33,7 +34,7 @@ data class UpdateStencil(
     init {
         name?.let {
             validate("name", it.isNotBlank()) { "Name cannot be blank" }
-            validate("name", it.length <= 255) { "Name must be 255 characters or less" }
+            validate("name", it.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         }
         description?.let {
             validate("description", it.length <= 1000) { "Description must be 1000 characters or less" }

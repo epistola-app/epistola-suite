@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 4,
+  "resource": {
+    "type": "asset",
+    "slug": "01966a00-0000-7000-8000-000000000010",
+    "name": "System Badge",
+    "mediaType": "image/svg+xml",
+    "width": null,
+    "height": null,
+    "contentUrl": "./binaries/system-badge.svg"
+  }
+}

@@ -9,14 +9,13 @@
 
 import './editor.css';
 import './ui/EpistolaEditor.js';
-import type { EpistolaEditor } from './ui/EpistolaEditor.js';
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
 import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
 import { createDefaultRegistry } from './engine/registry.js';
 import type { EditorFeatureFlags } from './engine/feature-flags.js';
 import { createImageDefinition } from './components/image/image-registration.js';
-import type { AssetInfo } from './components/image/asset-picker-dialog.js';
+import type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dialog.js';
 import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
 import { createStencilDefinition } from './components/stencil/stencil-registration.js';
 import { collectStencilUpgradeRefs } from './components/stencil/upgrade-refs.js';
@@ -27,7 +26,7 @@ import { nanoid } from 'nanoid';
 validateCoreShortcutRegistriesOnStartup();
 
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js';
-export type { AssetInfo } from './components/image/asset-picker-dialog.js';
+export type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dialog.js';
 export type { FontInfo } from './engine/font-catalog.js';
 export type {
   StencilCallbacks,
@@ -80,8 +79,11 @@ export interface EditorOptions {
   plugins?: EditorPlugin[];
   /** Optional image block support with asset management callbacks. */
   imageOptions?: {
-    listAssets: () => Promise<AssetInfo[]>;
-    uploadAsset: (file: File) => Promise<AssetInfo>;
+    /** The template's own catalog — the picker's default selection. */
+    defaultCatalogKey: string;
+    listCatalogs: () => Promise<CatalogInfo[]>;
+    listAssets: (catalogKey: string) => Promise<AssetInfo[]>;
+    uploadAsset: (file: File, catalogKey: string) => Promise<AssetInfo>;
     contentUrlPattern: string;
   };
   /**
@@ -164,7 +166,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   const doc = template ?? createEmptyDocument();
 
   // Create the custom element
-  const editorEl = document.createElement('epistola-editor') as EpistolaEditor;
+  const editorEl = document.createElement('epistola-editor');
   editorEl.style.height = '100%';
   editorEl.style.width = '100%';
   editorEl.style.display = 'block';
@@ -207,10 +209,13 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     registry.register(
       createImageDefinition({
         assetPicker: {
+          defaultCatalogKey: options.imageOptions.defaultCatalogKey,
+          listCatalogs: options.imageOptions.listCatalogs,
           listAssets: options.imageOptions.listAssets,
           uploadAsset: options.imageOptions.uploadAsset,
         },
         contentUrlPattern: options.imageOptions.contentUrlPattern,
+        defaultCatalogKey: options.imageOptions.defaultCatalogKey,
       }),
     );
   }

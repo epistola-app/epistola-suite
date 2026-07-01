@@ -413,13 +413,13 @@ function renderTypeConstraints(
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
   if (field.type === 'string') {
-    return renderStringConstraints(field as PrimitiveField, uiState, emitUpdate);
+    return renderStringConstraints(field, uiState, emitUpdate);
   }
   if (field.type === 'number' || field.type === 'integer') {
-    return renderNumericConstraints(field as PrimitiveField, uiState, emitUpdate);
+    return renderNumericConstraints(field, uiState, emitUpdate);
   }
   if (field.type === 'array') {
-    return renderArrayConstraints(field as ArrayField, uiState, emitUpdate);
+    return renderArrayConstraints(field, uiState, emitUpdate);
   }
   return nothing;
 }
