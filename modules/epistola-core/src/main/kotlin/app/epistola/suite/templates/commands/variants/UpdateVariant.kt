@@ -8,6 +8,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateVariant
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -21,6 +23,10 @@ data class UpdateVariant(
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = variantId.tenantKey
+
+    init {
+        validate("title", title == null || title.length <= MAX_NAME_LENGTH) { "Title must be $MAX_NAME_LENGTH characters or less" }
+    }
 }
 
 @Component

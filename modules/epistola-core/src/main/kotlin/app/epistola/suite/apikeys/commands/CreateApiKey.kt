@@ -12,6 +12,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -35,7 +36,7 @@ data class CreateApiKey(
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
-        validate("name", name.length <= 100) { "Name must be 100 characters or less" }
+        validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         validate("roles", roles.isNotEmpty()) { "Select at least one role" }
     }
 }
