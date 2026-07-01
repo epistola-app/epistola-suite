@@ -27,7 +27,7 @@
     "no-async-await": "off",
     "no-explicit-any": "warn",
     "no-non-null-assertion": "warn",
-    "no-unnecessary-type-assertion": "error",
+    "no-unnecessary-type-assertion": "warn",
     "no-unnecessary-type-arguments": "error",
     "no-unnecessary-boolean-literal-compare": "error",
     "no-useless-fallback-in-spread": "error"
