@@ -27,28 +27,21 @@ class NodeParameterBindingValidator(
 ) {
     /**
      * Validates every parametrised node in the document. Throws [ValidationException]
-     * on the first violation. No-op for nodes whose schema cannot be resolved (e.g.
-     * legacy stencils without a snapshot) — those flow through with whatever bindings
-     * were present.
+     * on the first violation. JSONata syntax is checked for every binding
+     * unconditionally; the schema-dependent checks (unknown keys, missing required) are
+     * skipped for nodes whose schema cannot be resolved (e.g. legacy stencils without a
+     * snapshot) — those flow through with whatever schema-shaped bindings were present.
      */
     @Suppress("UNCHECKED_CAST")
     fun validate(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) as? Map<*, *>
-            val schema = schemaProvider.resolve(node, doc) ?: continue
-            val properties = schema["properties"] as? Map<String, Any?> ?: continue
-            val declaredNames = properties.keys
 
-            // Unknown keys in bindings + JSONata syntax check.
+            // JSONata syntactic validity is independent of the parameter schema, so it
+            // is checked for every binding — even on nodes whose schema can't be
+            // resolved (legacy stencils without a snapshot, unregistered node types).
             rawBindings?.forEach { (rawKey, rawValue) ->
                 val key = rawKey as? String ?: return@forEach
-                if (key !in declaredNames) {
-                    throw ValidationException(
-                        "content.${node.type}.props.parameterBindings.$key",
-                        "parameter '$key' is not declared in the node's schema",
-                        ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN,
-                    )
-                }
                 // Blank / non-string values are not well-formed bindings; their shape is
                 // PlaceholderValidator's job (NODE_PARAMETER_BINDING_EMPTY, runs first).
                 // Skip them here so a blank required binding surfaces as
@@ -63,6 +56,24 @@ class NodeParameterBindingValidator(
                         "content.${node.type}.props.parameterBindings.$key",
                         "parameter binding '$key' expression is invalid — ${e.message}",
                         ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID,
+                    )
+                }
+            }
+
+            // The remaining checks are schema-dependent — skip nodes whose schema
+            // can't be resolved.
+            val schema = schemaProvider.resolve(node, doc) ?: continue
+            val properties = schema["properties"] as? Map<String, Any?> ?: continue
+            val declaredNames = properties.keys
+
+            // Unknown keys in bindings.
+            rawBindings?.forEach { (rawKey, _) ->
+                val key = rawKey as? String ?: return@forEach
+                if (key !in declaredNames) {
+                    throw ValidationException(
+                        "content.${node.type}.props.parameterBindings.$key",
+                        "parameter '$key' is not declared in the node's schema",
+                        ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN,
                     )
                 }
             }
