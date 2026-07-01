@@ -23,10 +23,14 @@ import java.util.UUID
  *
  * @property tenantId Tenant that owns the asset
  * @property assetId The asset ID
+ * @property catalogKey Optional owning catalog. Assets are keyed by
+ *   `(tenant, catalog, id)`, so a cross-catalog reference qualifies the lookup
+ *   with its catalog. When null, the lookup falls back to assetId-only.
  */
 data class GetAssetContent(
     val tenantId: TenantKey,
     val assetId: AssetKey,
+    val catalogKey: CatalogKey? = null,
 ) : Query<AssetContent?>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
@@ -48,10 +52,12 @@ class GetAssetContentHandler(
                 FROM assets
                 WHERE id = :assetId
                   AND tenant_key = :tenantId
+                  ${if (query.catalogKey != null) "AND catalog_key = :catalogKey" else ""}
                 """,
             )
                 .bind("assetId", query.assetId.value)
                 .bind("tenantId", query.tenantId)
+                .apply { query.catalogKey?.let { bind("catalogKey", it.value) } }
                 .map { rs, _ ->
                     AssetMeta(
                         id = AssetKey(rs.getObject("id", UUID::class.java)),

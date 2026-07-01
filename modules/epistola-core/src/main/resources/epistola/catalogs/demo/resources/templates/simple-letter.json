@@ -225,6 +225,20 @@
             }
           }
         },
+        "n-letterhead": {
+          "id": "n-letterhead",
+          "type": "image",
+          "slots": [],
+          "styles": { "marginBottom": "4sp" },
+          "props": {
+            "assetId": "01966a00-0000-7000-8000-000000000010",
+            "catalogKey": "system",
+            "alt": "System badge",
+            "width": "24pt",
+            "height": "24pt",
+            "aspectRatioLocked": true
+          }
+        },
         "n-separator": {
           "id": "n-separator",
           "type": "separator",
@@ -380,7 +394,7 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-footer", "n-addressblock", "n-separator", "n-subject", "n-body", "n-summary", "n-attachments", "n-attachments-list"]
+          "children": ["n-footer", "n-addressblock", "n-letterhead", "n-separator", "n-subject", "n-body", "n-summary", "n-attachments", "n-attachments-list"]
         },
         "s-attachments-list-template": {
           "id": "s-attachments-list-template",

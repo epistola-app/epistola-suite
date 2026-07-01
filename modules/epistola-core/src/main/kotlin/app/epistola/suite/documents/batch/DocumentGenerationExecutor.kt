@@ -280,8 +280,8 @@ class DocumentGenerationExecutor(
             title = template.name,
             author = tenant.name,
         )
-        val assetResolver = AssetResolver { assetId ->
-            mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId)))
+        val assetResolver = AssetResolver { assetId, catalogKey ->
+            mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId), catalogKey?.let { CatalogKey.of(it) }))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
         // Owning catalog for unqualified font refs: same cascade as theme

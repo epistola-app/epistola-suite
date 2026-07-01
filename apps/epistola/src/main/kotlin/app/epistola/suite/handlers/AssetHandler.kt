@@ -96,12 +96,32 @@ class AssetHandler(
                 "sizeBytes" to asset.sizeBytes,
                 "width" to asset.width,
                 "height" to asset.height,
+                "catalogKey" to asset.catalogKey.value,
                 "contentUrl" to "/tenants/${tenantId.value}/images/${asset.catalogKey.value}/${asset.id.value}/content",
             )
         }
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(assetInfoList)
+    }
+
+    /**
+     * Catalogs the tenant can pick images from, as JSON for the editor asset
+     * picker's catalog chooser. Same data source as the Images list dropdown
+     * ([ListCatalogs]); a UI handler, never the REST API.
+     */
+    fun catalogs(request: ServerRequest): ServerResponse {
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val catalogList = ListCatalogs(tenantId).query().map { catalog ->
+            mapOf(
+                "key" to catalog.id.value,
+                "name" to catalog.name,
+                "type" to catalog.type.name,
+            )
+        }
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(catalogList)
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -205,7 +225,7 @@ class AssetHandler(
         val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
         val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
 
-        val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId).query()
+        val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId, catalogKey = catalogId).query()
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
