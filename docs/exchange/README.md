@@ -230,7 +230,7 @@ Templates may reference resources from other catalogs:
 
 - **Themes**: via `themeRef.catalogKey` in the template model
 - **Stencils**: via `node.props.catalogKey` in stencil nodes
-- **Assets**: via `node.props.assetId` in image nodes (tenant-global, no catalog needed)
+- **Assets**: via `node.props.assetId` in image nodes; a cross-catalog image also carries `node.props.catalogKey` to mark the catalog the asset lives in (a same-catalog image leaves it bare and is auto-pulled). The recorded dependency stays catalog-less on the wire — asset slugs are UUIDs, tenant-global.
 - **Code lists**: via `codeListBinding.catalogKey` on an attribute
 - **Fonts**: via `fontFamily.catalogKey` in a theme or template's document styles
 
