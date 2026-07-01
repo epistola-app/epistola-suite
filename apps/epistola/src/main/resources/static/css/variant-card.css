@@ -1,0 +1,102 @@
+/*
+ * Variant card grid
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Variant card grid ────────────────────────────────────────────────── */
+
+.variant-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-4);
+}
+
+.variant-filter-bar .form-group {
+  margin-bottom: 0;
+  min-width: 160px;
+}
+
+.variant-filter-bar label {
+  display: block;
+  font-size: var(--ep-text-xs);
+  font-weight: 500;
+  color: var(--ep-muted-foreground);
+  margin-bottom: var(--ep-space-1);
+}
+
+/* Tile width for .ep-auto-grid; grid/gap come from the design-system primitive. */
+.variant-grid {
+  --ep-grid-min: 280px;
+}
+
+/* Card chrome via .ep-panel; this adds the column layout + hover elevation. */
+.variant-card {
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--ep-transition-base);
+}
+
+.variant-card:hover {
+  box-shadow: var(--ep-shadow-md);
+}
+
+.variant-card-default {
+  background-color: var(--ep-terracotta-50);
+  border-color: var(--ep-terracotta-200);
+}
+
+.variant-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--ep-space-2);
+  padding: var(--ep-space-4) var(--ep-space-4) var(--ep-space-2);
+}
+
+.variant-card-title {
+  font-weight: 600;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-foreground);
+  line-height: var(--ep-leading-tight);
+}
+
+.variant-card-slug {
+  display: block;
+  font-family: var(--ep-font-mono);
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  margin-top: var(--ep-space-0-5);
+}
+
+.variant-card-body {
+  flex: 1;
+  padding: var(--ep-space-2) var(--ep-space-4) var(--ep-space-3);
+}
+
+.variant-card-body .badge-list {
+  margin-bottom: var(--ep-space-2);
+}
+
+.variant-card-footer {
+  display: flex;
+  gap: var(--ep-space-1);
+  padding: var(--ep-space-2) var(--ep-space-4);
+  border-top: 1px solid var(--ep-border-color);
+  align-items: center;
+}
+
+.variant-card-default .variant-card-footer {
+  border-top-color: var(--ep-terracotta-200);
+}
+
+.variant-no-matches {
+  display: none;
+  text-align: center;
+  color: var(--ep-muted-foreground);
+  padding: var(--ep-space-8);
+  font-size: var(--ep-text-sm);
+  grid-column: 1 / -1;
+}

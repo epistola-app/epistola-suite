@@ -1,0 +1,55 @@
+/*
+ * Dashboard stats & grid
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Dashboard stats grid ────────────────────────────────────────────── */
+
+/* Tile width for .ep-auto-grid; grid/gap come from the design-system primitive. */
+.dashboard-stats {
+  --ep-grid-min: 180px;
+  margin-bottom: var(--ep-space-8);
+}
+
+/* Card chrome via .ep-panel; this adds the link/padding/hover specifics. */
+.stat-card {
+  padding: var(--ep-space-5);
+  text-decoration: none;
+  color: var(--ep-foreground);
+  transition:
+    border-color var(--ep-transition-base),
+    box-shadow var(--ep-transition-base);
+}
+
+a.stat-card:hover {
+  border-color: var(--ep-stone-300);
+  box-shadow: var(--ep-shadow-md);
+  text-decoration: none;
+  color: var(--ep-foreground);
+}
+
+.stat-card-value {
+  font-size: var(--ep-text-2xl);
+  font-weight: 600;
+  line-height: var(--ep-leading-tight);
+  margin-bottom: var(--ep-space-1);
+}
+
+.stat-card-label {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+/* ── Dashboard grid ──────────────────────────────────────────────────── */
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-6);
+}
+
+.dashboard-actions h2 {
+  margin-bottom: var(--ep-space-3);
+}

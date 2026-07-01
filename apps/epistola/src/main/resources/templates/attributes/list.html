@@ -57,13 +57,13 @@
                         <td><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
                         <td style="font-weight: 500;" th:text="${attr.displayName}"></td>
                         <td>
-                            <div th:if="${attr.codeListSlug != null}" class="tags">
+                            <div th:if="${attr.codeListSlug != null}" class="badge-list">
                                 <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
                                    class="badge badge-default"
                                    th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
                                    th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
                             </div>
-                            <div th:if="${attr.codeListSlug == null and !attr.allowedValues.isEmpty()}" class="tags">
+                            <div th:if="${attr.codeListSlug == null and !attr.allowedValues.isEmpty()}" class="badge-list">
                                 <span th:each="val : ${attr.allowedValues}"
                                       class="badge badge-outline"
                                       th:text="${val}"></span>

@@ -14,7 +14,7 @@
         )}"></div>
 
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
-            <section class="form-section">
+            <section class="ep-panel form-section">
                 <h2>Create New Tenant</h2>
                 <form th:action="@{/tenants}" method="post"
                       hx-post="/tenants"
