@@ -46,7 +46,7 @@ describe('buildParameterScope', () => {
     });
     const scope = buildParameterScope(node, { schemaFieldPaths: [] });
     expect(scope).not.toBeNull();
-    const paths = scope!.variables.map((fp) => fp.path).sort();
+    const paths = scope!.variables.map((fp) => fp.path).toSorted();
     expect(paths).toEqual(['params.pageCount', 'params.recipientName']);
   });
 

@@ -2,6 +2,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException.StencilVersionConflict
+import app.epistola.suite.catalog.MultipleStencilVersionsInUseException.TemplatePin
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -42,8 +43,19 @@ class FindStencilVersionExportConflictsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<FindStencilVersionExportConflicts, List<StencilVersionConflict>> {
 
+    /** One offending (stencil, template-variant) row before grouping by stencil. */
+    private data class ConflictRow(
+        val stencilKey: StencilKey,
+        val stencilName: String,
+        val latestPublishedVersion: Int,
+        val templateName: String,
+        val variantKey: String,
+        val variantTitle: String?,
+        val pinnedVersion: Int,
+    )
+
     override fun handle(query: FindStencilVersionExportConflicts): List<StencilVersionConflict> = jdbi.withHandle<List<StencilVersionConflict>, Exception> { handle ->
-        handle.createQuery(
+        val rows = handle.createQuery(
             """
                 WITH latest_stencil_version AS (
                     SELECT s.id, MAX(sv.id) AS latest_published_version
@@ -59,7 +71,7 @@ class FindStencilVersionExportConflictsHandler(
                 ),
                 latest_published_templates AS (
                     SELECT DISTINCT ON (tenant_key, catalog_key, template_key, variant_key)
-                        template_model
+                        template_key, variant_key, template_model
                     FROM template_versions
                     WHERE tenant_key = :tenantKey
                       AND catalog_key = :catalogKey
@@ -68,6 +80,8 @@ class FindStencilVersionExportConflictsHandler(
                 ),
                 stencil_refs AS (
                     SELECT
+                        lpv.template_key,
+                        lpv.variant_key,
                         node.value -> 'props' ->> 'stencilId' AS stencil_id,
                         COALESCE((node.value -> 'props' ->> 'version')::int, 0) AS stencil_version,
                         node.value -> 'props' ->> 'catalogKey' AS ref_catalog_key
@@ -75,32 +89,62 @@ class FindStencilVersionExportConflictsHandler(
                     CROSS JOIN LATERAL jsonb_each(lpv.template_model -> 'nodes') AS node(key, value)
                     WHERE node.value ->> 'type' = 'stencil'
                 )
-                SELECT sr.stencil_id, s.name, lsv.latest_published_version,
-                       ARRAY_AGG(DISTINCT sr.stencil_version ORDER BY sr.stencil_version) AS versions
+                SELECT DISTINCT
+                    sr.stencil_id, s.name AS stencil_name, lsv.latest_published_version,
+                    sr.template_key, dt.name AS template_name,
+                    sr.variant_key, tvar.title AS variant_title,
+                    sr.stencil_version AS pinned_version
                 FROM stencil_refs sr
                 JOIN stencils s ON s.tenant_key = :tenantKey
                                AND s.catalog_key = :catalogKey
                                AND s.id = sr.stencil_id
                 JOIN latest_stencil_version lsv ON lsv.id = s.id
+                JOIN document_templates dt ON dt.tenant_key = :tenantKey
+                                          AND dt.catalog_key = :catalogKey
+                                          AND dt.id = sr.template_key
+                LEFT JOIN template_variants tvar ON tvar.tenant_key = :tenantKey
+                                                AND tvar.catalog_key = :catalogKey
+                                                AND tvar.template_key = sr.template_key
+                                                AND tvar.id = sr.variant_key
                 WHERE sr.stencil_id IS NOT NULL
                   AND (sr.ref_catalog_key IS NULL OR sr.ref_catalog_key = :catalogKey)
-                GROUP BY sr.stencil_id, s.name, lsv.latest_published_version
-                HAVING bool_or(sr.stencil_version <> lsv.latest_published_version)
-                ORDER BY sr.stencil_id
+                  AND sr.stencil_version <> lsv.latest_published_version
+                ORDER BY stencil_name, template_name, sr.variant_key, pinned_version
                 """,
         )
             .bind("tenantKey", query.tenantKey)
             .bind("catalogKey", query.catalogKey)
             .map { rs, _ ->
-                @Suppress("UNCHECKED_CAST")
-                val versionsArr = rs.getArray("versions")?.array as Array<Any?>?
-                StencilVersionConflict(
+                ConflictRow(
                     stencilKey = StencilKey(rs.getString("stencil_id")),
-                    stencilName = rs.getString("name"),
-                    versions = versionsArr?.mapNotNull { (it as? Number)?.toInt() }?.sorted().orEmpty(),
+                    stencilName = rs.getString("stencil_name"),
                     latestPublishedVersion = rs.getInt("latest_published_version"),
+                    templateName = rs.getString("template_name"),
+                    variantKey = rs.getString("variant_key"),
+                    variantTitle = rs.getString("variant_title"),
+                    pinnedVersion = rs.getInt("pinned_version"),
                 )
             }
             .list()
+
+        // Group the flat (stencil, template-variant) rows into one conflict per
+        // stencil. groupBy preserves first-seen order, and the SQL already orders
+        // by stencil then template then variant.
+        rows.groupBy { it.stencilKey }
+            .map { (stencilKey, group) ->
+                StencilVersionConflict(
+                    stencilKey = stencilKey,
+                    stencilName = group.first().stencilName,
+                    latestPublishedVersion = group.first().latestPublishedVersion,
+                    pins = group.map {
+                        TemplatePin(
+                            templateName = it.templateName,
+                            variantKey = it.variantKey,
+                            variantTitle = it.variantTitle,
+                            pinnedVersion = it.pinnedVersion,
+                        )
+                    },
+                )
+            }
     }
 }

@@ -295,7 +295,7 @@ export class EpistolaToolbar extends LitElement {
         </button>
 
         <div class="toolbar-right">
-          ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
+          ${hasExamples ? this._renderExampleSelector(examples) : nothing}
           <epistola-json-inspector .engine=${this.engine}></epistola-json-inspector>
           ${this._renderShortcuts()}
         </div>

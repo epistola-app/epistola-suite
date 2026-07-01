@@ -386,26 +386,32 @@
                     <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
                     <div>
                         <div class="alert-title">
-                            Stencil version-pins in catalog '<span th:text="${catalogId}"></span>'
-                            are out of sync with the latest published version.
+                            Can't export '<span th:text="${catalogId}"></span>' yet — some templates
+                            pin an outdated stencil version.
                         </div>
                         <p style="margin: var(--ep-space-1) 0 0;">
-                            The export only ships the latest published version of each stencil. Templates
-                            that pin a different (or older) version would not resolve in the target.
-                            Republish the templates against the latest version of each stencil below
-                            before exporting.
+                            An export ships only each stencil's latest published version, so a template
+                            that pins an older version would break when this catalog is imported
+                            elsewhere. For each template variant below, open the template, upgrade the
+                            stencil <strong>to its latest version, and publish it</strong> — then export
+                            again.
                         </p>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <span class="ep-label">Affected stencils</span>
+                    <span class="ep-label">Templates to update</span>
                     <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-5);">
-                        <li th:each="s : ${stencilVersionExportConflicts}">
+                        <li th:each="s : ${stencilVersionExportConflicts}" style="margin-bottom: var(--ep-space-2);">
                             <strong th:text="${s.name}"></strong>
                             (<span class="text-muted" th:text="${s.slug}"></span>)
-                            — pinned at <span th:text="${s.versionsDisplay}"></span>,
-                            latest published is <strong th:text="${s.latestPublishedVersion}"></strong>
+                            — latest published is <strong th:text="${s.latestPublishedVersion}"></strong>
+                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                                <li th:each="p : ${s.pins}">
+                                    <span th:text="${p.templateLabel}"></span>
+                                    pins <strong th:text="${p.pinned}"></strong>
+                                </li>
+                            </ul>
                         </li>
                     </ul>
                 </div>

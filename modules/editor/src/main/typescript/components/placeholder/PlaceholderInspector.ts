@@ -122,7 +122,7 @@ export class PlaceholderInspector extends LitElement {
     this.engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: this.node.id,
-      props: { ...(this.node.props ?? {}), name: value },
+      props: { ...this.node.props, name: value },
     });
   };
 
@@ -131,7 +131,7 @@ export class PlaceholderInspector extends LitElement {
     this.engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: this.node.id,
-      props: { ...(this.node.props ?? {}), description: value },
+      props: { ...this.node.props, description: value },
     });
   };
 

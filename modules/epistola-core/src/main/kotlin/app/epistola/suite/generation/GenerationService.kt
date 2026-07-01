@@ -77,6 +77,7 @@ class GenerationService(
         templateCatalogKey: CatalogKey? = null,
         tenantDefaultThemeCatalogKey: CatalogKey? = null,
         culture: RenderCulture = RenderCulture.DEFAULT,
+        watermarkText: String? = null,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -106,6 +107,7 @@ class GenerationService(
             renderMode = RenderMode.PREVIEW,
             culture = culture,
             clock = EpistolaClock.current(),
+            watermarkText = watermarkText,
         )
     }
 
@@ -130,6 +132,7 @@ class GenerationService(
         assetResolver: AssetResolver? = null,
         fontFamilyResolver: FontFamilyResolver? = null,
         culture: RenderCulture = RenderCulture.DEFAULT,
+        watermarkText: String? = null,
     ) {
         pdfRenderer.render(
             document = templateModel,
@@ -148,6 +151,7 @@ class GenerationService(
             renderingDefaults = renderingDefaults,
             culture = culture,
             clock = EpistolaClock.current(),
+            watermarkText = watermarkText,
         )
     }
 

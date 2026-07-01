@@ -317,7 +317,7 @@ function findLastNodeIndexByType(
   type: string,
 ): number {
   for (let i = children.length - 1; i >= 0; i -= 1) {
-    if (nodes[children[i]!]?.type === type) return i;
+    if (nodes[children[i]]?.type === type) return i;
   }
   return -1;
 }

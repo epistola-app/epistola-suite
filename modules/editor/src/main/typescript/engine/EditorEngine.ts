@@ -108,7 +108,7 @@ export class EditorEngine {
     this._inheritableKeys = getInheritableKeys(this.styleRegistry);
     this._dataModel = options?.dataModel;
     this._dataExamples = options?.dataExamples;
-    this.featureFlags = Object.freeze({ ...(options?.featureFlags ?? {}) });
+    this.featureFlags = Object.freeze({ ...options?.featureFlags });
     this.locale =
       options?.locale && options.locale.trim().length > 0 ? options.locale : DEFAULT_LOCALE;
     this._recomputeStyles();
@@ -371,7 +371,7 @@ export class EditorEngine {
     );
     this._resolvedPageSettings = resolvePageSettings(
       this._theme?.pageSettings as PageSettings | undefined,
-      this._doc.pageSettingsOverride as PageSettings | undefined,
+      this._doc.pageSettingsOverride,
     );
   }
 

@@ -9,7 +9,6 @@
 
 import './editor.css';
 import './ui/EpistolaEditor.js';
-import type { EpistolaEditor } from './ui/EpistolaEditor.js';
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
 import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
@@ -164,7 +163,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   const doc = template ?? createEmptyDocument();
 
   // Create the custom element
-  const editorEl = document.createElement('epistola-editor') as EpistolaEditor;
+  const editorEl = document.createElement('epistola-editor');
   editorEl.style.height = '100%';
   editorEl.style.width = '100%';
   editorEl.style.display = 'block';

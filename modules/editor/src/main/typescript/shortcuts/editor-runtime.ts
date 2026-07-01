@@ -461,7 +461,7 @@ for (const binding of EDITOR_SHORTCUT_REGISTRY.keybindings) {
 
 const IDLE_TOKENS_BY_COMMAND_ID = new Map<CommandId, string>();
 for (const command of EDITOR_SHORTCUT_COMMANDS) {
-  const token = (command.metadata as Record<string, unknown> | undefined)?.idleToken;
+  const token = command.metadata?.idleToken;
   if (typeof token === 'string') {
     IDLE_TOKENS_BY_COMMAND_ID.set(command.id, token);
   }

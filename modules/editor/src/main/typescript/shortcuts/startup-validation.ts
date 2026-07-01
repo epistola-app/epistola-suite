@@ -23,7 +23,7 @@ export function getCoreShortcutRegistries(): readonly AnyShortcutRegistry[] {
 }
 
 export function validateShortcutRegistriesOnStartup(
-  pluginContributions: readonly PluginShortcutContribution<unknown>[] = [],
+  pluginContributions: readonly PluginShortcutContribution[] = [],
 ): void {
   const pluginRegistries = pluginContributions.map((contribution) => {
     return toPluginShortcutRegistry(contribution) as AnyShortcutRegistry;

@@ -48,5 +48,8 @@ data class StencilUsageDetail(
 
         /** A newer version of the variant is the upgrade target (this one is superseded/archived). */
         SUPERSEDED,
+
+        /** This variant already pins the stencil's latest published version — nothing to upgrade to. */
+        UP_TO_DATE,
     }
 }

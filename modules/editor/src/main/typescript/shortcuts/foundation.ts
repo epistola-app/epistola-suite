@@ -145,7 +145,7 @@ export function defineShortcutRegistry<TContext>(
 export function mergeRegistries(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ...registries: readonly ShortcutRegistryDefinition<any>[]
-): ShortcutRegistryDefinition<unknown> {
+): ShortcutRegistryDefinition {
   return {
     commands: registries.flatMap((r) => r.commands),
     keybindings: registries.flatMap((r) => r.keybindings),

@@ -41,6 +41,7 @@ import org.springframework.test.context.TestPropertySource
     TestcontainersConfiguration::class,
     FakeExecutorTestConfiguration::class,
     UnloggedTablesTestConfiguration::class,
+    PartitionBootstrapTestConfiguration::class,
     DeterministicSchedulingTestConfiguration::class,
     app.epistola.suite.testing.metrics.MediatorMetricsConfiguration::class,
 )

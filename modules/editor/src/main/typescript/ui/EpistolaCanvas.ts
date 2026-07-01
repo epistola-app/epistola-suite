@@ -163,7 +163,7 @@ export class EpistolaCanvas extends LitElement {
           getData: ({ input, element }) =>
             attachClosestEdge({ nodeId }, { element, input, allowedEdges: ['top', 'bottom'] }),
           canDrop: ({ source }) => {
-            const dragData = source.data as Record<string, unknown>;
+            const dragData = source.data;
             if (!isDragData(dragData)) return false;
 
             // Can't drop a block on itself
@@ -210,7 +210,7 @@ export class EpistolaCanvas extends LitElement {
             // If a deeper target (nested slot) is innermost, skip — it handles the drop
             if (location.current.dropTargets[0]?.element !== blockEl) return;
 
-            const dragData = source.data as Record<string, unknown>;
+            const dragData = source.data;
             if (!isDragData(dragData)) return;
 
             const edge = extractClosestEdge(self.data) as Edge | null;
@@ -245,7 +245,7 @@ export class EpistolaCanvas extends LitElement {
         dropTargetForElements({
           element: slotEl,
           canDrop: ({ source }) => {
-            const dragData = source.data as Record<string, unknown>;
+            const dragData = source.data;
             if (!isDragData(dragData)) return false;
             return canDropHere(
               dragData,
@@ -277,7 +277,7 @@ export class EpistolaCanvas extends LitElement {
             // If a child block is innermost, its edge handler takes care of it.
             if (location.current.dropTargets[0]?.element !== slotEl) return;
 
-            const dragData = source.data as Record<string, unknown>;
+            const dragData = source.data;
             if (!isDragData(dragData)) return;
 
             // Append at end of slot

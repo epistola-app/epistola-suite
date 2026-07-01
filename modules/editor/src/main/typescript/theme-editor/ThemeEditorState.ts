@@ -86,7 +86,7 @@ export class ThemeEditorState extends EventTarget {
     if (!this._current.pageSettings) {
       this._current.pageSettings = {};
     }
-    const newMargins = { ...(this._current.pageSettings.margins ?? {}) };
+    const newMargins = { ...this._current.pageSettings.margins };
     if (value !== undefined && Number.isFinite(value)) {
       newMargins[side] = value;
     } else {

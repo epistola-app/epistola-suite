@@ -95,6 +95,7 @@ class DirectPdfRenderer(
         renderMode: RenderMode = RenderMode.STRICT,
         culture: RenderCulture = RenderCulture.DEFAULT,
         clock: Clock = Clock.systemUTC(),
+        watermarkText: String? = null,
     ) {
         TwoPassAnalyzer.validate(document)
 
@@ -122,6 +123,7 @@ class DirectPdfRenderer(
                 footerNode = footerNode,
                 scopedEvaluator = scopedEvaluator,
                 clock = clock,
+                watermarkText = watermarkText,
             )
         } else {
             renderSinglePass(
@@ -137,6 +139,7 @@ class DirectPdfRenderer(
                 renderMode = renderMode,
                 scopedEvaluator = scopedEvaluator,
                 clock = clock,
+                watermarkText = watermarkText,
             )
         }
     }
@@ -189,6 +192,7 @@ class DirectPdfRenderer(
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
         clock: Clock = Clock.systemUTC(),
+        watermarkText: String? = null,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -253,6 +257,7 @@ class DirectPdfRenderer(
             leftMargin = bodyLeftMargin,
             firstPageSpacerHeight = layout.bands.firstPageSpacer,
             effectiveHeights = layout.effectiveHeights,
+            watermarkText = watermarkText,
         )
     }
 
@@ -271,6 +276,7 @@ class DirectPdfRenderer(
         footerNode: Node?,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
         clock: Clock = Clock.systemUTC(),
+        watermarkText: String? = null,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -381,6 +387,7 @@ class DirectPdfRenderer(
             leftMargin = bodyLeftMargin,
             firstPageSpacerHeight = firstPageSpacerHeight,
             effectiveHeights = effectiveHeights,
+            watermarkText = watermarkText,
         )
     }
 
@@ -403,6 +410,7 @@ class DirectPdfRenderer(
         enablePdfA: Boolean = pdfaCompliant,
         enableMetadata: Boolean = true,
         enableHeaderFooter: Boolean = true,
+        watermarkText: String? = null,
     ): Int {
         val writer = PdfWriter(outputStream)
         val pdfDocument = createPdfDocument(writer, enablePdfA)
@@ -458,6 +466,17 @@ class DirectPdfRenderer(
             pdfDocument.addEventHandler(
                 PdfDocumentEvent.END_PAGE,
                 AddressBlockEventHandler(it.id, hoistedDocument, context, nodeRendererRegistry),
+            )
+        }
+
+        // Preview watermark: stamped over the content on every page so the fast
+        // synchronous preview can't be passed off as final output. Registered last
+        // so it paints on top of header/footer/address. Drawn only on END_PAGE, it
+        // never affects layout — a watermarked preview paginates like the final.
+        if (watermarkText != null) {
+            pdfDocument.addEventHandler(
+                PdfDocumentEvent.END_PAGE,
+                WatermarkEventHandler(watermarkText, context.fontCache.regular),
             )
         }
 
