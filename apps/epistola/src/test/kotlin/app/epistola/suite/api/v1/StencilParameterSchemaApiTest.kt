@@ -99,6 +99,7 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
             "/api/tenants/${tenantKey.value}/catalogs/default/stencils/$stencilId/versions/$versionId",
             apiKey,
         )
+        assertThat(version.statusCode).describedAs(version.body).isEqualTo(HttpStatus.OK)
         assertSchema(version.body)
     }
 
@@ -124,9 +125,11 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
             """{"content":$contentJson,"parameterSchema":$schema}""",
             apiKey,
         )
-        assertThat(updated.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(updated.statusCode).describedAs(updated.body).isEqualTo(HttpStatus.OK)
 
-        assertSchema(get(versionPath, apiKey).body)
+        val reread = get(versionPath, apiKey)
+        assertThat(reread.statusCode).describedAs(reread.body).isEqualTo(HttpStatus.OK)
+        assertSchema(reread.body)
     }
 
     @Test
