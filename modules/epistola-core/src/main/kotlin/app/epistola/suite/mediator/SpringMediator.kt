@@ -17,6 +17,7 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.DefaultTransactionDefinition
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
@@ -165,17 +166,23 @@ class SpringMediator(
     }
 
     /**
-     * Run the command dispatch inside a Spring transaction (REQUIRED propagation, so a
-     * nested command joins the outer command's transaction). Uses the transaction
-     * manager directly instead of TransactionTemplate to keep exception types
-     * transparent. Skipped for [SelfManagedTransaction] commands and when no
-     * transaction manager is available (plain unit tests).
+     * Run the command dispatch inside a Spring transaction. NESTED propagation: a
+     * top-level command opens a new transaction; a command dispatched from within
+     * another command becomes a JDBC savepoint in the outer transaction — so an outer
+     * handler that catches a nested command's failure (continue-on-error install
+     * loops) keeps a healthy transaction, while the nested command's writes are
+     * rolled back to the savepoint. Uses the transaction manager directly instead of
+     * TransactionTemplate to keep exception types transparent. Skipped for
+     * [SelfManagedTransaction] commands and when no transaction manager is available
+     * (plain unit tests).
      */
     private fun <R> inCommandTransaction(command: Command<*>, block: () -> R): R {
         if (transactionManager == null || command is SelfManagedTransaction) {
             return block()
         }
-        val status = transactionManager.getTransaction(DefaultTransactionDefinition())
+        val status = transactionManager.getTransaction(
+            DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_NESTED),
+        )
         try {
             val result = block()
             transactionManager.commit(status)
