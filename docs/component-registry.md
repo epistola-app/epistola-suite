@@ -127,7 +127,7 @@ When `list_component_types` returns unexpected data — for example after a TS r
 ## Related
 
 - [`docs/mcp.md`](mcp.md) — MCP server, tool list, client setup
-- [`docs/editor-v2.md`](editor-v2.md) — broader editor / frontend architecture
+- [`docs/editor-features.md`](editor-features.md) — editor feature overview
 - [`modules/editor/src/main/typescript/engine/registry.ts`](../modules/editor/src/main/typescript/engine/registry.ts) — canonical TS registry
 - [`modules/editor/scripts/dump-component-registry.ts`](../modules/editor/scripts/dump-component-registry.ts) — the dump script
 - [`modules/epistola-mcp/.../support/ComponentRegistryProvider.kt`](../modules/epistola-mcp/src/main/kotlin/app/epistola/suite/mcp/support/ComponentRegistryProvider.kt) — backend reader
