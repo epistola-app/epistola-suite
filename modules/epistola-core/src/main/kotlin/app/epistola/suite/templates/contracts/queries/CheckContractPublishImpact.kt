@@ -147,11 +147,7 @@ class CheckContractPublishImpactHandler(
 
             if (!templateCompat.compatible) {
                 val envJson = row["active_environments"]?.toString() ?: "[]"
-                val envList: List<String> = try {
-                    objectMapper.readValue(envJson, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java))
-                } catch (_: Exception) {
-                    emptyList()
-                }
+                val envList = objectMapper.readStringArrayColumn(envJson, "active environments for $versionId")
                 incompatibleVersions.add(
                     IncompatibleVersion(
                         variantKey = variantKey,

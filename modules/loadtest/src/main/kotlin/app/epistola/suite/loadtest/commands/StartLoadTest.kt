@@ -12,6 +12,7 @@ import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -44,7 +45,9 @@ data class StartLoadTest(
     val concurrencyLevel: Int,
     val testData: ObjectNode,
 ) : Command<LoadTestRun>,
-    RequiresPermission {
+    RequiresPermission,
+    // Long-running load-test bootstrap; owns its transaction boundaries.
+    SelfManagedTransaction {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 

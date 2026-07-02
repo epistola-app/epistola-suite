@@ -16,11 +16,10 @@
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
             <section class="ep-panel form-section">
                 <h2>Create New Tenant</h2>
-                <form th:action="@{/tenants}" method="post"
+                <form id="create-tenant-form" th:action="@{/tenants}" method="post"
                       hx-post="/tenants"
                       hx-target="#tenant-rows"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
+                      hx-swap="innerHTML">
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                         <label for="name">Name</label>
                         <input type="text" id="name" name="name" required maxlength="100" placeholder="Tenant name"
@@ -38,6 +37,11 @@
                     </div>
                     <button type="submit" class="ep-btn ep-btn-primary">Create Tenant</button>
                 </form>
+                <script>
+                    document.getElementById("create-tenant-form").addEventListener("htmx:afterRequest", function (e) {
+                        if (e.detail.successful) this.reset();
+                    });
+                </script>
             </section>
         </div>
 

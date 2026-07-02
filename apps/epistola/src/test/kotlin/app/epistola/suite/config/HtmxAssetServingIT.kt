@@ -63,6 +63,13 @@ class HtmxAssetServingIT : BaseIntegrationTest() {
     }
 
     @Test
+    fun `vendored Scalar API-reference bundle is served (no CDN)`() {
+        val response = restTemplate.getForEntity("/js/vendor/scalar-api-reference.js", String::class.java)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.headers.cacheControl).contains("max-age=31536000")
+    }
+
+    @Test
     fun `response compression is enabled for javascript`() {
         val compression = serverProperties.compression
         assertThat(compression.enabled).isTrue()

@@ -220,7 +220,7 @@ Each `Node` references its child `Slot` IDs; each `Slot` references its parent `
 | [CHANGELOG.md](../CHANGELOG.md)          | Release history                         |
 | [Roadmap](roadmap.md)                    | Development phases and planned features |
 | [Generation Architecture](generation.md) | PDF rendering pipeline details          |
-| [Editor Architecture](editor-v2.md)      | Frontend component architecture         |
+| [Editor Features](editor-features.md)    | Editor feature overview                 |
 | [Visual Styleguide](brandguide.md)       | UI design system and colour palette     |
 | [Testing](testing.md)                    | Test strategy and conventions           |
 | [GitHub Workflows](github.md)            | CI/CD pipeline documentation            |

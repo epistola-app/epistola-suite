@@ -10,6 +10,7 @@ import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.sync.FeedbackSyncPort
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -27,7 +28,9 @@ data class CreateFeedback(
     val metadata: String?,
     val createdBy: UserKey,
 ) : Command<Feedback>,
-    RequiresPermission {
+    RequiresPermission,
+    // Pushes the created feedback to the hub sync port mid-command.
+    SelfManagedTransaction {
     override val permission get() = Permission.DOCUMENT_VIEW
     override val tenantKey get() = id.tenantKey
 

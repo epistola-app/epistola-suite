@@ -37,6 +37,9 @@ class JdbiConfig {
         .installPlugin(PostgresPlugin())
         .installPlugin(Jackson3Plugin())
         .apply {
+            // Join Spring-managed transactions (the mediator's per-command transaction)
+            // instead of committing them mid-flight from nested jdbi.inTransaction calls.
+            setTransactionHandler(SpringAwareTransactionHandler())
             // fix: use the spring boot mapper as this is preconfigured with kotlin support
             getConfig(Jackson3Config::class.java).mapper = mapper
 

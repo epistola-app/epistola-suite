@@ -68,11 +68,10 @@ class GetContractUsageOverviewHandler(
 
         val versions = rows.map { row ->
             val envJson = row["active_environments"]?.toString() ?: "[]"
-            val envs: List<String> = try {
-                objectMapper.readValue(envJson, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java))
-            } catch (_: Exception) {
-                emptyList()
-            }
+            val envs = objectMapper.readStringArrayColumn(
+                envJson,
+                "active environments for template ${query.templateId} variant ${row["variant_key"]} version ${row["version_id"]}",
+            )
             TemplateVersionContractInfo(
                 variantKey = row["variant_key"] as String,
                 versionId = row["version_id"] as Int,

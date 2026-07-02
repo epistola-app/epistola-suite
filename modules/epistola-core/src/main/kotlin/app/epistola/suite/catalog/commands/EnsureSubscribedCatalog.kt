@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SystemInternal
@@ -33,7 +34,9 @@ data class EnsureSubscribedCatalog(
     val authType: AuthType = AuthType.NONE,
     val authCredential: String? = null,
 ) : Command<EnsureSubscribedCatalogResult>,
-    SystemInternal
+    SystemInternal,
+    // Fetches the remote catalog over HTTP mid-command.
+    SelfManagedTransaction
 
 enum class EnsureCatalogStatus { INSTALLED, UPGRADED, ALREADY_CURRENT }
 

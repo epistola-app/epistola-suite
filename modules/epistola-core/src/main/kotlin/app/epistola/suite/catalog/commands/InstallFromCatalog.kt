@@ -26,6 +26,7 @@ import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -40,7 +41,9 @@ data class InstallFromCatalog(
     val catalogKey: CatalogKey,
     val resourceSlugs: List<String>? = null,
 ) : Command<List<InstallResult>>,
-    RequiresPermission {
+    RequiresPermission,
+    // Downloads catalog content over HTTP mid-command.
+    SelfManagedTransaction {
     override val permission get() = Permission.TEMPLATE_EDIT
 }
 
