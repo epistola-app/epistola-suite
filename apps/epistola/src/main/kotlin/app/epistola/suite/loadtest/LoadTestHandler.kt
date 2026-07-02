@@ -207,7 +207,7 @@ class LoadTestHandler(
         // accumulate per field and render inline as per-field OOB spans with HX-Reswap: none,
         // so the dialog's cascade selections and typed JSON survive. Only an operational
         // StartLoadTest failure (below) is a non-field error, thrown to the shared
-        // #dialog-error region by the central resolver. See ADR 0008.
+        // #dialog-error region by the central resolver. See ADR 0011.
         val errors = linkedMapOf<String, String>()
 
         fun fieldErrors(): ServerResponse = request.htmx {

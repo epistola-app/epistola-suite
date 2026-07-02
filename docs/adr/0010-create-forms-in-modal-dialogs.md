@@ -1,4 +1,4 @@
-# ADR 0007: Create forms open in modal dialogs, not pages
+# ADR 0010: Create forms open in modal dialogs, not pages
 
 - **Status:** Accepted
 - **Date:** 2026-06-18
@@ -75,7 +75,7 @@ endpoint into the single `#dialog-host` in `layout/shell`. The supporting decisi
 - No full-page reloads — one fragment swap to open, an `HX-Redirect` (or in-dialog reveal) on
   success. The list stays put with its filters and scroll.
 - Validation errors render inside the open dialog without losing the form or input (the error model
-  is [ADR 0008](0008-create-form-validation-errors.md)).
+  is [ADR 0011](0011-create-form-validation-errors.md)).
 - Still addressable: `?create` / `?upload` make the open dialog deep-linkable, refresh-safe, and
   back-closable.
 - One shared `#dialog-host` + the open/close/reconcile script serve every entity; per-entity
@@ -86,7 +86,7 @@ endpoint into the single `#dialog-host` in `layout/shell`. The supporting decisi
 - **More moving parts** than a page + POST: HTMX swap targets, the reconcile script, and CSP
   constraints (no `hx-on::*` — use inline `addEventListener`).
 - **Requires the error convention.** Because the form lives in a modal, errors need the per-field
-  span + shared `#dialog-error` card discipline of [ADR 0008](0008-create-form-validation-errors.md),
+  span + shared `#dialog-error` card discipline of [ADR 0011](0011-create-form-validation-errors.md),
   which is build-enforced.
 - **No standalone form page.** A direct `GET …/new` redirects to the list — there is no bookmarkable
   blank-form page and no no-JS form fallback (the deep link opens the list, then the dialog, via
@@ -101,7 +101,7 @@ endpoint into the single `#dialog-host` in `layout/shell`. The supporting decisi
 
 ### Related
 
-- [ADR 0008](0008-create-form-validation-errors.md) — how errors render inside these dialogs.
+- [ADR 0011](0011-create-form-validation-errors.md) — how errors render inside these dialogs.
 - [`docs/create-form-dialogs.md`](../create-form-dialogs.md) — visual guide (diagrams + pros/cons).
 - [`docs/htmx.md`](../htmx.md) → "Create Forms: Modal Dialogs", "Why per-entity `new.html`",
   "Deep-linkable create dialogs".

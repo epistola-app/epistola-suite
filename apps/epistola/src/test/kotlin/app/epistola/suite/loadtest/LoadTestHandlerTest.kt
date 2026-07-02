@@ -456,7 +456,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
          * Field-keyable errors (bad JSON, missing/invalid selections) render inline as
          * per-field OOB error spans, leaving the cascade selections and typed JSON
          * untouched (HX-Reswap: none). Only an operational StartLoadTest failure uses the
-         * shared #dialog-error card. See ADR 0008.
+         * shared #dialog-error card. See ADR 0011.
          */
         @Test
         fun `POST start with invalid JSON renders a field error under the testData textarea, not the dialog card`() = fixture {

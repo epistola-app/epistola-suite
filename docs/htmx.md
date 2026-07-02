@@ -714,7 +714,7 @@ let operational exceptions propagate — adding the shared region + the dialog h
 fonts/assets/load-test were migrated off their old hand-rendered general paths (the `error-general`
 spans, the load-test `#form-error` region, the JSON-400 branch), and load-test's field-keyable errors
 (invalid JSON, missing/invalid selections) now render inline as per-field OOB spans rather than the
-general card. See [ADR 0008](adr/0008-create-form-validation-errors.md).
+general card. See [ADR 0011](adr/0011-create-form-validation-errors.md).
 
 **This is a build-enforced convention.** `CreateDialogErrorConventionTest` (in `unitTest`) fails the
 build unless every create dialog (a) includes the shared `#dialog-error` region + the

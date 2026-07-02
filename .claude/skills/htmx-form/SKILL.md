@@ -165,7 +165,7 @@ Templates receive `tenantId.value` (String), never the wrapper. Commands/queries
 
 ### Error display (convention — build-enforced)
 
-Every create dialog MUST provide **both** error surfaces. This is enforced by `CreateDialogErrorConventionTest` (in `unitTest`) — a missing span or region fails the build. See [ADR 0008](../../../docs/adr/0008-create-form-validation-errors.md).
+Every create dialog MUST provide **both** error surfaces. This is enforced by `CreateDialogErrorConventionTest` (in `unitTest`) — a missing span or region fails the build. See [ADR 0011](../../../docs/adr/0011-create-form-validation-errors.md).
 
 1. **A per-field error span for EVERY user-editable field** — directly inside each field's `.form-group`, after the input/hint:
 

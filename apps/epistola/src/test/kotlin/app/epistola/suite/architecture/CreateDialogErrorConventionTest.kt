@@ -9,13 +9,13 @@ import kotlin.io.path.readText
 import kotlin.test.assertTrue
 
 /**
- * Enforces the create-dialog error-handling convention (see [ADR 0008]).
+ * Enforces the create-dialog error-handling convention (see [ADR 0011]).
  *
  * Every create dialog (`templates/<entity>/new.html`) must:
  *  1. include the shared general error region and declare it via the `X-Epistola-Error-Region`
  *     header (so a thrown, non-field error renders inside the modal), AND
  *  2. give **every user-editable field its own inline error span**, so a handler-keyed field
- *     error can never silently vanish — the missing-span fragility ADR 0008 calls out (a handler
+ *     error can never silently vanish — the missing-span fragility ADR 0011 calls out (a handler
  *     adds `errors["catalog"]` but no `#…-error-catalog` span exists → the message is dropped).
  *
  * The per-field span carries `data-error=${errors?.containsKey('<field>')}`, so we assert each
@@ -92,7 +92,7 @@ class CreateDialogErrorConventionTest {
         }
         assertTrue(
             violations.isEmpty(),
-            "Create-dialog fields missing a per-field error span (ADR 0008 convention):\n" +
+            "Create-dialog fields missing a per-field error span (ADR 0011 convention):\n" +
                 violations.joinToString("\n"),
         )
     }

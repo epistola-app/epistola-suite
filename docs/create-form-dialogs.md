@@ -1,6 +1,6 @@
 # Create forms in dialogs (not pages) — a visual guide
 
-A diagram-first companion to [ADR 0007](adr/0007-create-forms-in-modal-dialogs.md) (the decision of
+A diagram-first companion to [ADR 0010](adr/0010-create-forms-in-modal-dialogs.md) (the decision of
 record), [`docs/htmx.md`](htmx.md) → "Create Forms: Modal Dialogs", and the `htmx-form` skill. Read
 those for the decision and wiring details; read this for the shape of the change and its trade-offs.
 
@@ -163,7 +163,7 @@ non-HTMX branch and redirect to the list instead of returning the dialog.
   render behind it or vanish — which is exactly why the create-dialog error convention (per-field
   spans + the shared `#dialog-error` card) exists and is build-enforced. See
   [`docs/create-dialog-errors.md`](create-dialog-errors.md) and
-  [ADR 0008](adr/0008-create-form-validation-errors.md).
+  [ADR 0011](adr/0011-create-form-validation-errors.md).
 - **No standalone form page.** A direct `GET …/new` redirects to the list, so there is no
   bookmarkable blank-form page and no progressive-enhancement fallback that renders the form without
   JS (the deep link opens the list, then the dialog, via HTMX).

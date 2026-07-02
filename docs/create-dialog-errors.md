@@ -1,6 +1,6 @@
 # Create-dialog error handling — a visual guide
 
-A diagram-first companion to [ADR 0008](adr/0008-create-form-validation-errors.md) and
+A diagram-first companion to [ADR 0011](adr/0011-create-form-validation-errors.md) and
 [`docs/htmx.md`](htmx.md) → "Create-form error handling". Read those for the prose and the
 rationale; read this to see the shapes.
 

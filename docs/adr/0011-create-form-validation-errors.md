@@ -1,4 +1,4 @@
-# ADR 0008: Create-form error handling in modal dialogs
+# ADR 0011: Create-form error handling in modal dialogs
 
 - **Status:** Accepted
 - **Date:** 2026-06-19
@@ -189,7 +189,7 @@ and keys its fields directly in the handler).
 
 ### Related
 
-- [ADR 0007](0007-create-forms-in-modal-dialogs.md) — the decision to render create forms in modal
+- [ADR 0010](0010-create-forms-in-modal-dialogs.md) — the decision to render create forms in modal
   dialogs at all; this ADR covers how errors render inside them.
 - [`docs/htmx.md`](../htmx.md) → "Create-form error handling", "Create Forms: Modal Dialogs",
   "Why per-entity `new.html`".
