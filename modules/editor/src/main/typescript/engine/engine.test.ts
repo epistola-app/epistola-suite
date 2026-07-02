@@ -1564,7 +1564,7 @@ describe('Subscription', () => {
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     let notified = false;
-    engine.subscribe(() => {
+    engine.events.on('doc:change', () => {
       notified = true;
     });
 
@@ -1580,7 +1580,7 @@ describe('Subscription', () => {
     const engine = new EditorEngine(doc, registry);
 
     let notified = false;
-    engine.subscribe(() => {
+    engine.events.on('doc:change', () => {
       notified = true;
     });
 
@@ -1596,7 +1596,7 @@ describe('Subscription', () => {
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     let count = 0;
-    const unsub = engine.subscribe(() => {
+    const unsub = engine.events.on('doc:change', () => {
       count++;
     });
 
@@ -1718,7 +1718,7 @@ describe('Selection', () => {
     const engine = new EditorEngine(doc, registry);
 
     const selections: (NodeId | null)[] = [];
-    engine.onSelectionChange((id) => selections.push(id));
+    engine.events.on('selection:change', ({ nodeId }) => selections.push(nodeId));
 
     engine.selectNode(textNodeId);
     engine.selectNode(null);
@@ -1732,7 +1732,7 @@ describe('Selection', () => {
     const engine = new EditorEngine(doc, registry);
 
     let count = 0;
-    engine.onSelectionChange(() => {
+    engine.events.on('selection:change', () => {
       count++;
     });
 
@@ -2021,7 +2021,7 @@ describe('skipUndo option', () => {
     const engine = new EditorEngine(doc, registry);
 
     let notified = false;
-    engine.subscribe(() => {
+    engine.events.on('doc:change', () => {
       notified = true;
     });
 
@@ -2145,7 +2145,7 @@ describe('Data examples', () => {
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
     let notified = false;
-    engine.onExampleChange(() => {
+    engine.events.on('example:change', () => {
       notified = true;
     });
 
@@ -2159,7 +2159,7 @@ describe('Data examples', () => {
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
     const changes: { index: number; example: object | undefined }[] = [];
-    engine.onExampleChange((index, example) => {
+    engine.events.on('example:change', ({ index, example }) => {
       changes.push({ index, example });
     });
 
@@ -2178,7 +2178,7 @@ describe('Data examples', () => {
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
     let count = 0;
-    const unsub = engine.onExampleChange(() => {
+    const unsub = engine.events.on('example:change', () => {
       count++;
     });
 
