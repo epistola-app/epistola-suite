@@ -10,6 +10,7 @@ import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -22,7 +23,9 @@ data class RegisterCatalog(
     val authType: AuthType = AuthType.NONE,
     val authCredential: String? = null,
 ) : Command<Catalog>,
-    RequiresPermission {
+    RequiresPermission,
+    // Fetches the remote catalog manifest over HTTP mid-command.
+    SelfManagedTransaction {
     override val permission get() = Permission.CATALOG_MANAGE
 }
 

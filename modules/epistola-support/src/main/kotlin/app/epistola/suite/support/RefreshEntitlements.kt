@@ -5,6 +5,7 @@ import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.error.HubUnauthenticatedException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
@@ -25,7 +26,9 @@ import app.epistola.hub.client.EntitlementEffect as ClientEntitlementEffect
  */
 class RefreshEntitlements :
     Command<Unit>,
-    SystemInternal
+    SystemInternal,
+    // Pulls entitlements from the hub over HTTP mid-command.
+    SelfManagedTransaction
 
 @Component
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")

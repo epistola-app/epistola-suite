@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.DefaultTransactionDefinition
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.full.allSupertypes
@@ -26,11 +28,16 @@ import kotlin.reflect.full.allSupertypes
  * Automatically discovers CommandHandler and QueryHandler beans and routes
  * commands/queries to the appropriate handler.
  *
- * After each successful command:
- * 1. IMMEDIATE EventHandlers are invoked (same call stack, may propagate exceptions)
- * 2. CommandCompleted event is published to Spring's event system
- * 3. AFTER_COMMIT EventHandlers are invoked via TransactionalEventListener
- * 4. EventLogSubscriber persists the event to the audit trail
+ * Every command dispatch runs inside ONE Spring-managed transaction (unless the
+ * command opts out via [SelfManagedTransaction]) that spans:
+ * 1. CommandHandler.handle()
+ * 2. IMMEDIATE EventHandlers (same transaction — a throwing handler rolls the command back)
+ * 3. CommandCompleted publication (so AFTER_COMMIT TransactionalEventListeners, incl.
+ *    EventLogSubscriber's audit-trail write, bind to the command's transaction and fire
+ *    only after it actually commits)
+ *
+ * JDBI joins this transaction via SpringConnectionFactory + SpringAwareTransactionHandler,
+ * so nested `jdbi.inTransaction { }` in handlers participates instead of committing early.
  *
  * Uses lazy handler discovery to support handlers that are initialized late
  * (e.g., handlers with Spring Batch job dependencies).
@@ -42,6 +49,7 @@ class SpringMediator(
     private val meterRegistry: MeterRegistry,
     private val commandListeners: List<CommandListener>,
     private val queryListeners: List<QueryListener>,
+    private val transactionManager: PlatformTransactionManager?,
 ) : Mediator {
 
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
@@ -72,17 +80,24 @@ class SpringMediator(
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
         try {
-            val result = handler.handle(command)
-            logger.debug("Command {} completed successfully", commandName)
+            // One transaction around handler + IMMEDIATE events + event publication:
+            // a throwing IMMEDIATE handler rolls the command back, and AFTER_COMMIT
+            // listeners (EventLogSubscriber) bind to this transaction.
+            val result = inCommandTransaction(command) {
+                val handled = handler.handle(command)
+                logger.debug("Command {} completed successfully", commandName)
 
-            // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
-            invokeEventHandlers(command, result, EventPhase.IMMEDIATE)
+                // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
+                invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
 
-            // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
-            eventPublisher.publishEvent(CommandCompleted(command, result))
+                // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
+                eventPublisher.publishEvent(CommandCompleted(command, handled))
+
+                handled
+            }
 
             // Notify cross-cutting listeners (audit, …) of the successful command.
-            // After the IMMEDIATE handlers so a handler that rolls the command back
+            // After the transaction committed so a handler that rolls the command back
             // is reported as a failure (catch below), not a success.
             notifyCommandListeners(command, DispatchOutcome.SUCCESS, null)
 
@@ -147,6 +162,34 @@ class SpringMediator(
             return block()
         }
         return MediatorContext.runWithMediator(this, block)
+    }
+
+    /**
+     * Run the command dispatch inside a Spring transaction (REQUIRED propagation, so a
+     * nested command joins the outer command's transaction). Uses the transaction
+     * manager directly instead of TransactionTemplate to keep exception types
+     * transparent. Skipped for [SelfManagedTransaction] commands and when no
+     * transaction manager is available (plain unit tests).
+     */
+    private fun <R> inCommandTransaction(command: Command<*>, block: () -> R): R {
+        if (transactionManager == null || command is SelfManagedTransaction) {
+            return block()
+        }
+        val status = transactionManager.getTransaction(DefaultTransactionDefinition())
+        try {
+            val result = block()
+            transactionManager.commit(status)
+            return result
+        } catch (e: Throwable) {
+            if (!status.isCompleted) {
+                try {
+                    transactionManager.rollback(status)
+                } catch (rollbackFailure: Exception) {
+                    e.addSuppressed(rollbackFailure)
+                }
+            }
+            throw e
+        }
     }
 
     private fun <R> invokeEventHandlers(command: Command<R>, result: R, phase: EventPhase) {

@@ -65,7 +65,8 @@ class SpringMediatorMetricsTest {
         context.refresh()
 
         // No command/query listeners — this test exercises only the metrics path.
-        mediator = SpringMediator(context, context, meterRegistry, emptyList(), emptyList())
+        // transactionManager = null: metrics test runs without a database transaction.
+        mediator = SpringMediator(context, context, meterRegistry, emptyList(), emptyList(), null)
     }
 
     @Test

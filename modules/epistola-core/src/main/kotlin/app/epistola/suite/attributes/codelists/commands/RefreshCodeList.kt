@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -26,7 +27,10 @@ import org.springframework.stereotype.Component
 data class RefreshCodeList(
     val id: CodeListId,
 ) : Command<CodeList?>,
-    RequiresPermission {
+    RequiresPermission,
+    // Fetches entries from the source URL mid-command, and a fetch error must be
+    // recorded (committed) even though the refresh itself fails.
+    SelfManagedTransaction {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey
 }

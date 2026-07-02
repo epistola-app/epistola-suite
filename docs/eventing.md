@@ -23,20 +23,26 @@ HTTP Request
 Handler receives Command
     ↓
 Mediator.send(command)
+    ├→ BEGIN per-command Spring transaction
+    │   (skipped for SelfManagedTransaction commands)
+    │
     ├→ CommandHandler.handle(command)
     │       ↓
-    │   (may use @Transactional or jdbi.inTransaction)
+    │   (jdbi handles JOIN the surrounding transaction —
+    │    nested jdbi.inTransaction participates, it does not commit)
     │       ↓
     │   Handler returns result
     │
     ├→ Invoke IMMEDIATE EventHandlers (same transaction)
-    │   (if one fails, exception propagates back to caller)
+    │   (if one fails, exception propagates and the command ROLLS BACK)
     │
     ├→ Publish Spring event: CommandCompleted(command, result)
+    │   └→ Any plain @EventListener beans fire (inside the transaction)
+    │
+    ├→ COMMIT per-command Spring transaction
     │   ├→ AFTER_COMMIT EventHandlers invoke via Spring's @TransactionalEventListener
     │   │   (failures are caught and logged, don't affect command)
-    │   ├→ EventLogSubscriber persists to event_log table
-    │   └→ Any other @EventListener beans fire
+    │   └→ EventLogSubscriber persists to event_log table
     │
     ↓
 Return result to caller
@@ -47,9 +53,10 @@ Return result to caller
 #### IMMEDIATE handlers
 
 - Invoked immediately after `handler.handle()` returns
-- Run within the same call stack
-- If command uses `@Transactional`, they execute within that transaction
-- If a handler throws an exception, it propagates to the caller (can roll back the command)
+- Run within the same call stack, inside the mediator's per-command transaction
+- If a handler throws an exception, it propagates to the caller and rolls the command back
+- Exception: for `SelfManagedTransaction` commands there is no surrounding transaction —
+  the handler's own writes have already committed and cannot be rolled back
 - Use case: Creating dependent entities (e.g., creating a default theme when a tenant is created)
 
 ```kotlin
@@ -65,7 +72,8 @@ class CreateDefaultThemeOnTenantCreate : EventHandler<CreateTenant> {
 
 #### AFTER_COMMIT handlers
 
-- Invoked after the command transaction commits via Spring's `@TransactionalEventListener`
+- Invoked after the mediator's per-command transaction commits via Spring's `@TransactionalEventListener`
+  (for `SelfManagedTransaction` commands they run immediately at publication — there is no transaction to bind to)
 - Exception-safe: failures are caught and logged, don't affect the command
 - Use case: Cache invalidation, metrics, notifications, audit logging
 

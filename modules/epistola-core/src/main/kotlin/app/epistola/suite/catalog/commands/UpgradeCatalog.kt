@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -39,7 +40,9 @@ data class UpgradeCatalog(
     val catalogKey: CatalogKey,
     val includeNewSlugs: List<String> = emptyList(),
 ) : Command<UpgradeCatalogResult>,
-    RequiresPermission {
+    RequiresPermission,
+    // Re-fetches the remote catalog over HTTP mid-command.
+    SelfManagedTransaction {
     override val permission get() = Permission.CATALOG_MANAGE
 }
 
