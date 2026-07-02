@@ -157,22 +157,30 @@ tasks.cyclonedxDirectBom {
     jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
 }
 
-// Self-hosted HTMX: copied from the pnpm-installed package instead of a CDN.
+// Self-hosted vendor scripts: copied from the pnpm-installed packages instead of a CDN
+// (the CSP allows no external script hosts).
+val vendoredScripts = mapOf(
+    "HTMX" to "node_modules/htmx.org/dist/htmx.min.js",
+    "Scalar API Reference" to "node_modules/@scalar/api-reference/dist/browser/standalone.js",
+)
+
 val verifyHtmxVendored by tasks.registering {
-    description = "Verifies the vendored HTMX bundle exists (from pnpm install)"
+    description = "Verifies the vendored frontend bundles exist (from pnpm install)"
     group = "verification"
-    val htmxBundle = rootProject.file("node_modules/htmx.org/dist/htmx.min.js")
+    val bundles = vendoredScripts.mapValues { (_, path) -> rootProject.file(path) }
 
     doLast {
-        if (!htmxBundle.exists()) {
-            throw GradleException(
-                """
-                Vendored HTMX bundle not found at: ${htmxBundle.absolutePath}
+        bundles.forEach { (name, bundle) ->
+            if (!bundle.exists()) {
+                throw GradleException(
+                    """
+                    Vendored $name bundle not found at: ${bundle.absolutePath}
 
-                Please install frontend dependencies first:
-                  pnpm install && pnpm build
-                """.trimIndent(),
-            )
+                    Please install frontend dependencies first:
+                      pnpm install && pnpm build
+                    """.trimIndent(),
+                )
+            }
         }
     }
 }
@@ -191,6 +199,11 @@ tasks.processResources {
     }
     // Self-host HTMX so Spring Boot serves it at /js/vendor/htmx.min.js
     from(rootProject.file("node_modules/htmx.org/dist/htmx.min.js")) {
+        into("static/js/vendor")
+    }
+    // Self-host the Scalar API-reference viewer at /js/vendor/scalar-api-reference.js
+    from(rootProject.file("node_modules/@scalar/api-reference/dist/browser/standalone.js")) {
+        rename { "scalar-api-reference.js" }
         into("static/js/vendor")
     }
     // Copy changelog markdown into app resources
