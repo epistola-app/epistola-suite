@@ -5,12 +5,31 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.StencilVersionId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.CreateStencilVersion
+import app.epistola.suite.stencils.commands.PublishStencilVersion
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
+import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -209,4 +228,98 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body.split("pending changes")).hasSize(2) // exactly one occurrence
         }
     }
+
+    @Test
+    fun `export-check dialog names the templates that pin an outdated stencil version`() = fixture {
+        lateinit var t: Tenant
+        given {
+            t = tenant("Export Conflict Dialog")
+            withMediator {
+                val catalogKey = CatalogKey.of("conflict-cat")
+                val catalogId = CatalogId(catalogKey, TenantId(t.id))
+                CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Conflict Cat").execute()
+
+                // Stencil with two published versions (latest is v2).
+                val stencilKey = StencilKey.of("shared-stencil")
+                val stencilId = StencilId(stencilKey, catalogId)
+                CreateStencil(id = stencilId, name = "Shared Stencil", content = stencilContent()).execute()
+                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+                CreateStencilVersion(stencilId = stencilId, content = stencilContent()).execute()
+                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
+
+                // "Letter A" pins the stale v1; "Letter B" is already on the latest v2.
+                publishTemplatePinningStencil(catalogId, "letter-a", "Letter A", stencilKey, 1)
+                publishTemplatePinningStencil(catalogId, "letter-b", "Letter B", stencilKey, 2)
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/conflict-cat/export-check",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The dialog names the offending template + its stale pin, and the
+            // stencil's latest version. It must NOT list "Letter B" (already on v2).
+            assertThat(body).contains("Templates to update")
+            assertThat(body).contains("Letter A")
+            assertThat(body).contains("pins")
+            assertThat(body).contains("v1")
+            assertThat(body).contains("v2")
+            assertThat(body).doesNotContain("Letter B")
+            // And it tells the user to publish after upgrading.
+            assertThat(body).contains("publish")
+        }
+    }
+
+    private fun publishTemplatePinningStencil(
+        catalogId: CatalogId,
+        slug: String,
+        name: String,
+        stencilKey: StencilKey,
+        stencilVersion: Int,
+    ) {
+        val templateId = TemplateId(TemplateKey.of(slug), catalogId)
+        CreateDocumentTemplate(id = templateId, name = name).execute()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        UpdateDraft(
+            variantId = variantId,
+            templateModel = templateEmbeddingStencil(stencilKey, stencilVersion),
+        ).execute()
+        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+    }
+
+    private fun stencilContent(): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("root-slot"))),
+        slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = emptyList())),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    private fun templateEmbeddingStencil(stencilKey: StencilKey, version: Int): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "stencil-instance" to Node(
+                id = "stencil-instance",
+                type = "stencil",
+                slots = listOf("stencil-children"),
+                props = mapOf("stencilId" to stencilKey.value, "version" to version),
+            ),
+        ),
+        slots = mapOf(
+            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-instance")),
+            "stencil-children" to Slot(id = "stencil-children", nodeId = "stencil-instance", name = "children", children = emptyList()),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
 }

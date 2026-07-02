@@ -1,5 +1,6 @@
 package app.epistola.suite.htmx.nav
 
+import app.epistola.suite.features.KnownFeatures.FeatureStage
 import app.epistola.suite.htmx.UiRequestContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -10,6 +11,7 @@ data class NavItemView(
     val label: String,
     val pathSuffix: String,
     val active: Boolean,
+    val stage: FeatureStage = FeatureStage.STABLE,
 )
 
 /** A dropdown group as rendered by the shell template; [active] when any child is active. */
@@ -69,6 +71,7 @@ class NavMenuAggregator(
                             label = it.label,
                             pathSuffix = it.pathSuffix,
                             active = it.sectionKey == activeSection,
+                            stage = it.stage,
                         )
                     }
                 NavGroupView(

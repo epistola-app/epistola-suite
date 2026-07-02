@@ -8,7 +8,9 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -19,7 +21,12 @@ data class CreateCatalog(
     val description: String? = null,
 ) : Command<Catalog>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_MANAGE
+
+    init {
+        validate("name", name.isNotBlank()) { "Name is required" }
+        validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+    }
 }
 
 @Component

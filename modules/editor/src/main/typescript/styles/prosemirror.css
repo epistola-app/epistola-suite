@@ -79,7 +79,7 @@
     position: absolute;
     top: -2px;
     width: 20px;
-    border-top: 1px solid var(--ep-gray-900);
+    border-top: 1px solid var(--ep-stone-900);
     animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
   }
 
@@ -99,11 +99,11 @@
     max-width: 100%;
     padding: 1px 8px;
     border-radius: var(--ep-radius-full);
-    background: var(--ep-blue-50);
-    color: var(--ep-blue-700);
+    background: var(--ep-terracotta-50);
+    color: var(--ep-terracotta-700);
     font-family: var(--ep-font-mono);
     font-size: 0.85em;
-    border: 1px solid var(--ep-blue-200);
+    border: 1px solid var(--ep-terracotta-200);
     box-shadow: var(--ep-shadow-xs);
     cursor: pointer;
     vertical-align: baseline;
@@ -114,7 +114,7 @@
       box-shadow var(--ep-transition-fast);
 
     &:hover {
-      background: var(--ep-blue-100);
+      background: var(--ep-terracotta-100);
       box-shadow: var(--ep-shadow-sm);
     }
   }
@@ -142,7 +142,7 @@
     gap: 2px;
     padding: 4px 6px;
     background: var(--ep-white);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-md);
     box-shadow: var(--ep-shadow-lg);
   }
@@ -157,7 +157,7 @@
     border: none;
     border-radius: var(--ep-radius-sm);
     background: transparent;
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -166,12 +166,12 @@
       color var(--ep-transition-fast);
 
     &:hover {
-      background: var(--ep-gray-100);
+      background: var(--ep-stone-100);
     }
 
     &.active {
-      background: var(--ep-blue-100);
-      color: var(--ep-blue-700);
+      background: var(--ep-terracotta-100);
+      color: var(--ep-terracotta-700);
     }
 
     &.bold {
@@ -199,7 +199,7 @@
   .pm-bubble-sep {
     width: 1px;
     height: 18px;
-    background: var(--ep-gray-200);
+    background: var(--ep-stone-200);
     margin: 0 2px;
     flex-shrink: 0;
   }
@@ -252,20 +252,20 @@
     font-size: var(--ep-text-base);
     font-weight: 600;
     line-height: var(--ep-leading-snug);
-    color: var(--ep-gray-900);
+    color: var(--ep-stone-900);
   }
 
   .expression-dialog-field-label {
     font-size: var(--ep-text-sm);
     font-weight: 500;
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
   }
 
   .expression-dialog-input {
     width: 100%;
     padding: var(--ep-space-2) var(--ep-space-3);
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     border-radius: var(--ep-radius-sm);
     font-family: var(--ep-font-mono);
     font-size: var(--ep-text-sm);
@@ -279,7 +279,7 @@
       box-shadow var(--ep-transition-fast);
 
     &:focus {
-      border-color: var(--ep-blue-500);
+      border-color: var(--ep-terracotta-500);
       box-shadow: var(--ep-ring);
     }
 
@@ -313,21 +313,21 @@
     font-size: var(--ep-text-sm);
     font-weight: 500;
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     white-space: nowrap;
   }
 
   .expression-dialog-format-select {
     flex: 1;
     padding: var(--ep-space-1) var(--ep-space-2);
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     border-radius: var(--ep-radius-sm);
     font-size: var(--ep-text-sm);
     background: var(--ep-white);
     outline: none;
 
     &:focus {
-      border-color: var(--ep-blue-500);
+      border-color: var(--ep-terracotta-500);
       box-shadow: var(--ep-ring);
     }
   }
@@ -357,16 +357,16 @@
 
     &.no-data,
     &.empty {
-      background: var(--ep-gray-50);
-      color: var(--ep-gray-500);
-      border: 1px solid var(--ep-gray-200);
+      background: var(--ep-stone-50);
+      color: var(--ep-stone-500);
+      border: 1px solid var(--ep-stone-200);
       text-align: center;
     }
 
     &.loading {
-      background: var(--ep-gray-50);
-      color: var(--ep-gray-400);
-      border: 1px solid var(--ep-gray-200);
+      background: var(--ep-stone-50);
+      color: var(--ep-stone-600);
+      border: 1px solid var(--ep-stone-200);
       font-style: italic;
     }
   }
@@ -375,7 +375,7 @@
     max-height: 200px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: var(--ep-gray-300) transparent;
+    scrollbar-color: var(--ep-stone-300) transparent;
     padding: var(--ep-space-2) 0;
 
     &::-webkit-scrollbar {
@@ -383,7 +383,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: var(--ep-gray-300);
+      background: var(--ep-stone-300);
       border-radius: 3px;
     }
   }
@@ -396,7 +396,7 @@
     font-size: var(--ep-text-sm);
     font-weight: 600;
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     margin-bottom: var(--ep-space-1);
   }
 
@@ -410,7 +410,7 @@
   .expression-dialog-filter {
     font-size: var(--ep-text-xs);
     padding: var(--ep-space-1) var(--ep-space-6) var(--ep-space-1) var(--ep-space-2);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     outline: none;
     width: 160px;
@@ -419,7 +419,7 @@
     letter-spacing: normal;
 
     &:focus {
-      border-color: var(--ep-blue-500);
+      border-color: var(--ep-terracotta-500);
       box-shadow: var(--ep-ring);
     }
   }
@@ -430,7 +430,7 @@
     width: var(--ep-space-4);
     height: var(--ep-space-4);
     flex: 0 0 auto;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-600);
     pointer-events: none;
   }
 
@@ -450,7 +450,7 @@
     transition: background-color var(--ep-transition-fast);
 
     &:hover {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
     }
 
     &.disabled {
@@ -464,7 +464,7 @@
       .expression-dialog-path-type::after {
         content: ' • not allowed here';
         font-style: italic;
-        color: var(--ep-gray-400);
+        color: var(--ep-stone-400);
       }
     }
   }
@@ -473,20 +473,20 @@
     font-family: var(--ep-font-mono);
     font-size: var(--ep-text-xs);
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-800);
+    color: var(--ep-stone-800);
   }
 
   .expression-dialog-path-type {
     font-size: var(--ep-text-xs);
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-600);
     margin-left: var(--ep-space-3);
   }
 
   /* Quick reference */
 
   .expression-dialog-reference {
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     overflow: hidden;
     interpolate-size: allow-keywords;
@@ -511,14 +511,14 @@
     font-size: var(--ep-text-sm);
     font-weight: 600;
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     padding: var(--ep-space-1-5) var(--ep-space-2);
     cursor: pointer;
     user-select: none;
     list-style: none;
 
     &:hover {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
     }
   }
 
@@ -530,7 +530,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--ep-gray-400);
+    color: var(--ep-stone-600);
     transform: rotate(0deg);
     transform-origin: center;
     transition: transform var(--ep-transition-base);
@@ -555,7 +555,7 @@
     transition: background-color var(--ep-transition-fast);
 
     &:hover {
-      background: var(--ep-blue-50);
+      background: var(--ep-terracotta-50);
     }
   }
 
@@ -563,7 +563,7 @@
     font-family: var(--ep-font-mono);
     font-size: var(--ep-text-xs);
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -572,7 +572,7 @@
   .expression-dialog-ref-desc {
     font-size: var(--ep-text-xs);
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-500);
+    color: var(--ep-stone-500);
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -590,25 +590,25 @@
     font-size: var(--ep-text-sm);
     font-weight: 500;
     cursor: pointer;
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     background: var(--ep-white);
-    color: var(--ep-gray-700);
+    color: var(--ep-stone-700);
     transition:
       background-color var(--ep-transition-fast),
       border-color var(--ep-transition-fast);
 
     &:hover {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
     }
 
     &.save {
-      background: var(--ep-blue-600);
+      background: var(--ep-terracotta-700);
       color: white;
-      border-color: var(--ep-blue-600);
+      border-color: var(--ep-terracotta-700);
 
       &:hover {
-        background: var(--ep-blue-700);
-        border-color: var(--ep-blue-700);
+        background: var(--ep-terracotta-800);
+        border-color: var(--ep-terracotta-800);
       }
     }
   }
@@ -623,7 +623,7 @@
 
   .expression-dialog-mode-toggle {
     display: flex;
-    border: 1px solid var(--ep-gray-300);
+    border: 1px solid var(--ep-stone-300);
     border-radius: var(--ep-radius-sm);
     overflow: hidden;
   }
@@ -634,22 +634,22 @@
     font-weight: 500;
     border: none;
     background: var(--ep-white);
-    color: var(--ep-gray-600);
+    color: var(--ep-stone-600);
     cursor: pointer;
     transition:
       background-color var(--ep-transition-fast),
       color var(--ep-transition-fast);
 
     &:not(:last-child) {
-      border-right: 1px solid var(--ep-gray-300);
+      border-right: 1px solid var(--ep-stone-300);
     }
 
     &:hover:not(.active):not(.disabled) {
-      background: var(--ep-gray-50);
+      background: var(--ep-stone-50);
     }
 
     &.active {
-      background: var(--ep-blue-600);
+      background: var(--ep-terracotta-700);
       color: white;
     }
 
@@ -676,14 +676,14 @@
 
     & select {
       padding: var(--ep-space-1-5) var(--ep-space-2);
-      border: 1px solid var(--ep-gray-300);
+      border: 1px solid var(--ep-stone-300);
       border-radius: var(--ep-radius-sm);
       font-size: var(--ep-text-sm);
       background: var(--ep-white);
       outline: none;
 
       &:focus {
-        border-color: var(--ep-blue-500);
+        border-color: var(--ep-terracotta-500);
         box-shadow: var(--ep-ring);
       }
     }
@@ -701,9 +701,9 @@
   .expression-dialog-builder-hint {
     font-size: var(--ep-text-xs);
     line-height: var(--ep-leading-normal);
-    color: var(--ep-gray-500);
-    background: var(--ep-gray-50);
-    border: 1px solid var(--ep-gray-200);
+    color: var(--ep-stone-500);
+    background: var(--ep-stone-50);
+    border: 1px solid var(--ep-stone-200);
     border-radius: var(--ep-radius-sm);
     padding: var(--ep-space-2) var(--ep-space-3);
     text-align: center;
@@ -715,13 +715,13 @@
     background: none;
     padding: 0;
     font: inherit;
-    color: var(--ep-blue-600);
+    color: var(--ep-primary-strong);
     font-weight: 500;
     cursor: pointer;
     text-decoration: underline;
 
     &:hover {
-      color: var(--ep-blue-700);
+      color: var(--ep-terracotta-800);
     }
   }
 }

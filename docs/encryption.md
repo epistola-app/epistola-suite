@@ -144,3 +144,13 @@ served from a short-TTL, bounded in-memory cache (`ApiKeyAuthCache`, default 60s
 / 10k entries) that also caches negative results; revoking a key invalidates the
 cache immediately, and `ApiKey.isUsable()` is re-checked on every cache hit so a
 cached-but-expired key still fails.
+
+## Tenant backups
+
+Faithful tenant backups (see [`tenant-backup.md`](tenant-backup.md)) reuse this
+cipher: the whole backup archive is base64-wrapped and encrypted with the same
+keyset via `TenantBackupCrypto` (a second, outer layer — credential columns
+inside the dump are already `enc:v1:` ciphertext and ride through verbatim).
+Restoring a backup therefore needs the same keyset present, exactly as reading
+the live database's encrypted columns does; the multi-key keyset handles backups
+taken before a rotation as long as the old key id is retained.

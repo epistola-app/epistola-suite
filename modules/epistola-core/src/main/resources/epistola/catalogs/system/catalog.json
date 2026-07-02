@@ -10,11 +10,18 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "1.1.0",
-    "releasedAt": "2026-05-20T00:00:00Z",
-    "fingerprint": "debc55ccdcfe2a08cae5bb7903edb087a2d89b908a0dabe74fa03690c02c945b"
+    "version": "1.2.0",
+    "releasedAt": "2026-06-25T00:00:00Z",
+    "fingerprint": "5e7097e69bcc0464dd74b3b8bf107265e46f672522a798dd24dc98f87db35ff9"
   },
   "resources": [
+    {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000010",
+      "name": "System Badge",
+      "description": "A small shared badge image that any catalog's templates can embed.",
+      "detailUrl": "./resources/assets/system-badge.json"
+    },
     {
       "type": "theme",
       "slug": "default",

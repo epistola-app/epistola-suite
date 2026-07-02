@@ -260,7 +260,7 @@ export class EpistolaEditor extends LitElement {
     if (this.plugins) {
       const context: PluginContext = {
         engine: this._engine,
-        doc: this._doc!,
+        doc: this._doc,
         selectedNodeId: this._selectedNodeId,
       };
       this._pluginDisposers = this.plugins.map((p) => p.init(context));
@@ -460,6 +460,7 @@ export class EpistolaEditor extends LitElement {
       openInsertDialog: () => this._openInsertDialog(),
       openShortcutsHelp: () => this._openShortcutsHelp(),
       openDataPreview: () => this._openDataPreview(),
+      openTemplateJson: () => this._openTemplateJson(),
       focusBlocksPanel: () => this._focusPalette(),
       focusStructurePanel: () => this._focusTree(),
       focusInspectorPanel: () => this._focusInspector(),
@@ -592,6 +593,13 @@ export class EpistolaEditor extends LitElement {
     const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar');
     if (!toolbar) return false;
     toolbar.openDataPreview();
+    return true;
+  }
+
+  private _openTemplateJson(): boolean {
+    const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar');
+    if (!toolbar) return false;
+    toolbar.openTemplateJson();
     return true;
   }
 
@@ -1218,7 +1226,7 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _insertDialogQuickSelectLabel(): string {
-    const quickSelectKeys = INSERT_DIALOG_SHORTCUTS.navigation.quickSelect as readonly string[];
+    const quickSelectKeys = INSERT_DIALOG_SHORTCUTS.navigation.quickSelect;
     if (quickSelectKeys.length === 0) return '';
 
     const singleDigitSequence = quickSelectKeys.every((value) => /^[0-9]$/.test(value));

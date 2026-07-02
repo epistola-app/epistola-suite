@@ -1,0 +1,123 @@
+/*
+ * Session, generic, wide & fullscreen dialogs
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Session expiry dialogs ───────────────────────────────────────────── */
+
+.session-dialog {
+  border: none;
+  border-radius: var(--ep-radius-xl);
+  box-shadow: var(--ep-shadow-xl);
+  padding: 0;
+  max-width: 400px;
+  width: 90%;
+}
+
+.session-dialog::backdrop {
+  background-color: rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.session-dialog-content {
+  padding: var(--ep-space-6);
+}
+
+.session-dialog h2 {
+  margin: 0 0 var(--ep-space-4) 0;
+  font-size: var(--ep-text-lg);
+}
+
+.session-dialog p {
+  margin: var(--ep-space-3) 0;
+  color: var(--ep-muted-foreground);
+  line-height: var(--ep-leading-normal);
+  font-size: var(--ep-text-sm);
+}
+
+.session-dialog-actions {
+  margin-top: var(--ep-space-6);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ep-space-3);
+}
+
+.session-dialog-expired h2 {
+  color: var(--ep-destructive);
+}
+
+/* ── Dialog (generic reusable dialog) ────────────────────────────────── */
+
+.ep-dialog {
+  border: none;
+  border-radius: var(--ep-radius-xl);
+  box-shadow: var(--ep-shadow-xl);
+  padding: 0;
+  max-width: 28rem;
+  width: 90%;
+}
+
+.ep-dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.ep-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ep-space-4) var(--ep-space-6);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.ep-dialog-header h2,
+.ep-dialog-header h3 {
+  margin: 0;
+  font-size: var(--ep-text-base);
+}
+
+.ep-dialog-body {
+  padding: var(--ep-space-6);
+}
+
+.ep-dialog-body .form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* General/server error banner inside a create dialog. Sits between the header and
+   the form; empty (and so invisible) until UiExceptionFilter swaps an alert into it
+   out-of-band. Insets to match the dialog body's horizontal padding. */
+.ep-dialog-general-error:not(:empty) {
+  padding: var(--ep-space-4) var(--ep-space-6) 0;
+}
+
+.ep-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ep-space-3);
+  padding: var(--ep-space-4) var(--ep-space-6);
+  border-top: 1px solid var(--ep-border-color);
+}
+
+#confirm-dialog-footer {
+  display: flex;
+  gap: var(--ep-space-3);
+}
+
+/* ── Wide dialog variant ──────────────────────────────────────────────── */
+
+.ep-dialog-wide {
+  max-width: 38rem;
+}
+
+/* ── Fullscreen dialog variant ───────────────────────────────────────── */
+
+.ep-dialog-fullscreen {
+  max-width: 95vw;
+  width: 95vw;
+  max-height: 90vh;
+  height: 90vh;
+  background: var(--ep-card, #fff);
+}

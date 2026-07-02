@@ -1,5 +1,6 @@
 package app.epistola.suite.generation.collect.commands
 
+import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.generation.collect.domain.GenerationResultRow
@@ -36,7 +37,8 @@ data class EmitGenerationResult(
     val error: String?,
     val completedAt: OffsetDateTime,
 ) : Command<GenerationResultRow>,
-    SystemInternal {
+    SystemInternal,
+    NotEventLogged {
     init {
         require((status == ResultStatus.COMPLETED) == (documentId != null)) {
             "documentId must be set iff status == COMPLETED"

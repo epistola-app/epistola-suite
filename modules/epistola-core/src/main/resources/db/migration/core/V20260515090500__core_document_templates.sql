@@ -19,7 +19,7 @@ CREATE TABLE document_templates (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    pdfa_enabled BOOLEAN NOT NULL DEFAULT false,
+    pdfa_enabled BOOLEAN NOT NULL DEFAULT true,
     PRIMARY KEY (tenant_key, catalog_key, id),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, theme_catalog_key, theme_key) REFERENCES themes(tenant_key, catalog_key, id) ON DELETE SET NULL (theme_catalog_key, theme_key)
@@ -37,6 +37,7 @@ COMMENT ON COLUMN document_templates.theme_key IS 'Default theme for this templa
 COMMENT ON COLUMN document_templates.created_at IS 'When the template was created';
 COMMENT ON COLUMN document_templates.updated_at IS 'When the template was last updated';
 COMMENT ON COLUMN document_templates.created_by IS 'User who created this template (NULL if the user was deleted)';
+COMMENT ON COLUMN document_templates.pdfa_enabled IS 'Whether PDF/A-2b archival output is enabled for this template. Defaults to true for new templates.';
 COMMENT ON COLUMN document_templates.updated_by IS 'User who last modified this template (NULL if the user was deleted)';
 
 -- updated_at is DB-enforced by the shared set_updated_at() trigger function.

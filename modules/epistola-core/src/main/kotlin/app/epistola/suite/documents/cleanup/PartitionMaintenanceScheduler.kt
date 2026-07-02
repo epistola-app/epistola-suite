@@ -6,16 +6,17 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.partitions.PartitionedTable
+import app.epistola.suite.partitions.PartitionedTableContributor
 import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.SmartInitializingSingleton
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.annotation.Bean
-import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -30,11 +31,12 @@ import java.time.format.DateTimeFormatter
  *   - Re-runs the same create/drop logic daily on a configurable cron.
  *   - Drops monthly partitions older than the table's retention window.
  *
- * Retention is per-table because the data has different value over time:
- * `documents` and `document_generation_requests` get the longer
- * `epistola.partitions.retention-months` (default 3); `generation_results`
- * is consumer-driven ephemera that gets the shorter
- * `epistola.partitions.generation-results-retention-months` (default 1).
+ * The set of tables is contributed by [PartitionedTableContributor] beans rather
+ * than hard-coded here, so each module owns its own partitioned tables (core via
+ * [CorePartitionedTables]; the audit module declares `audit_log`). Retention is
+ * per-table: a `null` retention means **keep forever** (partitions created monthly
+ * but never auto-dropped — e.g. the audit log; old partitions may later be
+ * detached/archived to cold storage, never deleted).
  */
 @Component
 @ConditionalOnProperty(
@@ -45,13 +47,11 @@ import java.time.format.DateTimeFormatter
 class PartitionMaintenanceScheduler(
     private val jdbi: Jdbi,
     private val meterRegistry: MeterRegistry,
-    @Value("\${epistola.partitions.retention-months:3}")
-    private val retentionMonths: Int,
-    @Value("\${epistola.partitions.generation-results-retention-months:1}")
-    private val generationResultsRetentionMonths: Int,
+    private val tableContributors: List<PartitionedTableContributor>,
     @Value("\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
     private val maintenanceCron: String,
-) : ClusterScheduledTaskHandler {
+) : ClusterScheduledTaskHandler,
+    SmartInitializingSingleton {
     private val logger = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
@@ -65,11 +65,7 @@ class PartitionMaintenanceScheduler(
     }
 
     private val partitionConfigs by lazy {
-        listOf(
-            PartitionConfig("documents", retentionMonths),
-            PartitionConfig("document_generation_requests", retentionMonths),
-            PartitionConfig("generation_results", generationResultsRetentionMonths),
-        )
+        tableContributors.flatMap { it.partitionedTables() }
     }
 
     @Bean
@@ -84,12 +80,15 @@ class PartitionMaintenanceScheduler(
     )
 
     /**
-     * Initialize partitions after application is ready and Flyway migrations have completed.
-     * Creates current month and next month partitions to bootstrap the system.
+     * Bootstrap partitions once all singletons are instantiated (so Flyway has migrated) but
+     * **before** Spring's `ApplicationRunner`s and the `ApplicationReadyEvent`. This matters because
+     * startup runners can dispatch commands that write to a partitioned table (e.g. the demo loader
+     * creating a tenant → an `audit_log` write); if bootstrap ran at `ApplicationReadyEvent` (after
+     * runners) the current month's partition wouldn't exist yet. Creates the current + next month
+     * partitions.
      */
-    @EventListener(ApplicationReadyEvent::class)
-    fun initializePartitions() {
-        logger.info("Initializing partitions after application ready (Flyway migrations completed)")
+    override fun afterSingletonsInstantiated() {
+        logger.info("Initializing partitions after singletons instantiated (Flyway migrations completed)")
         maintainPartitions()
     }
 
@@ -139,7 +138,7 @@ class PartitionMaintenanceScheduler(
     /**
      * Ensure the current and next month partitions exist for [config]. Idempotent.
      */
-    private fun createRequiredPartitions(config: PartitionConfig) {
+    private fun createRequiredPartitions(config: PartitionedTable) {
         val now = YearMonth.from(EpistolaClock.offsetDateTime())
         createPartitionForMonth(config, now)
         createPartitionForMonth(config, now.plusMonths(1))
@@ -149,7 +148,7 @@ class PartitionMaintenanceScheduler(
      * Create partition for a specific month if it doesn't exist.
      */
     private fun createPartitionForMonth(
-        config: PartitionConfig,
+        config: PartitionedTable,
         month: YearMonth,
     ) {
         val partitionName = "${config.tableName}_${month.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
@@ -197,10 +196,12 @@ class PartitionMaintenanceScheduler(
     }
 
     /**
-     * Drop partitions older than the config's retention period.
+     * Drop partitions older than the config's retention period. A null retention
+     * means "keep forever" (e.g. the audit log) — no partitions are ever dropped.
      */
-    private fun dropOldPartitions(config: PartitionConfig) {
-        val cutoffMonth = YearMonth.from(EpistolaClock.offsetDateTime()).minusMonths(config.retentionMonths.toLong())
+    private fun dropOldPartitions(config: PartitionedTable) {
+        val retentionMonths = config.retentionMonths ?: return
+        val cutoffMonth = YearMonth.from(EpistolaClock.offsetDateTime()).minusMonths(retentionMonths.toLong())
         val cutoffPartition = "${config.tableName}_${cutoffMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
 
         // Query for partitions older than retention period
@@ -230,7 +231,7 @@ class PartitionMaintenanceScheduler(
                         .execute()
                 }
                 droppedCount++
-                logger.info("Dropped old partition: {} (older than {} months)", partitionName, config.retentionMonths)
+                logger.info("Dropped old partition: {} (older than {} months)", partitionName, retentionMonths)
             } catch (e: Exception) {
                 logger.error("Failed to drop partition {}: {}", partitionName, e.message, e)
             }
@@ -242,11 +243,6 @@ class PartitionMaintenanceScheduler(
             logger.debug("No old partitions to drop for table {}", config.tableName)
         }
     }
-
-    private data class PartitionConfig(
-        val tableName: String,
-        val retentionMonths: Int,
-    )
 
     companion object {
         const val TASK_KEY = "core.partition-maintenance"

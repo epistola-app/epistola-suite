@@ -2,6 +2,7 @@ package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.execute
@@ -27,6 +28,39 @@ class DefaultVariantTest : IntegrationTestBase() {
                 id = templateId,
                 name = "Invoice",
             ).execute()
+
+            val variants = ListVariants(templateId = templateId).query()
+            assertThat(variants).hasSize(1)
+            assertThat(variants[0].isDefault).isTrue()
+        }
+    }
+
+    @Test
+    fun `default variant has the literal id initial`() {
+        val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
+
+        withMediator {
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+
+            val variants = ListVariants(templateId = templateId).query()
+            assertThat(variants).hasSize(1)
+            assertThat(variants[0].id.value).isEqualTo("initial")
+        }
+    }
+
+    @Test
+    fun `creating a template with a maximum-length slug succeeds`() {
+        // Regression (issue #632): the default variant id used to be "{slug}-default", so a
+        // 50-char slug produced a 58-char VariantKey and threw IllegalArgumentException.
+        val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
+
+        withMediator {
+            val maxSlug = TemplateKey.of("a".repeat(50))
+            val templateId = TemplateId(maxSlug, CatalogId.default(tenantId))
+            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
 
             val variants = ListVariants(templateId = templateId).query()
             assertThat(variants).hasSize(1)

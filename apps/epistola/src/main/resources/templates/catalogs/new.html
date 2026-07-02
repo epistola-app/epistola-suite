@@ -35,7 +35,7 @@
         <div class="form-group">
             <label class="ep-label" for="catalogName">Name</label>
             <input type="text" id="catalogName" name="name" class="ep-input"
-                   required placeholder="My Templates" data-slug-source="catalogSlug"
+                   required maxlength="100" placeholder="My Templates" data-slug-source="catalogSlug"
                    th:value="${formData?.name}">
             <span class="form-error" id="catalog-error-name" th:attr="data-error=${errors?.containsKey('name')}" th:text="${errors?.get('name')}"></span>
         </div>

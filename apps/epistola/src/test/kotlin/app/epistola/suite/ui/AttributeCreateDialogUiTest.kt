@@ -52,8 +52,10 @@ class AttributeCreateDialogUiTest : BasePlaywrightTest() {
             "#create-attribute-dialog",
         )
 
-        // displayName caps at 100 server-side with no HTML5 maxlength; a clean
-        // slug isolates the failure to the display name.
+        // The field enforces maxlength=100 in the browser (issue #633), so strip it
+        // at runtime to push an over-length value through and prove the SERVER also
+        // rejects it, rendering the field error in the open dialog (defense in depth).
+        page.locator("#create-attribute-dialog #displayName").evaluate("el => el.removeAttribute('maxlength')")
         page.locator("#create-attribute-dialog #displayName").fill("a".repeat(256))
         page.locator("#create-attribute-dialog #slug").fill("valid-attr")
         page.getByTestId("create-form-submit").click()

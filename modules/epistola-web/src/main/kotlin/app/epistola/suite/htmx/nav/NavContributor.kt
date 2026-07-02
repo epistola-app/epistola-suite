@@ -1,5 +1,6 @@
 package app.epistola.suite.htmx.nav
 
+import app.epistola.suite.features.KnownFeatures.FeatureStage
 import app.epistola.suite.htmx.UiRequestContext
 
 /**
@@ -47,4 +48,6 @@ data class NavItem(
     val pathSuffix: String,
     /** Order within the group (ascending; ties broken by [sectionKey]). */
     val order: Int,
+    /** Release maturity of the feature this item links to; renders a badge for non-stable stages. */
+    val stage: FeatureStage = FeatureStage.STABLE,
 )

@@ -2,7 +2,11 @@
 
 How catalogs declare a version, how "is this a new version?" is decided, and
 how that flows across the web UI, REST, MCP, catalog exchange and the bundled
-catalogs. Companion to [`docs/exchange.md`](exchange.md).
+catalogs. Companion to [`docs/exchange/README.md`](exchange/README.md).
+
+> This covers the **release version + content fingerprint** axis. For how it
+> relates to the other version concepts (template/contract/stencil publish, and
+> the wire-format `schemaVersion`), see [version-axes.md](version-axes.md).
 
 ## Why
 
@@ -63,6 +67,14 @@ Excluded by construction: `release.*`, `schemaVersion`, every `updatedAt`,
 `detailUrl`. Asset _binary bytes_ are folded in via their own SHA-256 (mirrors
 the font-family fingerprint), so swapping an image flips the fingerprint even
 though the `AssetResource` JSON is unchanged.
+
+**Wire-format migration is fingerprint-transparent.** Because `schemaVersion` is
+excluded, the whole-catalog import migration ([ADR 0007](adr/0007-catalog-wire-format-migrations.md),
+[`docs/exchange/`](exchange/README.md#wire-format-version-gate)) — which upgrades
+an older payload's shape and re-stamps `schemaVersion` to the current catalog
+version — is **preserved verbatim**: `release.fingerprint` / `release.version` are never
+touched or recomputed during migration, so a migrated import compares as the same
+source release and the idempotent-re-import SKIP still holds.
 
 **One definition (invariant).** There is a single canonicalization, run over
 the **serialized resource-detail JSON** (the exact wire form). The value

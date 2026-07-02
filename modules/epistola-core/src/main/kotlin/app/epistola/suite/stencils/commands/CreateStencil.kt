@@ -12,6 +12,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import app.epistola.template.model.Node
@@ -42,7 +43,7 @@ data class CreateStencil(
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
-        validate("name", name.length <= 255) { "Name must be 255 characters or less" }
+        validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         description?.let {
             validate("description", it.length <= 1000) { "Description must be 1000 characters or less" }
         }

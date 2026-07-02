@@ -6,6 +6,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
@@ -78,6 +79,30 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(json, "$.variants[0].hasDraft")).isTrue
         assertThat(JsonPath.read<String>(json, "$.createdAt")).isNotBlank
         assertThat(JsonPath.read<String>(json, "$.lastModified")).isNotBlank
+    }
+
+    @Test
+    fun `create template with an under-privileged key returns 403 naming the missing permission`() {
+        val (tenantKey, viewerKey) = seedTenantAndViewerKey()
+        val slug = "denied-${randomSuffix()}"
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Should Be Denied"}""", baseHeaders(viewerKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val json = response.body!!
+        assertThat(JsonPath.read<String>(json, "$.type")).isEqualTo("https://epistola.app/errors/permission-denied")
+        assertThat(JsonPath.read<String>(json, "$.title")).isEqualTo("Permission Denied")
+        assertThat(JsonPath.read<Int>(json, "$.status")).isEqualTo(403)
+        // The missing permission is named in both the detail string and a machine-readable extension.
+        assertThat(JsonPath.read<String>(json, "$.detail")).isEqualTo("Missing required permission: template-edit")
+        assertThat(JsonPath.read<String>(json, "$.requiredPermission")).isEqualTo("template-edit")
+        assertThat(JsonPath.read<String>(json, "$.tenantId")).isEqualTo(tenantKey.value)
     }
 
     @Test
@@ -155,6 +180,212 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(response.body!!, "$.name")).isEqualTo("Updated")
+    }
+
+    @Test
+    fun `update template with dataModel publishes it and subsequent get returns the dataModel`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "dm-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Has Model"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
+        val patch = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": $dataModel}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(patch.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(patch.body!!, "$.dataModel.type")).isEqualTo("object")
+
+        val get = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(get.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(get.body!!, "$.dataModel.type")).isEqualTo("object")
+        assertThat(JsonPath.read<String>(get.body!!, "$.dataModel.properties.name.type")).isEqualTo("string")
+    }
+
+    @Test
+    fun `update template with data examples incompatible with dataModel returns 422`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "inv-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Invalid Examples"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // Schema requires "name"; the example omits it → incompatible.
+        val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
+        val examples = """[{"id":"ex1","name":"Bad","data":{"unexpected":"value"}}]"""
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": $dataModel, "dataExamples": $examples}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(422)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val problem = response.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type"))
+            .isEqualTo("https://epistola.app/errors/data-model-validation-error")
+        assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(422)
+        assertThat(JsonPath.read<Any>(problem, "$.validationErrors")).isNotNull
+    }
+
+    @Test
+    fun `forceUpdate does not bypass data example validation`() {
+        // A published contract may never carry examples it would reject, so even
+        // forceUpdate=true must not let incompatible examples through.
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "force-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Forced"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
+        val examples = """[{"id":"ex1","name":"Bad","data":{"unexpected":"value"}}]"""
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": $dataModel, "dataExamples": $examples, "forceUpdate": true}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(422)
+    }
+
+    @Test
+    fun `update template with a breaking schema change is rejected without forceUpdate`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "brk-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Breaking"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        // Publish v1 with name:string.
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // Change name:string -> name:integer is a breaking type change.
+        val breaking = """{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}}"""
+        val rejected = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity(breaking, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(rejected.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
+            .isEqualTo("https://epistola.app/errors/contract-publish-conflict")
+        assertThat(JsonPath.read<List<Any>>(rejected.body!!, "$.breakingChanges")).isNotEmpty
+
+        // The previously published model is unchanged.
+        val get = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(JsonPath.read<String>(get.body!!, "$.dataModel.properties.name.type")).isEqualTo("string")
+    }
+
+    @Test
+    fun `update template with a breaking schema change succeeds with forceUpdate`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "brkf-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Breaking Forced"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val breaking = """{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}, "forceUpdate": true}"""
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity(breaking, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(response.body!!, "$.dataModel.properties.name.type")).isEqualTo("integer")
+    }
+
+    @Test
+    fun `a rejected breaking change leaves no draft, so data validation still uses the published model`() {
+        // Regression: the create -> update -> publish steps each commit separately, so a
+        // publish rejected as breaking must not leave a dangling draft holding the rejected
+        // schema. validate-data reads the draft-preferred contract, so it would observe such
+        // a leak: data valid under the published model would be rejected by the leaked draft.
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "leak-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "No Leak"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        // Publish v1 with name:string.
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // Breaking change name:string -> name:integer without forceUpdate is rejected (409).
+        val rejected = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
+
+        // A string name is valid under the published model. If the rejected draft (name:integer)
+        // had leaked, validate-data would mark it invalid.
+        val validate = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/validate",
+            HttpMethod.POST,
+            HttpEntity("""{"data": {"name": "hello"}}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(validate.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Boolean>(validate.body!!, "$.valid")).isTrue
     }
 
     @Test
@@ -391,6 +622,18 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
         CreateTenant(id = tenantKey, name = "Template Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "tmpl-it").execute()
+        tenantKey to created.plaintextKey
+    }
+
+    /** Tenant + a viewer-only key (can read but not create/edit templates). */
+    private fun seedTenantAndViewerKey(): Pair<TenantKey, String> = withMediator {
+        val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
+        CreateTenant(id = tenantKey, name = "Template Tenant").execute()
+        val created = CreateApiKey(
+            tenantId = tenantKey,
+            name = "tmpl-it-viewer",
+            roles = setOf(TenantRole.CONTENT_VIEWER),
+        ).execute()
         tenantKey to created.plaintextKey
     }
 

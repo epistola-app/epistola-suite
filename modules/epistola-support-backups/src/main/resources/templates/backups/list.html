@@ -2,82 +2,75 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Backups</h1>
-            <div class="page-actions">
-                <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
-                    <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${status != 'OK'}">
-                        <th:block th:replace="~{fragments/icon :: icon(name='upload-cloud', class='ep-icon')}" />
-                        Back up now
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <p class="page-description">
-            A backup is a point-in-time copy of all of this tenant's <strong>published</strong> catalog
-            content, stored on the Epistola hub — unpublished drafts are not included. Daily backups run
-            automatically; you can also back up on demand. Restoring is destructive — it replaces every
-            catalog in this tenant with the snapshot's contents (any unpublished drafts are lost).
-        </p>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Backups',
+            pageDescription='A backup is a full, point-in-time copy of all the authoring data in this tenant — every template, theme, stencil, code list, font and asset, including drafts and the complete version history — stored locally. Daily backups run automatically; you can also back up on demand. Restoring reverts this tenant to the backed-up state: changes made since (new templates, versions and edits) are dropped, but generated documents are preserved.',
+            stage=${stage},
+            actions=~{::backup-list-actions}
+        )}"></div>
 
         <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>
         <div th:if="${saved == 'backup-unchanged'}" class="alert alert-info" role="status">No changes since the last backup — nothing new to store.</div>
-        <div th:if="${saved == 'restore'}" class="alert alert-success" role="status">Tenant restored from the snapshot.</div>
-        <div th:if="${error == 'not-entitled'}" class="alert alert-error" role="alert">This installation is not entitled to backups — contact Epistola for a service contract.</div>
+        <div th:if="${saved == 'restore'}" class="alert alert-success" role="status">Tenant restored from the backup.</div>
         <div th:if="${error == 'backup-failed'}" class="alert alert-error" role="alert">The backup failed. Please try again or check the logs.</div>
         <div th:if="${error == 'restore-failed'}" class="alert alert-error" role="alert">The restore failed and was rolled back. Please try again or check the logs.</div>
-        <div th:if="${error == 'hub-unavailable'}" class="alert alert-error" role="alert">Couldn't reach the Epistola hub. Check the connection on Support → Overview and try again.</div>
+        <div th:if="${error == 'restore-incompatible'}" class="alert alert-error" role="alert">This backup was taken on a schema version this build can't restore (a database change between the two isn't declared restore-compatible). Restore it on a matching build.</div>
+        <div th:if="${error == 'hub-unavailable'}" class="alert alert-error" role="alert">Couldn't reach the Epistola hub, so that action didn't complete. Check the connection on Support → Overview and try again.</div>
+        <div th:if="${error == 'hub-auth'}" class="alert alert-error" role="alert">The Epistola hub rejected this installation's credentials (authentication failed), so that action didn't complete. Reconnect this installation on Support → Overview.</div>
+        <div th:if="${error == 'not-entitled'}" class="alert alert-error" role="alert">This installation isn't entitled to backups — contact Epistola for a service contract.</div>
+        <div th:if="${hubStatus == 'UNAVAILABLE'}" class="alert alert-info" role="status">Couldn't reach the Epistola hub, so stored backups can't be listed right now. Check the connection on Support → Overview and try again.</div>
+        <div th:if="${hubStatus == 'AUTH'}" class="alert alert-error" role="alert">The Epistola hub rejected this installation's credentials (authentication failed), so stored backups can't be listed. Reconnect this installation on Support → Overview.</div>
+        <div th:if="${hubStatus == 'NOT_ENTITLED'}" class="alert alert-info" role="status">This installation isn't entitled to backups — contact Epistola for a service contract.</div>
 
-        <div th:if="${status == 'NOT_ENTITLED'}" class="alert alert-info" role="status">
-            This installation is not entitled to managed backups. Contact Epistola for a service contract to enable them.
-        </div>
-        <div th:if="${status == 'UNAVAILABLE'}" class="alert alert-info" role="status">
-            Not connected to the Epistola hub, so backups are unavailable right now. See
-            <a th:href="@{/tenants/{tenantId}/support(tenantId=${tenantId})}">Support → Overview</a> for the connection status.
-        </div>
-        <div th:if="${status == 'ERROR'}" class="alert alert-error" role="alert">
-            Connected to the Epistola hub, but it couldn't serve backups — it may be an older hub without
-            catalog backups, or returned an error. Check the logs and the hub version.
-        </div>
-
-        <div th:if="${status == 'OK' and #lists.isEmpty(snapshots)}" class="empty-state">
+        <div th:if="${#lists.isEmpty(backups)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No backups yet</div>
             <div class="empty-state-description">Run a backup now, or wait for the next scheduled daily backup.</div>
         </div>
 
-        <table th:if="${!#lists.isEmpty(snapshots)}" class="ep-table">
+        <table th:if="${!#lists.isEmpty(backups)}" class="ep-table">
             <thead>
                 <tr>
                     <th>Captured</th>
                     <th>Suite version</th>
-                    <th>Catalogs</th>
+                    <th>Tables</th>
+                    <th>Rows</th>
                     <th>Size</th>
                     <th></th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="snap : ${snapshots}">
-                    <td th:text="${snap.capturedAt}">2026-01-01 02:00 UTC</td>
-                    <td th:text="${snap.suiteVersion}">1.4.0</td>
-                    <td th:text="${snap.catalogCount}">3</td>
-                    <td th:text="${snap.size}">1.2 MB</td>
+                <tr th:each="backup : ${backups}">
+                    <td th:text="${backup.capturedAt}">2026-01-01 02:00 UTC</td>
+                    <td th:text="${backup.buildVersion}">1.4.0</td>
+                    <td th:text="${backup.tableCount}">22</td>
+                    <td th:text="${backup.rowCount}">148</td>
+                    <td th:text="${backup.size}">1.2 MB</td>
                     <td>
-                        <span th:if="${snap.isLatest}" class="ep-badge ep-badge-success">Latest</span>
+                        <span th:if="${backup.isLatest}" class="ep-badge ep-badge-success">Latest</span>
+                        <span th:if="${backup.versionNote != null}" class="ep-badge ep-badge-warning" th:text="${backup.versionNote}">Older version</span>
                     </td>
                     <td style="text-align: right;">
-                        <button type="button"
+                        <button th:if="${backup.restorable}"
+                                type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                 data-confirm-title="Restore backup"
                                 data-confirm-target="body"
-                                th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${snap.capturedAt} + '? This deletes every current catalog in the tenant (including any unpublished drafts) and replaces it with the published content from the backup. This cannot be undone.',
-                                         data-confirm-url=@{/tenants/{tenantId}/backups/{snapshotId}/restore(tenantId=${tenantId},snapshotId=${snap.snapshotId})}"
+                                th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${backup.capturedAt} + '? This reverts the tenant to the backed-up state — any templates, versions and edits made since are dropped (generated documents are kept). This cannot be undone.',
+                                         data-confirm-url=@{/tenants/{tenantId}/backups/{backupId}/restore(tenantId=${tenantId},backupId=${backup.backupId})}"
                                 onclick="openConfirmDialog(this)">
-                            <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
+                            Restore
+                        </button>
+                        <button th:unless="${backup.restorable}"
+                                type="button"
+                                class="ep-btn ep-btn-ghost ep-btn-sm"
+                                disabled
+                                title="This backup was taken on a schema version this build can't restore.">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
                             Restore
                         </button>
                     </td>
@@ -87,5 +80,14 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+    <th:block th:fragment="backup-list-actions">
+        <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
+            <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${hubStatus != 'OK'}">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='upload-cloud', class='ep-icon')}" />
+                Back up now
+            </button>
+        </form>
+    </th:block>
+
 </body>
 </html>

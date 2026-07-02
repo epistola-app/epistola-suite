@@ -2,21 +2,23 @@ package app.epistola.suite.catalog
 
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceDetail
+import app.epistola.suite.catalog.migrations.CatalogMigrationContext
+import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.migrations.MigratedManifest
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ResourceLoader
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
-import tools.jackson.databind.ObjectMapper
 import java.net.URI
 import java.nio.file.Path
 
 @Component
 class CatalogClient(
     private val catalogRestClient: RestClient,
-    private val objectMapper: ObjectMapper,
     private val resourceLoader: ResourceLoader,
+    private val schemaMigrator: CatalogSchemaMigrator,
     @Value("\${epistola.catalog.allow-http:false}") private val allowHttp: Boolean = false,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -28,19 +30,45 @@ class CatalogClient(
         if (allowHttp) add("http")
     }
 
-    fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest {
+    /** The bound, current-shape manifest. Use [fetchMigratedManifest] when you also need to fetch details. */
+    fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest = fetchMigratedManifest(url, authType, credential).manifest
+
+    /**
+     * Like [fetchManifest], but also returns the [CatalogMigrationContext] that
+     * must be threaded into [fetchResourceDetail] for every detail of the same
+     * catalog (the catalog's source version + migrated manifest tree).
+     */
+    fun fetchMigratedManifest(url: String, authType: AuthType, credential: String?): MigratedManifest {
         validateUrl(url, allowedSchemes)
         logger.debug("Fetching catalog manifest from {}", url)
-        return readLocal(url, CatalogManifest::class.java)
-            ?: fetchHttp(url, authType, credential)
+        // Fetch raw bytes and route through the schema migrator (version gate +
+        // wire-format upgrade chain) before binding. This is the single remote
+        // chokepoint, so every consumer — install, browse, upgrade-check,
+        // fingerprint — sees a current-shape manifest.
+        val bytes = readLocalBinary(url) ?: fetchHttpBinary(url, authType, credential)
+        return schemaMigrator.migrateAndBindManifest(bytes)
     }
 
-    fun fetchResourceDetail(detailUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ResourceDetail {
+    /**
+     * Fetch one resource detail and upgrade it to the current catalog wire shape
+     * before binding. [type] is the resource type discriminator (from the manifest
+     * entry); [catalog] is the context from [fetchMigratedManifest]. The migrator
+     * rejects a detail whose version differs from the catalog's, verifies
+     * `resource.type` matches [type], and exposes the manifest to cross-part steps.
+     */
+    fun fetchResourceDetail(
+        type: String,
+        detailUrl: String,
+        manifestUrl: String,
+        authType: AuthType,
+        credential: String?,
+        catalog: CatalogMigrationContext,
+    ): ResourceDetail {
         val resolvedUrl = resolveDetailUrl(detailUrl, manifestUrl)
         validateUrl(resolvedUrl, allowedSchemes)
         logger.debug("Fetching resource detail from {}", resolvedUrl)
-        return readLocal(resolvedUrl, ResourceDetail::class.java)
-            ?: fetchHttp(resolvedUrl, authType, credential)
+        val bytes = readLocalBinary(resolvedUrl) ?: fetchHttpBinary(resolvedUrl, authType, credential)
+        return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog)
     }
 
     fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
@@ -69,35 +97,6 @@ class CatalogClient(
         .applyAuth(authType, credential)
         .retrieve()
         .body(ByteArray::class.java)
-        ?: throw CatalogFetchException("Empty response from: $url")
-
-    private fun <T> readLocal(url: String, type: Class<T>): T? = when {
-        url.startsWith("file:") -> readFile(url, type)
-        url.startsWith("classpath:") -> readClasspath(url, type)
-        else -> null
-    }
-
-    private fun <T> readFile(fileUrl: String, type: Class<T>): T {
-        val path = Path.of(URI.create(fileUrl))
-        if (!path.toFile().exists()) {
-            throw CatalogFetchException("File not found: $path")
-        }
-        return objectMapper.readValue(path.toFile(), type)
-    }
-
-    private fun <T> readClasspath(classpathUrl: String, type: Class<T>): T {
-        val resource = resourceLoader.getResource(classpathUrl)
-        if (!resource.exists()) {
-            throw CatalogFetchException("Classpath resource not found: $classpathUrl")
-        }
-        return objectMapper.readValue(resource.contentAsByteArray, type)
-    }
-
-    private inline fun <reified T : Any> fetchHttp(url: String, authType: AuthType, credential: String?): T = catalogRestClient.get()
-        .uri(url)
-        .applyAuth(authType, credential)
-        .retrieve()
-        .body(T::class.java)
         ?: throw CatalogFetchException("Empty response from: $url")
 
     private fun RestClient.RequestHeadersSpec<*>.applyAuth(authType: AuthType, credential: String?): RestClient.RequestHeadersSpec<*> = apply {

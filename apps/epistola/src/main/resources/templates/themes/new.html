@@ -40,7 +40,7 @@
         <div class="form-group">
             <label class="ep-label" for="name">Name</label>
             <input type="text" id="name" name="name" class="ep-input"
-                   required placeholder="Corporate Theme" data-slug-source="slug"
+                   required maxlength="100" placeholder="Corporate Theme" data-slug-source="slug"
                    th:value="${formData?.name}">
             <span class="form-error" id="theme-error-name" th:attr="data-error=${errors?.containsKey('name')}" th:text="${errors?.get('name')}"></span>
         </div>

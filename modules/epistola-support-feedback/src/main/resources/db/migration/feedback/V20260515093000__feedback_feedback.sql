@@ -1,25 +1,11 @@
 -- ============================================================================
--- FEEDBACK SYNC CONFIGURATION (per-tenant sync provider settings)
--- ============================================================================
-
-CREATE TABLE feedback_sync_config (
-    tenant_key      TENANT_KEY  NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    enabled         BOOLEAN     NOT NULL DEFAULT false,
-    provider_type   VARCHAR(30) NOT NULL,
-    settings        JSONB       NOT NULL DEFAULT '{}',
-    last_polled_at  TIMESTAMPTZ,
-
-    PRIMARY KEY (tenant_key)
-);
-
-COMMENT ON TABLE feedback_sync_config IS 'Per-tenant configuration for external issue tracker sync';
-COMMENT ON COLUMN feedback_sync_config.provider_type IS 'Sync provider type (GITHUB, JIRA, etc.)';
-COMMENT ON COLUMN feedback_sync_config.settings IS 'Provider-specific settings as JSONB (e.g., repo, label, installation ID)';
-COMMENT ON COLUMN feedback_sync_config.last_polled_at IS 'Timestamp of last successful inbound poll';
-
--- ============================================================================
 -- FEEDBACK (core feedback items)
 -- ============================================================================
+--
+-- Inbound sync is installation-wide (epistola-hub, gated by
+-- epistola.support.enabled); the per-tenant provider/PAT config table that
+-- originally lived here was dropped, and the inbound poll cursor now lives in
+-- app_metadata under key 'feedback.sync.lastPolledAt'.
 
 CREATE TABLE feedback (
     tenant_key      TENANT_KEY  NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

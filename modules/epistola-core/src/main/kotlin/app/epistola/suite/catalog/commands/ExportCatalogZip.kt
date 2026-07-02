@@ -32,7 +32,7 @@ data class ExportCatalogZip(
     val catalogKey: CatalogKey,
 ) : Command<ExportCatalogZipResult>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class ExportCatalogZipResult(

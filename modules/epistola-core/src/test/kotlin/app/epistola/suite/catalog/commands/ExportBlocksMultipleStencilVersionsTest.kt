@@ -67,8 +67,11 @@ class ExportBlocksMultipleStencilVersionsTest : IntegrationTestBase() {
                     val conflict = e.stencils.single()
                     assertThat(conflict.stencilKey).isEqualTo(stencilKey)
                     assertThat(conflict.stencilName).isEqualTo("Shared Stencil")
-                    assertThat(conflict.versions).containsExactly(1, 2)
                     assertThat(conflict.latestPublishedVersion).isEqualTo(2)
+                    // Only the out-of-date template is named; template-b (already on
+                    // the latest v2) is not listed.
+                    assertThat(conflict.pins.map { it.templateName to it.pinnedVersion })
+                        .containsExactly("template-a" to 1)
                 })
         }
     }
@@ -106,7 +109,9 @@ class ExportBlocksMultipleStencilVersionsTest : IntegrationTestBase() {
                 .satisfies({ ex ->
                     val e = ex as MultipleStencilVersionsInUseException
                     val conflict = e.stencils.single()
-                    assertThat(conflict.versions).containsExactly(1)
+                    // Both templates pin the stale v1, so both are named.
+                    assertThat(conflict.pins.map { it.templateName to it.pinnedVersion })
+                        .containsExactlyInAnyOrder("template-a" to 1, "template-b" to 1)
                     assertThat(conflict.latestPublishedVersion).isEqualTo(2)
                 })
         }
@@ -146,7 +151,7 @@ class ExportBlocksMultipleStencilVersionsTest : IntegrationTestBase() {
         val templateId = TemplateId(templateKey, catalogId)
         CreateDocumentTemplate(id = templateId, name = templateSlug).execute()
 
-        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
             variantId = variantId,

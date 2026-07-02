@@ -3,13 +3,13 @@
 <body>
     <th:block th:fragment="tab-content">
         <!-- Details -->
-        <div class="detail-section">
+        <div class="ep-panel detail-section">
             <div class="detail-section-header"><h3>Details</h3></div>
             <div class="detail-section-body">
                 <dl class="description-list">
                     <dt>Name</dt>
                     <dd>
-                        <input type="text" id="template-name-input" class="ep-input"
+                        <input type="text" id="template-name-input" class="ep-input" maxlength="100"
                                th:value="${template.name}" th:disabled="${!editable}"
                                th:attr="data-original-name=${template.name}"
                                style="max-width: 300px;"
@@ -27,7 +27,7 @@
         </div>
 
         <!-- Default Theme -->
-        <div class="detail-section" id="theme-section" th:fragment="theme-section">
+        <div class="ep-panel detail-section" id="theme-section" th:fragment="theme-section">
             <div class="detail-section-header"><h3>Default Theme</h3></div>
             <div class="detail-section-body">
                 <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
@@ -53,7 +53,7 @@
         </div>
 
         <!-- Output Settings -->
-        <div class="detail-section" id="output-settings-section">
+        <div class="ep-panel detail-section" id="output-settings-section">
             <div class="detail-section-header"><h3>Output Settings</h3></div>
             <div class="detail-section-body">
                 <label style="display: flex; align-items: flex-start; gap: var(--ep-space-3); cursor: pointer;">
@@ -72,7 +72,7 @@
         </div>
 
         <!-- Danger Zone -->
-        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="detail-section danger-zone">
+        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="ep-panel detail-section danger-zone">
             <div class="detail-section-header"><h3>Danger Zone</h3></div>
             <div class="detail-section-body">
                 <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">

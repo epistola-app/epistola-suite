@@ -303,6 +303,55 @@ class CodeListUiTest : BasePlaywrightTest() {
         assertThat(rows.first().locator("a").first()).hasText("locales")
     }
 
+    @Test
+    fun `a blocked delete swaps the confirm dialog Delete button for Cancel`() {
+        // Seed an in-use code list: an attribute bound to it makes its delete a
+        // non-recoverable 400 ("bound attributes must be unbound first") — the
+        // case the shared confirm dialog must surface by replacing the dead
+        // Delete button with Cancel. This swap is browser-only (the 400 contract
+        // itself is covered headless in CodeListHandlerHtmxTest).
+        val tenant = withMediator {
+            val t = createUiTenant()
+            val catalogId = CatalogId.default(TenantId(t.id))
+            val codeListId = CodeListId(CodeListKey.of("locales"), catalogId)
+            CreateCodeList(
+                id = codeListId,
+                displayName = "Locales",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("en", "English")),
+            ).execute()
+            CreateAttributeDefinition(
+                id = AttributeId(AttributeKey.of("language"), catalogId),
+                displayName = "Language",
+                codeListId = codeListId,
+            ).execute()
+            t
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/code-lists/default/locales")
+
+        // Open the shared confirm dialog from the detail page's Delete action.
+        // The button sits in the page header beneath the sticky top nav, whose
+        // username link covers it at this viewport — a layout artifact, not the
+        // behaviour under test — so a hit-tested click lands on the nav. Dispatch
+        // the click straight to the button to fire its onclick; the dialog then
+        // opens in the top layer, clear of the nav.
+        val deleteBtn = page.locator("button[data-confirm-title='Delete code list']")
+        assertThat(deleteBtn).isVisible()
+        deleteBtn.dispatchEvent("click")
+
+        // Confirm the delete — the server rejects it (400, bound attribute).
+        val confirmBtn = page.locator("[data-testid='confirm-dialog-confirm']")
+        assertThat(confirmBtn).isVisible()
+        confirmBtn.click()
+
+        // The dialog stays open, shows the error, and the destructive Delete
+        // button is gone — replaced by a Cancel button, the only action left.
+        assertThat(page.locator("#confirm-dialog-error")).isVisible()
+        assertThat(page.locator("[data-testid='confirm-dialog-confirm']")).hasCount(0)
+        assertThat(page.locator("[data-testid='confirm-dialog-cancel']")).isVisible()
+    }
+
     /**
      * Helper to create a fresh tenant for each UI test. Uses a nanosecond-
      * suffixed slug so parallel test runs don't collide on the unique tenant

@@ -17,7 +17,12 @@
 -->
 <body>
 
-<!--/* Search box fragment with HTMX integration */-->
+<!--/* Search box fragment with HTMX integration.
+       hx-include carries any [data-search-param] elements (e.g. live sort/dir
+       hidden inputs that live in the swapped list fragment) along with the
+       search request, so state set after page load isn't lost on search. Pages
+       without such elements include nothing extra — the selector just matches
+       nothing. */-->
 <div class="search-box" th:fragment="search-box(placeholder, searchUrl, targetId)">
     <input type="search"
            name="q"
@@ -26,6 +31,7 @@
            th:hx-get="${searchUrl}"
            hx-trigger="input changed delay:300ms, search"
            th:hx-target="${'#' + targetId}"
+           hx-include="[data-search-param]"
            hx-swap="innerHTML"
            class="ep-input form-control-auto"
            >

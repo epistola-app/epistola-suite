@@ -14,7 +14,8 @@ import org.springframework.context.annotation.Configuration
  * Keycloak implementation of [TenantProvisioningPort].
  *
  * Creates hierarchical groups under `/epistola/tenants/{tenantKey}/{role}`
- * for each of the four tenant roles (reader, editor, generator, manager).
+ * for each tenant role (content-viewer, content-author, document-generator,
+ * content-publisher, tenant-administrator).
  */
 class KeycloakTenantProvisioner(
     private val keycloakAdminClient: KeycloakAdminClient,
@@ -53,7 +54,7 @@ class KeycloakTenantProvisioner(
     }
 
     companion object {
-        fun groupPathFor(tenantKey: TenantKey, role: TenantRole): String = "/epistola/tenants/${tenantKey.value}/${role.name.lowercase()}"
+        fun groupPathFor(tenantKey: TenantKey, role: TenantRole): String = "/epistola/tenants/${tenantKey.value}/${role.name.lowercase().replace('_', '-')}"
     }
 }
 

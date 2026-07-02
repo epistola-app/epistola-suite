@@ -2,6 +2,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.commands.AuthoredImportMode
@@ -18,7 +19,12 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.StencilVersionImportConflictsException
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
+import app.epistola.suite.catalog.migrations.CatalogSchemaException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
+import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CatalogSchemaSyncState
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
@@ -305,9 +311,24 @@ class CatalogHandler {
             catalog.sourceUrl == null -> model["state"] = "ZIP_MANAGED"
             else -> try {
                 val a = CheckCatalogUpgrade(tenantId.key, catalogKey).query()
-                model["state"] = if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
                 model["installedVersion"] = a.installedVersion
                 model["availableVersion"] = a.availableVersion
+                model["sourceSchemaVersion"] = a.sourceSchemaVersion
+                model["currentSchemaVersion"] = a.currentSchemaVersion
+                // A schema mismatch (source must republish, or this Epistola is
+                // behind) takes priority over the release-version upgrade state.
+                model["state"] = when (a.schemaSyncState) {
+                    CatalogSchemaSyncState.SOURCE_BEHIND -> "NOT_IN_SYNC"
+                    CatalogSchemaSyncState.SOURCE_AHEAD -> "SOURCE_AHEAD"
+                    CatalogSchemaSyncState.IN_SYNC -> if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
+                }
+            } catch (e: CatalogSchemaTooNewException) {
+                // The source publishes a wire schema newer than this instance can
+                // read — `fetchMigratedManifest` throws before a sync state can be
+                // derived, so surface the intended "upgrade Epistola" state here.
+                model["sourceSchemaVersion"] = e.version
+                model["currentSchemaVersion"] = e.current
+                model["state"] = "SOURCE_AHEAD"
             } catch (e: Exception) {
                 logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
                 model["state"] = "CHECK_FAILED"
@@ -382,17 +403,20 @@ class CatalogHandler {
             val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usageCounts = usages.mapValues { it.value.size }
-            // Per-stencil version-conflict map (slug → "pinned v1, v2 (latest v3)").
-            // Empty when the catalog is exportable. Used by the browse view to flag
-            // stencils that block export — mirrors the precheck the export endpoint
-            // runs. The check also fires when templates pin a single stale version
-            // (not just multi-version usage), hence the explicit `latest` callout.
+            // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
+            // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
+            // the browse view to flag stencils that block export — mirrors the precheck
+            // the export endpoint runs. The check also fires when templates pin a single
+            // stale version (not just multi-version usage), hence the explicit `latest`
+            // callout.
             val stencilVersionConflicts = FindStencilVersionExportConflicts(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
             ).query().associate { c ->
+                val staleVersions = c.pins.map { it.pinnedVersion }.distinct().sorted()
+                    .joinToString(", v", prefix = "v")
                 c.stencilKey.value to
-                    "pinned v${c.versions.joinToString(", v")} (latest v${c.latestPublishedVersion})"
+                    "$staleVersions still pinned by ${c.pins.size} template(s) (latest v${c.latestPublishedVersion})"
             }
 
             ServerResponse.ok().page("catalogs/browse") {
@@ -564,6 +588,13 @@ class CatalogHandler {
         }?.let { runCatching { OnStencilConflict.valueOf(it) }.getOrNull() }
             ?: OnStencilConflict.FAIL
 
+        // Set when the operator confirmed updating an AUTHORED ZIP that is below the
+        // current catalog schema version but migratable (re-submitted from the
+        // "update?" prompt).
+        val confirmMigration = multipartData["confirmMigration"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim().equals("true", ignoreCase = true)
+        } ?: false
+
         return try {
             val result = ImportCatalogZip(
                 tenantKey = tenantId.key,
@@ -571,6 +602,7 @@ class CatalogHandler {
                 catalogType = catalogType,
                 authoredMode = authoredMode,
                 onStencilConflict = onStencilConflict,
+                confirmMigration = confirmMigration,
             ).execute()
 
             val failed = result.results.count { it.status == InstallStatus.FAILED }
@@ -613,6 +645,37 @@ class CatalogHandler {
                 mapOf(
                     "catalogId" to e.catalogKey.value,
                     "stencilImportConflicts" to conflicts,
+                ),
+            )
+        } catch (e: CatalogSchemaException) {
+            // The uploaded catalog's wire format is too new, too old, or
+            // unrecognised — the migrator rejected it before binding. Render the
+            // actionable remediation message inline (same alert-error slot as the
+            // stencil-conflict report), so the operator knows whether to upgrade
+            // this instance or re-export from a current source.
+            logger.warn("Import blocked by catalog wire-format version: ${e.message}")
+            val title = when (e) {
+                is CatalogSchemaTooNewException -> "Import blocked: catalog format is too new"
+                is CatalogSchemaTooOldException -> "Import blocked: catalog format is too old"
+                is CatalogSchemaUnknownException -> "Import blocked: unrecognised catalog format"
+            }
+            ServerResponse.ok().render(
+                "catalogs/list :: import-schema-error",
+                mapOf(
+                    "schemaErrorTitle" to title,
+                    "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
+                ),
+            )
+        } catch (e: CatalogMigrationConfirmationRequiredException) {
+            // AUTHORED ZIP below the current catalog schema version but migratable:
+            // updating mutates the imported content, so prompt before importing. The
+            // "Update" button re-submits the same form with confirmMigration=true.
+            ServerResponse.ok().render(
+                "catalogs/list :: import-migration-confirm",
+                mapOf(
+                    "tenantId" to tenantId.key,
+                    "fromSchemaVersion" to e.fromVersion,
+                    "toSchemaVersion" to e.toVersion,
                 ),
             )
         } catch (e: Exception) {
@@ -663,8 +726,13 @@ class CatalogHandler {
                 StencilConflictView(
                     name = s.stencilName,
                     slug = s.stencilKey.value,
-                    versionsDisplay = s.versions.joinToString(", ") { "v$it" },
                     latestPublishedVersion = "v${s.latestPublishedVersion}",
+                    pins = s.pins.map { p ->
+                        StencilConflictView.PinView(
+                            templateLabel = p.displayLabel,
+                            pinned = "v${p.pinnedVersion}",
+                        )
+                    },
                 )
             },
         )
@@ -704,9 +772,15 @@ class CatalogHandler {
     data class StencilConflictView(
         val name: String,
         val slug: String,
-        val versionsDisplay: String,
         val latestPublishedVersion: String,
-    )
+        /** The published template-variants that still pin an outdated version. */
+        val pins: List<PinView>,
+    ) {
+        data class PinView(
+            val templateLabel: String,
+            val pinned: String,
+        )
+    }
 
     /**
      * The shared model for **every** render of the catalog list — the full

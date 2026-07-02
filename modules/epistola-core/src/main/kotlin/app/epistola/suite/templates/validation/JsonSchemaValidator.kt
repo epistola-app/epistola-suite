@@ -7,6 +7,7 @@ import com.networknt.schema.SpecificationVersion
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
@@ -60,13 +61,44 @@ class JsonSchemaValidator(
      * @return List of validation errors, empty if valid
      */
     fun validate(schema: ObjectNode, data: ObjectNode): List<ValidationError> {
-        val schemaJson = objectMapper.writeValueAsString(schema)
+        val schemaJson = objectMapper.writeValueAsString(relaxDateTimeForValidation(schema))
         val dataJson = objectMapper.writeValueAsString(data)
 
         val jsonSchema = schemaRegistry.getSchema(schemaJson)
         val errors = jsonSchema.validate(dataJson, InputFormat.JSON)
 
         return errors.map { error -> ValidationError(error.message, error.instanceLocation.toString()) }
+    }
+
+    /**
+     * RFC 3339 `date-time` mandates a UTC offset, but Epistola treats a datetime
+     * **without** an offset as a local wall-clock value ("time is time") and only
+     * converts to the render timezone when an offset *is* present. So an author
+     * may set, or omit, a timezone on a date-time field, and both must validate.
+     *
+     * networknt asserts the `date-time` format here (its strict format check is
+     * enabled for the configured 2020-12 dialect), which rejects the offset-less
+     * form, so for validation we replace
+     * `format: date-time` with a pattern accepting both an offset-bearing RFC 3339
+     * instant and a naive local date-time. The relaxation applies only to the
+     * copy handed to the validator — the stored contract schema keeps
+     * `format: date-time` as its semantic annotation.
+     */
+    private fun relaxDateTimeForValidation(schema: ObjectNode): ObjectNode = schema.deepCopy().also(::relaxDateTimeInPlace)
+
+    private fun relaxDateTimeInPlace(node: JsonNode) {
+        when (node) {
+            is ObjectNode -> {
+                val format = node.get("format")
+                if (format != null && format.isString && format.asString() == "date-time") {
+                    node.remove("format")
+                    if (!node.has("pattern")) node.put("pattern", LENIENT_DATE_TIME_PATTERN)
+                }
+                node.properties().forEach { (_, child) -> relaxDateTimeInPlace(child) }
+            }
+            is ArrayNode -> node.forEach(::relaxDateTimeInPlace)
+            else -> Unit
+        }
     }
 
     /**
@@ -307,6 +339,21 @@ class JsonSchemaValidator(
     companion object {
         /** Valid field name: starts with letter or underscore, contains only letters, digits, underscores. */
         private val VALID_FIELD_NAME_RE = Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+        /**
+         * Accepts an RFC 3339 instant (`…Z` / `±HH:MM`) **or** a naive local
+         * date-time (no offset). Seconds are optional; fractional seconds are
+         * only allowed when seconds are present (a bare `…:mm.fff` is invalid).
+         *
+         * Uppercase `T` / `Z` only: the generation-side renderer parses these
+         * values with `OffsetDateTime.parse` / `LocalDateTime.parse`, which are
+         * case-sensitive ISO. Accepting lowercase here would green-light values
+         * the renderer later rejects. This still can't range-check fields, so
+         * `2026-13-40T25:99` passes the shape check — calendar validity is left
+         * to the parser at render time.
+         */
+        private const val LENIENT_DATE_TIME_PATTERN =
+            "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:\\d{2})?$"
     }
 
     /**

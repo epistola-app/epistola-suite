@@ -30,7 +30,7 @@ data class FindFontUsages(
     val fontId: FontId,
 ) : Query<List<FontUsage>>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = fontId.tenantKey
 }
 

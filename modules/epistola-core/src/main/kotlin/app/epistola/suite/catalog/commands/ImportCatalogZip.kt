@@ -5,19 +5,24 @@ import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
-import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogImportContext
+import app.epistola.suite.catalog.CatalogImportSchemaAction
+import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.migrations.CatalogSchemaException
+import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -90,6 +95,13 @@ data class ImportCatalogZip(
      * The database FKs still enforce referential integrity regardless of this flag.
      */
     val validateCrossCatalogDeps: Boolean = true,
+    /**
+     * Set when the operator has confirmed updating an **AUTHORED** ZIP whose catalog
+     * schema version is below current but migratable. Without it such an import is
+     * not run — the handler raises [CatalogMigrationConfirmationRequiredException] so
+     * the UI can prompt. The REST import sets it `true` (non-interactive).
+     */
+    val confirmMigration: Boolean = false,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -124,6 +136,7 @@ class ImportCatalogZipHandler(
     private val sizeLimits: CatalogSizeLimits,
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val analyzer: CatalogUpgradeAnalyzer,
+    private val schemaMigrator: CatalogSchemaMigrator,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -160,7 +173,35 @@ class ImportCatalogZipHandler(
         // Parse manifest
         val manifestBytes = entries["catalog.json"]
             ?: throw IllegalArgumentException("ZIP does not contain catalog.json")
-        val manifest = objectMapper.readValue(manifestBytes, CatalogManifest::class.java)
+        // Catalog-wide version gate + wire-format upgrade chain before binding
+        // (see CatalogSchemaMigrator): the manifest carries the authoritative
+        // schemaVersion and every resource detail echoes it, so details are gated
+        // against the same version below. The chain is empty today, so
+        // current-shape payloads pass straight through to binding.
+        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        val manifest = migratedManifest.manifest
+        val catalogCtx = migratedManifest.catalog
+        // Decide what to do about an outdated-schema ZIP (a source-less transport
+        // we can't re-fetch). SUBSCRIBED mirrors are never migrated locally; an
+        // AUTHORED ZIP with no migration path is rejected; an AUTHORED ZIP the chain
+        // can upgrade prompts for confirmation (migrating mutates content) and then
+        // imports. `sourceVersion` is the pre-migration version; `manifest.schemaVersion`
+        // is current iff a chain upgraded it. Covers the UI and REST import paths.
+        when (
+            CatalogImportSchemaAction.decide(
+                catalogType = command.catalogType,
+                sourceVersion = catalogCtx.sourceVersion,
+                migratedVersion = manifest.schemaVersion,
+                current = CATALOG_SCHEMA_VERSION,
+                confirmed = command.confirmMigration,
+            )
+        ) {
+            CatalogImportSchemaAction.BLOCK_TOO_OLD ->
+                throw CatalogSchemaTooOldException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+            CatalogImportSchemaAction.CONFIRM_MIGRATION ->
+                throw CatalogMigrationConfirmationRequiredException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+            CatalogImportSchemaAction.IMPORT -> {} // proceed
+        }
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
         // A ZIP import targets a catalog *type*. A slug that already exists
@@ -260,20 +301,24 @@ class ImportCatalogZipHandler(
 
         val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
-        // Pre-parse every stencil detail once. Surfaces missing/corrupt stencil
-        // JSON (including pre-0.6.0 ZIPs without `version`) as a hard import
-        // failure before any mutation, and the parsed StencilResource objects
-        // are reused by the install loop below so each stencil detail is
-        // deserialized only once. Other resource types stay in the per-resource
-        // try/catch so a missing/corrupt detail surfaces as a single failed
-        // install rather than aborting the whole import — stencil-version
-        // conflicts are the only deliberate group-decision (FAIL vs RENUMBER).
+        // Pre-parse every stencil detail once. Each detail is routed through the
+        // migrator (catalog-wide version gate + chain) before binding; the chain
+        // is empty today, so current-shape details pass through unchanged.
+        // Missing / corrupt stencil JSON is still a hard import failure before any
+        // mutation, and the parsed StencilResource objects are reused by the
+        // install loop below so each stencil detail is deserialized only once.
+        // Other resource types stay in the per-resource try/catch so a
+        // missing/corrupt detail surfaces as a single failed install rather than
+        // aborting the whole import — but a wire-version gate failure
+        // (CatalogSchemaException) is rethrown there to reject the whole import,
+        // matching the manifest gate. Stencil-version conflicts remain the only
+        // deliberate group-decision (FAIL vs RENUMBER).
         val parsedStencilsBySlug: Map<String, StencilResource> = ordered
             .filter { it.type == "stencil" }
             .associate { entry ->
                 val detailBytes = entries[entry.detailUrl.removePrefix("./")]
                     ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                val parsed = objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                val parsed = schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
                 val stencil = parsed as? StencilResource
                     ?: throw IllegalArgumentException(
                         "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
@@ -304,7 +349,7 @@ class ImportCatalogZipHandler(
                     val detailPath = entry.detailUrl.removePrefix("./")
                     val detailBytes = entries[detailPath]
                         ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                    objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                    schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
                 }
 
                 val status = installResource(
@@ -318,6 +363,12 @@ class ImportCatalogZipHandler(
                     stencilRenumbers = stencilRenumbers,
                 )
                 InstallResult(type = entry.type, slug = entry.slug, status = status)
+            } catch (e: CatalogSchemaException) {
+                // A wire-version gate failure (too new/old/unknown) rejects the
+                // whole import and surfaces the dedicated operator remediation
+                // (UI fragment / RFC 9457 problem) — never downgraded to a single
+                // FAILED resource by the generic catch below.
+                throw e
             } catch (e: Exception) {
                 logger.error("Failed to import {} '{}': {}", entry.type, entry.slug, e.message, e)
                 InstallResult(type = entry.type, slug = entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
@@ -579,6 +630,7 @@ class ImportCatalogZipHandler(
                 description = resource.description,
                 tags = resource.tags ?: emptyList(),
                 content = resource.content,
+                parameterSchema = resource.parameterSchema,
                 onConflict = onStencilConflict,
             ).execute()
             if (result.wasRenumbered) {

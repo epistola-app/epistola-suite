@@ -80,6 +80,27 @@
                         errorEl.textContent = 'An error occurred.';
                     }
                     errorEl.style.display = 'block';
+
+                    // Only a client error (4xx) is non-recoverable: the request was
+                    // rejected on its merits (e.g. deleting a resource other
+                    // resources depend on → 422), so re-submitting the same request
+                    // would only re-fail. Replace the destructive submit with a
+                    // Cancel button — the only sensible remaining action is to
+                    // dismiss the dialog. A 5xx is transient; leave Delete in place
+                    // so the user can retry without re-opening the dialog.
+                    var status = event.detail.xhr.status;
+                    if (status >= 400 && status < 500) {
+                        submitBtn.remove();
+                        if (!footerEl.querySelector('[data-testid="confirm-dialog-cancel"]')) {
+                            var cancelBtn = document.createElement('button');
+                            cancelBtn.type = 'button';
+                            cancelBtn.className = 'ep-btn ep-btn-ghost';
+                            cancelBtn.textContent = 'Cancel';
+                            cancelBtn.setAttribute('data-testid', 'confirm-dialog-cancel');
+                            cancelBtn.addEventListener('click', closeConfirmDialog);
+                            footerEl.appendChild(cancelBtn);
+                        }
+                    }
                 });
 
                 dialog.showModal();

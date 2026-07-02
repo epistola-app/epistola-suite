@@ -11,7 +11,7 @@
         <div class="login-card" th:classappend="${param.popup != null} ? 'popup-mode' : ''">
             <div class="login-header">
                 <h1>Epistola Suite</h1>
-                <p th:unless="${param.popup != null}">Document Management System</p>
+                <p th:unless="${param.popup != null}">Document Creation Platform</p>
                 <p th:if="${param.popup != null}">Session Expired</p>
             </div>
 

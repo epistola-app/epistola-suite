@@ -30,7 +30,7 @@ data class ExportThemes(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<ThemeResource>>,
     RequiresPermission {
-    override val permission get() = Permission.THEME_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
@@ -70,7 +70,7 @@ data class ExportAttributes(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<AttributeResource>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
@@ -133,7 +133,7 @@ data class ExportCodeLists(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<CodeListResource>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
@@ -230,10 +230,10 @@ class ExportStencilsHandler(
             append(
                 """
                 SELECT s.id, s.name, s.description, s.tags::text,
-                       sv.id AS version, sv.content::text
+                       sv.id AS version, sv.content::text, sv.parameter_schema::text
                 FROM stencils s
                 JOIN LATERAL (
-                    SELECT id, content FROM stencil_versions
+                    SELECT id, content, parameter_schema FROM stencil_versions
                     WHERE tenant_key = s.tenant_key AND stencil_key = s.id
                       AND status = 'published'
                     ORDER BY id DESC
@@ -252,6 +252,11 @@ class ExportStencilsHandler(
             val tags: List<String> = rs.getString("tags")?.let {
                 objectMapper.readValue(it, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java))
             } ?: emptyList()
+
+            @Suppress("UNCHECKED_CAST")
+            val parameterSchema: Map<String, Any?>? = rs.getString("parameter_schema")?.let {
+                objectMapper.readValue(it, Map::class.java) as Map<String, Any?>
+            }
             StencilResource(
                 slug = rs.getString("id"),
                 name = rs.getString("name"),
@@ -259,6 +264,7 @@ class ExportStencilsHandler(
                 description = rs.getString("description"),
                 tags = tags,
                 content = objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java),
+                parameterSchema = parameterSchema,
             )
         }.list()
     }
@@ -272,7 +278,7 @@ data class ExportFonts(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<FontResource>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component

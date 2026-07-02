@@ -5,15 +5,15 @@
         <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
         <script th:src="@{/js/pdf-preview.js}"></script>
 
-        <div class="page-header">
-            <div>
-                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
-                <h1 data-testid="page-title" th:text="${template.name}">Template Name</h1>
-                <p th:if="${!editable}" class="text-muted" style="margin-top: var(--ep-space-1); font-size: var(--ep-text-sm);">
-                    <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
-                </p>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${template.name},
+            backLinkHref=@{/tenants/{tenantId}/templates(tenantId=${tenantId})},
+            backLinkLabel='Templates'
+        )}"></div>
+
+        <p th:if="${!editable}" class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+            <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
+        </p>
 
         <!-- Tab Navigation -->
         <div class="tab-nav">
@@ -49,7 +49,7 @@
             <div class="ep-dialog-body">
                 <div class="form-group">
                     <label class="ep-label" for="edit-variant-title">Title</label>
-                    <input type="text" id="edit-variant-title" name="title" class="ep-input"
+                    <input type="text" id="edit-variant-title" name="title" class="ep-input" maxlength="100"
                            th:value="${variant.title}" placeholder="e.g. English Newsletter">
                 </div>
                 <!-- Show only the attributes this variant already has, plus

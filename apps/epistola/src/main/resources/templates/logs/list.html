@@ -2,33 +2,31 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Logs</h1>
-        </div>
-        <p class="ep-text-muted ep-text-sm" style="margin-top: calc(-1 * var(--ep-space-4, 1rem)); margin-bottom: var(--ep-space-4, 1rem);">
-            Application log output for this tenant, plus system activity. Retained for a limited window. Times are shown in your browser's timezone.
-        </p>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Logs',
+            pageDescription='Application log output for this tenant, plus system activity. Retained for a limited window. Times are shown in your browser timezone.'
+        )}"></div>
 
         <style>
             /* Break the dense log table out of the centered content column. */
             .logs-fullbleed { width: 96vw; position: relative; left: 50%; margin-left: -48vw; }
-            .log-table { table-layout: fixed; width: 100%; font-size: var(--ep-text-xs, 0.75rem); }
-            .log-table th, .log-table td { padding: var(--ep-space-1, 0.25rem) var(--ep-space-2, 0.5rem); }
+            .log-table { table-layout: fixed; width: 100%; font-size: var(--ep-text-xs); }
+            .log-table th, .log-table td { padding: var(--ep-space-1) var(--ep-space-2); }
             .log-table td { vertical-align: top; }
             .log-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
             .log-logger { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
             .log-msg { white-space: pre-wrap; word-break: break-word; }
             .log-level { font-weight: 600; }
-            .log-level-ERROR { color: var(--ep-color-danger, #c0392b); }
-            .log-level-WARN { color: var(--ep-color-warning, #b7791f); }
-            .log-level-INFO { color: var(--ep-color-info, #2563eb); }
-            .log-level-DEBUG, .log-level-TRACE { color: var(--ep-text-muted-color, #6b7280); }
-            .log-exception { margin-top: var(--ep-space-1, 0.25rem); }
-            .log-exception pre { white-space: pre-wrap; font-size: var(--ep-text-xs, 0.75rem); overflow-x: auto; margin: 0; }
-            .log-sentinel td { text-align: center; padding: var(--ep-space-2, 0.5rem); }
+            .log-level-ERROR { color: var(--ep-destructive); }
+            .log-level-WARN { color: var(--ep-warning); }
+            .log-level-INFO { color: var(--ep-foreground); }
+            .log-level-DEBUG, .log-level-TRACE { color: var(--ep-muted-foreground); }
+            .log-exception { margin-top: var(--ep-space-1); }
+            .log-exception pre { white-space: pre-wrap; font-size: var(--ep-text-xs); overflow-x: auto; margin: 0; }
+            .log-sentinel td { text-align: center; padding: var(--ep-space-2); }
             .log-filters { margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3); align-items: flex-end; flex-wrap: wrap; }
-            .log-filter { display: flex; flex-direction: column; gap: var(--ep-space-1, 0.25rem); }
-            .log-filter > label { font-size: var(--ep-text-xs, 0.75rem); color: var(--ep-text-muted-color, #6b7280); font-weight: 500; }
+            .log-filter { display: flex; flex-direction: column; gap: var(--ep-space-1); }
+            .log-filter > label { font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); font-weight: 500; }
             .log-filter > .ep-input { height: 2rem; box-sizing: border-box; }
         </style>
 

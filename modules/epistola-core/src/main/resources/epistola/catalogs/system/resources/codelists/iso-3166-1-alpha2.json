@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "resource": {
     "type": "codeList",
     "slug": "iso-3166-1-alpha2",

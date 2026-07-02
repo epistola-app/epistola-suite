@@ -16,6 +16,8 @@
 
 import type { FieldPath } from '../engine/schema-paths.js';
 import { classifyValue, findRefType, isAnyRefType, isRefType } from './ref-types.js';
+import { fieldTypeLabel } from './field-types.js';
+import type { SchemaFieldType } from './types.js';
 
 /** Predicate signature consumed by the expression dialog. */
 export type PathDisabledPredicate = (fp: FieldPath) => string | null;
@@ -53,7 +55,7 @@ export const richTextVariablePathDisabled: PathDisabledPredicate = (fp) => {
  * `FieldPath.type` for everything else.
  */
 export function formatFieldPathTypeLabel(fp: FieldPath): string {
-  return findRefType(fp.ref)?.label ?? fp.type;
+  return findRefType(fp.ref)?.label ?? fieldTypeLabel(fp.type as SchemaFieldType);
 }
 
 /**

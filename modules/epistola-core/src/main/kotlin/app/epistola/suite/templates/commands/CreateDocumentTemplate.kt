@@ -14,6 +14,7 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import app.epistola.template.model.ThemeRef
@@ -32,7 +33,7 @@ data class CreateDocumentTemplate(
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
-        validate("name", name.length <= 255) { "Name must be 255 characters or less" }
+        validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
     }
 }
 
@@ -65,8 +66,9 @@ class CreateDocumentTemplateHandler(
                     .mapTo<DocumentTemplate>()
                     .one()
 
-                // 2. Create default variant with template-specific ID to avoid conflicts
-                val variantId = VariantKey.of("${command.id.key}-default")
+                // 2. Create the default variant with the fixed VariantKey.INITIAL id — a
+                // role-neutral provenance slug, not the mutable is_default role. See its KDoc.
+                val variantId = VariantKey.INITIAL
                 handle.createUpdate(
                     """
                 INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, attributes, is_default, created_at, updated_at, created_by, updated_by)

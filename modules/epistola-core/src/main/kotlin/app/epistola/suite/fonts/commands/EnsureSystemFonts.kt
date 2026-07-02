@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component
  *
  * Marked [SystemInternal] like `InstallSystemCatalog`: the caller is framework
  * code, not a user request. The fan-out [ImportFont] commands require
- * `Permission.TENANT_SETTINGS`, so this must run inside the same elevated
+ * `Permission.REFERENCE_EDIT`, so this must run inside the same elevated
  * `SecurityContext` / `CatalogImportContext` that `InstallSystemCatalogHandler`
  * establishes before dispatching it.
  */

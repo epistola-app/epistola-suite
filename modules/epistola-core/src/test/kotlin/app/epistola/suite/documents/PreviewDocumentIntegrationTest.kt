@@ -53,6 +53,13 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
 
     private fun emptyData(): ObjectNode = objectMapper.createObjectNode()
 
+    /**
+     * Whether the PDF declares PDF/A conformance. The PDF/A XMP metadata packet
+     * (carrying the `pdfaid` namespace) is written as an uncompressed stream, so it
+     * is detectable in the raw bytes without an iText dependency on this classpath.
+     */
+    private fun isPdfA(pdfBytes: ByteArray): Boolean = String(pdfBytes, Charsets.ISO_8859_1).contains("pdfaid")
+
     @Nested
     inner class FreshTemplatePreviewTests {
         @Test
@@ -71,7 +78,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }
 
             // Preview the default variant's draft — no contract edits, no version edits
-            val defaultVariantId = app.epistola.suite.common.ids.VariantKey.of("fresh-preview-default")
+            val defaultVariantId = app.epistola.suite.common.ids.VariantKey.INITIAL
             val pdfBytes = withMediator {
                 PreviewVariant(
                     tenantId = tenant.id,
@@ -118,6 +125,39 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThat(pdfBytes[1]).isEqualTo(0x50.toByte()) // P
                 assertThat(pdfBytes[2]).isEqualTo(0x44.toByte()) // D
                 assertThat(pdfBytes[3]).isEqualTo(0x46.toByte()) // F
+            }
+        }
+
+        @Test
+        fun `preview honours the template PDF-A setting so it matches the final document`() = scenario {
+            given {
+                // DocumentTemplate defaults to pdfaEnabled = true, so the preview must
+                // render PDF/A (embedded fonts) — same as the final/batch path. Before
+                // the fix the preview hardcoded non-PDF/A, using a different (Helvetica)
+                // font with different metrics, which paginated differently from the final.
+                val tenant = tenant("Pdfa Preview Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "Pdfa Template")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+                val templateModel = TestTemplateBuilder.buildMinimal(name = "Pdfa Template")
+                val version = version(compositeVariantId, templateModel)
+                DocumentSetup(tenant, template, variant, version)
+            }.whenever { setup ->
+                query(
+                    PreviewVariant(
+                        tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
+                        templateId = setup.template.id,
+                        variantId = setup.variant.id,
+                        data = emptyData(),
+                    ),
+                )
+            }.then { _, pdfBytes ->
+                assertThat(isPdfA(pdfBytes))
+                    .withFailMessage("preview of a pdfaEnabled template must be PDF/A to match the final output")
+                    .isTrue()
             }
         }
 

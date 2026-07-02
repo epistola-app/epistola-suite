@@ -1,0 +1,31 @@
+/*
+ * Variant tags & table action groups
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* Badge variants (.badge*) live in the design system (components.css). */
+
+/* ── Variant tags ─────────────────────────────────────────────────────── */
+
+.tag {
+  display: inline-block;
+  padding: 0.125rem var(--ep-space-2);
+  margin: 0.125rem;
+  background-color: var(--ep-terracotta-100);
+  color: var(--ep-terracotta-800);
+  border-radius: var(--ep-radius-full);
+  font-size: var(--ep-text-xs);
+  font-weight: 500;
+}
+
+/* Wrapping chip containers use the design system's .badge-list. */
+
+/* ── Action buttons in tables ─────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  gap: var(--ep-space-2);
+  align-items: center;
+}

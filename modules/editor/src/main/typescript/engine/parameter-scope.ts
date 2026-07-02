@@ -28,6 +28,7 @@
  * renders as raw text in the editor.
  */
 import type { JsonSchema, JsonSchemaProperty } from '../data-contract/types.js';
+import { scalarFromJsonSchema } from '../data-contract/field-types.js';
 import type { ScopeDeclaration, ScopeProviderContext } from './registry.js';
 import type { FieldPath } from './schema-paths.js';
 import { evaluateParamAsync, getCachedParamValue } from './parameter-evaluation-cache.js';
@@ -89,7 +90,6 @@ function resolveValue(
 function typeFromSchema(prop: JsonSchemaProperty | undefined): string {
   if (!prop) return 'string';
   const t = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-  if (t === 'string' && prop.format === 'date') return 'date';
-  if (t === 'string' && prop.format === 'date-time') return 'datetime';
-  return t ?? 'string';
+  // Collapse date / date-time via the shared registry; non-scalars keep raw type.
+  return scalarFromJsonSchema(t, prop.format) ?? t ?? 'string';
 }

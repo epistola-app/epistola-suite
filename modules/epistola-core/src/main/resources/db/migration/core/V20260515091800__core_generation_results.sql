@@ -156,3 +156,29 @@ COMMENT ON COLUMN consumer_node_assignments.last_seen_at IS 'Timestamp of the mo
 CREATE TRIGGER trg_consumer_partition_cursors_updated_at
     BEFORE UPDATE ON consumer_partition_cursors
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Keep `generation_results.sequence` MONOTONIC ACROSS A DESTRUCTIVE DB RESET.
+--
+-- The collect protocol is a Kafka-style log: every result gets a globally monotonic
+-- `sequence` and each external consumer persists a high-water cursor IN ITS OWN
+-- database, polling `WHERE sequence > cursor`. A Flyway `clean` (the embedded-mode
+-- self-heal on a checksum mismatch) would restart the BIGSERIAL at 1 while the
+-- consumer's cursor survives — every freshly emitted result would then fall at or
+-- below the stale cursor and never be delivered.
+--
+-- Fix: seed the sequence from wall-clock epoch-MILLISECONDS at (re)initialisation.
+-- This baseline re-runs whenever the schema is rebuilt (fresh install OR after a
+-- clean), so the floor is always the reinit time; because wall-clock only moves
+-- forward, any post-reset sequence strictly exceeds every sequence the previous
+-- incarnation issued and a stale consumer cursor self-heals with no client change.
+-- Milliseconds (not micros) keeps values under JS's 2^53 safe-integer limit for
+-- ~285k years; `sequence` is an opaque cursor token, so the magnitude has no cost.
+-- GREATEST(last_value, now) only ever RAISES the floor, never lowers it.
+SELECT setval(
+    'generation_results_sequence_seq',
+    GREATEST(
+        (SELECT last_value FROM generation_results_sequence_seq),
+        (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint
+    ),
+    true
+);

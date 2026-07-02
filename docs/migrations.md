@@ -13,11 +13,13 @@ their migrations, under:
 <module>/src/main/resources/db/migration/<module>/VYYYYMMDDHHMMSS__<module>_<desc>.sql
 ```
 
-| Module                  | Subfolder                | Owns                                                                       |
-| ----------------------- | ------------------------ | -------------------------------------------------------------------------- |
-| `modules/epistola-core` | `db/migration/core/`     | Everything except the tables below (tenants, templates, documents, …)      |
-| `modules/feedback`      | `db/migration/feedback/` | `feedback`, `feedback_comments`, `feedback_assets`, `feedback_sync_config` |
-| `modules/loadtest`      | `db/migration/loadtest/` | `load_test_runs`                                                           |
+| Module                              | Subfolder                | Owns                                                                  |
+| ----------------------------------- | ------------------------ | --------------------------------------------------------------------- |
+| `modules/epistola-core`             | `db/migration/core/`     | Everything except the tables below (tenants, templates, documents, …) |
+| `modules/epistola-audit`            | `db/migration/audit/`    | `audit_log`                                                           |
+| `modules/epistola-support-feedback` | `db/migration/feedback/` | `feedback`, `feedback_comments`, `feedback_assets`                    |
+| `modules/epistola-support-backups`  | `db/migration/backups/`  | `tenant_backups`                                                      |
+| `modules/loadtest`                  | `db/migration/loadtest/` | `load_test_runs`                                                      |
 
 There is one **global Flyway namespace**: at application runtime every module's
 `src/main/resources` is merged onto one classpath, so `apps/epistola` sees all
@@ -59,11 +61,16 @@ Within a module, keep **one file per table or cohesive domain group**. When you
 add a column or constraint to a table you own and the change has not yet
 shipped, prefer a new timestamped migration with a plain `ALTER TABLE`. Periodic
 consolidation — folding accumulated `ALTER`s back into the original `CREATE
-TABLE` so the schema reads cleanly — is a **deliberate, gated activity**, not
-something to do casually (it rewrites migration history). Recent consolidations:
+TABLE` so the schema reads cleanly — rewrites migration history and is therefore
+**no longer permitted**: as of **1.0.0-RC1** the database is stable and is never
+reset, so a history rewrite would discard existing data. Past consolidations (all
+pre-RC1, when the database could still be wiped):
 [#413](https://github.com/epistola-app/epistola-suite/issues/413) (per-module
-restructure) and the schema-standardization rewrite that established the current
-conventions — canonical `created_at`/`updated_at` and `created_by`/`updated_by`
+restructure), the schema-standardization rewrite that established the current
+conventions, and the **1.0.0-RC1** pass (the last such clear) — folding
+the post-baseline `ALTER`/rename/drop patches back into their `CREATE`s, collapsing
+the cluster scheduled-task migrations, and pruning redundant indexes — canonical
+`created_at`/`updated_at` and `created_by`/`updated_by`
 audit columns (audit FKs to `users(id)` are `ON DELETE SET NULL`, the sole
 exception being `feedback.created_by`, which is mandatory `NOT NULL`),
 `correlation_id` (not `correlation_key`), `TIMESTAMPTZ`, lowercase boolean
@@ -116,6 +123,11 @@ integration-test coverage — `InstallationServiceIT` and
    retry.
 5. Ensure the normal integration suite passes — a new migration is just appended
    to the history; there is no special gate to satisfy.
+6. **If the new table is tenant-scoped** (has a `tenant_key` column, or is keyed
+   by the tenant itself), classify it in your module's `TenantBackupTableContributor`
+   bean — `includedTables()` to back it up or `excludedTables()` to exclude it.
+   `TenantTableTopologyDriftIntegrationTest` (and `TenantBackupClassificationAppTest`
+   for feature modules) fails the build until you do. See [`tenant-backup.md`](tenant-backup.md).
 
 ## Running migrations: embedded vs separated
 
@@ -167,7 +179,10 @@ in dev: if Flyway validation fails (which it does after a history rewrite — ev
 checksum changed), it auto-`clean()`s and re-migrates from the new baseline.
 **Your local dev database will be wiped and rebuilt on the next app start** after
 pulling a consolidation change; `DemoLoader` repopulates demo data automatically.
-Tests use throwaway Testcontainers databases and are unaffected. Production runs
-the separated migration step with `clean-disabled: true` (rethrows instead) and
-app pods in `validate` mode — irrelevant pre-1.0 since no production database
-exists.
+Tests use throwaway Testcontainers databases and are unaffected. This auto-clean
+is a **local-dev convenience only**; in normal operation it no longer triggers,
+since history-rewriting consolidations are no longer permitted (see above).
+Production runs the separated migration step with
+`clean-disabled: true` (rethrows instead) and app pods in `validate` mode, so a
+real database is never cleaned — the 1.0.0-RC1 guarantee that data persists
+across versions.

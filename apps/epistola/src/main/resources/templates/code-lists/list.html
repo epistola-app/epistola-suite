@@ -2,16 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Code lists</h1>
-            <div class="page-actions">
-                <th:block th:replace="~{fragments/dialog :: openTrigger(
-                    url=@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})},
-                    label='New Code List', icon='plus',
-                    testid='code-list-create-open',
-                    canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Code lists',
+            actions=~{::code-list-list-actions}
+        )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
@@ -34,7 +28,7 @@
 
         <div th:if="${#lists.isEmpty(codeLists)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='list', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='list', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No code lists yet</div>
             <div class="empty-state-description">
@@ -42,10 +36,10 @@
                 Use them to constrain variant attribute values to a curated set.
             </div>
             <th:block th:replace="~{fragments/dialog :: openTrigger(
-                url=@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})},
-                label='New Code List', icon='plus',
-                testid='code-list-create-open-empty',
-                canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
+                    url=@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})},
+                    label='New Code List', icon='plus',
+                    testid='code-list-create-open-empty',
+                    canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table">
@@ -84,15 +78,22 @@
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           class="btn btn-sm btn-ghost">View</a>
+                           class="ep-btn ep-btn-sm ep-btn-ghost">View</a>
                     </td>
                 </tr>
             </tbody>
         </table>
-
         <th:block th:if="${createOpen}">
             <th:block th:replace="~{code-lists/new :: createDialog(catalogs=${authoredCatalogs})}"></th:block>
         </th:block>
     </th:block>
+    <th:block th:fragment="code-list-list-actions">
+        <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})},
+                    label='New Code List', icon='plus',
+                    testid='code-list-create-open',
+                    canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
+    </th:block>
+
 </body>
 </html>

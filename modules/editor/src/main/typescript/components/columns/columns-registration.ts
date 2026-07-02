@@ -6,7 +6,7 @@
  * logic out of the generic engine and UI files.
  */
 
-import type { NodeId, SlotId } from '../../types/index.js';
+import type { NodeId } from '../../types/index.js';
 import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import { html } from 'lit';
@@ -38,7 +38,7 @@ export function createColumnsDefinition(): ComponentDefinition {
     createInitialSlots: (nodeId: NodeId) => {
       const sizes = [1, 1]; // matches defaultProps.columnSizes
       return sizes.map((_, i) => ({
-        id: nanoid() as SlotId,
+        id: nanoid(),
         nodeId,
         name: `column-${i}`,
         children: [],

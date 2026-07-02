@@ -9,7 +9,6 @@
 
 import './data-contract/data-contract-editor.css';
 import './data-contract/EpistolaDataContractEditor.js';
-import type { EpistolaDataContractEditor } from './data-contract/EpistolaDataContractEditor.js';
 import type { DataExample, JsonSchema, SaveCallbacks } from './data-contract/types.js';
 
 export type { DataExample, JsonSchema, SaveCallbacks } from './data-contract/types.js';
@@ -46,9 +45,7 @@ export function mountDataContractEditor(
 ): DataContractEditorInstance {
   const { container, initialSchema, initialExamples, callbacks, readonly = false } = options;
 
-  const editorEl = document.createElement(
-    'epistola-data-contract-editor',
-  ) as EpistolaDataContractEditor;
+  const editorEl = document.createElement('epistola-data-contract-editor');
   editorEl.style.display = 'block';
 
   editorEl.init(initialSchema, initialExamples, callbacks, readonly);

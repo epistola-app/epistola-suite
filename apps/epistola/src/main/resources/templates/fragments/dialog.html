@@ -13,14 +13,14 @@
   <!--
     Opens a create/upload dialog: GETs the …/new fragment into #dialog-host.
     `canCreate` gates rendering (pass ${auth.has('<PERMISSION>')} or true).
-    `icon` is the fragments/icon name ('plus' for create, 'upload' for uploads).
+    `icon` is the epistola-web/icon name ('plus' for create, 'upload' for uploads).
   -->
   <a th:fragment="openTrigger(url, label, icon, testid, canCreate)"
      th:if="${canCreate}"
      th:href="${url}" th:hx-get="${url}"
      hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
      class="ep-btn ep-btn-primary" th:data-testid="${testid}">
-    <th:block th:replace="~{fragments/icon :: icon(name=${icon}, class='ep-icon')}" />
+    <th:block th:replace="~{epistola-web/icon :: icon(name=${icon}, class='ep-icon')}" />
     <span th:text="${label}">New</span>
   </a>
 

@@ -42,7 +42,7 @@
         <div class="form-group">
             <label class="ep-label" for="displayName">Display Name</label>
             <input type="text" id="displayName" name="displayName" class="ep-input"
-                   required placeholder="Languages" data-slug-source="slug"
+                   required maxlength="100" placeholder="Languages" data-slug-source="slug"
                    th:value="${formData?.displayName}">
             <span class="form-error" id="code-list-error-displayName" th:attr="data-error=${errors?.containsKey('displayName')}" th:text="${errors?.get('displayName')}"></span>
         </div>
@@ -131,7 +131,7 @@
                 </tbody>
             </table>
             <button type="button" class="ep-btn ep-btn-sm ep-btn-outline" id="add-entry-btn">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                 Add entry
             </button>
             <input type="hidden" id="entriesJson" name="entriesJson" th:value="${formData?.entriesJson}">

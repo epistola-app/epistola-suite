@@ -1,0 +1,29 @@
+/*
+ * App utilities — the intentional escape hatch for one-off helpers.
+ *
+ * Layout utilities (.ep-row, .ep-stack, .ep-gap-*, .ep-checkbox) live in the
+ * design system (components.css) and are reused as-is — do NOT duplicate them
+ * here. Only app-local helpers with no design-system equivalent belong in this
+ * file. Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Muted/centered text utilities ────────────────────────────────────── */
+
+.text-muted {
+  color: var(--ep-muted-foreground);
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* ── Text truncation ──────────────────────────────────────────────────── */
+
+.text-truncate {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}

@@ -24,7 +24,7 @@ data class ExportAssets(
     val catalogKey: CatalogKey? = null,
 ) : Query<List<AssetResource>>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component

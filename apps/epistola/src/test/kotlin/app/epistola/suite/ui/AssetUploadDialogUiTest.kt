@@ -17,7 +17,7 @@ class AssetUploadDialogUiTest : BasePlaywrightTest() {
         val tenant: Tenant = createTenant("Asset Dialog Test")
 
         page.setViewportSize(1600, 900)
-        gotoAndReady("/tenants/${tenant.id}/assets")
+        gotoAndReady("/tenants/${tenant.id}/images")
 
         val dialog = page.openDialogByTrigger(
             page.getByTestId("asset-create-open"),
@@ -48,7 +48,7 @@ class AssetUploadDialogUiTest : BasePlaywrightTest() {
         // Upload dialogs are URL-addressable via `?upload` (not `?create`).
         // Landing directly on it must promote the dialog into a real top-layer
         // modal (`:modal`), proving the shared reconcile honours data-dialog-param.
-        gotoAndReady("/tenants/${tenant.id}/assets?upload")
+        gotoAndReady("/tenants/${tenant.id}/images?upload")
 
         page.assertNativeModalOpen("#create-asset-dialog")
     }

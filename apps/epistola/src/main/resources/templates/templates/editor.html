@@ -62,7 +62,7 @@
 <body class="editor-page">
     <nav class="editor-nav">
         <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}" class="editor-nav-back">
-            <th:block th:replace="~{fragments/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
             <span th:text="${templateName}">Template Name</span>
         </a>
         <span class="editor-nav-variant" th:text="'/ ' + ${variantId}"></span>
@@ -143,19 +143,28 @@
                 },
             },
             imageOptions: {
-                contentUrlPattern: '/tenants/' + tenantId + '/assets/' + catalogId + '/{assetId}/content',
-                listAssets: async () => {
-                    const resp = await fetch('/tenants/' + tenantId + '/assets/search?catalog=' + catalogId, {
+                defaultCatalogKey: catalogId,
+                contentUrlPattern: '/tenants/' + tenantId + '/images/{catalogId}/{assetId}/content',
+                listCatalogs: async () => {
+                    const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) throw new Error('Failed to list catalogs');
+                    return await resp.json();
+                },
+                listAssets: async (catalog) => {
+                    const params = new URLSearchParams({ catalog });
+                    const resp = await fetch('/tenants/' + tenantId + '/images/search?' + params.toString(), {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) throw new Error('Failed to list assets');
                     return await resp.json();
                 },
-                uploadAsset: async (file) => {
+                uploadAsset: async (file, catalog) => {
                     const formData = new FormData();
                     formData.append('file', file);
-                    formData.append('catalog', catalogId);
-                    const resp = await fetch('/tenants/' + tenantId + '/assets', {
+                    formData.append('catalog', catalog);
+                    const resp = await fetch('/tenants/' + tenantId + '/images', {
                         method: 'POST',
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         body: formData,

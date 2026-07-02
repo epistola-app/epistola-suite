@@ -14,11 +14,13 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 
 /**
  * Regression cover for the assets list HTMX render flow.
  *
- * `assets/list.html` rendered the media-type chip with `${asset.mediaType.name()}`.
+ * `images/list.html` rendered the media-type chip with `${asset.mediaType.name()}`.
  * `AssetMediaType` was an enum until #434 (`feat(fonts)!`) turned it into an open
  * value class with no `name()` method, so every render of the list with at least one
  * asset threw `TemplateProcessingException` (`EL1004E`). The empty-state branch never
@@ -42,7 +44,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/$tenantKey/assets", String::class.java)
+            restTemplate.getForEntity("/tenants/$tenantKey/images", String::class.java)
         }
 
         then {
@@ -67,7 +69,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders().apply { set("HX-Request", "true") }
             restTemplate.exchange(
-                "/tenants/$tenantKey/assets/search",
+                "/tenants/$tenantKey/images/search",
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -93,10 +95,10 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders().apply {
                 set("HX-Request", "true")
-                set("HX-Current-URL", "/tenants/${tenant.id}/assets")
+                set("HX-Current-URL", "/tenants/${tenant.id}/images")
             }
             restTemplate.exchange(
-                "/tenants/${tenant.id}/assets/new",
+                "/tenants/${tenant.id}/images/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -108,7 +110,100 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // Upload forms use `?upload`, not `?create`.
             assertThat(response.headers.getFirst("HX-Push-Url"))
-                .isEqualTo("/tenants/${tenant.id}/assets?upload")
+                .isEqualTo("/tenants/${tenant.id}/images?upload")
+        }
+    }
+
+    @Test
+    fun `GET images list excludes font assets`() = fixture {
+        var tenantKey = ""
+
+        given {
+            tenantKey = withMediator {
+                val tenant: Tenant = createTenant("Images Excludes Fonts")
+                UploadAsset(
+                    tenantId = tenant.id,
+                    name = "logo.png",
+                    mediaType = AssetMediaType.PNG,
+                    content = byteArrayOf(0x01, 0x02, 0x03, 0x04),
+                    width = 1,
+                    height = 1,
+                    catalogKey = CatalogKey.DEFAULT,
+                ).execute()
+                UploadAsset(
+                    tenantId = tenant.id,
+                    name = "brand-font.ttf",
+                    mediaType = AssetMediaType.TTF,
+                    content = byteArrayOf(0x05, 0x06, 0x07, 0x08),
+                    width = null,
+                    height = null,
+                    catalogKey = CatalogKey.DEFAULT,
+                ).execute()
+                tenant.id.value
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/$tenantKey/images", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Images shows non-font assets; fonts are managed on their own page.
+            assertThat(response.body).contains("logo.png")
+            assertThat(response.body).doesNotContain("brand-font.ttf")
+            assertThat(response.body).doesNotContain("font/ttf")
+        }
+    }
+
+    @Test
+    fun `GET images list keeps the catalog filter in the search and delete URLs`() = fixture {
+        var tenantKey = ""
+
+        given {
+            tenantKey = seedTenantWithPngAsset("Images Catalog Filter", "logo.png")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/$tenantKey/images?catalog=default", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The active catalog filter rides along on both the search and the delete
+            // request so an HTMX refresh stays consistent with the dropdown.
+            assertThat(response.body).contains("/images/search?")
+            assertThat(response.body).contains("catalog=default")
+        }
+    }
+
+    @Test
+    fun `JSON GET search includes each asset's catalog key`() = fixture {
+        var tenantKey = ""
+
+        given {
+            tenantKey = seedTenantWithPngAsset("Asset Search Json", "logo.png")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }
+            restTemplate.exchange(
+                "/tenants/$tenantKey/images/search",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The editor picker needs the catalog each image lives in to build a
+            // cross-catalog reference, so the JSON list carries it.
+            assertThat(response.body).contains("\"catalogKey\"")
+            assertThat(response.body).contains("\"default\"")
         }
     }
 
@@ -121,7 +216,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${tenant.id}/assets?upload", String::class.java)
+            restTemplate.getForEntity("/tenants/${tenant.id}/images?upload", String::class.java)
         }
 
         then {
@@ -130,6 +225,32 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("create-asset-dialog")
             assertThat(response.body).contains("data-create-dialog")
             assertThat(response.body).contains("data-dialog-param=\"upload\"")
+        }
+    }
+
+    @Test
+    fun `JSON GET catalogs returns the tenant catalogs for the picker chooser`() = fixture {
+        var tenantKey = ""
+
+        given {
+            tenantKey = seedTenantWithPngAsset("Asset Catalogs Json", "logo.png")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }
+            restTemplate.exchange(
+                "/tenants/$tenantKey/images/catalogs",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("\"key\"")
+            assertThat(response.body).contains("\"default\"")
         }
     }
 

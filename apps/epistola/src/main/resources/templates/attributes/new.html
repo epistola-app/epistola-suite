@@ -41,7 +41,7 @@
         <div class="form-group">
             <label class="ep-label" for="displayName">Display Name</label>
             <input type="text" id="displayName" name="displayName" class="ep-input"
-                   required placeholder="Language" data-slug-source="slug"
+                   required maxlength="100" placeholder="Language" data-slug-source="slug"
                    th:value="${formData?.displayName}">
             <span class="form-error" id="attribute-error-displayName" th:attr="data-error=${errors?.containsKey('displayName')}" th:text="${errors?.get('displayName')}"></span>
         </div>

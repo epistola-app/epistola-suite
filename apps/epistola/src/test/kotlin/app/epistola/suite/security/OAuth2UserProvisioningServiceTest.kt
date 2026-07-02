@@ -68,11 +68,11 @@ class OAuth2UserProvisioningServiceTest {
     @Test
     fun `parses memberships from groups attribute alone`() {
         val principal = service(existingUser()).provision(
-            oauth2User(mapOf("groups" to listOf("/epistola/tenants/acme-corp/reader"))),
+            oauth2User(mapOf("groups" to listOf("/epistola/tenants/acme-corp/content-viewer"))),
             "keycloak",
         )
 
-        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
         assertThat(principal.globalRoles).isEmpty()
         assertThat(principal.platformRoles).isEmpty()
     }
@@ -83,9 +83,9 @@ class OAuth2UserProvisioningServiceTest {
             oauth2User(
                 mapOf(
                     "roles" to listOf(
-                        "ept_acme-corp_reader",
-                        "ept_acme-corp_editor",
-                        "epg_generator",
+                        "ept_acme-corp_content-viewer",
+                        "ept_acme-corp_content-author",
+                        "epg_document-generator",
                         "eps_tenant_manager",
                     ),
                 ),
@@ -94,8 +94,8 @@ class OAuth2UserProvisioningServiceTest {
         )
 
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
-        assertThat(principal.globalRoles).containsExactly(TenantRole.GENERATOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.DOCUMENT_GENERATOR)
         assertThat(principal.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
     }
 
@@ -104,16 +104,16 @@ class OAuth2UserProvisioningServiceTest {
         val principal = service(existingUser()).provision(
             oauth2User(
                 mapOf(
-                    "groups" to listOf("/epistola/tenants/acme-corp/reader"),
-                    "roles" to listOf("ept_acme-corp_editor", "epg_generator"),
+                    "groups" to listOf("/epistola/tenants/acme-corp/content-viewer"),
+                    "roles" to listOf("ept_acme-corp_content-author", "epg_document-generator"),
                 ),
             ),
             "keycloak",
         )
 
         assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
-        assertThat(principal.globalRoles).containsExactly(TenantRole.GENERATOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.DOCUMENT_GENERATOR)
     }
 
     @Test
@@ -121,18 +121,18 @@ class OAuth2UserProvisioningServiceTest {
         val customProperties = AuthProperties(flatRoles = FlatRolesProperties(claimName = "app_roles"))
 
         val principal = service(existingUser(), authProperties = customProperties).provision(
-            oauth2User(mapOf("app_roles" to listOf("ept_acme-corp_manager"))),
+            oauth2User(mapOf("app_roles" to listOf("ept_acme-corp_tenant-administrator"))),
             "keycloak",
         )
 
-        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")]).containsExactly(TenantRole.MANAGER)
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")]).containsExactly(TenantRole.TENANT_ADMINISTRATOR)
     }
 
     @Test
     fun `ignores flat roles when configured claim name does not match`() {
         // Default config reads "roles" — strings in "app_roles" should be ignored.
         val principal = service(existingUser()).provision(
-            oauth2User(mapOf("app_roles" to listOf("ept_acme-corp_reader"))),
+            oauth2User(mapOf("app_roles" to listOf("ept_acme-corp_content-viewer"))),
             "keycloak",
         )
 
@@ -146,8 +146,8 @@ class OAuth2UserProvisioningServiceTest {
             override fun resolve(email: String, user: User): ResolvedMemberships {
                 resolverCalls.add(email)
                 return ResolvedMemberships(
-                    tenantMemberships = mapOf(TenantKey.of("resolved-tenant") to setOf(TenantRole.EDITOR)),
-                    globalRoles = setOf(TenantRole.READER),
+                    tenantMemberships = mapOf(TenantKey.of("resolved-tenant") to setOf(TenantRole.CONTENT_AUTHOR)),
+                    globalRoles = setOf(TenantRole.CONTENT_VIEWER),
                 )
             }
         }
@@ -159,8 +159,8 @@ class OAuth2UserProvisioningServiceTest {
 
         assertThat(resolverCalls).containsExactly("user@example.com")
         assertThat(principal.tenantMemberships[TenantKey.of("resolved-tenant")])
-            .containsExactly(TenantRole.EDITOR)
-        assertThat(principal.globalRoles).containsExactly(TenantRole.READER)
+            .containsExactly(TenantRole.CONTENT_AUTHOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
@@ -174,7 +174,7 @@ class OAuth2UserProvisioningServiceTest {
         }
 
         service(existingUser(), membershipResolver = resolver).provision(
-            oauth2User(mapOf("roles" to listOf("ept_acme-corp_reader"))),
+            oauth2User(mapOf("roles" to listOf("ept_acme-corp_content-viewer"))),
             "keycloak",
         )
 
@@ -186,12 +186,12 @@ class OAuth2UserProvisioningServiceTest {
         val syncCalls = mutableListOf<Map<TenantKey, Set<TenantRole>>>()
 
         service(existingUser(), syncCalls = syncCalls).provision(
-            oauth2User(mapOf("roles" to listOf("ept_acme-corp_reader", "ept_beta-org_editor"))),
+            oauth2User(mapOf("roles" to listOf("ept_acme-corp_content-viewer", "ept_beta-org_content-author"))),
             "keycloak",
         )
 
         assertThat(syncCalls).hasSize(1)
-        assertThat(syncCalls.single()[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
-        assertThat(syncCalls.single()[TenantKey.of("beta-org")]).containsExactly(TenantRole.EDITOR)
+        assertThat(syncCalls.single()[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
+        assertThat(syncCalls.single()[TenantKey.of("beta-org")]).containsExactly(TenantRole.CONTENT_AUTHOR)
     }
 }

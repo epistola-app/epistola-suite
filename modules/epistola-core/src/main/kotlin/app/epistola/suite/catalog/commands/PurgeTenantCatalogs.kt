@@ -29,7 +29,7 @@ data class PurgeTenantCatalogs(
     override val tenantKey: TenantKey,
 ) : Command<PurgeTenantCatalogsResult>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.TENANT_RESTORE
 }
 
 /** The tenant's default-theme pointer as it was before the purge, so the caller can restore it. */

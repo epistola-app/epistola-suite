@@ -2,14 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Catalogs</a>
-            &raquo; <span th:text="${catalog.name}"></span>
-        </nav>
 
-        <h1 th:text="${catalog.name}"></h1>
-        <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
-        <p th:if="${catalog.description}" class="text-muted text-sm" th:text="${catalog.description}"></p>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${catalog.name},
+            backLinkHref=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            backLinkLabel='Catalogs',
+            pageDescription=${catalog.description}
+        )}"></div>
+
+        <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" style="margin-bottom: var(--ep-space-4);" th:text="${catalog.sourceUrl}"></p>
 
         <div id="catalog-alert"></div>
 
@@ -64,7 +65,7 @@
                                        th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'asset'}"
-                                       th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId},catalog=${catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
                                 <!-- Subscribed: plain text -->

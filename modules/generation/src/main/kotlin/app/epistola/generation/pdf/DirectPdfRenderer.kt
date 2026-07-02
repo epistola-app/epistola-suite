@@ -24,6 +24,7 @@ import com.itextpdf.kernel.pdf.navigation.PdfNamedDestination
 import com.itextpdf.kernel.xmp.XMPMetaFactory
 import com.itextpdf.layout.Document
 import com.itextpdf.pdfa.PdfADocument
+import org.slf4j.LoggerFactory
 import java.io.OutputStream
 import java.time.Clock
 
@@ -94,6 +95,7 @@ class DirectPdfRenderer(
         renderMode: RenderMode = RenderMode.STRICT,
         culture: RenderCulture = RenderCulture.DEFAULT,
         clock: Clock = Clock.systemUTC(),
+        watermarkText: String? = null,
     ) {
         TwoPassAnalyzer.validate(document)
 
@@ -121,6 +123,7 @@ class DirectPdfRenderer(
                 footerNode = footerNode,
                 scopedEvaluator = scopedEvaluator,
                 clock = clock,
+                watermarkText = watermarkText,
             )
         } else {
             renderSinglePass(
@@ -136,6 +139,7 @@ class DirectPdfRenderer(
                 renderMode = renderMode,
                 scopedEvaluator = scopedEvaluator,
                 clock = clock,
+                watermarkText = watermarkText,
             )
         }
     }
@@ -188,6 +192,7 @@ class DirectPdfRenderer(
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
         clock: Clock = Clock.systemUTC(),
+        watermarkText: String? = null,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -211,12 +216,14 @@ class DirectPdfRenderer(
             clock = clock,
         )
 
-        val headerNodes = pageHeaderNodesInDocumentOrder(document)
-        val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
-
-        val footerHeight = footerNode?.let {
-            parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
-        } ?: 0f
+        // Render against the address-block-hoisted graph: an address block is a
+        // page-absolute element, so when authored inside a header/footer it must not
+        // inflate that band — hoisting moves it to the body root for header, footer,
+        // body and band measurement alike.
+        val renderDocument = hoistAddressBlock(document)
+        val headerNodes = pageHeaderNodesInDocumentOrder(renderDocument)
+        val footerNode = renderDocument.nodes.values.firstOrNull { it.type == "pagefooter" }
+        val layout = resolveBandLayout(renderDocument, headerNodes, footerNode, context, pageSettings, renderingDefaults, pdfaCompliant, fontFamilyResolver)
 
         // The body's page-edge margins follow the same cascade as headers/footers:
         // header/footer.margin{Side} → root.margin{Side} → pageSettings.margins.
@@ -228,11 +235,9 @@ class DirectPdfRenderer(
         val footerBottomMargin = effectivePageMarginPt(footerNode, "marginBottom", context)
         val bodyLeftMargin = effectivePageMarginPt(null, "marginLeft", context)
         val bodyRightMargin = effectivePageMarginPt(null, "marginRight", context)
-
-        val bands = computeHeaderBands(headerNodes, context, renderingDefaults)
-        val topMargin = bands.runningBand
+        val topMargin = layout.bands.runningBand
         val bottomMargin = if (footerNode != null) {
-            footerBottomMargin + footerHeight
+            footerBottomMargin + layout.footerHeightPt
         } else {
             effectivePageMarginPt(null, "marginBottom", context)
         }
@@ -242,7 +247,7 @@ class DirectPdfRenderer(
             context = context,
             headerNodes = headerNodes,
             footerNode = footerNode,
-            document = document,
+            hoistedDocument = renderDocument,
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             pageSettings = pageSettings,
@@ -250,7 +255,9 @@ class DirectPdfRenderer(
             bottomMargin = bottomMargin,
             rightMargin = bodyRightMargin,
             leftMargin = bodyLeftMargin,
-            firstPageSpacerHeight = bands.firstPageSpacer,
+            firstPageSpacerHeight = layout.bands.firstPageSpacer,
+            effectiveHeights = layout.effectiveHeights,
+            watermarkText = watermarkText,
         )
     }
 
@@ -269,6 +276,7 @@ class DirectPdfRenderer(
         footerNode: Node?,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
         clock: Clock = Clock.systemUTC(),
+        watermarkText: String? = null,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -293,9 +301,10 @@ class DirectPdfRenderer(
             clock = clock,
         )
 
-        val footerHeight = footerNode?.let {
-            parseNodeHeight(it, heightContext) ?: renderingDefaults.pageFooterHeight
-        } ?: 0f
+        // Render against the address-block-hoisted graph (see renderSinglePass).
+        val renderDocument = hoistAddressBlock(document)
+        val layout = resolveBandLayout(renderDocument, headerNodes, footerNode, heightContext, pageSettings, renderingDefaults, pdfaCompliant, fontFamilyResolver)
+        val effectiveHeights = layout.effectiveHeights
 
         // Body page-edge margins: header/footer.margin → root.margin → pageMargins cascade.
         // Per-page topMargin: body sits below the running (index 1) band; page 1
@@ -303,11 +312,10 @@ class DirectPdfRenderer(
         val footerBottomMargin = effectivePageMarginPt(footerNode, "marginBottom", heightContext)
         val bodyLeftMargin = effectivePageMarginPt(null, "marginLeft", heightContext)
         val bodyRightMargin = effectivePageMarginPt(null, "marginRight", heightContext)
-        val bands = computeHeaderBands(headerNodes, heightContext, renderingDefaults)
-        val topMargin = bands.runningBand
-        val firstPageSpacerHeight = bands.firstPageSpacer
+        val topMargin = layout.bands.runningBand
+        val firstPageSpacerHeight = layout.bands.firstPageSpacer
         val bottomMargin = if (footerNode != null) {
-            footerBottomMargin + footerHeight
+            footerBottomMargin + layout.footerHeightPt
         } else {
             effectivePageMarginPt(null, "marginBottom", heightContext)
         }
@@ -334,7 +342,7 @@ class DirectPdfRenderer(
             context = firstPassContext,
             headerNodes = headerNodes,
             footerNode = footerNode,
-            document = document,
+            hoistedDocument = renderDocument,
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             pageSettings = pageSettings,
@@ -343,6 +351,7 @@ class DirectPdfRenderer(
             rightMargin = bodyRightMargin,
             leftMargin = bodyLeftMargin,
             firstPageSpacerHeight = firstPageSpacerHeight,
+            effectiveHeights = effectiveHeights,
             enablePdfA = false,
             enableMetadata = false,
             enableHeaderFooter = false,
@@ -368,7 +377,7 @@ class DirectPdfRenderer(
             context = finalContext,
             headerNodes = headerNodes,
             footerNode = footerNode,
-            document = document,
+            hoistedDocument = renderDocument,
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             pageSettings = pageSettings,
@@ -377,6 +386,8 @@ class DirectPdfRenderer(
             rightMargin = bodyRightMargin,
             leftMargin = bodyLeftMargin,
             firstPageSpacerHeight = firstPageSpacerHeight,
+            effectiveHeights = effectiveHeights,
+            watermarkText = watermarkText,
         )
     }
 
@@ -385,7 +396,8 @@ class DirectPdfRenderer(
         context: RenderContext,
         headerNodes: List<Node>,
         footerNode: Node?,
-        document: TemplateDocument,
+        /** Must already be address-block-hoisted (see [hoistAddressBlock]); the callers do this. */
+        hoistedDocument: TemplateDocument,
         metadata: PdfMetadata,
         pdfaCompliant: Boolean,
         pageSettings: app.epistola.template.model.PageSettings,
@@ -394,9 +406,11 @@ class DirectPdfRenderer(
         rightMargin: Float,
         leftMargin: Float,
         firstPageSpacerHeight: Float = 0f,
+        effectiveHeights: Map<String, Float> = emptyMap(),
         enablePdfA: Boolean = pdfaCompliant,
         enableMetadata: Boolean = true,
         enableHeaderFooter: Boolean = true,
+        watermarkText: String? = null,
     ): Int {
         val writer = PdfWriter(outputStream)
         val pdfDocument = createPdfDocument(writer, enablePdfA)
@@ -415,13 +429,18 @@ class DirectPdfRenderer(
         iTextDocument.setFont(context.fontCache.regular)
         iTextDocument.setMargins(topMargin, rightMargin, bottomMargin, leftMargin)
 
+        // [hoistedDocument] is address-block-hoisted by the caller: the address block
+        // is moved to the body root, so it never renders inside — and inflates — a
+        // header/footer band, and the bands were measured against this same graph.
+
         if (enableHeaderFooter) {
             val headerHandler = if (headerNodes.isNotEmpty()) {
                 PageHeaderEventHandler(
                     headerNodeIds = headerNodes.map { it.id },
-                    document = document,
+                    document = hoistedDocument,
                     context = context,
                     registry = nodeRendererRegistry,
+                    effectiveHeights = effectiveHeights,
                 )
             } else {
                 null
@@ -429,9 +448,10 @@ class DirectPdfRenderer(
             val footerHandler = footerNode?.let {
                 PageFooterEventHandler(
                     footerNodeId = it.id,
-                    document = document,
+                    document = hoistedDocument,
                     context = context,
                     registry = nodeRendererRegistry,
+                    effectiveHeights = effectiveHeights,
                 )
             }
 
@@ -441,12 +461,22 @@ class DirectPdfRenderer(
 
         // Address block: aside rendered in flow (hoisted to first child of root),
         // address content rendered at absolute coordinates via event handler.
-        val renderDocument = hoistAddressBlock(document)
-        val addressNode = renderDocument.nodes.values.firstOrNull { it.type == "addressblock" }
+        val addressNode = hoistedDocument.nodes.values.firstOrNull { it.type == "addressblock" }
         addressNode?.let {
             pdfDocument.addEventHandler(
                 PdfDocumentEvent.END_PAGE,
-                AddressBlockEventHandler(it.id, renderDocument, context, nodeRendererRegistry),
+                AddressBlockEventHandler(it.id, hoistedDocument, context, nodeRendererRegistry),
+            )
+        }
+
+        // Preview watermark: stamped over the content on every page so the fast
+        // synchronous preview can't be passed off as final output. Registered last
+        // so it paints on top of header/footer/address. Drawn only on END_PAGE, it
+        // never affects layout — a watermarked preview paginates like the final.
+        if (watermarkText != null) {
+            pdfDocument.addEventHandler(
+                PdfDocumentEvent.END_PAGE,
+                WatermarkEventHandler(watermarkText, context.fontCache.regular),
             )
         }
 
@@ -467,7 +497,11 @@ class DirectPdfRenderer(
             iTextDocument.add(spacer)
         }
 
-        val elements = nodeRendererRegistry.renderNode(renderDocument.root, renderDocument, context)
+        // Resolved page-1 body content top (page margin + effective first-page band
+        // + spacer). A hoisted address block reserves its window space relative to
+        // THIS, so it accounts for the real (auto-grown) header height.
+        val bodyContext = context.copy(bodyContentTopPt = topMargin + firstPageSpacerHeight)
+        val elements = nodeRendererRegistry.renderNode(hoistedDocument.root, hoistedDocument, bodyContext)
         for (element in elements) {
             when (element) {
                 is com.itextpdf.layout.element.IBlockElement -> iTextDocument.add(element)
@@ -567,6 +601,8 @@ class DirectPdfRenderer(
     }
 
     companion object {
+        private val log = LoggerFactory.getLogger(DirectPdfRenderer::class.java)
+
         private const val ICC_PROFILE_PATH = "/color/sRGB.icc"
 
         /**
@@ -667,9 +703,10 @@ class DirectPdfRenderer(
         headerNodes: List<Node>,
         context: RenderContext,
         renderingDefaults: RenderingDefaults,
+        effectiveHeights: Map<String, Float>,
     ): HeaderBands {
         fun band(node: Node): Float = effectivePageMarginPt(node, "marginTop", context) +
-            (parseNodeHeight(node, context) ?: renderingDefaults.pageHeaderHeight)
+            (effectiveHeights[node.id] ?: parseNodeHeight(node, context) ?: renderingDefaults.pageHeaderHeight)
 
         val firstHeader = headerNodes.getOrNull(0)
         val runningHeader = headerNodes.getOrNull(1) ?: firstHeader
@@ -682,6 +719,131 @@ class DirectPdfRenderer(
             runningBand = runningBand,
             firstPageSpacer = (firstPageBand - runningBand).coerceAtLeast(0f),
         )
+    }
+
+    /** Resolved header/footer band sizing for one render pass. */
+    private data class BandLayout(
+        /** `nodeId → max(configured, measured content)` height, for the event handlers. */
+        val effectiveHeights: Map<String, Float>,
+        /** Body top-margin band(s) derived from the effective header heights. */
+        val bands: HeaderBands,
+        /** Effective footer band height in points (0 when there is no footer). */
+        val footerHeightPt: Float,
+    )
+
+    /**
+     * Measures the effective header/footer heights and derives the body bands +
+     * footer height from them, in one place for both the single- and two-pass
+     * render paths. [document] must already be address-block-hoisted.
+     */
+    private fun resolveBandLayout(
+        document: TemplateDocument,
+        headerNodes: List<Node>,
+        footerNode: Node?,
+        context: RenderContext,
+        pageSettings: app.epistola.template.model.PageSettings,
+        renderingDefaults: RenderingDefaults,
+        pdfaCompliant: Boolean,
+        fontFamilyResolver: FontFamilyResolver?,
+    ): BandLayout {
+        val effectiveHeights = measureEffectiveBandHeights(
+            document,
+            headerNodes,
+            footerNode,
+            context,
+            pageSettings,
+            renderingDefaults,
+            pdfaCompliant,
+            fontFamilyResolver,
+        )
+        val bands = computeHeaderBands(headerNodes, context, renderingDefaults, effectiveHeights)
+        val footerHeightPt = footerNode?.let {
+            effectiveHeights[it.id] ?: parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
+        } ?: 0f
+        return BandLayout(effectiveHeights, bands, footerHeightPt)
+    }
+
+    /**
+     * Pre-renders each page header / footer into a discarded layout context to
+     * discover its natural content height, returning `nodeId → effective height`
+     * where effective height is `max(configured height, content height)`. This is
+     * what lets a header/footer grow to fit content instead of clipping it: the
+     * returned heights drive both the reserved body margin (via
+     * [computeHeaderBands] / the footer band) and the rectangle each event handler
+     * draws into.
+     *
+     * The measurement runs in its own throwaway [PdfDocument] with its own
+     * [FontCache] — `FontCache` PdfFonts are bound to a single document and must
+     * not leak into the real render. Returns an empty map (and does no work) when
+     * the document has neither a header nor a footer.
+     */
+    private fun measureEffectiveBandHeights(
+        document: TemplateDocument,
+        headerNodes: List<Node>,
+        footerNode: Node?,
+        context: RenderContext,
+        pageSettings: app.epistola.template.model.PageSettings,
+        renderingDefaults: RenderingDefaults,
+        pdfaCompliant: Boolean,
+        fontFamilyResolver: FontFamilyResolver?,
+    ): Map<String, Float> {
+        if (headerNodes.isEmpty() && footerNode == null) return emptyMap()
+
+        val measureContext = context.copy(fontCache = FontCache(pdfaCompliant, fontFamilyResolver))
+        // The throwaway document is created before the try so it can be closed in the
+        // finally; everything that could throw during setup is inside the try so a
+        // failure there still releases the writer/streams.
+        val pdfDocument = PdfDocument(PdfWriter(OutputStream.nullOutputStream()))
+        try {
+            val pageSize = getPageSize(pageSettings.format, pageSettings.orientation)
+            val iTextDocument = Document(pdfDocument, pageSize)
+            iTextDocument.setFont(measureContext.fontCache.regular)
+            val registry = createDefaultRegistry(pdfDocument)
+
+            fun measureOne(
+                node: Node,
+                consumedMarginKeys: Set<String>,
+                componentDefaultsKey: String,
+                defaultHeight: Float,
+            ): Float {
+                val configured = parseNodeHeight(node, measureContext)
+                return try {
+                    val left = effectivePageMarginPt(node, "marginLeft", measureContext)
+                    val right = effectivePageMarginPt(node, "marginRight", measureContext)
+                    val width = pageSize.width - left - right
+                    val wrapper = buildBandWrapper(
+                        node = node,
+                        document = document,
+                        baseContext = measureContext,
+                        registry = registry,
+                        consumedMarginKeys = consumedMarginKeys,
+                        componentDefaultsKey = componentDefaultsKey,
+                        pageNumber = 1,
+                        totalPages = FIRST_PASS_PAGE_TOTAL_PLACEHOLDER,
+                    )
+                    maxOf(configured ?: defaultHeight, measureBandContentHeight(wrapper, iTextDocument, width))
+                } catch (e: Exception) {
+                    // Measurement must never make a previously-working render fail;
+                    // fall back to the configured/default height (the prior behaviour).
+                    log.warn("Failed to measure band height for node {} ({}); using configured height", node.id, node.type, e)
+                    configured ?: defaultHeight
+                }
+            }
+
+            val result = mutableMapOf<String, Float>()
+            for (node in headerNodes) {
+                result[node.id] = measureOne(node, HEADER_CONSUMED_MARGINS, HEADER_COMPONENT_KEY, renderingDefaults.pageHeaderHeight)
+            }
+            footerNode?.let { node ->
+                result[node.id] = measureOne(node, FOOTER_CONSUMED_MARGINS, FOOTER_COMPONENT_KEY, renderingDefaults.pageFooterHeight)
+            }
+            return result
+        } finally {
+            // Discard the throwaway document; give it a page first so close() doesn't
+            // throw "Document has no pages" (we never added flushed content).
+            if (pdfDocument.numberOfPages == 0) pdfDocument.addNewPage()
+            pdfDocument.close()
+        }
     }
 
     /**

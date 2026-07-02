@@ -76,6 +76,15 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.config.profiles | quote }}
             {{- end }}
+            {{- /* Logging levels (app pods only). Other loggers go via config.env. */}}
+            {{- if .Values.logging.level }}
+            - name: LOGGING_LEVEL_ROOT
+              value: {{ .Values.logging.level | quote }}
+            {{- end }}
+            {{- if .Values.logging.appLevel }}
+            - name: LOGGING_LEVEL_APP_EPISTOLA
+              value: {{ .Values.logging.appLevel | quote }}
+            {{- end }}
             {{- /* OpenTelemetry */}}
             {{- if .Values.observability.otlpEndpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -196,6 +205,15 @@ spec:
 
             {{- /* Database configuration (shared with the migration Job / init container) */}}
             {{- include "epistola.databaseEnv" . | nindent 12 }}
+            {{- /* HikariCP pool sizing + app-side socket timeout (app pods only;
+                   the migration container sets its own — see epistola.migrateContainer).
+                   Liveness defaults (keepalive, leak detection, …) come from application.yaml. */}}
+            - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+              value: {{ .Values.datasource.hikari.maximumPoolSize | quote }}
+            - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+              value: {{ .Values.datasource.hikari.maximumPoolSize | quote }}
+            - name: SPRING_DATASOURCE_HIKARI_DATASOURCEPROPERTIES_SOCKETTIMEOUT
+              value: {{ .Values.datasource.hikari.socketTimeoutSeconds | quote }}
             {{- /* Credential encryption-at-rest keyset (app pods only) */}}
             {{- include "epistola.encryptionEnv" . | nindent 12 }}
             {{- /* When migrations run as a separate step, app pods must only

@@ -16,7 +16,8 @@ import org.springframework.stereotype.Component
 /**
  * Finds all template versions that contain any instance of a given stencil (any version).
  * Returns detailed info including version status and instance count per template version.
- * Used by the bulk upgrade UI.
+ * Raw rows (no `upgradable` marking) — the bulk-upgrade table uses the filtered,
+ * paginated `GetStencilUsagePage` instead; this backs the JSON usage view.
  */
 data class GetStencilUsageDetails(
     val stencilId: StencilId,

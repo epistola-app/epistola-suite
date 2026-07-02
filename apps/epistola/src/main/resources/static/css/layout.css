@@ -1,0 +1,95 @@
+/*
+ * Page layout & footer
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Body & page structure ────────────────────────────────────────────── */
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: 0;
+}
+
+/* Scoped styles for regular pages (not editor) */
+main.regular {
+  flex: 1;
+  max-width: 56rem;
+  margin: var(--ep-space-8) auto;
+  padding: 0 var(--ep-space-6);
+  width: 100%;
+}
+
+main.regular h1 {
+  margin-bottom: var(--ep-space-6);
+}
+
+main.regular h2 {
+  margin-bottom: var(--ep-space-4);
+  font-size: var(--ep-text-xl);
+}
+
+main.regular section {
+  margin-bottom: var(--ep-space-8);
+}
+
+/* ── Table empty state (scoped to regular pages) ──────────────────────── */
+/* Table styling itself lives in the design system (.ep-table). */
+
+main.regular .empty-message {
+  text-align: center;
+  color: var(--ep-muted-foreground);
+  padding: var(--ep-space-8);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+
+.app-footer {
+  position: sticky;
+  bottom: 0;
+  background-color: var(--ep-white);
+  border-top: 1px solid var(--ep-border-color);
+  padding: var(--ep-space-2) var(--ep-space-4);
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  text-align: center;
+}
+
+.app-footer .version {
+  font-family: var(--ep-font-mono);
+}
+
+.app-footer .separator {
+  margin: 0 var(--ep-space-2);
+  color: var(--ep-border-color);
+}
+
+.app-footer a {
+  color: var(--ep-muted-foreground);
+  text-decoration: none;
+  transition: color var(--ep-transition-fast);
+}
+
+.app-footer a:hover {
+  color: var(--ep-foreground);
+  text-decoration: underline;
+}
+
+.app-footer .link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ep-muted-foreground);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--ep-transition-fast);
+}
+
+.app-footer .link-button:hover {
+  color: var(--ep-foreground);
+  text-decoration: underline;
+}

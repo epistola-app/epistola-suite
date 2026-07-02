@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
@@ -20,6 +21,7 @@ import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.urlWithCreateParam
@@ -38,6 +40,7 @@ import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
+import app.epistola.suite.templates.queries.TemplateSort
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -119,21 +122,23 @@ class DocumentTemplateHandler(
     private val localeResolver: TenantLocaleResolver,
 ) {
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
+
+    private companion object {
+        const val PAGE_SIZE = 10
+    }
+
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
         val catalogs = ListCatalogs(tenantId.key).query()
-        val templates = ListTemplateSummaries(tenantId = tenantId, catalogKey = catalogFilter).query()
+        val model = templateListModel(request, tenantId)
         // A `create` query param means "this list, with the create dialog open"
         // (deep link / refresh / back-restore). When present we render the dialog
         // markup inline so the persistent reconcile script can showModal() it.
         val createOpen = request.queryParam("create") != null
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
-            "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "templates" to templates
+            model.forEach { (key, value) -> key to value }
             "createOpen" to createOpen
             "authoredCatalogs" to catalogs.filter { it.type == CatalogType.AUTHORED }
         }
@@ -141,17 +146,85 @@ class DocumentTemplateHandler(
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val searchTerm = request.queryParam("q")
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
+        val model = templateListModel(request, tenantId)
         return request.htmx {
-            fragment("templates/list", "rows") {
-                "tenantId" to tenantId.key
-                "templates" to templates
+            fragment("templates/list", "table") {
+                model.forEach { (key, value) -> key to value }
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
         }
     }
+
+    /**
+     * Builds the shared model for the templates list table: the current page of
+     * rows plus the sort and pagination state both `list` (full page) and
+     * `search` (HTMX fragment swap) need to render identical controls.
+     */
+    private fun templateListModel(
+        request: ServerRequest,
+        tenantId: TenantId,
+    ): Map<String, Any?> {
+        val searchTerm = request.queryParam("q")?.ifBlank { null }
+        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
+
+        val sort = TemplateSort.fromParam(request.queryParam("sort"))
+        val descending = when (request.queryParam("dir")) {
+            "asc" -> false
+            "desc" -> true
+            else -> sort.defaultDescending
+        }
+
+        fun fetchPage(page: Int) = ListTemplateSummaries(
+            tenantId = tenantId,
+            searchTerm = searchTerm,
+            catalogKey = catalogFilter,
+            sort = sort,
+            descending = descending,
+            limit = PAGE_SIZE,
+            offset = (page - 1) * PAGE_SIZE,
+        ).query()
+
+        // The page count and the rows come from one query (COUNT(*) OVER()), so
+        // they can't disagree. An out-of-range page returns empty with no window
+        // value, so when that happens we recover the real total from page 1 and
+        // clamp the request down to the last page (preserving the old behavior).
+        // Cap the page so (page - 1) * PAGE_SIZE can't overflow Int into a
+        // negative SQL OFFSET (Postgres rejects it). A too-high page still
+        // returns empty here and is clamped to the last page below.
+        val requestedPage = request.queryParamInt("page", 1).coerceIn(1, Int.MAX_VALUE / PAGE_SIZE)
+        var result = fetchPage(requestedPage)
+        var page = requestedPage
+        if (result.items.isEmpty() && requestedPage > 1) {
+            val firstPage = fetchPage(1)
+            page = requestedPage.coerceAtMost(pageCount(firstPage.total))
+            result = if (page == 1) firstPage else fetchPage(page)
+        }
+
+        val total = result.total
+        val totalPages = pageCount(total)
+
+        return mapOf(
+            "tenantId" to tenantId.key,
+            "templates" to result.items,
+            "selectedCatalog" to (catalogFilter?.value ?: ""),
+            "searchTerm" to (searchTerm ?: ""),
+            "sort" to sort.param,
+            "sortDir" to if (descending) "desc" else "asc",
+            // Per-column natural direction so a first click on an inactive column
+            // honors its TemplateSort.defaultDescending instead of always going asc.
+            "sortDefaultDirs" to TemplateSort.entries.associate { it.param to if (it.defaultDescending) "desc" else "asc" },
+            "total" to total,
+            "page" to page,
+            "totalPages" to totalPages,
+            "hasPrev" to (page > 1),
+            "hasNext" to (page < totalPages),
+            "prevPage" to (page - 1),
+            "nextPage" to (page + 1),
+        )
+    }
+
+    /** Number of pages for [total] rows at [PAGE_SIZE] per page (min 1). */
+    private fun pageCount(total: Int): Int = if (total == 0) 1 else ((total + PAGE_SIZE - 1) / PAGE_SIZE)
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()

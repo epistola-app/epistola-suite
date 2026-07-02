@@ -4,8 +4,14 @@ import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../t
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** ISO date-time pattern: YYYY-MM-DDThh:mm:ss with optional fractional seconds and timezone */
-const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+/**
+ * ISO date-time pattern: YYYY-MM-DDThh:mm with optional seconds, fractional
+ * seconds, and timezone offset. Seconds are optional to match the backend
+ * validator (`JsonSchemaValidator.LENIENT_DATE_TIME_PATTERN`) and the renderer
+ * (`JsonataEvaluator.parseDateTime`), both of which accept seconds-less values;
+ * an over-strict editor regex would reject values those two accept.
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
 
 /** URI pattern: scheme://... */
 const URI_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/.+$/;
@@ -151,7 +157,7 @@ function validateProperty(
 
   // Validate object properties
   if (expectedType === 'object' && typeof value === 'object' && !Array.isArray(value)) {
-    const objValue = value as JsonObject;
+    const objValue = value;
 
     // Check required nested fields
     if (schema.required) {

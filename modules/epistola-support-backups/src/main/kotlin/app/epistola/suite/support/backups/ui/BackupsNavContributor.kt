@@ -17,6 +17,8 @@ class BackupsNavContributor : NavContributor {
     override fun items(context: UiRequestContext): List<NavItem> {
         val available = ResolveAvailableFeatures(context.tenantKey).query()
         if (available[KnownFeatures.SUPPORT_BACKUPS] != true) return emptyList()
-        return listOf(NavItem("support", "backups", "Backups", "backups", order = 20))
+        return listOf(
+            NavItem("support", "backups", "Backups", "backups", order = 20, stage = KnownFeatures.stageOf(KnownFeatures.SUPPORT_BACKUPS)),
+        )
     }
 }

@@ -13,6 +13,7 @@ data class Environment(
     val tenantKey: TenantKey,
     val name: String,
     val createdAt: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
 )

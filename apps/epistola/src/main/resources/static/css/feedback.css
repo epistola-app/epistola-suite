@@ -1,0 +1,46 @@
+/*
+ * Alerts, subtitle, pagination
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+/* ── Alert messages ───────────────────────────────────────────────────── */
+
+.alert {
+  padding: var(--ep-space-4) var(--ep-space-6);
+  border-radius: var(--ep-radius-lg);
+  margin-bottom: var(--ep-space-6);
+  font-size: var(--ep-text-sm);
+}
+
+.alert-error {
+  background-color: var(--ep-red-100);
+  border: 1px solid var(--ep-red-200);
+  border-left: 4px solid var(--ep-red-600);
+  color: var(--ep-red-700);
+}
+
+/* ── Subtitle ─────────────────────────────────────────────────────────── */
+
+.subtitle {
+  color: var(--ep-muted-foreground);
+  margin-top: calc(-1 * var(--ep-space-2));
+  margin-bottom: var(--ep-space-6);
+  font-size: var(--ep-text-sm);
+}
+
+/* ── Pagination ───────────────────────────────────────────────────────── */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ep-space-3);
+  margin-top: var(--ep-space-6);
+}
+
+.pagination-info {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}

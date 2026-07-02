@@ -10,11 +10,12 @@ import org.springframework.web.servlet.function.router
 class AssetRoutes(private val handler: AssetHandler) {
     @Bean
     fun assetRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/assets".nest {
+        "/tenants/{tenantId}/images".nest {
             GET("", handler::list)
             GET("/new", handler::newForm)
             POST("", handler::upload)
             GET("/search", handler::search)
+            GET("/catalogs", handler::catalogs)
 
             GET("/{catalogId}/{assetId}/content", handler::content)
             POST("/{catalogId}/{assetId}/delete", handler::delete)

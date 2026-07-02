@@ -47,9 +47,10 @@ class ThemeCreateDialogUiTest : BasePlaywrightTest() {
             "#create-theme-dialog",
         )
 
-        // The name field caps at 100 server-side but has no HTML5 maxlength, so
-        // the form submits and the error returns from the server; a clean slug
-        // isolates the failure to the name field.
+        // The field enforces maxlength=100 in the browser (issue #633), so strip it
+        // at runtime to push an over-length value through and prove the SERVER also
+        // rejects it, rendering the field error in the open dialog (defense in depth).
+        page.locator("#create-theme-form #name").evaluate("el => el.removeAttribute('maxlength')")
         page.locator("#create-theme-form #name").fill("a".repeat(256))
         page.locator("#create-theme-form #slug").fill("valid-theme")
         page.getByTestId("create-form-submit").click()

@@ -15,6 +15,8 @@ import { openExpressionDialog } from '../../ui/expression-dialog.js';
 import { isValidExpression } from '../../engine/resolve-expression.js';
 import type { FieldPath } from '../../engine/schema-paths.js';
 import type { JsonSchemaProperty } from '../../data-contract/types.js';
+import { fieldTypeLabel, scalarFromJsonSchema } from '../../data-contract/field-types.js';
+import { findRefType } from '../../data-contract/ref-types.js';
 
 export interface BindingRowOptions {
   /** Parameter name. */
@@ -192,17 +194,24 @@ function propTypeKey(prop: JsonSchemaProperty | undefined): string {
   return t ?? 'string';
 }
 
+/** UI label for a single (non-array) property, via the shared field-type registry. */
+function leafTypeLabel(prop: JsonSchemaProperty | undefined): string {
+  if (!prop) return fieldTypeLabel('string');
+  const refType = findRefType(prop.$ref);
+  if (refType) return fieldTypeLabel(refType.id);
+  const t = Array.isArray(prop.type) ? prop.type[0] : prop.type;
+  const scalar = scalarFromJsonSchema(t, prop.format);
+  if (scalar) return fieldTypeLabel(scalar);
+  return fieldTypeLabel(t ?? 'string');
+}
+
 function typeOf(prop: JsonSchemaProperty | undefined): string {
-  if (!prop) return 'string';
+  if (!prop) return fieldTypeLabel('string');
   const t = Array.isArray(prop.type) ? prop.type[0] : prop.type;
   if (t === 'array') {
-    const inner = prop.items;
-    const innerType = inner ? (Array.isArray(inner.type) ? inner.type[0] : inner.type) : 'string';
-    return `list of ${innerType}`;
+    return `List of ${leafTypeLabel(prop.items)}`;
   }
-  if (t === 'string' && prop.format === 'date') return 'date';
-  if (t === 'string' && prop.format === 'date-time') return 'date-time';
-  return t ?? 'string';
+  return leafTypeLabel(prop);
 }
 
 function escapeHtml(s: string): string {

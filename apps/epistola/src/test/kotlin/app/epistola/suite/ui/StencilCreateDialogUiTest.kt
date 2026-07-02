@@ -48,10 +48,10 @@ class StencilCreateDialogUiTest : BasePlaywrightTest() {
             "#create-stencil-dialog",
         )
 
-        // The name field caps at 255 server-side but has no HTML5 maxlength, so
-        // the form submits and the error returns from the server; a clean slug
-        // (set after the name, marking it manually edited) isolates the failure
-        // to the name field.
+        // The field enforces maxlength=100 in the browser (issue #633), so strip it
+        // at runtime to push an over-length value through and prove the SERVER also
+        // rejects it, rendering the field error in the open dialog (defense in depth).
+        page.locator("#create-stencil-form #name").evaluate("el => el.removeAttribute('maxlength')")
         page.locator("#create-stencil-form #name").fill("a".repeat(256))
         page.locator("#create-stencil-form #slug").fill("valid-stencil")
         page.getByTestId("create-form-submit").click()

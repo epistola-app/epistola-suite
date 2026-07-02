@@ -17,7 +17,8 @@ CREATE TABLE users (
 );
 
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_external_id ON users(external_id);
+-- external_id lookups are served by the leftmost prefix of the
+-- users_external_id_provider_unique (external_id, provider) index.
 
 COMMENT ON TABLE users IS 'User accounts with global identity across tenants';
 COMMENT ON COLUMN users.id IS 'UUIDv7 primary key (the all-zeros UUID is the reserved system principal — see seed below)';

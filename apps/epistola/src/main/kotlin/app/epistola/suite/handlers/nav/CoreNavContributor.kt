@@ -25,18 +25,22 @@ class CoreNavContributor : NavContributor {
     )
 
     override fun items(context: UiRequestContext): List<NavItem> = buildList {
-        // Authoring — always visible
+        // Authoring
         add(NavItem("authoring", "templates", "Templates", "templates", 10))
         add(NavItem("authoring", "themes", "Themes", "themes", 20))
         add(NavItem("authoring", "stencils", "Stencils", "stencils", 30))
-        add(NavItem("authoring", "catalogs", "Catalogs", "catalogs", 40))
+        if (context.hasPermission(Permission.CATALOG_VIEW)) {
+            add(NavItem("authoring", "catalogs", "Catalogs", "catalogs", 40))
+        }
 
-        // Resources — always visible
+        // Resources
         add(NavItem("resources", "environments", "Environments", "environments", 10))
-        add(NavItem("resources", "assets", "Assets", "assets", 20))
-        add(NavItem("resources", "fonts", "Fonts", "fonts", 30))
-        add(NavItem("resources", "attributes", "Attributes", "attributes", 40))
-        add(NavItem("resources", "code-lists", "Code lists", "code-lists", 50))
+        add(NavItem("resources", "images", "Images", "images", 20))
+        if (context.hasPermission(Permission.REFERENCE_VIEW)) {
+            add(NavItem("resources", "fonts", "Fonts", "fonts", 30))
+            add(NavItem("resources", "attributes", "Attributes", "attributes", 40))
+            add(NavItem("resources", "code-lists", "Code lists", "code-lists", 50))
+        }
 
         // Operations — per-item permissions
         if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
@@ -45,15 +49,14 @@ class CoreNavContributor : NavContributor {
         if (context.hasPermission(Permission.DOCUMENT_GENERATE)) {
             add(NavItem("operations", "load-tests", "Load Tests", "load-tests", 20))
         }
-        if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
+        if (context.hasPermission(Permission.DIAGNOSTICS_VIEW)) {
             add(NavItem("operations", "consumers", "Consumers", "consumers", 30))
             add(NavItem("operations", "cluster", "Cluster", "cluster", 35))
+            add(NavItem("operations", "logs", "Logs", "logs", 45))
         }
+        // The Audit item is contributed by the epistola-audit module's AuditNavContributor.
         if (context.hasPermission(Permission.TENANT_USERS)) {
             add(NavItem("operations", "api-keys", "API Keys", "api-keys", 40))
-        }
-        if (context.hasPermission(Permission.TENANT_SETTINGS)) {
-            add(NavItem("operations", "logs", "Logs", "logs", 45))
         }
 
         // Settings — managers only

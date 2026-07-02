@@ -9,7 +9,6 @@ import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.spi.LoggingEvent
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.slf4j.LoggerFactory
 import java.util.UUID
 
 /**
@@ -18,7 +17,13 @@ import java.util.UUID
  */
 class ApplicationLogAppenderTest {
 
-    private val loggerContext = LoggerFactory.getILoggerFactory() as LoggerContext
+    // A standalone logback context, used only to mint loggers for synthetic LoggingEvents. We
+    // deliberately do NOT pull the global context via `LoggerFactory.getILoggerFactory() as LoggerContext`:
+    // under the full parallel suite that call can return the bootstrap `SubstituteLoggerFactory`
+    // mid-initialization (not a logback `LoggerContext`), throwing a `ClassCastException`. The appender
+    // under test converts the event it's handed and never consults the global context, so a fresh one
+    // is equivalent and race-free.
+    private val loggerContext = LoggerContext()
 
     private fun event(
         loggerName: String,
@@ -27,7 +32,11 @@ class ApplicationLogAppenderTest {
         throwable: Throwable? = null,
         mdc: Map<String, String> = emptyMap(),
     ): LoggingEvent = LoggingEvent("fqcn", loggerContext.getLogger(loggerName), level, message, throwable, null).apply {
-        if (mdc.isNotEmpty()) setMDCPropertyMap(mdc)
+        // Always set the MDC map explicitly (even when empty). Otherwise logback's
+        // LoggingEvent.getMDCPropertyMap() lazily reads the *global* SLF4J MDC adapter, which is null
+        // until SLF4J's one-time init completes — a race under the full parallel suite. Setting it
+        // here keeps the test fully decoupled from global SLF4J state.
+        setMDCPropertyMap(mdc)
     }
 
     @Test

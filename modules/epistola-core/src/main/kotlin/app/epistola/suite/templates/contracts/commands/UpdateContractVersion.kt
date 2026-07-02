@@ -9,6 +9,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -93,7 +94,7 @@ class UpdateContractVersionHandler(
                 val validationErrors = jsonSchemaValidator.validateExamples(effectiveDataModel, effectiveExamples)
                 if (validationErrors.isNotEmpty()) {
                     if (!command.forceUpdate) {
-                        error("Data examples are incompatible with the schema: ${validationErrors.entries.joinToString { "${it.key}: ${it.value.joinToString { e -> e.message }}" }}")
+                        throw DataModelValidationException(validationErrors)
                     }
                     warnings.putAll(validationErrors.mapValues { (_, errors) -> errors.map { it.message } })
                 }

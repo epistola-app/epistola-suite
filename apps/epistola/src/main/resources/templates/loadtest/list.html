@@ -2,26 +2,22 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Load Tests</h1>
-            <th:block th:replace="~{fragments/dialog :: openTrigger(
-                url=@{/tenants/{id}/load-tests/new(id=${tenantId})},
-                label='New Load Test', icon='plus',
-                testid='load-test-create-open',
-                canCreate=true)}"></th:block>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Load Tests',
+            actions=~{::load-test-list-actions}
+        )}"></div>
 
         <div th:if="${#lists.isEmpty(runs)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='activity', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='activity', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No load tests yet</div>
             <div class="empty-state-description">Run a load test to measure document generation performance.</div>
             <th:block th:replace="~{fragments/dialog :: openTrigger(
-                url=@{/tenants/{id}/load-tests/new(id=${tenantId})},
-                label='New Load Test', icon='plus',
-                testid='load-test-create-open-empty',
-                canCreate=true)}"></th:block>
+                    url=@{/tenants/{id}/load-tests/new(id=${tenantId})},
+                    label='New Load Test', icon='plus',
+                    testid='load-test-create-open-empty',
+                    canCreate=true)}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(runs)}" class="ep-table">
@@ -74,17 +70,23 @@
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View load test">
-                            <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </a>
                     </td>
                 </tr>
             </tbody>
         </table>
-
-        <!-- Deep-link / refresh render site: `?create` opens the load-test dialog. -->
         <th:block th:if="${createOpen}">
             <th:block th:replace="~{loadtest/new :: createDialog}"></th:block>
         </th:block>
     </th:block>
+    <th:block th:fragment="load-test-list-actions">
+        <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{id}/load-tests/new(id=${tenantId})},
+                    label='New Load Test', icon='plus',
+                    testid='load-test-create-open',
+                    canCreate=true)}"></th:block>
+    </th:block>
+
 </body>
 </html>

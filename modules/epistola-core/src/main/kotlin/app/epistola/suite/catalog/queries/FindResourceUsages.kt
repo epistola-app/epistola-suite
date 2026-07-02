@@ -18,7 +18,7 @@ data class FindResourceUsages(
     val catalogKey: CatalogKey,
 ) : Query<Map<String, List<ResourceUsage>>>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_VIEW
+    override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class ResourceUsage(

@@ -11,30 +11,30 @@ class GroupMembershipParserTest {
     @Test
     fun `parses per-tenant roles from hierarchical groups`() {
         val result = parseGroupMemberships(
-            listOf("/epistola/tenants/acme-corp/reader", "/epistola/tenants/acme-corp/editor"),
+            listOf("/epistola/tenants/acme-corp/content-viewer", "/epistola/tenants/acme-corp/content-author"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
         assertThat(result.tenantRoles[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
     }
 
     @Test
     fun `parses multiple tenants`() {
         val result = parseGroupMemberships(
-            listOf("/epistola/tenants/acme-corp/reader", "/epistola/tenants/beta-org/manager"),
+            listOf("/epistola/tenants/acme-corp/content-viewer", "/epistola/tenants/beta-org/tenant-administrator"),
         )
 
         assertThat(result.tenantRoles).hasSize(2)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
-        assertThat(result.tenantRoles[TenantKey.of("beta-org")]).containsExactly(TenantRole.MANAGER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
+        assertThat(result.tenantRoles[TenantKey.of("beta-org")]).containsExactly(TenantRole.TENANT_ADMINISTRATOR)
     }
 
     @Test
     fun `parses global roles`() {
-        val result = parseGroupMemberships(listOf("/epistola/global/reader", "/epistola/global/editor"))
+        val result = parseGroupMemberships(listOf("/epistola/global/content-viewer", "/epistola/global/content-author"))
 
-        assertThat(result.globalRoles).containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(result.globalRoles).containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
         assertThat(result.tenantRoles).isEmpty()
     }
 
@@ -50,31 +50,31 @@ class GroupMembershipParserTest {
     @Test
     fun `ignores non-ep groups`() {
         val result = parseGroupMemberships(
-            listOf("/other-app/group", "admin", "/epistola/tenants/acme-corp/reader"),
+            listOf("/other-app/group", "admin", "/epistola/tenants/acme-corp/content-viewer"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
     fun `ignores unknown roles`() {
         val result = parseGroupMemberships(
-            listOf("/epistola/tenants/acme-corp/superadmin", "/epistola/tenants/acme-corp/reader"),
+            listOf("/epistola/tenants/acme-corp/superadmin", "/epistola/tenants/acme-corp/content-viewer"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
     fun `ignores groups with invalid tenant keys`() {
         val result = parseGroupMemberships(
-            listOf("/epistola/tenants/INVALID/reader", "/epistola/tenants/acme-corp/reader"),
+            listOf("/epistola/tenants/INVALID/content-viewer", "/epistola/tenants/acme-corp/content-viewer"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
-        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
@@ -99,36 +99,36 @@ class GroupMembershipParserTest {
     fun `handles all four tenant roles`() {
         val result = parseGroupMemberships(
             listOf(
-                "/epistola/tenants/acme-corp/reader",
-                "/epistola/tenants/acme-corp/editor",
-                "/epistola/tenants/acme-corp/generator",
-                "/epistola/tenants/acme-corp/manager",
+                "/epistola/tenants/acme-corp/content-viewer",
+                "/epistola/tenants/acme-corp/content-author",
+                "/epistola/tenants/acme-corp/document-generator",
+                "/epistola/tenants/acme-corp/tenant-administrator",
             ),
         )
 
         assertThat(result.tenantRoles[TenantKey.of("acme-corp")])
             .containsExactlyInAnyOrder(
-                TenantRole.READER,
-                TenantRole.EDITOR,
-                TenantRole.GENERATOR,
-                TenantRole.MANAGER,
+                TenantRole.CONTENT_VIEWER,
+                TenantRole.CONTENT_AUTHOR,
+                TenantRole.DOCUMENT_GENERATOR,
+                TenantRole.TENANT_ADMINISTRATOR,
             )
     }
 
     @Test
     fun `parses tenant keys with hyphens`() {
-        val result = parseGroupMemberships(listOf("/epistola/tenants/my-company/reader"))
+        val result = parseGroupMemberships(listOf("/epistola/tenants/my-company/content-viewer"))
 
-        assertThat(result.tenantRoles[TenantKey.of("my-company")]).containsExactly(TenantRole.READER)
+        assertThat(result.tenantRoles[TenantKey.of("my-company")]).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test
     fun `full example with all group types`() {
         val result = parseGroupMemberships(
             listOf(
-                "/epistola/tenants/acme-corp/reader",
-                "/epistola/tenants/acme-corp/editor",
-                "/epistola/global/reader",
+                "/epistola/tenants/acme-corp/content-viewer",
+                "/epistola/tenants/acme-corp/content-author",
+                "/epistola/global/content-viewer",
                 "/epistola/platform/tenant-manager",
                 "/other-app/group",
             ),
@@ -136,8 +136,8 @@ class GroupMembershipParserTest {
 
         assertThat(result.tenantRoles).hasSize(1)
         assertThat(result.tenantRoles[TenantKey.of("acme-corp")])
-            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
-        assertThat(result.globalRoles).containsExactly(TenantRole.READER)
+            .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
+        assertThat(result.globalRoles).containsExactly(TenantRole.CONTENT_VIEWER)
         assertThat(result.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
     }
 

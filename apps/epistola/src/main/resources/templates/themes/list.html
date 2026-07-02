@@ -2,21 +2,13 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Themes</h1>
-            <div class="page-actions">
-                <div th:replace="~{fragments/search :: search-box(
-                    placeholder='Search themes...',
-                    searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
-                    targetId='theme-rows'
-                )}"></div>
-                <th:block th:replace="~{fragments/dialog :: openTrigger(
-                    url=@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})},
-                    label='New Theme', icon='plus',
-                    testid='theme-create-open',
-                    canCreate=${auth.has('THEME_EDIT')})}"></th:block>
-            </div>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Themes',
+            searchPlaceholder='Search themes...',
+            searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
+            searchTargetId='theme-rows',
+            actions=~{::theme-list-actions}
+        )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
@@ -39,15 +31,15 @@
 
         <div th:if="${#lists.isEmpty(themes)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='palette', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='palette', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No themes yet</div>
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
             <th:block th:replace="~{fragments/dialog :: openTrigger(
-                url=@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})},
-                label='New Theme', icon='plus',
-                testid='theme-create-open-empty',
-                canCreate=${auth.has('THEME_EDIT')})}"></th:block>
+                    url=@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})},
+                    label='New Theme', icon='plus',
+                    testid='theme-create-open-empty',
+                    canCreate=${auth.has('THEME_EDIT')})}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(themes)}" class="ep-table">
@@ -85,7 +77,7 @@
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
                             <form th:if="${auth.has('TENANT_SETTINGS') and isDefault}"
@@ -95,13 +87,13 @@
                                   style="display: inline;">
                                 <input type="hidden" name="themeId" value="">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Clear default theme">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
                             <th:block th:if="${theme.catalogType.name() == 'AUTHORED'}">
                                 <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Edit theme">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <button th:if="${auth.has('THEME_EDIT') and !isDefault}"
                                         type="button"
@@ -111,7 +103,7 @@
                                         th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
                                         data-confirm-target="#theme-rows"
                                         onclick="openConfirmDialog(this)">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
                         </td>
@@ -121,10 +113,17 @@
         </table>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
-
         <th:block th:if="${createOpen}">
             <th:block th:replace="~{themes/new :: createDialog(catalogs=${authoredCatalogs})}"></th:block>
         </th:block>
     </th:block>
+    <th:block th:fragment="theme-list-actions">
+        <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})},
+                    label='New Theme', icon='plus',
+                    testid='theme-create-open',
+                    canCreate=${auth.has('THEME_EDIT')})}"></th:block>
+    </th:block>
+
 </body>
 </html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Images',
+            searchPlaceholder='Search images...',
+            searchUrl=@{/tenants/{tenantId}/images/search(tenantId=${tenantId},catalog=${selectedCatalog})},
+            searchTargetId='asset-grid-items',
+            actions=~{::asset-list-actions}
+        )}"></div>
+
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
+            </select>
+            <script th:inline="javascript">
+                document.getElementById('catalog-filter').addEventListener('change', function() {
+                    var tenantId = /*[[${tenantId}]]*/ '';
+                    var catalog = this.value;
+                    var url = '/tenants/' + tenantId + '/images';
+                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
+                    window.location.href = url;
+                });
+            </script>
+        </div>
+
+        <!-- Upload area is on a dedicated page -->
+
+        <div id="asset-grid-items">
+            <th:block th:fragment="asset-grid-items">
+                <div th:if="${#lists.isEmpty(assets)}" class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No images yet</div>
+                    <div class="empty-state-description">Upload images to use in your document templates.</div>
+                </div>
+
+                <div th:if="${!#lists.isEmpty(assets)}" class="ep-auto-grid asset-grid">
+                    <div th:each="asset : ${assets}" class="ep-panel asset-card">
+                        <div class="asset-card-preview">
+                            <img th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
+                                 th:alt="${asset.name}"
+                                 loading="lazy" />
+                        </div>
+                        <div class="asset-card-info">
+                            <div class="asset-card-name" th:text="${asset.name}" th:title="${asset.name}"></div>
+                            <div class="asset-card-meta">
+                                <span th:text="${asset.mediaTypeMime}"></span>
+                                <span th:text="${asset.width != null ? asset.width + ' x ' + asset.height + ' px' : 'SVG'}"></span>
+                                <span th:text="${asset.sizeBytes < 1024 ? asset.sizeBytes + ' B' : (asset.sizeBytes < 1048576 ? #numbers.formatDecimal(asset.sizeBytes / 1024.0, 1, 1) + ' KB' : #numbers.formatDecimal(asset.sizeBytes / 1048576.0, 1, 1) + ' MB')}"></span>
+                            </div>
+                        </div>
+                        <div class="asset-card-actions">
+                            <span th:if="${asset.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <th:block th:if="${asset.catalogType.name() == 'AUTHORED'}">
+                                <button type="button"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                        title="Delete image"
+                                        data-confirm-title="Delete Image"
+                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/images/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
+                                        data-confirm-target="#asset-grid-items"
+                                        onclick="openConfirmDialog(this)">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </th:block>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+        </div>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <th:block th:if="${createOpen}">
+            <th:block th:replace="~{images/new :: createDialog(catalogs=${authoredCatalogs})}"></th:block>
+        </th:block>
+    </th:block>
+    <th:block th:fragment="asset-list-actions">
+        <th:block th:replace="~{fragments/dialog :: openTrigger(url=@{/tenants/{tenantId}/images/new(tenantId=${tenantId})}, label='Upload Image', icon='upload', testid='asset-create-open', canCreate=true)}"></th:block>
+    </th:block>
+
+</body>
+</html>

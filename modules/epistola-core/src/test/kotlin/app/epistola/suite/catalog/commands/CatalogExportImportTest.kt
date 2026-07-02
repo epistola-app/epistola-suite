@@ -58,10 +58,12 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
@@ -131,7 +133,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             PublishContractVersion(templateId = templateId).execute()
 
             // Publish the default template version so it gets included in the export
-            val defaultVariantKey = VariantKey.of("${templateKey.value}-default")
+            val defaultVariantKey = VariantKey.INITIAL
             val defaultVariantId = VariantId(defaultVariantKey, templateId)
             val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
             PublishVersion(versionId = defaultVersionId).execute()
@@ -303,7 +305,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             PublishContractVersion(templateId = templateId).execute()
 
             // Publish the default version so the template ends up in the export.
-            val defaultVariantKey = VariantKey.of("${templateKey.value}-default")
+            val defaultVariantKey = VariantKey.INITIAL
             val defaultVariantId = VariantId(defaultVariantKey, templateId)
             val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
             PublishVersion(versionId = defaultVersionId).execute()
@@ -531,6 +533,63 @@ class CatalogExportImportTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `export records a cross-catalog image's asset as a manifest dependency`() {
+        // Regression cover for #555: a template that embeds an image whose asset
+        // lives in ANOTHER catalog must declare that asset as a cross-catalog
+        // dependency in the exported manifest, so an importer knows to resolve it.
+        // (Asset slugs are UUIDs — globally unambiguous — so the dependency is
+        // recorded by slug alone, unlike stencils which also carry a catalogKey.)
+        val tenant = createTenant("CrossCatalogAssetExport")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val sourceKey = CatalogKey.of("xcat-asset-source")
+        val sourceCatalogId = CatalogId(sourceKey, tenantId)
+        val assetCatalogKey = CatalogKey.of("xcat-asset-store")
+
+        val zipBytes: ByteArray
+        val assetId: String
+
+        val exported = withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = sourceKey, name = "Cross-Catalog Asset Source").execute()
+            CreateCatalog(tenantKey = tenantKey, id = assetCatalogKey, name = "Cross-Catalog Asset Store").execute()
+
+            // The asset lives in the OTHER catalog.
+            val asset = UploadAsset(
+                tenantId = tenantKey,
+                name = "shared-logo",
+                mediaType = AssetMediaType.PNG,
+                content = createMinimalPng(),
+                width = 1,
+                height = 1,
+                catalogKey = assetCatalogKey,
+            ).execute()
+
+            // A template in the source catalog references that asset, qualified by
+            // its owning catalog (the cross-catalog reference shape the picker writes).
+            val templateKey = TestIdHelpers.nextTemplateId()
+            val templateId = TemplateId(templateKey, sourceCatalogId)
+            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute()
+            val variantKey = VariantKey.INITIAL
+            val variantId = VariantId(variantKey, templateId)
+            app.epistola.suite.templates.commands.versions.UpdateDraft(
+                variantId = variantId,
+                templateModel = templateWithCrossCatalogImage(asset.id.value.toString(), assetCatalogKey.value),
+            ).execute()
+            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+            ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute() to asset.id.value.toString()
+        }
+        zipBytes = exported.first.zipBytes
+        assetId = exported.second
+
+        val deps = readManifestDependencies(zipBytes)
+        assertThat(deps).anySatisfy { dep ->
+            assertThat(dep.get("type").asString()).isEqualTo("asset")
+            assertThat(dep.get("slug").asString()).isEqualTo(assetId)
+        }
+    }
+
+    @Test
     fun `import fails clearly when cross-catalog code-list dependency is missing`() {
         val tenant = createTenant("MissingDep")
 
@@ -543,7 +602,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             zip.write(
                 """
                 {
-                  "schemaVersion": 3,
+                  "schemaVersion": 4,
                   "catalog": {
                     "slug": "needs-missing",
                     "name": "Needs Missing Dep",
@@ -714,6 +773,252 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED,
             )
         }
+    }
+
+    @Test
+    fun `round-trip preserves stencil parameter schema and template parameter bindings`() {
+        // Issue #383: a parametrised stencil and a template that binds to it must
+        // survive a full catalog export → import into a clean tenant — the stencil
+        // version's parameter_schema and the consuming node's binding props
+        // (parameterBindings / paramsAlias / parameterSchemaSnapshot) all round-trip,
+        // and the imported template still renders.
+        val source = createTenant("Stencil Params Source")
+        val sourceTenantId = TenantId(source.id)
+        val catalogKey = CatalogKey.of("stencil-params-roundtrip")
+        val sourceCatalogId = CatalogId(catalogKey, sourceTenantId)
+
+        val parameterSchema = ObjectMapper().readValue(
+            """{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""",
+            ObjectNode::class.java,
+        )
+
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val variantKey = VariantKey.INITIAL
+
+        val zipBytes = withMediator {
+            CreateCatalog(tenantKey = source.id, id = catalogKey, name = "Stencil Params Round-Trip").execute()
+
+            // Parametrised stencil, published as v1.
+            val stencilKey = StencilKey.of("greeting")
+            val stencilId = StencilId(stencilKey, sourceCatalogId)
+            CreateStencil(
+                id = stencilId,
+                name = "Greeting",
+                content = stencilContentWithRoot("greeting-root"),
+                parameterSchema = parameterSchema,
+            ).execute()
+            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+
+            // Template embedding the stencil with a binding + snapshot, published.
+            val templateId = TemplateId(templateKey, sourceCatalogId)
+            CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+            val variantId = VariantId(variantKey, templateId)
+            app.epistola.suite.templates.commands.versions.UpdateDraft(
+                variantId = variantId,
+                templateModel = templateEmbeddingParametrisedStencil(stencilSlug = stencilKey.value),
+            ).execute()
+            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+            ExportCatalogZip(tenantKey = source.id, catalogKey = catalogKey).execute().zipBytes
+        }
+
+        // Import into a clean tenant — the catalog does not exist there yet.
+        val target = createTenant("Stencil Params Target")
+        val targetTenantId = TenantId(target.id)
+        val targetCatalogId = CatalogId(catalogKey, targetTenantId)
+
+        withMediator {
+            val importResult = ImportCatalogZip(
+                tenantKey = target.id,
+                zipBytes = zipBytes,
+                catalogType = CatalogType.AUTHORED,
+            ).execute()
+            assertThat(importResult.results).allSatisfy { result ->
+                assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)
+            }
+
+            // 1. The stencil version's parameter_schema survived export + import.
+            val versions = app.epistola.suite.stencils.queries.ListStencilVersions(
+                stencilId = StencilId(StencilKey.of("greeting"), targetCatalogId),
+            ).query()
+            assertThat(versions).hasSize(1)
+            assertThat(versions.single().parameterSchema).isEqualTo(parameterSchema)
+
+            // 2. The consuming template's stencil node kept its parameter binding props.
+            val imported = app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion(
+                variantId = VariantId(variantKey, TemplateId(templateKey, targetCatalogId)),
+            ).query()
+            assertThat(imported).isNotNull
+            val stencilNode = imported!!.templateModel.nodes.values.single { it.type == "stencil" }
+            assertThat(stencilNode.props?.get("parameterBindings"))
+                .isEqualTo(mapOf("recipientName" to "'Alice'"))
+            assertThat(stencilNode.props?.get("paramsAlias")).isEqualTo("params")
+            assertThat(stencilNode.props?.get("parameterSchemaSnapshot")).isNotNull()
+
+            // 3. The imported template renders end-to-end with its bound parameter.
+            //    (Text-level parameter rendering is asserted by StencilParameterRenderTest
+            //    in :modules:generation; here we prove the imported artifacts render.)
+            val pdf = app.epistola.suite.documents.queries.PreviewVariant(
+                tenantId = target.id,
+                catalogKey = catalogKey,
+                templateId = templateKey,
+                variantId = variantKey,
+                data = ObjectMapper().createObjectNode(),
+            ).query()
+            assertThat(pdf).isNotEmpty()
+            assertThat(String(pdf.copyOfRange(0, 4))).isEqualTo("%PDF")
+        }
+    }
+
+    @Test
+    fun `re-importing a stencil version with a different parameter schema is a conflict, not a skip`() {
+        // Issue #383 idempotency probe: the parameter schema is part of a
+        // version's identity. A re-import carrying byte-identical content but a
+        // *different* parameter_schema must be a genuine conflict (FAIL throws;
+        // RENUMBER writes MAX+1), not a false-positive idempotent SKIP. Content
+        // is held constant across every import so only the schema varies.
+        val tenant = createTenant("Stencil Schema Conflict")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("schema-conflict")
+        val content = stencilContentWithRoot("conflict-root")
+
+        val schemaA: Map<String, Any?> = mapOf(
+            "type" to "object",
+            "properties" to mapOf("a" to mapOf("type" to "string")),
+        )
+        val schemaB: Map<String, Any?> = mapOf(
+            "type" to "object",
+            "properties" to mapOf("b" to mapOf("type" to "string")),
+        )
+
+        fun importWidget(
+            parameterSchema: Map<String, Any?>?,
+            onConflict: OnStencilConflict = OnStencilConflict.FAIL,
+        ) = ImportStencil(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = "widget",
+            version = 1,
+            name = "Widget",
+            content = content,
+            parameterSchema = parameterSchema,
+            onConflict = onConflict,
+        )
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Schema Conflict").execute()
+
+            // First import establishes (slug=widget, v1) with schema A.
+            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.INSTALLED)
+
+            // Same content, same schema → idempotent re-import is a SKIP.
+            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.SKIPPED)
+
+            // Same content, DIFFERENT schema, FAIL (default) → genuine conflict.
+            assertThatThrownBy { importWidget(schemaB).execute() }
+                .isInstanceOf(StencilVersionConflictException::class.java)
+
+            // Same content, DIFFERENT schema, RENUMBER → installs as MAX+1 (v2).
+            val renumbered = importWidget(schemaB, OnStencilConflict.RENUMBER).execute()
+            assertThat(renumbered.wasRenumbered).isTrue()
+            assertThat(renumbered.assignedVersion).isEqualTo(2)
+        }
+    }
+
+    /**
+     * A template that embeds the parametrised "greeting" stencil: a stencil node
+     * carrying the schema snapshot + a binding for `recipientName`, whose slot holds
+     * a text body rendering `{{ params.recipientName }}`. Mirrors the in-template
+     * shape produced by inserting a parametrised stencil through the editor.
+     */
+    private fun templateEmbeddingParametrisedStencil(stencilSlug: String): TemplateDocument {
+        val schemaSnapshot = mapOf(
+            "type" to "object",
+            "properties" to mapOf("recipientName" to mapOf("type" to "string")),
+            "required" to listOf("recipientName"),
+        )
+        return TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "stencil1" to Node(
+                    id = "stencil1",
+                    type = "stencil",
+                    slots = listOf("stencil1-slot"),
+                    props = mapOf(
+                        "stencilId" to stencilSlug,
+                        "version" to 1,
+                        "parameterSchemaSnapshot" to schemaSnapshot,
+                        "parameterBindings" to mapOf("recipientName" to "'Alice'"),
+                        "paramsAlias" to "params",
+                    ),
+                ),
+                "body" to Node(
+                    id = "body",
+                    type = "text",
+                    slots = emptyList(),
+                    props = mapOf(
+                        "content" to mapOf(
+                            "type" to "doc",
+                            "content" to listOf(
+                                mapOf(
+                                    "type" to "paragraph",
+                                    "content" to listOf(
+                                        mapOf(
+                                            "type" to "expression",
+                                            "attrs" to mapOf("expression" to "params.recipientName"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil1")),
+                "stencil1-slot" to Slot(id = "stencil1-slot", nodeId = "stencil1", name = "children", children = listOf("body")),
+            ),
+            themeRef = ThemeRef.Inherit,
+        )
+    }
+
+    /**
+     * A template whose single image node references an asset in another catalog,
+     * qualified by that catalog's key (the cross-catalog reference the picker writes).
+     */
+    private fun templateWithCrossCatalogImage(assetId: String, catalogKey: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "image1" to Node(
+                id = "image1",
+                type = "image",
+                slots = emptyList(),
+                props = mapOf("assetId" to assetId, "catalogKey" to catalogKey),
+            ),
+        ),
+        slots = mapOf(
+            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("image1")),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    /** Reads the `dependencies` array from the `catalog.json` inside an export ZIP. */
+    private fun readManifestDependencies(zipBytes: ByteArray): List<JsonNode> {
+        ZipInputStream(zipBytes.inputStream()).use { zin ->
+            var entry = zin.nextEntry
+            while (entry != null) {
+                if (entry.name == "catalog.json") {
+                    val root = ObjectMapper().readTree(zin.readBytes())
+                    return root.get("dependencies")?.toList() ?: emptyList()
+                }
+                entry = zin.nextEntry
+            }
+        }
+        return emptyList()
     }
 
     private fun stencilContentWithRoot(rootId: String): TemplateDocument {

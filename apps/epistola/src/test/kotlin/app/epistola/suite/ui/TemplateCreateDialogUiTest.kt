@@ -50,10 +50,10 @@ class TemplateCreateDialogUiTest : BasePlaywrightTest() {
             "#create-template-dialog",
         )
 
-        // A 256-char name passes the browser's constraints (the field has no
-        // maxlength) but the command rejects it, so the form actually submits
-        // and the error comes back from the server. A clean slug isolates the
-        // failure to the name field.
+        // The field enforces maxlength=100 in the browser (issue #633), so strip it
+        // at runtime to push an over-length value through and prove the SERVER also
+        // rejects it, rendering the field error in the open dialog (defense in depth).
+        page.locator("#create-template-form #name").evaluate("el => el.removeAttribute('maxlength')")
         page.locator("#create-template-form #name").fill("a".repeat(256))
         page.locator("#create-template-form #slug").fill("valid-slug")
         page.getByTestId("create-form-submit").click()

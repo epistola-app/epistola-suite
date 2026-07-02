@@ -49,6 +49,16 @@ fun <T> hubFeatureCall(block: () -> T): HubFeatureResult<T> = try {
     HubFeatureResult(HubFeatureStatus.ERROR, null, e)
 }
 
+/** First [HubException] in the cause chain, if any (handles wrapped or direct throws). */
+fun Throwable.hubCause(): HubException? = generateSequence(this) { it.cause }.filterIsInstance<HubException>().firstOrNull()
+
+/**
+ * True when the failure is the hub being unreachable (gRPC `UNAVAILABLE`). This is an expected,
+ * transient condition: callers log it concisely (warn, no stacktrace) and back off rather than
+ * treat it as an error.
+ */
+fun Throwable.isHubUnreachable(): Boolean = hubCause() is HubUnavailableException
+
 /** Logs a non-OK hub feature outcome at the appropriate level (unreachable/error = warn, not-entitled = debug). */
 fun HubFeatureResult<*>.logTo(
     logger: Logger,

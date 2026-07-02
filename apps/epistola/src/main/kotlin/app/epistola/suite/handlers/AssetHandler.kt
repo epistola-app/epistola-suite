@@ -34,26 +34,36 @@ class AssetHandler(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /**
+     * The Images UI lists every asset *except* fonts — font binaries are managed
+     * on their own page ([app.epistola.suite.fonts.FontHandler]) as font families
+     * with weight/italic faces. Everything else (images and other media) shows here.
+     */
+    private fun listImages(
+        tenantId: TenantKey,
+        searchTerm: String? = null,
+        catalogKey: CatalogKey? = null,
+    ): List<Asset> = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogKey)
+        .query()
+        .filter { it.mediaType.category != AssetMediaCategory.FONT }
+
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantId).query()
         val catalogs = ListCatalogs(tenantId).query()
-        val assets = ListAssets(tenantId = tenantId, catalogKey = catalogFilter).query()
-        // `?upload` deep-links the upload dialog open: render its markup so the
-        // reconcile script can showModal() it (the upload form is catalog-scoped,
-        // so it needs the AUTHORED catalogs, separate from the filter dropdown's).
+        val assets = listImages(tenantId = tenantId, catalogKey = catalogFilter)
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
-                "contentView" to "assets/list",
-                "pageTitle" to "Assets - Epistola",
+                "contentView" to "images/list",
+                "pageTitle" to "Images - Epistola",
                 "tenantId" to tenantId.value,
                 "tenant" to tenant,
                 "catalogs" to catalogs,
                 "selectedCatalog" to (catalogFilter?.value ?: ""),
                 "assets" to assets,
-                "activeNavSection" to "assets",
+                "activeNavSection" to "images",
                 "createOpen" to request.param("upload").isPresent,
                 "authoredCatalogs" to catalogs.filter { it.type == CatalogType.AUTHORED },
             ),
@@ -68,19 +78,20 @@ class AssetHandler(
         // HTMX search — return HTML fragment
         if (request.isHtmx) {
             val tenant = GetTenant(id = tenantId).query()
-            val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
+            val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter)
             return request.htmx {
-                fragment("assets/list", "asset-grid-items") {
+                fragment("images/list", "asset-grid-items") {
                     "tenantId" to tenantId.value
                     "tenant" to tenant
                     "assets" to assets
+                    "selectedCatalog" to (catalogFilter?.value ?: "")
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
+                onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
             }
         }
 
         // Editor calls with Accept: application/json
-        val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
+        val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter)
         val assetInfoList = assets.map { asset ->
             mapOf(
                 "id" to asset.id.value.toString(),
@@ -89,12 +100,32 @@ class AssetHandler(
                 "sizeBytes" to asset.sizeBytes,
                 "width" to asset.width,
                 "height" to asset.height,
-                "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.catalogKey.value}/${asset.id.value}/content",
+                "catalogKey" to asset.catalogKey.value,
+                "contentUrl" to "/tenants/${tenantId.value}/images/${asset.catalogKey.value}/${asset.id.value}/content",
             )
         }
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(assetInfoList)
+    }
+
+    /**
+     * Catalogs the tenant can pick images from, as JSON for the editor asset
+     * picker's catalog chooser. Same data source as the Images list dropdown
+     * ([ListCatalogs]); a UI handler, never the REST API.
+     */
+    fun catalogs(request: ServerRequest): ServerResponse {
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val catalogList = ListCatalogs(tenantId).query().map { catalog ->
+            mapOf(
+                "key" to catalog.id.value,
+                "name" to catalog.name,
+                "type" to catalog.type.name,
+            )
+        }
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(catalogList)
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -105,12 +136,12 @@ class AssetHandler(
         // error spans on a validation error (the editor's JSON caller still gets
         // a JSON 400 — see [upload]).
         return request.htmx {
-            fragment("assets/new", "createDialog") {
+            fragment("images/new", "createDialog") {
                 "tenantId" to tenantId.value
                 "catalogs" to catalogs
             }
-            pushUrl(urlWithDialogParam(request.htmxCurrentUrl, "/tenants/${tenantId.value}/assets", "upload"))
-            onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
+            pushUrl(urlWithDialogParam(request.htmxCurrentUrl, "/tenants/${tenantId.value}/images", "upload"))
+            onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
         }
     }
 
@@ -128,7 +159,7 @@ class AssetHandler(
 
         fun fieldErrors(): ServerResponse = request.htmx {
             reswap(HxSwap.NONE)
-            oob("assets/new", "error-catalog") { "errors" to errors }
+            oob("images/new", "error-catalog") { "errors" to errors }
         }
 
         val catalogKeyStr = multipartData["catalog"]?.firstOrNull()?.let {
@@ -175,7 +206,7 @@ class AssetHandler(
         // HTMX form submission — redirect to asset list
         if (request.isHtmx) {
             return ServerResponse.ok()
-                .header("HX-Redirect", "/tenants/${tenantId.value}/assets")
+                .header("HX-Redirect", "/tenants/${tenantId.value}/images")
                 .build()
         }
 
@@ -190,7 +221,7 @@ class AssetHandler(
                     "sizeBytes" to asset.sizeBytes,
                     "width" to asset.width,
                     "height" to asset.height,
-                    "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.catalogKey.value}/${asset.id.value}/content",
+                    "contentUrl" to "/tenants/${tenantId.value}/images/${asset.catalogKey.value}/${asset.id.value}/content",
                 ),
             )
     }
@@ -200,7 +231,7 @@ class AssetHandler(
         val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
         val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
 
-        val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId).query()
+        val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId, catalogKey = catalogId).query()
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -211,8 +242,10 @@ class AssetHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
         val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
+        // The list dropdown's active catalog filter rides along as a query param so
+        // the refreshed grid stays consistent with the dropdown after a delete.
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
 
         val force = request.param("force").orElse("false").toBoolean()
 
@@ -225,14 +258,15 @@ class AssetHandler(
         }
 
         val tenant = GetTenant(id = tenantId).query()
-        val assets = ListAssets(tenantId = tenantId).query()
+        val assets = listImages(tenantId = tenantId, catalogKey = catalogFilter)
         return request.htmx {
-            fragment("assets/list", "asset-grid-items") {
+            fragment("images/list", "asset-grid-items") {
                 "tenantId" to tenantId.value
                 "tenant" to tenant
                 "assets" to assets
+                "selectedCatalog" to (catalogFilter?.value ?: "")
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
+            onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
         }
     }
 }

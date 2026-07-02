@@ -118,7 +118,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, catalogIdB)
             CreateDocumentTemplate(id = templateId, name = "Stencil User Template").execute()
-            val variantKey = VariantKey.of("${templateKey.value}-default")
+            val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             UpdateDraft(
                 variantId = variantId,
@@ -173,7 +173,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, catalogIdB)
             CreateDocumentTemplate(id = templateId, name = "Asset User Template").execute()
-            val variantKey = VariantKey.of("${templateKey.value}-default")
+            val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             UpdateDraft(
                 variantId = variantId,

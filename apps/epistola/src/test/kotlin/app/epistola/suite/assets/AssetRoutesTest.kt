@@ -46,7 +46,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             payload.add("catalog", "default")
 
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/assets",
+                "/tenants/${testTenant.id}/images",
                 HttpEntity(payload, headers),
                 String::class.java,
             )
@@ -87,7 +87,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             // No catalog field.
 
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/assets",
+                "/tenants/${testTenant.id}/images",
                 HttpEntity(payload, headers),
                 String::class.java,
             )
@@ -126,7 +126,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             // No file field.
 
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/assets",
+                "/tenants/${testTenant.id}/images",
                 HttpEntity(payload, headers),
                 String::class.java,
             )

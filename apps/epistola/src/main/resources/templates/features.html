@@ -2,7 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <h1>Feature Toggles</h1>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Feature Toggles',
+            pageDescription='Enable or disable tenant features.'
+        )}"></div>
 
         <div class="alert alert-success" th:if="${param.saved}" data-testid="alert-success">
             Feature toggle settings saved successfully.
@@ -14,14 +17,19 @@
 
                     <div class="feature-toggle-item" th:each="feature : ${features}" data-testid="feature-toggle" th:data-feature-key="${feature['key']}">
                         <div class="feature-toggle-info">
-                            <div class="feature-toggle-name" th:text="${feature['key']}">feature-key</div>
+                            <div class="feature-toggle-name">
+                                <span th:text="${feature['title']}">Feature</span>
+                                <span th:if="${feature['stage'].badgeClass != null}"
+                                      th:class="${'badge ' + feature['stage'].badgeClass}"
+                                      th:text="${feature['stage'].label}">Beta</span>
+                            </div>
                             <div class="feature-toggle-description" th:if="${feature['description'] != ''}" th:text="${feature['description']}"></div>
                         </div>
-                        <label class="toggle-switch">
+                        <label class="ep-toggle">
                             <input type="checkbox"
                                    th:name="${feature['key']}"
                                    th:checked="${feature['enabled']}">
-                            <span class="toggle-switch-slider" data-testid="feature-toggle-switch"></span>
+                            <span class="ep-toggle-slider" data-testid="feature-toggle-switch"></span>
                         </label>
                     </div>
 

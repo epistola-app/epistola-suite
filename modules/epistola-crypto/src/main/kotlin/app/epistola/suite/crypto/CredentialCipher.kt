@@ -26,7 +26,8 @@ class EncryptionException(message: String, cause: Throwable? = null) : RuntimeEx
  * that factory and tests.
  */
 class CredentialCipher internal constructor(
-    private val enabled: Boolean,
+    /** Whether encryption is active; when false the cipher is a pass-through in both directions. */
+    val enabled: Boolean,
     private val keys: Map<String, SecretKeySpec>,
     val primaryKeyId: String,
 ) {

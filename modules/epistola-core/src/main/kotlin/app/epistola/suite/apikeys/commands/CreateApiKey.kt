@@ -10,7 +10,9 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -19,6 +21,12 @@ import java.time.Instant
 data class CreateApiKey(
     val tenantId: TenantKey,
     val name: String,
+    /**
+     * Least-privilege scope: the tenant roles this key authenticates as. Must be non-empty.
+     * Defaults to all roles only as a back-compat convenience for tests/fixtures — the UI
+     * (`ApiKeyHandler`) always passes an explicit, user-chosen subset.
+     */
+    val roles: Set<TenantRole> = TenantRole.entries.toSet(),
     val expiresAt: Instant? = null,
     val createdBy: UserKey? = null,
 ) : Command<ApiKeyWithSecret>,
@@ -28,7 +36,8 @@ data class CreateApiKey(
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
-        validate("name", name.length <= 100) { "Name must be 100 characters or less" }
+        validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        validate("roles", roles.isNotEmpty()) { "Select at least one role" }
     }
 }
 
@@ -53,15 +62,16 @@ class CreateApiKeyHandler(
             lastUsedAt = null,
             expiresAt = command.expiresAt,
             createdBy = command.createdBy,
+            roles = command.roles,
         )
 
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled,
-                                      created_at, expires_at, created_by)
+                                      created_at, expires_at, created_by, roles)
                 VALUES (:id, :tenantId, :name, :keyHash, :keyPrefix, :enabled,
-                        :createdAt, :expiresAt, :createdBy)
+                        :createdAt, :expiresAt, :createdBy, :roles::varchar[])
                 """,
             )
                 .bind("id", apiKey.id)
@@ -73,6 +83,7 @@ class CreateApiKeyHandler(
                 .bind("createdAt", apiKey.createdAt)
                 .bind("expiresAt", apiKey.expiresAt)
                 .bind("createdBy", apiKey.createdBy?.value)
+                .bind("roles", apiKey.roles.map { it.name }.toTypedArray())
                 .execute()
         }
 

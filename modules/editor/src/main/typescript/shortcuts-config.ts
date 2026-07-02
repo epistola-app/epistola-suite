@@ -44,9 +44,13 @@ export interface EditorShortcutsConfig {
 export const EDITOR_SHORTCUTS_CONFIG = {
   leader: {
     activation: {
-      code: 'Space',
+      // Cmd/Ctrl + "." — deliberately NOT Space: on macOS both Cmd+Space
+      // (Spotlight) and Ctrl+Space (input-source switch) are OS-bound, and the
+      // resolver can't distinguish Cmd from Ctrl (both map to `mod`). The "."
+      // key is free of default OS bindings on macOS and Windows/Linux.
+      code: 'Period',
       requiresModifier: true,
-      helpKeys: '{cmd} + Space',
+      helpKeys: '{cmd} + .',
       action: 'Enter leader mode',
     },
     timeout: {

@@ -22,7 +22,7 @@
                 width: 0.5rem;
                 height: 0.5rem;
                 border-radius: var(--ep-radius-full);
-                background: var(--ep-gray-300);
+                background: var(--ep-stone-300);
             }
             .cluster-node-status.is-active {
                 color: var(--ep-green-700);
@@ -42,8 +42,8 @@
                 display: inline-flex;
                 align-items: center;
                 border-radius: var(--ep-radius-full);
-                background: var(--ep-blue-50);
-                color: var(--ep-blue-700);
+                background: var(--ep-terracotta-50);
+                color: var(--ep-terracotta-700);
                 font-size: var(--ep-text-xs);
                 font-weight: 600;
                 padding: var(--ep-space-0-5) var(--ep-space-2);
@@ -58,15 +58,15 @@
                 display: inline-flex;
                 align-items: center;
                 border-radius: var(--ep-radius-full);
-                background: var(--ep-gray-100);
-                color: var(--ep-gray-700);
+                background: var(--ep-stone-100);
+                color: var(--ep-stone-700);
                 font-size: var(--ep-text-xs);
                 padding: var(--ep-space-0-5) var(--ep-space-2);
             }
             .cluster-empty {
                 padding: var(--ep-space-8);
                 text-align: center;
-                color: var(--ep-gray-500);
+                color: var(--ep-stone-500);
                 border: 1px dashed var(--ep-border-color);
                 border-radius: var(--ep-radius-lg);
                 background: var(--ep-card);
@@ -83,8 +83,8 @@
                 border-bottom: 0;
             }
             .cluster-node-state-cell {
-                background: var(--ep-blue-50);
-                border-left: 3px solid var(--ep-blue-300);
+                background: var(--ep-terracotta-50);
+                border-left: 3px solid var(--ep-terracotta-300);
                 padding: var(--ep-space-3);
             }
             .cluster-node-state-table {
@@ -92,19 +92,19 @@
                 border-collapse: collapse;
                 font-size: var(--ep-text-xs);
                 background: var(--ep-card);
-                border: 1px solid var(--ep-blue-200);
+                border: 1px solid var(--ep-terracotta-200);
                 border-radius: var(--ep-radius-md);
                 overflow: hidden;
             }
             .cluster-node-state-table thead {
-                background: var(--ep-blue-100);
-                color: var(--ep-blue-900);
+                background: var(--ep-terracotta-100);
+                color: var(--ep-terracotta-900);
             }
             .cluster-node-state-table th,
             .cluster-node-state-table td {
                 padding: var(--ep-space-1-5) var(--ep-space-2);
                 text-align: left;
-                border-bottom: 1px solid var(--ep-blue-100);
+                border-bottom: 1px solid var(--ep-terracotta-100);
             }
             .cluster-node-state-table tr:last-child td {
                 border-bottom: 0;
@@ -121,9 +121,9 @@
             }
         </style>
 
-        <div class="page-header">
-            <h1 data-testid="page-title">Cluster</h1>
-        </div>
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Cluster'
+        )}"></div>
 
         <div th:fragment="results"
              id="cluster-results"
@@ -132,11 +132,11 @@
              hx-swap="outerHTML">
 
             <div class="cluster-summary">
-                <div class="stat-card">
+                <div class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${report.totalCount}">0</div>
                     <div class="stat-card-label">Known nodes</div>
                 </div>
-                <div class="stat-card">
+                <div class="ep-panel stat-card">
                     <div class="stat-card-value">
                         <span th:text="${report.activeCount}">0</span><span
                             class="ep-text-muted"
@@ -144,11 +144,11 @@
                     </div>
                     <div class="stat-card-label">Active nodes</div>
                 </div>
-                <div class="stat-card">
+                <div class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${report.heartbeatIntervalSeconds + 's'}">2s</div>
                     <div class="stat-card-label">Heartbeat</div>
                 </div>
-                <div class="stat-card">
+                <div class="ep-panel stat-card">
                     <div class="stat-card-value" th:text="${report.idleTimeoutSeconds + 's'}">10s</div>
                     <div class="stat-card-label">Stale after</div>
                 </div>

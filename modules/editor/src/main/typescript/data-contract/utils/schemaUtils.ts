@@ -4,7 +4,6 @@ import {
   type JsonSchema,
   type JsonSchemaProperty,
   type JsonValue,
-  type PrimitiveField,
   type PrimitiveFieldType,
   type SchemaField,
   type SchemaFieldType,
@@ -13,6 +12,11 @@ import {
   type VisualSchema,
 } from '../types.js';
 import { classifyValue, findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
+import { isScalarFieldType, scalarFromJsonSchema, scalarToJsonSchema } from '../field-types.js';
+
+// Re-exported so existing importers keep their `schemaUtils` import path; the
+// labels themselves are defined once in the field-type registry.
+export { FIELD_TYPE_LABELS } from '../field-types.js';
 
 /** True when a SchemaFieldType is one of the registered ref-typed field types. */
 function isRefFieldType(type: SchemaFieldType): type is RefTypeId {
@@ -54,16 +58,15 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
     return prop;
   }
 
-  // Date is stored as { type: "string", format: "date" } in JSON Schema
-  const prop: JsonSchemaProperty = {
-    type: field.type === 'date' ? 'string' : field.type,
-  };
-
-  if (field.type === 'date') {
-    prop.format = 'date';
+  // Scalars map to a JSON Schema { type, format? } per the field-type registry
+  // (date → string/date, date-time → string/date-time, etc.).
+  const scalar = isScalarFieldType(field.type) ? scalarToJsonSchema(field.type) : null;
+  const prop: JsonSchemaProperty = { type: scalar ? scalar.type : field.type };
+  if (scalar?.format) {
+    prop.format = scalar.format;
   }
 
-  // String format (e.g. "email") — date format is handled above
+  // String format (e.g. "email"/"uri") — the date formats are covered above.
   if (field.type === 'string' && 'format' in field && field.format) {
     prop.format = field.format;
   }
@@ -91,6 +94,14 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
       }
     } else if (isRefFieldType(field.arrayItemType)) {
       prop.items = { $ref: getRefTypeById(field.arrayItemType).url };
+    } else if (isScalarFieldType(field.arrayItemType)) {
+      // Scalars (incl. date / date-time) must map through the registry so a
+      // list item serializes to a valid JSON Schema `{ type, format? }` —
+      // `{ type: 'string', format: 'date-time' }`, not `{ type: 'datetime' }`.
+      const itemScalar = scalarToJsonSchema(field.arrayItemType);
+      prop.items = itemScalar.format
+        ? { type: itemScalar.type, format: itemScalar.format }
+        : { type: itemScalar.type };
     } else {
       prop.items = { type: field.arrayItemType };
     }
@@ -171,8 +182,9 @@ function jsonSchemaPropertyToField(
   }
 
   const rawType = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-  // Detect date: JSON Schema uses { type: "string", format: "date" }
-  const type = rawType === 'string' && prop.format === 'date' ? 'date' : rawType;
+  // Resolve scalars (incl. date / date-time) via the registry; everything else
+  // (array, object, or a string carrying an email/uri format) keeps rawType.
+  const type = scalarFromJsonSchema(rawType, prop.format) ?? rawType;
   const baseField = {
     id: `field:${path}`,
     name,
@@ -182,13 +194,15 @@ function jsonSchemaPropertyToField(
 
   if (type === 'array') {
     const itemRefType = findRefType(prop.items?.$ref);
+    const itemRawType = Array.isArray(prop.items?.type) ? prop.items?.type[0] : prop.items?.type;
     const itemType: SchemaFieldType =
       itemRefType !== null
         ? itemRefType.id
-        : prop.items
-          ? (((Array.isArray(prop.items.type) ? prop.items.type[0] : prop.items.type) ??
-              'string') as SchemaFieldType)
-          : 'string';
+        : // Recover date / date-time list items from `{ type, format }`, mirroring
+          // the top-level scalar resolution above.
+          ((scalarFromJsonSchema(itemRawType, prop.items?.format) ??
+            itemRawType ??
+            'string') as SchemaFieldType);
     const nestedFields =
       itemType === 'object' && prop.items?.properties
         ? Object.entries(prop.items.properties).map(([n, p]) =>
@@ -229,15 +243,16 @@ function jsonSchemaPropertyToField(
     type: type as PrimitiveFieldType,
   };
 
-  // String format (non-date, since date is already handled via type conversion)
-  if (type === 'string' && prop.format && prop.format !== 'date') {
-    (primitiveField as PrimitiveField).format = prop.format as StringFormat;
+  // A `string` that survived scalar resolution carries a non-date format
+  // constraint (email/uri); the date formats already became their own types.
+  if (type === 'string' && prop.format) {
+    primitiveField.format = prop.format as StringFormat;
   }
 
   // Numeric constraints
   if (type === 'number' || type === 'integer') {
-    if (prop.minimum !== undefined) (primitiveField as PrimitiveField).minimum = prop.minimum;
-    if (prop.maximum !== undefined) (primitiveField as PrimitiveField).maximum = prop.maximum;
+    if (prop.minimum !== undefined) primitiveField.minimum = prop.minimum;
+    if (prop.maximum !== undefined) primitiveField.maximum = prop.maximum;
   }
 
   return primitiveField;
@@ -307,6 +322,15 @@ function inferFieldFromValue(name: string, value: JsonValue, path: string): Sche
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * ISO date-time pattern: YYYY-MM-DDThh:mm with optional seconds, optional
+ * fractional seconds (only when seconds are present), and optional timezone.
+ * Seconds are optional to match the `datetime-local` picker and the backend
+ * validator, which both accept `…Thh:mm` — otherwise inference would fall back
+ * to `string` for seconds-less but valid date-times.
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
+
 function inferType(value: JsonValue): SchemaFieldType {
   if (value === null) {
     return 'string'; // Default null to string
@@ -329,6 +353,9 @@ function inferType(value: JsonValue): SchemaFieldType {
   }
   if (typeof value === 'string' && ISO_DATE_RE.test(value)) {
     return 'date';
+  }
+  if (typeof value === 'string' && ISO_DATETIME_RE.test(value)) {
+    return 'datetime';
   }
   return 'string';
 }
@@ -415,15 +442,12 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
   const isString = type === 'string' || type === 'date';
 
   // Format: only relevant for string types, carry over only if type didn't change
-  const existingFormat =
-    sameType && isString && oldIsPrimitive ? (field as PrimitiveField).format : undefined;
+  const existingFormat = sameType && isString && oldIsPrimitive ? field.format : undefined;
   const format = 'format' in updates ? updates.format : existingFormat;
 
   // Minimum/maximum: only relevant for numeric types, carry over only if type didn't change
-  const existingMinimum =
-    sameType && isNumeric && oldIsPrimitive ? (field as PrimitiveField).minimum : undefined;
-  const existingMaximum =
-    sameType && isNumeric && oldIsPrimitive ? (field as PrimitiveField).maximum : undefined;
+  const existingMinimum = sameType && isNumeric && oldIsPrimitive ? field.minimum : undefined;
+  const existingMaximum = sameType && isNumeric && oldIsPrimitive ? field.maximum : undefined;
   const minimum = 'minimum' in updates ? updates.minimum : existingMinimum;
   const maximum = 'maximum' in updates ? updates.maximum : existingMaximum;
 
@@ -465,18 +489,3 @@ export function getSchemaFieldPaths(schema: VisualSchema): Set<string> {
   traverse(schema.fields);
   return paths;
 }
-
-/**
- * Type display names for the UI.
- */
-export const FIELD_TYPE_LABELS: Record<SchemaFieldType, string> = {
-  string: 'Text',
-  number: 'Number',
-  integer: 'Integer',
-  boolean: 'Yes/No',
-  date: 'Date',
-  richTextInline: 'Rich text (inline)',
-  richTextBlock: 'Rich text (block)',
-  array: 'List',
-  object: 'Object',
-};

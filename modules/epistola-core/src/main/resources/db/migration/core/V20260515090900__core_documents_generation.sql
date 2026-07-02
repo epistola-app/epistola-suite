@@ -38,13 +38,13 @@ CREATE TABLE documents (
 
 -- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
 
-CREATE INDEX idx_documents_tenant_key ON documents(tenant_key);
+-- tenant_key-only scans are served by the leftmost prefix of idx_documents_template_key.
 CREATE INDEX idx_documents_template_key ON documents(tenant_key, template_key);
 CREATE INDEX idx_documents_created_at ON documents(created_at DESC);
 CREATE INDEX idx_documents_correlation_id ON documents(tenant_key, correlation_id)
     WHERE correlation_id IS NOT NULL;
 
-COMMENT ON TABLE documents IS 'Generated PDF documents stored as BYTEA. Partitioned by created_at for TTL enforcement via partition dropping.';
+COMMENT ON TABLE documents IS 'Generated document metadata. Binary content lives in content_store (pluggable backend). Partitioned by created_at for TTL enforcement via partition dropping.';
 COMMENT ON COLUMN documents.id IS 'Client-provided UUIDv7';
 COMMENT ON COLUMN documents.tenant_key IS 'Owning tenant';
 COMMENT ON COLUMN documents.template_key IS 'Template used for generation';
@@ -104,7 +104,7 @@ CREATE TABLE document_generation_requests (
 
 -- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
 
-CREATE INDEX idx_generation_requests_tenant_key ON document_generation_requests(tenant_key);
+-- tenant_key-only scans are served by the leftmost prefix of idx_generation_requests_template_key.
 CREATE INDEX idx_generation_requests_status ON document_generation_requests(status);
 CREATE INDEX idx_generation_requests_batch_key ON document_generation_requests(batch_id)
     WHERE batch_id IS NOT NULL;

@@ -14,12 +14,13 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 /**
- * Smoke coverage for RANGE-partition maintenance across all three managed
- * tables. The scheduler treats every partitioned table the same way; this test
- * pins the behavior on `generation_results` because it's the new addition and
- * has its own retention setting (`generation-results-retention-months`,
- * default 1) distinct from the default `retention-months` (3) used by
- * documents/document_generation_requests.
+ * Smoke coverage for RANGE-partition maintenance across the core managed
+ * tables (documents, document_generation_requests, generation_results,
+ * event_log). The scheduler treats every partitioned table the same way; this
+ * test pins the behavior on `generation_results` because it has its own
+ * retention setting (`generation-results-retention-months`, default 1) distinct
+ * from the default `retention-months` (3), and asserts the per-table
+ * current-month partition for each (incl. event_log, now retention-bounded).
  */
 @Isolated("Drops and recreates shared partition tables while asserting scheduler side effects")
 class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
@@ -63,6 +64,29 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `afterSingletonsInstantiated bootstraps partitions in the pre-runner phase`() {
+        // Regression guard for the startup ORDERING. Partition bootstrap must run BEFORE Spring's
+        // ApplicationRunners, because a runner (e.g. the demo loader) can write to a partitioned table
+        // at startup and the partition has to already exist. The pre-runner phase is
+        // SmartInitializingSingleton.afterSingletonsInstantiated() — NOT
+        // @EventListener(ApplicationReadyEvent), which fires AFTER all runners (the bug that crashed
+        // demo load). Spring guarantees afterSingletonsInstantiated() runs before runners; this proves
+        // the bootstrap is wired to that hook, so the two together give "partitions exist before any
+        // runner". Drop a sentinel and prove the hook recreates it — if bootstrap regresses out of this
+        // hook, the sentinel stays gone and this fails.
+        val nextSuffix = YearMonth.now(testClock).plusMonths(1).format(DateTimeFormatter.ofPattern("yyyy_MM"))
+        val sentinel = "generation_results_$nextSuffix"
+        jdbi.useHandle<Exception> { handle -> handle.execute("DROP TABLE IF EXISTS $sentinel CASCADE") }
+        assertThat(tableExists(sentinel)).isFalse
+
+        scheduler.afterSingletonsInstantiated()
+
+        assertThat(tableExists(sentinel))
+            .`as`("the pre-runner hook afterSingletonsInstantiated() must bootstrap partitions")
+            .isTrue
+    }
+
+    @Test
     fun `cluster scheduled task poll runs partition maintenance handler after time advances past due`() = scenario {
         given {
             val task = scheduledTaskRegistry.find(PartitionMaintenanceScheduler.TASK_KEY)
@@ -89,6 +113,22 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `startup bootstrap provisions the test-clock month partition (not just real wall-clock)`() {
+        // Regression guard for the CI break on 2026-07-01: partition provisioning at
+        // startup ran under the real system clock, but integration tests stamp
+        // occurred_at with the frozen test clock (MutableClock, 2026-06-10). Once real
+        // time drifted into a later month, the frozen month had no event_log partition
+        // and every command insert failed ("no partition of relation event_log found").
+        // PartitionBootstrapTestConfiguration re-runs maintenance under the test clock at
+        // startup; this asserts the frozen-month partition exists WITHOUT this test
+        // calling maintainPartitions() itself.
+        val monthSuffix = YearMonth.now(testClock).format(DateTimeFormatter.ofPattern("yyyy_MM"))
+        assertThat(tableExists("event_log_$monthSuffix"))
+            .`as`("test-clock month event_log partition must be bootstrapped at startup")
+            .isTrue
+    }
+
+    @Test
     fun `is idempotent — re-running maintenance does not throw or create duplicates`() {
         scheduler.maintainPartitions()
         scheduler.maintainPartitions()
@@ -99,6 +139,7 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
         assertThat(countTablesLike("generation_results_$curSuffix")).isEqualTo(1)
         assertThat(countTablesLike("documents_$curSuffix")).isEqualTo(1)
         assertThat(countTablesLike("document_generation_requests_$curSuffix")).isEqualTo(1)
+        assertThat(countTablesLike("event_log_$curSuffix")).isEqualTo(1)
     }
 
     @Test

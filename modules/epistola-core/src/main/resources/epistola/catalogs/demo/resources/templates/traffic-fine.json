@@ -1,5 +1,5 @@
 {
-  "schemaVersion" : 4,
+  "schemaVersion": 4,
   "resource" : {
     "slug" : "officiele-snelheidsbekeuring",
     "name" : "Officiële Snelheidsbekeuring",
@@ -45,7 +45,7 @@
         },
         "identication" : {
           "type" : "object",
-          "required" : [ "licenceplate", "date_of_offense", "ticketnumber", "time_of_offense", "payment_due_data" ],
+          "required" : [ "licenceplate", "date_of_offense", "ticketnumber", "time_of_offense", "moment_of_offense", "payment_due_data" ],
           "properties" : {
             "licenceplate" : {
               "type" : "string"
@@ -59,6 +59,10 @@
             },
             "time_of_offense" : {
               "type" : "string"
+            },
+            "moment_of_offense" : {
+              "type" : "string",
+              "format" : "date-time"
             },
             "payment_due_data" : {
               "type" : "string",
@@ -113,6 +117,7 @@
           "ticketnumber" : 12345,
           "date_of_offense" : "2026-05-04",
           "time_of_offense" : "11:32",
+          "moment_of_offense" : "2026-05-04T11:32:00",
           "payment_due_data" : "2026-05-31"
         },
         "speed_measurement" : {
@@ -623,6 +628,27 @@
                       }
                     }, {
                       "text" : "(UU:MM:SS)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Moment van Overtreding: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatDate(identication.moment_of_offense, 'dd-MM-yyyy HH:mm')"
+                      }
+                    }, {
+                      "text" : "(dd-MM-yyyy HH:mm)",
                       "type" : "text",
                       "marks" : [ {
                         "type" : "em"

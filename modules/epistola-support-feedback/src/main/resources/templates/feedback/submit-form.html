@@ -5,7 +5,7 @@
         <div class="ep-dialog-header">
             <h2>Submit Feedback</h2>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-icon" onclick="this.closest('dialog').close()">
-                <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='x', class='ep-icon')}" />
             </button>
         </div>
 
@@ -59,11 +59,11 @@
                     <label class="ep-label">Screenshot (optional)</label>
                     <div id="fb-screenshot-actions" class="ep-row">
                         <button type="button" id="fb-capture-region" class="ep-btn ep-btn-outline ep-btn-sm">
-                            <th:block th:replace="~{fragments/icon :: icon(name='scan', class='ep-icon')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='scan', class='ep-icon')}" />
                             Capture Region
                         </button>
                         <button type="button" id="fb-capture-viewport" class="ep-btn ep-btn-outline ep-btn-sm">
-                            <th:block th:replace="~{fragments/icon :: icon(name='monitor', class='ep-icon')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='monitor', class='ep-icon')}" />
                             Capture Visible
                         </button>
                     </div>

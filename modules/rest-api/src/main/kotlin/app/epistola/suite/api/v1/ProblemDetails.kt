@@ -41,9 +41,9 @@ object ApiProblemTypes {
     val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_ENTITY, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
     val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
-    val ACCESS_DENIED = problem("ACCESS_DENIED", "Access Denied", HttpStatus.FORBIDDEN, "The authenticated caller is not allowed to access the requested resource.", emptyList())
-    val PERMISSION_DENIED = problem("PERMISSION_DENIED", "Permission Denied", HttpStatus.FORBIDDEN, "The caller lacks the required fine-grained permission.", emptyList())
-    val PLATFORM_ACCESS_DENIED = problem("PLATFORM_ACCESS_DENIED", "Platform Access Denied", HttpStatus.FORBIDDEN, "The caller lacks the required platform role.", emptyList())
+    val ACCESS_DENIED = problem("ACCESS_DENIED", "Access Denied", HttpStatus.FORBIDDEN, "The authenticated caller is not allowed to access the requested resource.", listOf("tenantId"))
+    val PERMISSION_DENIED = problem("PERMISSION_DENIED", "Permission Denied", HttpStatus.FORBIDDEN, "The caller lacks the required fine-grained permission.", listOf("requiredPermission", "tenantId"))
+    val PLATFORM_ACCESS_DENIED = problem("PLATFORM_ACCESS_DENIED", "Platform Access Denied", HttpStatus.FORBIDDEN, "The caller lacks the required platform role.", listOf("requiredRole"))
     val OPERATION_NOT_IMPLEMENTED = problem("OPERATION_NOT_IMPLEMENTED", "Operation Not Implemented", HttpStatus.NOT_IMPLEMENTED, "The requested API operation is part of the contract but has not been implemented by this server yet.", listOf("operation"))
     val INTERNAL_ERROR = problem("INTERNAL_ERROR", "Internal Error", HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred.", emptyList())
     val METHOD_NOT_ALLOWED = problem("METHOD_NOT_ALLOWED", "Method Not Allowed", HttpStatus.METHOD_NOT_ALLOWED, "The HTTP method is not allowed for the requested resource.", listOf("method", "supportedMethods"))
@@ -76,6 +76,9 @@ object ApiProblemTypes {
     val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog is subscribed/read-only and cannot be modified through this API.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
     val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
+    val CATALOG_SCHEMA_TOO_NEW = problem("CATALOG_SCHEMA_TOO_NEW", "Catalog Wire Schema Too New", HttpStatus.BAD_REQUEST, "The catalog was exported by a newer Epistola than this instance can read; upgrade this instance.", listOf("version", "supportedVersion"))
+    val CATALOG_SCHEMA_TOO_OLD = problem("CATALOG_SCHEMA_TOO_OLD", "Catalog Wire Schema Too Old", HttpStatus.BAD_REQUEST, "The catalog's wire format predates the oldest version this instance can upgrade; re-export from a current source.", listOf("version", "baselineVersion"))
+    val CATALOG_SCHEMA_UNKNOWN = problem("CATALOG_SCHEMA_UNKNOWN", "Catalog Wire Schema Unrecognised", HttpStatus.BAD_REQUEST, "The uploaded payload is not a recognised catalog wire format (not valid JSON, or a missing or non-integer schemaVersion).", emptyList())
     val CODE_LIST_IN_USE = problem("CODE_LIST_IN_USE", "Code List In Use", HttpStatus.CONFLICT, "The code list cannot be deleted because an attribute still references it.", emptyList())
     val CODE_LIST_NOT_REFRESHABLE = problem("CODE_LIST_NOT_REFRESHABLE", "Code List Not Refreshable", HttpStatus.BAD_REQUEST, "The code list is not URL-sourced and cannot be refreshed.", emptyList())
     val TENANT_NOT_FOUND = problem("TENANT_NOT_FOUND", "Tenant Not Found", HttpStatus.NOT_FOUND, "The requested tenant does not exist or is not visible to the caller.", listOf("tenantId"))
@@ -96,6 +99,7 @@ object ApiProblemTypes {
     val VERSION_ARCHIVED = problem("VERSION_ARCHIVED", "Version Archived", HttpStatus.CONFLICT, "The version is archived and cannot be published.", listOf("tenantId", "versionId"))
     val ACTIVATION_NOT_FOUND = problem("ACTIVATION_NOT_FOUND", "Activation Not Found", HttpStatus.NOT_FOUND, "No activation exists for the requested variant and environment.", listOf("tenantId", "variantId", "environmentId"))
     val NO_ACTIVE_VERSION = problem("NO_ACTIVE_VERSION", "No Active Version", HttpStatus.NOT_FOUND, "No active version is available for the requested variant and environment.", listOf("tenantId", "variantId", "environmentId"))
+    val CONTRACT_PUBLISH_CONFLICT = problem("CONTRACT_PUBLISH_CONFLICT", "Contract Publish Conflict", HttpStatus.CONFLICT, "The data-model change is backwards-incompatible and was not confirmed; retry with forceUpdate=true to publish it.", listOf("breakingChanges"))
 
     val all: List<ApiProblemType> = listOf(
         BATCH_VALIDATION_ERROR,
@@ -136,6 +140,9 @@ object ApiProblemTypes {
         CATALOG_READ_ONLY,
         CATALOG_NOT_FOUND,
         CATALOG_NOT_UPGRADEABLE,
+        CATALOG_SCHEMA_TOO_NEW,
+        CATALOG_SCHEMA_TOO_OLD,
+        CATALOG_SCHEMA_UNKNOWN,
         CODE_LIST_IN_USE,
         CODE_LIST_NOT_REFRESHABLE,
         TENANT_NOT_FOUND,
@@ -156,6 +163,7 @@ object ApiProblemTypes {
         VERSION_ARCHIVED,
         ACTIVATION_NOT_FOUND,
         NO_ACTIVE_VERSION,
+        CONTRACT_PUBLISH_CONFLICT,
     ) + ValidationCode.entries.map { validationProblemType(it) }
 
     val bySlug: Map<String, ApiProblemType> = all.associateBy { it.slug }

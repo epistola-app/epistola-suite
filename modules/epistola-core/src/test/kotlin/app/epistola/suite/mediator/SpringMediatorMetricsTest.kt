@@ -64,7 +64,8 @@ class SpringMediatorMetricsTest {
         context.beanFactory.registerSingleton("failingQueryHandler", FailingQueryHandler())
         context.refresh()
 
-        mediator = SpringMediator(context, context, meterRegistry)
+        // No command/query listeners — this test exercises only the metrics path.
+        mediator = SpringMediator(context, context, meterRegistry, emptyList(), emptyList())
     }
 
     @Test

@@ -52,7 +52,7 @@ export function detectMigrations(
     const exampleMigrations = detectExampleMigrations(
       example.id,
       example.name,
-      example.data as JsonObject,
+      example.data,
       schema,
     );
     migrations.push(...exampleMigrations);
@@ -163,7 +163,7 @@ function detectExampleMigrations(
           const nested = detectExampleMigrations(
             exampleId,
             exampleName,
-            item as JsonObject,
+            item,
             propSchema.items as JsonSchema,
             itemPath,
           );
@@ -207,7 +207,7 @@ function detectExampleMigrations(
         exampleName,
         path,
         issue: 'UNKNOWN_FIELD',
-        currentValue: data[key] as JsonValue,
+        currentValue: data[key],
         expectedType: 'none',
         suggestedValue: null,
         autoMigratable: true,
@@ -435,7 +435,7 @@ export function stripOrphanedKeys(data: JsonObject, schema: JsonSchema): JsonObj
       value !== null &&
       !Array.isArray(value)
     ) {
-      result[key] = stripOrphanedKeys(value as JsonObject, propSchema as JsonSchema);
+      result[key] = stripOrphanedKeys(value, propSchema as JsonSchema);
     } else if (
       propSchema.type === 'array' &&
       propSchema.items?.type === 'object' &&
@@ -444,7 +444,7 @@ export function stripOrphanedKeys(data: JsonObject, schema: JsonSchema): JsonObj
     ) {
       result[key] = value.map((item) =>
         typeof item === 'object' && item !== null && !Array.isArray(item)
-          ? stripOrphanedKeys(item as JsonObject, propSchema.items as JsonSchema)
+          ? stripOrphanedKeys(item, propSchema.items as JsonSchema)
           : item,
       );
     } else {

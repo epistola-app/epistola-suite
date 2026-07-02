@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+        Upload Image form (multipart hx-post). Success sends HX-Redirect; a catalog
+        field error swaps the catalog error span via OOB (hx-swap-oob) so the chosen
+        file survives (see the error-catalog fragment below). File and operational
+        errors are thrown by AssetHandler.upload and rendered centrally by
+        UiExceptionFilter: the shared #dialog-error region for the dialog, problem+json
+        (with `detail`) for the editor's non-HTMX `Accept: application/json` caller.
+        The dialog reuses the same form + script via the shared `fields` fragment;
+        htmx runs the <script> when the dialog is injected into #dialog-host.
+    -->
+    <th:block th:fragment="createDialog(catalogs)">
+        <dialog id="create-asset-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-asset-dialog" data-create-dialog data-dialog-param="upload"
+                hx-headers='{"X-Epistola-Error-Region": "dialog-error"}'>
+            <div class="ep-dialog-header">
+                <h3>Upload Image</h3>
+            </div>
+            <th:block th:replace="~{fragments/dialog :: generalError}"></th:block>
+            <th:block th:replace="~{images/new :: createForm}"></th:block>
+        </dialog>
+    </th:block>
+
+    <form th:fragment="createForm" id="asset-upload-form"
+          th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}"
+          hx-encoding="multipart/form-data" hx-boost="false">
+        <div class="ep-dialog-body">
+            <th:block th:replace="~{images/new :: fields}"></th:block>
+        </div>
+        <th:block th:replace="~{fragments/dialog :: dialogFooter('Upload', 'create-form-submit')}"></th:block>
+    </form>
+
+    <th:block th:fragment="fields">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
+            <label class="ep-label" for="catalog">Catalog</label>
+            <select id="catalog" name="catalog" class="ep-select" required>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"></option>
+            </select>
+            <span class="form-error" id="asset-error-catalog" th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
+        </div>
+        <div class="form-group">
+            <label class="ep-label">Image file</label>
+            <div id="asset-upload-zone" class="asset-upload-zone"
+                 ondragover="event.preventDefault(); this.classList.add('dragover')"
+                 ondragleave="this.classList.remove('dragover')"
+                 ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event)">
+                <div class="asset-upload-content">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
+                    <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
+                    <p class="text-muted text-sm">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
+                </div>
+                <input type="file" id="asset-file-input" name="file"
+                       accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                       style="display: none;"
+                       required />
+            </div>
+            <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
+                <span id="file-name" class="text-sm"></span>
+            </div>
+        </div>
+
+        <script>
+            (function () {
+                document.getElementById('asset-file-input').addEventListener('change', function() {
+                    var preview = document.getElementById('file-preview');
+                    var fileName = document.getElementById('file-name');
+                    if (this.files.length > 0) {
+                        fileName.textContent = this.files[0].name;
+                        preview.style.display = 'block';
+                    } else {
+                        preview.style.display = 'none';
+                    }
+                });
+
+                window.handleFileDrop = function(event) {
+                    var file = event.dataTransfer.files[0];
+                    if (file) {
+                        var input = document.getElementById('asset-file-input');
+                        var dt = new DataTransfer();
+                        dt.items.add(file);
+                        input.files = dt.files;
+                        input.dispatchEvent(new Event('change'));
+                    }
+                };
+            })();
+        </script>
+    </th:block>
+
+    <!--
+        OOB per-field error fragment. On a field validation error the handler swaps this
+        (by id, via hx-swap-oob) into the live catalog span, leaving the form and its
+        selected file untouched (see AssetHandler.upload). File/server errors are thrown
+        and rendered in the shared #dialog-error region (or problem+json) by the filter.
+    -->
+    <span th:fragment="error-catalog" class="form-error" id="asset-error-catalog" hx-swap-oob="true"
+          th:attr="data-error=${errors?.containsKey('catalog')}" th:text="${errors?.get('catalog')}"></span>
+</body>
+</html>

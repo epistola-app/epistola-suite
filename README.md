@@ -6,14 +6,12 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 > [!NOTE]
-> **1.0 release scheduled for 25 June 2026.**
+> **1.0.0-RC1 is out — first stable release (25 June 2026); 1.0.0-GA planned for July 2026.** **From this release onward the database will no longer be reset between versions** — your data persists across upgrades, and every schema change ships as a forward migration.
 
 > [!WARNING]
-> **Pre-1.0 — Expect Breaking Changes**
+> **Release candidate — some APIs may still change before 1.0.0-GA.**
 >
-> Epistola is **not yet 1.0** and is currently going through significant changes and refactorings. **No compatibility guarantees** are made between versions: database schemas, REST APIs, catalog formats, configuration, and internal architecture can all change without migration paths.
->
-> **The database may be automatically reset between versions without warning, losing all your data.** We recommend exporting your catalog before updating. Do not use Epistola for production workloads until a 1.0 release is announced.
+> Your data is now stable across upgrades, but while Epistola is in release-candidate phase the REST APIs, catalog formats, configuration, and internal architecture may still be adjusted before 1.0.0-GA. Review the [changelog](CHANGELOG.md) before updating.
 
 A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 

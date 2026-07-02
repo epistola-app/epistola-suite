@@ -30,6 +30,9 @@ dependencies {
     // by per-feature UI modules.
     implementation(project(":modules:epistola-web"))
 
+    // Audit feature (PII-free "who did what, when" trail: recorder, viewer, schema)
+    implementation(project(":modules:epistola-audit"))
+
     // Support module (optional commercial-tier hub integration; off by default)
     implementation(project(":modules:epistola-support"))
 
@@ -81,7 +84,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-session-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.commonmark:commonmark:0.28.0")
+    implementation("org.commonmark:commonmark:0.29.0")
 
     // HTMX for dynamic UI
     implementation(libs.htmx.spring.boot.thymeleaf)
@@ -183,7 +186,7 @@ tasks.processResources {
     }
     // Copy design-system assets so Spring Boot serves them at /design-system/*
     from(rootProject.file("modules/design-system")) {
-        include("*.css", "icons.svg")
+        include("*.css", "icons.svg", "epistola-logo.svg")
         into("static/design-system")
     }
     // Self-host HTMX so Spring Boot serves it at /js/vendor/htmx.min.js
