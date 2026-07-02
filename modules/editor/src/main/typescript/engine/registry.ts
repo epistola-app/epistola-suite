@@ -546,6 +546,68 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'denylist', types: ['root'] },
     applicableStyles: [],
     inspector: [],
+    examples: [
+      {
+        name: 'document-skeleton',
+        description:
+          'The top-level node of every template document. Exactly one root exists per document (doc.root points at it) — it is created with the document, never inserted manually. Its single "children" slot holds the document body in render order.',
+        fragment: {
+          rootNodeId: 'n-root-doc',
+          nodes: {
+            'n-root-doc': {
+              id: 'n-root-doc',
+              type: 'root',
+              slots: ['s-root-doc-children'],
+            },
+            'n-root-doc-heading': {
+              id: 'n-root-doc-heading',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'heading',
+                      attrs: { level: 1 },
+                      content: [{ type: 'text', text: 'Order confirmation' }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-root-doc-body': {
+              id: 'n-root-doc-body',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'text', text: 'Thank you for your order, ' },
+                        { type: 'expression', attrs: { expression: 'customer.name' } },
+                        { type: 'text', text: '.' },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-root-doc-children': {
+              id: 's-root-doc-children',
+              nodeId: 'n-root-doc',
+              name: 'children',
+              children: ['n-root-doc-heading', 'n-root-doc-body'],
+            },
+          },
+        },
+      },
+    ],
   });
 
   registry.register({
