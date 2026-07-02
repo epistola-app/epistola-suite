@@ -6,13 +6,12 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
-import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker
+import app.epistola.suite.templates.contracts.TemplateVersionCompatibilityEvaluator
 import app.epistola.suite.templates.contracts.commands.IncompatibleVersion
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import org.jdbi.v3.core.Jdbi
@@ -46,10 +45,10 @@ data class ContractPublishImpact(
 class CheckContractPublishImpactHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val mediator: Mediator,
 ) : QueryHandler<CheckContractPublishImpact, ContractPublishImpact?> {
 
     private val checker = SchemaCompatibilityChecker()
+    private val evaluator = TemplateVersionCompatibilityEvaluator()
 
     override fun handle(query: CheckContractPublishImpact): ContractPublishImpact? {
         // Load draft and latest published contract
@@ -106,11 +105,13 @@ class CheckContractPublishImpactHandler(
             )
         }
 
-        // For breaking changes, check each published/archived version's actual field usage
+        // For breaking changes, check each published/archived version's actual field
+        // usage. referenced_paths rides along so the whole impact is computed from this
+        // one query — no per-version fan-out.
         val versionRows = jdbi.withHandle<List<Map<String, Any?>>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT tv.variant_key, tv.id as version_id,
+                SELECT tv.variant_key, tv.id as version_id, tv.referenced_paths,
                        COALESCE(
                            (SELECT jsonb_agg(ea.environment_key ORDER BY ea.environment_key)
                             FROM environment_activations ea
@@ -141,9 +142,15 @@ class CheckContractPublishImpactHandler(
             val versionKey = VersionKey.of(row["version_id"] as Int)
             val versionId = VersionId(versionKey, VariantId(variantKey, query.templateId))
 
-            val templateCompat = mediator.query(
-                CheckTemplateVersionCompatibility(versionId = versionId, newSchema = draft.dataModel),
-            )
+            // Every row is on the old contract (tv.contract_version = :oldVersion), so
+            // previousPublished.dataModel IS each version's old schema.
+            val referencedPaths = objectMapper
+                .readStringArrayColumn(
+                    row["referenced_paths"]?.toString() ?: "[]",
+                    "template_versions.referenced_paths for $versionId",
+                )
+                .toSet()
+            val templateCompat = evaluator.evaluate(referencedPaths, previousPublished.dataModel, draft.dataModel)
 
             if (!templateCompat.compatible) {
                 val envJson = row["active_environments"]?.toString() ?: "[]"
