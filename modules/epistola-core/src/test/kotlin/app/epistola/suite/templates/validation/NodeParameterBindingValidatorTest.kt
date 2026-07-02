@@ -72,6 +72,18 @@ class NodeParameterBindingValidatorTest {
     }
 
     @Test
+    fun `invalid jsonata binding is rejected even when schema is unresolvable`() {
+        // JSONata syntactic validity does not depend on the parameter schema, so
+        // the syntax check must run even for nodes whose schema can't be resolved
+        // (legacy stencils without a snapshot, unregistered node types, …).
+        val node = stencilNode("s1", schema = null, bindings = mapOf("foo" to "1 +"))
+        assertThatThrownBy { validator.validate(doc(node)) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID)
+            .hasMessageContaining("'foo'")
+    }
+
+    @Test
     fun `binding to a declared parameter is accepted`() {
         val node = stencilNode(
             "s1",
