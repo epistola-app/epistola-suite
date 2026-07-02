@@ -12,6 +12,7 @@ import app.epistola.suite.templates.analysis.TemplateCompatibilityResult
 import app.epistola.suite.templates.contracts.SchemaPathNavigator
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.core.JacksonException
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -68,25 +69,24 @@ class CheckTemplateVersionCompatibilityHandler(
 
         // Parse referenced paths
         val pathsJson = row["referenced_paths"]?.toString() ?: "[]"
-        val referencedPaths: Set<String> = try {
-            objectMapper.readValue<List<String>>(
-                pathsJson,
-                objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java),
-            ).toSet()
-        } catch (_: Exception) {
-            emptySet()
-        }
+        val referencedPaths: Set<String> = objectMapper
+            .readStringArrayColumn(pathsJson, "template_versions.referenced_paths for ${query.versionId}")
+            .toSet()
 
         if (referencedPaths.isEmpty()) {
             return TemplateCompatibilityResult(compatible = true, incompatibilities = emptyList())
         }
 
-        // Parse old schema from contract
+        // Parse old schema from contract. A corrupt data_model must fail the check:
+        // treating it as "no old schema" silently skips all TYPE_CHANGED detection.
         val oldSchema: ObjectNode? = row["contract_data_model"]?.let { raw ->
             try {
                 objectMapper.readValue(raw.toString(), ObjectNode::class.java)
-            } catch (_: Exception) {
-                null
+            } catch (e: JacksonException) {
+                throw IllegalStateException(
+                    "Corrupt database value: contract_versions.data_model for ${query.versionId} is not a JSON object",
+                    e,
+                )
             }
         }
 
