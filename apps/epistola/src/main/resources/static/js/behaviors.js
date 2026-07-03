@@ -53,9 +53,15 @@ document.addEventListener('click', function (event) {
 document.addEventListener('change', function (event) {
   const select = event.target.closest && event.target.closest('select[data-catalog-filter-base]');
   if (!select) return;
-  let url = select.getAttribute('data-catalog-filter-base');
-  if (select.value) url += '?catalog=' + encodeURIComponent(select.value);
-  window.location.href = url;
+  const base = select.getAttribute('data-catalog-filter-base') || '';
+  // Only navigate to a same-origin absolute path. Resolving through the URL API
+  // against the current origin guarantees an http(s) URL; a base that isn't a
+  // rooted path (e.g. a "javascript:"/"data:" scheme) is rejected before it can
+  // reach the navigation sink.
+  if (!base.startsWith('/')) return;
+  const url = new URL(base, window.location.origin);
+  if (select.value) url.searchParams.set('catalog', select.value);
+  window.location.assign(url.href);
 });
 
 // ── Confirm-then-submit for plain (non-HTMX) forms ──────────────────────────
