@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@scalar/api-reference':
         specifier: ^1.62.2
-        version: 1.62.2(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)
+        version: 1.62.3(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)
       htmx.org:
         specifier: 2.0.10
         version: 2.0.10
@@ -892,16 +892,16 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@scalar/agent-chat@0.12.15':
-    resolution: {integrity: sha512-gRQngLis+/oYIL0b0yyg18D2HJnDH78uEpaDmmJkmJ0u1qbXJv0+GThF9XeAntJbKK9cV63/XRl0JzGAFlIvHQ==}
+  '@scalar/agent-chat@0.12.16':
+    resolution: {integrity: sha512-YETdit7xhWpqdu4PMDM6AVQXID6GtJ1MSS0pmdyUFpR1xG02ABFWPsZHJ8+LQvFQXTC9ZOowtjgP8G9gTKA+KQ==}
     engines: {node: '>=22'}
 
   '@scalar/api-client@3.13.1':
     resolution: {integrity: sha512-+UWLBGY2dFFrbCYtEBHpjezZvSg/7eJ+CZs3oWo3Rr6JmVIJ/CKN31Ev5KAfce0w5Xmf7vbaWdExZheW+3ff7Q==}
     engines: {node: '>=22'}
 
-  '@scalar/api-reference@1.62.2':
-    resolution: {integrity: sha512-Vjgc8l37VQS1eO0iofhQopu0RYHsf3yawPkVA2tHYe/jFFGKWoHgUKGZyEJtj5OqfW3KMoXpztdX40WwujThlQ==}
+  '@scalar/api-reference@1.62.3':
+    resolution: {integrity: sha512-0Q4NGSVK34tR/YMeQGxDD+v2NfH87/vDPxaBXxSyxfjg3lx/pmidt+YW2vcpxpoQdaPOVVwm8iuzcg0cxFjkCg==}
     engines: {node: '>=22'}
 
   '@scalar/asyncapi-upgrader@0.1.2':
@@ -3243,7 +3243,7 @@ snapshots:
   '@floating-ui/vue@1.1.9(vue@3.5.39(typescript@6.0.3))':
     dependencies:
       '@floating-ui/dom': 1.7.6
-      '@floating-ui/utils': 0.2.11
+      '@floating-ui/utils': 0.2.10
       vue-demi: 0.14.10(vue@3.5.39(typescript@6.0.3))
     transitivePeerDependencies:
       - '@vue/composition-api'
@@ -3551,7 +3551,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@scalar/agent-chat@0.12.15(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)':
+  '@scalar/agent-chat@0.12.16(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)':
     dependencies:
       '@ai-sdk/vue': 3.0.33(vue@3.5.39(typescript@6.0.3))(zod@4.4.3)
       '@scalar/api-client': 3.13.1(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)
@@ -3637,10 +3637,10 @@ snapshots:
       - typescript
       - universal-cookie
 
-  '@scalar/api-reference@1.62.2(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)':
+  '@scalar/api-reference@1.62.3(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)':
     dependencies:
       '@headlessui/vue': 1.7.23(vue@3.5.39(typescript@6.0.3))
-      '@scalar/agent-chat': 0.12.15(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)
+      '@scalar/agent-chat': 0.12.16(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)(zod@4.4.3)
       '@scalar/api-client': 3.13.1(qrcode@1.5.4)(tailwindcss@4.3.2)(typescript@6.0.3)
       '@scalar/blocks': 0.1.2(tailwindcss@4.3.2)(typescript@6.0.3)
       '@scalar/code-highlight': 0.4.0
