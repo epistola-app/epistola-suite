@@ -610,6 +610,65 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(secondIds).contains(secondSlug).doesNotContain(defaultSlug)
     }
 
+    @Test
+    fun `upsert and get variant draft round-trip the templateModel`() {
+        // Regression for #662: VersionDto-returning endpoints 500'd because the mapper
+        // built the strict templateModel field with valueToTree (an ObjectNode) instead
+        // of convertValue. Any version carrying a templateModel triggered a
+        // ClassCastException. This exercises upsertVariantDraft + getVariantDraft over HTTP.
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "ver-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Version Model"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+
+        val templateModel = """
+            {
+              "modelVersion": 1,
+              "root": "root",
+              "nodes": {
+                "root": {"id": "root", "type": "root", "slots": ["slot-root"]},
+                "text1": {"id": "text1", "type": "text", "slots": [], "props": {"content": "Hello #662"}}
+              },
+              "slots": {
+                "slot-root": {"id": "slot-root", "nodeId": "root", "name": "children", "children": ["text1"]}
+              },
+              "themeRef": {"type": "inherit"}
+            }
+        """.trimIndent()
+        val draftUrl =
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val upsert = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": $templateModel}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(upsert.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(upsert.body!!, "$.templateModel.root")).isEqualTo("root")
+        assertThat(JsonPath.read<String>(upsert.body!!, "$.templateModel.nodes.text1.props.content"))
+            .isEqualTo("Hello #662")
+
+        val get = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(get.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Int>(get.body!!, "$.templateModel.modelVersion")).isEqualTo(1)
+        assertThat(JsonPath.read<String>(get.body!!, "$.templateModel.root")).isEqualTo("root")
+        assertThat(JsonPath.read<String>(get.body!!, "$.templateModel.nodes.text1.props.content"))
+            .isEqualTo("Hello #662")
+    }
+
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
         contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
