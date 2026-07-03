@@ -23,7 +23,7 @@
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id})}"
                         hx-target="#install-preview-body"
                         hx-swap="innerHTML"
-                        onclick="document.getElementById('install-preview-dialog').showModal()">Install All</button>
+                        data-open-dialog="install-preview-dialog">Install All</button>
             </div>
             <div class="card-content">
                 <table class="ep-table">
@@ -96,7 +96,7 @@
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalog.id},type=${resource.type},slug=${resource.slug})}"
                                         hx-target="#usage-detail-body"
                                         hx-swap="innerHTML"
-                                        onclick="document.getElementById('usage-detail-dialog').showModal()">
+                                        data-open-dialog="usage-detail-dialog">
                                 </button>
                                 <span th:if="${count == 0}" class="text-muted">-</span>
                             </td>
@@ -111,7 +111,7 @@
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
                                         hx-target="#install-preview-body"
                                         hx-swap="innerHTML"
-                                        onclick="document.getElementById('install-preview-dialog').showModal()">Install</button>
+                                        data-open-dialog="install-preview-dialog">Install</button>
                                 <span th:if="${resource.status.name() == 'INSTALLED'}" class="text-muted">-</span>
                             </td>
                         </tr>
@@ -193,7 +193,7 @@
               hx-swap="outerHTML">
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-ghost"
-                        onclick="document.getElementById('install-preview-dialog').close()">Cancel</button>
+                        data-close-dialog="install-preview-dialog">Cancel</button>
                 <button type="submit" class="ep-btn ep-btn-primary">
                     Install
                     <span th:text="${#lists.size(allResources)}"></span>
@@ -220,7 +220,7 @@
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"
-                    onclick="document.getElementById('install-preview-dialog').close()">Close</button>
+                    data-close-dialog="install-preview-dialog">Close</button>
         </div>
     </th:block>
 
@@ -251,7 +251,7 @@
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"
-                    onclick="document.getElementById('usage-detail-dialog').close()">Close</button>
+                    data-close-dialog="usage-detail-dialog">Close</button>
         </div>
     </th:block>
 

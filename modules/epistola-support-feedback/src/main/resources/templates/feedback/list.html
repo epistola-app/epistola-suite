@@ -96,7 +96,7 @@
                 hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
                 hx-target="#feedback-dialog-content"
                 hx-swap="innerHTML"
-                onclick="document.getElementById('feedback-dialog').showModal()">
+                data-open-dialog="feedback-dialog">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Feedback
         </button>

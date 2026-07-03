@@ -26,7 +26,7 @@
             </div>
             <div style="display: flex; gap: var(--ep-space-2); justify-content: flex-end; margin-top: var(--ep-space-4);">
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                        onclick="document.getElementById('contract-breaking-dialog').close()">Cancel</button>
+                        data-close-dialog="contract-breaking-dialog">Cancel</button>
                 <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm"
                         th:attr="hx-post=${publishUrl} + '?confirmed=true'"
                         hx-swap="none">

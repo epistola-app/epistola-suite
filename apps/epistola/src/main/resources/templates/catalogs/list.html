@@ -103,8 +103,7 @@
                                 th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
                                 data-confirm-title="Delete Catalog"
                                 th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                data-confirm-target="#catalog-list"
-                                onclick="openConfirmDialog(this)">
+                                data-confirm-target="#catalog-list">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
                     </td>
@@ -139,7 +138,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('create-dialog').close()">Cancel</button>
+                            data-close-dialog="create-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
                 </div>
             </form>
@@ -185,7 +184,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('subscribe-dialog').close()">Cancel</button>
+                            data-close-dialog="subscribe-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary">Subscribe</button>
                 </div>
             </form>
@@ -245,7 +244,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('import-dialog').close()">Cancel</button>
+                            data-close-dialog="import-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary">Import</button>
                 </div>
             </form>
@@ -361,7 +360,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('release-dialog').close()">Cancel</button>
+                            data-close-dialog="release-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary">Release</button>
                 </div>
             </form>
@@ -418,7 +417,7 @@
             </div>
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-primary"
-                        onclick="document.getElementById('export-conflict-dialog').close()">Close</button>
+                        data-close-dialog="export-conflict-dialog">Close</button>
             </div>
         </dialog>
     </th:block>
@@ -617,7 +616,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('upgrade-dialog').close()">Cancel</button>
+                            data-close-dialog="upgrade-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary"
                             th:if="${diff != null and diff.hasChanges}"
                             th:disabled="${diff.hasConflicts}">Apply upgrade</button>
@@ -632,17 +631,17 @@
     <th:block th:fragment="upgrade-done"></th:block>
     <th:block th:fragment="catalog-list-actions">
         <button type="button" class="ep-btn ep-btn-outline"
-                onclick="document.getElementById('import-dialog').showModal()">
+                data-open-dialog="import-dialog">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
             Import ZIP
         </button>
         <button type="button" class="ep-btn ep-btn-outline"
-                onclick="document.getElementById('subscribe-dialog').showModal()">
+                data-open-dialog="subscribe-dialog">
             <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
             Subscribe
         </button>
         <button type="button" class="ep-btn ep-btn-primary"
-                onclick="document.getElementById('create-dialog').showModal()"
+                data-open-dialog="create-dialog"
                 data-testid="catalog-create-open">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Catalog

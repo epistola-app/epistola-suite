@@ -100,7 +100,7 @@
                 <div class="whats-new-actions">
                     <button type="button"
                             class="link-button"
-                            onclick="document.getElementById('changelog-dialog').showModal()"
+                            data-open-dialog="changelog-dialog"
                             th:hx-get="@{/changelog}"
                             hx-target="#changelog-dialog-content"
                             hx-swap="innerHTML"

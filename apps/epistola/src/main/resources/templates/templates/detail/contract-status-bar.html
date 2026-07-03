@@ -47,14 +47,14 @@
             <!-- Usage + History (always visible) -->
             <th:block th:if="${hasOutdatedVersions}">
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="color: var(--ep-amber-700);"
-                        onclick="document.getElementById('contract-usage-dialog').showModal()">
+                        data-open-dialog="contract-usage-dialog">
                     <span class="badge badge-warning" style="margin-right: var(--ep-space-1);">!</span>
                     Outdated versions
                 </button>
             </th:block>
             <th:block th:if="${!hasOutdatedVersions && !#lists.isEmpty(allTemplateVersions)}">
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                        onclick="document.getElementById('contract-usage-dialog').showModal()">
+                        data-open-dialog="contract-usage-dialog">
                     Usage
                 </button>
             </th:block>
@@ -62,7 +62,7 @@
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/versions/history(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                     hx-target="#contract-history-body" hx-swap="innerHTML"
-                    onclick="document.getElementById('contract-history-dialog').showModal()">
+                    data-open-dialog="contract-history-dialog">
                 History
             </button>
         </div>

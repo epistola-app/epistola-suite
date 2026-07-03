@@ -8,22 +8,14 @@
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
+                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/fonts';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
         <div id="font-grid-items">
@@ -61,8 +53,7 @@
                                         title="Delete font"
                                         data-confirm-title="Delete Font"
                                         th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/fonts/{catalogId}/{slug}/delete(tenantId=${tenantId},catalogId=${font.catalogKey},slug=${font.slug})}"
-                                        data-confirm-target="#font-grid-items"
-                                        onclick="openConfirmDialog(this)">
+                                        data-confirm-target="#font-grid-items">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>

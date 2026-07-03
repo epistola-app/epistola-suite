@@ -11,22 +11,14 @@
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
+                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/images(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/images';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
         <!-- Upload area is on a dedicated page -->
@@ -64,8 +56,7 @@
                                         title="Delete image"
                                         data-confirm-title="Delete Image"
                                         th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/images/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
-                                        data-confirm-target="#asset-grid-items"
-                                        onclick="openConfirmDialog(this)">
+                                        data-confirm-target="#asset-grid-items">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
