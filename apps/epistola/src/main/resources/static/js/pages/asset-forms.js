@@ -57,10 +57,10 @@
     tr.innerHTML =
       '<td><input id="entry-code-' +
       idx +
-      '" type="text" class="ep-input" placeholder="code" aria-label="Entry code" data-entry-code required></td>' +
+      '" type="text" class="ep-input" placeholder="code" aria-label="Entry code" maxlength="64" data-entry-code required></td>' +
       '<td><input id="entry-label-' +
       idx +
-      '" type="text" class="ep-input" placeholder="Label" aria-label="Entry label" data-entry-label required></td>' +
+      '" type="text" class="ep-input" placeholder="Label" aria-label="Entry label" maxlength="200" data-entry-label required></td>' +
       '<td><button type="button" class="btn btn-sm btn-ghost btn-ghost-destructive" data-remove-entry>Remove</button></td>';
     tr.querySelector('[data-entry-code]').value = code;
     tr.querySelector('[data-entry-label]').value = label;
