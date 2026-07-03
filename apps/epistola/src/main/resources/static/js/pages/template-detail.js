@@ -13,9 +13,7 @@
 //                                and swaps the returned fragment into #theme-section
 //   [data-pdfa-toggle]           settings: PDF/A checkbox; PATCHes data-patch-url,
 //                                reverts the checkbox on failure
-//   [data-confirm-submit]        button: epistolaConfirm(data-confirm-message,
-//                                {data-confirm-title/-label/-class}) then submits the
-//                                closest form (used by the delete-template flow)
+//   [data-confirm-submit]        handled by /js/behaviors.js (confirm-then-submit)
 //   [data-add-attr-button]       variant dialogs: reveals the [data-attr-row] chosen in
 //                                the sibling [data-add-attr-select] within the closest
 //                                [data-attr-rows] scope
@@ -116,24 +114,6 @@
     }).then(function (r) {
       if (!r.ok) toggle.checked = !enabled;
     });
-  });
-
-  // ── Confirm-then-submit (delete template) ──────────────────────────────────
-  document.addEventListener('click', function (event) {
-    const button = event.target.closest && event.target.closest('[data-confirm-submit]');
-    if (!button) return;
-    window
-      .epistolaConfirm(button.dataset.confirmMessage, {
-        title: button.dataset.confirmTitle,
-        confirmLabel: button.dataset.confirmLabel,
-        confirmClass: button.dataset.confirmClass,
-      })
-      .then(function (ok) {
-        if (ok) {
-          const form = button.closest('form');
-          if (form) form.submit();
-        }
-      });
   });
 
   // ── Variant dialogs: "Add attribute" picker ────────────────────────────────

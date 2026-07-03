@@ -59,18 +59,21 @@ document.addEventListener('change', function (event) {
 });
 
 // ── Confirm-then-submit for plain (non-HTMX) forms ──────────────────────────
-// Usage: <button data-confirm-submit="form-id" data-confirm-submit-message="…"
-//                data-confirm-submit-title="…" data-confirm-submit-label="Delete">
+// Usage: <button data-confirm-submit[="form-id"] data-confirm-submit-message="…"
+//                data-confirm-submit-title="…" data-confirm-submit-label="Delete"
+//                [data-confirm-submit-class="ep-btn-destructive"]>
+// Without a form id, submits the closest enclosing <form>.
 document.addEventListener('click', function (event) {
   const button = event.target.closest && event.target.closest('[data-confirm-submit]');
   if (!button) return;
-  const form = document.getElementById(button.getAttribute('data-confirm-submit'));
+  const formId = button.getAttribute('data-confirm-submit');
+  const form = formId ? document.getElementById(formId) : button.closest('form');
   if (!form) return;
   window
     .epistolaConfirm(button.getAttribute('data-confirm-submit-message') || 'Are you sure?', {
       title: button.getAttribute('data-confirm-submit-title') || 'Confirm',
       confirmLabel: button.getAttribute('data-confirm-submit-label') || 'Delete',
-      confirmClass: 'ep-btn-destructive',
+      confirmClass: button.getAttribute('data-confirm-submit-class') || 'ep-btn-destructive',
     })
     .then(function (ok) {
       if (ok) form.submit();

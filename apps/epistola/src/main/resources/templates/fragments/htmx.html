@@ -11,6 +11,17 @@
         <script th:src="@{/js/vendor/htmx.min.js}"></script>
         <script th:src="@{/js/app-shell.js}"></script>
         <script th:src="@{/js/behaviors.js}"></script>
+        <script th:src="@{/js/nav.js}"></script>
+        <script th:src="@{/js/slug-auto.js}"></script>
+        <script th:src="@{/js/pdf-preview.js}"></script>
+        <!-- Page behaviors: delegated data-* hooks, inert unless their markup is
+             present. Loaded globally because hx-boost body swaps never (re)load
+             per-page head scripts (ADR 0010). -->
+        <script th:src="@{/js/pages/asset-forms.js}"></script>
+        <script th:src="@{/js/pages/catalogs.js}"></script>
+        <script th:src="@{/js/pages/dashboards.js}"></script>
+        <script th:src="@{/js/pages/stencil-detail.js}"></script>
+        <script th:src="@{/js/pages/template-detail.js}"></script>
     </th:block>
 </head>
 </html>
