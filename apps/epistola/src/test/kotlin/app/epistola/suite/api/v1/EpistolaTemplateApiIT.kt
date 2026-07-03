@@ -669,6 +669,45 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             .isEqualTo("Hello #662")
     }
 
+    @Test
+    fun `list templates paginates with a page envelope and accurate totals`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        // Seed three templates so a size=2 page splits into two pages.
+        repeat(3) { i ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "page-$i-${randomSuffix()}", "name": "Page $i"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+
+        val first = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?page=0&size=2",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(first.statusCode).isEqualTo(HttpStatus.OK)
+        val firstJson = first.body!!
+        assertThat(JsonPath.read<List<Any>>(firstJson, "$.items")).hasSize(2)
+        assertThat(JsonPath.read<Int>(firstJson, "$.page.number")).isEqualTo(0)
+        assertThat(JsonPath.read<Int>(firstJson, "$.page.size")).isEqualTo(2)
+        assertThat(JsonPath.read<Int>(firstJson, "$.page.totalElements")).isEqualTo(3)
+        assertThat(JsonPath.read<Int>(firstJson, "$.page.totalPages")).isEqualTo(2)
+
+        val second = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?page=1&size=2",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        val secondJson = second.body!!
+        assertThat(JsonPath.read<List<Any>>(secondJson, "$.items")).hasSize(1)
+        assertThat(JsonPath.read<Int>(secondJson, "$.page.number")).isEqualTo(1)
+        assertThat(JsonPath.read<Int>(secondJson, "$.page.totalElements")).isEqualTo(3)
+    }
+
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
         contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
