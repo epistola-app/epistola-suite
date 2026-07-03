@@ -13,6 +13,7 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 import tools.jackson.databind.ObjectMapper
+import java.sql.SQLException
 
 /**
  * Catches all exceptions from UI request processing and translates them into
@@ -79,27 +80,50 @@ class UiExceptionFilter(
      * domain module. The status is the one this UI surface has historically returned
      * (e.g. read-only catalog → 403), independent of the type's canonical REST status.
      */
-    private fun resolve(cause: Throwable): UiError = when (cause::class.simpleName) {
-        "TenantAccessDeniedException" -> {
-            log.warn("Tenant access denied: {}", cause.message)
-            UiError(403, ApiProblemTypes.ACCESS_DENIED, "You don't have access to this tenant.")
+    private fun resolve(cause: Throwable): UiError {
+        // Safety net (#608): an over-length value that slipped past validation and hit a
+        // VARCHAR(n) column throws a PostgreSQL string-truncation (SQLSTATE 22001). Map it
+        // to a 400 so it never renders as an opaque 500. 22001 carries no column info, so
+        // this stays a form-level message rather than a field error.
+        if (isStringTruncation(cause)) {
+            log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", cause.message)
+            return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered is too long.")
         }
-        "PermissionDeniedException" -> {
-            log.warn("Permission denied: {}", cause.message)
-            UiError(403, ApiProblemTypes.PERMISSION_DENIED, "You don't have permission to perform this action.")
+        return when (cause::class.simpleName) {
+            "TenantAccessDeniedException" -> {
+                log.warn("Tenant access denied: {}", cause.message)
+                UiError(403, ApiProblemTypes.ACCESS_DENIED, "You don't have access to this tenant.")
+            }
+            "PermissionDeniedException" -> {
+                log.warn("Permission denied: {}", cause.message)
+                UiError(403, ApiProblemTypes.PERMISSION_DENIED, "You don't have permission to perform this action.")
+            }
+            "PlatformAccessDeniedException" -> {
+                log.warn("Platform access denied: {}", cause.message)
+                UiError(403, ApiProblemTypes.PLATFORM_ACCESS_DENIED, "This action requires platform administrator access.")
+            }
+            "CatalogReadOnlyException" -> {
+                log.warn("Catalog read-only: {}", cause.message)
+                UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")
+            }
+            else -> {
+                log.error("Unhandled exception on UI request: {} {}", cause::class.simpleName, cause.message, cause)
+                UiError(500, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred.")
+            }
         }
-        "PlatformAccessDeniedException" -> {
-            log.warn("Platform access denied: {}", cause.message)
-            UiError(403, ApiProblemTypes.PLATFORM_ACCESS_DENIED, "This action requires platform administrator access.")
+    }
+
+    /**
+     * Whether the failure chain contains a PostgreSQL string-truncation
+     * (SQLSTATE 22001) — an over-length value that reached a `VARCHAR(n)` column.
+     */
+    private fun isStringTruncation(cause: Throwable): Boolean {
+        var c: Throwable? = cause
+        while (c != null) {
+            if (c is SQLException && c.sqlState == "22001") return true
+            c = c.cause
         }
-        "CatalogReadOnlyException" -> {
-            log.warn("Catalog read-only: {}", cause.message)
-            UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")
-        }
-        else -> {
-            log.error("Unhandled exception on UI request: {} {}", cause::class.simpleName, cause.message, cause)
-            UiError(500, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred.")
-        }
+        return false
     }
 
     /** Unwrap nested exceptions (e.g. from Spring's NestedServletException). */

@@ -10,6 +10,7 @@ import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import tools.jackson.databind.json.JsonMapper
+import java.sql.SQLException
 
 @Tag("unit")
 class UiExceptionFilterTest {
@@ -81,6 +82,25 @@ class UiExceptionFilterTest {
         assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/internal-error")
         assertThat(parsed.get("detail").asString()).isEqualTo("An unexpected error occurred.")
         assertThat(parsed.get("detail").asString()).doesNotContain("boom")
+    }
+
+    @Test
+    fun `string truncation (SQLSTATE 22001) maps to a 400, not the opaque 500`() {
+        // Safety net for #608: an over-length value that slips past validation hits a
+        // VARCHAR(n) column. JDBI wraps the driver exception; the filter unwraps to the
+        // SQLException leaf and reads its SQLSTATE. 22001 carries no column info, so the
+        // message stays form-level rather than a field error.
+        val truncation = RuntimeException(
+            "Unable to execute statement",
+            SQLException("ERROR: value too long for type character varying(64)", "22001"),
+        )
+        val response = runWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE, isHtmx = false, truncation)
+
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+        val parsed = objectMapper.readTree(response.contentAsString)
+        assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/bad-request")
+        assertThat(parsed.get("detail").asString()).contains("too long")
     }
 
     @Test
