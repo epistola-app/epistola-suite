@@ -91,6 +91,7 @@ class EpistolaStencilApi(
             description = createStencilRequest.description,
             tags = createStencilRequest.tags ?: emptyList(),
             content = content,
+            parameterSchema = createStencilRequest.parameterSchema,
         ).execute()
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
@@ -188,6 +189,8 @@ class EpistolaStencilApi(
         val version = CreateStencilVersion(
             stencilId = stencilIdComposite,
             content = content,
+            parameterSchema = createStencilVersionRequest?.parameterSchema,
+            inheritParameterSchemaFromSource = false,
         ).execute() ?: throw StencilNotFoundException(tenantIdComposite.key, stencilIdComposite.key)
 
         return ResponseEntity
@@ -228,6 +231,7 @@ class EpistolaStencilApi(
         val version = UpdateStencilDraft(
             versionId = versionIdComposite,
             content = content,
+            parameterSchema = updateStencilDraftRequest.parameterSchema,
         ).execute()
 
         return ResponseEntity.ok(version.toDto(objectMapper))

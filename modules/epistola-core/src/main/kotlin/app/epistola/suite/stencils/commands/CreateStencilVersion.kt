@@ -30,6 +30,7 @@ data class CreateStencilVersion(
     val stencilId: StencilId,
     val content: TemplateDocument? = null,
     val parameterSchema: JsonNode? = null,
+    val inheritParameterSchemaFromSource: Boolean = true,
 ) : Command<StencilVersion?>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
@@ -127,10 +128,12 @@ class CreateStencilVersionHandler(
                 source!!["content"].toString()
             }
 
-            // Schema: explicit wins; otherwise carry over the copied version's schema.
+            // Schema: explicit wins; otherwise carry over the copied version's schema
+            // for internal draft-reopen flows unless the caller opts into contract-style
+            // null/omitted semantics.
             val parameterSchemaJson = when {
                 command.parameterSchema != null -> objectMapper.writeValueAsString(command.parameterSchema)
-                command.content != null -> null
+                command.content != null || !command.inheritParameterSchemaFromSource -> null
                 else -> source!!["parameter_schema"] as? String
             }
 
