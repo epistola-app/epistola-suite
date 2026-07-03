@@ -120,7 +120,9 @@
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
                   hx-target="#catalog-list"
-                  hx-swap="outerHTML">
+                  hx-swap="outerHTML"
+                  data-reset-on-success
+                  data-close-dialog-on-success="create-dialog">
                 <div class="ep-dialog-body">
                     <div class="form-group">
                         <label class="ep-label" for="catalogName">Name</label>
@@ -142,14 +144,6 @@
                     <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
                 </div>
             </form>
-            <script>
-                document.getElementById('create-dialog').querySelector('form').addEventListener('htmx:afterRequest', function(e) {
-                    if (e.detail.successful) {
-                        document.getElementById('create-dialog').close();
-                        this.reset();
-                    }
-                });
-            </script>
         </dialog>
 
         <!-- Subscribe to Catalog Dialog -->
@@ -170,7 +164,8 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="authType">Authentication</label>
-                        <select id="authType" name="authType" class="ep-select">
+                        <select id="authType" name="authType" class="ep-select"
+                                data-auth-credential-toggle="credential-group">
                             <option value="NONE">None (public catalog)</option>
                             <option value="BEARER">Bearer Token</option>
                             <option value="API_KEY">API Key</option>
@@ -250,63 +245,20 @@
             </form>
         </dialog>
 
-        <!-- Release dialog is loaded here on demand (hx-get) -->
-        <div id="release-dialog-container"></div>
+        <!-- Release dialog is loaded here on demand (hx-get); opened on swap
+             by the delegated data-open-dialog-on-swap behavior (pages/catalogs.js). -->
+        <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
 
         <!-- Upgrade preview dialog is loaded here on demand (hx-get) -->
-        <div id="upgrade-dialog-container"></div>
+        <div id="upgrade-dialog-container" data-open-dialog-on-swap="upgrade-dialog"></div>
 
-        <!-- Export conflict dialog is loaded here on demand (hx-get) -->
-        <div id="export-dialog-container"></div>
+        <!-- Export conflict dialog is loaded here on demand (hx-get). Only
+             rendered when the precheck found stencil-version conflicts; with no
+             conflicts the server returns 204 + HX-Redirect (handled by htmx
+             itself, no dialog arrives and nothing opens). -->
+        <div id="export-dialog-container" data-open-dialog-on-swap="export-conflict-dialog"></div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
-
-        <script>
-            document.getElementById('authType').addEventListener('change', function() {
-                document.getElementById('credential-group').style.display =
-                    this.value === 'NONE' ? 'none' : 'block';
-            });
-
-            // Release dialog: the fragment is injected on demand into
-            // #release-dialog-container (always present). Delegated + bound to
-            // the static container so it works regardless of htmx script
-            // execution, and CSP-safe (no eval, no hx-on).
-            (function () {
-                var box = document.getElementById('release-dialog-container');
-                box.addEventListener('htmx:afterSwap', function () {
-                    var dlg = document.getElementById('release-dialog');
-                    if (dlg && !dlg.open) dlg.showModal();
-                });
-                box.addEventListener('click', function (e) {
-                    var btn = e.target.closest('[data-version]');
-                    if (!btn) return;
-                    var input = document.getElementById('release-version');
-                    if (input) input.value = btn.getAttribute('data-version');
-                });
-            })();
-
-            // Upgrade preview dialog: same pattern as the release dialog —
-            // fragment injected on demand into #upgrade-dialog-container, opened
-            // on swap. CSP-safe (delegated, no eval, no hx-on).
-            (function () {
-                var box = document.getElementById('upgrade-dialog-container');
-                box.addEventListener('htmx:afterSwap', function () {
-                    var dlg = document.getElementById('upgrade-dialog');
-                    if (dlg && !dlg.open) dlg.showModal();
-                });
-            })();
-
-            // Export conflict dialog: only rendered when the precheck found
-            // stencil-version conflicts. When no conflicts exist the server
-            // returns 204 + HX-Redirect (handled by htmx itself, no dialog).
-            (function () {
-                var box = document.getElementById('export-dialog-container');
-                box.addEventListener('htmx:afterSwap', function () {
-                    var dlg = document.getElementById('export-conflict-dialog');
-                    if (dlg && !dlg.open) dlg.showModal();
-                });
-            })();
-        </script>
     </th:block>
 
     <!-- Release dialog fragments — OUTSIDE the content block so the catalog

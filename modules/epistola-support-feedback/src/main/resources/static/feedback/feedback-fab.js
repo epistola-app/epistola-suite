@@ -5,8 +5,9 @@
  * showing open feedback items for the current page. All data loading is
  * declarative HTMX — JS only handles DOM creation and visibility toggling.
  *
- * Usage (inline module script in footer):
- *   const { initFeedbackFab } = await import('/feedback/feedback-fab.js');
+ * Usage (from feedback.js, driven by the footer fragment's
+ * [data-feedback-fab][data-tenant-id] marker element):
+ *   import { initFeedbackFab } from './feedback-fab.js';
  *   initFeedbackFab('acme');
  */
 

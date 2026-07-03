@@ -9,9 +9,12 @@
             </button>
         </div>
 
+        <!-- data-feedback-form: feedback.js wires auto-capture + screenshots on htmx:load. -->
         <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback(tenantId=${tenantId})}"
               hx-target="closest .feedback-dialog-content"
-              hx-swap="innerHTML">
+              hx-swap="innerHTML"
+              data-feedback-form
+              th:attr="data-app-version=${appVersion}">
 
             <div class="ep-dialog-body ep-stack ep-gap-4">
                 <div class="form-group" th:classappend="${errors?.containsKey('title')} ? 'error' : ''">
@@ -91,122 +94,7 @@
             </div>
         </form>
 
-        <script th:inline="javascript">
-            (function() {
-                const appVersion = /*[[${appVersion}]]*/ 'dev';
-
-                // Auto-capture URL
-                const sourceUrlField = document.getElementById('fb-sourceUrl');
-                if (sourceUrlField) {
-                    sourceUrlField.value = window.location.href;
-                }
-
-                // Auto-capture console logs
-                const consoleLogsField = document.getElementById('fb-consoleLogs');
-                if (consoleLogsField && window.__epistola_console_buffer) {
-                    consoleLogsField.value = JSON.stringify(window.__epistola_console_buffer.slice(-100));
-                }
-
-                // Auto-capture metadata
-                const metadataField = document.getElementById('fb-metadata');
-                if (metadataField) {
-                    metadataField.value = JSON.stringify({
-                        appVersion: appVersion,
-                        userAgent: navigator.userAgent,
-                        language: navigator.language,
-                        platform: navigator.platform,
-                        viewport: {
-                            width: window.innerWidth,
-                            height: window.innerHeight,
-                        },
-                        screen: {
-                            width: screen.width,
-                            height: screen.height,
-                            pixelRatio: window.devicePixelRatio,
-                        },
-                        url: window.location.href,
-                        timestamp: new Date().toISOString(),
-                    });
-                }
-
-                // Screenshot handling
-                const screenshotData = document.getElementById('fb-screenshotData');
-                const screenshotPreview = document.getElementById('fb-screenshot-preview');
-                const screenshotImg = document.getElementById('fb-screenshot-img');
-                const screenshotActions = document.getElementById('fb-screenshot-actions');
-                const screenshotRemove = document.getElementById('fb-screenshot-remove');
-                const screenshotError = document.getElementById('fb-screenshot-error');
-
-                function setScreenshot(dataUrl) {
-                    screenshotError.style.display = 'none';
-                    screenshotData.value = dataUrl;
-                    screenshotImg.src = dataUrl;
-                    screenshotPreview.style.display = 'block';
-                    screenshotActions.style.display = 'none';
-                }
-
-                function showScreenshotError(message) {
-                    screenshotError.textContent = message;
-                    screenshotError.style.display = 'block';
-                }
-
-                function clearScreenshot(e) {
-                    if (e) { e.stopPropagation(); e.preventDefault(); }
-                    screenshotData.value = '';
-                    screenshotImg.src = '';
-                    screenshotPreview.style.display = 'none';
-                    screenshotActions.style.display = 'flex';
-                }
-
-                // Remove button
-                screenshotRemove.addEventListener('click', clearScreenshot);
-
-                // Capture buttons — dialog lifecycle managed here, screenshot module is decoupled.
-                // The submit form is hosted by whichever dialog opened it: the FAB dialog
-                // (#feedback-fab-dialog) or the feedback list page dialog (#feedback-dialog).
-                // Resolve the enclosing <dialog> rather than hardcoding one id, so the overlay
-                // is hidden during capture regardless of where the form was opened from.
-                const dialog = screenshotActions.closest('dialog');
-                const fab = document.getElementById('feedback-fab');
-                const popover = document.getElementById('feedback-popover');
-
-                function onCaptureStart() {
-                    screenshotError.style.display = 'none';
-                    if (dialog) dialog.close();
-                    if (fab) fab.style.display = 'none';
-                    if (popover) popover.classList.remove('feedback-popover--open');
-                }
-
-                function onCaptureEnd() {
-                    if (fab) fab.style.display = '';
-                    if (dialog) dialog.showModal();
-                }
-
-                import(/*[[@{/feedback/feedback-screenshot.js}]]*/ '/feedback/feedback-screenshot.js').then(({ captureRegion, captureViewport, isSupported }) => {
-                    if (!isSupported) {
-                        screenshotActions.style.display = 'none';
-                        document.getElementById('fb-screenshot-unsupported').style.display = 'block';
-                        return;
-                    }
-
-                    const captureOpts = (fn) => ({
-                        onCapture: setScreenshot,
-                        onStart: onCaptureStart,
-                        onEnd: onCaptureEnd,
-                        onError: showScreenshotError,
-                    });
-
-                    document.getElementById('fb-capture-region')?.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        captureRegion(captureOpts());
-                    });
-                    document.getElementById('fb-capture-viewport')?.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        captureViewport(captureOpts());
-                    });
-                });
-            })();
-        </script>
+        <script type="module" th:src="@{/feedback/feedback.js}"></script>
     </th:block>
 </body>
 </html>

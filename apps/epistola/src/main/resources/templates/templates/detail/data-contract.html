@@ -12,7 +12,9 @@
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                         data-close-dialog="contract-breaking-dialog">&times;</button>
             </div>
-            <div class="ep-dialog-body" id="contract-breaking-body"></div>
+            <!-- data-show-dialog-on-swap: template-detail.js opens the enclosing
+                 dialog after HTMX swaps content into this body. -->
+            <div class="ep-dialog-body" id="contract-breaking-body" data-show-dialog-on-swap></div>
         </dialog>
 
         <dialog id="contract-usage-dialog" class="ep-dialog" style="max-width: 700px;">
@@ -52,12 +54,6 @@
         </dialog>
 
         <dialog id="contract-history-dialog" class="ep-dialog ep-dialog-wide"><div id="contract-history-body"></div></dialog>
-
-        <script>
-            document.getElementById('contract-breaking-body')?.addEventListener('htmx:afterSwap', function() {
-                document.getElementById('contract-breaking-dialog').showModal();
-            });
-        </script>
 
         <!-- ================================================================ -->
         <!-- VIEW MODE (default) -->
@@ -120,108 +116,12 @@
         <!-- EDIT MODE -->
         <!-- ================================================================ -->
         <th:block th:if="${editMode}">
-            <div id="data-contract-container"
+            <!-- data-contract-editor: template-detail.js mounts the editor on
+                 htmx:load (idempotent via data-editor-mounted). -->
+            <div id="data-contract-container" data-contract-editor
                  th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
             <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
             <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
-
-            <script>
-                (function() {
-                    function parseJsonScript(id, fallback) {
-                        const el = document.getElementById(id);
-                        if (!el) return fallback;
-                        try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
-                    }
-
-                    const statusBarUrl = document.getElementById('contract-status-bar')?.dataset?.statusUrl;
-
-                    function refreshStatusBar() {
-                        if (statusBarUrl && typeof htmx !== 'undefined') {
-                            htmx.ajax('GET', statusBarUrl, { target: '#contract-status-bar', swap: 'outerHTML' });
-                        }
-                    }
-
-                    async function mount() {
-                        const container = document.getElementById('data-contract-container');
-                        if (!container || container.dataset.editorMounted === 'true') return;
-                        const tenantId = container.dataset.tenantId;
-                        const catalogId = container.dataset.catalogId;
-                        const templateId = container.dataset.templateId;
-                        const readonly = container.dataset.readonly === 'true';
-                        if (!tenantId || !catalogId || !templateId) return;
-
-                        const initialSchema = parseJsonScript('data-contract-schema', null);
-                        const initialExamples = parseJsonScript('data-contract-examples', []);
-                        const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
-
-                        const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
-                        const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
-                        const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
-
-                        mountDataContractEditor({
-                            container: container,
-                            templateId: templateId,
-                            initialSchema: initialSchema,
-                            initialExamples: initialExamples,
-                            readonly: readonly,
-                            callbacks: readonly ? {} : {
-                                onSaveSchema: async (schema, forceUpdate, dataExamples) => {
-                                    try {
-                                        const body = { dataModel: schema, forceUpdate };
-                                        if (dataExamples) body.dataExamples = dataExamples;
-                                        const response = await fetch(`${contractBasePath}/draft`, {
-                                            method: 'PATCH',
-                                            headers: jsonHeaders,
-                                            body: JSON.stringify(body)
-                                        });
-                                        if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
-                                        const result = await response.json();
-                                        refreshStatusBar();
-                                        return { success: true, warnings: result.warnings };
-                                    } catch (e) { return { success: false, error: e.message }; }
-                                },
-                                onSaveDataExamples: async (examples) => {
-                                    try {
-                                        const response = await fetch(`${contractBasePath}/draft`, {
-                                            method: 'PATCH',
-                                            headers: jsonHeaders,
-                                            body: JSON.stringify({ dataExamples: examples })
-                                        });
-                                        if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
-                                        const result = await response.json();
-                                        refreshStatusBar();
-                                        return { success: true, warnings: result.warnings };
-                                    } catch (e) { return { success: false }; }
-                                },
-                                onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
-                                    try {
-                                        const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
-                                            method: 'PATCH',
-                                            headers: jsonHeaders,
-                                            body: JSON.stringify({ ...updates, forceUpdate })
-                                        });
-                                        if (!response.ok) { const err = await response.json(); return { success: false, errors: err.errors, warnings: err.warnings }; }
-                                        const result = await response.json();
-                                        return { success: true, example: result, warnings: result.warnings };
-                                    } catch (e) { return { success: false }; }
-                                },
-                                onDeleteDataExample: async (exampleId) => {
-                                    try {
-                                        const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
-                                            method: 'DELETE',
-                                            headers: { 'X-XSRF-TOKEN': csrfToken }
-                                        });
-                                        return { success: response.ok };
-                                    } catch (e) { return { success: false }; }
-                                }
-                            }
-                        });
-                        container.dataset.editorMounted = 'true';
-                    }
-
-                    mount();
-                })();
-            </script>
         </th:block>
     </th:block>
 </body>

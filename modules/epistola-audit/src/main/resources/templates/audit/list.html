@@ -115,43 +115,10 @@
             </div>
         </div>
 
-        <!-- Render times in the browser's timezone (CSP-safe: no eval). Re-runs after
-             each HTMX swap so newly loaded rows are formatted too; falls back to the
+        <!-- Fills #audit-tz and renders times in the browser's timezone; re-runs on
+             htmx:load so newly swapped-in rows are formatted too; falls back to the
              server-rendered UTC text when JavaScript is unavailable. -->
-        <script>
-            (function () {
-                var tz = document.getElementById("audit-tz");
-                if (tz) {
-                    try {
-                        tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-                    } catch (e) {
-                        /* leave blank → server falls back to UTC */
-                    }
-                }
-                var fmt = new Intl.DateTimeFormat(undefined, {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false,
-                });
-                function formatAuditTimes() {
-                    document.querySelectorAll(".audit-time[data-ts]").forEach(function (el) {
-                        if (el.dataset.tsDone) return;
-                        var d = new Date(el.getAttribute("data-ts"));
-                        if (!isNaN(d.getTime())) {
-                            el.textContent = fmt.format(d);
-                            el.title = el.getAttribute("data-ts");
-                            el.dataset.tsDone = "1";
-                        }
-                    });
-                }
-                formatAuditTimes();
-                document.body.addEventListener("htmx:afterSettle", formatAuditTimes);
-            })();
-        </script>
+        <script th:src="@{/audit/audit.js}"></script>
     </th:block>
 
     <!-- Response for "Load older": rows appended below, then a refreshed older sentinel. -->

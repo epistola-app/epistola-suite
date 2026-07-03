@@ -11,7 +11,11 @@
 
         <div class="card create-form-card">
             <div class="card-content">
-                <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
+                <!-- data-upload-error: server error details are written into the
+                     referenced element by pages/asset-forms.js. -->
+                <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data"
+                      data-upload-error="font-upload-error"
+                      data-upload-error-message="Failed to upload font. Please try again.">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select" required>
@@ -45,7 +49,7 @@
 
                     <div class="form-group">
                         <label class="ep-label">Faces <span class="text-muted text-sm">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
-                        <div id="font-faces">
+                        <div id="font-faces" data-font-face-rows>
                             <div class="font-face-row form-group" style="display:flex; gap: var(--ep-space-2); align-items:flex-end;">
                                 <div style="flex:2;">
                                     <label class="ep-label">File</label>
@@ -66,7 +70,7 @@
                                 </div>
                             </div>
                         </div>
-                        <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm">+ Add face</button>
+                        <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm" data-add-font-face>+ Add face</button>
                         <span id="font-upload-error" class="form-error" th:text="${error}"></span>
                     </div>
                     <div class="form-actions">
@@ -77,44 +81,6 @@
             </div>
         </div>
 
-        <script>
-            var fontFaces = document.getElementById('font-faces');
-            var addFaceBtn = document.getElementById('add-face-btn');
-            addFaceBtn.addEventListener('click', function() {
-                var rows = fontFaces.querySelectorAll('.font-face-row');
-                var clone = rows[0].cloneNode(true);
-                clone.querySelectorAll('input, select').forEach(function(el) {
-                    if (el.type === 'file') {
-                        el.value = '';
-                    } else if (el.name === 'weight') {
-                        el.value = '400';
-                    } else if (el.name === 'italic') {
-                        el.selectedIndex = 0;
-                    }
-                });
-                fontFaces.appendChild(clone);
-            });
-
-            var fontUploadForm = document.getElementById('font-upload-form');
-            var fontUploadError = document.getElementById('font-upload-error');
-
-            fontUploadForm.addEventListener('htmx:responseError', function(event) {
-                var xhr = event.detail && event.detail.xhr;
-                if (!xhr || xhr.status < 400) {
-                    return;
-                }
-                try {
-                    var body = JSON.parse(xhr.responseText || '{}');
-                    fontUploadError.textContent = body.detail || body.error || 'Failed to upload font. Please try again.';
-                } catch (e) {
-                    fontUploadError.textContent = 'Failed to upload font. Please try again.';
-                }
-            });
-
-            fontUploadForm.addEventListener('htmx:beforeRequest', function() {
-                fontUploadError.textContent = '';
-            });
-        </script>
     </th:block>
 </body>
 </html>

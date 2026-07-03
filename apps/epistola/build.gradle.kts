@@ -162,6 +162,7 @@ tasks.cyclonedxDirectBom {
 val vendoredScripts = mapOf(
     "HTMX" to "node_modules/htmx.org/dist/htmx.min.js",
     "Scalar API Reference" to "node_modules/@scalar/api-reference/dist/browser/standalone.js",
+    "Inter font" to "node_modules/@fontsource/inter/400.css",
 )
 
 val verifyHtmxVendored by tasks.registering {
@@ -205,6 +206,16 @@ tasks.processResources {
     from(rootProject.file("node_modules/@scalar/api-reference/dist/browser/standalone.js")) {
         rename { "scalar-api-reference.js" }
         into("static/js/vendor")
+    }
+    // Self-host the Inter font (OFL 1.1, vendored from @fontsource/inter) at
+    // /fonts/inter/* so no requests go to Google Fonts (ADR 0010: no external origins)
+    from(rootProject.file("node_modules/@fontsource/inter")) {
+        include("400.css", "500.css", "600.css", "700.css")
+        into("static/fonts/inter")
+    }
+    from(rootProject.file("node_modules/@fontsource/inter/files")) {
+        include("inter-*-400-normal.*", "inter-*-500-normal.*", "inter-*-600-normal.*", "inter-*-700-normal.*")
+        into("static/fonts/inter/files")
     }
     // Copy changelog markdown into app resources
     from(rootProject.file("CHANGELOG.md")) {

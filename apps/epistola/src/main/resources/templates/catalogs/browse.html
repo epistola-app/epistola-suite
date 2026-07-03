@@ -190,7 +190,8 @@
         <form id="install-confirm-form"
               th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalog.id},slug=${slugParam})}"
               hx-target="#resource-table"
-              hx-swap="outerHTML">
+              hx-swap="outerHTML"
+              data-close-dialog-on-success="install-preview-dialog">
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-ghost"
                         data-close-dialog="install-preview-dialog">Cancel</button>
@@ -201,13 +202,6 @@
                 </button>
             </div>
         </form>
-        <script>
-            document.getElementById('install-confirm-form').addEventListener('htmx:afterRequest', function(event) {
-                if (event.detail.successful) {
-                    document.getElementById('install-preview-dialog').close();
-                }
-            });
-        </script>
     </th:block>
 
     <!-- Fragment: install preview error -->

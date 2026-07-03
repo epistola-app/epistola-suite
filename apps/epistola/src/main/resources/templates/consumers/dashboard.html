@@ -255,8 +255,10 @@
             </div>
 
             <div th:if="${!#lists.isEmpty(report.consumers)}" class="consumer-toolbar">
-                <button type="button" class="consumer-toolbar-btn" id="consumer-expand-all">Expand all</button>
-                <button type="button" class="consumer-toolbar-btn" id="consumer-collapse-all">Collapse all</button>
+                <button type="button" class="consumer-toolbar-btn" id="consumer-expand-all"
+                        data-consumer-set-open="true">Expand all</button>
+                <button type="button" class="consumer-toolbar-btn" id="consumer-collapse-all"
+                        data-consumer-set-open="false">Collapse all</button>
             </div>
 
             <details th:each="consumer : ${report.consumers}"
@@ -356,40 +358,9 @@
                 </div>
             </details>
 
-            <script>
-            (function () {
-                var root = document.getElementById('consumer-results');
-                if (!root) return;
-
-                var STORAGE_PREFIX = 'consumer-open:';
-                function key(id) { return STORAGE_PREFIX + id; }
-
-                root.querySelectorAll('details[data-consumer-id]').forEach(function (d) {
-                    var id = d.getAttribute('data-consumer-id');
-                    try {
-                        if (localStorage.getItem(key(id)) === '1') {
-                            d.open = true;
-                        }
-                    } catch (e) { /* localStorage may be blocked; ignore */ }
-                    d.addEventListener('toggle', function () {
-                        try {
-                            if (d.open) localStorage.setItem(key(id), '1');
-                            else localStorage.removeItem(key(id));
-                        } catch (e) { /* ignore */ }
-                    });
-                });
-
-                var expand = document.getElementById('consumer-expand-all');
-                if (expand) expand.addEventListener('click', function () {
-                    root.querySelectorAll('details[data-consumer-id]').forEach(function (d) { d.open = true; });
-                });
-
-                var collapse = document.getElementById('consumer-collapse-all');
-                if (collapse) collapse.addEventListener('click', function () {
-                    root.querySelectorAll('details[data-consumer-id]').forEach(function (d) { d.open = false; });
-                });
-            })();
-            </script>
+            <!-- Open/collapsed state persistence and the expand/collapse-all toolbar are
+                 handled by /js/pages/dashboards.js via the data-consumer-id and
+                 data-consumer-set-open hooks. -->
         </div>
     </th:block>
 </body>

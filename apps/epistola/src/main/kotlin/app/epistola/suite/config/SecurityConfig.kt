@@ -173,7 +173,7 @@ class SecurityConfig(
                     // separate port in prod — so they never reach this chain.
                     .requestMatchers("/livez", "/readyz").permitAll()
                     .requestMatchers("/login", "/login-popup-success", "/error", "/errors/**").permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/fonts/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled
                 if (oauth2) {
                     authorize.requestMatchers("/oauth2/**").permitAll()
