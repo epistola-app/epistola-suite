@@ -60,18 +60,24 @@
     }
   }
 
-  // Loaded from <head> (ADR 0010): the body may not exist yet, and content
-  // arrives later via HTMX swaps (incl. hx-boost navigations). htmx:load fires
-  // for the initial page and for every swapped-in element; the data-slug-wired
-  // guard makes re-scans a no-op.
-  document.addEventListener('htmx:load', function (event) {
-    scan(event.detail.elt);
-  });
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      scan(document.body);
-    });
-  } else if (document.body) {
+  // Loaded once from <head> (ADR 0010), so the body may not exist yet: defer
+  // the initial scan and the MutationObserver (which wires inputs added later
+  // by ANY means — HTMX swaps, hx-boost navigations, or plain DOM insertion)
+  // until the DOM is ready. The data-slug-wired guard makes re-scans a no-op.
+  function start() {
     scan(document.body);
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) {
+          if (node.nodeType === Node.ELEMENT_NODE) scan(node);
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
   }
 })();
