@@ -6,6 +6,7 @@ import app.epistola.api.model.CodeListEntriesResponse
 import app.epistola.api.model.CodeListListResponse
 import app.epistola.api.model.CreateCodeListRequest
 import app.epistola.api.model.UpdateCodeListRequest
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toModel
 import app.epistola.suite.attributes.codelists.CodeListNotFoundException
@@ -54,11 +55,14 @@ class EpistolaCodeListApi : CodeListsApi {
     override fun listCodeLists(
         tenantId: String,
         catalogId: String,
+        page: Int,
+        size: Int,
     ): ResponseEntity<CodeListListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)
         val codeLists = ListCodeLists(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
-        return ResponseEntity.ok(CodeListListResponse(items = codeLists.map { it.toDto() }))
+        val slice = Pagination.paginate(codeLists, page, size)
+        return ResponseEntity.ok(CodeListListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
     }
 
     override fun createCodeList(

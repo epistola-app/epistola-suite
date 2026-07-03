@@ -11,6 +11,7 @@ import app.epistola.api.model.StencilVersionListResponse
 import app.epistola.api.model.UpdateStencilDraftRequest
 import app.epistola.api.model.UpdateStencilRequest
 import app.epistola.api.model.UpgradePreviewListResponse
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toStencilVersionStatus
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -58,6 +59,8 @@ class EpistolaStencilApi(
         catalogId: String,
         q: String?,
         tag: String?,
+        page: Int,
+        size: Int,
     ): ResponseEntity<StencilListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencils = ListStencilSummaries(
@@ -66,10 +69,12 @@ class EpistolaStencilApi(
             tag = tag,
             catalogKey = CatalogKey.of(catalogId),
         ).query()
+        val slice = Pagination.paginate(stencils, page, size)
 
         return ResponseEntity.ok(
             StencilListResponse(
-                items = stencils.map { it.toSummaryDto() },
+                items = slice.items.map { it.toSummaryDto() },
+                page = slice.page,
             ),
         )
     }
@@ -158,6 +163,8 @@ class EpistolaStencilApi(
         catalogId: String,
         stencilId: String,
         status: String?,
+        page: Int,
+        size: Int,
     ): ResponseEntity<StencilVersionListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
@@ -166,10 +173,12 @@ class EpistolaStencilApi(
             stencilId = stencilIdComposite,
             status = status?.toStencilVersionStatus(),
         ).query()
+        val slice = Pagination.paginate(versions, page, size)
 
         return ResponseEntity.ok(
             StencilVersionListResponse(
-                items = versions.map { it.toDto() },
+                items = slice.items.map { it.toDto() },
+                page = slice.page,
             ),
         )
     }
@@ -276,16 +285,20 @@ class EpistolaStencilApi(
         catalogId: String,
         stencilId: String,
         versionId: Int,
+        page: Int,
+        size: Int,
     ): ResponseEntity<StencilUsageListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val usages = GetStencilUsage(versionId = versionIdComposite).query()
+        val slice = Pagination.paginate(usages, page, size)
 
         return ResponseEntity.ok(
             StencilUsageListResponse(
-                items = usages.map { it.toDto() },
+                items = slice.items.map { it.toDto() },
+                page = slice.page,
             ),
         )
     }
