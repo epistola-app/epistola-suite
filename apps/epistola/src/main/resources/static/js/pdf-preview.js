@@ -1,7 +1,18 @@
 /**
  * PDF Preview functionality for template versions.
  * Fetches PDF from preview endpoint and opens in a new browser tab.
+ *
+ * Templates opt in with a `data-pdf-preview` attribute on the button
+ * (plus the data-tenant-id/-catalog-id/-template-id/-variant-id and
+ * optional data-version-id/-test-data carriers previewPdf reads). The
+ * click handler is delegated on `document` so it also works for
+ * HTMX-swapped content (ADR 0010: no inline on*= handlers).
  */
+
+document.addEventListener('click', function (event) {
+  const button = event.target.closest && event.target.closest('[data-pdf-preview]');
+  if (button) previewPdf(button);
+});
 
 async function previewPdf(button) {
   const tenantId = button.dataset.tenantId;

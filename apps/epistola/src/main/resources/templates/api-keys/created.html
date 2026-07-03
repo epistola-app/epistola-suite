@@ -26,7 +26,8 @@
                            th:value="${plaintextKey}"
                            readonly
                            style="font-family: var(--ep-font-mono, monospace); flex: 1;">
-                    <button type="button" id="api-key-copy-btn" class="ep-btn ep-btn-outline">
+                    <button type="button" id="api-key-copy-btn" class="ep-btn ep-btn-outline"
+                            data-copy-source="api-key-secret" data-copy-status="api-key-copy-status">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
                         Copy
                     </button>
@@ -48,30 +49,6 @@
                 <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
             </div>
         </div>
-        <script th:inline="none">
-        (function() {
-            var input = document.getElementById('api-key-secret');
-            var button = document.getElementById('api-key-copy-btn');
-            var status = document.getElementById('api-key-copy-status');
-            if (!input || !button) return;
-            button.addEventListener('click', function() {
-                var value = input.value;
-                var done = function(ok) {
-                    status.textContent = ok ? 'Copied to clipboard.' : 'Copy failed — select the key and copy it manually.';
-                };
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(value).then(function() { done(true); }, function() { done(false); });
-                } else {
-                    input.removeAttribute('readonly');
-                    input.select();
-                    var ok = false;
-                    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-                    input.setAttribute('readonly', 'readonly');
-                    done(ok);
-                }
-            });
-        })();
-        </script>
     </div>
 </body>
 </html>

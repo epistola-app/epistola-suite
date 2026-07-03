@@ -57,3 +57,62 @@ document.addEventListener('change', function (event) {
   if (select.value) url += '?catalog=' + encodeURIComponent(select.value);
   window.location.href = url;
 });
+
+// ── Confirm-then-submit for plain (non-HTMX) forms ──────────────────────────
+// Usage: <button data-confirm-submit="form-id" data-confirm-submit-message="…"
+//                data-confirm-submit-title="…" data-confirm-submit-label="Delete">
+document.addEventListener('click', function (event) {
+  const button = event.target.closest && event.target.closest('[data-confirm-submit]');
+  if (!button) return;
+  const form = document.getElementById(button.getAttribute('data-confirm-submit'));
+  if (!form) return;
+  window
+    .epistolaConfirm(button.getAttribute('data-confirm-submit-message') || 'Are you sure?', {
+      title: button.getAttribute('data-confirm-submit-title') || 'Confirm',
+      confirmLabel: button.getAttribute('data-confirm-submit-label') || 'Delete',
+      confirmClass: 'ep-btn-destructive',
+    })
+    .then(function (ok) {
+      if (ok) form.submit();
+    });
+});
+
+// ── Copy input value to clipboard ────────────────────────────────────────────
+// Usage: <button data-copy-source="input-id" data-copy-status="status-el-id">
+document.addEventListener('click', function (event) {
+  const button = event.target.closest && event.target.closest('[data-copy-source]');
+  if (!button) return;
+  const input = document.getElementById(button.getAttribute('data-copy-source'));
+  const status = document.getElementById(button.getAttribute('data-copy-status'));
+  if (!input) return;
+
+  function done(ok) {
+    if (status) {
+      status.textContent = ok
+        ? 'Copied to clipboard.'
+        : 'Copy failed — select the value and copy it manually.';
+    }
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(input.value).then(
+      function () {
+        done(true);
+      },
+      function () {
+        done(false);
+      },
+    );
+  } else {
+    input.removeAttribute('readonly');
+    input.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {
+      ok = false;
+    }
+    input.setAttribute('readonly', 'readonly');
+    done(ok);
+  }
+});

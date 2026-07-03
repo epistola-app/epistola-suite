@@ -162,6 +162,17 @@ export function initSessionMonitor() {
   window.epistola.dismissWarning = dismissWarning;
   window.epistola.dismissExpired = dismissExpired;
 
+  // Delegated handler for the session dialog buttons (ADR 0010: no inline
+  // handlers). Buttons declare data-session-action="open-login-popup" etc.
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('[data-session-action]');
+    if (!button) return;
+    const action = button.getAttribute('data-session-action');
+    if (action === 'open-login-popup') openLoginPopup();
+    else if (action === 'dismiss-warning') dismissWarning();
+    else if (action === 'dismiss-expired') dismissExpired();
+  });
+
   // Start periodic checks
   checkIntervalId = setInterval(checkSession, CHECK_INTERVAL_MS);
 

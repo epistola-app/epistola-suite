@@ -6,11 +6,14 @@
     <title>Epistola API Docs</title>
 </head>
 <body>
-    <script
+    <!-- Scalar discovers its mount point via #api-reference[data-configuration];
+         a div (not the classic <script> tag) keeps the page free of inline
+         scripts under the strict CSP (ADR 0010). -->
+    <div
         id="api-reference"
         th:attr="data-url=@{/api-docs/epistola-contract.yaml}"
         data-configuration='{"theme": "default"}'>
-    </script>
+    </div>
     <script th:src="@{/js/vendor/scalar-api-reference.js}"></script>
 </body>
 </html>

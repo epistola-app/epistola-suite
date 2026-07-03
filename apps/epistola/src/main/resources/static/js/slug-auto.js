@@ -13,9 +13,11 @@
   }
 
   function wireup(nameInput) {
+    if (nameInput.hasAttribute('data-slug-wired')) return;
     var slugId = nameInput.getAttribute('data-slug-source');
     var slugInput = document.getElementById(slugId);
     if (!slugInput) return;
+    nameInput.setAttribute('data-slug-wired', '');
 
     var slugManuallyEdited =
       slugInput.value !== '' && slugInput.value !== nameToSlug(nameInput.value);
@@ -51,21 +53,25 @@
     });
   }
 
-  document.querySelectorAll('[data-slug-source]').forEach(wireup);
+  function scan(root) {
+    if (root.matches && root.matches('[data-slug-source]')) wireup(root);
+    if (root.querySelectorAll) {
+      root.querySelectorAll('[data-slug-source]').forEach(wireup);
+    }
+  }
 
-  var observer = new MutationObserver(function (mutations) {
-    mutations.forEach(function (mutation) {
-      mutation.addedNodes.forEach(function (node) {
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
-        if (node.matches && node.matches('[data-slug-source]')) {
-          wireup(node);
-        }
-        if (node.querySelectorAll) {
-          node.querySelectorAll('[data-slug-source]').forEach(wireup);
-        }
-      });
-    });
+  // Loaded from <head> (ADR 0010): the body may not exist yet, and content
+  // arrives later via HTMX swaps (incl. hx-boost navigations). htmx:load fires
+  // for the initial page and for every swapped-in element; the data-slug-wired
+  // guard makes re-scans a no-op.
+  document.addEventListener('htmx:load', function (event) {
+    scan(event.detail.elt);
   });
-
-  observer.observe(document.body, { childList: true, subtree: true });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      scan(document.body);
+    });
+  } else if (document.body) {
+    scan(document.body);
+  }
 })();
