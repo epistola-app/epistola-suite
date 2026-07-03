@@ -60,8 +60,7 @@
                                 data-confirm-title="Restore backup"
                                 data-confirm-target="body"
                                 th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${backup.capturedAt} + '? This reverts the tenant to the backed-up state — any templates, versions and edits made since are dropped (generated documents are kept). This cannot be undone.',
-                                         data-confirm-url=@{/tenants/{tenantId}/backups/{backupId}/restore(tenantId=${tenantId},backupId=${backup.backupId})}"
-                                onclick="openConfirmDialog(this)">
+                                         data-confirm-url=@{/tenants/{tenantId}/backups/{backupId}/restore(tenantId=${tenantId},backupId=${backup.backupId})}">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
                             Restore
                         </button>

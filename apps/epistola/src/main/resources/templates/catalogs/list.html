@@ -103,8 +103,7 @@
                                 th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
                                 data-confirm-title="Delete Catalog"
                                 th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                data-confirm-target="#catalog-list"
-                                onclick="openConfirmDialog(this)">
+                                data-confirm-target="#catalog-list">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
                     </td>
@@ -121,7 +120,9 @@
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
                   hx-target="#catalog-list"
-                  hx-swap="outerHTML">
+                  hx-swap="outerHTML"
+                  data-reset-on-success
+                  data-close-dialog-on-success="create-dialog">
                 <div class="ep-dialog-body">
                     <div class="form-group">
                         <label class="ep-label" for="catalogName">Name</label>
@@ -139,18 +140,10 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('create-dialog').close()">Cancel</button>
+                            data-close-dialog="create-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
                 </div>
             </form>
-            <script>
-                document.getElementById('create-dialog').querySelector('form').addEventListener('htmx:afterRequest', function(e) {
-                    if (e.detail.successful) {
-                        document.getElementById('create-dialog').close();
-                        this.reset();
-                    }
-                });
-            </script>
         </dialog>
 
         <!-- Subscribe to Catalog Dialog -->
@@ -171,7 +164,8 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="authType">Authentication</label>
-                        <select id="authType" name="authType" class="ep-select">
+                        <select id="authType" name="authType" class="ep-select"
+                                data-auth-credential-toggle="credential-group">
                             <option value="NONE">None (public catalog)</option>
                             <option value="BEARER">Bearer Token</option>
                             <option value="API_KEY">API Key</option>
@@ -185,7 +179,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('subscribe-dialog').close()">Cancel</button>
+                            data-close-dialog="subscribe-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary">Subscribe</button>
                 </div>
             </form>
@@ -245,69 +239,26 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('import-dialog').close()">Cancel</button>
+                            data-close-dialog="import-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary">Import</button>
                 </div>
             </form>
         </dialog>
 
-        <!-- Release dialog is loaded here on demand (hx-get) -->
-        <div id="release-dialog-container"></div>
+        <!-- Release dialog is loaded here on demand (hx-get); opened on swap
+             by the delegated data-open-dialog-on-swap behavior (pages/catalogs.js). -->
+        <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
 
         <!-- Upgrade preview dialog is loaded here on demand (hx-get) -->
-        <div id="upgrade-dialog-container"></div>
+        <div id="upgrade-dialog-container" data-open-dialog-on-swap="upgrade-dialog"></div>
 
-        <!-- Export conflict dialog is loaded here on demand (hx-get) -->
-        <div id="export-dialog-container"></div>
+        <!-- Export conflict dialog is loaded here on demand (hx-get). Only
+             rendered when the precheck found stencil-version conflicts; with no
+             conflicts the server returns 204 + HX-Redirect (handled by htmx
+             itself, no dialog arrives and nothing opens). -->
+        <div id="export-dialog-container" data-open-dialog-on-swap="export-conflict-dialog"></div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
-
-        <script>
-            document.getElementById('authType').addEventListener('change', function() {
-                document.getElementById('credential-group').style.display =
-                    this.value === 'NONE' ? 'none' : 'block';
-            });
-
-            // Release dialog: the fragment is injected on demand into
-            // #release-dialog-container (always present). Delegated + bound to
-            // the static container so it works regardless of htmx script
-            // execution, and CSP-safe (no eval, no hx-on).
-            (function () {
-                var box = document.getElementById('release-dialog-container');
-                box.addEventListener('htmx:afterSwap', function () {
-                    var dlg = document.getElementById('release-dialog');
-                    if (dlg && !dlg.open) dlg.showModal();
-                });
-                box.addEventListener('click', function (e) {
-                    var btn = e.target.closest('[data-version]');
-                    if (!btn) return;
-                    var input = document.getElementById('release-version');
-                    if (input) input.value = btn.getAttribute('data-version');
-                });
-            })();
-
-            // Upgrade preview dialog: same pattern as the release dialog —
-            // fragment injected on demand into #upgrade-dialog-container, opened
-            // on swap. CSP-safe (delegated, no eval, no hx-on).
-            (function () {
-                var box = document.getElementById('upgrade-dialog-container');
-                box.addEventListener('htmx:afterSwap', function () {
-                    var dlg = document.getElementById('upgrade-dialog');
-                    if (dlg && !dlg.open) dlg.showModal();
-                });
-            })();
-
-            // Export conflict dialog: only rendered when the precheck found
-            // stencil-version conflicts. When no conflicts exist the server
-            // returns 204 + HX-Redirect (handled by htmx itself, no dialog).
-            (function () {
-                var box = document.getElementById('export-dialog-container');
-                box.addEventListener('htmx:afterSwap', function () {
-                    var dlg = document.getElementById('export-conflict-dialog');
-                    if (dlg && !dlg.open) dlg.showModal();
-                });
-            })();
-        </script>
     </th:block>
 
     <!-- Release dialog fragments — OUTSIDE the content block so the catalog
@@ -361,7 +312,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('release-dialog').close()">Cancel</button>
+                            data-close-dialog="release-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary">Release</button>
                 </div>
             </form>
@@ -418,7 +369,7 @@
             </div>
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-primary"
-                        onclick="document.getElementById('export-conflict-dialog').close()">Close</button>
+                        data-close-dialog="export-conflict-dialog">Close</button>
             </div>
         </dialog>
     </th:block>
@@ -617,7 +568,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
-                            onclick="document.getElementById('upgrade-dialog').close()">Cancel</button>
+                            data-close-dialog="upgrade-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary"
                             th:if="${diff != null and diff.hasChanges}"
                             th:disabled="${diff.hasConflicts}">Apply upgrade</button>
@@ -632,17 +583,17 @@
     <th:block th:fragment="upgrade-done"></th:block>
     <th:block th:fragment="catalog-list-actions">
         <button type="button" class="ep-btn ep-btn-outline"
-                onclick="document.getElementById('import-dialog').showModal()">
+                data-open-dialog="import-dialog">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
             Import ZIP
         </button>
         <button type="button" class="ep-btn ep-btn-outline"
-                onclick="document.getElementById('subscribe-dialog').showModal()">
+                data-open-dialog="subscribe-dialog">
             <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
             Subscribe
         </button>
         <button type="button" class="ep-btn ep-btn-primary"
-                onclick="document.getElementById('create-dialog').showModal()"
+                data-open-dialog="create-dialog"
                 data-testid="catalog-create-open">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Catalog

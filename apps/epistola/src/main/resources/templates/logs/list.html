@@ -74,8 +74,9 @@
                            hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
                            hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change" />
                 </div>
-                <!-- Browser timezone, sent so the server interprets the From/To wall-clock values in it. -->
-                <input type="hidden" name="tz" id="log-tz" />
+                <!-- Browser timezone, sent so the server interprets the From/To wall-clock values in it.
+                     Filled by /js/pages/dashboards.js via the data-browser-tz hook. -->
+                <input type="hidden" name="tz" id="log-tz" data-browser-tz />
             </form>
 
             <div id="log-results">
@@ -114,43 +115,9 @@
             </div>
         </div>
 
-        <!-- Render log times in the browser's timezone (CSP-safe: no eval). Re-runs after
-             each HTMX swap so newly loaded rows are formatted too; falls back to the
-             server-rendered UTC text when JavaScript is unavailable. -->
-        <script>
-            (function () {
-                var tz = document.getElementById("log-tz");
-                if (tz) {
-                    try {
-                        tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-                    } catch (e) {
-                        /* leave blank → server falls back to UTC */
-                    }
-                }
-                var fmt = new Intl.DateTimeFormat(undefined, {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false,
-                });
-                function formatLogTimes() {
-                    document.querySelectorAll(".log-time[data-ts]").forEach(function (el) {
-                        if (el.dataset.tsDone) return;
-                        var d = new Date(el.getAttribute("data-ts"));
-                        if (!isNaN(d.getTime())) {
-                            el.textContent = fmt.format(d);
-                            el.title = el.getAttribute("data-ts");
-                            el.dataset.tsDone = "1";
-                        }
-                    });
-                }
-                formatLogTimes();
-                document.body.addEventListener("htmx:afterSettle", formatLogTimes);
-            })();
-        </script>
+        <!-- Log times are rendered in the browser's timezone by /js/pages/dashboards.js
+             via the .log-time[data-ts] hook (re-applied on every HTMX swap); the
+             server-rendered UTC text remains as the no-JavaScript fallback. -->
     </th:block>
 
     <!-- Response for "Load older": rows appended below, then a refreshed older sentinel. -->

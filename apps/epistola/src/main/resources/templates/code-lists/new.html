@@ -11,8 +11,11 @@
 
         <div id="code-list-form-area" class="card create-form-card" th:fragment="form-card">
             <div class="card-content">
+                <!-- data-radio-panes: the sourceType radios toggle the matching
+                     [data-source-pane] visibility (pages/asset-forms.js). -->
                 <form th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
-                      method="post" id="code-list-form">
+                      method="post" id="code-list-form"
+                      data-radio-panes="sourceType" data-pane-attr="data-source-pane">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select" required>
@@ -100,7 +103,10 @@
                         <span class="form-error" th:if="${errors?.containsKey('sourceUrl')}" th:text="${errors.sourceUrl}"></span>
                     </div>
 
-                    <fieldset class="form-group source-pane" data-source-pane="INLINE"
+                    <!-- data-entries-editor: rows are managed by pages/asset-forms.js and
+                         mirrored into the hidden entriesJson input; hydrated from formData
+                         (validation failure) or started with one empty row on htmx:load. -->
+                    <fieldset class="form-group source-pane" data-source-pane="INLINE" data-entries-editor
                               th:classappend="${errors?.containsKey('entries')} ? 'error' : ''"
                               style="border: 0; padding: 0; margin: 0 0 var(--ep-space-4);">
                         <legend class="ep-label">Entries</legend>
@@ -112,10 +118,10 @@
                                 <tr><th>Code</th><th>Label</th><th></th></tr>
                             </thead>
                             <tbody id="entries-tbody">
-                                <!-- Rows injected by the inline-editor script below -->
+                                <!-- Rows injected by pages/asset-forms.js -->
                             </tbody>
                         </table>
-                        <button type="button" class="btn btn-sm btn-outline" id="add-entry-btn">
+                        <button type="button" class="btn btn-sm btn-outline" id="add-entry-btn" data-add-entry>
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                             Add entry
                         </button>
@@ -128,71 +134,6 @@
                     </div>
                 </form>
             </div>
-
-        <script>
-        (function () {
-            /* ── Source-type radio toggles inline-vs-url panes ─────────────── */
-            var radios = document.querySelectorAll('input[name="sourceType"]');
-            var panes = document.querySelectorAll('[data-source-pane]');
-            function refreshPanes() {
-                var selected = document.querySelector('input[name="sourceType"]:checked');
-                var kind = selected ? selected.value : 'INLINE';
-                panes.forEach(function (p) {
-                    p.hidden = (p.getAttribute('data-source-pane') !== kind);
-                });
-            }
-            radios.forEach(function (r) { r.addEventListener('change', refreshPanes); });
-            refreshPanes();
-
-            /* ── Inline entries editor ─────────────────────────────────────── */
-            var tbody = document.getElementById('entries-tbody');
-            var hidden = document.getElementById('entriesJson');
-            var rows = [];
-
-            function syncHidden() {
-                hidden.value = JSON.stringify(rows.map(function (r) {
-                    return { code: r.code, label: r.label, sortOrder: r.sortOrder };
-                }));
-            }
-
-            function render() {
-                tbody.innerHTML = '';
-                rows.forEach(function (r, idx) {
-                    var tr = document.createElement('tr');
-                    tr.innerHTML =
-                        '<td><input id="entry-code-' + idx + '" type="text" class="ep-input" placeholder="code" aria-label="Entry code" required></td>' +
-                        '<td><input id="entry-label-' + idx + '" type="text" class="ep-input" placeholder="Label" aria-label="Entry label" required></td>' +
-                        '<td><button type="button" class="btn btn-sm btn-ghost btn-ghost-destructive">Remove</button></td>';
-                    var inputs = tr.querySelectorAll('input');
-                    inputs[0].value = r.code;
-                    inputs[1].value = r.label;
-                    inputs[0].addEventListener('input', function (e) { rows[idx].code = e.target.value.trim(); syncHidden(); });
-                    inputs[1].addEventListener('input', function (e) { rows[idx].label = e.target.value; syncHidden(); });
-                    tr.querySelector('button').addEventListener('click', function () {
-                        rows.splice(idx, 1);
-                        render();
-                        syncHidden();
-                    });
-                    tbody.appendChild(tr);
-                });
-            }
-
-            document.getElementById('add-entry-btn').addEventListener('click', function () {
-                rows.push({ code: '', label: '', sortOrder: rows.length });
-                render();
-                syncHidden();
-            });
-
-            // Hydrate from formData on validation failure
-            try {
-                var existing = hidden.value ? JSON.parse(hidden.value) : [];
-                if (existing.length) { rows = existing; render(); syncHidden(); }
-                else { document.getElementById('add-entry-btn').click(); }
-            } catch (e) {
-                document.getElementById('add-entry-btn').click();
-            }
-        })();
-        </script>
         </div>
     </th:block>
 </body>

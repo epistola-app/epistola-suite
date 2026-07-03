@@ -3,7 +3,6 @@
 <body>
     <th:block th:fragment="content">
         <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
-        <script th:src="@{/js/pdf-preview.js}"></script>
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${template.name},
@@ -94,7 +93,7 @@
             </div>
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-ghost"
-                        onclick="document.getElementById('edit-variant-dialog').close()">Cancel</button>
+                        data-close-dialog="edit-variant-dialog">Cancel</button>
                 <button type="submit" class="ep-btn ep-btn-primary">Save</button>
             </div>
         </form>

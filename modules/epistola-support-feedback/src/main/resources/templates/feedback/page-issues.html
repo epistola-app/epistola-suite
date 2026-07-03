@@ -8,7 +8,7 @@
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
                     hx-target="#feedback-fab-dialog-content"
                     hx-swap="innerHTML"
-                    onclick="document.getElementById('feedback-fab-dialog').showModal()">
+                    data-open-dialog="feedback-fab-dialog">
                 New
             </button>
         </div>

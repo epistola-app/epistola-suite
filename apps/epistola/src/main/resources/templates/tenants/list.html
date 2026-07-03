@@ -19,7 +19,8 @@
                 <form id="create-tenant-form" th:action="@{/tenants}" method="post"
                       hx-post="/tenants"
                       hx-target="#tenant-rows"
-                      hx-swap="innerHTML">
+                      hx-swap="innerHTML"
+                      data-reset-on-success>
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                         <label for="name">Name</label>
                         <input type="text" id="name" name="name" required maxlength="100" placeholder="Tenant name"
@@ -37,11 +38,6 @@
                     </div>
                     <button type="submit" class="ep-btn ep-btn-primary">Create Tenant</button>
                 </form>
-                <script>
-                    document.getElementById("create-tenant-form").addEventListener("htmx:afterRequest", function (e) {
-                        if (e.detail.successful) this.reset();
-                    });
-                </script>
             </section>
         </div>
 
@@ -81,8 +77,7 @@
                                         title="Delete tenant"
                                         data-confirm-title="Delete Tenant"
                                         th:attr="data-confirm-message='Permanently delete tenant &quot;' + ${tenant.name} + '&quot; (' + ${tenant.id} + ')? This will delete all associated data including templates, themes, environments, assets, and memberships. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/delete(tenantId=${tenant.id})}"
-                                        data-confirm-target="#tenant-rows"
-                                        onclick="openConfirmDialog(this)">
+                                        data-confirm-target="#tenant-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </td>

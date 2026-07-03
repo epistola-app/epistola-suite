@@ -61,7 +61,6 @@
                                                 </div>
                                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                                         th:data-compare-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/compare(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
-                                                        onclick="openVersionComparison(this)"
                                                         title="Compare versions">
                                                     <th:block th:replace="~{epistola-web/icon :: icon(name='columns-2', class='ep-icon ep-icon-sm')}" />
                                                 </button>

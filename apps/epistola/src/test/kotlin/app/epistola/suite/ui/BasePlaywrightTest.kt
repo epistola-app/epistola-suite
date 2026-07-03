@@ -78,6 +78,15 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
         // every subsequent navigation/swap) so htmxSettle() can observe in-flight
         // requests. Same addInitScript technique FeedbackScreenshotUiTest uses.
         page.addInitScript(PlaywrightHtmxSupport.HTMX_BOOKKEEPER_SCRIPT)
+        // ADR 0010: a blocked script under the strict CSP fails silently (console
+        // error only) — collect violations and fail the test in closePage() so a
+        // missed migration surfaces as a red test instead of a dead button.
+        cspViolations.clear()
+        page.onConsoleMessage { message ->
+            if (message.text().contains("Content Security Policy")) {
+                cspViolations.add(message.text())
+            }
+        }
         // Centralized, explicit timeouts (single source of truth — replaces Playwright's
         // implicit 30s default). Actions/assertions fail fast at 15s so a real hang is
         // captured in the trace instead of holding CI for 30s; navigation stays generous
@@ -104,7 +113,19 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
         }
         page.close()
         context.close()
+
+        val violations = cspViolations.toList()
+        cspViolations.clear()
+        if (violations.isNotEmpty()) {
+            throw AssertionError(
+                "Content-Security-Policy violations during '${testInfo.displayName}' " +
+                    "(ADR 0010 — an inline script or handler slipped past the template rules):\n" +
+                    violations.joinToString("\n"),
+            )
+        }
     }
+
+    private val cspViolations = mutableListOf<String>()
 
     protected fun baseUrl() = "http://localhost:$port"
 

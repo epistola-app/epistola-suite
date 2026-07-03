@@ -11,7 +11,11 @@
 
         <div class="card create-form-card">
             <div class="card-content">
-                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
+                <!-- data-upload-error: server error details are written into the
+                     referenced element by pages/asset-forms.js. -->
+                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" hx-encoding="multipart/form-data"
+                      data-upload-error="asset-upload-error"
+                      data-upload-error-message="Failed to upload image. Please try again.">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select" required>
@@ -22,10 +26,10 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label">Image file</label>
-                        <div id="asset-upload-zone" class="asset-upload-zone"
-                             ondragover="event.preventDefault(); this.classList.add('dragover')"
-                             ondragleave="this.classList.remove('dragover')"
-                             ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event)">
+                        <!-- data-file-drop-zone: drag/drop assigns the file to the zone's
+                             file input; data-file-preview shows the chosen file's name
+                             (pages/asset-forms.js). -->
+                        <div id="asset-upload-zone" class="asset-upload-zone" data-file-drop-zone>
                             <div class="asset-upload-content">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
                                 <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
@@ -34,6 +38,7 @@
                             <input type="file" id="asset-file-input" name="file"
                                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
                                    style="display: none;"
+                                   data-file-preview="file-preview"
                                    required />
                         </div>
                         <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
@@ -49,51 +54,6 @@
             </div>
         </div>
 
-        <script>
-            var uploadForm = document.getElementById('asset-upload-form');
-            var uploadError = document.getElementById('asset-upload-error');
-
-            document.getElementById('asset-file-input').addEventListener('change', function() {
-                var preview = document.getElementById('file-preview');
-                var fileName = document.getElementById('file-name');
-                if (this.files.length > 0) {
-                    fileName.textContent = this.files[0].name;
-                    preview.style.display = 'block';
-                    uploadError.textContent = '';
-                } else {
-                    preview.style.display = 'none';
-                }
-            });
-
-            uploadForm.addEventListener('htmx:responseError', function(event) {
-                var xhr = event.detail && event.detail.xhr;
-                if (!xhr || xhr.status < 400) {
-                    return;
-                }
-
-                try {
-                    var body = JSON.parse(xhr.responseText || '{}');
-                    uploadError.textContent = body.detail || body.error || 'Failed to upload image. Please try again.';
-                } catch (e) {
-                    uploadError.textContent = 'Failed to upload image. Please try again.';
-                }
-            });
-
-            uploadForm.addEventListener('htmx:beforeRequest', function() {
-                uploadError.textContent = '';
-            });
-
-            function handleFileDrop(event) {
-                var file = event.dataTransfer.files[0];
-                if (file) {
-                    var input = document.getElementById('asset-file-input');
-                    var dt = new DataTransfer();
-                    dt.items.add(file);
-                    input.files = dt.files;
-                    input.dispatchEvent(new Event('change'));
-                }
-            }
-        </script>
     </th:block>
 </body>
 </html>

@@ -173,7 +173,7 @@ class SecurityConfig(
                     // separate port in prod — so they never reach this chain.
                     .requestMatchers("/livez", "/readyz").permitAll()
                     .requestMatchers("/login", "/login-popup-success", "/error", "/errors/**").permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/fonts/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled
                 if (oauth2) {
                     authorize.requestMatchers("/oauth2/**").permitAll()
@@ -235,11 +235,17 @@ class SecurityConfig(
             }
             .headers { headers ->
                 headers.contentSecurityPolicy { csp ->
+                    // ADR 0010: script-src is strictly 'self' — no 'unsafe-inline',
+                    // no external origins. Executable inline scripts and on*=
+                    // attributes are banned from templates (CspTemplateComplianceTest);
+                    // behavior lives in static JS, server data in inert
+                    // <script type="application/json"> islands. style-src keeps
+                    // 'unsafe-inline' deliberately (Option E of the ADR is deferred).
                     csp.policyDirectives(
                         "default-src 'self'; " +
-                            "script-src 'self' 'unsafe-inline'; " +
-                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-                            "font-src 'self' https://fonts.gstatic.com; " +
+                            "script-src 'self'; " +
+                            "style-src 'self' 'unsafe-inline'; " +
+                            "font-src 'self'; " +
                             "img-src 'self' data:; " +
                             "connect-src 'self'; " +
                             "frame-src blob:; " +

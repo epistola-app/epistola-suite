@@ -12,7 +12,7 @@
                     id="changelog-button"
                     aria-haspopup="dialog"
                     aria-controls="changelog-dialog"
-                    onclick="document.getElementById('changelog-dialog').showModal()"
+                    data-open-dialog="changelog-dialog"
                     th:hx-get="@{/changelog}"
                     hx-target="#changelog-dialog-content"
                     hx-swap="innerHTML"
@@ -38,13 +38,9 @@
         <!-- Session expiry dialogs (only for authenticated users) -->
         <th:block sec:authorize="isAuthenticated()">
             <th:block th:replace="~{fragments/session-dialogs :: session-dialogs}" />
-            <script type="module" th:inline="javascript">
-                const { initSessionMonitor } = await import(/*[[@{/js/modules/session-monitor.js}]]*/ '/js/modules/session-monitor.js');
-                initSessionMonitor();
-            </script>
+            <script type="module" th:src="@{/js/modules/session-monitor-boot.js}"></script>
         </th:block>
 
-        <script th:src="@{/js/slug-auto.js}"></script>
 
         <!-- Module-contributed footer chrome (see FooterContributor / FooterFragmentResolver) -->
         <th:block sec:authorize="isAuthenticated()">

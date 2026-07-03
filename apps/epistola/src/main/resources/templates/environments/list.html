@@ -44,8 +44,7 @@
                                     title="Delete environment"
                                     data-confirm-title="Delete Environment"
                                     th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
-                                    data-confirm-target="#environment-rows"
-                                    onclick="openConfirmDialog(this)">
+                                    data-confirm-target="#environment-rows">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </td>

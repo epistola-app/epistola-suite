@@ -11,7 +11,10 @@
 
         <div class="card create-form-card">
             <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post">
+                <!-- data-radio-panes: the constraintKind radios toggle the matching
+                     [data-constraint-pane] visibility (pages/asset-forms.js). -->
+                <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post"
+                      data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select">
@@ -111,21 +114,6 @@
                         </select>
                         <span class="form-hint">Variant values must match an entry of this code list. Hidden entries are still accepted.</span>
                     </div>
-                    <script>
-                    (function () {
-                        var radios = document.querySelectorAll('input[name="constraintKind"]');
-                        var panes = document.querySelectorAll('[data-constraint-pane]');
-                        function refresh() {
-                            var selected = document.querySelector('input[name="constraintKind"]:checked');
-                            var kind = selected ? selected.value : 'free';
-                            panes.forEach(function (p) {
-                                p.hidden = (p.getAttribute('data-constraint-pane') !== kind);
-                            });
-                        }
-                        radios.forEach(function (r) { r.addEventListener('change', refresh); });
-                        refresh();
-                    })();
-                    </script>
                     <div class="form-actions">
                         <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Attribute</button>
                         <a th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>

@@ -317,53 +317,8 @@
                 </table>
             </div>
         </div>
-        <script>
-            (function () {
-                const formatter = new Intl.DateTimeFormat(undefined, {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    timeZoneName: 'short'
-                });
-
-                function format(value) {
-                    const date = new Date(value);
-                    return Number.isNaN(date.getTime()) ? null : formatter.format(date);
-                }
-
-                function formatClusterDateTimes(root) {
-                    root.querySelectorAll('[data-local-datetime]').forEach(function (element) {
-                        const formatted = format(element.dataset.localDatetime);
-                        if (formatted) {
-                            element.textContent = formatted;
-                            element.title = formatted;
-                        }
-                    });
-                    root.querySelectorAll('[data-local-datetime-title]').forEach(function (element) {
-                        const formatted = format(element.dataset.localDatetimeTitle);
-                        if (formatted) {
-                            element.title = formatted;
-                        }
-                    });
-                }
-
-                window.epistolaFormatClusterDateTimes = formatClusterDateTimes;
-                formatClusterDateTimes(document);
-
-                if (!window.epistolaClusterDateTimesInstalled) {
-                    window.epistolaClusterDateTimesInstalled = true;
-                    document.addEventListener('DOMContentLoaded', function () {
-                        window.epistolaFormatClusterDateTimes(document);
-                    });
-                    document.body.addEventListener('htmx:afterSwap', function (event) {
-                        window.epistolaFormatClusterDateTimes(event.target);
-                    });
-                }
-            })();
-        </script>
+        <!-- Timestamps are rendered in the browser timezone by /js/pages/dashboards.js
+             via the data-local-datetime / data-local-datetime-title hooks. -->
     </th:block>
 </body>
 </html>

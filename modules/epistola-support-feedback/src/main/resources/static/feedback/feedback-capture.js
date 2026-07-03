@@ -5,6 +5,10 @@
  * The buffer is available via window.__epistola_console_buffer for the feedback form.
  */
 (function () {
+  // The including fragment is re-swapped on every boosted navigation, which
+  // re-executes this script: patch the console (and reset the buffer) only once.
+  if (window.__epistola_console_buffer) return;
+
   const MAX_ENTRIES = 100;
   const buffer = [];
 

@@ -5,7 +5,7 @@
         <div class="ep-dialog-header">
             <h3>Version History: <code th:text="${variant.id}"></code></h3>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                    onclick="document.getElementById('version-history-dialog').close()"
+                    data-close-dialog="version-history-dialog"
                     title="Close">&times;</button>
         </div>
         <div class="ep-dialog-body">
@@ -57,8 +57,7 @@
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
                                         th:data-version-id="${version.id}"
-
-                                        onclick="previewPdf(this)"
+                                        data-pdf-preview
                                         title="Preview PDF">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -73,8 +72,7 @@
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
                                         th:data-version-id="${version.id}"
-
-                                        onclick="previewPdf(this)"
+                                        data-pdf-preview
                                         title="Preview PDF">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -101,8 +99,7 @@
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
                                         th:data-version-id="${version.id}"
-
-                                        onclick="previewPdf(this)"
+                                        data-pdf-preview
                                         title="Preview PDF">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </button>

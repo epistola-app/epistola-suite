@@ -11,22 +11,14 @@
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
+                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/stencils';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
         <div th:if="${#lists.isEmpty(stencils)}" class="empty-state">
@@ -82,8 +74,7 @@
                                         title="Delete stencil"
                                         data-confirm-title="Delete Stencil"
                                         th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                                        data-confirm-target="#stencil-rows"
-                                        onclick="openConfirmDialog(this)">
+                                        data-confirm-target="#stencil-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>

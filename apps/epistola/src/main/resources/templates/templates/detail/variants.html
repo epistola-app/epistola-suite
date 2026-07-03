@@ -4,7 +4,7 @@
     <th:block th:fragment="tab-content">
         <!-- Button to open create variant dialog -->
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
-            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()" data-testid="variant-create-open">+ New Variant</button>
+            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" data-open-dialog="create-variant-dialog" data-testid="variant-create-open">+ New Variant</button>
         </div>
 
         <!-- Create variant dialog -->
@@ -66,7 +66,7 @@
                     </div>
                 </div>
                 <div class="ep-dialog-footer">
-                    <button type="button" class="ep-btn ep-btn-ghost" onclick="document.getElementById('create-variant-dialog').close()">Cancel</button>
+                    <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="create-variant-dialog">Cancel</button>
                     <button type="submit" class="ep-btn ep-btn-primary" data-testid="variant-create-submit">Create Variant</button>
                 </div>
             </form>
@@ -83,7 +83,7 @@
                               th:text="${d.qualifiedKey}"></code>
                     </label>
                     <select class="ep-select" th:id="'attr-filter-' + ${d.qualifiedKey}"
-                            th:data-filter-key="${d.qualifiedKey}" onchange="filterVariants()">
+                            th:data-filter-key="${d.qualifiedKey}">
                         <option value="">All</option>
                         <option th:each="opt : ${d.options}"
                                 th:value="${opt.code}"
@@ -158,19 +158,19 @@
                                 th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
                                 th:data-test-data="${contractDataExamples != null and !#lists.isEmpty(contractDataExamples) ? contractDataExamples[0].data : '{}'}"
-                                onclick="previewPdf(this)" title="Preview latest version">
+                                data-pdf-preview title="Preview latest version">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                 th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                 hx-target="#version-history-dialog-body" hx-swap="innerHTML"
-                                onclick="document.getElementById('version-history-dialog').showModal()" title="Version history">
+                                data-open-dialog="version-history-dialog" title="Version history">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                 th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                 hx-target="#edit-variant-dialog-body" hx-swap="innerHTML"
-                                onclick="document.getElementById('edit-variant-dialog').showModal()" title="Edit variant">
+                                data-open-dialog="edit-variant-dialog" title="Edit variant">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <form th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}"
@@ -184,8 +184,7 @@
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon" title="Delete variant"
                                 data-confirm-title="Delete Variant"
                                 th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title != null ? variant.title : variant.id} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
-                                data-confirm-target="#variants-section" data-confirm-swap="outerHTML"
-                                onclick="openConfirmDialog(this)">
+                                data-confirm-target="#variants-section" data-confirm-swap="outerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and variant.isDefault}" type="button"
@@ -210,70 +209,10 @@
         <dialog id="edit-variant-dialog" class="ep-dialog"><div id="edit-variant-dialog-body"></div></dialog>
         <dialog id="version-history-dialog" class="ep-dialog ep-dialog-wide"><div id="version-history-dialog-body"></div></dialog>
 
-        <script th:inline="javascript">
-            // Wire the "Add attribute" picker on the create-variant dialog.
-            // Edit-variant uses the same pattern in its own fragment; this
-            // file owns the create dialog, that file (detail.html) owns its
-            // copy. Both call into the same shared helper below.
-            function wireAddAttrPicker(scope) {
-                const select = scope.querySelector('[data-add-attr-select]');
-                const button = scope.querySelector('[data-add-attr-button]');
-                if (!select || !button) return;
-                const handler = () => {
-                    const key = select.value;
-                    if (!key) return;
-                    const row = scope.querySelector('[data-attr-row="' + CSS.escape(key) + '"]');
-                    if (row) {
-                        row.style.display = '';
-                        const field = row.querySelector('select, input');
-                        if (field) field.focus();
-                        // Remove the option from the picker so it can't be
-                        // added twice.
-                        const opt = select.querySelector('option[value="' + CSS.escape(key) + '"]');
-                        if (opt) opt.remove();
-                        select.value = '';
-                    }
-                };
-                button.addEventListener('click', handler);
-            }
-            // Wire immediately rather than waiting for DOMContentLoaded:
-            // the shell uses `hx-boost="true"`, so navigating to this tab
-            // from another swaps `#main-content` and re-executes this
-            // inline script — but DOMContentLoaded has already fired by
-            // then, so a deferred listener never runs. The dialog markup
-            // appears earlier in the same fragment as this script, so by
-            // the time we reach this line the form is in the DOM.
-            (function () {
-                const createForm = document.getElementById('create-variant-form');
-                if (createForm) wireAddAttrPicker(createForm);
-            })();
-            // The edit-variant dialog is HTMX-loaded; wire its picker after
-            // each swap.
-            document.addEventListener('htmx:afterSwap', e => {
-                if (e.detail.target?.id === 'edit-variant-dialog-body') {
-                    wireAddAttrPicker(e.detail.target);
-                }
-            });
-            function filterVariants() {
-                const filterBar = document.getElementById('variant-filter-bar');
-                if (!filterBar) return;
-                const filters = {};
-                filterBar.querySelectorAll('select[data-filter-key]').forEach(s => { if (s.value) filters[s.dataset.filterKey] = s.value; });
-                const cards = document.querySelectorAll('.variant-card');
-                let visible = 0;
-                cards.forEach(card => {
-                    const attrs = {};
-                    card.querySelectorAll('[data-attr-key]').forEach(b => { attrs[b.dataset.attrKey] = b.dataset.attrValue; });
-                    let match = true;
-                    for (const k in filters) { if (attrs[k] !== filters[k]) { match = false; break; } }
-                    card.style.display = match ? '' : 'none';
-                    if (match) visible++;
-                });
-                const nm = document.getElementById('variant-no-matches');
-                if (nm) nm.style.display = (visible === 0 && cards.length > 0) ? 'block' : 'none';
-            }
-            document.addEventListener('htmx:afterSwap', e => { if (e.detail.target?.id === 'variants-section') filterVariants(); });
-        </script>
+        <!-- The "Add attribute" picker ([data-add-attr-button], works for both
+             the create dialog and the HTMX-loaded edit dialog) and the variant
+             attribute filter (select[data-filter-key]) are delegated behaviors
+             in /js/pages/template-detail.js (ADR 0010: no inline scripts). -->
     </th:block>
 </body>
 </html>

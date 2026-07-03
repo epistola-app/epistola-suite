@@ -8,22 +8,14 @@
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
+            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
+                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
                         th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
-            <script th:inline="javascript">
-                document.getElementById('catalog-filter').addEventListener('change', function() {
-                    var tenantId = /*[[${tenantId}]]*/ '';
-                    var catalog = this.value;
-                    var url = '/tenants/' + tenantId + '/attributes';
-                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
-                    window.location.href = url;
-                });
-            </script>
         </div>
 
         <div th:if="${#lists.isEmpty(attributes)}" class="empty-state">
@@ -78,7 +70,7 @@
                                         th:hx-get="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/edit(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
                                         hx-target="#edit-attribute-dialog-body"
                                         hx-swap="innerHTML"
-                                        onclick="document.getElementById('edit-attribute-dialog').showModal()"
+                                        data-open-dialog="edit-attribute-dialog"
                                         title="Edit attribute">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -87,8 +79,7 @@
                                         title="Delete attribute"
                                         data-confirm-title="Delete Attribute"
                                         th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/delete(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
-                                        data-confirm-target="#attribute-rows"
-                                        onclick="openConfirmDialog(this)">
+                                        data-confirm-target="#attribute-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
@@ -113,9 +104,13 @@
         <div class="ep-dialog-header">
             <h3>Edit Attribute: <code th:text="${attribute.id}"></code></h3>
         </div>
+        <!-- data-radio-panes: the constraintKind radios toggle the matching
+             [data-constraint-pane] visibility; initial state is applied on the
+             htmx:load of this fragment (pages/asset-forms.js). -->
         <form th:hx-patch="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}(tenantId=${tenantId},catalogId=${attribute.catalogKey},attributeId=${attribute.id})}"
               hx-target="#attribute-rows"
               hx-swap="innerHTML"
+              data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane"
 >
             <div class="ep-dialog-body">
                 <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
@@ -186,26 +181,10 @@
                         </th:block>
                     </select>
                 </div>
-                <script>
-                (function () {
-                    var dialog = document.getElementById('edit-attribute-dialog-body');
-                    var radios = dialog.querySelectorAll('input[name="constraintKind"]');
-                    var panes = dialog.querySelectorAll('[data-constraint-pane]');
-                    function refresh() {
-                        var selected = dialog.querySelector('input[name="constraintKind"]:checked');
-                        var kind = selected ? selected.value : 'free';
-                        panes.forEach(function (p) {
-                            p.hidden = (p.getAttribute('data-constraint-pane') !== kind);
-                        });
-                    }
-                    radios.forEach(function (r) { r.addEventListener('change', refresh); });
-                    refresh();
-                })();
-                </script>
             </div>
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-ghost"
-                        onclick="document.getElementById('edit-attribute-dialog').close()">Cancel</button>
+                        data-close-dialog="edit-attribute-dialog">Cancel</button>
                 <button type="submit" class="ep-btn ep-btn-primary">Save</button>
             </div>
         </form>

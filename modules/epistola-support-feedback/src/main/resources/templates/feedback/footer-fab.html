@@ -4,10 +4,9 @@
     <!-- Feedback FAB + console capture, contributed into the shell footer when feedback is enabled. -->
     <th:block th:fragment="fab">
         <script th:src="@{/feedback/feedback-capture.js}"></script>
-        <script type="module" th:inline="javascript">
-            const { initFeedbackFab } = await import(/*[[@{/feedback/feedback-fab.js}]]*/ '/feedback/feedback-fab.js');
-            initFeedbackFab(/*[[${tenantId}]]*/ 'tenant');
-        </script>
+        <script type="module" th:src="@{/feedback/feedback.js}"></script>
+        <!-- Fresh on every (boosted) render: feedback.js picks it up and (re)mounts the FAB. -->
+        <div hidden data-feedback-fab th:attr="data-tenant-id=${tenantId}"></div>
     </th:block>
 </body>
 </html>

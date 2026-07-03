@@ -19,26 +19,6 @@
         </div>
     </div>
 
-    <script>
-        // Notify the opener window that session has been renewed
-        if (window.opener) {
-            try {
-                window.opener.postMessage({ type: 'session-renewed' }, window.location.origin);
-            } catch (e) {
-                // Ignore cross-origin errors
-            }
-        }
-
-        // Close the popup window
-        // Use a small delay to ensure the message is sent
-        setTimeout(function() {
-            window.close();
-
-            // If window.close() didn't work (some browsers restrict it),
-            // show a message to the user
-            document.querySelector('.close-notice').textContent =
-                'You can close this window and return to your work.';
-        }, 500);
-    </script>
+    <script th:src="@{/js/login-popup-success.js}"></script>
 </body>
 </html>

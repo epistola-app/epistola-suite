@@ -17,6 +17,7 @@
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
     "@scalar/api-reference": "^1.62.2",
     "htmx.org": "2.0.10"
   },
