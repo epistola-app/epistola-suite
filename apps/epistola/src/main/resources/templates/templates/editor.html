@@ -78,23 +78,21 @@
     </th:block>
 
     <script type="application/json" id="editor-config" th:inline="javascript">
-    /*<![CDATA[*/
     {
-        "editorModuleUrl": /*[[@{/editor/template-editor.js}]]*/ "/editor/template-editor.js",
-        "aiPluginUrl": /*[[@{/editor/ai-plugin.js}]]*/ "/editor/ai-plugin.js",
-        "templateModel": /*[[${templateModel}]]*/ {},
-        "templateId": /*[[${templateId}]]*/ "",
-        "tenantId": /*[[${tenantId}]]*/ "",
-        "catalogId": /*[[${catalogId}]]*/ "",
-        "variantId": /*[[${variantId}]]*/ "",
-        "dataExamples": /*[[${dataExamples}]]*/ [],
-        "dataModel": /*[[${dataModel}]]*/ null,
+        "editorModuleUrl": [[@{/editor/template-editor.js}]],
+        "aiPluginUrl": [[@{/editor/ai-plugin.js}]],
+        "templateModel": [[${templateModel}]],
+        "templateId": [[${templateId}]],
+        "tenantId": [[${tenantId}]],
+        "catalogId": [[${catalogId}]],
+        "variantId": [[${variantId}]],
+        "dataExamples": [[${dataExamples}]],
+        "dataModel": [[${dataModel}]],
         "featureFlags": {
-            "stencilParameters": /*[[${stencilParametersEnabled}]]*/ false
+            "stencilParameters": [[${stencilParametersEnabled}]]
         },
-        "locale": /*[[${resolvedLocale}]]*/ "en-US"
+        "locale": [[${resolvedLocale}]]
     }
-    /*]]>*/
     </script>
     <script type="module" th:src="@{/js/editor-boot.js}"></script>
 </body>

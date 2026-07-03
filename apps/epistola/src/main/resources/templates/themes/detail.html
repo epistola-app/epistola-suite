@@ -29,16 +29,14 @@
         </div>
 
         <script type="application/json" id="theme-editor-config" th:inline="javascript">
-        /*<![CDATA[*/
         {
-            "editorModuleUrl": /*[[@{/editor/theme-editor.js}]]*/ "/editor/theme-editor.js",
-            "theme": /*[[${themeJson}]]*/ {},
-            "tenantId": /*[[${tenantId}]]*/ "",
-            "catalogId": /*[[${catalogId}]]*/ "",
-            "themeId": /*[[${theme.id}]]*/ "",
-            "editable": /*[[${editable}]]*/ true
+            "editorModuleUrl": [[@{/editor/theme-editor.js}]],
+            "theme": [[${themeJson}]],
+            "tenantId": [[${tenantId}]],
+            "catalogId": [[${catalogId}]],
+            "themeId": [[${theme.id}]],
+            "editable": [[${editable}]]
         }
-        /*]]>*/
         </script>
         <script type="module" th:src="@{/js/theme-editor-boot.js}"></script>
 
