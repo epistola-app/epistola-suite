@@ -190,6 +190,7 @@ class EpistolaStencilApi(
             stencilId = stencilIdComposite,
             content = content,
             parameterSchema = createStencilVersionRequest?.parameterSchema,
+            inheritParameterSchemaFromSource = false,
         ).execute() ?: throw StencilNotFoundException(tenantIdComposite.key, stencilIdComposite.key)
 
         return ResponseEntity

@@ -104,6 +104,36 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `create stencil version treats omitted or null parameterSchema as no parameters`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val stencilId = "param-clear-${UUID.randomUUID().toString().take(8)}"
+
+        val base = "/api/tenants/${tenantKey.value}/catalogs/default/stencils"
+        val createdStencil = post(
+            base,
+            """{"id":"$stencilId","name":"Param Stencil","parameterSchema":$schema}""",
+            apiKey,
+        )
+        assertThat(createdStencil.statusCode).describedAs(createdStencil.body).isEqualTo(HttpStatus.CREATED)
+
+        val publishedV1 = post("$base/$stencilId/versions/1/publish", "", apiKey)
+        assertThat(publishedV1.statusCode).describedAs(publishedV1.body).isEqualTo(HttpStatus.OK)
+
+        val omitted = post("$base/$stencilId/versions", "{}", apiKey)
+        assertThat(omitted.statusCode).describedAs(omitted.body).isEqualTo(HttpStatus.CREATED)
+        assertNoSchema(omitted.body)
+        assertThat(JsonPath.read<String>(omitted.body, "$.content.root")).isEqualTo("root")
+
+        val publishedV2 = post("$base/$stencilId/versions/2/publish", "", apiKey)
+        assertThat(publishedV2.statusCode).describedAs(publishedV2.body).isEqualTo(HttpStatus.OK)
+
+        val explicitNull = post("$base/$stencilId/versions", """{"parameterSchema":null}""", apiKey)
+        assertThat(explicitNull.statusCode).describedAs(explicitNull.body).isEqualTo(HttpStatus.CREATED)
+        assertNoSchema(explicitNull.body)
+        assertThat(JsonPath.read<String>(explicitNull.body, "$.content.root")).isEqualTo("root")
+    }
+
+    @Test
     fun `update draft parameterSchema round-trips`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val stencilId = "param-update-${UUID.randomUUID().toString().take(8)}"
@@ -150,6 +180,11 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
         val lenient = Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS)
         assertThat(JsonPath.using(lenient).parse(response.body).read<Any?>("$.parameterSchema")).isNull()
+    }
+
+    private fun assertNoSchema(body: String?) {
+        val lenient = Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS)
+        assertThat(JsonPath.using(lenient).parse(body).read<Any?>("$.parameterSchema")).isNull()
     }
 
     private fun assertSchema(body: String?) {

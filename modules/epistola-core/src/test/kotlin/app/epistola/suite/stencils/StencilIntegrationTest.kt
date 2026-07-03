@@ -40,6 +40,8 @@ import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 class StencilIntegrationTest : IntegrationTestBase() {
 
@@ -60,6 +62,11 @@ class StencilIntegrationTest : IntegrationTestBase() {
     )
 
     private fun stencilId(tenantId: TenantId) = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
+
+    private fun parameterSchema(): ObjectNode = ObjectMapper().readValue(
+        """{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""",
+        ObjectNode::class.java,
+    )
 
     // ── CRUD ──
 
@@ -212,6 +219,22 @@ class StencilIntegrationTest : IntegrationTestBase() {
 
         val retrieved = GetStencilVersion(versionId = StencilVersionId(VersionKey.of(2), id)).query()
         assertThat(retrieved!!.content.nodes).containsKey("text1")
+    }
+
+    @Test
+    fun `create version inherits source parameter schema by default`() = test {
+        val tenant = createTenant("Schema Copy")
+        val tenantId = TenantId(tenant.id)
+        val id = stencilId(tenantId)
+        val schema = parameterSchema()
+
+        CreateStencil(id = id, name = "Param Header", content = createTestContent(), parameterSchema = schema).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), id)).execute()
+
+        val draft = CreateStencilVersion(stencilId = id).execute()
+        assertThat(draft).isNotNull
+        assertThat(draft!!.id.value).isEqualTo(2)
+        assertThat(draft.parameterSchema).isEqualTo(schema)
     }
 
     @Test
