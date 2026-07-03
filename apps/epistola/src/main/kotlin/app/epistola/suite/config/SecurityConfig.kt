@@ -235,11 +235,17 @@ class SecurityConfig(
             }
             .headers { headers ->
                 headers.contentSecurityPolicy { csp ->
+                    // ADR 0010: script-src is strictly 'self' — no 'unsafe-inline',
+                    // no external origins. Executable inline scripts and on*=
+                    // attributes are banned from templates (CspTemplateComplianceTest);
+                    // behavior lives in static JS, server data in inert
+                    // <script type="application/json"> islands. style-src keeps
+                    // 'unsafe-inline' deliberately (Option E of the ADR is deferred).
                     csp.policyDirectives(
                         "default-src 'self'; " +
-                            "script-src 'self' 'unsafe-inline'; " +
-                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-                            "font-src 'self' https://fonts.gstatic.com; " +
+                            "script-src 'self'; " +
+                            "style-src 'self' 'unsafe-inline'; " +
+                            "font-src 'self'; " +
                             "img-src 'self' data:; " +
                             "connect-src 'self'; " +
                             "frame-src blob:; " +
