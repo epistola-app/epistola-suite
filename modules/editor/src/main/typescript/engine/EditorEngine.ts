@@ -32,12 +32,6 @@ import {
 } from './styles.js';
 
 // ---------------------------------------------------------------------------
-// Listener type (deprecated — use events.on('doc:change') instead)
-// ---------------------------------------------------------------------------
-
-export type EngineListener = (doc: TemplateDocument, indexes: DocumentIndexes) => void;
-
-// ---------------------------------------------------------------------------
 // Engine
 // ---------------------------------------------------------------------------
 
@@ -325,14 +319,6 @@ export class EditorEngine {
     this._events.emit('example:change', { index, example });
   }
 
-  /**
-   * Subscribe to data example changes. Returns unsubscribe function.
-   * @deprecated Use `engine.events.on('example:change', ...)` instead.
-   */
-  onExampleChange(listener: (index: number, example: object | undefined) => void): () => void {
-    return this._events.on('example:change', ({ index, example }) => listener(index, example));
-  }
-
   get resolvedDocStyles(): Record<string, unknown> {
     return this._resolvedDocStyles;
   }
@@ -407,14 +393,6 @@ export class EditorEngine {
     if (previousSibling) return previousSibling;
 
     return this._indexes.parentNodeByNodeId.get(nodeId) ?? null;
-  }
-
-  /**
-   * Subscribe to selection changes. Returns unsubscribe function.
-   * @deprecated Use `engine.events.on('selection:change', ...)` instead.
-   */
-  onSelectionChange(listener: (nodeId: NodeId | null) => void): () => void {
-    return this._events.on('selection:change', ({ nodeId }) => listener(nodeId));
   }
 
   // -----------------------------------------------------------------------
@@ -596,14 +574,6 @@ export class EditorEngine {
   // -----------------------------------------------------------------------
   // Subscription
   // -----------------------------------------------------------------------
-
-  /**
-   * Subscribe to document changes. Returns unsubscribe function.
-   * @deprecated Use `engine.events.on('doc:change', ...)` instead.
-   */
-  subscribe(listener: EngineListener): () => void {
-    return this._events.on('doc:change', ({ doc, indexes }) => listener(doc, indexes));
-  }
 
   private _notify(structureChanged: boolean, commandType?: string, command?: unknown): void {
     this._events.emit('doc:change', {

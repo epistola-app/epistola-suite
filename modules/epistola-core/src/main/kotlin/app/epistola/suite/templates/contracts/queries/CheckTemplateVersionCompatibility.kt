@@ -6,10 +6,8 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.analysis.FieldIncompatibility
-import app.epistola.suite.templates.analysis.IncompatibilityReason
 import app.epistola.suite.templates.analysis.TemplateCompatibilityResult
-import app.epistola.suite.templates.contracts.SchemaPathNavigator
+import app.epistola.suite.templates.contracts.TemplateVersionCompatibilityEvaluator
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.core.JacksonException
@@ -40,7 +38,7 @@ class CheckTemplateVersionCompatibilityHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<CheckTemplateVersionCompatibility, TemplateCompatibilityResult> {
 
-    private val navigator = SchemaPathNavigator()
+    private val evaluator = TemplateVersionCompatibilityEvaluator()
 
     override fun handle(query: CheckTemplateVersionCompatibility): TemplateCompatibilityResult {
         // Load the version's referenced_paths and its contract's data_model in one query
@@ -73,10 +71,6 @@ class CheckTemplateVersionCompatibilityHandler(
             .readStringArrayColumn(pathsJson, "template_versions.referenced_paths for ${query.versionId}")
             .toSet()
 
-        if (referencedPaths.isEmpty()) {
-            return TemplateCompatibilityResult(compatible = true, incompatibilities = emptyList())
-        }
-
         // Parse old schema from contract. A corrupt data_model must fail the check:
         // treating it as "no old schema" silently skips all TYPE_CHANGED detection.
         val oldSchema: ObjectNode? = row["contract_data_model"]?.let { raw ->
@@ -90,44 +84,6 @@ class CheckTemplateVersionCompatibilityHandler(
             }
         }
 
-        val newSchema = query.newSchema
-
-        // Schema removed entirely
-        if (oldSchema != null && newSchema == null) {
-            return TemplateCompatibilityResult(
-                compatible = false,
-                incompatibilities = referencedPaths.map {
-                    FieldIncompatibility(it, IncompatibilityReason.FIELD_REMOVED, "Schema removed entirely")
-                },
-            )
-        }
-
-        if (newSchema == null) {
-            return TemplateCompatibilityResult(compatible = true, incompatibilities = emptyList())
-        }
-
-        // Check each referenced path against old and new schemas
-        val incompatibilities = mutableListOf<FieldIncompatibility>()
-
-        for (path in referencedPaths) {
-            val newField = navigator.resolve(newSchema, path)
-
-            if (!newField.found) {
-                incompatibilities.add(FieldIncompatibility(path, IncompatibilityReason.FIELD_REMOVED, "\"$path\" not found in new schema"))
-                continue
-            }
-
-            if (oldSchema != null) {
-                val oldField = navigator.resolve(oldSchema, path)
-                if (oldField.found && oldField.type != newField.type) {
-                    incompatibilities.add(FieldIncompatibility(path, IncompatibilityReason.TYPE_CHANGED, "\"$path\" type changed from ${oldField.type} to ${newField.type}"))
-                }
-            }
-        }
-
-        return TemplateCompatibilityResult(
-            compatible = incompatibilities.isEmpty(),
-            incompatibilities = incompatibilities,
-        )
+        return evaluator.evaluate(referencedPaths, oldSchema, query.newSchema)
     }
 }

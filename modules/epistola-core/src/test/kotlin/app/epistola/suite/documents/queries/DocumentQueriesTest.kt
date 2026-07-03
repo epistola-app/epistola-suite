@@ -193,8 +193,8 @@ class DocumentQueriesTest : IntegrationTestBase() {
             )
         }
 
-        // Wait briefly for jobs to be created
-        Thread.sleep(500)
+        // Drain the tenant's pending generation jobs synchronously so all 5 exist deterministically
+        drainGenerationJobs(tenant.id)
 
         // Get first page (limit 2)
         val page1 = mediator.query(ListGenerationJobs(tenant.id, null, 2, 0))

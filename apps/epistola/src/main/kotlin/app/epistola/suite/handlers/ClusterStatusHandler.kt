@@ -1,8 +1,9 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.cluster.ClusterNode
-import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
+import app.epistola.suite.cluster.ListClusterNodes
+import app.epistola.suite.cluster.RecordClusterHeartbeat
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskNodeState
@@ -13,6 +14,7 @@ import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.time.EpistolaClock
 import org.springframework.stereotype.Component
@@ -29,7 +31,6 @@ import org.springframework.web.servlet.function.ServerResponse
  */
 @Component
 class ClusterStatusHandler(
-    private val registry: ClusterNodeRegistry,
     private val properties: ClusterProperties,
 ) {
 
@@ -59,9 +60,9 @@ class ClusterStatusHandler(
     }
 
     private fun loadReport(): ClusterStatusReport {
-        val currentNode = registry.heartbeat()
+        val currentNode = RecordClusterHeartbeat.execute()
         val now = EpistolaClock.offsetDateTime()
-        val nodes = registry.allNodes().map { node ->
+        val nodes = ListClusterNodes.query().map { node ->
             val ageMs = java.time.Duration.between(node.lastSeenAt, now).toMillis().coerceAtLeast(0)
             ClusterNodeStatus(
                 node = node,

@@ -4,6 +4,12 @@
  * referenced node type is registered, and parent-child types respect each
  * component's `allowedChildren` rules.
  *
+ * Also enforces COVERAGE: every registered component (including mount-time
+ * registrations like the stencil) must declare at least one example — the
+ * examples are the canonical AI-facing usage contract served by the MCP
+ * server's `list_component_types` / `get_component_type` tools, so a
+ * component without one ships undocumented.
+ *
  * Catches authoring slips (mistyped IDs, forgotten slot, wrong child type)
  * before the JSON dump ships.
  */
@@ -11,9 +17,37 @@
 import { describe, it, expect } from 'vitest';
 import { buildIndexes } from './indexes.js';
 import { createDefaultRegistry, liftExampleFragment, type ComponentExample } from './registry.js';
+import { createStencilDefinition } from '../components/stencil/stencil-registration.js';
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
 
 const registry = createDefaultRegistry();
+// The stencil is registered at mount time (lib.ts) rather than in
+// createDefaultRegistry; register it here so its examples are validated and
+// counted toward coverage, matching the set the registry dump serializes.
+registry.register(createStencilDefinition({ callbacks: null }));
+
+/**
+ * Components exempt from the at-least-one-example requirement. Must stay
+ * EMPTY unless a component is genuinely impossible to exemplify (abstract /
+ * internal-only, never serialized into a document). Do not add entries just
+ * to silence the coverage test — write the example instead; missing examples
+ * are a PR blocker (see CLAUDE.md "Editor component registrations").
+ */
+const EXAMPLE_EXEMPT_TYPES: ReadonlySet<string> = new Set([]);
+
+describe('example coverage', () => {
+  it('every registered component declares at least one example', () => {
+    const missing = registry
+      .all()
+      .filter((def) => !EXAMPLE_EXEMPT_TYPES.has(def.type))
+      .filter((def) => (def.examples ?? []).length === 0)
+      .map((def) => def.type);
+    expect(
+      missing,
+      `components without examples[]: ${missing.join(', ')} — every ComponentDefinition must ship at least one usage example (issue #677)`,
+    ).toEqual([]);
+  });
+});
 
 /**
  * Wrap an example fragment in a minimal valid TemplateDocument by adding a

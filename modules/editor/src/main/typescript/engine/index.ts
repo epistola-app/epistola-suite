@@ -1,4 +1,4 @@
-export { EditorEngine, type EngineListener } from './EditorEngine.js';
+export { EditorEngine } from './EditorEngine.js';
 export { EventEmitter, type EngineEvents } from './events.js';
 export {
   type AnyCommand,

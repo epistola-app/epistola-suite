@@ -18,7 +18,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.queries.ListDocumentTemplates
-import app.epistola.suite.tenants.TenantProvisioningPort
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
@@ -32,7 +31,6 @@ import org.springframework.web.servlet.function.ServerResponse
 
 @Component
 class TenantHandler(
-    private val tenantProvisioner: TenantProvisioningPort,
     private val changelogRenderer: ChangelogRenderer,
     private val changelogService: ChangelogService,
     private val buildProperties: BuildProperties?,
@@ -159,12 +157,8 @@ class TenantHandler(
             }
         }
 
-        // Provision IDP resources (non-critical — log warning on failure)
-        try {
-            tenantProvisioner.provisionTenant(tenantId, name)
-        } catch (e: Exception) {
-            log.warn("Tenant '{}' created but IDP provisioning failed: {}", tenantId.value, e.message)
-        }
+        // IDP provisioning happens in ProvisionIdpOnTenantCreate (AFTER_COMMIT event
+        // handler on CreateTenant), so REST-created tenants get it too.
 
         val tenants = ListTenants().query()
         return request.htmx {
