@@ -5,6 +5,7 @@ import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.AttributeDtoCodeListBinding
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
+import app.epistola.api.model.TemplateDocumentDto
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateSummaryDto
 import app.epistola.api.model.TenantDto
@@ -107,7 +108,7 @@ internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
 internal fun TemplateVersion.toDto(objectMapper: ObjectMapper) = VersionDto(
     id = id.value,
     variantId = variantKey.value,
-    templateModel = objectMapper.valueToTree(templateModel),
+    templateModel = objectMapper.convertValue(templateModel, TemplateDocumentDto::class.java),
     status = status.toDtoStatus(),
     createdAt = createdAt,
     publishedAt = publishedAt,
