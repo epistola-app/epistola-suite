@@ -776,6 +776,17 @@ Kotlin `@JvmInline value class` types (e.g., `VariantId(val value: String)`) are
 <option th:value="${variant.id.value}"></option>
 ```
 
+## Client-Side Scripting
+
+Templates never contain executable inline `<script>` tags or `on*=` handler
+attributes — the CSP is `script-src 'self'` (see
+[ADR 0010](adr/0010-strict-script-src-csp.md) and the Content Security Policy
+section in `CLAUDE.md`). Fragment behavior is declared with `data-*` hooks and
+implemented as delegated listeners in static JS (`static/js/behaviors.js` and
+`static/js/pages/*`); server data crosses to JS via inert
+`<script type="application/json">` islands. `CspTemplateComplianceTest` enforces
+this at build time.
+
 ## See Also
 
 - [HTMX Documentation](https://htmx.org/docs/)

@@ -161,26 +161,29 @@ The frontend uses a **server-side rendering** approach:
 
 ### Content Security Policy
 
-A strict CSP is enforced on all UI responses (`SecurityConfig.kt`). Key restrictions:
+A strict CSP is enforced on all UI responses (`SecurityConfig.kt`): **`script-src 'self'`** — no `'unsafe-inline'`, no `'unsafe-eval'`, no external origins. See [ADR 0010](docs/adr/0010-strict-script-src-csp.md). Consequences for template work (enforced by `CspTemplateComplianceTest`, fails the build):
 
-- **`script-src 'self' 'unsafe-inline'`** — inline `<script>` tags are allowed, but `eval()` is NOT (`unsafe-eval` is absent)
-- **Do NOT use `hx-on::*` or `hx-on-*` attributes** — these HTMX event handler attributes use `eval()` internally, which the CSP blocks. Use inline `<script>` tags with `addEventListener` instead:
+- **No executable inline `<script>` anywhere.** All behavior lives in static JS files (`apps/epistola/src/main/resources/static/js/`, or a feature module's own `static/` dir). Note the shell uses `hx-boost="true"`, so even page navigation is an HTMX body swap — per-page `<head>` scripts never (re)load; app page behaviors are registered globally in `fragments/htmx.html`.
+- **No inline `on*=` handler attributes** (`onclick=`, `onchange=`, …) and no `hx-on::*`/`hx-on-*` (these `eval()`). Instead: declare a `data-*` hook on the element and add a **delegated listener** in a static JS file — listeners are installed once on `document` (HTMX events bubble), so they work for content present at load and content swapped in later:
 
   ```html
-  <!-- BAD: blocked by CSP -->
-  <form hx-on::after-request="doSomething()">
-    <!-- GOOD: use addEventListener -->
-    <form id="my-form">
-      <script>
-        document.getElementById("my-form").addEventListener("htmx:afterRequest", function (e) {
-          if (e.detail.successful) doSomething();
-        });
-      </script>
-    </form>
-  </form>
+  <!-- template: markup only -->
+  <form hx-post="/tenants" data-reset-on-success>…</form>
   ```
 
-- **Thymeleaf also mangles `hx-on::*`** — the `::` is interpreted as a fragment expression separator and stripped during template processing. This is a second reason to avoid these attributes.
+  ```js
+  // static JS: registered once, works for every such form, incl. swapped-in ones
+  document.addEventListener("htmx:afterRequest", (e) => {
+    const form = e.target.closest("form[data-reset-on-success]");
+    if (form && e.detail.successful) form.reset();
+  });
+  ```
+
+  Generic hooks already exist in `static/js/behaviors.js` (`data-open-dialog`, `data-close-dialog`, `data-confirm-url`, `data-confirm-submit`, `data-reset-on-success`, `data-copy-source`, …) — reuse before inventing new ones.
+
+- **Server data reaches JS via inert JSON islands**, not executable code: `<script type="application/json" id="…" th:inline="javascript">` parsed from static JS (initialization is driven by `htmx:load`, which fires for the initial page and every swap; guard with a `data-…-mounted` attribute). Small values can ride `data-*` attributes instead.
+- **`style-src` still allows `'unsafe-inline'`** (deliberate, see ADR 0010 Option E) — inline `style=` attributes are fine.
+- UI tests fail on any CSP violation reported in the browser console (`BasePlaywrightTest`).
 
 ### Editor component registrations
 
