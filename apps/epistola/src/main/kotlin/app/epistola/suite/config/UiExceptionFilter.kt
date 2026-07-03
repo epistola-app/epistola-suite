@@ -53,7 +53,7 @@ class UiExceptionFilter(
         try {
             filterChain.doFilter(request, response)
         } catch (ex: Exception) {
-            val error = resolve(unwrap(ex))
+            val error = resolve(ex)
             if (wantsProblemDetail(request)) {
                 // RFC 9457 problem+json — same `type` URI as the REST API, no stacktrace.
                 response.status = error.status
@@ -80,15 +80,17 @@ class UiExceptionFilter(
      * domain module. The status is the one this UI surface has historically returned
      * (e.g. read-only catalog → 403), independent of the type's canonical REST status.
      */
-    private fun resolve(cause: Throwable): UiError {
+    private fun resolve(ex: Throwable): UiError {
         // Safety net (#608): an over-length value that slipped past validation and hit a
         // VARCHAR(n) column throws a PostgreSQL string-truncation (SQLSTATE 22001). Map it
         // to a 400 so it never renders as an opaque 500. 22001 carries no column info, so
-        // this stays a form-level message rather than a field error.
-        if (isStringTruncation(cause)) {
-            log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", cause.message)
+        // this stays a form-level message rather than a field error. Checked against the
+        // full chain (not the unwrapped leaf) so the SQLException is found wherever it sits.
+        findStringTruncation(ex)?.let { truncation ->
+            log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
             return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered is too long.")
         }
+        val cause = unwrap(ex)
         return when (cause::class.simpleName) {
             "TenantAccessDeniedException" -> {
                 log.warn("Tenant access denied: {}", cause.message)
@@ -114,16 +116,16 @@ class UiExceptionFilter(
     }
 
     /**
-     * Whether the failure chain contains a PostgreSQL string-truncation
-     * (SQLSTATE 22001) — an over-length value that reached a `VARCHAR(n)` column.
+     * The PostgreSQL string-truncation (SQLSTATE 22001) in the failure chain — an
+     * over-length value that reached a `VARCHAR(n)` column — or null if there is none.
      */
-    private fun isStringTruncation(cause: Throwable): Boolean {
-        var c: Throwable? = cause
+    private fun findStringTruncation(ex: Throwable): SQLException? {
+        var c: Throwable? = ex
         while (c != null) {
-            if (c is SQLException && c.sqlState == "22001") return true
+            if (c is SQLException && c.sqlState == "22001") return c
             c = c.cause
         }
-        return false
+        return null
     }
 
     /** Unwrap nested exceptions (e.g. from Spring's NestedServletException). */
