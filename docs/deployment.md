@@ -206,30 +206,72 @@ executes them, so nothing changes.
 
 ### Wiring the two roles in the Helm chart
 
-The chart lets the **migration step** connect as a different database role from
-the app pods, so the app's role (`database.*`) can be the DDL-less runtime role:
+The secure shape is: the **owner/main role runs migrations** (it owns the schema
+objects, so it must hold DDL) and the **app connects as a separate restricted
+role** (DML + `EXECUTE` only). You provision both roles and their grants; the
+chart wires each container to the right one.
+
+**External Postgres.** Point the app at the restricted role and the migration
+step at the owner:
 
 ```yaml
+database:
+  external:
+    username: epistola_app # restricted DML/EXECUTE role — the app
+    existingSecret: epistola-app-db
 migration:
   credentials:
-    username: epistola_migrate # the DDL-holding migration role
-    existingSecret: epistola-migrate-db
-    passwordKey: password
+    username: epistola # owner role — runs migrations, holds DDL
+    existingSecret: epistola-owner-db
 ```
 
-When `migration.credentials.username` is set, only the **migration Job /
-init container** uses these credentials (same database URL, different
-username/password); the app pods keep using `database.*`. When it's empty
-(default), the migration step reuses the app credentials — single-role behaviour,
-unchanged.
+**CNPG (`cnpgExisting`).** The CNPG cluster **owner** is the migration role (it
+gets CNPG's rich `-app` secret, which the migration step uses by default). Add
+the restricted app role via `spec.managed.roles`, grant it in `postInitApplicationSQL`
+(which runs _as the owner_, so `ALTER DEFAULT PRIVILEGES` covers the objects the
+owner/Flyway creates — no role-membership gymnastics), and point the app at it
+with `database.cnpgExisting.username`:
 
-You provision the two roles and their grants (the `GRANT`s above), then reference
-them from the chart: the app role via `database.external.*`, the migration role
-via `migration.credentials.*`. For a **CNPG-managed** database, create the second
-role and its grants through the CNPG `Cluster` you manage (`spec.managed.roles`
-plus your bootstrap SQL) — with `database.type=cnpgExisting` the chart just
-consumes it. The two-role split is otherwise identical: app pods use their
-credentials, the migration step uses `migration.credentials`.
+```yaml
+# in your CNPG Cluster manifest
+spec:
+  bootstrap:
+    initdb:
+      owner: epistola # the migration role — owns objects, runs Flyway
+      postInitApplicationSQL:
+        - CREATE ROLE epistola_app LOGIN
+        - GRANT USAGE ON SCHEMA public TO epistola_app
+        - ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO epistola_app
+        - ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO epistola_app
+  managed:
+    roles:
+      - name: epistola_app
+        ensure: present
+        login: true
+        passwordSecret:
+          name: epistola-app-db
+```
+
+```yaml
+# in the HelmRelease values
+database:
+  type: cnpgExisting
+  cnpgExisting:
+    clusterName: epistola-db
+    username: epistola_app # app connects as the restricted role…
+    existingSecret: epistola-app-db
+# migration.credentials is NOT needed — the migration step uses the cluster
+# owner (the -app secret) by default.
+```
+
+With `database.cnpgExisting.username` set, only the **app pods** drop to the
+restricted role (URL/host still from the cluster's `-app` secret); the migration
+Job/init container keeps using the owner. Leave it empty for single-role
+(app = owner, unchanged).
+
+> Validate the `ALTER DEFAULT PRIVILEGES` / role setup against your CNPG and
+> Postgres versions — public-schema ownership and default-privilege semantics are
+> version-sensitive.
 
 ## Trusting a client root CA: `extraCaCerts`
 

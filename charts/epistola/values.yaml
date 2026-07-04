@@ -431,3 +431,16 @@ database:
     clusterName: ""
     # Secret name (defaults to <clusterName>-app)
     secretName: ""
+    # Optional: connect the APP as a specific role instead of the cluster owner.
+    # Use this for the secure two-role setup — the cluster owner runs migrations
+    # (holds DDL) and the app uses a restricted DML-only role. Provision the role
+    # on the cluster (spec.managed.roles) with the required grants; see the CNPG
+    # two-role recipe in docs/deployment.md. The database host/URL are taken from
+    # the cluster's -app secret; only the credentials differ. Leave empty to use
+    # the owner (single-role, unchanged). The migration step keeps using the owner
+    # unless overridden via migration.credentials.
+    username: ""
+    # Secret holding the app role's password; required when `username` is set.
+    existingSecret: ""
+    # Key within `existingSecret` that holds the password.
+    passwordKey: password

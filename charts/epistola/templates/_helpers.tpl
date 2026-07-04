@@ -112,6 +112,21 @@ config.env to provide the datasource.
     secretKeyRef:
       name: {{ include "epistola.cnpg.secretName" . }}
       key: jdbc-uri
+{{- if .Values.database.cnpgExisting.username }}
+{{- /* App connects as a specific role (e.g. a DDL-less runtime role) instead of
+       the cluster owner — the secure two-role setup where the owner runs
+       migrations and the app only does DML/EXECUTE (see docs/deployment.md).
+       URL/host stay from the cluster's -app secret; only the credentials differ.
+       CNPG mints a plain username/password Secret for managed roles, so the
+       password comes from that Secret. */}}
+- name: SPRING_DATASOURCE_USERNAME
+  value: {{ .Values.database.cnpgExisting.username | quote }}
+- name: SPRING_DATASOURCE_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ required "database.cnpgExisting.existingSecret is required when database.cnpgExisting.username is set" .Values.database.cnpgExisting.existingSecret }}
+      key: {{ .Values.database.cnpgExisting.passwordKey | default "password" }}
+{{- else }}
 - name: SPRING_DATASOURCE_USERNAME
   valueFrom:
     secretKeyRef:
@@ -122,6 +137,7 @@ config.env to provide the datasource.
     secretKeyRef:
       name: {{ include "epistola.cnpg.secretName" . }}
       key: password
+{{- end }}
 {{- else if eq $dbType "external" }}
 - name: SPRING_DATASOURCE_URL
   value: "jdbc:postgresql://{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}"
@@ -138,24 +154,25 @@ config.env to provide the datasource.
 {{/*
 Datasource env for the MIGRATION container (SPRING_DATASOURCE_*).
 
-When `migration.credentials.username` is set, the migration step connects as a
-separate role — the one that holds DDL — while the app pods keep using the
-app/runtime credentials (`database.*`), which can then be a DDL-less runtime role
-(see #438 and docs/deployment.md). The database URL is the same (same host/db);
-only the username/password differ. When unset, this falls back to the shared
-app credentials, so existing single-role deployments are unchanged.
+The migration step needs the DDL-holding role. Resolution order:
+  1. `migration.credentials.username` set → connect as that explicit role
+     (any database type; URL shared, only username/password differ).
+  2. Otherwise, for `cnpgExisting` → connect as the CNPG cluster OWNER (the
+     `-app` secret), NOT whatever `database.cnpgExisting.username` set for the
+     app. This is the secure two-role default: the owner runs migrations, the
+     app connects as a restricted role. Single-role setups (no app override)
+     also land here as the same owner, unchanged.
+  3. Otherwise (external/none) → reuse the app credentials from
+     `epistola.databaseEnv` (single-role, unless overridden via case 1).
 
-The operator provisions the migration role and its password Secret out of band
-(for CNPG, e.g. via `managed.roles`); this only wires the migration container to
-use it.
+The operator provisions any extra roles and their Secrets out of band (for CNPG,
+via `managed.roles`); this only wires the migration container to the right one.
 */}}
 {{- define "epistola.migrationDatabaseEnv" -}}
 {{- $mig := .Values.migration.credentials | default dict -}}
-{{- if not $mig.username }}
-{{- include "epistola.databaseEnv" . }}
-{{- else }}
 {{- $dbType := include "epistola.database.effectiveType" . -}}
-{{- if or (eq $dbType "cnpg") (eq $dbType "cnpgExisting") }}
+{{- if $mig.username }}
+{{- if eq $dbType "cnpgExisting" }}
 - name: SPRING_DATASOURCE_URL
   valueFrom:
     secretKeyRef:
@@ -172,6 +189,26 @@ use it.
     secretKeyRef:
       name: {{ required "migration.credentials.existingSecret is required when migration.credentials.username is set" $mig.existingSecret }}
       key: {{ $mig.passwordKey | default "password" }}
+{{- else if eq $dbType "cnpgExisting" }}
+{{- /* Migration always uses the cluster owner (-app secret), independent of any
+       app-role override on database.cnpgExisting. */}}
+- name: SPRING_DATASOURCE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "epistola.cnpg.secretName" . }}
+      key: jdbc-uri
+- name: SPRING_DATASOURCE_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "epistola.cnpg.secretName" . }}
+      key: username
+- name: SPRING_DATASOURCE_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "epistola.cnpg.secretName" . }}
+      key: password
+{{- else }}
+{{- include "epistola.databaseEnv" . }}
 {{- end }}
 {{- end }}
 
