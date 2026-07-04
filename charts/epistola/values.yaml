@@ -333,9 +333,9 @@ datasource:
     # Per-replica pool size (fixed: minimum-idle is pinned to this). Each replica
     # owns its own pool, so the cluster total is replicas * maximumPoolSize. Ensure
     # Postgres max_connections comfortably exceeds
-    # (maxReplicas * maximumPoolSize) + migration job + reserve. Raise
-    # database.cnpg.parameters.max_connections (or front PG with PgBouncer) when
-    # scaling replicaCount / autoscaling.
+    # (maxReplicas * maximumPoolSize) + migration job + reserve. Raise your
+    # database's max_connections (or front PG with PgBouncer) when scaling
+    # replicaCount / autoscaling.
     maximumPoolSize: 20
     # APP per-socket read timeout (SECONDS). Breaks a wedged active read (post
     # DB-failover / network blip) so the pool self-heals without a restart. Keep
@@ -353,11 +353,6 @@ datasource:
 #                    validate the schema as with `job`.
 #   embedded      — the app runs Flyway at boot (single-process convenience,
 #                    e.g. local/dev or single-replica).
-#
-# NOTE: with database.type=cnpg the CNPG Cluster is created after Helm hooks, so
-# on a *fresh* install the `job` mode cannot reach the database yet. Use
-# `initContainer` (or `embedded`) for the first install of a managed CNPG
-# database, or pre-create the cluster / use cnpgExisting.
 migration:
   mode: job
   # Migration-JVM per-socket read timeout (SECONDS). The migration JVM shares the
@@ -408,12 +403,14 @@ migration:
     #     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     annotations: {}
 
-# Database configuration
-# Supported types:
-#   - none: No database configuration (use config.env for manual setup)
-#   - external: External PostgreSQL (manual host/port/credentials)
-#   - cnpg: Create a new CloudNativePG Cluster (requires CNPG operator)
-#   - cnpgExisting: Use existing CloudNativePG Cluster credentials
+# Database configuration. The chart CONSUMES a database; it does not provision
+# one — the database has its own lifecycle and must never be tied to (and deleted
+# with) the app release. Supported types:
+#   - none:         No datasource wired (supply it yourself via config.env).
+#   - external:     Any PostgreSQL by host/port/credentials.
+#   - cnpgExisting: An existing CloudNativePG cluster's credentials (you manage
+#                   the CNPG Cluster resource separately — see
+#                   charts/epistola/examples/cnpg-cluster.yaml and docs/deployment.md).
 database:
   type: "none"
 
@@ -427,35 +424,6 @@ database:
     existingSecret: ""
     # Key in the secret containing the password
     secretKey: password
-
-  # CloudNativePG Cluster configuration (type: cnpg)
-  cnpg:
-    # Cluster name (defaults to release fullname + "-db")
-    name: ""
-    # Number of PostgreSQL instances
-    instances: 1
-    # PostgreSQL major version
-    postgresVersion: 17
-    # Database to create
-    database: epistola
-    # Application user to create (owner of the database)
-    owner: epistola
-    # Storage configuration
-    storage:
-      size: 8Gi
-      storageClass: ""
-    # Resource requests/limits for PostgreSQL pods
-    resources: {}
-    #   requests:
-    #     memory: 256Mi
-    #     cpu: 100m
-    #   limits:
-    #     memory: 1Gi
-    #     cpu: 1000m
-    # Additional PostgreSQL parameters
-    parameters: {}
-    #   max_connections: "100"
-    #   shared_buffers: "256MB"
 
   # Existing CNPG Cluster configuration (type: cnpgExisting)
   cnpgExisting:

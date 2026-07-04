@@ -8,11 +8,11 @@ migration model itself see [`migrations.md`](migrations.md).
 Migrations run as a **separate, explicit step** by default (issue #431). The
 chart selects how via `migration.mode`:
 
-| Mode            | What runs                                                                                              | When to use                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `job` (default) | A `pre-install`/`pre-upgrade` hook Job migrates **once per release** before the Deployment is applied. | Multi-replica / production. Strongest deploy gate.                             |
-| `initContainer` | An init container in **every app pod** migrates (idempotent) before the app container starts.          | Simpler clusters; fresh installs of a chart-managed CNPG database (see below). |
-| `embedded`      | The app process runs Flyway at boot (no separate step).                                                | Local/dev or single-replica convenience.                                       |
+| Mode            | What runs                                                                                              | When to use                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| `job` (default) | A `pre-install`/`pre-upgrade` hook Job migrates **once per release** before the Deployment is applied. | Multi-replica / production. Strongest deploy gate.  |
+| `initContainer` | An init container in **every app pod** migrates (idempotent) before the app container starts.          | Simpler clusters / GitOps tools without Helm hooks. |
+| `embedded`      | The app process runs Flyway at boot (no separate step).                                                | Local/dev or single-replica convenience.            |
 
 In `job` and `initContainer` modes the chart injects
 `EPISTOLA_MIGRATION_MODE=validate` into the app container, so app pods only
@@ -83,16 +83,23 @@ config:
 replicaCount: 3
 ```
 
-### Fresh install with a chart-managed CNPG cluster
+### Using a CloudNativePG database (`cnpgExisting`)
 
-`job` mode is rejected here (see the caveat below) — use `initContainer` for the
-first install, then switch back to `job` for subsequent upgrades if desired:
+The chart does **not** provision a database — a database must not share the app
+release's lifecycle (a `helm uninstall` would delete it). Own the CNPG `Cluster`
+yourself and point the chart at it:
 
 ```bash
-helm install epistola oci://ghcr.io/epistola-app/charts/epistola \
-  --set database.type=cnpg \
-  --set migration.mode=initContainer
+kubectl apply -f charts/epistola/examples/cnpg-cluster.yaml   # your cluster, your lifecycle
+helm upgrade --install epistola oci://ghcr.io/epistola-app/charts/epistola \
+  --set database.type=cnpgExisting \
+  --set database.cnpgExisting.clusterName=epistola-db
 ```
+
+CNPG generates the app-credentials Secret `<clusterName>-app`, which the chart
+reads. `examples/cnpg-cluster.yaml` is a minimal starting point; extend it (roles,
+grants, storage, resources) as your environment needs. This is also how you set
+up the [DDL-less two-role](#running-with-a-ddl-less-runtime-role) database.
 
 ### Run the migration step standalone (outside Helm / CI / one-off)
 
@@ -122,20 +129,14 @@ the app migrates at boot as before.
 ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local'
 ```
 
-## CNPG ordering caveat
+## Waiting for the database
 
-With `database.type=cnpg`, the CloudNativePG `Cluster` is a normal (non-hook)
-resource Helm applies **after** hooks run. So on a **fresh `helm install`** the
-`pre-install` migration Job starts before the database exists. A `wait-for-db`
-init container (image: `migration.waitImage`, default `busybox:1.36`) polls the
-DB TCP port and tolerates CNPG's asynchronous provisioning on **upgrades** and
-for `external` / `cnpgExisting` databases — but on a first install of a
-chart-managed CNPG cluster it will time out (`migration.job.activeDeadlineSeconds`).
-
-For the first install of a chart-managed CNPG database, use
-`migration.mode=initContainer` (or `embedded`), or pre-create the cluster and use
-`database.type=cnpgExisting`. The `wait-for-db` container is skipped entirely for
-`database.type=none` (you wire the datasource via `config.env`).
+Because the database is provisioned outside this chart, it exists before a
+release runs. A `wait-for-db` init container (image: `migration.waitImage`) still
+polls the DB TCP port before migrating, so a CNPG cluster (`cnpgExisting`) that is
+still finishing asynchronous provisioning, or a brief network blip, is tolerated
+rather than failing the release. The `wait-for-db` container is skipped entirely
+for `database.type=none` (you wire the datasource via `config.env`).
 
 ## Failure handling & exit codes
 
@@ -317,9 +318,9 @@ Two knobs are surfaced as chart values:
   size, pinned to `minimum-idle` (fixed-size pool). Because each replica owns its
   own pool, the cluster total is `replicas × maximumPoolSize`. Ensure Postgres
   `max_connections` comfortably exceeds
-  `(maxReplicas × maximumPoolSize) + migration job + reserve`; raise
-  `database.cnpg.parameters.max_connections` (or front Postgres with PgBouncer)
-  before scaling `replicaCount`/autoscaling.
+  `(maxReplicas × maximumPoolSize) + migration job + reserve`; raise your
+  database's `max_connections` (or front Postgres with PgBouncer) before scaling
+  `replicaCount`/autoscaling.
 - **`datasource.hikari.socketTimeoutSeconds`** (default `30`) — the app's
   per-socket read timeout. Keep it at or above your slowest normal query.
 

@@ -79,28 +79,15 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Get the CNPG cluster name
-*/}}
-{{- define "epistola.cnpg.clusterName" -}}
-{{- if .Values.database.cnpg.name }}
-{{- .Values.database.cnpg.name }}
-{{- else }}
-{{- printf "%s-db" (include "epistola.fullname" .) | trunc 63 | trimSuffix "-" }}
-{{- end }}
-{{- end }}
-
-{{/*
-Get the CNPG secret name for app credentials
+Get the CNPG secret name for an existing cluster's app credentials
+(database.type=cnpgExisting). The chart does not create CNPG clusters; provision
+the cluster (and any roles) separately — see docs/deployment.md.
 */}}
 {{- define "epistola.cnpg.secretName" -}}
-{{- if eq .Values.database.type "cnpgExisting" }}
 {{- if .Values.database.cnpgExisting.secretName }}
 {{- .Values.database.cnpgExisting.secretName }}
 {{- else }}
 {{- printf "%s-app" .Values.database.cnpgExisting.clusterName }}
-{{- end }}
-{{- else }}
-{{- printf "%s-app" (include "epistola.cnpg.clusterName" .) }}
 {{- end }}
 {{- end }}
 
@@ -119,7 +106,7 @@ config.env to provide the datasource.
 */}}
 {{- define "epistola.databaseEnv" -}}
 {{- $dbType := include "epistola.database.effectiveType" . -}}
-{{- if or (eq $dbType "cnpg") (eq $dbType "cnpgExisting") }}
+{{- if eq $dbType "cnpgExisting" }}
 - name: SPRING_DATASOURCE_URL
   valueFrom:
     secretKeyRef:
@@ -225,7 +212,7 @@ database.type=none (caller must skip the wait container).
 */}}
 {{- define "epistola.databaseProbeEnv" -}}
 {{- $dbType := include "epistola.database.effectiveType" . -}}
-{{- if or (eq $dbType "cnpg") (eq $dbType "cnpgExisting") }}
+{{- if eq $dbType "cnpgExisting" }}
 - name: PGHOST
   valueFrom:
     secretKeyRef:
