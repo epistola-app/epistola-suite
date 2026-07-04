@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-04
+
 ### Added
 
 - **`database.cnpgExisting.username` — connect the app as a restricted role on a CNPG database.** For the secure two-role setup on CloudNativePG: the cluster **owner** runs migrations (holds DDL) and the **app** connects as a separate DML-only role. Set `database.cnpgExisting.username` (+ `existingSecret` / `passwordKey`) and only the **app pods** use that role; the database URL/host still come from the cluster's `-app` secret, and the **migration step keeps using the owner** by default (no `migration.credentials` needed). Empty (default) → app uses the owner, single-role, unchanged. Provision the app role on the cluster via `spec.managed.roles` with its grants — see the CNPG two-role recipe in `docs/deployment.md`. (Complements `migration.credentials`, which does the same on the migration side for `external` databases.)
