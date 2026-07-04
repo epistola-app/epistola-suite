@@ -162,13 +162,51 @@ Tuning (`job` mode): `migration.job.backoffLimit`,
 `migration.job.activeDeadlineSeconds`, `migration.job.ttlSecondsAfterFinished`,
 `migration.resources`.
 
-## Runtime DDL (current limitation)
+## Running with a DDL-less runtime role
 
-`PartitionMaintenanceScheduler` still issues raw partition DDL
-(`CREATE TABLE … PARTITION OF` / `DROP TABLE`) at runtime, so the runtime DB role
-still needs DDL privileges today. Moving that behind `SECURITY DEFINER` functions
-and splitting the migrate role from a DDL-less runtime role is tracked in the
-follow-up backlog issue (#438) — out of scope for the migration-step separation.
+The application performs no schema DDL at runtime **except** monthly partition
+maintenance (`PartitionMaintenanceScheduler` creating current/next-month
+partitions and dropping ones past retention). That runs through two
+`SECURITY DEFINER` functions — `epistola_create_partition(regclass, date)` and
+`epistola_drop_partitions_before(regclass, date)` (created by a core migration) —
+rather than raw `CREATE TABLE`/`DROP TABLE`. A `SECURITY DEFINER` function
+executes with the privileges of its **owner**, so a role that only holds
+`EXECUTE` on it can drive the partition DDL without holding DDL privileges
+itself.
+
+This makes a **two-role** database setup possible:
+
+- **Migration role** — owns the tables and the partition functions, holds DDL,
+  runs Flyway (the separate migration step, `EPISTOLA_MIGRATION_MODE=migrate`).
+- **Runtime role** — what the app pods connect as. Needs only DML on the tables
+  plus `EXECUTE` on the two functions. **No `CREATE`/`ALTER`/`DROP`.**
+
+Grants an operator applies (the migration role owns the functions; grant the
+runtime role execute + DML):
+
+```sql
+GRANT EXECUTE ON FUNCTION
+  epistola_create_partition(regclass, date),
+  epistola_drop_partitions_before(regclass, date)
+  TO <runtime_role>;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO <runtime_role>;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO <runtime_role>;
+```
+
+The functions are bounded to partition management — each requires its `parent`
+to be a RANGE-partitioned table and derives the child name/bounds (create) or
+operates only on real child partitions from `pg_inherits` (drop) — so granting
+`EXECUTE` does not hand the runtime role a general DDL primitive.
+
+**Single-role deployments are unaffected:** the one role owns the functions and
+executes them, so nothing changes.
+
+> **Chart support (follow-up):** the Helm chart currently wires a **single** set
+> of database credentials for both the app and the migration step
+> (`epistola.databaseEnv`). Provisioning two roles and pointing the migration
+> step and app pods at different credentials — including CNPG two-role
+> provisioning — is tracked in **#438**. Until then the two-role split is a
+> manual operator step, most easily done with `database.type=external`.
 
 ## Trusting a client root CA: `extraCaCerts`
 

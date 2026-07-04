@@ -19,7 +19,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 
 /**
  * Scheduled maintenance for RANGE-partitioned tables.
@@ -145,52 +144,31 @@ class PartitionMaintenanceScheduler(
     }
 
     /**
-     * Create partition for a specific month if it doesn't exist.
+     * Ensure the partition covering [month] exists for [config]. Idempotent.
+     *
+     * The DDL runs inside the `epistola_create_partition` SECURITY DEFINER function
+     * (see the `V…__core_partition_functions.sql` migration) rather than as raw
+     * `CREATE TABLE`, so the runtime DB role needs no DDL privileges — only
+     * `EXECUTE` on the function (issue #438). The month is computed here from
+     * [EpistolaClock] and passed as a typed `date`; the function derives the
+     * partition name and bounds.
      */
     private fun createPartitionForMonth(
         config: PartitionedTable,
         month: YearMonth,
     ) {
-        val partitionName = "${config.tableName}_${month.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
-        val startDate = month.atDay(1)
-        val endDate = month.plusMonths(1).atDay(1)
-
         try {
-            val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1 FROM pg_tables
-                        WHERE schemaname = 'public' AND tablename = :partitionName
-                    )
-                    """,
-                )
-                    .bind("partitionName", partitionName)
-                    .mapTo(Boolean::class.java)
+            val partitionName = jdbi.withHandle<String, Exception> { handle ->
+                handle.createQuery("SELECT epistola_create_partition(:parent::regclass, :month)")
+                    .bind("parent", config.tableName)
+                    .bind("month", month.atDay(1))
+                    .mapTo(String::class.java)
                     .one()
             }
-
-            if (!exists) {
-                jdbi.useHandle<Exception> { handle ->
-                    // IF NOT EXISTS belt-and-suspenders: even though we hold the
-                    // advisory lock, a misconfigured deploy that bypasses it
-                    // (or a race during the first deploy) shouldn't crash the
-                    // scheduler.
-                    handle.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS $partitionName
-                        PARTITION OF ${config.tableName}
-                        FOR VALUES FROM ('$startDate') TO ('$endDate')
-                        """,
-                    )
-                }
-                logger.info("Created partition: {}", partitionName)
-            } else {
-                logger.debug("Partition already exists: {}", partitionName)
-            }
+            logger.debug("Ensured partition exists: {}", partitionName)
         } catch (e: Exception) {
             // This is critical - we need the partition!
-            logger.error("CRITICAL: Failed to create partition: {}", partitionName, e)
+            logger.error("CRITICAL: Failed to create partition for {} {}: {}", config.tableName, month, e.message, e)
             throw e
         }
     }
@@ -198,47 +176,26 @@ class PartitionMaintenanceScheduler(
     /**
      * Drop partitions older than the config's retention period. A null retention
      * means "keep forever" (e.g. the audit log) — no partitions are ever dropped.
+     *
+     * The DROP runs inside the `epistola_drop_partitions_before` SECURITY DEFINER
+     * function (no DDL privilege needed on the runtime role, issue #438). The
+     * cutoff month is computed here from [EpistolaClock]; the function drops only
+     * real child partitions of the parent older than it and returns their names.
      */
     private fun dropOldPartitions(config: PartitionedTable) {
         val retentionMonths = config.retentionMonths ?: return
-        val cutoffMonth = YearMonth.from(EpistolaClock.offsetDateTime()).minusMonths(retentionMonths.toLong())
-        val cutoffPartition = "${config.tableName}_${cutoffMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
+        val cutoff = YearMonth.from(EpistolaClock.offsetDateTime()).minusMonths(retentionMonths.toLong()).atDay(1)
 
-        // Query for partitions older than retention period
-        val oldPartitions = jdbi.withHandle<List<String>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT tablename
-                FROM pg_tables
-                WHERE schemaname = 'public'
-                  AND tablename LIKE :tablePattern
-                  AND tablename < :cutoffPartition
-                ORDER BY tablename
-                """,
-            )
-                .bind("tablePattern", "${config.tableName}_%")
-                .bind("cutoffPartition", cutoffPartition)
+        val dropped = jdbi.withHandle<List<String>, Exception> { handle ->
+            handle.createQuery("SELECT * FROM epistola_drop_partitions_before(:parent::regclass, :cutoff)")
+                .bind("parent", config.tableName)
+                .bind("cutoff", cutoff)
                 .mapTo(String::class.java)
                 .list()
         }
 
-        // Drop old partitions
-        var droppedCount = 0
-        oldPartitions.forEach { partitionName ->
-            try {
-                jdbi.useHandle<Exception> { handle ->
-                    handle.createUpdate("DROP TABLE IF EXISTS $partitionName CASCADE")
-                        .execute()
-                }
-                droppedCount++
-                logger.info("Dropped old partition: {} (older than {} months)", partitionName, retentionMonths)
-            } catch (e: Exception) {
-                logger.error("Failed to drop partition {}: {}", partitionName, e.message, e)
-            }
-        }
-
-        if (droppedCount > 0) {
-            logger.info("Dropped {} old partition(s) for table {}", droppedCount, config.tableName)
+        if (dropped.isNotEmpty()) {
+            logger.info("Dropped {} old partition(s) for table {} (older than {} months): {}", dropped.size, config.tableName, retentionMonths, dropped)
         } else {
             logger.debug("No old partitions to drop for table {}", config.tableName)
         }
@@ -255,6 +212,8 @@ class PartitionMaintenanceScheduler(
         // other advisory locks the project might add later — increment the suffix
         // (`_v2`) if the semantics of partition maintenance ever change in a way
         // that should release a still-running v1 lock holder mid-restart.
-        private const val PARTITION_MAINTENANCE_LOCK_KEY: Long = 0x4570_5061_7274_4D31L // "EpPartM1"
+        // `internal` so the integration test can contend for the same lock
+        // instead of duplicating the literal.
+        internal const val PARTITION_MAINTENANCE_LOCK_KEY: Long = 0x4570_5061_7274_4D31L // "EpPartM1"
     }
 }

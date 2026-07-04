@@ -185,6 +185,12 @@ drop tables, because the code to do so does not exist.
 `spring.flyway.clean-disabled: true` remains in `application.yaml` as a
 belt-and-suspenders default only.
 
+The one schema DDL the running app does perform — monthly partition
+create/drop — goes through `SECURITY DEFINER` functions
+(`epistola_create_partition` / `epistola_drop_partitions_before`), never bare
+`CREATE`/`DROP`. That lets the runtime DB role hold no DDL privileges; see
+[Running with a DDL-less runtime role](deployment.md#running-with-a-ddl-less-runtime-role).
+
 ## Local dev: resetting your database
 
 Because the app won't wipe data, resetting local dev (e.g. after editing a

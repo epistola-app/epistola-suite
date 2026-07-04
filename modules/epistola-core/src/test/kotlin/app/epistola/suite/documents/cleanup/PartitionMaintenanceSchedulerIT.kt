@@ -4,6 +4,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskRegistry
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskScheduler
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Isolated
@@ -190,9 +191,8 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
 
         jdbi.open().use { holder ->
             holder.begin()
-            // Same numeric key as PartitionMaintenanceScheduler.PARTITION_MAINTENANCE_LOCK_KEY.
             val acquired = holder.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
-                .bind("key", 0x4570_5061_7274_4D31L)
+                .bind("key", PartitionMaintenanceScheduler.PARTITION_MAINTENANCE_LOCK_KEY)
                 .mapTo(Boolean::class.java)
                 .one()
             assertThat(acquired).isTrue
@@ -212,6 +212,32 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
         assertThat(tableExists(sentinelTable))
             .`as`("scheduler must create partitions once the lock is available")
             .isTrue
+    }
+
+    @Test
+    fun `partition functions reject a parent that is not a RANGE-partitioned table`() {
+        // The SECURITY DEFINER functions must not be usable as an arbitrary
+        // CREATE/DROP primitive: a non-partitioned (or non-existent) parent is
+        // rejected before any DDL runs. `tenants` is a plain, non-partitioned table.
+        assertThatThrownBy {
+            jdbi.withHandle<String, Exception> { handle ->
+                handle.createQuery("SELECT epistola_create_partition(:parent::regclass, :month)")
+                    .bind("parent", "tenants")
+                    .bind("month", YearMonth.now(testClock).atDay(1))
+                    .mapTo(String::class.java)
+                    .one()
+            }
+        }.hasMessageContaining("not a RANGE-partitioned table")
+
+        assertThatThrownBy {
+            jdbi.withHandle<List<String>, Exception> { handle ->
+                handle.createQuery("SELECT * FROM epistola_drop_partitions_before(:parent::regclass, :cutoff)")
+                    .bind("parent", "tenants")
+                    .bind("cutoff", YearMonth.now(testClock).atDay(1))
+                    .mapTo(String::class.java)
+                    .list()
+            }
+        }.hasMessageContaining("not a RANGE-partitioned table")
     }
 
     private fun tableExists(name: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
