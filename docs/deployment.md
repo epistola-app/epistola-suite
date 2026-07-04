@@ -222,59 +222,13 @@ username/password); the app pods keep using `database.*`. When it's empty
 (default), the migration step reuses the app credentials — single-role behaviour,
 unchanged.
 
-For `database.type=external` you provision the two Postgres roles and their
-grants yourself and reference them via `database.external.*` (app role) and
-`migration.credentials.*` (migration role).
-
-### Two roles on a chart-managed CNPG cluster
-
-CNPG does not auto-generate a second role, so the chart exposes CNPG's own
-role/bootstrap knobs. The recommended shape keeps the CNPG **owner as the
-DDL-less runtime role** (so the app keeps using CNPG's auto-generated `-app`
-secret) and adds the **migration role** as a managed role:
-
-```yaml
-database:
-  type: cnpg
-  cnpg:
-    owner: epistola # runtime role — app pods use the CNPG -app secret
-    managedRoles:
-      - name: epistola_migrate # migration role (holds DDL)
-        ensure: present
-        login: true
-        passwordSecret:
-          name: epistola-migrate-db # you create this Secret
-    postInitApplicationSQL:
-      - GRANT CREATE, USAGE ON SCHEMA public TO epistola_migrate
-migration:
-  credentials:
-    username: epistola_migrate
-    existingSecret: epistola-migrate-db
-```
-
-`managedRoles` → `spec.managed.roles` (CNPG creates/reconciles the role from the
-Secret); `postInitApplicationSQL` → `spec.bootstrap.initdb.postInitApplicationSQL`
-(one-time bootstrap SQL). The migration role then runs Flyway and **owns** the
-objects it creates; the runtime role needs `SELECT/INSERT/UPDATE/DELETE` on those
-tables and `EXECUTE` on the partition functions. The most robust way is default
-privileges set **as the migration role** (it owns the objects):
-
-```sql
--- run as epistola_migrate (or a superuser), in the app database
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO epistola;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT EXECUTE ON FUNCTIONS TO epistola;
-```
-
-> **Validate this against your CNPG and Postgres versions before relying on it.**
-> The privilege details are version-sensitive — public-schema ownership changed
-> in Postgres 15, and `ALTER DEFAULT PRIVILEGES` applies only to objects created
-> by the role that runs it, so it must run as the migration role (CNPG's
-> `postInitApplicationSQL` runs as the database **owner**, not the migration
-> role). Turnkey CNPG two-role provisioning — the chart emitting a validated
-> role/grant model end-to-end — is the remaining follow-up tracked in **#438**;
-> this change gives you the CNPG knobs to configure it explicitly today.
+You provision the two roles and their grants (the `GRANT`s above), then reference
+them from the chart: the app role via `database.external.*`, the migration role
+via `migration.credentials.*`. For a **CNPG-managed** database, create the second
+role and its grants through the CNPG `Cluster` you manage (`spec.managed.roles`
+plus your bootstrap SQL) — with `database.type=cnpgExisting` the chart just
+consumes it. The two-role split is otherwise identical: app pods use their
+credentials, the migration step uses `migration.credentials`.
 
 ## Trusting a client root CA: `extraCaCerts`
 

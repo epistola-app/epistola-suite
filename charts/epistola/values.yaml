@@ -456,26 +456,6 @@ database:
     parameters: {}
     #   max_connections: "100"
     #   shared_buffers: "256MB"
-    # Additional roles CNPG creates/reconciles (rendered as spec.managed.roles).
-    # Use this to provision a separate migration role (paired with
-    # migration.credentials) so the app's own role can run without DDL — see
-    # docs/deployment.md "Running with a DDL-less runtime role". Each role's
-    # password comes from a referenced Secret. Example:
-    #   managedRoles:
-    #     - name: epistola_migrate
-    #       ensure: present
-    #       login: true
-    #       passwordSecret:
-    #         name: epistola-migrate-db
-    managedRoles: []
-    # One-time bootstrap SQL run as the database owner in the app database
-    # (spec.bootstrap.initdb.postInitApplicationSQL) — e.g. the GRANTs that give
-    # a DDL-less runtime role its DML + EXECUTE. Validate against your
-    # CNPG/Postgres version; see the two-role recipe in docs/deployment.md.
-    postInitApplicationSQL: []
-    # One-time bootstrap SQL run as a superuser in the 'postgres' database
-    # (spec.bootstrap.initdb.postInitSQL). Rarely needed.
-    postInitSQL: []
 
   # Existing CNPG Cluster configuration (type: cnpgExisting)
   cnpgExisting:
