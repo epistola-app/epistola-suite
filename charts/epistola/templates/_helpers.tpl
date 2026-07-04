@@ -149,6 +149,46 @@ config.env to provide the datasource.
 {{- end }}
 
 {{/*
+Datasource env for the MIGRATION container (SPRING_DATASOURCE_*).
+
+When `migration.credentials.username` is set, the migration step connects as a
+separate role — the one that holds DDL — while the app pods keep using the
+app/runtime credentials (`database.*`), which can then be a DDL-less runtime role
+(see #438 and docs/deployment.md). The database URL is the same (same host/db);
+only the username/password differ. When unset, this falls back to the shared
+app credentials, so existing single-role deployments are unchanged.
+
+The operator provisions the migration role and its password Secret out of band
+(for CNPG, e.g. via `managed.roles`); this only wires the migration container to
+use it.
+*/}}
+{{- define "epistola.migrationDatabaseEnv" -}}
+{{- $mig := .Values.migration.credentials | default dict -}}
+{{- if not $mig.username }}
+{{- include "epistola.databaseEnv" . }}
+{{- else }}
+{{- $dbType := include "epistola.database.effectiveType" . -}}
+{{- if or (eq $dbType "cnpg") (eq $dbType "cnpgExisting") }}
+- name: SPRING_DATASOURCE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "epistola.cnpg.secretName" . }}
+      key: jdbc-uri
+{{- else if eq $dbType "external" }}
+- name: SPRING_DATASOURCE_URL
+  value: "jdbc:postgresql://{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}"
+{{- end }}
+- name: SPRING_DATASOURCE_USERNAME
+  value: {{ $mig.username | quote }}
+- name: SPRING_DATASOURCE_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ required "migration.credentials.existingSecret is required when migration.credentials.username is set" $mig.existingSecret }}
+      key: {{ $mig.passwordKey | default "password" }}
+{{- end }}
+{{- end }}
+
+{{/*
 Credential encryption-at-rest env (EPISTOLA_ENCRYPTION_*). Only the app
 Deployment needs this — the migration Job/init container never touch ciphertext.
 Each key's material is sourced from a Kubernetes Secret (existingSecret/secretKey)
@@ -244,7 +284,7 @@ Rendered as a container list item.
     - name: JAVA_TOOL_OPTIONS
       value: {{ .Values.jvm.options | quote }}
     {{- end }}
-    {{- include "epistola.databaseEnv" . | nindent 4 }}
+    {{- include "epistola.migrationDatabaseEnv" . | nindent 4 }}
     {{- /* Migration JVM diverges from the app's Hikari defaults (which it would
            otherwise inherit from application.yaml): long DDL can read with no
            socket traffic past the app's socketTimeout, and a long migration would
