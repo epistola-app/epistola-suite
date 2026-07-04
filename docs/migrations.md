@@ -186,18 +186,22 @@ history-rewriting consolidations are no longer permitted (see above).
 
 ### Reset is local-only, by construction
 
-The destructive `flyway.clean()` is gated twice so a real database can never be
-reset:
+The destructive `flyway.clean()` is gated in depth so a real database can never
+be reset:
 
 1. **Default-deny config.** The base `application.yaml` sets
    `clean-disabled: true`. Only `application-local.yaml` overrides it to `false`.
-2. **Hard code guard.** `FlywayConfig.resolveCleanDisabled` force-disables clean
-   whenever the `local` profile is **not** active — overriding the property even
-   if `spring.flyway.clean-disabled=false` is passed via env/args in production
-   (it logs a warning and keeps clean disabled). So a misconfigured prod
-   deployment cannot wipe the database.
+2. **Hard code guard, two conditions.** `FlywayConfig.resolveCleanDisabled` only
+   permits clean when **both** the `local` profile is active **and** the
+   datasource host is loopback (`127.0.0.0/8`, `localhost`, or `::1`) — otherwise
+   it force-disables clean, overriding the property even if
+   `spring.flyway.clean-disabled=false` is passed via env/args (it logs a warning
+   and keeps clean disabled). The loopback check specifically defends against the
+   `local` profile being (accidentally) enabled in production: a real database is
+   never on `127.x.x.x`, so clean stays disabled regardless. Host detection
+   fails closed — an unparseable or multi-host (HA) URL is treated as non-local.
 
 Production additionally runs the separated migration step (`clean-disabled: true`,
-rethrows on validation failure) with app pods in `validate` mode — three
+rethrows on validation failure) with app pods in `validate` mode — several
 independent reasons a real database is never cleaned, upholding the 1.0.0-RC1
 guarantee that data persists across versions.

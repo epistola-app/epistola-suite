@@ -52,11 +52,14 @@ class SchemaBehindException(
  * migrations re-run; otherwise the failure propagates. `migrate()` is
  * idempotent — a no-op when already at head.
  *
- * Cleaning is a destructive full reset, so it is gated twice: the base config
+ * Cleaning is a destructive full reset, so it is gated in depth: the base config
  * defaults `spring.flyway.clean-disabled=true`, and [resolveCleanDisabled]
- * force-disables clean unless the `local` profile is active — so no production
- * deployment can reset a stable database (RC1+), even with the property flipped
- * via env/args. Only `application-local.yaml` enables it.
+ * force-disables clean unless BOTH the `local` profile is active AND the
+ * datasource is a loopback host ([isLoopbackDatasource]). The loopback check
+ * stops the `local` profile being (accidentally) enabled in production from
+ * exposing a real, remote database to clean. So no production deployment can
+ * reset a stable database (RC1+), even with the property flipped via env/args.
+ * Only `application-local.yaml` (loopback `127.0.0.1` DB) enables it.
  */
 @Configuration
 class FlywayConfig {
@@ -66,17 +69,22 @@ class FlywayConfig {
     private companion object {
         /** The only profile under which a destructive `flyway.clean()` is permitted. */
         const val LOCAL_PROFILE = "local"
+
+        /** Loopback host literals a reset-able local database URL may point at (127.0.0.0/8, localhost, IPv6 ::1). */
+        val LOOPBACK_HOST = Regex("""^(localhost|127(\.\d{1,3}){3}|::1|0:0:0:0:0:0:0:1)$""", RegexOption.IGNORE_CASE)
+        val JDBC_AUTHORITY = Regex("""^jdbc:[a-z0-9+.\-]+://([^/?]+)""", RegexOption.IGNORE_CASE)
     }
 
     @Bean
     fun flywayMigrationStrategy(
         @Value("\${spring.flyway.clean-disabled:true}") cleanDisabledProperty: Boolean,
         @Value("\${epistola.migration.mode:embedded}") mode: String,
+        @Value("\${spring.datasource.url:}") datasourceUrl: String,
         environment: Environment,
     ): FlywayMigrationStrategy {
         val migrationMode = MigrationMode.from(mode)
         val localProfileActive = environment.activeProfiles.any { it.equals(LOCAL_PROFILE, ignoreCase = true) }
-        val cleanDisabled = resolveCleanDisabled(cleanDisabledProperty, localProfileActive)
+        val cleanDisabled = resolveCleanDisabled(cleanDisabledProperty, localProfileActive, isLoopbackDatasource(datasourceUrl))
         return FlywayMigrationStrategy { flyway ->
             when (migrationMode) {
                 MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway, cleanDisabled)
@@ -87,23 +95,50 @@ class FlywayConfig {
 
     /**
      * Hard guardrail on the destructive `flyway.clean()` path: a database reset
-     * is permitted **only** under the `local` profile. Anywhere else clean stays
-     * disabled regardless of `spring.flyway.clean-disabled` — so no production
-     * deployment can wipe a stable database (RC1+), even if the property is set
-     * to `false` via env/args. Returns the effective `cleanDisabled`.
+     * is permitted **only** when BOTH the `local` profile is active AND the
+     * datasource points at a loopback host. The two conditions defend different
+     * failure modes — the profile guard stops a stray `local` config, and the
+     * loopback guard stops `local` being enabled in production (a real database
+     * is never on 127.0.0.0/8). Either one failing keeps clean disabled,
+     * regardless of `spring.flyway.clean-disabled`, so no production deployment
+     * can wipe a stable database (RC1+) even with the property flipped via
+     * env/args. Returns the effective `cleanDisabled`.
      */
     internal fun resolveCleanDisabled(
         cleanDisabledProperty: Boolean,
         localProfileActive: Boolean,
+        loopbackDatasource: Boolean,
     ): Boolean {
         if (cleanDisabledProperty) return true
-        if (localProfileActive) return false
+        if (localProfileActive && loopbackDatasource) return false
+        val reason = when {
+            !localProfileActive && !loopbackDatasource -> "the '$LOCAL_PROFILE' profile is not active and the datasource is not loopback"
+            !localProfileActive -> "the '$LOCAL_PROFILE' profile is not active"
+            else -> "the datasource is not a loopback host (127.0.0.0/8, localhost, or ::1)"
+        }
         logger.warn(
-            "spring.flyway.clean-disabled=false was requested without the '{}' profile — ignoring and " +
-                "keeping database reset (flyway clean) disabled. Clean is permitted only under the local profile.",
-            LOCAL_PROFILE,
+            "spring.flyway.clean-disabled=false was requested but $reason — ignoring and keeping database " +
+                "reset (flyway clean) disabled. Reset is permitted only under the local profile against a local database.",
         )
         return true
+    }
+
+    /**
+     * True only when [jdbcUrl]'s host is a loopback address. Fail-closed: an
+     * unparseable URL, a multi-host (HA failover) authority, or any non-loopback
+     * host returns false, so clean stays disabled whenever the target database
+     * isn't unambiguously local.
+     */
+    internal fun isLoopbackDatasource(jdbcUrl: String): Boolean {
+        val authority = JDBC_AUTHORITY.find(jdbcUrl)?.groupValues?.get(1) ?: return false
+        if (authority.contains(',')) return false // multi-host HA URL — never local
+        val hostPort = authority.substringAfterLast('@') // drop any userinfo
+        val host = if (hostPort.startsWith("[")) {
+            hostPort.substringAfter('[').substringBefore(']') // IPv6 literal
+        } else {
+            hostPort.substringBefore(':') // host[:port]
+        }
+        return LOOPBACK_HOST.matches(host)
     }
 
     private fun migrate(
