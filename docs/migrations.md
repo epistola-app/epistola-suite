@@ -174,15 +174,30 @@ Kubernetes wiring is the Helm `migration.mode` value (`job` default /
 ## Local dev: one-time reset after a consolidation
 
 This applies only with `epistola.migration.mode=embedded` (the local/dev
-default) **and** `clean-disabled: false`. `FlywayConfig` runs with `clean-disabled: false`
-in dev: if Flyway validation fails (which it does after a history rewrite — every
-checksum changed), it auto-`clean()`s and re-migrates from the new baseline.
-**Your local dev database will be wiped and rebuilt on the next app start** after
-pulling a consolidation change; `DemoLoader` repopulates demo data automatically.
-Tests use throwaway Testcontainers databases and are unaffected. This auto-clean
-is a **local-dev convenience only**; in normal operation it no longer triggers,
-since history-rewriting consolidations are no longer permitted (see above).
-Production runs the separated migration step with
-`clean-disabled: true` (rethrows instead) and app pods in `validate` mode, so a
-real database is never cleaned — the 1.0.0-RC1 guarantee that data persists
-across versions.
+default) **and** the `local` profile active. `application-local.yaml` sets
+`clean-disabled: false`; if Flyway validation fails (which it does after a
+history rewrite — every checksum changed), `FlywayConfig` auto-`clean()`s and
+re-migrates from the new baseline. **Your local dev database will be wiped and
+rebuilt on the next app start** after pulling a consolidation change;
+`DemoLoader` repopulates demo data automatically. Tests use throwaway
+Testcontainers databases and are unaffected. This auto-clean is a **local-dev
+convenience only**; in normal operation it no longer triggers, since
+history-rewriting consolidations are no longer permitted (see above).
+
+### Reset is local-only, by construction
+
+The destructive `flyway.clean()` is gated twice so a real database can never be
+reset:
+
+1. **Default-deny config.** The base `application.yaml` sets
+   `clean-disabled: true`. Only `application-local.yaml` overrides it to `false`.
+2. **Hard code guard.** `FlywayConfig.resolveCleanDisabled` force-disables clean
+   whenever the `local` profile is **not** active — overriding the property even
+   if `spring.flyway.clean-disabled=false` is passed via env/args in production
+   (it logs a warning and keeps clean disabled). So a misconfigured prod
+   deployment cannot wipe the database.
+
+Production additionally runs the separated migration step (`clean-disabled: true`,
+rethrows on validation failure) with app pods in `validate` mode — three
+independent reasons a real database is never cleaned, upholding the 1.0.0-RC1
+guarantee that data persists across versions.

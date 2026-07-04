@@ -8,6 +8,7 @@ import org.springframework.boot.ExitCodeGenerator
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.env.Environment
 
 /**
  * Validate-mode fail-fast: the database schema is behind and this process must
@@ -47,27 +48,62 @@ class SchemaBehindException(
  *   start until the separate migration step has run.
  *
  * `embedded`/`migrate` replace Flyway's removed `cleanOnValidationError`: on a
- * validation failure, if cleaning is allowed (`spring.flyway.clean-disabled=false`)
- * the database is cleaned and migrations re-run; otherwise the failure
- * propagates. `migrate()` is idempotent — a no-op when already at head.
+ * validation failure, if cleaning is allowed the database is cleaned and
+ * migrations re-run; otherwise the failure propagates. `migrate()` is
+ * idempotent — a no-op when already at head.
+ *
+ * Cleaning is a destructive full reset, so it is gated twice: the base config
+ * defaults `spring.flyway.clean-disabled=true`, and [resolveCleanDisabled]
+ * force-disables clean unless the `local` profile is active — so no production
+ * deployment can reset a stable database (RC1+), even with the property flipped
+ * via env/args. Only `application-local.yaml` enables it.
  */
 @Configuration
 class FlywayConfig {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    private companion object {
+        /** The only profile under which a destructive `flyway.clean()` is permitted. */
+        const val LOCAL_PROFILE = "local"
+    }
+
     @Bean
     fun flywayMigrationStrategy(
-        @Value("\${spring.flyway.clean-disabled:true}") cleanDisabled: Boolean,
+        @Value("\${spring.flyway.clean-disabled:true}") cleanDisabledProperty: Boolean,
         @Value("\${epistola.migration.mode:embedded}") mode: String,
+        environment: Environment,
     ): FlywayMigrationStrategy {
         val migrationMode = MigrationMode.from(mode)
+        val localProfileActive = environment.activeProfiles.any { it.equals(LOCAL_PROFILE, ignoreCase = true) }
+        val cleanDisabled = resolveCleanDisabled(cleanDisabledProperty, localProfileActive)
         return FlywayMigrationStrategy { flyway ->
             when (migrationMode) {
                 MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway, cleanDisabled)
                 MigrationMode.VALIDATE -> validate(flyway)
             }
         }
+    }
+
+    /**
+     * Hard guardrail on the destructive `flyway.clean()` path: a database reset
+     * is permitted **only** under the `local` profile. Anywhere else clean stays
+     * disabled regardless of `spring.flyway.clean-disabled` — so no production
+     * deployment can wipe a stable database (RC1+), even if the property is set
+     * to `false` via env/args. Returns the effective `cleanDisabled`.
+     */
+    internal fun resolveCleanDisabled(
+        cleanDisabledProperty: Boolean,
+        localProfileActive: Boolean,
+    ): Boolean {
+        if (cleanDisabledProperty) return true
+        if (localProfileActive) return false
+        logger.warn(
+            "spring.flyway.clean-disabled=false was requested without the '{}' profile — ignoring and " +
+                "keeping database reset (flyway clean) disabled. Clean is permitted only under the local profile.",
+            LOCAL_PROFILE,
+        )
+        return true
     }
 
     private fun migrate(

@@ -59,7 +59,12 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
   flyway:
-    clean-disabled: false # Allow Flyway to clean (required for Flyway 10+)
+    # Deny database reset by default. A destructive `flyway.clean()` (the
+    # validation-failure recovery in FlywayConfig) is permitted ONLY under the
+    # `local` profile, which overrides this to `false`. FlywayConfig additionally
+    # force-disables clean whenever the `local` profile is absent, so no
+    # deployment can reset a stable database (RC1+) even via env override.
+    clean-disabled: true
     locations:
       - classpath:db/migration
   web:
