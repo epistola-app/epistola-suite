@@ -1,0 +1,46 @@
+# Standalone CloudNativePG cluster for Epistola.
+#
+# The Epistola chart deliberately does NOT provision a database — a database must
+# not share the app release's lifecycle (a `helm uninstall` would delete it). Own
+# the cluster separately with a manifest like this one, then point the chart at
+# it with `database.type=cnpgExisting`:
+#
+#   kubectl apply -f cnpg-cluster.yaml
+#   helm upgrade --install epistola oci://ghcr.io/epistola-app/charts/epistola \
+#     --set database.type=cnpgExisting \
+#     --set database.cnpgExisting.clusterName=epistola-db
+#
+# CNPG generates the app credentials Secret "<clusterName>-app" that the chart
+# reads. Requires the CloudNativePG operator.
+#
+# For the DDL-less two-role setup (see docs/deployment.md), add the migration
+# role under `spec.managed.roles` and its grants via `spec.bootstrap.initdb`, and
+# review the privilege model against your CNPG/Postgres version.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: epistola-db
+spec:
+  instances: 1
+
+  bootstrap:
+    initdb:
+      database: epistola
+      owner: epistola
+
+  storage:
+    size: 8Gi
+    # storageClass: ""
+
+  # resources:
+  #   requests:
+  #     memory: 256Mi
+  #     cpu: 100m
+  #   limits:
+  #     memory: 1Gi
+  #     cpu: 1000m
+
+  # postgresql:
+  #   parameters:
+  #     max_connections: "100"
+  #     shared_buffers: "256MB"

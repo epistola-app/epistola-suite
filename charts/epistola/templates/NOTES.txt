@@ -22,19 +22,7 @@
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
 
-{{- if eq $dbType "cnpg" }}
-
-2. Database: A CloudNativePG cluster "{{ include "epistola.cnpg.clusterName" . }}" is being created.
-
-   Wait for the cluster to be ready:
-   kubectl wait --for=condition=Ready cluster/{{ include "epistola.cnpg.clusterName" . }} --namespace {{ .Release.Namespace }} --timeout=300s
-
-   Get database credentials:
-   kubectl get secret {{ include "epistola.cnpg.secretName" . }} --namespace {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
-
-   Connect to the database (requires kubectl-cnpg plugin):
-   kubectl cnpg psql {{ include "epistola.cnpg.clusterName" . }} --namespace {{ .Release.Namespace }}
-{{- else if eq $dbType "cnpgExisting" }}
+{{- if eq $dbType "cnpgExisting" }}
 
 2. Database: Using existing CloudNativePG cluster "{{ .Values.database.cnpgExisting.clusterName }}".
    Ensure the cluster exists and is ready in namespace {{ .Release.Namespace }}.
@@ -61,9 +49,4 @@
 {{- else }}
    The app runs Flyway at boot (embedded). Suitable for single-replica / dev;
    for multi-replica use migration.mode=job.
-{{- end }}
-{{- if and (eq .Values.migration.mode "job") (eq $dbType "cnpg") }}
-   Note: on a FRESH install of a chart-managed CNPG cluster use
-   migration.mode=initContainer — the CNPG Cluster is created after Helm hooks,
-   so the pre-install Job cannot reach it on first install.
 {{- end }}
