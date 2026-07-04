@@ -171,18 +171,34 @@ non-zero through Spring Boot's own failure handling — `main()` is a bare
 Kubernetes wiring is the Helm `migration.mode` value (`job` default /
 `initContainer` / `embedded`) — see [`deployment.md`](deployment.md).
 
-## Local dev: one-time reset after a consolidation
+## The application never resets a database
 
-This applies only with `epistola.migration.mode=embedded` (the local/dev
-default) **and** `clean-disabled: false`. `FlywayConfig` runs with `clean-disabled: false`
-in dev: if Flyway validation fails (which it does after a history rewrite — every
-checksum changed), it auto-`clean()`s and re-migrates from the new baseline.
-**Your local dev database will be wiped and rebuilt on the next app start** after
-pulling a consolidation change; `DemoLoader` repopulates demo data automatically.
-Tests use throwaway Testcontainers databases and are unaffected. This auto-clean
-is a **local-dev convenience only**; in normal operation it no longer triggers,
-since history-rewriting consolidations are no longer permitted (see above).
-Production runs the separated migration step with
-`clean-disabled: true` (rethrows instead) and app pods in `validate` mode, so a
-real database is never cleaned — the 1.0.0-RC1 guarantee that data persists
-across versions.
+`FlywayConfig` has **no `flyway.clean()` call** — a reset is not a capability the
+running app has, in any profile or build. `migrate` runs `flyway.migrate()` (a
+no-op when already at head); `validate` fails fast if the schema is behind.
+Either way, a validation failure (a previously applied migration was modified, or
+data diverged) **fails the boot** — it is never "recovered" by wiping data. This
+is the hard mechanism behind the RC1 guarantee that data persists across
+versions: no config, profile, env var, or datasource URL can make a deployed app
+drop tables, because the code to do so does not exist.
+
+`spring.flyway.clean-disabled: true` remains in `application.yaml` as a
+belt-and-suspenders default only.
+
+## Local dev: resetting your database
+
+Because the app won't wipe data, resetting local dev (e.g. after editing a
+not-yet-applied migration, whose checksum then no longer matches the applied row)
+is an explicit developer action. The local Postgres from
+[`apps/epistola/docker/docker-compose.yaml`](../apps/epistola/docker/docker-compose.yaml)
+stores its data on **tmpfs**, so recreating the container gives an empty
+database and the app re-migrates from scratch on next start (`DemoLoader`
+repopulates demo data):
+
+```bash
+./gradlew :apps:epistola:resetLocalDb
+# equivalently:
+docker compose -f apps/epistola/docker/docker-compose.yaml up -d --force-recreate --wait postgres
+```
+
+Tests are unaffected — they use throwaway Testcontainers databases.

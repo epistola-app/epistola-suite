@@ -59,7 +59,11 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
   flyway:
-    clean-disabled: false # Allow Flyway to clean (required for Flyway 10+)
+    # Belt-and-suspenders: the application never calls `flyway.clean()` (see
+    # FlywayConfig — a reset is not a capability the running app has), so this is
+    # a defensive default only. Local dev resets by recreating the throwaway
+    # Postgres container (`./gradlew resetLocalDb`), never via the app.
+    clean-disabled: true
     locations:
       - classpath:db/migration
   web:

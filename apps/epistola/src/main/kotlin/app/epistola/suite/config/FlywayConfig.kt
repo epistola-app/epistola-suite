@@ -46,10 +46,17 @@ class SchemaBehindException(
  *   validate and fail fast if the database is behind, so app pods refuse to
  *   start until the separate migration step has run.
  *
- * `embedded`/`migrate` replace Flyway's removed `cleanOnValidationError`: on a
- * validation failure, if cleaning is allowed (`spring.flyway.clean-disabled=false`)
- * the database is cleaned and migrations re-run; otherwise the failure
- * propagates. `migrate()` is idempotent — a no-op when already at head.
+ * `embedded`/`migrate` run `flyway.migrate()` (idempotent — a no-op when already
+ * at head). **The application never resets a database:** there is no
+ * `flyway.clean()` call anywhere, in any profile or build. A validation failure
+ * (a previously applied migration was modified, or local data diverged) fails
+ * fast — it is never "recovered" by wiping data. This is the hard guarantee
+ * behind the RC1 promise that data persists across versions: a reset simply is
+ * not a capability the running app has.
+ *
+ * Resetting a local dev database is an explicit, out-of-band developer action —
+ * recreate the ephemeral (tmpfs) Postgres container (`./gradlew resetLocalDb`,
+ * see [docs/migrations.md]) — not something the app does on boot.
  */
 @Configuration
 class FlywayConfig {
@@ -58,29 +65,33 @@ class FlywayConfig {
 
     @Bean
     fun flywayMigrationStrategy(
-        @Value("\${spring.flyway.clean-disabled:true}") cleanDisabled: Boolean,
         @Value("\${epistola.migration.mode:embedded}") mode: String,
     ): FlywayMigrationStrategy {
         val migrationMode = MigrationMode.from(mode)
         return FlywayMigrationStrategy { flyway ->
             when (migrationMode) {
-                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway, cleanDisabled)
+                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway)
                 MigrationMode.VALIDATE -> validate(flyway)
             }
         }
     }
 
-    private fun migrate(
-        flyway: Flyway,
-        cleanDisabled: Boolean,
-    ) {
+    private fun migrate(flyway: Flyway) {
         try {
             flyway.migrate()
         } catch (e: FlywayValidateException) {
-            if (cleanDisabled) throw e
-            logger.warn("Migration validation failed — cleaning database and re-migrating: {}", e.message)
-            flyway.clean()
-            flyway.migrate()
+            // The app never cleans/recovers by wiping data. Fail fast with a
+            // deterministic exit code (SchemaBehindException) and audience-neutral
+            // guidance: local dev recreates its throwaway DB container; a deployed
+            // environment must investigate a modified released migration.
+            logger.error("Flyway migration validation failed: {}", e.message)
+            throw SchemaBehindException(
+                "Flyway validation failed during migrate — the schema does not match the migrations " +
+                    "(a previously applied migration was modified, or the database diverged). This process " +
+                    "never resets a database. Local dev: recreate the DB container with `./gradlew resetLocalDb` " +
+                    "and retry. Deployed: a released migration was altered — investigate; do NOT reset.",
+                e,
+            )
         }
     }
 

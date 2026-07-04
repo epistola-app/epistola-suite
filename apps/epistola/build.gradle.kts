@@ -230,6 +230,17 @@ tasks.register("generateSbom") {
     dependsOn(tasks.cyclonedxDirectBom)
 }
 
+// Local-dev database reset. The application never resets a database (FlywayConfig
+// has no clean() call); wiping local data is a deliberate developer action.
+// The compose Postgres stores data on tmpfs, so force-recreating the container
+// yields an empty database — the app re-migrates from scratch on next start.
+tasks.register<Exec>("resetLocalDb") {
+    group = "local dev"
+    description = "Recreate the throwaway local Postgres container (WIPES all local data); the app re-migrates on next start"
+    workingDir = layout.projectDirectory.asFile
+    commandLine("docker", "compose", "-f", "docker/docker-compose.yaml", "up", "-d", "--force-recreate", "--wait", "postgres")
+}
+
 // Docker image configuration
 // Default: JVM image (recommended, stable)
 // Use -PnativeImage=true to build a native image (currently broken due to JDBI/Kotlin reflection)
