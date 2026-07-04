@@ -8,7 +8,6 @@ import org.springframework.boot.ExitCodeGenerator
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.env.Environment
 
 /**
  * Validate-mode fail-fast: the database schema is behind and this process must
@@ -47,111 +46,52 @@ class SchemaBehindException(
  *   validate and fail fast if the database is behind, so app pods refuse to
  *   start until the separate migration step has run.
  *
- * `embedded`/`migrate` replace Flyway's removed `cleanOnValidationError`: on a
- * validation failure, if cleaning is allowed the database is cleaned and
- * migrations re-run; otherwise the failure propagates. `migrate()` is
- * idempotent — a no-op when already at head.
+ * `embedded`/`migrate` run `flyway.migrate()` (idempotent — a no-op when already
+ * at head). **The application never resets a database:** there is no
+ * `flyway.clean()` call anywhere, in any profile or build. A validation failure
+ * (a previously applied migration was modified, or local data diverged) fails
+ * fast — it is never "recovered" by wiping data. This is the hard guarantee
+ * behind the RC1 promise that data persists across versions: a reset simply is
+ * not a capability the running app has.
  *
- * Cleaning is a destructive full reset, so it is gated in depth: the base config
- * defaults `spring.flyway.clean-disabled=true`, and [resolveCleanDisabled]
- * force-disables clean unless BOTH the `local` profile is active AND the
- * datasource is a loopback host ([isLoopbackDatasource]). The loopback check
- * stops the `local` profile being (accidentally) enabled in production from
- * exposing a real, remote database to clean. So no production deployment can
- * reset a stable database (RC1+), even with the property flipped via env/args.
- * Only `application-local.yaml` (loopback `127.0.0.1` DB) enables it.
+ * Resetting a local dev database is an explicit, out-of-band developer action —
+ * recreate the ephemeral (tmpfs) Postgres container (`./gradlew resetLocalDb`,
+ * see [docs/migrations.md]) — not something the app does on boot.
  */
 @Configuration
 class FlywayConfig {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    private companion object {
-        /** The only profile under which a destructive `flyway.clean()` is permitted. */
-        const val LOCAL_PROFILE = "local"
-
-        /** Loopback host literals a reset-able local database URL may point at (127.0.0.0/8, localhost, IPv6 ::1). */
-        val LOOPBACK_HOST = Regex("""^(localhost|127(\.\d{1,3}){3}|::1|0:0:0:0:0:0:0:1)$""", RegexOption.IGNORE_CASE)
-        val JDBC_AUTHORITY = Regex("""^jdbc:[a-z0-9+.\-]+://([^/?]+)""", RegexOption.IGNORE_CASE)
-    }
-
     @Bean
     fun flywayMigrationStrategy(
-        @Value("\${spring.flyway.clean-disabled:true}") cleanDisabledProperty: Boolean,
         @Value("\${epistola.migration.mode:embedded}") mode: String,
-        @Value("\${spring.datasource.url:}") datasourceUrl: String,
-        environment: Environment,
     ): FlywayMigrationStrategy {
         val migrationMode = MigrationMode.from(mode)
-        val localProfileActive = environment.activeProfiles.any { it.equals(LOCAL_PROFILE, ignoreCase = true) }
-        val cleanDisabled = resolveCleanDisabled(cleanDisabledProperty, localProfileActive, isLoopbackDatasource(datasourceUrl))
         return FlywayMigrationStrategy { flyway ->
             when (migrationMode) {
-                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway, cleanDisabled)
+                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway)
                 MigrationMode.VALIDATE -> validate(flyway)
             }
         }
     }
 
-    /**
-     * Hard guardrail on the destructive `flyway.clean()` path: a database reset
-     * is permitted **only** when BOTH the `local` profile is active AND the
-     * datasource points at a loopback host. The two conditions defend different
-     * failure modes — the profile guard stops a stray `local` config, and the
-     * loopback guard stops `local` being enabled in production (a real database
-     * is never on 127.0.0.0/8). Either one failing keeps clean disabled,
-     * regardless of `spring.flyway.clean-disabled`, so no production deployment
-     * can wipe a stable database (RC1+) even with the property flipped via
-     * env/args. Returns the effective `cleanDisabled`.
-     */
-    internal fun resolveCleanDisabled(
-        cleanDisabledProperty: Boolean,
-        localProfileActive: Boolean,
-        loopbackDatasource: Boolean,
-    ): Boolean {
-        if (cleanDisabledProperty) return true
-        if (localProfileActive && loopbackDatasource) return false
-        val reason = when {
-            !localProfileActive && !loopbackDatasource -> "the '$LOCAL_PROFILE' profile is not active and the datasource is not loopback"
-            !localProfileActive -> "the '$LOCAL_PROFILE' profile is not active"
-            else -> "the datasource is not a loopback host (127.0.0.0/8, localhost, or ::1)"
-        }
-        logger.warn(
-            "spring.flyway.clean-disabled=false was requested but $reason — ignoring and keeping database " +
-                "reset (flyway clean) disabled. Reset is permitted only under the local profile against a local database.",
-        )
-        return true
-    }
-
-    /**
-     * True only when [jdbcUrl]'s host is a loopback address. Fail-closed: an
-     * unparseable URL, a multi-host (HA failover) authority, or any non-loopback
-     * host returns false, so clean stays disabled whenever the target database
-     * isn't unambiguously local.
-     */
-    internal fun isLoopbackDatasource(jdbcUrl: String): Boolean {
-        val authority = JDBC_AUTHORITY.find(jdbcUrl)?.groupValues?.get(1) ?: return false
-        if (authority.contains(',')) return false // multi-host HA URL — never local
-        val hostPort = authority.substringAfterLast('@') // drop any userinfo
-        val host = if (hostPort.startsWith("[")) {
-            hostPort.substringAfter('[').substringBefore(']') // IPv6 literal
-        } else {
-            hostPort.substringBefore(':') // host[:port]
-        }
-        return LOOPBACK_HOST.matches(host)
-    }
-
-    private fun migrate(
-        flyway: Flyway,
-        cleanDisabled: Boolean,
-    ) {
+    private fun migrate(flyway: Flyway) {
         try {
             flyway.migrate()
         } catch (e: FlywayValidateException) {
-            if (cleanDisabled) throw e
-            logger.warn("Migration validation failed — cleaning database and re-migrating: {}", e.message)
-            flyway.clean()
-            flyway.migrate()
+            // The app never cleans/recovers by wiping data. Fail fast with a
+            // deterministic exit code (SchemaBehindException) and audience-neutral
+            // guidance: local dev recreates its throwaway DB container; a deployed
+            // environment must investigate a modified released migration.
+            logger.error("Flyway migration validation failed: {}", e.message)
+            throw SchemaBehindException(
+                "Flyway validation failed during migrate — the schema does not match the migrations " +
+                    "(a previously applied migration was modified, or the database diverged). This process " +
+                    "never resets a database. Local dev: recreate the DB container with `./gradlew resetLocalDb` " +
+                    "and retry. Deployed: a released migration was altered — investigate; do NOT reset.",
+                e,
+            )
         }
     }
 

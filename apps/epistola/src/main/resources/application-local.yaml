@@ -4,9 +4,6 @@ spring:
     username: epistola
     password: epistola
 
-  flyway:
-    clean-disabled: false
-
   batch:
     job:
       enabled: true # enabled for async document generation
