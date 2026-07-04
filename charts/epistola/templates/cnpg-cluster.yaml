@@ -18,6 +18,25 @@ spec:
     initdb:
       database: {{ .Values.database.cnpg.database }}
       owner: {{ .Values.database.cnpg.owner }}
+      {{- with .Values.database.cnpg.postInitApplicationSQL }}
+      # Runs once at bootstrap, as the database owner, in the application database.
+      postInitApplicationSQL:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.database.cnpg.postInitSQL }}
+      # Runs once at bootstrap, as a superuser, in the 'postgres' database.
+      postInitSQL:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+  {{- with .Values.database.cnpg.managedRoles }}
+  # Additional Postgres roles CNPG creates/reconciles (e.g. a DDL-less runtime
+  # role or a separate migration role for the two-role split — see
+  # docs/deployment.md). Each role's password comes from a referenced Secret.
+  managed:
+    roles:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
 
   storage:
     size: {{ .Values.database.cnpg.storage.size }}
