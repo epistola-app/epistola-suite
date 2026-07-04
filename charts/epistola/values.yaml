@@ -17,8 +17,10 @@ fullnameOverride: ""
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true
+  # Automatically mount a ServiceAccount's API credentials? Off by default — the
+  # app does not call the Kubernetes API, so it needs no token. Set true only if
+  # you add something that does.
+  automount: false
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
@@ -222,8 +224,11 @@ oidc:
   # Client ID used for browser login and resource-server validation.
   clientId: epistola-suite
   # Client secret used for the OIDC client.
+  # DEV ONLY: an inline value is rendered as a plaintext env var in the
+  # Deployment (and stored in the Helm release Secret). In production set
+  # `existingSecret` instead so the secret is referenced via secretKeyRef.
   clientSecret: ""
-  # Reference a pre-existing secret containing the OIDC client secret.
+  # Reference a pre-existing secret containing the OIDC client secret (preferred).
   existingSecret: ""
   # Key within the existing secret that holds the client secret.
   secretKey: client-secret
@@ -250,8 +255,11 @@ keycloakAdmin:
   # Client ID used for client-credentials authentication.
   clientId: epistola-suite
   # Client secret used for client-credentials authentication.
+  # DEV ONLY: an inline value is rendered as a plaintext env var in the
+  # Deployment (and stored in the Helm release Secret). In production set
+  # `existingSecret` instead so the secret is referenced via secretKeyRef.
   clientSecret: ""
-  # Reference a pre-existing secret containing the admin client secret.
+  # Reference a pre-existing secret containing the admin client secret (preferred).
   existingSecret: ""
   # Key within the existing secret that holds the client secret.
   secretKey: client-secret
@@ -366,16 +374,23 @@ migration:
   waitImage: busybox:1.38
   # Resources for the migrate container.
   resources: {}
-  # Optional: run the migration container as a SEPARATE database role from the
-  # app pods. Set this to the role that holds DDL, so the app's own role
-  # (database.*) can run with NO DDL privileges — the app performs partition
-  # maintenance only via SECURITY DEFINER functions (see #438 and
-  # docs/deployment.md "Running with a DDL-less runtime role"). The database URL
-  # is shared (same host/db); only the username/password differ.
+  # Optional (database.type=external only): run the migration container as a
+  # SEPARATE database role from the app pods. Set this to the role that holds DDL,
+  # so the app's own role (database.*) can run with NO DDL privileges — the app
+  # performs partition maintenance only via SECURITY DEFINER functions (see #438
+  # and docs/deployment.md "Running with a DDL-less runtime role"). The database
+  # URL is shared (same host/db); only the username/password differ.
+  #
+  # Not supported with database.type=cnpgExisting (that path is single-role: the
+  # app already connects as the cluster owner, which holds DDL) — setting this
+  # with cnpgExisting FAILS the render. For a two-role setup on CNPG, use
+  # database.type=external pointed at the cluster's -rw service; the migration
+  # role is then the CNPG cluster OWNER, whose password is in CNPG's own
+  # <clusterName>-app Secret. See docs/deployment.md.
   #
   # Leave `username` empty to reuse the app credentials (single-role, default —
-  # unchanged behaviour). The operator provisions this role and its password
-  # Secret out of band (for CNPG, e.g. via `managed.roles`).
+  # unchanged behaviour). You provision this role and its password Secret out of
+  # band.
   credentials:
     # Migration-role username. When empty, the migration container reuses the
     # app credentials from `database.*`.

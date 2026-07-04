@@ -1,6 +1,3 @@
-{{- if not (has .Values.database.type (list "none" "external" "cnpgExisting")) }}
-{{- fail (printf "database.type=%q is not supported. Use 'external', 'cnpgExisting', or 'none'. The chart no longer provisions a CloudNativePG cluster (a database must not share the app release's lifecycle); manage the CNPG Cluster yourself (see charts/epistola/examples/cnpg-cluster.yaml) and use database.type=cnpgExisting." .Values.database.type) }}
-{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
