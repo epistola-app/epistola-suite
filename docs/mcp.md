@@ -4,7 +4,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 
 ## Status
 
-- **MVP is read-only.** Tools cover discovery, inspection, and document preview. Authoring (drafts, themes, stencils, contract edits, publishing) is a planned follow-up.
+- **Read-only for 1.0 (deliberate GA scope).** Tools cover discovery, inspection, and document preview; the server never mutates tenant data. This is a settled decision for the 1.0 release, not a temporary limitation — authoring over MCP (drafts, themes, stencils, contract edits, publishing) is a possible post-1.0 addition, and adding write tools later is additive (no breaking change to the read surface).
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
 - **Auth: X-API-Key.** Reuses the existing per-tenant API-key mechanism — no new credential type.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
@@ -140,9 +140,8 @@ Then enter the URL and `X-API-Key` header in the Inspector UI.
   The validator rejects mismatches: sending a list to a `richTextInline` field, or any block content to an inline expression chip's binding, fails preview with a JSON Schema error.
 
 - **Data contract auto-creation.** Creating a template auto-creates an empty draft contract (v1). `get_data_contract` returns it even before the contract has been authored.
-- **No write tools yet.** The MCP server cannot create or modify templates, drafts, themes, stencils, or contracts in this MVP. Switch to the UI for authoring; the AI can still inspect what it has access to.
+- **No write tools (by design for 1.0).** The MCP server cannot create or modify templates, drafts, themes, stencils, or contracts. Switch to the UI for authoring; the AI can still inspect what it has access to.
 - **Rate limiting.** The MCP endpoint shares the existing `/api/**` security chain; no MCP-specific rate limiting is in place.
-- **Spring AI cleanup-noise demoter in place (re-verify against 2.0.0 GA).** Every successful MCP request would otherwise produce two ERROR logs (`Missing result context` + an auth-denied dispatch on the same `/error` include) because Spring AI's SSE writer ends the chunked stream ungracefully and Tomcat fires its catch-all `/error` page. We demote both to a single WARN line each in [`SpringAiMcpNoiseRewriter`](../apps/epistola/src/main/kotlin/app/epistola/suite/config/SpringAiMcpNoiseRewriter.kt). The workaround was written against Spring AI 2.0-M5; the catalog now pins **2.0.0 GA**, so the filter is due for removal — follow the verification recipe in the class KDoc (delete class + test + `<turboFilter>` line, run `scripts/mcp-smoke.sh` against a local instance, confirm the ERROR lines stay absent; restore if they're back).
 
 ## Troubleshooting
 
@@ -154,7 +153,6 @@ Then enter the URL and `X-API-Key` header in the Inspector UI.
 
 - [`modules/epistola-mcp/`](../modules/epistola-mcp) — module source
 - [`apps/epistola/src/main/resources/application.yaml`](../apps/epistola/src/main/resources/application.yaml) — `spring.ai.mcp.server.*` settings
-- [`apps/epistola/src/main/kotlin/app/epistola/suite/config/SpringAiMcpNoiseRewriter.kt`](../apps/epistola/src/main/kotlin/app/epistola/suite/config/SpringAiMcpNoiseRewriter.kt) — Spring AI noise-demotion workaround (written against 2.0-M5, due for removal against 2.0.0 GA)
 - [`docs/component-registry.md`](component-registry.md) — TS registry → JSON snapshot → backend pipeline that powers `list_component_types`
 - [`scripts/mcp-smoke.sh`](../scripts/mcp-smoke.sh) — end-to-end smoke test against a running instance
 - [`docs/api-keys.md`](api-keys.md) — API key provisioning (if present)
