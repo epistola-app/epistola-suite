@@ -15,6 +15,7 @@ import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.attributes.AttributeNotFoundException
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
@@ -43,6 +44,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
+import app.epistola.suite.tenants.commands.RenameTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.validation.ValidationException
@@ -66,16 +68,13 @@ class EpistolaTenantApi :
         size: Int,
     ): ResponseEntity<TenantListResponse> {
         val tenants = ListTenants(searchTerm = q).query()
-
-        val response = TenantListResponse(
-            items = tenants.map { it.toDto() },
-            page = page,
-            propertySize = size,
-            totalElements = tenants.size.toLong(),
-            totalPages = 1,
+        val slice = Pagination.paginate(tenants, page, size)
+        return ResponseEntity.ok(
+            TenantListResponse(
+                items = slice.items.map { it.toDto() },
+                page = slice.page,
+            ),
         )
-
-        return ResponseEntity.ok(response)
     }
 
     override fun createTenant(
@@ -104,8 +103,16 @@ class EpistolaTenantApi :
         tenantId: String,
         updateTenantRequest: UpdateTenantRequest,
     ): ResponseEntity<TenantDto> {
-        // TODO: implement tenant rename through an UpdateTenant command in epistola-core.
-        throw ApiOperationNotImplementedException("updateTenant")
+        val typedTenantId = TenantKey.of(tenantId)
+        // `name` is the only mutable field in the contract; a null name is a no-op
+        // update that still returns the current tenant (or 404 if it doesn't exist).
+        val name = updateTenantRequest.name
+        val tenant = if (name != null) {
+            RenameTenant(tenantId = typedTenantId, name = name).execute()
+        } else {
+            GetTenant(id = typedTenantId).query()
+        } ?: throw TenantNotFoundException(typedTenantId)
+        return ResponseEntity.ok(tenant.toDto())
     }
 
     override fun deleteTenant(
@@ -124,10 +131,13 @@ class EpistolaTenantApi :
     override fun listAttributes(
         tenantId: String,
         catalogId: String,
+        page: Int,
+        size: Int,
     ): ResponseEntity<AttributeListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite, catalogKey = CatalogKey.of(catalogId)).query()
-        return ResponseEntity.ok(AttributeListResponse(items = attributes.map { it.toDto() }))
+        val slice = Pagination.paginate(attributes, page, size)
+        return ResponseEntity.ok(AttributeListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
     }
 
     override fun createAttribute(
@@ -219,10 +229,13 @@ class EpistolaTenantApi :
 
     override fun listEnvironments(
         tenantId: String,
+        page: Int,
+        size: Int,
     ): ResponseEntity<EnvironmentListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val environments = ListEnvironments(tenantId = tenantIdComposite).query()
-        return ResponseEntity.ok(EnvironmentListResponse(items = environments.map { it.toDto() }))
+        val slice = Pagination.paginate(environments, page, size)
+        return ResponseEntity.ok(EnvironmentListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
     }
 
     override fun createEnvironment(

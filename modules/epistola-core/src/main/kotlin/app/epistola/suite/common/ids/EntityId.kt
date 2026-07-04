@@ -47,8 +47,12 @@ data class CatalogId(
     val tenantKey get() = tenantId.key
 
     companion object {
-        @Deprecated("Pass the actual catalog key instead of defaulting. Will be removed when REST API supports catalogId.")
-        @Suppress("DEPRECATION")
+        /**
+         * The [CatalogId] of the default catalog every tenant is provisioned with
+         * ([CatalogKey.DEFAULT]). A convenience for seeding and tests — production
+         * request paths (REST/UI/MCP) always carry an explicit catalog and never
+         * rely on this.
+         */
         fun default(tenantId: TenantId) = CatalogId(CatalogKey.DEFAULT, tenantId)
     }
 }

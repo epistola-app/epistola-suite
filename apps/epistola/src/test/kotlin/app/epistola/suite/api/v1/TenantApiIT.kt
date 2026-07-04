@@ -45,7 +45,7 @@ class TenantApiIT : IntegrationTestBase() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `update tenant returns 501 problem details until implemented`() {
+    fun `update tenant renames it and returns the updated DTO`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
 
         val response = restTemplate.exchange(
@@ -55,16 +55,34 @@ class TenantApiIT : IntegrationTestBase() {
             String::class.java,
         )
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_IMPLEMENTED)
-        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/operation-not-implemented")
-        assertThat(JsonPath.read<String>(body, "$.title")).isEqualTo("Operation Not Implemented")
-        assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(501)
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/operation-not-implemented")
-        assertThat(JsonPath.read<String>(body, "$.operation")).isEqualTo("updateTenant")
-        assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}")
-        assertThat(body).doesNotContain("\"details\":")
+        assertThat(JsonPath.read<String>(body, "$.id")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(body, "$.name")).isEqualTo("Renamed Tenant")
+
+        // Read-your-write: a subsequent GET reflects the new name.
+        val get = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(apiKey)),
+            String::class.java,
+        )
+        assertThat(JsonPath.read<String>(get.body!!, "$.name")).isEqualTo("Renamed Tenant")
+    }
+
+    @Test
+    fun `update tenant with a blank name returns 400 validation problem details`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}",
+            HttpMethod.PATCH,
+            HttpEntity("""{"name":"   "}""", baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
     }
 
     @Test

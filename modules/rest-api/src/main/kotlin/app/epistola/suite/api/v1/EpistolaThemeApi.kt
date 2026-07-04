@@ -5,6 +5,7 @@ import app.epistola.api.model.CreateThemeRequest
 import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDomain
 import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
@@ -39,6 +40,8 @@ class EpistolaThemeApi(
         tenantId: String,
         catalogId: String,
         q: String?,
+        page: Int,
+        size: Int,
     ): ResponseEntity<ThemeListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val themes = ListThemes(
@@ -46,10 +49,12 @@ class EpistolaThemeApi(
             searchTerm = q,
             catalogKey = CatalogKey.of(catalogId),
         ).query()
+        val slice = Pagination.paginate(themes, page, size)
 
         return ResponseEntity.ok(
             ThemeListResponse(
-                items = themes.map { it.toDto(objectMapper) },
+                items = slice.items.map { it.toDto(objectMapper) },
+                page = slice.page,
             ),
         )
     }

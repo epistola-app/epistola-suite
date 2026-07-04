@@ -19,6 +19,7 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionListResponse
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -63,6 +64,7 @@ import app.epistola.suite.templates.contracts.queries.PreviewContractUpdate
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
+import app.epistola.suite.templates.queries.CountDocumentTemplates
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
@@ -98,15 +100,26 @@ class EpistolaTemplateApi(
         tenantId: String,
         catalogId: String,
         q: String?,
+        page: Int,
+        size: Int,
     ): ResponseEntity<TemplateListResponse> {
+        // Large, unbounded collection: paginate at the database and get the total
+        // from a sibling Count query (see EpistolaDocumentGenerationApi for the
+        // documents/jobs variant of this pattern).
+        val tid = TenantId(TenantKey.of(tenantId))
+        val catalogKey = CatalogKey.of(catalogId)
         val templates = ListDocumentTemplates(
-            tenantId = TenantId(TenantKey.of(tenantId)),
-            catalogKey = CatalogKey.of(catalogId),
+            tenantId = tid,
+            catalogKey = catalogKey,
             searchTerm = q,
+            limit = Pagination.limitOf(size),
+            offset = Pagination.offsetOf(page, size),
         ).query()
+        val total = CountDocumentTemplates(tenantId = tid, catalogKey = catalogKey, searchTerm = q).query()
         return ResponseEntity.ok(
             TemplateListResponse(
                 items = templates.map { it.toSummaryDto() },
+                page = Pagination.pageMeta(page, size, total),
             ),
         )
     }
@@ -254,16 +267,20 @@ class EpistolaTemplateApi(
         tenantId: String,
         catalogId: String,
         templateId: String,
+        page: Int,
+        size: Int,
     ): ResponseEntity<VariantListResponse> {
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        // Bounded per-template collection: fetch and slice in application code.
         val variants = ListVariants(templateId = templateIdComposite).query()
-        val variantDtos = variants.map { variant ->
+        val slice = Pagination.paginate(variants, page, size)
+        val variantDtos = slice.items.map { variant ->
             val summary = getVariantSummary(variant, typedTenantId, catalogId)
             variant.toDto(summary)
         }
-        return ResponseEntity.ok(VariantListResponse(items = variantDtos))
+        return ResponseEntity.ok(VariantListResponse(items = variantDtos, page = slice.page))
     }
 
     override fun createVariant(
@@ -461,19 +478,25 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
         status: String?,
+        page: Int,
+        size: Int,
     ): ResponseEntity<VersionListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val versions = ListVersions(variantId = variantIdComposite).query()
+        // Bounded per-variant collection: filter, then slice in application code so
+        // the total reflects the status filter.
         val filteredVersions = if (status != null) {
             versions.filter { it.status.name.equals(status, ignoreCase = true) }
         } else {
             versions
         }
+        val slice = Pagination.paginate(filteredVersions, page, size)
         return ResponseEntity.ok(
             VersionListResponse(
-                items = filteredVersions.map { it.toSummaryDto() },
+                items = slice.items.map { it.toSummaryDto() },
+                page = slice.page,
             ),
         )
     }

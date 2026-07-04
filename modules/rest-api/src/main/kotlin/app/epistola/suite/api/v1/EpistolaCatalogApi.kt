@@ -5,6 +5,7 @@ import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
 import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.ImportCatalogResponse
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.AuthoredImportMode
@@ -25,12 +26,14 @@ import org.springframework.web.multipart.MultipartFile
 @RequestMapping("/api")
 class EpistolaCatalogApi : CatalogsApi {
 
-    override fun listCatalogs(tenantId: String): ResponseEntity<CatalogListResponse> {
+    override fun listCatalogs(tenantId: String, page: Int, size: Int): ResponseEntity<CatalogListResponse> {
         val tenantKey = TenantKey.of(tenantId)
         val catalogs = ListCatalogs(tenantKey).query()
+        val slice = Pagination.paginate(catalogs, page, size)
         return ResponseEntity.ok(
             CatalogListResponse(
-                items = catalogs.map { catalog ->
+                page = slice.page,
+                items = slice.items.map { catalog ->
                     val authored = catalog.type == CatalogType.AUTHORED
                     CatalogDto(
                         id = catalog.id.value,

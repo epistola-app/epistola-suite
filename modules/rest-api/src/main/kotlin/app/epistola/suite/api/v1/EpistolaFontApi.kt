@@ -4,6 +4,7 @@ import app.epistola.api.FontsApi
 import app.epistola.api.model.FontDto
 import app.epistola.api.model.FontListResponse
 import app.epistola.api.model.FontVariantDto
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -41,17 +42,20 @@ class EpistolaFontApi : FontsApi {
     override fun listFonts(
         tenantId: String,
         catalogId: String,
+        page: Int,
+        size: Int,
     ): ResponseEntity<FontListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)
         val fonts = ListFonts(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
-        val items = fonts.map { font ->
+        val slice = Pagination.paginate(fonts, page, size)
+        val items = slice.items.map { font ->
             val variants = GetFontVariants(
                 fontId = FontId(font.slug, CatalogId(catalogKey, tenantIdComposite)),
             ).query().map { FontVariantDto(it.weight, it.italic) }
             font.toDto(variants)
         }
-        return ResponseEntity.ok(FontListResponse(items = items))
+        return ResponseEntity.ok(FontListResponse(items = items, page = slice.page))
     }
 
     override fun getFont(

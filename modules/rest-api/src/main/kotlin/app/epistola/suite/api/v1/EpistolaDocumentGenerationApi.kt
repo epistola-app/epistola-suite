@@ -9,6 +9,7 @@ import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobListResponse
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
+import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toCommand
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toJobDto
@@ -23,6 +24,8 @@ import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.CountDocuments
+import app.epistola.suite.documents.queries.CountGenerationJobs
 import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
@@ -44,16 +47,6 @@ import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 import java.util.UUID
-
-private const val MAX_PAGE_SIZE = 1000
-
-private fun sanitizedOffset(page: Int, size: Int): Int {
-    val safePage = page.coerceIn(0, Int.MAX_VALUE / MAX_PAGE_SIZE)
-    val safeSize = size.coerceIn(1, MAX_PAGE_SIZE)
-    return safePage * safeSize
-}
-
-private fun sanitizedLimit(size: Int): Int = size.coerceIn(1, MAX_PAGE_SIZE)
 
 @RestController
 @RequestMapping("/api")
@@ -113,23 +106,21 @@ class EpistolaDocumentGenerationApi(
         size: Int,
     ): ResponseEntity<GenerationJobListResponse> {
         val statusEnum = status?.let { RequestStatus.valueOf(it) }
+        val typedTenantId = TenantKey.of(tenantId)
         val jobs = ListGenerationJobs(
-            tenantId = TenantKey.of(tenantId),
+            tenantId = typedTenantId,
             status = statusEnum,
-            limit = sanitizedLimit(size),
-            offset = sanitizedOffset(page, size),
+            limit = Pagination.limitOf(size),
+            offset = Pagination.offsetOf(page, size),
         ).query()
+        val total = CountGenerationJobs(tenantId = typedTenantId, status = statusEnum).query()
 
-        // TODO: Get total count for pagination
-        val response = GenerationJobListResponse(
-            items = jobs.map { it.toJobDto() },
-            page = page,
-            propertySize = size,
-            totalElements = jobs.size,
-            totalPages = 1,
+        return ResponseEntity.ok(
+            GenerationJobListResponse(
+                items = jobs.map { it.toJobDto() },
+                page = Pagination.pageMeta(page, size, total),
+            ),
         )
-
-        return ResponseEntity.ok(response)
     }
 
     override fun getGenerationJobStatus(
@@ -309,23 +300,26 @@ class EpistolaDocumentGenerationApi(
         page: Int,
         size: Int,
     ): ResponseEntity<DocumentListResponse> {
+        val typedTenantId = TenantKey.of(tenantId)
+        val typedTemplateId = templateId?.let { TemplateKey.of(it) }
         val documents = ListDocuments(
-            tenantId = TenantKey.of(tenantId),
-            templateId = templateId?.let { TemplateKey.of(it) },
+            tenantId = typedTenantId,
+            templateId = typedTemplateId,
             correlationId = correlationId,
-            limit = sanitizedLimit(size),
-            offset = sanitizedOffset(page, size),
+            limit = Pagination.limitOf(size),
+            offset = Pagination.offsetOf(page, size),
+        ).query()
+        val total = CountDocuments(
+            tenantId = typedTenantId,
+            templateId = typedTemplateId,
+            correlationId = correlationId,
         ).query()
 
-        // TODO: Get total count for pagination
-        val response = DocumentListResponse(
-            items = documents.map { it.toDto() },
-            page = page,
-            propertySize = size,
-            totalElements = documents.size,
-            totalPages = 1,
+        return ResponseEntity.ok(
+            DocumentListResponse(
+                items = documents.map { it.toDto() },
+                page = Pagination.pageMeta(page, size, total),
+            ),
         )
-
-        return ResponseEntity.ok(response)
     }
 }
