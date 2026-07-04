@@ -371,6 +371,25 @@ migration:
   waitImage: busybox:1.38
   # Resources for the migrate container.
   resources: {}
+  # Optional: run the migration container as a SEPARATE database role from the
+  # app pods. Set this to the role that holds DDL, so the app's own role
+  # (database.*) can run with NO DDL privileges — the app performs partition
+  # maintenance only via SECURITY DEFINER functions (see #438 and
+  # docs/deployment.md "Running with a DDL-less runtime role"). The database URL
+  # is shared (same host/db); only the username/password differ.
+  #
+  # Leave `username` empty to reuse the app credentials (single-role, default —
+  # unchanged behaviour). The operator provisions this role and its password
+  # Secret out of band (for CNPG, e.g. via `managed.roles`).
+  credentials:
+    # Migration-role username. When empty, the migration container reuses the
+    # app credentials from `database.*`.
+    username: ""
+    # Name of an existing Secret holding the migration role's password.
+    # Required when `username` is set.
+    existingSecret: ""
+    # Key within `existingSecret` that holds the password.
+    passwordKey: password
   # Helm hook Job tuning (job mode only).
   job:
     backoffLimit: 3

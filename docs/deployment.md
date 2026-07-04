@@ -18,8 +18,10 @@ In `job` and `initContainer` modes the chart injects
 `EPISTOLA_MIGRATION_MODE=validate` into the app container, so app pods only
 **validate** the schema and fail fast if it is behind — they never migrate at
 boot. The migration workload reuses the **same image** with
-`EPISTOLA_MIGRATION_MODE=migrate` and the same datasource credentials as the app
-(shared `epistola.databaseEnv` helper).
+`EPISTOLA_MIGRATION_MODE=migrate`, and by default the same datasource credentials
+as the app — or a **separate migration role** via `migration.credentials` so the
+app's own role can run without DDL (see
+[Running with a DDL-less runtime role](#running-with-a-ddl-less-runtime-role)).
 
 `embedded` emits no Job, no init container, and no `EPISTOLA_MIGRATION_MODE` —
 the app migrates at boot exactly as before.
@@ -201,12 +203,32 @@ operates only on real child partitions from `pg_inherits` (drop) — so granting
 **Single-role deployments are unaffected:** the one role owns the functions and
 executes them, so nothing changes.
 
-> **Chart support (follow-up):** the Helm chart currently wires a **single** set
-> of database credentials for both the app and the migration step
-> (`epistola.databaseEnv`). Provisioning two roles and pointing the migration
-> step and app pods at different credentials — including CNPG two-role
-> provisioning — is tracked in **#438**. Until then the two-role split is a
-> manual operator step, most easily done with `database.type=external`.
+### Wiring the two roles in the Helm chart
+
+The chart lets the **migration step** connect as a different database role from
+the app pods, so the app's role (`database.*`) can be the DDL-less runtime role:
+
+```yaml
+migration:
+  credentials:
+    username: epistola_migrate # the DDL-holding migration role
+    existingSecret: epistola-migrate-db
+    passwordKey: password
+```
+
+When `migration.credentials.username` is set, only the **migration Job /
+init container** uses these credentials (same database URL, different
+username/password); the app pods keep using `database.*`. When it's empty
+(default), the migration step reuses the app credentials — single-role behaviour,
+unchanged.
+
+You provision the two roles and their grants (the `GRANT`s above), then reference
+them from the chart: the app role via `database.external.*`, the migration role
+via `migration.credentials.*`. For a **CNPG-managed** database, create the second
+role and its grants through the CNPG `Cluster` you manage (`spec.managed.roles`
+plus your bootstrap SQL) — with `database.type=cnpgExisting` the chart just
+consumes it. The two-role split is otherwise identical: app pods use their
+credentials, the migration step uses `migration.credentials`.
 
 ## Trusting a client root CA: `extraCaCerts`
 
