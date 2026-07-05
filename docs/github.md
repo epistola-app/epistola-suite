@@ -7,6 +7,7 @@ This document explains how GitHub is configured for the Epistola Suite project, 
 - [CI/CD Workflows](#cicd-workflows)
   - [Build and Test](#build-and-test)
   - [Docker Publishing](#docker-publishing)
+  - [Helm Chart Publishing](#helm-chart-publishing)
   - [Label Sync](#label-sync)
   - [Project Sync](#project-sync)
 - [Versioning and Releases](#versioning-and-releases)
@@ -33,8 +34,9 @@ All workflows are defined in `.github/workflows/`.
 
 **Triggers:**
 
-- Every push to `main`
-- Every pull request targeting `main`
+- Every push to `main` (and `release/**` maintenance branches)
+- Every pull request targeting `main` (or a `release/**` branch)
+- Every `v*` tag (the app-release build — see [Docker Publishing](#docker-publishing))
 
 **What it does:**
 
@@ -52,41 +54,51 @@ All workflows are defined in `.github/workflows/`.
 
 **File:** `.github/workflows/build.yml` (docker job)
 
-**Triggers:**
+The app image is published **only for app releases** — a `v*` tag — or a PR
+labelled `publish` (for testing). A normal push to `main` only compiles + tests;
+it does **not** build an image.
 
-- Automatically on push to `main` (after build succeeds)
-- On PRs with the `publish` label (for testing)
+#### On a `v*` tag (app release)
 
-**What it does:**
+`build.yml` triggers on `push: tags: ['v*']` (and `main`/`release/**` branches +
+PRs for the test jobs). On the tag it:
 
-#### On Push to Main
+1. Extracts the version from the tag (`v1.0.0-RC3` → `1.0.0-RC3`) and **asserts it
+   equals `gradle.properties` `version`** — a mismatch (e.g. the file still says
+   `-SNAPSHOT`) fails the release loudly instead of shipping a wrong image.
+2. Builds the image with `gradle :apps:epistola:bootBuildImage`.
+3. Pushes `ghcr.io/epistola-app/epistola-suite` with tags `:<version>`, `:<sha>`, `:latest`.
+4. Signs with Cosign (keyless OIDC), attaches the SBOM attestation, and uploads the
+   SBOM artifacts to the GitHub Release.
 
-1. Builds and tests the project
-2. Pushes Docker image with SHA and `latest` tags:
-   - `ghcr.io/epistola-app/epistola-suite:<sha>`
-   - `ghcr.io/epistola-app/epistola-suite:latest`
+Chart tags (`epistola-*`) deliberately do **not** match `v*`, so a chart release
+never triggers the app pipeline.
 
-#### On Release Published
+#### On a PR with the `publish` label
 
-When a GitHub release is created with a `vX.Y.Z` tag:
+Builds + pushes a snapshot image `…:<prev-version>-pr-<number>-<run>` (e.g.
+`1.0.0-RC2-pr-42-5`) for testing. Add the `publish` label to trigger.
 
-1. Extracts the version from the release tag (e.g., `v0.7.0` → `0.7.0`)
-2. Builds Docker image using `gradle :apps:epistola:bootBuildImage`
-3. Pushes to GitHub Container Registry with tags:
-   - `ghcr.io/epistola-app/epistola-suite:<version>` (e.g., `0.7.0`)
-   - `ghcr.io/epistola-app/epistola-suite:<sha>` (git commit SHA)
-   - `ghcr.io/epistola-app/epistola-suite:latest`
-4. Signs the image using Cosign (keyless OIDC)
-5. Attaches SBOM attestation to the image
-6. Uploads SBOM artifacts to the GitHub release
+### Helm Chart Publishing
 
-#### On PR with `publish` Label
+**File:** `.github/workflows/helm.yml`
 
-1. Builds Docker image
-2. Pushes with tag: `ghcr.io/epistola-app/epistola-suite:<prev-version>-pr-<number>-<run>`
-   - Example: `0.1.0-pr-42-5`
+The charts (`epistola`, `epistola-observability`) publish **only on their own chart
+tag** — `<chart>-<version>` (e.g. `epistola-0.10.0`, `epistola-observability-0.1.0`).
+PRs touching `charts/**` run linting only.
 
-**Usage:** To test a Docker image from a PR, add the `publish` label.
+#### On a `<chart>-*` tag
+
+`helm.yml` triggers on `push: tags: ['epistola-*']`. It:
+
+1. Parses the chart name + version from the tag (pre-release-safe).
+2. **Asserts the version equals that chart's `Chart.yaml` `version:`** — a mismatch
+   (e.g. `-SNAPSHOT`) fails.
+3. `helm package` + pushes to `oci://ghcr.io/epistola-app/charts/<chart>:<version>`.
+
+The GitHub Release (with notes from the chart's CHANGELOG) is created by the
+`release-helm-chart` skill; this workflow only publishes to OCI. The disjoint
+`v*` / `epistola-*` tag globs keep the chart and app streams from ever crossing.
 
 ### CodeQL Analysis
 
@@ -185,22 +197,42 @@ Version bumps are determined automatically from commit messages:
 
 ### Release Process
 
-Releases are **manually triggered** by creating a GitHub release:
+The repo ships **three independently-versioned artifacts**, each released on its
+own tag. Versions are **file-truth**: every artifact's version lives in a file,
+and during development carries the next version with **`-SNAPSHOT`** — so a branch
+never claims a released version it isn't.
 
-1. Determine the next version based on conventional commits since the last release:
-   - `feat:` commits → bump MINOR (e.g., 0.6.1 → 0.7.0)
-   - `fix:` commits only → bump PATCH (e.g., 0.6.1 → 0.6.2)
-   - `feat!:` or `BREAKING CHANGE` → bump MAJOR (e.g., 0.6.1 → 1.0.0)
-2. Create a GitHub release using `gh release create`:
-   ```bash
-   gh release create v0.7.0 --title "v0.7.0" --generate-notes
-   ```
-3. The `release: published` event triggers the CI workflow which:
-   - Builds and publishes the versioned Docker image
-   - Signs the image with Cosign
-   - Attaches SBOM artifacts to the release
+| Artifact  | Version file (source of truth)                        | Dev value            | Release tag                    |
+| --------- | ----------------------------------------------------- | -------------------- | ------------------------------ |
+| App image | `gradle.properties` `version=`                        | `1.0.0-RC3-SNAPSHOT` | `v1.0.0-RC3`                   |
+| App chart | `charts/epistola/Chart.yaml` `version:`               | `0.10.0-SNAPSHOT`    | `epistola-0.10.0`              |
+| Obs chart | `charts/epistola-observability/Chart.yaml` `version:` | `0.1.0-SNAPSHOT`     | `epistola-observability-0.1.0` |
 
-**Important:** The release tag must follow the `vX.Y.Z` format (e.g., `v0.7.0`).
+**To release an artifact** (use the [`release`](../.claude/skills/release) skill
+for the app, [`release-helm-chart`](../.claude/skills/release-helm-chart) for a
+chart — same three-step shape):
+
+1. In a PR: **strip `-SNAPSHOT`** in the version file → the release version;
+   **finalize that artifact's CHANGELOG** `## [X.Y.Z]` (this section becomes the
+   GitHub Release notes); merge to `main`.
+2. On the merge commit: `gh release create <tag> --notes "<changelog section>" --target <sha>`.
+   CI reacts to the tag, **asserts `tag == file version`**, and builds/publishes.
+3. **Re-open the next `-SNAPSHOT`** in the version file.
+
+Key properties:
+
+- **Independent streams.** The tag globs are disjoint (`v*` vs `epistola-*`), so a
+  chart release never triggers the app pipeline and vice-versa — no shared
+  `release:` event, no cross-firing.
+- **`tag == file` validation** doubles as a guard: a tag whose commit still holds a
+  `-SNAPSHOT` fails, so you cannot accidentally release a snapshot.
+- **Backports:** keep a `release/<major>.x` branch with its own `-SNAPSHOT`
+  lineage + CHANGELOG; tag there to release from it. Consumers resolve by SemVer
+  range (a `1.x`-pinned client gets `1.0.5`; latest-tracking stays on `main`).
+- **Consumers:** charts publish to `oci://ghcr.io/epistola-app/charts/<chart>`;
+  epistola-infra auto-bumps via Flux `ImagePolicy`; clients pull by version.
+
+**Important:** app tags are `vX.Y.Z`; chart tags are `<chart-name>-X.Y.Z`.
 
 ---
 
