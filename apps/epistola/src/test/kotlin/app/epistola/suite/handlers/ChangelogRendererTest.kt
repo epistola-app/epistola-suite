@@ -48,7 +48,7 @@ class ChangelogRendererTest {
         val entries = renderer.entries()
         assertThat(entries).isNotEmpty()
         entries.forEach { entry ->
-            assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+")
+            assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?")
             assertThat(entry.date).matches("\\d{4}-\\d{2}-\\d{2}")
             assertThat(entry.html).isNotBlank()
         }
@@ -257,6 +257,38 @@ class ChangelogRendererTest {
     }
 
     @Test
+    fun `pre-release versions (RC) are parsed and not dropped`() {
+        // Regression: the version heading regex must accept a SemVer pre-release suffix, otherwise
+        // release-candidate sections like [1.0.0-RC2] were silently skipped by the dialog.
+        // language=markdown
+        val md =
+            """
+            # Changelog
+
+            ## [Unreleased]
+
+            ## [1.0.0-RC2] - 2026-07-05
+
+            - **[user]** feat(editor): **RC2 thing.** Ships in the candidate.
+
+            ## [1.0.0-RC1] - 2026-06-25
+
+            - **[user]** fix(pdf): **RC1 fix.**
+
+            ## [0.26.0] - 2026-06-25
+
+            - feat(core): **Prior release.**
+            """.trimIndent()
+
+        val entries = renderer.entriesFrom(md, ChangelogAudience.ALL)
+        // The RC versions appear, in file order, ahead of the prior stable release.
+        assertThat(entries.map { it.version }).containsExactly("1.0.0-RC2", "1.0.0-RC1", "0.26.0")
+        assertThat(entries.first { it.version == "1.0.0-RC2" }.date).isEqualTo("2026-07-05")
+        assertThat(entries.first { it.version == "1.0.0-RC2" }.html).contains("RC2 thing.")
+        assertThat(entries.first { it.version == "1.0.0-RC1" }.html).contains("RC1 fix.")
+    }
+
+    @Test
     fun `a release summary paragraph renders above the entries`() {
         // language=markdown
         val md =
@@ -288,7 +320,7 @@ class ChangelogRendererTest {
                 .withFailMessage("Bundled CHANGELOG.md produced no entries for the %s view", view)
                 .isNotEmpty()
             entries.forEach { entry ->
-                assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+")
+                assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?")
                 assertThat(entry.date).matches("\\d{4}-\\d{2}-\\d{2}")
                 assertThat(entry.html).isNotBlank()
                 assertThat(entry.summary).isNotBlank()
@@ -393,12 +425,21 @@ class ChangelogRendererTest {
     }
 
     private fun compareVersions(a: String, b: String): Int {
-        val aParts = a.split(".").map { it.toInt() }
-        val bParts = b.split(".").map { it.toInt() }
+        val aParts = a.substringBefore("-").split(".").map { it.toInt() }
+        val bParts = b.substringBefore("-").split(".").map { it.toInt() }
         for (i in 0..2) {
             val cmp = aParts[i].compareTo(bParts[i])
             if (cmp != 0) return cmp
         }
-        return 0
+        // Same base version: a release (no pre-release suffix) outranks a pre-release,
+        // and among pre-releases compare the suffix (RC1 < RC2).
+        val aPre = a.substringAfter("-", "")
+        val bPre = b.substringAfter("-", "")
+        return when {
+            aPre == bPre -> 0
+            aPre == "" -> 1
+            bPre == "" -> -1
+            else -> aPre.compareTo(bPre)
+        }
     }
 }

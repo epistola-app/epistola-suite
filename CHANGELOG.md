@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(changelog): **Release-candidate versions now appear in the in-app changelog.** The version-heading parser only matched a bare `X.Y.Z`, so pre-release sections like `## [1.0.0-RC2]` were silently skipped and never shown in the changelog dialog. It now accepts a SemVer pre-release suffix (`-RC2`, `-beta.1`, …), and version ordering treats a release as newer than its pre-releases.
+
 ## [1.0.0-RC2] - 2026-07-05
 
 This release hardens the UI with a strict Content-Security-Policy (`script-src 'self'`, no inline scripts, no external origins) and self-hosts the Inter font so no page request ever reaches Google. The REST API's list endpoints are now paginated with a `{ items, page }` envelope — a deliberate breaking change ahead of the 1.0 API freeze — and gain tenant rename and stencil parameter-schema support. Document preview now matches the final PDF exactly (same embedded fonts and pagination) and carries a "PREVIEW" watermark, and name/title fields now enforce a consistent 100-character limit.
