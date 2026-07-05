@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `grafana.allowCrossNamespaceImport` value (default `false`), rendered on the `GrafanaFolder`, all `GrafanaDashboard`s and the `GrafanaAlertRuleGroup`. grafana-operator only binds a CR to a Grafana instance in the **same namespace** unless this is set; enable it when a central Grafana (e.g. in an `observability` namespace) must adopt dashboards defined in an application namespace. Without it the CRs report `NoMatchingInstance` and never reach Grafana.
+
 ## [0.1.0] - 2026-07-05
 
 ### Added

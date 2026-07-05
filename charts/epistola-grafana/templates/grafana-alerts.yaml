@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "epistola-grafana.labels" . | nindent 4 }}
 spec:
+  allowCrossNamespaceImport: {{ .Values.grafana.allowCrossNamespaceImport }}
   instanceSelector:
     {{- toYaml .Values.grafana.instanceSelector | nindent 4 }}
   folderUID: {{ include "epistola-grafana.folderUid" . | quote }}

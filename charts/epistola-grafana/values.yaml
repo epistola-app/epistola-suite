@@ -11,6 +11,12 @@ grafana:
   instanceSelector:
     matchLabels:
       dashboards: "grafana"
+  # Allow these CRs to bind a Grafana instance in a DIFFERENT namespace.
+  # grafana-operator only matches same-namespace instances unless this is true.
+  # Leave false when the Grafana instance lives alongside these resources; set
+  # true for a central Grafana (e.g. an `observability` namespace) with the
+  # dashboards defined in an app namespace.
+  allowCrossNamespaceImport: false
   # UID of the Prometheus datasource the dashboard panels + alerts query.
   datasourceUid: "Prometheus"
   # The Grafana folder that holds the dashboards and alerts. Identity is the UID
