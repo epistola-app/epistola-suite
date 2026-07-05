@@ -12,9 +12,15 @@
 - **`serviceAccount.automount` now defaults to `false`.** The app makes no Kubernetes API calls, so its pods no longer auto-mount a ServiceAccount token. Set `true` if you add something that needs API access.
 - **`database.type=external` now fails the render when `database.external.host` is empty** (mirroring the existing password guard), instead of emitting a broken `jdbc:postgresql://:5432/…` URL that only failed at pod startup.
 
+### Fixed
+
+- **Grafana alerts now reconcile into the intended folder.** `GrafanaAlertRuleGroup.folderRef` was fed the folder *title* (`observability.grafana.folder`), but `folderRef` must name a `GrafanaFolder` CR. Added a `GrafanaFolder` template (gated by `observability.grafana.enabled`); the alert group now references it by name, co-located with the dashboards.
+- Removed a dead `datasource` template variable from all five dashboards — panels reference the datasource uid directly, so the picker did nothing.
+
 ### Internal
 
 - DB/migration credential helpers de-duplicated: a shared `epistola.database.externalUrl` helper, `epistola.database.effectiveType` now centralizes supported-type validation, and the dead `cnpgExisting` branch left by the `cnpgExisting.username` removal is gone. No behavior change.
+- Documented the grafana-operator CRD prerequisite for `observability.grafana.enabled`.
 
 ## [0.8.0] - 2026-07-04
 

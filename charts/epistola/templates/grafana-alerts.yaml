@@ -8,7 +8,7 @@ metadata:
 spec:
   instanceSelector:
     {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
-  folderRef: {{ .Values.observability.grafana.folder | quote }}
+  folderRef: {{ printf "%s-folder" (include "epistola.fullname" .) | quote }}
   interval: 60s
   rules:
     # -------------------------------------------------------------------------

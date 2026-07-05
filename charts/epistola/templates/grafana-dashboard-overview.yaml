@@ -19,18 +19,6 @@ spec:
       "version": 1,
       "time": { "from": "now-6h", "to": "now" },
       "refresh": "30s",
-      "templating": {
-        "list": [
-          {
-            "name": "datasource",
-            "type": "datasource",
-            "pluginId": "prometheus",
-            "label": "Datasource",
-            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
-            "hide": 0
-          }
-        ]
-      },
       "panels": [
         {
           "id": 1,
