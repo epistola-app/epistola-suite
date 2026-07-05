@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-05
+
 ### Changed (breaking)
 
 - **BREAKING: renamed value keys for consistency.** `database.cnpgExisting.secretName` → `database.cnpgExisting.existingSecret`; `migration.credentials.passwordKey` → `migration.credentials.secretKey` (one name for "existing Secret" / "key within it" across the `database` and `migration` blocks); `observability.grafana.datasourceName` → `observability.grafana.datasourceUid` (it is the datasource *uid*, not a display name). Update your values accordingly.
