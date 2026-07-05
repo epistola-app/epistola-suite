@@ -1,5 +1,5 @@
 apiVersion: v2
-name: epistola-observability
+name: epistola-grafana
 description: >-
   Grafana dashboards and alerts for Epistola Suite, as grafana-operator custom
   resources. Install alongside the epistola chart on clusters that run
@@ -7,7 +7,7 @@ description: >-
   grafana-operator.
 type: application
 # Source of truth for the chart version. Dev carries the next version with
-# -SNAPSHOT; a release strips it, tags epistola-observability-<version>, then
+# -SNAPSHOT; a release strips it, tags epistola-grafana-<version>, then
 # re-opens the next -SNAPSHOT (see the release-helm-chart skill). CI validates the
 # tag == this value.
 version: 0.1.0-SNAPSHOT

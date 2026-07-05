@@ -186,7 +186,7 @@ observability:
     # 4000. Set explicitly to override (e.g. a non-standard management port).
     port: ""
     path: /actuator/prometheus
-  # Grafana dashboards + alerts have moved to the separate `epistola-observability`
+  # Grafana dashboards + alerts have moved to the separate `epistola-grafana`
   # chart (they are grafana-operator CRs and shouldn't couple this chart to the
   # operator). Install that chart alongside this one on clusters running
   # grafana-operator. This chart still emits the Prometheus scrape annotations

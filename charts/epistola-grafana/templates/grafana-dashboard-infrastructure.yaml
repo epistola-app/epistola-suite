@@ -2,13 +2,13 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: {{ include "epistola-observability.fullname" . }}-infrastructure
+  name: {{ include "epistola-grafana.fullname" . }}-infrastructure
   labels:
-    {{- include "epistola-observability.labels" . | nindent 4 }}
+    {{- include "epistola-grafana.labels" . | nindent 4 }}
 spec:
   instanceSelector:
     {{- toYaml .Values.grafana.instanceSelector | nindent 4 }}
-  folderUID: {{ include "epistola-observability.folderUid" . | quote }}
+  folderUID: {{ include "epistola-grafana.folderUid" . | quote }}
   json: |
     {
       "title": "Epistola — Infrastructure (JVM & Database)",

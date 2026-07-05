@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "epistola-observability.name" -}}
+{{- define "epistola-grafana.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name (truncated to 63 chars for DNS names).
 */}}
-{{- define "epistola-observability.fullname" -}}
+{{- define "epistola-grafana.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name (truncated to 63 chars for DNS names).
 {{/*
 Chart name and version as used by the chart label.
 */}}
-{{- define "epistola-observability.chart" -}}
+{{- define "epistola-grafana.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "epistola-observability.labels" -}}
-helm.sh/chart: {{ include "epistola-observability.chart" . }}
-{{ include "epistola-observability.selectorLabels" . }}
+{{- define "epistola-grafana.labels" -}}
+helm.sh/chart: {{ include "epistola-grafana.chart" . }}
+{{ include "epistola-grafana.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,8 +43,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "epistola-observability.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "epistola-observability.name" . }}
+{{- define "epistola-grafana.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "epistola-grafana.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
@@ -57,6 +57,6 @@ pin it — default it to the release fullname — so it is stable by constructio
 the immutable field only ever holds a value that never needs to change, and the
 display title (grafana.folder.title) can be renamed freely without touching it.
 */}}
-{{- define "epistola-observability.folderUid" -}}
-{{- .Values.grafana.folder.uid | default (include "epistola-observability.fullname" .) -}}
+{{- define "epistola-grafana.folderUid" -}}
+{{- .Values.grafana.folder.uid | default (include "epistola-grafana.fullname" .) -}}
 {{- end }}

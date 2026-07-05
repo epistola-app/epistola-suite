@@ -1,6 +1,6 @@
 ---
 name: release-helm-chart
-description: Release a Helm chart (epistola or epistola-observability) to a new version. Use when the user wants to release, publish, or cut a new Helm chart version.
+description: Release a Helm chart (epistola or epistola-grafana) to a new version. Use when the user wants to release, publish, or cut a new Helm chart version.
 ---
 
 Release a Helm chart. The chart's `Chart.yaml` `version:` is the **source of
@@ -14,7 +14,7 @@ these never cross-fire.
 ## Charts
 
 - `charts/epistola` — the application chart.
-- `charts/epistola-observability` — Grafana dashboards/alerts.
+- `charts/epistola-grafana` — Grafana dashboards/alerts.
 
 Each is versioned and released **independently**; only touch the one you're releasing.
 
@@ -28,7 +28,7 @@ release and bump if the dev value is behind (pre-1.0: a breaking change is a MIN
 bump; post-1.0 it is MAJOR):
 
 ```bash
-NAME=epistola   # or epistola-observability
+NAME=epistola   # or epistola-grafana
 git tag -l "${NAME}-*" --sort=-v:refname | head -1
 git log --oneline -- "charts/${NAME}/"
 ```

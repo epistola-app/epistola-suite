@@ -1,4 +1,4 @@
-# Epistola Observability Chart Changelog
+# Epistola Grafana Chart Changelog
 
 ## [Unreleased]
 

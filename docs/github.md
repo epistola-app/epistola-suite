@@ -83,8 +83,8 @@ Builds + pushes a snapshot image `…:<prev-version>-pr-<number>-<run>` (e.g.
 
 **File:** `.github/workflows/helm.yml`
 
-The charts (`epistola`, `epistola-observability`) publish **only on their own chart
-tag** — `<chart>-<version>` (e.g. `epistola-0.10.0`, `epistola-observability-0.1.0`).
+The charts (`epistola`, `epistola-grafana`) publish **only on their own chart
+tag** — `<chart>-<version>` (e.g. `epistola-0.10.0`, `epistola-grafana-0.1.0`).
 PRs touching `charts/**` run linting only.
 
 #### On a `<chart>-*` tag
@@ -202,11 +202,11 @@ own tag. Versions are **file-truth**: every artifact's version lives in a file,
 and during development carries the next version with **`-SNAPSHOT`** — so a branch
 never claims a released version it isn't.
 
-| Artifact  | Version file (source of truth)                        | Dev value            | Release tag                    |
-| --------- | ----------------------------------------------------- | -------------------- | ------------------------------ |
-| App image | `gradle.properties` `version=`                        | `1.0.0-RC3-SNAPSHOT` | `v1.0.0-RC3`                   |
-| App chart | `charts/epistola/Chart.yaml` `version:`               | `0.10.0-SNAPSHOT`    | `epistola-0.10.0`              |
-| Obs chart | `charts/epistola-observability/Chart.yaml` `version:` | `0.1.0-SNAPSHOT`     | `epistola-observability-0.1.0` |
+| Artifact  | Version file (source of truth)                  | Dev value            | Release tag              |
+| --------- | ----------------------------------------------- | -------------------- | ------------------------ |
+| App image | `gradle.properties` `version=`                  | `1.0.0-RC3-SNAPSHOT` | `v1.0.0-RC3`             |
+| App chart | `charts/epistola/Chart.yaml` `version:`         | `0.10.0-SNAPSHOT`    | `epistola-0.10.0`        |
+| Obs chart | `charts/epistola-grafana/Chart.yaml` `version:` | `0.1.0-SNAPSHOT`     | `epistola-grafana-0.1.0` |
 
 **To release an artifact** (use the [`release`](../.claude/skills/release) skill
 for the app, [`release-helm-chart`](../.claude/skills/release-helm-chart) for a

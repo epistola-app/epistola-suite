@@ -189,13 +189,13 @@ Do not enable both the agent and `otlpEndpoint` for metrics, or you double-expor
 ### Dashboards & alerts
 
 Grafana dashboards (Overview, Generation, Infrastructure, Mediator, API Security)
-and alert rules ship in the **separate `epistola-observability` chart** as
+and alert rules ship in the **separate `epistola-grafana` chart** as
 grafana-operator custom resources — not the app chart, which stays independent of
 grafana-operator. Install it alongside the app chart on clusters running
 grafana-operator:
 
 ```yaml
-# epistola-observability values
+# epistola-grafana values
 grafana:
   enabled: true
   instanceSelector: { matchLabels: { dashboards: grafana } }
