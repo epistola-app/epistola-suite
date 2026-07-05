@@ -2,8 +2,6 @@
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-07-05
-
 ### Removed
 
 - **BREAKING: Grafana dashboards + alerts moved to the new `epistola-observability` chart.** The grafana-operator custom resources (5 `GrafanaDashboard` + `GrafanaAlertRuleGroup` + `GrafanaFolder`) and the `observability.grafana.*` values are gone from this chart — an application chart should not couple its render to grafana-operator's CRDs. Install `epistola-observability` alongside this chart on clusters running grafana-operator, and set the (renamed, top-level) `grafana.*` values there. `observability.prometheus` (scrape annotations) and `observability.otelAgent` stay here. This also **resolves the 0.9.0 upgrade failure** for grafana users: 0.9.0 tried to change the alert's immutable `spec.folderRef` in place (`Value is immutable`); with the CRs removed here they are pruned, not patched, and recreated cleanly by the new chart — which anchors dashboards and alerts to a **pinned folder UID** (`folderUID`) so the immutable field is stable by construction.

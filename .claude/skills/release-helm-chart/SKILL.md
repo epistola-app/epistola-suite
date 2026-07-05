@@ -3,84 +3,83 @@ name: release-helm-chart
 description: Release a Helm chart (epistola or epistola-observability) to a new version. Use when the user wants to release, publish, or cut a new Helm chart version.
 ---
 
-Release a new version of a Helm chart. Releases are **version-driven**: the
-`version` in `charts/<chart>/Chart.yaml` is the source of truth. You bump it and
-finalize the changelog in a PR; on merge, CI (`.github/workflows/helm.yml`)
-publishes any chart whose version is not yet in the registry — packaging it, pushing
-to `oci://ghcr.io/epistola-app/charts/<chart>`, and cutting a `<chart>-<version>`
-GitHub Release whose **notes are that chart's CHANGELOG section**. There are no
-manual release tags and no `gh release create`.
+Release a Helm chart. The chart's `Chart.yaml` `version:` is the **source of
+truth**; during development it carries the next version with **`-SNAPSHOT`**. A
+release strips the suffix, finalizes the CHANGELOG, and pushes a matching tag
+`<chart>-<version>`; CI (`.github/workflows/helm.yml`) reacts to the tag, asserts
+`tag == Chart.yaml version`, and publishes to `oci://ghcr.io/epistola-app/charts/<chart>`.
+Then you re-open the next `-SNAPSHOT`. The app's `v*` tags are a separate stream —
+these never cross-fire.
 
 ## Charts
 
 - `charts/epistola` — the application chart.
-- `charts/epistola-observability` — Grafana dashboards/alerts (grafana-operator CRs).
+- `charts/epistola-observability` — Grafana dashboards/alerts.
 
-Each is versioned and released **independently**. Only bump the chart(s) you changed.
+Each is versioned and released **independently**; only touch the one you're releasing.
 
-## Prerequisites
+## Steps (for one chart `<C>` = charts/<name>)
 
-- Chart changes are on a branch (or ready to be), targeting `main`.
+### 1. Determine the release version
 
-## Steps
-
-### 1. Determine the next version (per changed chart)
-
-Compare against the currently-published version and the chart-scoped commits since:
+The current `<C>/Chart.yaml` version is `X.Y.Z-SNAPSHOT` — that `X.Y.Z` is the
+release version. Sanity-check it against the chart-scoped commits since the last
+release and bump if the dev value is behind (pre-1.0: a breaking change is a MINOR
+bump; post-1.0 it is MAJOR):
 
 ```bash
-CHART=epistola   # or epistola-observability
-helm show chart "oci://ghcr.io/epistola-app/charts/${CHART}" 2>/dev/null | grep '^version:'
-git log --oneline -- "charts/${CHART}/"
+NAME=epistola   # or epistola-observability
+git tag -l "${NAME}-*" --sort=-v:refname | head -1
+git log --oneline -- "charts/${NAME}/"
 ```
 
-Apply semver from the conventional commits that touch `charts/${CHART}/` (pre-1.0,
-a breaking change is a MINOR bump; post-1.0 it is MAJOR):
+- `feat!:`/`BREAKING CHANGE:` → MAJOR (post-1.0) / MINOR (pre-1.0)
+- `feat:` → MINOR · `fix:`/`docs:`/`chore:`/`refactor:`/`test:` → PATCH
 
-- `feat!:` / `BREAKING CHANGE:` → MAJOR (post-1.0) or MINOR (pre-1.0)
-- `feat:` → MINOR
-- `fix:`/`docs:`/`chore:`/`refactor:`/`test:` → PATCH
+### 2. Release commit — strip -SNAPSHOT + finalize CHANGELOG
 
-### 2. Bump `Chart.yaml` and finalize the CHANGELOG
+- Set `<C>/Chart.yaml` `version:` to `X.Y.Z` (no `-SNAPSHOT`).
+- In `<C>/CHANGELOG.md`, move `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`
+  (keep an empty `[Unreleased]` above it). **This section becomes the GitHub
+  Release notes**, so write real, user-facing notes.
+- Commit on a branch, open a PR, merge to `main` (never push to `main` directly).
 
-- Set `version:` in `charts/${CHART}/Chart.yaml` to the new version.
-- In `charts/${CHART}/CHANGELOG.md`, move the `[Unreleased]` section to a dated
-  heading and add a fresh empty `[Unreleased]` above it:
+### 3. Confirm, then tag the merge commit
 
-  ```
-  ## [Unreleased]
+Show the user the chart, version, and CHANGELOG entry; ask for permission. Then,
+building `$BODY` from the `[X.Y.Z]` section:
 
-  ## [X.Y.Z] - YYYY-MM-DD
-  ```
+```bash
+COMMIT_SHA=$(git rev-parse origin/main)   # the merged release commit
+gh release create "${NAME}-X.Y.Z" --title "${NAME} X.Y.Z" --notes "$BODY" --target "$COMMIT_SHA"
+```
 
-  **This section is the GitHub Release body** — CI extracts everything between
-  `## [X.Y.Z]` and the next `## [` heading. If the section is missing or empty, the
-  release job **fails**. So write real, user-facing notes here. Never skip it.
+This creates the tag + GitHub Release. CI validates `tag == Chart.yaml` and
+publishes to OCI. (A tag whose commit still says `-SNAPSHOT` **fails** the check —
+that's the guard against releasing a snapshot.)
 
-`appVersion` is synced to the latest app tag by CI at publish time — leave it.
+### 4. Re-open the next -SNAPSHOT
 
-### 3. Open the PR and confirm
+In a follow-up PR, set `<C>/Chart.yaml` `version:` to the next dev version
+(default `X.Y.(Z+1)-SNAPSHOT`; raise to minor/major when the next cycle's first
+`feat`/breaking change lands). Merge.
 
-Show the user the chart(s), the version(s), and the CHANGELOG entries. Ask for
-permission, then push the branch and open the PR (do not push to `main` directly).
-
-### 4. CI publishes on merge — verify
-
-On merge to `main`, the release job runs per chart and **skips any chart whose
-version already exists** (idempotent). For a bumped chart it packages, pushes to
-OCI, and creates the `<chart>-<version>` GitHub Release from the CHANGELOG. Tell the
-user to watch it:
+### 5. Verify
 
 ```bash
 gh run list --workflow=helm.yml --limit 1
-gh release view <chart>-X.Y.Z   # confirm notes = the CHANGELOG section
+helm show chart oci://ghcr.io/epistola-app/charts/${NAME} --version X.Y.Z
+gh release view ${NAME}-X.Y.Z
 ```
 
 ## Important
 
-- **Version-driven, not tag-driven** — never run `gh release create chart-*`; CI
-  owns release creation. Releasing = a merged PR that bumps `Chart.yaml` version.
-- The release notes come **only** from the chart's `CHANGELOG.md` `[X.Y.Z]` section.
-- Version each chart independently; a bump to one does not release the other.
-- Consumers (epistola-infra, clients) pull from the OCI registry and auto-bump via
-  Flux ImagePolicy — you don't touch them here.
+- **Tag = `<chart-name>-<version>`**, disjoint from the app's `v*`. CI only reacts
+  to the tag; it does not create releases or extract notes (this skill does).
+- The three must agree: `Chart.yaml version` == CHANGELOG `[X.Y.Z]` == the tag. CI
+  enforces `tag == Chart.yaml`.
+- Dev branches always carry `-SNAPSHOT`; a real release is the strip → tag →
+  re-open cycle. This works per-branch, so a `release/*.x` maintenance branch has
+  its own snapshot lineage.
+- Consumers (epistola-infra, clients) pull from OCI and auto-bump via Flux
+  `ImagePolicy` — you don't touch them here.
