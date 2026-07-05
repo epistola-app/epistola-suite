@@ -10,7 +10,7 @@ type: application
 # -SNAPSHOT; a release strips it, tags epistola-grafana-<version>, then
 # re-opens the next -SNAPSHOT (see the release-helm-chart skill). CI validates the
 # tag == this value.
-version: 0.1.0
+version: 0.1.1-SNAPSHOT
 # appVersion is synced to the latest app tag at publish time by CI.
 appVersion: "latest"
 home: https://github.com/epistola-app/epistola-suite
