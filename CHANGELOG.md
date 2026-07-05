@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-- **[user]** fix(changelog): **Release-candidate versions now appear in the in-app changelog.** The version-heading parser only matched a bare `X.Y.Z`, so pre-release sections like `## [1.0.0-RC2]` were silently skipped and never shown in the changelog dialog. It now accepts a SemVer pre-release suffix (`-RC2`, `-beta.1`, …), and version ordering treats a release as newer than its pre-releases.
+- **[user]** fix(changelog): **Release-candidate versions are handled correctly by the in-app changelog.** Two bugs conspired to hide RC releases: the version-heading parser only matched a bare `X.Y.Z`, so pre-release sections like `## [1.0.0-RC2]` were silently skipped from the dialog; and version normalization stripped everything after the first `-`, collapsing `1.0.0-RC2` to `1.0.0` so acknowledgments and the "new entries" badge could neither match an RC's changelog section nor tell one RC from the next. Now the parser accepts a SemVer pre-release suffix (`-RC2`, `-beta.1`, …), only the `-SNAPSHOT` dev marker is stripped (`1.0.0-RC3-SNAPSHOT` → `1.0.0-RC3`), and version comparison is pre-release-aware (a final release outranks its pre-releases; `RC1 < RC2`) so the badge fires when a newer RC ships.
 
 ## [1.0.0-RC2] - 2026-07-05
 

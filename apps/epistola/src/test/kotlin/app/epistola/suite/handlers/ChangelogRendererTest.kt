@@ -1,6 +1,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.changelog.ChangelogAudience
+import app.epistola.suite.changelog.ChangelogEntry
 import app.epistola.suite.changelog.ChangelogService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -133,6 +134,45 @@ class ChangelogRendererTest {
         val older = entries.last().version
         assertThat(service.hasUnseenEntries(entries, latest, older)).isTrue()
     }
+
+    @Test
+    fun `stripSuffix keeps the pre-release identifier and drops only -SNAPSHOT`() {
+        // The RC is part of the version; only the dev/build marker is stripped.
+        assertThat(service.stripSuffix("1.0.0-RC3-SNAPSHOT")).isEqualTo("1.0.0-RC3")
+        assertThat(service.stripSuffix("1.0.0-SNAPSHOT")).isEqualTo("1.0.0")
+        assertThat(service.stripSuffix("1.0.0-RC2")).isEqualTo("1.0.0-RC2")
+        assertThat(service.stripSuffix("1.0.0")).isEqualTo("1.0.0")
+    }
+
+    @Test
+    fun `effectiveVersion of a release candidate is the full RC version, not the base`() {
+        val entries = listOf(entry("1.0.0-RC2"), entry("1.0.0-RC1"))
+        // A released RC build and its -SNAPSHOT dev build both resolve to the RC version,
+        // so acknowledgment matches the RC's own changelog section (not a phantom 1.0.0).
+        assertThat(service.effectiveVersion("1.0.0-RC2", entries)).isEqualTo("1.0.0-RC2")
+        assertThat(service.effectiveVersion("1.0.0-RC2-SNAPSHOT", entries)).isEqualTo("1.0.0-RC2")
+    }
+
+    @Test
+    fun `entriesSince distinguishes one release candidate from the next`() {
+        val entries = listOf(entry("1.0.0-RC2"), entry("1.0.0-RC1"), entry("0.26.0"))
+        // Having acknowledged RC1, RC2 is newer and shows; RC1 and older do not.
+        assertThat(service.entriesSince(entries, "1.0.0-RC1").map { it.version }).containsExactly("1.0.0-RC2")
+        // The final 1.0.0 release outranks every pre-release of it.
+        assertThat(service.entriesSince(listOf(entry("1.0.0"), entry("1.0.0-RC2")), "1.0.0-RC2").map { it.version })
+            .containsExactly("1.0.0")
+    }
+
+    @Test
+    fun `hasUnseenEntries fires when a newer release candidate ships`() {
+        val entries = listOf(entry("1.0.0-RC2"), entry("1.0.0-RC1"))
+        // On RC2, having acknowledged RC1 -> there are unseen entries.
+        assertThat(service.hasUnseenEntries(entries, "1.0.0-RC2", "1.0.0-RC1")).isTrue()
+        // On an RC2 dev build, having acknowledged RC2 -> nothing new.
+        assertThat(service.hasUnseenEntries(entries, "1.0.0-RC2-SNAPSHOT", "1.0.0-RC2")).isFalse()
+    }
+
+    private fun entry(version: String) = ChangelogEntry(version = version, date = "2026-01-01", html = "", summary = "", released = true)
 
     @Test
     fun `entries have non-empty summaries`() {
