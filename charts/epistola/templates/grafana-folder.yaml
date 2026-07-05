@@ -1,0 +1,15 @@
+{{- if .Values.observability.grafana.enabled }}
+{{- /* A managed Grafana folder so the alert group's folderRef points at a real
+       GrafanaFolder CR (folderRef references a CR by metadata.name, not a title).
+       The dashboards place themselves in the same folder by title. */}}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: {{ include "epistola.fullname" . }}-folder
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
+  title: {{ .Values.observability.grafana.folder | quote }}
+{{- end }}

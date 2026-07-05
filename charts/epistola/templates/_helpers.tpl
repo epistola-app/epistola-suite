@@ -84,18 +84,32 @@ Get the CNPG secret name for an existing cluster's app credentials
 the cluster (and any roles) separately — see docs/deployment.md.
 */}}
 {{- define "epistola.cnpg.secretName" -}}
-{{- if .Values.database.cnpgExisting.secretName }}
-{{- .Values.database.cnpgExisting.secretName }}
+{{- if .Values.database.cnpgExisting.existingSecret }}
+{{- .Values.database.cnpgExisting.existingSecret }}
 {{- else }}
 {{- printf "%s-app" .Values.database.cnpgExisting.clusterName }}
 {{- end }}
 {{- end }}
 
 {{/*
-Determine effective database type
+Resolve and validate database.type. Every datasource helper funnels through
+here, so an unsupported type fails the render once, with a clear message,
+regardless of which template is rendered first.
 */}}
 {{- define "epistola.database.effectiveType" -}}
-{{- .Values.database.type }}
+{{- $t := .Values.database.type -}}
+{{- if not (has $t (list "none" "external" "cnpgExisting")) -}}
+{{- fail (printf "database.type=%q is not supported. Use 'external', 'cnpgExisting', or 'none'. The chart no longer provisions a CloudNativePG cluster (a database must not share the app release's lifecycle); manage the CNPG Cluster yourself (see charts/epistola/examples/cnpg-cluster.yaml) and use database.type=cnpgExisting." $t) -}}
+{{- end -}}
+{{- $t -}}
+{{- end }}
+
+{{/*
+Credentials-free JDBC URL for database.type=external, shared by the app and the
+migration container so the URL (and its required-host guard) live in one place.
+*/}}
+{{- define "epistola.database.externalUrl" -}}
+jdbc:postgresql://{{ required "database.external.host is required when database.type is 'external'" .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
 {{- end }}
 
 {{/*
@@ -107,26 +121,16 @@ config.env to provide the datasource.
 {{- define "epistola.databaseEnv" -}}
 {{- $dbType := include "epistola.database.effectiveType" . -}}
 {{- if eq $dbType "cnpgExisting" }}
+{{- /* cnpgExisting is single-role: the app connects as the CNPG cluster owner
+       via the `-app` secret. A two-role setup (restricted app role) on CNPG is
+       done with database.type=external pointed at the cluster's -rw service —
+       NOT here — because CNPG's jdbc-uri embeds the owner credentials, which
+       pgjdbc lets override an explicit username. See docs/deployment.md. */}}
 - name: SPRING_DATASOURCE_URL
   valueFrom:
     secretKeyRef:
       name: {{ include "epistola.cnpg.secretName" . }}
       key: jdbc-uri
-{{- if .Values.database.cnpgExisting.username }}
-{{- /* App connects as a specific role (e.g. a DDL-less runtime role) instead of
-       the cluster owner — the secure two-role setup where the owner runs
-       migrations and the app only does DML/EXECUTE (see docs/deployment.md).
-       URL/host stay from the cluster's -app secret; only the credentials differ.
-       CNPG mints a plain username/password Secret for managed roles, so the
-       password comes from that Secret. */}}
-- name: SPRING_DATASOURCE_USERNAME
-  value: {{ .Values.database.cnpgExisting.username | quote }}
-- name: SPRING_DATASOURCE_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: {{ required "database.cnpgExisting.existingSecret is required when database.cnpgExisting.username is set" .Values.database.cnpgExisting.existingSecret }}
-      key: {{ .Values.database.cnpgExisting.passwordKey | default "password" }}
-{{- else }}
 - name: SPRING_DATASOURCE_USERNAME
   valueFrom:
     secretKeyRef:
@@ -137,10 +141,9 @@ config.env to provide the datasource.
     secretKeyRef:
       name: {{ include "epistola.cnpg.secretName" . }}
       key: password
-{{- end }}
 {{- else if eq $dbType "external" }}
 - name: SPRING_DATASOURCE_URL
-  value: "jdbc:postgresql://{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}"
+  value: {{ include "epistola.database.externalUrl" . | quote }}
 - name: SPRING_DATASOURCE_USERNAME
   value: {{ .Values.database.external.username | quote }}
 - name: SPRING_DATASOURCE_PASSWORD
@@ -155,32 +158,26 @@ config.env to provide the datasource.
 Datasource env for the MIGRATION container (SPRING_DATASOURCE_*).
 
 The migration step needs the DDL-holding role. Resolution order:
-  1. `migration.credentials.username` set → connect as that explicit role
-     (any database type; URL shared, only username/password differ).
-  2. Otherwise, for `cnpgExisting` → connect as the CNPG cluster OWNER (the
-     `-app` secret), NOT whatever `database.cnpgExisting.username` set for the
-     app. This is the secure two-role default: the owner runs migrations, the
-     app connects as a restricted role. Single-role setups (no app override)
-     also land here as the same owner, unchanged.
-  3. Otherwise (external/none) → reuse the app credentials from
-     `epistola.databaseEnv` (single-role, unless overridden via case 1).
+  1. `migration.credentials.username` set (external only) → connect as that
+     explicit role — the two-role setup where the app runs as a restricted role
+     and migrations run as the DDL-holding role. Fails the render with
+     `cnpgExisting` (single-role: the app is already the owner); use `external`
+     for a two-role CNPG setup.
+  2. Otherwise → reuse the app credentials from `epistola.databaseEnv`
+     (single-role: `external`/`none` as configured, `cnpgExisting` as the owner).
 
-The operator provisions any extra roles and their Secrets out of band (for CNPG,
-via `managed.roles`); this only wires the migration container to the right one.
+The operator provisions any extra roles and their Secrets out of band; this only
+wires the migration container to the right one.
 */}}
 {{- define "epistola.migrationDatabaseEnv" -}}
 {{- $mig := .Values.migration.credentials | default dict -}}
 {{- $dbType := include "epistola.database.effectiveType" . -}}
 {{- if $mig.username }}
 {{- if eq $dbType "cnpgExisting" }}
-- name: SPRING_DATASOURCE_URL
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "epistola.cnpg.secretName" . }}
-      key: jdbc-uri
+{{- fail "migration.credentials is not supported with database.type=cnpgExisting: the app already connects as the CNPG cluster owner, which holds DDL, so no separate migration role is needed. For a two-role setup on CNPG, use database.type=external pointed at the cluster's -rw service (see docs/deployment.md)." }}
 {{- else if eq $dbType "external" }}
 - name: SPRING_DATASOURCE_URL
-  value: "jdbc:postgresql://{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}"
+  value: {{ include "epistola.database.externalUrl" . | quote }}
 {{- end }}
 - name: SPRING_DATASOURCE_USERNAME
   value: {{ $mig.username | quote }}
@@ -188,26 +185,11 @@ via `managed.roles`); this only wires the migration container to the right one.
   valueFrom:
     secretKeyRef:
       name: {{ required "migration.credentials.existingSecret is required when migration.credentials.username is set" $mig.existingSecret }}
-      key: {{ $mig.passwordKey | default "password" }}
-{{- else if eq $dbType "cnpgExisting" }}
-{{- /* Migration always uses the cluster owner (-app secret), independent of any
-       app-role override on database.cnpgExisting. */}}
-- name: SPRING_DATASOURCE_URL
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "epistola.cnpg.secretName" . }}
-      key: jdbc-uri
-- name: SPRING_DATASOURCE_USERNAME
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "epistola.cnpg.secretName" . }}
-      key: username
-- name: SPRING_DATASOURCE_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "epistola.cnpg.secretName" . }}
-      key: password
+      key: {{ $mig.secretKey | default "password" }}
 {{- else }}
+{{- /* Single-role: migration reuses the app credentials. For cnpgExisting that
+       is the cluster owner (-app secret); a two-role CNPG setup uses
+       database.type=external (see the fail branch above and docs/deployment.md). */}}
 {{- include "epistola.databaseEnv" . }}
 {{- end }}
 {{- end }}
@@ -215,8 +197,9 @@ via `managed.roles`); this only wires the migration container to the right one.
 {{/*
 Credential encryption-at-rest env (EPISTOLA_ENCRYPTION_*). Only the app
 Deployment needs this — the migration Job/init container never touch ciphertext.
-Each key's material is sourced from a Kubernetes Secret (existingSecret/secretKey)
-in production; an inline `material` is supported for dev convenience only.
+Each key's material is sourced from a Kubernetes Secret (existingSecret/secretKey);
+inline key material is intentionally not supported — the chart never places secret
+material in the pod spec or the Helm release.
 */}}
 {{- define "epistola.encryptionEnv" -}}
 {{- if .Values.encryption.enabled }}
@@ -228,14 +211,10 @@ in production; an inline `material` is supported for dev convenience only.
 - name: EPISTOLA_ENCRYPTION_KEYS_{{ $i }}_ID
   value: {{ required "each encryption.keys entry requires an id" $key.id | quote }}
 - name: EPISTOLA_ENCRYPTION_KEYS_{{ $i }}_MATERIAL
-  {{- if $key.existingSecret }}
   valueFrom:
     secretKeyRef:
-      name: {{ $key.existingSecret }}
+      name: {{ required "each encryption.keys entry requires existingSecret (inline key material is not supported)" $key.existingSecret }}
       key: {{ $key.secretKey | default $key.id }}
-  {{- else }}
-  value: {{ required "each encryption.keys entry requires existingSecret or inline material" $key.material | quote }}
-  {{- end }}
 {{- end }}
 {{- else }}
 - name: EPISTOLA_ENCRYPTION_ENABLED
@@ -291,7 +270,7 @@ Handles CNPG's asynchronous provisioning. Rendered as a container list item.
 {{- end }}
 
 {{/*
-Migration container — same app image, EPISTOLA_RUN_MODE=migrate. Used by the
+Migration container — same app image, EPISTOLA_MIGRATION_MODE=migrate. Used by the
 hook Job (job mode) and the app pod init container (initContainer mode).
 Rendered as a container list item.
 */}}

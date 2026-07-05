@@ -17,8 +17,10 @@ fullnameOverride: ""
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true
+  # Automatically mount a ServiceAccount's API credentials? Off by default — the
+  # app does not call the Kubernetes API, so it needs no token. Set true only if
+  # you add something that does.
+  automount: false
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
@@ -176,21 +178,29 @@ observability:
     deploymentEnvironment: ""
     # Extra OTEL resource attributes as key/value pairs (merged in).
     resourceAttributes: {}
-  # Prometheus scrape annotations on pods. Port must match the management port:
-  # in production (prod profile) the actuator endpoints serve on the separate
-  # management port 4040; set this to 4000 only if you run without the prod
-  # profile (actuator on the main port).
+  # Prometheus scrape annotations on pods.
   prometheus:
     enabled: false
-    port: 4040
+    # Scrape port. Blank → derived from config.profiles: the actuator serves on
+    # the management port 4040 under the `prod` profile, else on the main port
+    # 4000. Set explicitly to override (e.g. a non-standard management port).
+    port: ""
     path: /actuator/prometheus
-  # Grafana Operator CRDs (dashboards + alerts)
+  # Grafana dashboards + alerts, shipped as grafana-operator custom resources
+  # (GrafanaDashboard / GrafanaAlertRuleGroup / GrafanaFolder,
+  # grafana.integreatly.org/v1beta1).
+  # PREREQUISITE: the grafana-operator and its CRDs must already be installed in
+  # the cluster — otherwise `enabled: true` fails to render ("no matches for kind
+  # GrafanaDashboard"). Leave false if you do not run grafana-operator.
   grafana:
     enabled: false
+    # Selects which Grafana instance(s) the CRs apply to (grafana-operator).
     instanceSelector:
       matchLabels:
         dashboards: "grafana"
-    datasourceName: "Prometheus"
+    # UID of the Prometheus datasource the dashboard panels + alerts query.
+    datasourceUid: "Prometheus"
+    # Title of the Grafana folder that holds the dashboards and alerts.
     folder: "Epistola"
 
 # Credential encryption at rest (catalog/code-list auth, hub credentials).
@@ -201,19 +211,19 @@ observability:
 #   openssl rand -base64 32
 # and store it in a Kubernetes Secret, then reference it below.
 encryption:
+  # Enabled by default (fail-closed). Opt out with `enabled: false`.
   enabled: true
   # Key id used for all NEW encryptions. Must match one of the `keys[].id` below.
   primaryKeyId: ""
   # The keyset. All listed keys are available for decryption (this is how
   # rotation works: add a new key, point primaryKeyId at it, re-encrypt, then
-  # remove the old key). Each entry sources its 32-byte base64 material from a
-  # Secret (recommended) or inline (dev only):
+  # remove the old key). Each entry's 32-byte base64 material is sourced ONLY
+  # from a Kubernetes Secret — inline material is not supported, so key material
+  # never lands in values.yaml, the pod spec, or the Helm release:
   #   keys:
   #     - id: k1
-  #       existingSecret: epistola-encryption   # Secret name
+  #       existingSecret: epistola-encryption   # Secret name (required)
   #       secretKey: k1                          # key within the Secret (defaults to id)
-  #     - id: k2
-  #       material: "<base64-32-bytes>"          # inline — DEV ONLY, avoid in prod
   keys: []
 
 # OIDC login configuration (optional, requires config.profiles to include "keycloak")
@@ -221,9 +231,8 @@ oidc:
   enabled: false
   # Client ID used for browser login and resource-server validation.
   clientId: epistola-suite
-  # Client secret used for the OIDC client.
-  clientSecret: ""
-  # Reference a pre-existing secret containing the OIDC client secret.
+  # Name of an existing Kubernetes Secret holding the OIDC client secret.
+  # Required when oidc.enabled is true — the chart never takes an inline secret.
   existingSecret: ""
   # Key within the existing secret that holds the client secret.
   secretKey: client-secret
@@ -249,9 +258,8 @@ keycloakAdmin:
   realm: epistola
   # Client ID used for client-credentials authentication.
   clientId: epistola-suite
-  # Client secret used for client-credentials authentication.
-  clientSecret: ""
-  # Reference a pre-existing secret containing the admin client secret.
+  # Name of an existing Kubernetes Secret holding the admin client secret.
+  # Required when keycloakAdmin.enabled is true — no inline secret is accepted.
   existingSecret: ""
   # Key within the existing secret that holds the client secret.
   secretKey: client-secret
@@ -324,24 +332,6 @@ logging:
   # turning the whole root logger (and all libraries) verbose.
   appLevel: ""
 
-# Connection pool (HikariCP) tuning. The base liveness/recovery settings
-# (socketTimeout, keepalive, leak detection, …) live in the app's
-# application.yaml and apply by default; these values let operators size the
-# pool and tune the app-side socket timeout per deployment without re-templating.
-datasource:
-  hikari:
-    # Per-replica pool size (fixed: minimum-idle is pinned to this). Each replica
-    # owns its own pool, so the cluster total is replicas * maximumPoolSize. Ensure
-    # Postgres max_connections comfortably exceeds
-    # (maxReplicas * maximumPoolSize) + migration job + reserve. Raise your
-    # database's max_connections (or front PG with PgBouncer) when scaling
-    # replicaCount / autoscaling.
-    maximumPoolSize: 20
-    # APP per-socket read timeout (SECONDS). Breaks a wedged active read (post
-    # DB-failover / network blip) so the pool self-heals without a restart. Keep
-    # it >= your slowest normal query. Migrations use migration.socketTimeoutSeconds.
-    socketTimeoutSeconds: 30
-
 # Database migration strategy. Migrations can run as a separate, explicit step
 # (recommended for multi-replica / production) or embedded at app startup.
 #   job           — a Helm pre-install/pre-upgrade hook Job runs migrations once
@@ -366,16 +356,23 @@ migration:
   waitImage: busybox:1.38
   # Resources for the migrate container.
   resources: {}
-  # Optional: run the migration container as a SEPARATE database role from the
-  # app pods. Set this to the role that holds DDL, so the app's own role
-  # (database.*) can run with NO DDL privileges — the app performs partition
-  # maintenance only via SECURITY DEFINER functions (see #438 and
-  # docs/deployment.md "Running with a DDL-less runtime role"). The database URL
-  # is shared (same host/db); only the username/password differ.
+  # Optional (database.type=external only): run the migration container as a
+  # SEPARATE database role from the app pods. Set this to the role that holds DDL,
+  # so the app's own role (database.*) can run with NO DDL privileges — the app
+  # performs partition maintenance only via SECURITY DEFINER functions (see #438
+  # and docs/deployment.md "Running with a DDL-less runtime role"). The database
+  # URL is shared (same host/db); only the username/password differ.
+  #
+  # Not supported with database.type=cnpgExisting (that path is single-role: the
+  # app already connects as the cluster owner, which holds DDL) — setting this
+  # with cnpgExisting FAILS the render. For a two-role setup on CNPG, use
+  # database.type=external pointed at the cluster's -rw service; the migration
+  # role is then the CNPG cluster OWNER, whose password is in CNPG's own
+  # <clusterName>-app Secret. See docs/deployment.md.
   #
   # Leave `username` empty to reuse the app credentials (single-role, default —
-  # unchanged behaviour). The operator provisions this role and its password
-  # Secret out of band (for CNPG, e.g. via `managed.roles`).
+  # unchanged behaviour). You provision this role and its password Secret out of
+  # band.
   credentials:
     # Migration-role username. When empty, the migration container reuses the
     # app credentials from `database.*`.
@@ -384,7 +381,7 @@ migration:
     # Required when `username` is set.
     existingSecret: ""
     # Key within `existingSecret` that holds the password.
-    passwordKey: password
+    secretKey: password
   # Helm hook Job tuning (job mode only).
   job:
     backoffLimit: 3
@@ -402,6 +399,24 @@ migration:
     #     argocd.argoproj.io/hook: PreSync
     #     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     annotations: {}
+
+# Connection pool (HikariCP) tuning. The base liveness/recovery settings
+# (socketTimeout, keepalive, leak detection, …) live in the app's
+# application.yaml and apply by default; these values let operators size the
+# pool and tune the app-side socket timeout per deployment without re-templating.
+datasource:
+  hikari:
+    # Per-replica pool size (fixed: minimum-idle is pinned to this). Each replica
+    # owns its own pool, so the cluster total is replicas * maximumPoolSize. Ensure
+    # Postgres max_connections comfortably exceeds
+    # (maxReplicas * maximumPoolSize) + migration job + reserve. Raise your
+    # database's max_connections (or front PG with PgBouncer) when scaling
+    # replicaCount / autoscaling.
+    maximumPoolSize: 20
+    # APP per-socket read timeout (SECONDS). Breaks a wedged active read (post
+    # DB-failover / network blip) so the pool self-heals without a restart. Keep
+    # it >= your slowest normal query. Migrations use migration.socketTimeoutSeconds.
+    socketTimeoutSeconds: 30
 
 # Database configuration. The chart CONSUMES a database; it does not provision
 # one — the database has its own lifecycle and must never be tied to (and deleted
@@ -425,22 +440,13 @@ database:
     # Key in the secret containing the password
     secretKey: password
 
-  # Existing CNPG Cluster configuration (type: cnpgExisting)
+  # Existing CNPG Cluster configuration (type: cnpgExisting). Single-role: the app
+  # connects as the cluster OWNER via the CNPG `-app` secret. For a two-role setup
+  # on CNPG (a restricted, DDL-less app role) use `database.type=external` pointed
+  # at the cluster's `-rw` service — see the two-role recipe in docs/deployment.md.
   cnpgExisting:
     # Name of the existing CNPG cluster
     clusterName: ""
-    # Secret name (defaults to <clusterName>-app)
-    secretName: ""
-    # Optional: connect the APP as a specific role instead of the cluster owner.
-    # Use this for the secure two-role setup — the cluster owner runs migrations
-    # (holds DDL) and the app uses a restricted DML-only role. Provision the role
-    # on the cluster (spec.managed.roles) with the required grants; see the CNPG
-    # two-role recipe in docs/deployment.md. The database host/URL are taken from
-    # the cluster's -app secret; only the credentials differ. Leave empty to use
-    # the owner (single-role, unchanged). The migration step keeps using the owner
-    # unless overridden via migration.credentials.
-    username: ""
-    # Secret holding the app role's password; required when `username` is set.
+    # Name of the credentials Secret (defaults to <clusterName>-app, which CNPG
+    # generates for the cluster owner).
     existingSecret: ""
-    # Key within `existingSecret` that holds the password.
-    passwordKey: password

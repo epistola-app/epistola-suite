@@ -19,25 +19,13 @@ spec:
       "version": 1,
       "time": { "from": "now-6h", "to": "now" },
       "refresh": "30s",
-      "templating": {
-        "list": [
-          {
-            "name": "datasource",
-            "type": "datasource",
-            "pluginId": "prometheus",
-            "label": "Datasource",
-            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
-            "hide": 0
-          }
-        ]
-      },
       "panels": [
         {
           "id": 1,
           "title": "Documents Generated (24h)",
           "type": "stat",
           "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "increase(epistola_jobs_completed_total[24h])",
@@ -64,7 +52,7 @@ spec:
           "title": "Generation Success Rate",
           "type": "gauge",
           "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "rate(epistola_jobs_completed_total[5m]) / (rate(epistola_jobs_completed_total[5m]) + rate(epistola_jobs_failed_total[5m])) * 100",
@@ -99,7 +87,7 @@ spec:
           "title": "Queue Depth",
           "type": "timeseries",
           "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "epistola_generation_queue_depth",
@@ -123,7 +111,7 @@ spec:
           "title": "Active Jobs",
           "type": "stat",
           "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "epistola_jobs_active",
@@ -150,7 +138,7 @@ spec:
           "title": "p95 Generation Time",
           "type": "stat",
           "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "histogram_quantile(0.95, rate(epistola_generation_document_duration_seconds_bucket[5m]))",
@@ -184,7 +172,7 @@ spec:
           "title": "Command Error Rate",
           "type": "gauge",
           "gridPos": { "x": 0, "y": 4, "w": 4, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "sum(rate(epistola_mediator_command_duration_seconds_count{outcome=\"failure\"}[5m])) / sum(rate(epistola_mediator_command_duration_seconds_count[5m])) * 100",
@@ -219,7 +207,7 @@ spec:
           "title": "HTTP 5xx Rate",
           "type": "gauge",
           "gridPos": { "x": 4, "y": 4, "w": 4, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "rate(http_server_requests_seconds_count{status=~\"5..\"}[5m]) / rate(http_server_requests_seconds_count[5m]) * 100",
@@ -254,7 +242,7 @@ spec:
           "title": "Uptime",
           "type": "stat",
           "gridPos": { "x": 8, "y": 4, "w": 4, "h": 4 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "process_uptime_seconds",

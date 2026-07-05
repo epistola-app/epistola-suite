@@ -19,25 +19,13 @@ spec:
       "version": 1,
       "time": { "from": "now-6h", "to": "now" },
       "refresh": "30s",
-      "templating": {
-        "list": [
-          {
-            "name": "datasource",
-            "type": "datasource",
-            "pluginId": "prometheus",
-            "label": "Datasource",
-            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
-            "hide": 0
-          }
-        ]
-      },
       "panels": [
         {
           "id": 1,
           "title": "Top 10 Commands by Rate",
           "type": "barchart",
           "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "topk(10, sum by (command) (rate(epistola_mediator_command_duration_seconds_count[5m])))",
@@ -63,7 +51,7 @@ spec:
           "title": "Top 10 Queries by Rate",
           "type": "barchart",
           "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "topk(10, sum by (query) (rate(epistola_mediator_query_duration_seconds_count[5m])))",
@@ -89,7 +77,7 @@ spec:
           "title": "Slowest Commands (p95)",
           "type": "table",
           "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "topk(10, histogram_quantile(0.95, sum by (command, le) (rate(epistola_mediator_command_duration_seconds_bucket[5m]))))",
@@ -124,7 +112,7 @@ spec:
           "title": "Slowest Queries (p95)",
           "type": "table",
           "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "topk(10, histogram_quantile(0.95, sum by (query, le) (rate(epistola_mediator_query_duration_seconds_bucket[5m]))))",
@@ -159,7 +147,7 @@ spec:
           "title": "Command Failures by Type",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 16, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "sum by (command) (rate(epistola_mediator_command_duration_seconds_count{outcome=\"failure\"}[5m]))",
@@ -183,7 +171,7 @@ spec:
           "title": "Event Log Write Duration (p95)",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 16, "w": 6, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "histogram_quantile(0.95, rate(epistola_eventlog_persist_duration_seconds_bucket[5m]))",
@@ -215,7 +203,7 @@ spec:
           "title": "Event Log Persistence Failures",
           "type": "timeseries",
           "gridPos": { "x": 18, "y": 16, "w": 6, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "rate(epistola_eventlog_persist_failures_total[5m])",

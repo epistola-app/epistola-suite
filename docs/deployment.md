@@ -97,9 +97,12 @@ helm upgrade --install epistola oci://ghcr.io/epistola-app/charts/epistola \
 ```
 
 CNPG generates the app-credentials Secret `<clusterName>-app`, which the chart
-reads. `examples/cnpg-cluster.yaml` is a minimal starting point; extend it (roles,
-grants, storage, resources) as your environment needs. This is also how you set
-up the [DDL-less two-role](#running-with-a-ddl-less-runtime-role) database.
+reads. This wires the app as the cluster **owner** (single-role).
+`examples/cnpg-cluster.yaml` is a minimal starting point; extend it (roles,
+grants, storage, resources) as your environment needs. For a
+[DDL-less two-role](#running-with-a-ddl-less-runtime-role) setup on CNPG, own the
+cluster the same way but wire the chart with `database.type=external` (not
+`cnpgExisting`) — see that section for why.
 
 ### Run the migration step standalone (outside Helm / CI / one-off)
 
@@ -225,27 +228,45 @@ migration:
     existingSecret: epistola-owner-db
 ```
 
-**CNPG (`cnpgExisting`).** The CNPG cluster **owner** is the migration role (it
-gets CNPG's rich `-app` secret, which the migration step uses by default). Add
-the restricted app role via `spec.managed.roles`, grant it in `postInitApplicationSQL`
-(which runs _as the owner_, so `ALTER DEFAULT PRIVILEGES` covers the objects the
-owner/Flyway creates — no role-membership gymnastics), and point the app at it
-with `database.cnpgExisting.username`:
+**CNPG — use `database.type=external`, not `cnpgExisting`.** For two roles on a
+CloudNativePG cluster, wire the chart with `external` pointed at the cluster's
+`-rw` service. `cnpgExisting` is single-role only (the app connects as the owner
+via CNPG's `-app` secret): its URL comes from CNPG's `jdbc-uri`, which **embeds
+the owner's credentials**, and pgjdbc lets URL credentials override an explicit
+username — so an app-role override there would silently connect as the owner and
+defeat the split. `external` builds a credentials-free URL, so the app role
+actually takes effect. (Setting `migration.credentials` with `cnpgExisting` fails
+the render with this guidance.)
+
+Provision the restricted role on the CNPG cluster. Two subtleties:
+
+- `CREATE ROLE` needs superuser, so create it in **`postInitSQL`** (runs as the
+  superuser in the `postgres` database); do the grants in **`postInitApplicationSQL`**
+  (runs in the app database).
+- CNPG runs `postInitApplicationSQL` **as the superuser, not the owner** — so
+  `ALTER DEFAULT PRIVILEGES` must be qualified **`FOR ROLE <owner>`**, or the
+  defaults apply to the superuser's objects and the app gets no grants on the
+  migration-created tables (you'll see `permission denied for table
+flyway_schema_history` at boot).
 
 ```yaml
 # in your CNPG Cluster manifest
 spec:
   bootstrap:
     initdb:
+      database: epistola
       owner: epistola # the migration role — owns objects, runs Flyway
+      postInitSQL:
+        - CREATE ROLE epistola_app LOGIN # created here (needs superuser)
       postInitApplicationSQL:
-        - CREATE ROLE epistola_app LOGIN
+        - GRANT CONNECT ON DATABASE epistola TO epistola_app
         - GRANT USAGE ON SCHEMA public TO epistola_app
-        - ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO epistola_app
-        - ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO epistola_app
+        - ALTER DEFAULT PRIVILEGES FOR ROLE epistola IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO epistola_app
+        - ALTER DEFAULT PRIVILEGES FOR ROLE epistola IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO epistola_app
+        - ALTER DEFAULT PRIVILEGES FOR ROLE epistola IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO epistola_app
   managed:
     roles:
-      - name: epistola_app
+      - name: epistola_app # password managed from the Secret below
         ensure: present
         login: true
         passwordSecret:
@@ -255,23 +276,29 @@ spec:
 ```yaml
 # in the HelmRelease values
 database:
-  type: cnpgExisting
-  cnpgExisting:
-    clusterName: epistola-db
-    username: epistola_app # app connects as the restricted role…
+  type: external
+  external:
+    host: epistola-db-rw.<namespace> # the CNPG read-write service
+    port: 5432
+    database: epistola
+    username: epistola_app # app connects as the restricted role
     existingSecret: epistola-app-db
-# migration.credentials is NOT needed — the migration step uses the cluster
-# owner (the -app secret) by default.
+    secretKey: password
+migration:
+  mode: job # a DDL-less app role cannot migrate; the Job runs as the owner
+  credentials:
+    username: epistola # owner role — from CNPG's -app secret
+    existingSecret: epistola-db-app
+    secretKey: password
 ```
 
-With `database.cnpgExisting.username` set, only the **app pods** drop to the
-restricted role (URL/host still from the cluster's `-app` secret); the migration
-Job/init container keeps using the owner. Leave it empty for single-role
-(app = owner, unchanged).
+The `ALTER DEFAULT PRIVILEGES` grants only apply on a **fresh** initdb (they set
+defaults for objects created afterwards). If you change them, CNPG re-runs
+`postInit*SQL` only on a new cluster — recreate it (data permitting) or apply the
+equivalent grants by hand as the owner.
 
-> Validate the `ALTER DEFAULT PRIVILEGES` / role setup against your CNPG and
-> Postgres versions — public-schema ownership and default-privilege semantics are
-> version-sensitive.
+> Validate the role/grant setup against your CNPG and Postgres versions —
+> public-schema ownership and default-privilege semantics are version-sensitive.
 
 ## Trusting a client root CA: `extraCaCerts`
 

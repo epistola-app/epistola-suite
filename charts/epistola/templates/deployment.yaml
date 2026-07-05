@@ -1,6 +1,3 @@
-{{- if not (has .Values.database.type (list "none" "external" "cnpgExisting")) }}
-{{- fail (printf "database.type=%q is not supported. Use 'external', 'cnpgExisting', or 'none'. The chart no longer provisions a CloudNativePG cluster (a database must not share the app release's lifecycle); manage the CNPG Cluster yourself (see charts/epistola/examples/cnpg-cluster.yaml) and use database.type=cnpgExisting." .Values.database.type) }}
-{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,7 +17,10 @@ spec:
       annotations:
         {{- if .Values.observability.prometheus.enabled }}
         prometheus.io/scrape: "true"
-        prometheus.io/port: {{ .Values.observability.prometheus.port | quote }}
+        {{- /* Actuator serves on the management port 4040 under the prod profile,
+               else on the main port 4000. Derive it from config.profiles so the
+               scrape target follows the actuator; an explicit port overrides. */}}
+        prometheus.io/port: {{ .Values.observability.prometheus.port | default (ternary "4040" "4000" (contains "prod" (.Values.config.profiles | default ""))) | quote }}
         prometheus.io/path: {{ .Values.observability.prometheus.path | quote }}
         {{- end }}
         {{- with .Values.podAnnotations }}
@@ -128,14 +128,10 @@ spec:
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
               value: {{ .Values.oidc.clientId | quote }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
-              {{- if .Values.oidc.existingSecret }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "oidc.existingSecret is required when oidc.enabled is true and oidc.clientSecret is empty" .Values.oidc.existingSecret }}
+                  name: {{ required "oidc.existingSecret is required when oidc.enabled is true" .Values.oidc.existingSecret }}
                   key: {{ .Values.oidc.secretKey }}
-              {{- else }}
-              value: {{ required "oidc.clientSecret is required when oidc.enabled is true and oidc.existingSecret is empty" .Values.oidc.clientSecret | quote }}
-              {{- end }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
               value: {{ required "oidc.issuerUri is required when oidc.enabled is true" .Values.oidc.issuerUri | quote }}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
@@ -159,14 +155,10 @@ spec:
             - name: EPISTOLA_KEYCLOAK_CLIENTID
               value: {{ .Values.keycloakAdmin.clientId | quote }}
             - name: EPISTOLA_KEYCLOAK_CLIENTSECRET
-              {{- if .Values.keycloakAdmin.existingSecret }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "keycloakAdmin.existingSecret is required when keycloakAdmin.enabled is true and keycloakAdmin.clientSecret is empty" .Values.keycloakAdmin.existingSecret }}
+                  name: {{ required "keycloakAdmin.existingSecret is required when keycloakAdmin.enabled is true" .Values.keycloakAdmin.existingSecret }}
                   key: {{ .Values.keycloakAdmin.secretKey }}
-              {{- else }}
-              value: {{ required "keycloakAdmin.clientSecret is required when keycloakAdmin.enabled is true and keycloakAdmin.existingSecret is empty" .Values.keycloakAdmin.clientSecret | quote }}
-              {{- end }}
             {{- if .Values.keycloakAdmin.ensureGroups }}
             - name: EPISTOLA_KEYCLOAK_ENSUREGROUPS
               value: "true"

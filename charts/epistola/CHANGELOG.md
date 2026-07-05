@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **BREAKING: renamed value keys for consistency.** `database.cnpgExisting.secretName` → `database.cnpgExisting.existingSecret`; `migration.credentials.passwordKey` → `migration.credentials.secretKey` (one name for "existing Secret" / "key within it" across the `database` and `migration` blocks); `observability.grafana.datasourceName` → `observability.grafana.datasourceUid` (it is the datasource *uid*, not a display name). Update your values accordingly.
+
+### Removed
+
+- **BREAKING: inline secret values removed — secrets must come from a Kubernetes Secret.** `oidc.clientSecret`, `keycloakAdmin.clientSecret`, and `encryption.keys[].material` are gone; use `oidc.existingSecret`, `keycloakAdmin.existingSecret`, and `encryption.keys[].existingSecret` (all now `required` when the feature is enabled). Previously an inline value rendered as a **plaintext env var** in the Deployment (and was stored in the Helm release Secret) — the chart now never places secret material in the pod spec, values.yaml, or the release. CA certs (`extraCaCerts.certs`) are unaffected — they are public, not secret. (App-level `epistola.encryption.keys[].material` still exists for local/dev config; only the chart drops the inline path.)
+- **BREAKING: `database.cnpgExisting.username` (+ its `existingSecret` / `passwordKey`) removed.** The knob was meant to run the app as a restricted role on a CNPG cluster (two-role setup), but it was silently broken: `cnpgExisting` builds the datasource URL from CNPG's `-app` secret `jdbc-uri`, which **embeds the owner's `user=`/`password=`**, and pgjdbc lets URL credentials override the explicit `SPRING_DATASOURCE_USERNAME` — so the app connected as the **owner** (full DDL) regardless, defeating the split. **For a two-role setup on CNPG, use `database.type=external`** pointed at the cluster's `-rw` service: `external` builds a credentials-free URL, so the restricted app role actually takes effect (this is the validated path). `cnpgExisting` is now single-role only (app = owner). Setting `migration.credentials` together with `cnpgExisting` now **fails the render** with a pointer to `external` (that combination had the same `jdbc-uri` flaw and no valid use — a single-role app is already the owner). See the rewritten two-role recipe in [`docs/deployment.md`](../../docs/deployment.md).
+
+### Added
+
+- **`values.schema.json`** — validates the datasource/migration wiring at render time: `database.type` (`none`/`external`/`cnpgExisting`) and `migration.mode` (`job`/`initContainer`/`embedded`) enums, and requires `database.external.host` + `existingSecret` when `database.type=external`. Catches typos (e.g. the removed `cnpg` type) with a clear message before templating.
+
+### Changed
+
+- **`serviceAccount.automount` now defaults to `false`.** The app makes no Kubernetes API calls, so its pods no longer auto-mount a ServiceAccount token. Set `true` if you add something that needs API access.
+- **`database.type=external` now fails the render when `database.external.host` is empty** (mirroring the existing password guard), instead of emitting a broken `jdbc:postgresql://:5432/…` URL that only failed at pod startup.
+- Moved the `datasource.hikari` pool-tuning block adjacent to `database` in `values.yaml` so all database config is contiguous (no key change).
+- **`observability.prometheus.port` now derives from `config.profiles`** (default blank): the scrape target follows the actuator — `4040` under the `prod` profile, `4000` without — so the two can no longer silently disagree. Set an explicit port to override.
+
+### Fixed
+
+- **The migration Job's pod now carries the full label set + `podLabels`/`podAnnotations`** (previously only selector labels). This is the pod that opens the database connection, so it needs the same service-mesh / NetworkPolicy / egress hooks the app pods get — otherwise a policy keyed on `podLabels` would silently exclude it and the pre-upgrade migration could fail to reach the DB.
+- **Grafana alerts now reconcile into the intended folder.** `GrafanaAlertRuleGroup.folderRef` was fed the folder *title* (`observability.grafana.folder`), but `folderRef` must name a `GrafanaFolder` CR. Added a `GrafanaFolder` template (gated by `observability.grafana.enabled`); the alert group now references it by name, co-located with the dashboards.
+- Removed a dead `datasource` template variable from all five dashboards — panels reference the datasource uid directly, so the picker did nothing.
+
+### Internal
+
+- DB/migration credential helpers de-duplicated: a shared `epistola.database.externalUrl` helper, `epistola.database.effectiveType` now centralizes supported-type validation, and the dead `cnpgExisting` branch left by the `cnpgExisting.username` removal is gone. No behavior change.
+- Documented the grafana-operator CRD prerequisite for `observability.grafana.enabled`.
+
 ## [0.8.0] - 2026-07-04
 
 ### Added

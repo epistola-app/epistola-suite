@@ -19,25 +19,13 @@ spec:
       "version": 1,
       "time": { "from": "now-6h", "to": "now" },
       "refresh": "30s",
-      "templating": {
-        "list": [
-          {
-            "name": "datasource",
-            "type": "datasource",
-            "pluginId": "prometheus",
-            "label": "Datasource",
-            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
-            "hide": 0
-          }
-        ]
-      },
       "panels": [
         {
           "id": 1,
           "title": "API Request Rate",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "sum by (method, uri) (rate(http_server_requests_seconds_count{uri=~\"/api/.*\"}[5m]))",
@@ -61,7 +49,7 @@ spec:
           "title": "API Error Rate (4xx / 5xx)",
           "type": "gauge",
           "gridPos": { "x": 12, "y": 0, "w": 6, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/.*\", status=~\"[45]..\"}[5m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/.*\"}[5m])) * 100",
@@ -96,7 +84,7 @@ spec:
           "title": "API Latency by Endpoint (p95)",
           "type": "timeseries",
           "gridPos": { "x": 18, "y": 0, "w": 6, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "histogram_quantile(0.95, sum by (uri, le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/.*\"}[5m])))",
@@ -120,7 +108,7 @@ spec:
           "title": "Auth Attempts by Result",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "sum by (result) (rate(epistola_api_auth_attempts_total[5m]))",
@@ -146,7 +134,7 @@ spec:
           "title": "Auth Failures (invalid_key + invalid_format)",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "rate(epistola_api_auth_attempts_total{result=\"invalid_key\"}[5m])",
@@ -185,7 +173,7 @@ spec:
           "title": "Requests by Status Code",
           "type": "piechart",
           "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "sum by (status) (increase(http_server_requests_seconds_count{uri=~\"/api/.*\"}[6h]))",

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Epistola Suite Helm values",
+  "description": "Partial schema: constrains the datasource/migration wiring that has hard render-time requirements. Other values are validated by the templates.",
+  "type": "object",
+  "properties": {
+    "database": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "Which database the chart connects to. The chart never provisions one.",
+          "enum": ["none", "external", "cnpgExisting"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "external" } }
+          },
+          "then": {
+            "required": ["external"],
+            "properties": {
+              "external": {
+                "type": "object",
+                "required": ["host", "existingSecret"],
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Required for database.type=external."
+                  },
+                  "existingSecret": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Name of the Secret holding the password; required for database.type=external."
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "migration": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "How schema migrations run.",
+          "enum": ["job", "initContainer", "embedded"]
+        }
+      }
+    }
+  }
+}
