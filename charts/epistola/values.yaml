@@ -178,13 +178,13 @@ observability:
     deploymentEnvironment: ""
     # Extra OTEL resource attributes as key/value pairs (merged in).
     resourceAttributes: {}
-  # Prometheus scrape annotations on pods. Port must match the management port:
-  # in production (prod profile) the actuator endpoints serve on the separate
-  # management port 4040; set this to 4000 only if you run without the prod
-  # profile (actuator on the main port).
+  # Prometheus scrape annotations on pods.
   prometheus:
     enabled: false
-    port: 4040
+    # Scrape port. Blank → derived from config.profiles: the actuator serves on
+    # the management port 4040 under the `prod` profile, else on the main port
+    # 4000. Set explicitly to override (e.g. a non-standard management port).
+    port: ""
     path: /actuator/prometheus
   # Grafana dashboards + alerts, shipped as grafana-operator custom resources
   # (GrafanaDashboard / GrafanaAlertRuleGroup / GrafanaFolder,
@@ -198,9 +198,8 @@ observability:
     instanceSelector:
       matchLabels:
         dashboards: "grafana"
-    # UID of the Prometheus datasource the dashboard panels query (despite the
-    # name, this is the datasource *uid*, not its display name).
-    datasourceName: "Prometheus"
+    # UID of the Prometheus datasource the dashboard panels + alerts query.
+    datasourceUid: "Prometheus"
     # Title of the Grafana folder that holds the dashboards and alerts.
     folder: "Epistola"
 

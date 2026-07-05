@@ -33,8 +33,15 @@ spec:
   {{- end }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        {{- include "epistola.selectorLabels" . | nindent 8 }}
+        {{- include "epistola.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}

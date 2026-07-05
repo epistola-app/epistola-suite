@@ -17,7 +17,10 @@ spec:
       annotations:
         {{- if .Values.observability.prometheus.enabled }}
         prometheus.io/scrape: "true"
-        prometheus.io/port: {{ .Values.observability.prometheus.port | quote }}
+        {{- /* Actuator serves on the management port 4040 under the prod profile,
+               else on the main port 4000. Derive it from config.profiles so the
+               scrape target follows the actuator; an explicit port overrides. */}}
+        prometheus.io/port: {{ .Values.observability.prometheus.port | default (ternary "4040" "4000" (contains "prod" (.Values.config.profiles | default ""))) | quote }}
         prometheus.io/path: {{ .Values.observability.prometheus.path | quote }}
         {{- end }}
         {{- with .Values.podAnnotations }}

@@ -25,7 +25,7 @@ spec:
           "title": "Generation Rate",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "rate(epistola_jobs_completed_total[5m])",
@@ -49,7 +49,7 @@ spec:
           "title": "Generation Duration Heatmap",
           "type": "heatmap",
           "gridPos": { "x": 12, "y": 0, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "rate(epistola_generation_document_duration_seconds_bucket[5m])",
@@ -69,7 +69,7 @@ spec:
           "title": "Duration by Template (p95)",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "histogram_quantile(0.95, sum by (template, le) (rate(epistola_generation_document_duration_seconds_bucket[5m])))",
@@ -93,7 +93,7 @@ spec:
           "title": "Queue Depth vs Generation Rate",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "epistola_generation_queue_depth",
@@ -128,7 +128,7 @@ spec:
           "title": "Adaptive Batch Size",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 12, "w": 8, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "epistola_jobs_batch_size",
@@ -152,7 +152,7 @@ spec:
           "title": "Document Size Distribution",
           "type": "timeseries",
           "gridPos": { "x": 8, "y": 12, "w": 8, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "histogram_quantile(0.50, rate(epistola_generation_document_size_bytes_bucket[5m]))",
@@ -186,7 +186,7 @@ spec:
           "title": "Failed Jobs",
           "type": "timeseries",
           "gridPos": { "x": 16, "y": 12, "w": 8, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "rate(epistola_jobs_failed_total[5m])",
@@ -210,7 +210,7 @@ spec:
           "title": "Active vs Max Concurrent Jobs",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 18, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "epistola_jobs_active",
@@ -248,7 +248,7 @@ spec:
           "title": "Snapshot vs Legacy Path",
           "type": "barchart",
           "gridPos": { "x": 12, "y": 18, "w": 12, "h": 6 },
-          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceUid }}" },
           "targets": [
             {
               "expr": "sum by (path) (increase(epistola_generation_document_duration_seconds_count[5m]))",

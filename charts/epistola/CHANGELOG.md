@@ -4,7 +4,7 @@
 
 ### Changed (breaking)
 
-- **BREAKING: renamed two value keys for consistency** (one name for "existing Secret" / "key within it" across the `database` and `migration` blocks): `database.cnpgExisting.secretName` → `database.cnpgExisting.existingSecret`, and `migration.credentials.passwordKey` → `migration.credentials.secretKey`. Update your values accordingly.
+- **BREAKING: renamed value keys for consistency.** `database.cnpgExisting.secretName` → `database.cnpgExisting.existingSecret`; `migration.credentials.passwordKey` → `migration.credentials.secretKey` (one name for "existing Secret" / "key within it" across the `database` and `migration` blocks); `observability.grafana.datasourceName` → `observability.grafana.datasourceUid` (it is the datasource *uid*, not a display name). Update your values accordingly.
 
 ### Removed
 
@@ -20,9 +20,11 @@
 - **`serviceAccount.automount` now defaults to `false`.** The app makes no Kubernetes API calls, so its pods no longer auto-mount a ServiceAccount token. Set `true` if you add something that needs API access.
 - **`database.type=external` now fails the render when `database.external.host` is empty** (mirroring the existing password guard), instead of emitting a broken `jdbc:postgresql://:5432/…` URL that only failed at pod startup.
 - Moved the `datasource.hikari` pool-tuning block adjacent to `database` in `values.yaml` so all database config is contiguous (no key change).
+- **`observability.prometheus.port` now derives from `config.profiles`** (default blank): the scrape target follows the actuator — `4040` under the `prod` profile, `4000` without — so the two can no longer silently disagree. Set an explicit port to override.
 
 ### Fixed
 
+- **The migration Job's pod now carries the full label set + `podLabels`/`podAnnotations`** (previously only selector labels). This is the pod that opens the database connection, so it needs the same service-mesh / NetworkPolicy / egress hooks the app pods get — otherwise a policy keyed on `podLabels` would silently exclude it and the pre-upgrade migration could fail to reach the DB.
 - **Grafana alerts now reconcile into the intended folder.** `GrafanaAlertRuleGroup.folderRef` was fed the folder *title* (`observability.grafana.folder`), but `folderRef` must name a `GrafanaFolder` CR. Added a `GrafanaFolder` template (gated by `observability.grafana.enabled`); the alert group now references it by name, co-located with the dashboards.
 - Removed a dead `datasource` template variable from all five dashboards — panels reference the datasource uid directly, so the picker did nothing.
 
