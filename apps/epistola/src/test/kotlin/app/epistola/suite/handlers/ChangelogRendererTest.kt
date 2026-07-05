@@ -1,6 +1,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.changelog.ChangelogAudience
+import app.epistola.suite.changelog.ChangelogEntry
 import app.epistola.suite.changelog.ChangelogService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -48,7 +49,7 @@ class ChangelogRendererTest {
         val entries = renderer.entries()
         assertThat(entries).isNotEmpty()
         entries.forEach { entry ->
-            assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+")
+            assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?")
             assertThat(entry.date).matches("\\d{4}-\\d{2}-\\d{2}")
             assertThat(entry.html).isNotBlank()
         }
@@ -133,6 +134,45 @@ class ChangelogRendererTest {
         val older = entries.last().version
         assertThat(service.hasUnseenEntries(entries, latest, older)).isTrue()
     }
+
+    @Test
+    fun `stripSuffix keeps the pre-release identifier and drops only -SNAPSHOT`() {
+        // The RC is part of the version; only the dev/build marker is stripped.
+        assertThat(service.stripSuffix("1.0.0-RC3-SNAPSHOT")).isEqualTo("1.0.0-RC3")
+        assertThat(service.stripSuffix("1.0.0-SNAPSHOT")).isEqualTo("1.0.0")
+        assertThat(service.stripSuffix("1.0.0-RC2")).isEqualTo("1.0.0-RC2")
+        assertThat(service.stripSuffix("1.0.0")).isEqualTo("1.0.0")
+    }
+
+    @Test
+    fun `effectiveVersion of a release candidate is the full RC version, not the base`() {
+        val entries = listOf(entry("1.0.0-RC2"), entry("1.0.0-RC1"))
+        // A released RC build and its -SNAPSHOT dev build both resolve to the RC version,
+        // so acknowledgment matches the RC's own changelog section (not a phantom 1.0.0).
+        assertThat(service.effectiveVersion("1.0.0-RC2", entries)).isEqualTo("1.0.0-RC2")
+        assertThat(service.effectiveVersion("1.0.0-RC2-SNAPSHOT", entries)).isEqualTo("1.0.0-RC2")
+    }
+
+    @Test
+    fun `entriesSince distinguishes one release candidate from the next`() {
+        val entries = listOf(entry("1.0.0-RC2"), entry("1.0.0-RC1"), entry("0.26.0"))
+        // Having acknowledged RC1, RC2 is newer and shows; RC1 and older do not.
+        assertThat(service.entriesSince(entries, "1.0.0-RC1").map { it.version }).containsExactly("1.0.0-RC2")
+        // The final 1.0.0 release outranks every pre-release of it.
+        assertThat(service.entriesSince(listOf(entry("1.0.0"), entry("1.0.0-RC2")), "1.0.0-RC2").map { it.version })
+            .containsExactly("1.0.0")
+    }
+
+    @Test
+    fun `hasUnseenEntries fires when a newer release candidate ships`() {
+        val entries = listOf(entry("1.0.0-RC2"), entry("1.0.0-RC1"))
+        // On RC2, having acknowledged RC1 -> there are unseen entries.
+        assertThat(service.hasUnseenEntries(entries, "1.0.0-RC2", "1.0.0-RC1")).isTrue()
+        // On an RC2 dev build, having acknowledged RC2 -> nothing new.
+        assertThat(service.hasUnseenEntries(entries, "1.0.0-RC2-SNAPSHOT", "1.0.0-RC2")).isFalse()
+    }
+
+    private fun entry(version: String) = ChangelogEntry(version = version, date = "2026-01-01", html = "", summary = "", released = true)
 
     @Test
     fun `entries have non-empty summaries`() {
@@ -257,6 +297,38 @@ class ChangelogRendererTest {
     }
 
     @Test
+    fun `pre-release versions (RC) are parsed and not dropped`() {
+        // Regression: the version heading regex must accept a SemVer pre-release suffix, otherwise
+        // release-candidate sections like [1.0.0-RC2] were silently skipped by the dialog.
+        // language=markdown
+        val md =
+            """
+            # Changelog
+
+            ## [Unreleased]
+
+            ## [1.0.0-RC2] - 2026-07-05
+
+            - **[user]** feat(editor): **RC2 thing.** Ships in the candidate.
+
+            ## [1.0.0-RC1] - 2026-06-25
+
+            - **[user]** fix(pdf): **RC1 fix.**
+
+            ## [0.26.0] - 2026-06-25
+
+            - feat(core): **Prior release.**
+            """.trimIndent()
+
+        val entries = renderer.entriesFrom(md, ChangelogAudience.ALL)
+        // The RC versions appear, in file order, ahead of the prior stable release.
+        assertThat(entries.map { it.version }).containsExactly("1.0.0-RC2", "1.0.0-RC1", "0.26.0")
+        assertThat(entries.first { it.version == "1.0.0-RC2" }.date).isEqualTo("2026-07-05")
+        assertThat(entries.first { it.version == "1.0.0-RC2" }.html).contains("RC2 thing.")
+        assertThat(entries.first { it.version == "1.0.0-RC1" }.html).contains("RC1 fix.")
+    }
+
+    @Test
     fun `a release summary paragraph renders above the entries`() {
         // language=markdown
         val md =
@@ -288,7 +360,7 @@ class ChangelogRendererTest {
                 .withFailMessage("Bundled CHANGELOG.md produced no entries for the %s view", view)
                 .isNotEmpty()
             entries.forEach { entry ->
-                assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+")
+                assertThat(entry.version).matches("\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?")
                 assertThat(entry.date).matches("\\d{4}-\\d{2}-\\d{2}")
                 assertThat(entry.html).isNotBlank()
                 assertThat(entry.summary).isNotBlank()
@@ -393,12 +465,21 @@ class ChangelogRendererTest {
     }
 
     private fun compareVersions(a: String, b: String): Int {
-        val aParts = a.split(".").map { it.toInt() }
-        val bParts = b.split(".").map { it.toInt() }
+        val aParts = a.substringBefore("-").split(".").map { it.toInt() }
+        val bParts = b.substringBefore("-").split(".").map { it.toInt() }
         for (i in 0..2) {
             val cmp = aParts[i].compareTo(bParts[i])
             if (cmp != 0) return cmp
         }
-        return 0
+        // Same base version: a release (no pre-release suffix) outranks a pre-release,
+        // and among pre-releases compare the suffix (RC1 < RC2).
+        val aPre = a.substringAfter("-", "")
+        val bPre = b.substringAfter("-", "")
+        return when {
+            aPre == bPre -> 0
+            aPre == "" -> 1
+            bPre == "" -> -1
+            else -> aPre.compareTo(bPre)
+        }
     }
 }

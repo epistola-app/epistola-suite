@@ -166,7 +166,9 @@ class ChangelogRenderer {
     private fun parseVersions(markdown: String): List<ParsedVersion> {
         if (markdown.isBlank()) return emptyList()
 
-        val versionPattern = Regex("""^## \[(\d+\.\d+\.\d+)] - (\d{4}-\d{2}-\d{2})""", RegexOption.MULTILINE)
+        // Accept an optional SemVer pre-release suffix (e.g. 1.0.0-RC2, 1.0.0-beta.1) so
+        // release-candidate sections are not silently dropped from the dialog.
+        val versionPattern = Regex("""^## \[(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)] - (\d{4}-\d{2}-\d{2})""", RegexOption.MULTILINE)
         val matches = versionPattern.findAll(markdown).toList()
 
         val result = mutableListOf<ParsedVersion>()
