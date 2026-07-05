@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "app.epistola"
-version = findProperty("releaseVersion") as String? ?: "dev"
+version = findProperty("releaseVersion") as String? ?: (findProperty("version") as String? ?: "dev")
 description = "Epistola Document Suite"
 
 // Configure Kover for test coverage — all modules must be listed explicitly for aggregation

@@ -1,14 +1,14 @@
-{{- if .Values.observability.grafana.enabled }}
+{{- if .Values.grafana.enabled }}
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaAlertRuleGroup
 metadata:
-  name: {{ include "epistola.fullname" . }}-alerts
+  name: {{ include "epistola-grafana.fullname" . }}-alerts
   labels:
-    {{- include "epistola.labels" . | nindent 4 }}
+    {{- include "epistola-grafana.labels" . | nindent 4 }}
 spec:
   instanceSelector:
-    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
-  folderRef: {{ printf "%s-folder" (include "epistola.fullname" .) | quote }}
+    {{- toYaml .Values.grafana.instanceSelector | nindent 4 }}
+  folderUID: {{ include "epistola-grafana.folderUid" . | quote }}
   interval: 60s
   rules:
     # -------------------------------------------------------------------------
@@ -32,7 +32,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "epistola_generation_queue_depth"
             instant: true
@@ -41,7 +41,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "rate(epistola_jobs_completed_total[5m]) == 0"
             instant: true
@@ -74,7 +74,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "rate(epistola_jobs_failed_total[5m])"
             instant: true
@@ -83,7 +83,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "rate(epistola_jobs_completed_total[5m]) + rate(epistola_jobs_failed_total[5m])"
             instant: true
@@ -116,7 +116,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "hikaricp_connections_active / hikaricp_connections_max"
             instant: true
@@ -151,7 +151,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "epistola_generation_queue_depth"
             instant: true
@@ -183,7 +183,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "histogram_quantile(0.95, rate(epistola_generation_document_duration_seconds_bucket[5m]))"
             instant: true
@@ -215,7 +215,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "sum(rate(epistola_mediator_command_duration_seconds_count{outcome=\"failure\"}[5m]))"
             instant: true
@@ -224,7 +224,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "sum(rate(epistola_mediator_command_duration_seconds_count[5m]))"
             instant: true
@@ -256,7 +256,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "rate(epistola_eventlog_persist_failures_total[5m])"
             instant: true
@@ -288,7 +288,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "rate(epistola_api_auth_attempts_total{result=\"invalid_key\"}[5m]) + rate(epistola_api_auth_attempts_total{result=\"invalid_format\"}[5m])"
             instant: true
@@ -320,7 +320,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "sum(jvm_memory_used_bytes{area=\"heap\"}) / sum(jvm_memory_max_bytes{area=\"heap\"})"
             instant: true
@@ -355,7 +355,7 @@ spec:
           relativeTimeRange:
             from: 600
             to: 0
-          datasourceUid: "{{ .Values.observability.grafana.datasourceUid }}"
+          datasourceUid: "{{ .Values.grafana.datasourceUid }}"
           model:
             expr: "histogram_quantile(0.95, sum by (operation, backend, le) (rate(epistola_storage_operation_duration_seconds_bucket[5m])))"
             instant: true

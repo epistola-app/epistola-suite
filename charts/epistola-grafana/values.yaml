@@ -1,0 +1,23 @@
+# Grafana dashboards + alerts for Epistola Suite, shipped as grafana-operator
+# custom resources (GrafanaDashboard / GrafanaAlertRuleGroup / GrafanaFolder,
+# grafana.integreatly.org/v1beta1).
+#
+# PREREQUISITE: the grafana-operator and its CRDs must already be installed in
+# the cluster, or this chart fails to render ("no matches for kind GrafanaDashboard").
+grafana:
+  # Master switch. Off → the chart renders nothing (install becomes a no-op).
+  enabled: true
+  # Selects which Grafana instance(s) the CRs apply to (grafana-operator).
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  # UID of the Prometheus datasource the dashboard panels + alerts query.
+  datasourceUid: "Prometheus"
+  # The Grafana folder that holds the dashboards and alerts. Identity is the UID
+  # (immutable in Grafana / the CRD — but pinned here so it is stable by
+  # construction); the title is the mutable display name.
+  folder:
+    title: "Epistola"
+    # Blank → derived from the release fullname (a stable, deterministic UID).
+    # Set explicitly only if you must pin a specific folder UID.
+    uid: ""

@@ -186,22 +186,11 @@ observability:
     # 4000. Set explicitly to override (e.g. a non-standard management port).
     port: ""
     path: /actuator/prometheus
-  # Grafana dashboards + alerts, shipped as grafana-operator custom resources
-  # (GrafanaDashboard / GrafanaAlertRuleGroup / GrafanaFolder,
-  # grafana.integreatly.org/v1beta1).
-  # PREREQUISITE: the grafana-operator and its CRDs must already be installed in
-  # the cluster — otherwise `enabled: true` fails to render ("no matches for kind
-  # GrafanaDashboard"). Leave false if you do not run grafana-operator.
-  grafana:
-    enabled: false
-    # Selects which Grafana instance(s) the CRs apply to (grafana-operator).
-    instanceSelector:
-      matchLabels:
-        dashboards: "grafana"
-    # UID of the Prometheus datasource the dashboard panels + alerts query.
-    datasourceUid: "Prometheus"
-    # Title of the Grafana folder that holds the dashboards and alerts.
-    folder: "Epistola"
+  # Grafana dashboards + alerts have moved to the separate `epistola-grafana`
+  # chart (they are grafana-operator CRs and shouldn't couple this chart to the
+  # operator). Install that chart alongside this one on clusters running
+  # grafana-operator. This chart still emits the Prometheus scrape annotations
+  # (observability.prometheus) and OTel agent env (observability.otelAgent) above.
 
 # Credential encryption at rest (catalog/code-list auth, hub credentials).
 # AES-256-GCM with key-id-tagged envelopes. See docs/encryption.md.

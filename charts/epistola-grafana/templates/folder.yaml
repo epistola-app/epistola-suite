@@ -1,0 +1,16 @@
+{{- if .Values.grafana.enabled }}
+{{- /* The managed Grafana folder. Its UID (epistola-grafana.folderUid) is
+       pinned and immutable-by-design; dashboards and alerts anchor to it via
+       folderUID. The title is the mutable display name. */}}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: {{ include "epistola-grafana.fullname" . }}
+  labels:
+    {{- include "epistola-grafana.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.grafana.instanceSelector | nindent 4 }}
+  uid: {{ include "epistola-grafana.folderUid" . | quote }}
+  title: {{ .Values.grafana.folder.title | quote }}
+{{- end }}

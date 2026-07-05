@@ -1,0 +1,18 @@
+apiVersion: v2
+name: epistola-grafana
+description: >-
+  Grafana dashboards and alerts for Epistola Suite, as grafana-operator custom
+  resources. Install alongside the epistola chart on clusters that run
+  grafana-operator. Separate from the app chart so the app never depends on
+  grafana-operator.
+type: application
+# Source of truth for the chart version. Dev carries the next version with
+# -SNAPSHOT; a release strips it, tags epistola-grafana-<version>, then
+# re-opens the next -SNAPSHOT (see the release-helm-chart skill). CI validates the
+# tag == this value.
+version: 0.1.0-SNAPSHOT
+# appVersion is synced to the latest app tag at publish time by CI.
+appVersion: "latest"
+home: https://github.com/epistola-app/epistola-suite
+sources:
+  - https://github.com/epistola-app/epistola-suite

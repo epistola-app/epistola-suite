@@ -3,90 +3,96 @@ name: release
 description: Create a new release. Use when the user wants to release a new version, cut a release, or publish a version.
 ---
 
-Create a new GitHub release for epistola-suite.
+Release a new version of epistola-suite (the app image). The app version lives in
+`gradle.properties` `version=` (source of truth); during development it carries the
+next version with **`-SNAPSHOT`**. A release strips the suffix, finalizes the
+CHANGELOG, and pushes a matching `vX.Y.Z` tag; CI (`.github/workflows/build.yml`)
+reacts to the tag, asserts `tag == gradle.properties version`, and builds/signs/
+publishes the image. Then you re-open the next `-SNAPSHOT`. Chart releases
+(`epistola-*` tags) are a separate stream and never cross-fire.
 
 ## Prerequisites
 
-- You must be on the `main` branch with a clean working tree
-- All changes must be merged to `main`
+- Chart changes are merged; you're releasing from `main` (or a `release/*.x`
+  maintenance branch, which has its own `-SNAPSHOT` lineage).
 
 ## Steps
 
-### 1. Determine the next version
+### 1. Determine the release version
 
-Get the latest tag and the commits since it:
+`gradle.properties` `version` holds the next version with `-SNAPSHOT`. The release
+version is that value minus `-SNAPSHOT`. Sanity-check it against the commits since
+the last release and bump if it's behind:
 
 ```bash
 git fetch --tags
-LATEST_TAG=$(git tag --sort=-v:refname | head -1)
-echo "Latest: $LATEST_TAG"
+LATEST_TAG=$(git tag -l "v*" --sort=-v:refname | head -1)
+grep '^version=' gradle.properties
 git log "$LATEST_TAG"..HEAD --oneline
 ```
 
-Apply semantic versioning based on conventional commits:
+- `feat!:`/`BREAKING CHANGE:` → MAJOR · `feat:` → MINOR · else → PATCH (pre-1.0, a breaking change is a MINOR bump).
 
-- Any `feat:` commit → bump **MINOR** (e.g., 0.6.1 → 0.7.0)
-- Only `fix:`/`docs:`/`chore:`/`refactor:`/`test:` → bump **PATCH** (e.g., 0.6.1 → 0.6.2)
-- Any `feat!:` or `BREAKING CHANGE` → bump **MAJOR** (e.g., 0.6.1 → 1.0.0)
+### 2. Release commit — version + CHANGELOG
 
-### 2. Prepare the CHANGELOG
+- Set `gradle.properties` `version=` to `X.Y.Z` (strip `-SNAPSHOT`).
+- Move `[Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD`, and add a
+  fresh empty `[Unreleased]` above it.
 
-Move the `[Unreleased]` section in `CHANGELOG.md` to a new version heading:
+  **Write a release summary.** Immediately under the new version heading (blank
+  line, prose, blank line before the first entry), add a **1–3 sentence**
+  plain-prose summary — the headline user-facing changes and any notable breaking
+  change/theme. This is parsed by the in-app Changelog dialog (`ChangelogRenderer`)
+  and shown above the entries, so write it for end users. Derive it from the
+  entries you just moved (lead with `**[user]**`/untagged `feat`/`fix`; skip deep
+  `**[dev]**` internals). Do **not** start the summary with `- ` or `### `.
 
-```
-## [X.Y.Z] - YYYY-MM-DD
-```
+  ```
+  ## [0.23.0] - 2026-06-15
 
-**Write a release summary.** Immediately under the new version heading (a blank line, then the prose, then a blank line before the first entry), add a short **1–3 sentence** plain-prose summary of the release — the headline user-facing changes and any notable breaking change or theme. This paragraph is parsed by the in-app Changelog dialog (`ChangelogRenderer`) and shown above the entries, so write it for end users, not as a commit log. Derive it from the entries you just moved — lead with the `feat`/`fix` items tagged `**[user]**` or untagged (skip deep `**[dev]**` internals). Do **not** start the summary line with `- ` or `### ` (those delimit entries).
+  This release adds audience/type/scope filtering to the in-app changelog and
+  locale-aware number formatting in the editor, and fixes bullet glyphs vanishing
+  in generated PDFs.
 
-Example:
+  - **[user]** feat(changelog): **…**
+  - **[user]** fix(pdf): **…**
+  ```
 
-```
-## [0.23.0] - 2026-06-15
+- Commit on a branch, open a PR, merge to `main` (never push to `main` directly):
+  `chore(release): vX.Y.Z`.
 
-This release adds audience/type/scope filtering to the in-app changelog and locale-aware number formatting in the editor, and fixes bullet glyphs vanishing in generated PDFs.
+### 3. Confirm, then tag the merge commit
 
-- **[user]** feat(changelog): **…**
-- **[user]** fix(pdf): **…**
-```
-
-Add a fresh empty `[Unreleased]` section above the new version heading. Commit this change:
-
-```
-docs: update changelog for vX.Y.Z release
-```
-
-### 3. Ask for confirmation
-
-Before creating the release, show the user:
-
-- The version number
-- The commits included
-- Ask for permission to proceed
-
-### 4. Push and create the release
-
-Build the release body from the `[X.Y.Z]` section of `CHANGELOG.md` (everything between the version heading and the next `## [` heading). Then create the release:
+Show the user the version, the commits, and the CHANGELOG entry; ask permission.
+Then, with `$RELEASE_BODY` = the `[X.Y.Z]` CHANGELOG section:
 
 ```bash
-COMMIT_SHA=$(git rev-parse HEAD)
-git push origin main
+COMMIT_SHA=$(git rev-parse origin/main)   # the merged release commit
 gh release create vX.Y.Z --title "vX.Y.Z" --notes "$RELEASE_BODY" --target "$COMMIT_SHA"
 ```
 
-The `--target` flag pins the release to the changelog commit, preventing issues if another commit (e.g., coverage badge) lands on main between the push and release creation.
+This creates the tag + GitHub Release. CI validates `tag == gradle.properties` and
+builds the image. (A tag whose commit still says `-SNAPSHOT` **fails** the check —
+that's the guard against releasing a snapshot.)
+
+### 4. Re-open the next -SNAPSHOT
+
+In a follow-up PR, set `gradle.properties` `version=` to the next dev version
+(default `X.Y.(Z+1)-SNAPSHOT`; raise to minor/major when the next cycle's first
+`feat`/breaking change lands). Merge.
 
 ### 5. Verify
 
-After creating the release, tell the user:
-
-- The release URL
-- That CI will automatically build and publish the Docker image
-- They can monitor the workflow at: `gh run list --workflow=build.yml --limit 1`
+```bash
+gh run list --workflow=build.yml --limit 1
+gh release view vX.Y.Z
+```
 
 ## Important
 
-- Tags must follow the `vX.Y.Z` format (e.g., `v0.7.0`)
-- Never skip the CHANGELOG update
-- Always ask for confirmation before creating the release
-- The CI workflow (`.github/workflows/build.yml`) triggers on `release: published` to build, tag, sign, and publish the Docker image. Docker images are NOT built on push-to-main to avoid race conditions between push and release events.
+- **Tag = `vX.Y.Z`**, disjoint from chart tags (`epistola-*`). CI reacts to the
+  `v*` tag via `push: tags: ['v*']` — **not** the `release: published` event.
+- The three must agree: `gradle.properties version` == CHANGELOG `[X.Y.Z]` == the
+  tag. CI enforces `tag == gradle.properties`.
+- Never skip the CHANGELOG update or the release-summary prose.
+- Dev always carries `-SNAPSHOT`; a release is the strip → tag → re-open cycle.
