@@ -203,19 +203,19 @@ observability:
 #   openssl rand -base64 32
 # and store it in a Kubernetes Secret, then reference it below.
 encryption:
+  # Enabled by default (fail-closed). Opt out with `enabled: false`.
   enabled: true
   # Key id used for all NEW encryptions. Must match one of the `keys[].id` below.
   primaryKeyId: ""
   # The keyset. All listed keys are available for decryption (this is how
   # rotation works: add a new key, point primaryKeyId at it, re-encrypt, then
-  # remove the old key). Each entry sources its 32-byte base64 material from a
-  # Secret (recommended) or inline (dev only):
+  # remove the old key). Each entry's 32-byte base64 material is sourced ONLY
+  # from a Kubernetes Secret — inline material is not supported, so key material
+  # never lands in values.yaml, the pod spec, or the Helm release:
   #   keys:
   #     - id: k1
-  #       existingSecret: epistola-encryption   # Secret name
+  #       existingSecret: epistola-encryption   # Secret name (required)
   #       secretKey: k1                          # key within the Secret (defaults to id)
-  #     - id: k2
-  #       material: "<base64-32-bytes>"          # inline — DEV ONLY, avoid in prod
   keys: []
 
 # OIDC login configuration (optional, requires config.profiles to include "keycloak")
@@ -223,12 +223,8 @@ oidc:
   enabled: false
   # Client ID used for browser login and resource-server validation.
   clientId: epistola-suite
-  # Client secret used for the OIDC client.
-  # DEV ONLY: an inline value is rendered as a plaintext env var in the
-  # Deployment (and stored in the Helm release Secret). In production set
-  # `existingSecret` instead so the secret is referenced via secretKeyRef.
-  clientSecret: ""
-  # Reference a pre-existing secret containing the OIDC client secret (preferred).
+  # Name of an existing Kubernetes Secret holding the OIDC client secret.
+  # Required when oidc.enabled is true — the chart never takes an inline secret.
   existingSecret: ""
   # Key within the existing secret that holds the client secret.
   secretKey: client-secret
@@ -254,12 +250,8 @@ keycloakAdmin:
   realm: epistola
   # Client ID used for client-credentials authentication.
   clientId: epistola-suite
-  # Client secret used for client-credentials authentication.
-  # DEV ONLY: an inline value is rendered as a plaintext env var in the
-  # Deployment (and stored in the Helm release Secret). In production set
-  # `existingSecret` instead so the secret is referenced via secretKeyRef.
-  clientSecret: ""
-  # Reference a pre-existing secret containing the admin client secret (preferred).
+  # Name of an existing Kubernetes Secret holding the admin client secret.
+  # Required when keycloakAdmin.enabled is true — no inline secret is accepted.
   existingSecret: ""
   # Key within the existing secret that holds the client secret.
   secretKey: client-secret

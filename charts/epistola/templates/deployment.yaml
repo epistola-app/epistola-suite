@@ -125,14 +125,10 @@ spec:
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
               value: {{ .Values.oidc.clientId | quote }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
-              {{- if .Values.oidc.existingSecret }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "oidc.existingSecret is required when oidc.enabled is true and oidc.clientSecret is empty" .Values.oidc.existingSecret }}
+                  name: {{ required "oidc.existingSecret is required when oidc.enabled is true" .Values.oidc.existingSecret }}
                   key: {{ .Values.oidc.secretKey }}
-              {{- else }}
-              value: {{ required "oidc.clientSecret is required when oidc.enabled is true and oidc.existingSecret is empty" .Values.oidc.clientSecret | quote }}
-              {{- end }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
               value: {{ required "oidc.issuerUri is required when oidc.enabled is true" .Values.oidc.issuerUri | quote }}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
@@ -156,14 +152,10 @@ spec:
             - name: EPISTOLA_KEYCLOAK_CLIENTID
               value: {{ .Values.keycloakAdmin.clientId | quote }}
             - name: EPISTOLA_KEYCLOAK_CLIENTSECRET
-              {{- if .Values.keycloakAdmin.existingSecret }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "keycloakAdmin.existingSecret is required when keycloakAdmin.enabled is true and keycloakAdmin.clientSecret is empty" .Values.keycloakAdmin.existingSecret }}
+                  name: {{ required "keycloakAdmin.existingSecret is required when keycloakAdmin.enabled is true" .Values.keycloakAdmin.existingSecret }}
                   key: {{ .Values.keycloakAdmin.secretKey }}
-              {{- else }}
-              value: {{ required "keycloakAdmin.clientSecret is required when keycloakAdmin.enabled is true and keycloakAdmin.existingSecret is empty" .Values.keycloakAdmin.clientSecret | quote }}
-              {{- end }}
             {{- if .Values.keycloakAdmin.ensureGroups }}
             - name: EPISTOLA_KEYCLOAK_ENSUREGROUPS
               value: "true"

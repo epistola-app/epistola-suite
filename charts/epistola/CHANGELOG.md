@@ -4,7 +4,17 @@
 
 ### Removed
 
+- **BREAKING: inline secret values removed — secrets must come from a Kubernetes Secret.** `oidc.clientSecret`, `keycloakAdmin.clientSecret`, and `encryption.keys[].material` are gone; use `oidc.existingSecret`, `keycloakAdmin.existingSecret`, and `encryption.keys[].existingSecret` (all now `required` when the feature is enabled). Previously an inline value rendered as a **plaintext env var** in the Deployment (and was stored in the Helm release Secret) — the chart now never places secret material in the pod spec, values.yaml, or the release. CA certs (`extraCaCerts.certs`) are unaffected — they are public, not secret. (App-level `epistola.encryption.keys[].material` still exists for local/dev config; only the chart drops the inline path.)
 - **BREAKING: `database.cnpgExisting.username` (+ its `existingSecret` / `passwordKey`) removed.** The knob was meant to run the app as a restricted role on a CNPG cluster (two-role setup), but it was silently broken: `cnpgExisting` builds the datasource URL from CNPG's `-app` secret `jdbc-uri`, which **embeds the owner's `user=`/`password=`**, and pgjdbc lets URL credentials override the explicit `SPRING_DATASOURCE_USERNAME` — so the app connected as the **owner** (full DDL) regardless, defeating the split. **For a two-role setup on CNPG, use `database.type=external`** pointed at the cluster's `-rw` service: `external` builds a credentials-free URL, so the restricted app role actually takes effect (this is the validated path). `cnpgExisting` is now single-role only (app = owner). Setting `migration.credentials` together with `cnpgExisting` now **fails the render** with a pointer to `external` (that combination had the same `jdbc-uri` flaw and no valid use — a single-role app is already the owner). See the rewritten two-role recipe in [`docs/deployment.md`](../../docs/deployment.md).
+
+### Changed
+
+- **`serviceAccount.automount` now defaults to `false`.** The app makes no Kubernetes API calls, so its pods no longer auto-mount a ServiceAccount token. Set `true` if you add something that needs API access.
+- **`database.type=external` now fails the render when `database.external.host` is empty** (mirroring the existing password guard), instead of emitting a broken `jdbc:postgresql://:5432/…` URL that only failed at pod startup.
+
+### Internal
+
+- DB/migration credential helpers de-duplicated: a shared `epistola.database.externalUrl` helper, `epistola.database.effectiveType` now centralizes supported-type validation, and the dead `cnpgExisting` branch left by the `cnpgExisting.username` removal is gone. No behavior change.
 
 ## [0.8.0] - 2026-07-04
 

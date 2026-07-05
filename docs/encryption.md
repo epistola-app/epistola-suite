@@ -89,7 +89,10 @@ self-test encrypt/decrypt under the primary key.
 ## Helm
 
 The chart wires the keyset as indexed environment variables sourced from a
-Kubernetes Secret (`charts/epistola`):
+Kubernetes Secret (`charts/epistola`). Key material must come from a Secret via
+`existingSecret` — the chart does **not** accept inline `material` (the inline
+form above is for app-level/local config only), so key material never lands in
+values.yaml, the pod spec, or the Helm release:
 
 ```yaml
 encryption:

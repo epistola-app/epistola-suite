@@ -197,8 +197,9 @@ wires the migration container to the right one.
 {{/*
 Credential encryption-at-rest env (EPISTOLA_ENCRYPTION_*). Only the app
 Deployment needs this — the migration Job/init container never touch ciphertext.
-Each key's material is sourced from a Kubernetes Secret (existingSecret/secretKey)
-in production; an inline `material` is supported for dev convenience only.
+Each key's material is sourced from a Kubernetes Secret (existingSecret/secretKey);
+inline key material is intentionally not supported — the chart never places secret
+material in the pod spec or the Helm release.
 */}}
 {{- define "epistola.encryptionEnv" -}}
 {{- if .Values.encryption.enabled }}
@@ -210,14 +211,10 @@ in production; an inline `material` is supported for dev convenience only.
 - name: EPISTOLA_ENCRYPTION_KEYS_{{ $i }}_ID
   value: {{ required "each encryption.keys entry requires an id" $key.id | quote }}
 - name: EPISTOLA_ENCRYPTION_KEYS_{{ $i }}_MATERIAL
-  {{- if $key.existingSecret }}
   valueFrom:
     secretKeyRef:
-      name: {{ $key.existingSecret }}
+      name: {{ required "each encryption.keys entry requires existingSecret (inline key material is not supported)" $key.existingSecret }}
       key: {{ $key.secretKey | default $key.id }}
-  {{- else }}
-  value: {{ required "each encryption.keys entry requires existingSecret or inline material" $key.material | quote }}
-  {{- end }}
 {{- end }}
 {{- else }}
 - name: EPISTOLA_ENCRYPTION_ENABLED
