@@ -186,6 +186,31 @@ observability:
 
 Do not enable both the agent and `otlpEndpoint` for metrics, or you double-export.
 
+### Dashboards & alerts
+
+Grafana dashboards (Overview, Generation, Infrastructure, Mediator, API Security)
+and alert rules ship in the **separate `epistola-observability` chart** as
+grafana-operator custom resources — not the app chart, which stays independent of
+grafana-operator. Install it alongside the app chart on clusters running
+grafana-operator:
+
+```yaml
+# epistola-observability values
+grafana:
+  enabled: true
+  instanceSelector: { matchLabels: { dashboards: grafana } }
+  datasourceUid: "Prometheus" # UID of the datasource the panels/alerts query
+  folder:
+    title: "Epistola"
+    uid: "" # blank → pinned to the release fullname (stable, immutable-safe)
+```
+
+Dashboards and alerts anchor to a `GrafanaFolder` by a **pinned `folderUID`**.
+This matters because `GrafanaAlertRuleGroup.spec.folderRef`/`folderUID` are
+**immutable** in the operator's CRD — a UID that is stable by construction means
+the folder anchor never needs to change, so upgrades never hit the immutability
+wall (and the display `title` can still be renamed freely).
+
 ## Hub leg
 
 Forwarding metrics to **epistola-hub** (the commercial support tier) is a

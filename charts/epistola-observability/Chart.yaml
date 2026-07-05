@@ -1,21 +1,15 @@
 apiVersion: v2
-name: epistola
-description: A Helm chart for deploying Epistola Document Suite
+name: epistola-observability
+description: >-
+  Grafana dashboards and alerts for Epistola Suite, as grafana-operator custom
+  resources. Install alongside the epistola chart on clusters that run
+  grafana-operator. Separate from the app chart so the app never depends on
+  grafana-operator.
 type: application
 # Source of truth for releases — bump this in a PR and CI publishes it on merge.
-version: 0.10.0
+version: 0.1.0
 # appVersion is synced to the latest app tag at publish time by CI.
 appVersion: "latest"
-maintainers:
-  - name: epistola-app
-    url: https://github.com/epistola-app
 home: https://github.com/epistola-app/epistola-suite
 sources:
   - https://github.com/epistola-app/epistola-suite
-keywords:
-  - epistola
-  - document-suite
-  - spring-boot
-  - kotlin
-  - postgresql
-  - cloudnativepg
