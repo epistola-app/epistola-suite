@@ -70,7 +70,7 @@ class WatermarkEventHandler(
         private const val TARGET_WIDTH_FRACTION = 0.75f
 
         /** Fill opacity of the watermark (soft, non-obscuring). */
-        private const val WATERMARK_OPACITY = 0.2f
+        private const val WATERMARK_OPACITY = 0.12f
 
         /** Rotation of the watermark, 45° counter-clockwise. */
         private val WATERMARK_ANGLE_RAD = (Math.PI / 4).toFloat()
