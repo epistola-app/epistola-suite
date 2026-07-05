@@ -84,8 +84,8 @@ Get the CNPG secret name for an existing cluster's app credentials
 the cluster (and any roles) separately — see docs/deployment.md.
 */}}
 {{- define "epistola.cnpg.secretName" -}}
-{{- if .Values.database.cnpgExisting.secretName }}
-{{- .Values.database.cnpgExisting.secretName }}
+{{- if .Values.database.cnpgExisting.existingSecret }}
+{{- .Values.database.cnpgExisting.existingSecret }}
 {{- else }}
 {{- printf "%s-app" .Values.database.cnpgExisting.clusterName }}
 {{- end }}
@@ -185,7 +185,7 @@ wires the migration container to the right one.
   valueFrom:
     secretKeyRef:
       name: {{ required "migration.credentials.existingSecret is required when migration.credentials.username is set" $mig.existingSecret }}
-      key: {{ $mig.passwordKey | default "password" }}
+      key: {{ $mig.secretKey | default "password" }}
 {{- else }}
 {{- /* Single-role: migration reuses the app credentials. For cnpgExisting that
        is the cluster owner (-app secret); a two-role CNPG setup uses

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **BREAKING: renamed two value keys for consistency** (one name for "existing Secret" / "key within it" across the `database` and `migration` blocks): `database.cnpgExisting.secretName` → `database.cnpgExisting.existingSecret`, and `migration.credentials.passwordKey` → `migration.credentials.secretKey`. Update your values accordingly.
+
 ### Removed
 
 - **BREAKING: inline secret values removed — secrets must come from a Kubernetes Secret.** `oidc.clientSecret`, `keycloakAdmin.clientSecret`, and `encryption.keys[].material` are gone; use `oidc.existingSecret`, `keycloakAdmin.existingSecret`, and `encryption.keys[].existingSecret` (all now `required` when the feature is enabled). Previously an inline value rendered as a **plaintext env var** in the Deployment (and was stored in the Helm release Secret) — the chart now never places secret material in the pod spec, values.yaml, or the release. CA certs (`extraCaCerts.certs`) are unaffected — they are public, not secret. (App-level `epistola.encryption.keys[].material` still exists for local/dev config; only the chart drops the inline path.)

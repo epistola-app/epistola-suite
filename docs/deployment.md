@@ -289,7 +289,7 @@ migration:
   credentials:
     username: epistola # owner role — from CNPG's -app secret
     existingSecret: epistola-db-app
-    passwordKey: password
+    secretKey: password
 ```
 
 The `ALTER DEFAULT PRIVILEGES` grants only apply on a **fresh** initdb (they set

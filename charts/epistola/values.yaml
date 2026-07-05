@@ -382,7 +382,7 @@ migration:
     # Required when `username` is set.
     existingSecret: ""
     # Key within `existingSecret` that holds the password.
-    passwordKey: password
+    secretKey: password
   # Helm hook Job tuning (job mode only).
   job:
     backoffLimit: 3
@@ -448,5 +448,6 @@ database:
   cnpgExisting:
     # Name of the existing CNPG cluster
     clusterName: ""
-    # Secret name (defaults to <clusterName>-app)
-    secretName: ""
+    # Name of the credentials Secret (defaults to <clusterName>-app, which CNPG
+    # generates for the cluster owner).
+    existingSecret: ""
