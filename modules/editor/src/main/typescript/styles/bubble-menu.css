@@ -10,7 +10,10 @@
 @layer components {
   .pm-bubble-menu {
     position: fixed;
-    z-index: var(--ep-z-tooltip);
+    /* Below the sticky page header and editor toolbar (--ep-z-sticky) so the
+     * chrome occludes the menu when a selection scrolls up under it; still
+     * above normal editing content. */
+    z-index: var(--ep-z-dropdown);
     display: flex;
     align-items: center;
     gap: 2px;

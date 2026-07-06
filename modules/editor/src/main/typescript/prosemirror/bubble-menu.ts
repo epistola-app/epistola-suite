@@ -479,6 +479,15 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
         showMenu(menuEl, buttons, view);
       };
 
+      // While the menu is visible, re-anchor it to the selection on scroll.
+      // The menu is position: fixed, so without this it stays pinned to the
+      // viewport as the page scrolls; updatePosition reads the selection's
+      // current coords, so re-running it makes the menu track the text.
+      // Capture phase catches scroll from the window and any nested scroller.
+      const onScroll = () => {
+        if (menuEl && menuEl.style.display !== 'none') updatePosition(menuEl, view);
+      };
+
       // Wire up click handlers (need view reference)
       for (const { el, def } of buttons) {
         el.addEventListener('click', (e) => {
@@ -491,6 +500,7 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       // Append to document body for absolute positioning
       ownerDocument.body.appendChild(menuEl);
       ownerDocument.addEventListener('pointerdown', onDocumentPointerDown, true);
+      ownerDocument.addEventListener('scroll', onScroll, true);
       view.dom.addEventListener('blur', onEditorBlur, true);
       view.dom.addEventListener('focus', onEditorFocus, true);
 
@@ -501,6 +511,7 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
 
         destroy() {
           ownerDocument.removeEventListener('pointerdown', onDocumentPointerDown, true);
+          ownerDocument.removeEventListener('scroll', onScroll, true);
           view.dom.removeEventListener('blur', onEditorBlur, true);
           view.dom.removeEventListener('focus', onEditorFocus, true);
           menuEl?.remove();
