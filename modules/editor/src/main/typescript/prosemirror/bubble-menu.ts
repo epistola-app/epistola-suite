@@ -77,8 +77,16 @@ function inListItem(view: EditorView): boolean {
   return false;
 }
 
-function createButtonDefs(schema: Schema): ButtonDef[] {
-  const defs: ButtonDef[] = [];
+/**
+ * Buttons grouped by section (marks, headings, lists, expression). Each group
+ * is guarded on the schema, so a schema missing a whole section yields an empty
+ * group. Empty groups are dropped, and the caller renders one divider *between*
+ * surviving groups — never leading, trailing, or doubled.
+ */
+function createButtonGroups(schema: Schema): ButtonDef[][] {
+  const groups: ButtonDef[][] = [];
+  // Accumulator for the group currently being built; flushed at each boundary.
+  let defs: ButtonDef[] = [];
 
   // Bold
   if (schema.marks.strong) {
@@ -146,14 +154,9 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     });
   }
 
-  // Separator
-  defs.push({
-    label: '',
-    title: '',
-    className: 'pm-bubble-sep',
-    isActive: () => false,
-    command: () => {},
-  });
+  // End marks group.
+  groups.push(defs);
+  defs = [];
 
   // Headings
   if (schema.nodes.heading) {
@@ -175,14 +178,9 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     }
   }
 
-  // Separator
-  defs.push({
-    label: '',
-    title: '',
-    className: 'pm-bubble-sep',
-    isActive: () => false,
-    command: () => {},
-  });
+  // End headings group.
+  groups.push(defs);
+  defs = [];
 
   // Bullet list (toggle: wrap if not in list, lift if already bullet, convert if ordered)
   if (schema.nodes.bullet_list && schema.nodes.list_item) {
@@ -287,14 +285,9 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     }
   }
 
-  // Separator
-  defs.push({
-    label: '',
-    title: '',
-    className: 'pm-bubble-sep',
-    isActive: () => false,
-    command: () => {},
-  });
+  // End lists group.
+  groups.push(defs);
+  defs = [];
 
   // Expression insert
   if (schema.nodes.expression) {
@@ -311,14 +304,17 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     });
   }
 
-  return defs;
+  // End expression group.
+  groups.push(defs);
+
+  return groups.filter((group) => group.length > 0);
 }
 
 // ---------------------------------------------------------------------------
 // Menu DOM
 // ---------------------------------------------------------------------------
 
-function createMenuElement(schema: Schema): {
+export function createMenuElement(schema: Schema): {
   menuEl: HTMLElement;
   buttons: { el: HTMLElement; def: ButtonDef }[];
 } {
@@ -326,29 +322,31 @@ function createMenuElement(schema: Schema): {
   menuEl.className = 'pm-bubble-menu';
   menuEl.style.display = 'none';
 
-  const buttonDefs = createButtonDefs(schema);
+  const groups = createButtonGroups(schema);
   const buttons: { el: HTMLElement; def: ButtonDef }[] = [];
 
-  for (const def of buttonDefs) {
-    if (def.className === 'pm-bubble-sep') {
+  // One divider between adjacent non-empty groups — never leading/trailing/doubled.
+  groups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
       const sep = document.createElement('span');
       sep.className = 'pm-bubble-sep';
       menuEl.appendChild(sep);
-      continue;
     }
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = def.className;
-    button.textContent = def.label;
-    button.title = def.title;
-    button.addEventListener('mousedown', (e) => {
-      e.preventDefault(); // Prevent blur
-      e.stopPropagation();
-    });
-    menuEl.appendChild(button);
-    buttons.push({ el: button, def });
-  }
+    for (const def of group) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = def.className;
+      button.textContent = def.label;
+      button.title = def.title;
+      button.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Prevent blur
+        e.stopPropagation();
+      });
+      menuEl.appendChild(button);
+      buttons.push({ el: button, def });
+    }
+  });
 
   return { menuEl, buttons };
 }
