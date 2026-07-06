@@ -1,0 +1,80 @@
+/*
+ * Bubble menu (floating toolbar) for ProseMirror editors.
+ *
+ * Shared by the canvas text editor (via prosemirror.css) and the
+ * data-contract rich-text value inputs (via data-contract-editor.css).
+ * The menu element is appended to document.body and positioned with
+ * @floating-ui/dom; buttons are schema-adaptive (see bubble-menu.ts).
+ */
+
+@layer components {
+  .pm-bubble-menu {
+    position: fixed;
+    z-index: var(--ep-z-tooltip);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+    background: var(--ep-white);
+    border: 1px solid var(--ep-stone-200);
+    border-radius: var(--ep-radius-md);
+    box-shadow: var(--ep-shadow-lg);
+  }
+
+  .pm-bubble-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--ep-radius-sm);
+    background: transparent;
+    color: var(--ep-stone-600);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color var(--ep-transition-fast),
+      color var(--ep-transition-fast);
+
+    &:hover {
+      background: var(--ep-stone-100);
+    }
+
+    &.active {
+      background: var(--ep-terracotta-100);
+      color: var(--ep-terracotta-700);
+    }
+
+    &.bold {
+      font-weight: 800;
+    }
+
+    &.italic {
+      font-style: italic;
+    }
+
+    &.underline {
+      text-decoration: underline;
+    }
+
+    &.strikethrough {
+      text-decoration: line-through;
+    }
+
+    &.expression {
+      font-family: var(--ep-font-mono);
+      font-size: 11px;
+    }
+  }
+
+  .pm-bubble-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--ep-stone-200);
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+}

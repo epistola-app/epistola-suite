@@ -25,6 +25,7 @@ import { baseKeymap, toggleMark, chainCommands } from 'prosemirror-commands';
 import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
+import { bubbleMenuPlugin } from '../../prosemirror/bubble-menu.js';
 import {
   richTextBlockSchema,
   EMPTY_RICH_TEXT_BLOCK_DOC,
@@ -36,6 +37,71 @@ import {
 import type { JsonObject, JsonValue } from '../types.js';
 
 export type RichTextInputMode = 'inline' | 'block';
+
+/**
+ * Plugin set for a rich-text value input. Exported for tests: the capability
+ * surface (lists, marks, menu) must stay derivable from the mode + schema.
+ */
+export function buildRichTextInputPlugins(mode: RichTextInputMode, schema: Schema): Plugin[] {
+  const marks = schema.marks;
+  const baseBindings: Record<string, ReturnType<typeof toggleMark>> = {};
+  if (marks.strong) baseBindings['Mod-b'] = toggleMark(marks.strong);
+  if (marks.em) baseBindings['Mod-i'] = toggleMark(marks.em);
+  if (marks.underline) baseBindings['Mod-u'] = toggleMark(marks.underline);
+
+  const historyKeys = {
+    'Mod-z': undo,
+    'Shift-Mod-z': redo,
+  };
+
+  if (mode === 'block') {
+    const listItem = schema.nodes.list_item;
+    return [
+      history(),
+      keymap({
+        ...historyKeys,
+        ...baseBindings,
+        // Lists: Enter splits, Shift-Tab lifts, Tab sinks.
+        Enter: chainCommands(splitListItem(listItem), baseKeymap.Enter),
+        'Shift-Tab': liftListItem(listItem),
+        Tab: sinkListItem(listItem),
+      }),
+      keymap(baseKeymap),
+      dropCursor(),
+      gapCursor(),
+      // Schema-adaptive: with the value subset schema this renders marks +
+      // list buttons only (no heading/expression nodes to offer).
+      bubbleMenuPlugin(schema),
+    ];
+  }
+
+  // Inline mode: no list keymaps, no Enter splitting (the schema only allows
+  // a single paragraph anyway). Shift-Enter inserts a hard break; Enter is
+  // a no-op (swallowed) so the user can't escape the single-paragraph shape.
+  const hardBreak = schema.nodes.hard_break;
+  const insertHardBreak = (
+    state: EditorState,
+    dispatch?: (tr: ReturnType<EditorState['tr']['replaceSelectionWith']>) => void,
+  ) => {
+    if (dispatch) {
+      dispatch(state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView());
+    }
+    return true;
+  };
+  const swallowEnter = () => true;
+  return [
+    history(),
+    keymap({
+      ...historyKeys,
+      ...baseBindings,
+      'Shift-Enter': insertHardBreak,
+      Enter: swallowEnter,
+    }),
+    keymap(baseKeymap),
+    dropCursor(),
+    gapCursor(),
+  ];
+}
 
 @customElement('epistola-rich-text-input')
 export class EpistolaRichTextInput extends LitElement {
@@ -160,62 +226,7 @@ export class EpistolaRichTextInput extends LitElement {
   }
 
   private _buildPlugins(): Plugin[] {
-    const schema = this._schema;
-    const marks = schema.marks;
-    const baseBindings: Record<string, ReturnType<typeof toggleMark>> = {};
-    if (marks.strong) baseBindings['Mod-b'] = toggleMark(marks.strong);
-    if (marks.em) baseBindings['Mod-i'] = toggleMark(marks.em);
-    if (marks.underline) baseBindings['Mod-u'] = toggleMark(marks.underline);
-
-    const historyKeys = {
-      'Mod-z': undo,
-      'Shift-Mod-z': redo,
-    };
-
-    if (this.mode === 'block') {
-      const listItem = schema.nodes.list_item;
-      return [
-        history(),
-        keymap({
-          ...historyKeys,
-          ...baseBindings,
-          // Lists: Enter splits, Shift-Tab lifts, Tab sinks.
-          Enter: chainCommands(splitListItem(listItem), baseKeymap.Enter),
-          'Shift-Tab': liftListItem(listItem),
-          Tab: sinkListItem(listItem),
-        }),
-        keymap(baseKeymap),
-        dropCursor(),
-        gapCursor(),
-      ];
-    }
-
-    // Inline mode: no list keymaps, no Enter splitting (the schema only allows
-    // a single paragraph anyway). Shift-Enter inserts a hard break; Enter is
-    // a no-op (swallowed) so the user can't escape the single-paragraph shape.
-    const hardBreak = schema.nodes.hard_break;
-    const insertHardBreak = (
-      state: EditorState,
-      dispatch?: (tr: ReturnType<EditorState['tr']['replaceSelectionWith']>) => void,
-    ) => {
-      if (dispatch) {
-        dispatch(state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView());
-      }
-      return true;
-    };
-    const swallowEnter = () => true;
-    return [
-      history(),
-      keymap({
-        ...historyKeys,
-        ...baseBindings,
-        'Shift-Enter': insertHardBreak,
-        Enter: swallowEnter,
-      }),
-      keymap(baseKeymap),
-      dropCursor(),
-      gapCursor(),
-    ];
+    return buildRichTextInputPlugins(this.mode, this._schema);
   }
 
   override render() {

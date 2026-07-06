@@ -13,7 +13,7 @@ import { wrapInList, liftListItem, sinkListItem } from 'prosemirror-schema-list'
 import { computePosition, offset, flip, shift } from '@floating-ui/dom';
 import { TEXT_SHORTCUT_COMMAND_IDS, getTextBubbleTitle } from '../shortcuts/text-runtime.js';
 
-const BUBBLE_MENU_KEY = new PluginKey('bubbleMenu');
+export const BUBBLE_MENU_KEY = new PluginKey('bubbleMenu');
 
 /** Convert a list from one type to another (e.g., bullet → ordered) by changing the node type. */
 function convertListType(view: EditorView, fromType: NodeType, toType: NodeType): void {
@@ -390,6 +390,11 @@ function updatePosition(menuEl: HTMLElement, view: EditorView): void {
   };
 
   computePosition(virtualEl, menuEl, {
+    // The menu is position: fixed and coordsAtPos yields viewport coords, so
+    // compute in viewport space too — the default 'absolute' strategy adds the
+    // page scroll offset, dropping the menu scrollY pixels too low on pages
+    // that scroll the window (the canvas editor never does, form pages do).
+    strategy: 'fixed',
     placement: 'top',
     middleware: [offset(8), flip(), shift({ padding: 8 })],
   }).then(({ x, y }) => {
