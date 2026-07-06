@@ -186,6 +186,28 @@ class RichTextBlockSchemaTest {
     }
 
     @Test
+    fun `rejects a list item with empty content`() {
+        // paragraph block* requires a leading paragraph; an empty list item is
+        // not a valid document (the editor never produces one).
+        val data = dataWithBio(
+            """
+            {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    { "type": "list_item", "content": [] }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        assertThat(validator.validate(contractSchema, data)).isNotEmpty()
+    }
+
+    @Test
     fun `rejects heading inside a list item`() {
         val data = dataWithBio(
             """

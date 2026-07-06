@@ -85,6 +85,7 @@
         "type": { "enum": ["list_item", "listItem"] },
         "content": {
           "type": "array",
+          "minItems": 1,
           "prefixItems": [{ "$ref": "#/$defs/paragraph" }],
           "items": { "$ref": "#/$defs/blockNode" }
         }
