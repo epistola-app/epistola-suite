@@ -142,7 +142,7 @@ The slot renders the standardized `error` model key when present (full renders a
 
 ```kotlin
 return request.htmx {
-    globalFormError("create-tenant-error", errorMessage) // 422 by default; pass statusCode = for others
+    globalFormError("create-tenant-error", errorMessage) // 422 by default; e.g. statusCode = 409 for a conflict
     onNonHtmx { page(422, "tenants/list") { "error" to errorMessage } }
 }
 ```
