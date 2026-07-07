@@ -133,6 +133,8 @@ spec:
                 secretKeyRef:
                   name: {{ required "oidc.existingSecret is required when oidc.enabled is true" .Values.oidc.existingSecret }}
                   key: {{ .Values.oidc.secretKey }}
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_{{ $reg }}_SCOPE
+              value: {{ .Values.oidc.scope | quote }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_{{ $reg }}_ISSUERURI
               value: {{ required "oidc.issuerUri is required when oidc.enabled is true" .Values.oidc.issuerUri | quote }}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI

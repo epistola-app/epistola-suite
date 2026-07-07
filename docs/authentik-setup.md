@@ -49,15 +49,22 @@ configuration needed.
 
 ## 3. Emit the membership claim
 
-Create a **Customisation → Property Mapping → Scope Mapping** that adds the `roles` (or `groups`)
-claim, then add its **scope name** to the provider's _Selected Scopes_.
+Create a **Customisation → Property Mapping → Scope Mapping**. Two names are involved — don't
+confuse them:
 
-Flat `roles` from authentik group names (recommended). Name your authentik groups after the encoded
-roles — e.g. a group `ept_acme-corp_content-viewer` for "content-viewer in the acme-corp tenant",
-`eps_tenant_manager` for the platform tenant-manager role — then emit them:
+- **Claim name** — the key _inside_ the token that Epistola reads. This **must** be `roles` (the
+  default; override with `oidc.flatRolesClaimName` / `EPISTOLA_AUTH_FLATROLES_CLAIMNAME`).
+- **Scope name** — the OAuth2 scope the client requests to trigger the mapping. This is **your
+  choice** (it could even be `roles`); this guide uses `epistola-roles` to keep it visually distinct
+  from the claim. Whatever you pick, add it to the provider's _Selected Scopes_ **and** to
+  `oidc.scope` (step 4) so Epistola requests it.
+
+Name your authentik groups after the encoded roles — e.g. a group `ept_acme-corp_content-viewer` for
+"content-viewer in the acme-corp tenant", `eps_tenant_manager` for the platform tenant-manager role
+— then have the mapping emit them under the `roles` **claim**:
 
 ```python
-# Scope name: epistola-roles   (add it to the provider's Selected Scopes)
+# Scope name: epistola-roles  (your choice; must match oidc.scope). Claim key: roles (fixed).
 return {
     "roles": [
         group.name
@@ -68,11 +75,8 @@ return {
 ```
 
 Prefer hierarchical `groups`? Name the authentik groups as full paths
-(`/epistola/tenants/acme-corp/content-viewer`, …) and return them under a `groups` key instead. See
-the [group path convention](keycloak-setup.md#group-path-convention) for the exact shape.
-
-If your provider emits the flat list under a different claim name, point Epistola at it with
-`oidc.flatRolesClaimName` (`EPISTOLA_AUTH_FLATROLES_CLAIMNAME`).
+(`/epistola/tenants/acme-corp/content-viewer`, …) and return them under a `groups` claim key instead.
+See the [group path convention](keycloak-setup.md#group-path-convention) for the exact shape.
 
 ## 4. Configure Epistola
 
@@ -89,6 +93,7 @@ oidc:
   existingSecret: epistola-authentik-client # Secret holding the client secret
   secretKey: client-secret
   issuerUri: https://sso.example.com/application/o/epistola/
+  scope: "openid,profile,email,epistola-roles" # add your roles scope-mapping name from step 3
   ssoButtonLabel: "Sign in with authentik" # optional; defaults to "Sign in with SSO"
   # userNameAttribute: preferred_username   # optional
   # backchannelBaseUrl: http://authentik:9000  # only for split-horizon networking
@@ -103,6 +108,7 @@ The registration id (`AUTHENTIK` below) must match `oidc.registrationId`:
 ```bash
 SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_AUTHENTIK_CLIENTID=<client-id>
 SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_AUTHENTIK_CLIENTSECRET=<client-secret>
+SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_AUTHENTIK_SCOPE=openid,profile,email,epistola-roles
 SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_AUTHENTIK_ISSUERURI=https://sso.example.com/application/o/epistola/
 SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI=https://sso.example.com/application/o/epistola/
 EPISTOLA_AUTH_AUTOPROVISION=true

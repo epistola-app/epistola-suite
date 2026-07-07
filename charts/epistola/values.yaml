@@ -234,6 +234,10 @@ oidc:
   secretKey: client-secret
   # Issuer URI for browser-facing OAuth2 / JWT validation.
   issuerUri: ""
+  # OAuth2 scopes requested at login (comma-separated). `openid` is required for OIDC; keep
+  # `profile`/`email` so Epistola receives the name/email claims. Add the scope that emits your
+  # roles/groups claim if your provider gates it behind a scope (e.g. authentik scope mappings).
+  scope: "openid,profile,email"
   # Auto-provision users in the local DB on first OIDC login. Supplied explicitly so the
   # behaviour is identical whether or not the (Keycloak-only) "keycloak" profile is active.
   autoProvision: true
