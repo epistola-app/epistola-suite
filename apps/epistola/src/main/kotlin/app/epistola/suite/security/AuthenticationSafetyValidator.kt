@@ -75,7 +75,8 @@ class AuthenticationSafetyValidator(
             throw IllegalStateException(
                 "No authentication mechanism configured. " +
                     "Either activate a profile that provides form login (e.g., 'local', 'localauth') " +
-                    "or configure OAuth2 client registrations (e.g., 'keycloak').",
+                    "or configure OAuth2/OIDC via SPRING_SECURITY_OAUTH2_* env vars (the Helm chart's " +
+                    "oidc.* values). The 'keycloak' profile is local-dev only and requires 'local'.",
             )
         }
     }

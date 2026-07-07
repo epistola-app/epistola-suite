@@ -220,10 +220,11 @@ encryption:
 # is required — setting oidc.enabled wires the registration purely from these values.
 oidc:
   enabled: false
-  # OAuth2 client registration id. Provider-neutral — pick any alphanumeric label; it is used
-  # in the login redirect URI ({baseUrl}/login/oauth2/code/<registrationId>) which must be
+  # OAuth2 client registration id. Provider-neutral — pick a lowercase alphanumeric label; it is
+  # used in the login redirect URI ({baseUrl}/login/oauth2/code/<registrationId>) which must be
   # registered at the provider. Name it after your provider (e.g. "keycloak" or "authentik").
-  # Alphanumeric only (it becomes an env-var segment).
+  # Lowercase alphanumeric only: it becomes an env-var segment, and Spring lowercases the
+  # registration id, so an uppercase value would not match the redirect URI you register.
   registrationId: keycloak
   # Client ID used for browser login and resource-server validation.
   clientId: epistola-suite

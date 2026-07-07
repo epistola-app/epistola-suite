@@ -138,7 +138,7 @@ spring:
             authorization-grant-type: authorization_code
         provider:
           keycloak:
-            issuer-uri: http://localhost:8080/realms/epistola
+            issuer-uri: http://localhost:4002/realms/epistola
             user-name-attribute: preferred_username
       resourceserver:
         jwt:

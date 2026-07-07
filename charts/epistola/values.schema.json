@@ -56,8 +56,8 @@
       "properties": {
         "registrationId": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9]+$",
-          "description": "Alphanumeric only — it is rendered into an env-var segment (SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_<ID>_*). Provider-neutral."
+          "pattern": "^[a-z0-9]+$",
+          "description": "Lowercase alphanumeric only. Rendered into an env-var segment and used verbatim as the login redirect-URI segment (/login/oauth2/code/<registrationId>); Spring lowercases the registration id from env vars, so uppercase here would diverge from the redirect URI. Provider-neutral."
         }
       },
       "allOf": [

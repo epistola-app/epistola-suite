@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.security.oauth2.client.registration.ClientRegistration
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
@@ -15,6 +16,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.web.client.RestClient
+import java.time.Duration
 
 /**
  * Overrides Spring Boot's auto-configured OAuth2 beans when a backchannel base URL is set.
@@ -24,11 +26,19 @@ import org.springframework.web.client.RestClient
  * - Browser: https://sso.example.com (external)
  * - Container: http://sso:9000 (internal)
  *
- * This configuration reads the provider's real endpoints from its **OIDC discovery document**
- * (`/.well-known/openid-configuration`) rather than assuming a provider-specific URL layout, so it
- * works for any compliant provider. It fetches discovery over the **internal** (container-reachable)
- * URL, then rewrites only the server-to-server endpoints (token, userinfo, JWK) onto the internal
- * base while keeping browser-facing endpoints (authorization) and the issuer claim external.
+ * This configuration reads the provider's real endpoint **paths** from its **OIDC discovery
+ * document** (`/.well-known/openid-configuration`) rather than assuming a provider-specific URL
+ * layout, so it works for any compliant provider. It fetches discovery over the **internal**
+ * (container-reachable) URL, then recombines each endpoint's path with the host we control: the
+ * browser-facing authorization endpoint (and the issuer claim) use the **external** issuer host,
+ * while the server-to-server endpoints (token, userinfo, JWK) use the **internal** backchannel host.
+ * Only the discovered *paths* are trusted — never the host the document advertises — so it is robust
+ * to providers that reflect the request host in their discovery document.
+ *
+ * Requirement: the IdP must validate/issue tokens under the **external** `issuer-uri` (e.g. Keycloak
+ * `KC_HOSTNAME`, authentik's configured base URL). The token `iss` is validated against that external
+ * issuer, so an IdP that stamps its internal host into `iss` will be rejected — configure a stable
+ * external hostname on the provider.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty("epistola.auth.oidc.backchannel-base-url")
@@ -38,7 +48,20 @@ class OidcBackchannelConfiguration(
     private val oauth2ClientProperties: OAuth2ClientProperties,
 ) {
     private val log = LoggerFactory.getLogger(OidcBackchannelConfiguration::class.java)
-    private val restClient = RestClient.create()
+
+    // Discovery runs at startup; bound the wait so a slow/unreachable IdP fails fast instead of
+    // hanging context refresh (and the pod's readiness) indefinitely.
+    private val restClient = RestClient.builder()
+        .requestFactory(
+            SimpleClientHttpRequestFactory().apply {
+                setConnectTimeout(Duration.ofSeconds(5))
+                setReadTimeout(Duration.ofSeconds(5))
+            },
+        )
+        .build()
+
+    // Memoized per external issuer so the two beans below don't each fetch the same document.
+    private val metadataCache = mutableMapOf<String, OidcMetadata>()
 
     @Bean
     fun clientRegistrationRepository(): ClientRegistrationRepository {
@@ -55,6 +78,7 @@ class OidcBackchannelConfiguration(
                 ?: error("issuer-uri is required for provider '$providerName'")
 
             val metadata = fetchOidcMetadata(issuerUri, backchannelBaseUrl)
+            val externalBaseUrl = originOf(issuerUri)
 
             ClientRegistration.withRegistrationId(registrationId)
                 .clientId(reg.clientId ?: error("client-id is required for registration '$registrationId'"))
@@ -65,10 +89,11 @@ class OidcBackchannelConfiguration(
                     AuthorizationGrantType(reg.authorizationGrantType ?: "authorization_code"),
                 )
                 .clientName(reg.clientName ?: registrationId)
-                // Browser-facing: keep the provider-advertised (external) authorization endpoint and issuer
-                .authorizationUri(metadata.authorizationEndpoint)
+                // Browser-facing: recombine the discovered auth path with the EXTERNAL issuer host
+                // (never the host the discovery doc advertised — providers may reflect the internal one)
+                .authorizationUri(rewriteUrl(metadata.authorizationEndpoint, externalBaseUrl)!!)
                 .issuerUri(issuerUri)
-                // Server-to-server: rewrite host to the internal backchannel base, keep the discovered path
+                // Server-to-server: recombine the discovered path with the internal backchannel host
                 .tokenUri(rewriteUrl(metadata.tokenEndpoint, backchannelBaseUrl)!!)
                 .userInfoUri(rewriteUrl(metadata.userinfoEndpoint, backchannelBaseUrl))
                 .jwkSetUri(rewriteUrl(metadata.jwksUri, backchannelBaseUrl)!!)
@@ -110,7 +135,9 @@ class OidcBackchannelConfiguration(
      * the document are whatever the provider advertises (typically its external host) — callers then
      * host-rewrite the back-channel endpoints as needed.
      */
-    private fun fetchOidcMetadata(externalIssuer: String, backchannelBaseUrl: String): OidcMetadata {
+    private fun fetchOidcMetadata(externalIssuer: String, backchannelBaseUrl: String): OidcMetadata = metadataCache.getOrPut(externalIssuer) { discoverOidcMetadata(externalIssuer, backchannelBaseUrl) }
+
+    private fun discoverOidcMetadata(externalIssuer: String, backchannelBaseUrl: String): OidcMetadata {
         val internalWellKnown = rewriteUrl(wellKnownUrl(externalIssuer), backchannelBaseUrl)!!
         log.info("Discovering OIDC metadata from {}", internalWellKnown)
 
@@ -153,6 +180,12 @@ class OidcBackchannelConfiguration(
             val pathStart = withoutScheme.indexOf('/')
             return if (pathStart >= 0) withoutScheme.substring(pathStart) else ""
         }
+
+        /**
+         * Returns the scheme+host+port origin of a URL (everything before the path).
+         * e.g. "https://sso.example.com/application/o/app/" -> "https://sso.example.com"
+         */
+        fun originOf(url: String): String = url.removeSuffix(extractPath(url))
 
         /**
          * Rewrites a URL to use the backchannel base URL, keeping the original path.
