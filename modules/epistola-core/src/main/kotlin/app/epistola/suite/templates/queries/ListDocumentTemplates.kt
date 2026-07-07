@@ -12,10 +12,46 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
+/**
+ * Sortable columns for [ListDocumentTemplates]. The [orderBy] expressions are a fixed
+ * whitelist baked into the SQL — never interpolate raw user input into ORDER BY. The
+ * [param] wire values are exactly the sortable `TemplateSummaryDto` response fields, so
+ * a caller sorts by the same names it reads back.
+ *
+ * Deliberately separate from [TemplateSort] (the UI list's whitelist on the same
+ * `document_templates` table): the two surfaces expose different sort keys — REST sorts
+ * by the `TemplateSummaryDto` response fields (incl. `createdAt`), the UI sorts by its
+ * richer list columns (`catalog`, `variants`). They are allowed to diverge.
+ *
+ * `name` sorts by `LOWER(name)` so the order is case-insensitive regardless of the
+ * cluster's `LC_COLLATE`, matching the case-insensitive `ILIKE` search filter in the
+ * same query (a `C`-collation cluster would otherwise sort all uppercase before any
+ * lowercase).
+ *
+ * @property param The stable query-parameter value used by the REST API.
+ * @property orderBy The whitelisted SQL ORDER BY expression for this sort key.
+ */
+enum class DocumentTemplateSort(
+    val param: String,
+    val orderBy: String,
+) {
+    NAME("name", "LOWER(dt.name)"),
+    CREATED("createdAt", "dt.created_at"),
+    UPDATED("lastModified", "dt.updated_at"),
+    ;
+
+    companion object {
+        /** Unknown values fall back to [UPDATED] (`lastModified`), matching the contract default. */
+        fun fromParam(param: String?): DocumentTemplateSort = entries.find { it.param == param } ?: UPDATED
+    }
+}
+
 data class ListDocumentTemplates(
     val tenantId: TenantId,
     val searchTerm: String? = null,
     val catalogKey: CatalogKey? = null,
+    val sort: DocumentTemplateSort = DocumentTemplateSort.UPDATED,
+    val descending: Boolean = true,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<DocumentTemplate>>,
@@ -37,7 +73,12 @@ class ListDocumentTemplatesHandler(
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm")
             }
-            append(" ORDER BY dt.updated_at DESC")
+            // ORDER BY expression comes from the DocumentTemplateSort whitelist, never raw input.
+            // The (catalog_key, id) tiebreaker is a total order for the composite PK
+            // (tenant_key, catalog_key, id), so paging stays stable even when the sort
+            // column ties and even for callers that list across catalogs (catalogKey == null).
+            val direction = if (query.descending) "DESC" else "ASC"
+            append(" ORDER BY ${query.sort.orderBy} $direction, dt.catalog_key ASC, dt.id ASC")
             append(" LIMIT :limit OFFSET :offset")
         }
 

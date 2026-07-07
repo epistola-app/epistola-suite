@@ -708,6 +708,256 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Int>(secondJson, "$.page.totalElements")).isEqualTo(3)
     }
 
+    @Test
+    fun `list templates sorts by name ascending and descending`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        // Create in an order that matches neither ascending nor descending name order,
+        // so the assertions prove the sort is applied rather than incidental.
+        listOf("Cherry" to "cherry", "Apple" to "apple", "Banana" to "banana").forEach { (name, id) ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+
+        val asc = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=asc",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(asc.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(asc.body!!, "$.items[*].name"))
+            .containsExactly("Apple", "Banana", "Cherry")
+
+        val desc = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=desc",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(desc.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(desc.body!!, "$.items[*].name"))
+            .containsExactly("Cherry", "Banana", "Apple")
+    }
+
+    @Test
+    fun `list templates name sort is case-insensitive`() {
+        // Name sort uses LOWER(name), so it stays alphabetical regardless of case and
+        // matches the case-insensitive search filter. Caveat: the CI Postgres collation
+        // is already case-insensitive-ish, so this can't fully falsify a regression that
+        // drops LOWER() — it pins intent and would catch it on a C-collation cluster.
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        listOf("banana" to "banana", "Apple" to "apple", "cherry" to "cherry").forEach { (name, id) ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+
+        val asc = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=asc",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(asc.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(asc.body!!, "$.items[*].name"))
+            .containsExactly("Apple", "banana", "cherry")
+    }
+
+    @Test
+    fun `list templates falls back to the default order for an unrecognized sort or direction`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        listOf("Cherry" to "cherry", "Apple" to "apple", "Banana" to "banana").forEach { (name, id) ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+        // Bump one row so created_at != updated_at; otherwise a created-vs-updated fallback
+        // would be indistinguishable and this test couldn't prove it lands on the default.
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/cherry-$suffix",
+            HttpMethod.PATCH,
+            HttpEntity("""{"name": "Cherry Updated"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // Unknown sort + direction must not 400; it falls back to the contract default
+        // (lastModified, desc) — the same order an explicit lastModified/desc request produces.
+        val bogus = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=bogus&direction=sideways",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        val default = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=lastModified&direction=desc",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(bogus.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(bogus.body!!, "$.items[*].id"))
+            .isEqualTo(JsonPath.read<List<String>>(default.body!!, "$.items[*].id"))
+    }
+
+    @Test
+    fun `list templates sorts by created and updated as distinct columns`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        // Creation order (== created_at ascending) is deliberately different from both
+        // name order and id order, so a correct created_at sort matches none of the other
+        // columns — proving it isn't silently using name or the dt.id tiebreaker.
+        //   creation:  mango,  apple,  zebra   (ids c-,  a-,  b-)
+        //   name asc:  apple,  mango,  zebra
+        //   id asc:    apple,  zebra,  mango
+        listOf(
+            "Mango" to "c-mango",
+            "Apple" to "a-apple",
+            "Zebra" to "b-zebra",
+        ).forEach { (name, id) ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+        // Bump the second-created row so updated order diverges from created order too.
+        val patch = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/a-apple-$suffix",
+            HttpMethod.PATCH,
+            HttpEntity("""{"name": "Apple Updated"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(patch.statusCode).isEqualTo(HttpStatus.OK)
+
+        val byCreated = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=createdAt&direction=asc",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        // Pure creation order — differs from both name-asc and id-asc above.
+        assertThat(JsonPath.read<List<String>>(byCreated.body!!, "$.items[*].id"))
+            .containsExactly("c-mango-$suffix", "a-apple-$suffix", "b-zebra-$suffix")
+
+        val byUpdated = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=lastModified&direction=asc",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        // 'apple' was updated most recently, so ascending updated_at puts it last —
+        // an order created_at could never produce, proving the two columns are distinct.
+        assertThat(JsonPath.read<List<String>>(byUpdated.body!!, "$.items[*].id"))
+            .containsExactly("c-mango-$suffix", "b-zebra-$suffix", "a-apple-$suffix")
+    }
+
+    @Test
+    fun `list templates keeps a stable order across pages when the sort key ties`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        // Five templates sharing one name: the sort key ties on every row, so only the
+        // dt.id tiebreaker keeps paging from repeating or dropping rows across requests.
+        val ids = (0..4).map { "same-$it-$suffix" }
+        ids.forEach { id ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "$id", "name": "Same Name"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+
+        val paged = (0..2).flatMap { page ->
+            val resp = restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=asc&page=$page&size=2",
+                HttpMethod.GET,
+                HttpEntity<String>(null, baseHeaders(key)),
+                String::class.java,
+            )
+            JsonPath.read<List<String>>(resp.body!!, "$.items[*].id")
+        }
+
+        // Every id appears exactly once, in the id-ascending order the tiebreaker guarantees.
+        // Caveat: this is a stronger assertion than CI can fully falsify — on a 5-row table
+        // Postgres seq-scans in a stable heap order, so dropping the `dt.id` tiebreaker may
+        // not actually reorder these pages here. The test documents and pins the intended
+        // contract; the guarantee itself rests on the explicit ORDER BY tiebreaker.
+        assertThat(paged).containsExactlyElementsOf(ids)
+    }
+
+    @Test
+    fun `list templates with no sort parameters uses the default updated-descending order`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        listOf("first", "second", "third").forEach { id ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "$id-$suffix", "name": "Template $id"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+        // Bump 'first' so newest-updated order differs from insertion order — otherwise
+        // the assertion couldn't tell a real sort from incidental ordering.
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/first-$suffix",
+            HttpMethod.PATCH,
+            HttpEntity("""{"name": "First Updated"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // No sort/direction query params at all: the contract defaults (updated, desc) apply.
+        val resp = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(resp.statusCode).isEqualTo(HttpStatus.OK)
+        // Newest-updated first: 'first' (just patched), then third, then second.
+        assertThat(JsonPath.read<List<String>>(resp.body!!, "$.items[*].id"))
+            .containsExactly("first-$suffix", "third-$suffix", "second-$suffix")
+    }
+
+    @Test
+    fun `unrecognized sort or direction is accepted, not rejected with 400`() {
+        // The contract lists allowed sort/direction values, but the server treats them
+        // leniently: an unrecognized value is NOT a 400 — it falls back to the default
+        // order. Guards the documented fallback against a stricter future binding.
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "only-$suffix", "name": "Only"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val resp = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=title&direction=up",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(resp.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(resp.statusCode).isNotEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(JsonPath.read<List<String>>(resp.body!!, "$.items[*].id")).contains("only-$suffix")
+    }
+
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
         contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))

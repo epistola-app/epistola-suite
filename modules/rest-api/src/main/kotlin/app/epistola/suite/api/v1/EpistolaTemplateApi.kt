@@ -20,6 +20,7 @@ import app.epistola.api.model.VariantListResponse
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionListResponse
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.SortDirection
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -65,6 +66,7 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.CountDocumentTemplates
+import app.epistola.suite.templates.queries.DocumentTemplateSort
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
@@ -102,6 +104,8 @@ class EpistolaTemplateApi(
         q: String?,
         page: Int,
         size: Int,
+        sort: String,
+        direction: String,
     ): ResponseEntity<TemplateListResponse> {
         // Large, unbounded collection: paginate at the database and get the total
         // from a sibling Count query (see EpistolaDocumentGenerationApi for the
@@ -112,6 +116,11 @@ class EpistolaTemplateApi(
             tenantId = tid,
             catalogKey = catalogKey,
             searchTerm = q,
+            // Both resolve via the same fromParam idiom: unknown sort/direction fall back to
+            // the contract defaults (lastModified, desc), and the whitelist means only fields
+            // we return are sortable.
+            sort = DocumentTemplateSort.fromParam(sort),
+            descending = SortDirection.fromParam(direction).descending,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
         ).query()
