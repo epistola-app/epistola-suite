@@ -153,42 +153,10 @@
     container.appendChild(clone);
   });
 
-  // ── Upload forms: surface server errors next to the form ────────────────────
-  // Usage: <form hx-post="…" data-upload-error="error-span-id"
-  //              data-upload-error-message="Fallback message.">
-  // Writes the RFC 7807 detail (or a fallback) into the referenced element on
-  // htmx:responseError; clears it when a new request starts.
-  function uploadErrorTarget(form) {
-    return document.getElementById(form.getAttribute('data-upload-error'));
-  }
-
-  document.addEventListener('htmx:responseError', function (event) {
-    const form = event.target.closest && event.target.closest('form[data-upload-error]');
-    if (!form) return;
-    const errorEl = uploadErrorTarget(form);
-    const xhr = event.detail && event.detail.xhr;
-    if (!errorEl || !xhr || xhr.status < 400) return;
-    const fallback =
-      form.getAttribute('data-upload-error-message') || 'The request failed. Please try again.';
-    try {
-      const body = JSON.parse(xhr.responseText || '{}');
-      errorEl.textContent = body.detail || body.error || fallback;
-    } catch (e) {
-      errorEl.textContent = fallback;
-    }
-  });
-
-  document.addEventListener('htmx:beforeRequest', function (event) {
-    const form = event.target.closest && event.target.closest('form[data-upload-error]');
-    if (!form) return;
-    const errorEl = uploadErrorTarget(form);
-    if (errorEl) errorEl.textContent = '';
-  });
-
   // ── File input: show the selected file name ─────────────────────────────────
   // Usage: <input type="file" data-file-preview="preview-container-id">
   // The container holds a #file-name span; it is shown with the chosen file's
-  // name (and any upload error on the form is cleared).
+  // name.
   document.addEventListener('change', function (event) {
     const input = event.target.closest && event.target.closest('input[data-file-preview]');
     if (!input) return;
@@ -198,11 +166,6 @@
     if (input.files.length > 0) {
       fileName.textContent = input.files[0].name;
       preview.style.display = 'block';
-      const form = input.closest('form[data-upload-error]');
-      if (form) {
-        const errorEl = uploadErrorTarget(form);
-        if (errorEl) errorEl.textContent = '';
-      }
     } else {
       preview.style.display = 'none';
     }

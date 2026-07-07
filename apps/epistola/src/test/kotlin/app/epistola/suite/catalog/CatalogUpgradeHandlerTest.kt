@@ -128,7 +128,9 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("upgrade-dialog")
-            assertThat(response.body).contains("alert alert-danger")
+            // The error renders in the form's global error slot (epistola-web/form-error).
+            assertThat(response.body).contains("upgrade-catalog-error")
+            assertThat(response.body).contains("form-global-error")
             // No diff → no Apply button rendered.
             assertThat(response.body).doesNotContain("Apply upgrade")
         }

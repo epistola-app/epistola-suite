@@ -15,6 +15,7 @@
                      [data-constraint-pane] visibility (pages/asset-forms.js). -->
                 <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post"
                       data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-attribute-error')}"></div>
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select">

@@ -15,6 +15,7 @@
               hx-swap="innerHTML"
               data-feedback-form
               th:attr="data-app-version=${appVersion}">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='submit-feedback-error')}"></div>
 
             <div class="ep-dialog-body ep-stack ep-gap-4">
                 <div class="form-group" th:classappend="${errors?.containsKey('title')} ? 'error' : ''">

@@ -11,11 +11,8 @@
 
         <div class="card create-form-card">
             <div class="card-content">
-                <!-- data-upload-error: server error details are written into the
-                     referenced element by pages/asset-forms.js. -->
-                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" hx-encoding="multipart/form-data"
-                      data-upload-error="asset-upload-error"
-                      data-upload-error-message="Failed to upload image. Please try again.">
+                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='asset-upload-error')}"></div>
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select" required>
@@ -44,7 +41,6 @@
                         <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
                             <span id="file-name" class="text-sm"></span>
                         </div>
-                        <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
