@@ -13,9 +13,12 @@ import org.springframework.stereotype.Component
  * Safety validator that fails fast on startup when the authentication configuration is invalid.
  *
  * Checks:
- * 1. **No production with in-memory users** — combining `local` or `localauth` profile with `prod`
- *    would expose known/configurable passwords in a production environment.
- * 2. **At least one auth mechanism** — if neither [UserDetailsService] (form login) nor
+ * 1. **`local` and `prod` are mutually exclusive** — `local` enables developer-only behaviour
+ *    (devtools, filesystem serving, dev encryption key, in-memory users, a bundled Keycloak) that
+ *    must never run in production.
+ * 2. **No production with in-memory users** — combining `local` or `localauth` with `prod` would
+ *    expose known/configurable passwords in a production environment.
+ * 3. **At least one auth mechanism** — if neither [UserDetailsService] (form login) nor
  *    [ClientRegistrationRepository] (OAuth2) is present, the app would start but 403 everywhere.
  *
  * Skipped in `test` profile (tests use permit-all security).
@@ -31,6 +34,7 @@ class AuthenticationSafetyValidator(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun afterSingletonsInstantiated() {
+        validateProdAndLocalAreExclusive()
         validateNoInMemoryUsersInProduction()
         validateAuthMechanismExists()
 
@@ -39,6 +43,19 @@ class AuthenticationSafetyValidator(
             userDetailsService != null,
             clientRegistrationRepository != null,
         )
+    }
+
+    private fun validateProdAndLocalAreExclusive() {
+        val isProd = environment.acceptsProfiles(Profiles.of("prod"))
+        val isLocal = environment.acceptsProfiles(Profiles.of("local"))
+
+        if (isProd && isLocal) {
+            throw IllegalStateException(
+                "SECURITY: the 'local' and 'prod' profiles are mutually exclusive. " +
+                    "'local' enables developer-only behaviour (devtools, filesystem serving, dev " +
+                    "secrets, in-memory users) that must never run in production.",
+            )
+        }
     }
 
     private fun validateNoInMemoryUsersInProduction() {
