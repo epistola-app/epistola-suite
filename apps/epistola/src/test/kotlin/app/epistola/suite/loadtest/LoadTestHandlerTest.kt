@@ -325,6 +325,71 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
+        fun `POST (HTMX) with invalid form returns shaped 422 with OOB global form error`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given {
+                testTenant = tenant("Test Tenant")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                headers.contentType = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED
+                val request = HttpEntity("targetCount=100", headers)
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/load-tests",
+                    HttpMethod.POST,
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                // Shaped error contract (see HtmxDsl.globalFormError): real error
+                // status + HX-Reswap (the client opt-in marker) + an OOB fragment
+                // replacing the form's global error slot.
+                assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+                assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+                assertThat(response.body).contains("hx-swap-oob")
+                assertThat(response.body).contains("start-load-test-error")
+                assertThat(response.body).contains("is required")
+            }
+        }
+
+        @Test
+        fun `POST (non-HTMX) with invalid form re-renders the page with the error in the slot`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given {
+                testTenant = tenant("Test Tenant")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED
+                val request = HttpEntity("targetCount=100", headers)
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/load-tests",
+                    HttpMethod.POST,
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+                // Full page render: the standardized `error` model key lights up
+                // the form's slot (epistola-web/form-error fragment).
+                assertThat(response.body).contains("start-load-test-error")
+                assertThat(response.body).contains("form-global-error")
+                assertThat(response.body).contains("is required")
+            }
+        }
+
+        @Test
         fun `GET new (HTMX) with template without examples shows manual JSON entry`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
