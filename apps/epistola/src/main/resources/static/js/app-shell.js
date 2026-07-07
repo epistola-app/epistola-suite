@@ -207,29 +207,79 @@ document.addEventListener('htmx:confirm', function (event) {
     });
 });
 
+// ── Global form errors ──────────────────────────────────────────
+//
+// Every data-entry form carries a [data-form-error] slot (the
+// epistola-web/form-error fragment). Handlers report operation-level
+// failures with a real 4xx/5xx status plus an OOB fragment replacing the
+// slot (HtmxDsl.globalFormError). HTMX ignores error-status bodies by
+// default; the HX-Reswap response header marks a response as shaped for
+// HTMX, so let it swap (usually "none" — only the OOB fragment
+// processes). isError is deliberately left true so htmx:afterRequest
+// still reports failure (data-reset-on-success must not fire).
+document.addEventListener('htmx:beforeSwap', function (event) {
+  var xhr = event.detail.xhr;
+  if (!xhr || xhr.status < 400) return;
+  if (xhr.getResponseHeader('HX-Reswap')) {
+    event.detail.shouldSwap = true;
+  }
+});
+
+// Clear a form's global error slot whenever the form issues a new request.
+document.addEventListener('htmx:beforeRequest', function (event) {
+  var elt = event.detail.elt;
+  var form = elt && elt.closest ? elt.closest('form') : null;
+  if (!form) return;
+  form.querySelectorAll('[data-form-error]').forEach(function (el) {
+    el.hidden = true;
+    el.textContent = '';
+  });
+});
+
 // ── Global safety net for unhandled errors ──────────────────────
 
 document.addEventListener('htmx:responseError', function (event) {
   var xhr = event.detail.xhr;
   if (!xhr) return;
 
-  var message;
-  if (xhr.status === 403) {
-    try {
-      var body = JSON.parse(xhr.responseText);
-      message = body.detail || body.error || "You don't have permission to perform this action.";
-    } catch (e) {
-      message = "You don't have permission to perform this action.";
-    }
-  } else if (xhr.status >= 500) {
-    message = 'An unexpected error occurred. Please try again.';
-  } else {
-    return;
-  }
+  // Shaped error responses already delivered their message via the OOB
+  // swap above — nothing to add here.
+  if (xhr.getResponseHeader('HX-Reswap')) return;
 
   // Don't show global error if the target is inside the confirm dialog
   var target = event.detail.target;
   if (target && target.closest && target.closest('#confirm-dialog')) return;
+
+  var detail;
+  try {
+    var body = JSON.parse(xhr.responseText);
+    detail = body.detail || body.error;
+  } catch (e) {
+    detail = null;
+  }
+
+  var message;
+  if (xhr.status === 403) {
+    message = detail || "You don't have permission to perform this action.";
+  } else if (xhr.status >= 500) {
+    message = 'An unexpected error occurred. Please try again.';
+  } else {
+    message = detail || 'The request failed. Please try again.';
+  }
+
+  // Prefer the issuing form's global error slot over the page banner.
+  var sourceForm =
+    event.detail.elt && event.detail.elt.closest ? event.detail.elt.closest('form') : null;
+  var slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
+  if (slot) {
+    slot.textContent = message;
+    slot.hidden = false;
+    return;
+  }
+
+  // No slot (row actions, non-form triggers): keep the banner, but only for
+  // the statuses it always covered.
+  if (xhr.status !== 403 && xhr.status < 500) return;
 
   // Insert error banner at top of main content
   var main = document.querySelector('#main-content') || document.querySelector('main');
