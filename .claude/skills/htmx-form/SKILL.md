@@ -127,6 +127,28 @@ Templates receive `tenantId.value` (String), never the wrapper. Commands/queries
 - `errors`: `Map<String, String>` — multi-field form validation (field name → message)
 - `error`: single `String` — operation-level error message
 
+### Global form error slot (required on every data-entry form)
+
+Every data-entry form includes the shared slot as the **first child** of the `<form>`, with a page-unique kebab-case id:
+
+```html
+<form id="create-tenant-form" hx-post="/tenants" ...>
+  <div th:replace="~{epistola-web/form-error :: form-error(id='create-tenant-error')}"></div>
+  ...
+</form>
+```
+
+The slot renders the standardized `error` model key when present (full renders and fragment re-renders), is filled by the client safety net on unhandled 4xx/5xx, and is cleared automatically on the form's next HTMX request. For handled operation-level failures, prefer a **shaped error response** from the handler:
+
+```kotlin
+return request.htmx {
+    globalFormError("create-tenant-error", errorMessage) // 422 by default; pass statusCode = for others
+    onNonHtmx { page(422, "tenants/list") { "error" to errorMessage } }
+}
+```
+
+Skip the slot on action-only forms (one-click submit, hidden inputs only) and GET filter/search forms — the top-of-page banner covers those. See `docs/htmx.md` → "Global Form Errors".
+
 ### Delete pattern
 
 All list/detail page deletes use `openConfirmDialog()`:

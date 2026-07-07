@@ -601,6 +601,56 @@ The `formError()` helper:
 - Works with any `FormData` object from the form validation DSL
 - Allows further customization with `retarget()`, `trigger()`, `onNonHtmx()`, etc.
 
+### Global Form Errors (operation-level, non-field)
+
+Every data-entry form carries one **global error slot** — the shared
+`epistola-web/form-error` fragment — included as the first child of the
+`<form>` with a page-unique id:
+
+```html
+<form id="create-tenant-form" hx-post="/tenants" ...>
+  <div th:replace="~{epistola-web/form-error :: form-error(id='create-tenant-error')}"></div>
+  ...
+</form>
+```
+
+The slot is filled three ways, and cleared automatically when the form issues
+its next HTMX request (`app-shell.js`):
+
+1. **Full render**: the standardized `error` model key (single operation-level
+   message) lights the slot up with no extra wiring — both on initial page
+   renders and on HTMX re-renders of a fragment containing the form.
+
+2. **Handled failures with a real error status** — the `globalFormError()`
+   DSL helper:
+
+   ```kotlin
+   return request.htmx {
+       globalFormError("start-load-test-error", errorMessage) // status defaults to 422
+       onNonHtmx {
+           page(422, "loadtest/new") {
+               "error" to errorMessage
+           }
+       }
+   }
+   ```
+
+   This produces a **shaped error response**: the given 4xx/5xx status, an
+   `HX-Reswap: none` header, and a body containing only an OOB fragment that
+   replaces the slot. HTMX ignores error-status bodies by default; the
+   `HX-Reswap` header is the opt-in marker `app-shell.js` uses to let shaped
+   responses swap (with swap `none`, only the OOB fragment processes).
+   `isError` stays true on the client, so `htmx:afterRequest` still reports
+   failure (`data-reset-on-success` does not fire).
+
+3. **Unhandled errors** — the global `htmx:responseError` safety net writes
+   the RFC 7807 `detail` (or `error`, or a status-based fallback) into the
+   issuing form's slot. Requests not initiated from a form with a slot fall
+   back to the top-of-page banner (403/5xx only), as before.
+
+Row-level one-button action forms and GET filter/search forms deliberately do
+not carry a slot — the banner covers them.
+
 ## Common Patterns
 
 ### Serving Full Pages and Fragments from One Endpoint
