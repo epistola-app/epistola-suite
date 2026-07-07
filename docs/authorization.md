@@ -146,7 +146,8 @@ the runbook in [`keycloak-setup.md`](keycloak-setup.md#migrating-from-the-legacy
 - **Add a permission:** add to `Permission.kt`, grant it in `TenantRole.permissions()`, and tag the
   relevant commands/queries with `RequiresPermission`.
 - **Add a tenant role:** add to `TenantRole.kt`, map its permissions, add the kebab wire name to
-  `KNOWN_TENANT_ROLES`, and update the IdP group provisioning.
+  `KNOWN_TENANT_ROLES`, and add the matching group/role at your IdP (see
+  [keycloak-setup.md](keycloak-setup.md) / [authentik-setup.md](authentik-setup.md)).
 - **Add a platform role:** add to `PlatformRole.kt` and `KNOWN_PLATFORM_ROLES`; the mediator's
   `requirePlatformRole` handles it generically.
 - Update `AuthorizationCoverageTest`'s package list if you add a new domain package, and the

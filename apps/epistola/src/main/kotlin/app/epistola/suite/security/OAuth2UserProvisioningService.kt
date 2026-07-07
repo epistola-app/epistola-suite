@@ -9,7 +9,6 @@ import app.epistola.suite.users.commands.SyncTenantMemberships
 import app.epistola.suite.users.commands.UpdateLastLogin
 import app.epistola.suite.users.queries.GetUserByExternalId
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
@@ -36,10 +35,14 @@ import org.springframework.stereotype.Component
  * - `"keycloak"` → [AuthProvider.KEYCLOAK]
  * - anything else → [AuthProvider.GENERIC_OIDC]
  *
- * Only loaded when the Keycloak OAuth2 client registration is configured.
+ * Registered unconditionally and provider-neutral: it activates for **any** OIDC registration id
+ * (Keycloak, authentik, …). It is only ever invoked through [SecurityConfig]'s `oauth2Login`, which
+ * is wired solely when a `ClientRegistrationRepository` bean exists, so the bean is inert when no
+ * OAuth2/OIDC is configured. (A `@ConditionalOnBean(ClientRegistrationRepository)` guard is
+ * deliberately avoided — it is unreliable on component-scanned beans, evaluating before Spring Boot's
+ * auto-configuration registers the repository.)
  */
 @Component
-@ConditionalOnProperty(prefix = "spring.security.oauth2.client.registration.keycloak", name = ["client-id"])
 class OAuth2UserProvisioningService(
     private val mediator: Mediator,
     private val authProperties: AuthProperties,

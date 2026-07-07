@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`oidc` is now provider-neutral — configure authentik (or any OIDC provider), not just Keycloak.** New `oidc.registrationId` (default `keycloak`) parameterizes the OAuth2 registration name so the chart no longer hard-codes `KEYCLOAK` in the Spring env vars; point it at any compliant provider via `oidc.issuerUri` with no Spring profile required. Added `oidc.autoProvision` (default `true`, supplied explicitly so behaviour no longer depends on the Keycloak-only `keycloak` profile), `oidc.ssoButtonLabel` (customise the login button, e.g. "Sign in with authentik"), and `oidc.userNameAttribute`. `values.schema.json` now validates the `oidc` block (alphanumeric `registrationId`; `existingSecret` + `issuerUri` required when enabled). Existing Keycloak values are unchanged — `registrationId` defaults to `keycloak`. See [`docs/authentik-setup.md`](../../docs/authentik-setup.md).
+
 ## [0.10.0] - 2026-07-05
 
 ### Removed

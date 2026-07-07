@@ -50,6 +50,39 @@
           "enum": ["job", "initContainer", "embedded"]
         }
       }
+    },
+    "oidc": {
+      "type": "object",
+      "properties": {
+        "registrationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]+$",
+          "description": "Alphanumeric only — it is rendered into an env-var segment (SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_<ID>_*). Provider-neutral."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["enabled"],
+            "properties": { "enabled": { "const": true } }
+          },
+          "then": {
+            "required": ["existingSecret", "issuerUri"],
+            "properties": {
+              "existingSecret": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Name of the Secret holding the OIDC client secret; required when oidc.enabled is true."
+              },
+              "issuerUri": {
+                "type": "string",
+                "minLength": 1,
+                "description": "OIDC issuer URI; required when oidc.enabled is true."
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

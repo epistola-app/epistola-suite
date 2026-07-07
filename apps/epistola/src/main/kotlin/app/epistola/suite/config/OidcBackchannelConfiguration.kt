@@ -14,18 +14,21 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
+import org.springframework.web.client.RestClient
 
 /**
  * Overrides Spring Boot's auto-configured OAuth2 beans when a backchannel base URL is set.
  *
- * In Docker/Kubernetes environments, the identity provider (e.g. Keycloak) is reachable
+ * In Docker/Kubernetes environments, the identity provider (Keycloak, authentik, …) is reachable
  * by different URLs from the browser vs. from backend containers:
- * - Browser: http://localhost:8081 (external)
- * - Container: http://keycloak:8080 (internal)
+ * - Browser: https://sso.example.com (external)
+ * - Container: http://sso:9000 (internal)
  *
- * This configuration builds ClientRegistrations directly from properties (no OIDC discovery)
- * and rewrites server-to-server endpoints (token, JWK, userinfo) to use the internal URL,
- * while keeping browser-facing endpoints (authorization, issuer) external.
+ * This configuration reads the provider's real endpoints from its **OIDC discovery document**
+ * (`/.well-known/openid-configuration`) rather than assuming a provider-specific URL layout, so it
+ * works for any compliant provider. It fetches discovery over the **internal** (container-reachable)
+ * URL, then rewrites only the server-to-server endpoints (token, userinfo, JWK) onto the internal
+ * base while keeping browser-facing endpoints (authorization) and the issuer claim external.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty("epistola.auth.oidc.backchannel-base-url")
@@ -35,11 +38,11 @@ class OidcBackchannelConfiguration(
     private val oauth2ClientProperties: OAuth2ClientProperties,
 ) {
     private val log = LoggerFactory.getLogger(OidcBackchannelConfiguration::class.java)
+    private val restClient = RestClient.create()
 
     @Bean
     fun clientRegistrationRepository(): ClientRegistrationRepository {
-        val backchannelBaseUrl = authProperties.oidc.backchannelBaseUrl
-            ?: error("backchannel-base-url must be set")
+        val backchannelBaseUrl = requireBackchannelBaseUrl()
 
         log.info("Configuring OIDC backchannel: server-to-server calls will use {}", backchannelBaseUrl)
 
@@ -51,9 +54,7 @@ class OidcBackchannelConfiguration(
             val issuerUri = provider.issuerUri
                 ?: error("issuer-uri is required for provider '$providerName'")
 
-            val issuerPath = extractPath(issuerUri)
-            val oidcBase = "$issuerUri/protocol/openid-connect"
-            val backchannelOidcBase = "$backchannelBaseUrl$issuerPath/protocol/openid-connect"
+            val metadata = fetchOidcMetadata(issuerUri, backchannelBaseUrl)
 
             ClientRegistration.withRegistrationId(registrationId)
                 .clientId(reg.clientId ?: error("client-id is required for registration '$registrationId'"))
@@ -64,13 +65,13 @@ class OidcBackchannelConfiguration(
                     AuthorizationGrantType(reg.authorizationGrantType ?: "authorization_code"),
                 )
                 .clientName(reg.clientName ?: registrationId)
-                // Browser-facing: keep external issuer URL
-                .authorizationUri("$oidcBase/auth")
+                // Browser-facing: keep the provider-advertised (external) authorization endpoint and issuer
+                .authorizationUri(metadata.authorizationEndpoint)
                 .issuerUri(issuerUri)
-                // Server-to-server: use backchannel URL
-                .tokenUri("$backchannelOidcBase/token")
-                .userInfoUri("$backchannelOidcBase/userinfo")
-                .jwkSetUri("$backchannelOidcBase/certs")
+                // Server-to-server: rewrite host to the internal backchannel base, keep the discovered path
+                .tokenUri(rewriteUrl(metadata.tokenEndpoint, backchannelBaseUrl)!!)
+                .userInfoUri(rewriteUrl(metadata.userinfoEndpoint, backchannelBaseUrl))
+                .jwkSetUri(rewriteUrl(metadata.jwksUri, backchannelBaseUrl)!!)
                 .userNameAttributeName(provider.userNameAttribute ?: "sub")
                 .build()
         }
@@ -80,15 +81,17 @@ class OidcBackchannelConfiguration(
 
     @Bean
     fun jwtDecoder(): JwtDecoder {
-        val backchannelBaseUrl = authProperties.oidc.backchannelBaseUrl
-            ?: error("backchannel-base-url must be set")
+        val backchannelBaseUrl = requireBackchannelBaseUrl()
 
-        val firstProvider = oauth2ClientProperties.provider.values.first()
-        val issuerUri = firstProvider.issuerUri
+        val providers = oauth2ClientProperties.provider.values
+        require(providers.size == 1) {
+            "OIDC backchannel supports a single provider per deployment, but ${providers.size} are configured"
+        }
+        val issuerUri = providers.first().issuerUri
             ?: error("issuer-uri is required for JWT decoder")
 
-        val issuerPath = extractPath(issuerUri)
-        val backchannelJwkUri = "$backchannelBaseUrl$issuerPath/protocol/openid-connect/certs"
+        val metadata = fetchOidcMetadata(issuerUri, backchannelBaseUrl)
+        val backchannelJwkUri = rewriteUrl(metadata.jwksUri, backchannelBaseUrl)!!
 
         log.info("JWT decoder: fetching JWK from {}, validating issuer against {}", backchannelJwkUri, issuerUri)
 
@@ -97,7 +100,50 @@ class OidcBackchannelConfiguration(
         }
     }
 
+    private fun requireBackchannelBaseUrl(): String = authProperties.oidc.backchannelBaseUrl ?: error("backchannel-base-url must be set")
+
+    /**
+     * Fetches the provider's OIDC discovery document.
+     *
+     * The document is retrieved over the **internal** (backchannel) well-known URL so it is reachable
+     * from inside the container even when the external issuer host is not. The endpoint URLs *inside*
+     * the document are whatever the provider advertises (typically its external host) — callers then
+     * host-rewrite the back-channel endpoints as needed.
+     */
+    private fun fetchOidcMetadata(externalIssuer: String, backchannelBaseUrl: String): OidcMetadata {
+        val internalWellKnown = rewriteUrl(wellKnownUrl(externalIssuer), backchannelBaseUrl)!!
+        log.info("Discovering OIDC metadata from {}", internalWellKnown)
+
+        val doc = try {
+            restClient.get().uri(internalWellKnown).retrieve().body(Map::class.java)
+        } catch (e: Exception) {
+            error("Failed to fetch OIDC discovery document from $internalWellKnown: ${e.message}")
+        } ?: error("Empty OIDC discovery document from $internalWellKnown")
+
+        fun required(key: String): String = (doc[key] as? String) ?: error("OIDC discovery document from $internalWellKnown is missing '$key'")
+
+        return OidcMetadata(
+            authorizationEndpoint = required("authorization_endpoint"),
+            tokenEndpoint = required("token_endpoint"),
+            userinfoEndpoint = doc["userinfo_endpoint"] as? String,
+            jwksUri = required("jwks_uri"),
+        )
+    }
+
+    private data class OidcMetadata(
+        val authorizationEndpoint: String,
+        val tokenEndpoint: String,
+        val userinfoEndpoint: String?,
+        val jwksUri: String,
+    )
+
     companion object {
+        /**
+         * Builds the OIDC discovery URL for an issuer, tolerating a trailing slash
+         * (Keycloak issuers have none; authentik issuers end with `/`).
+         */
+        fun wellKnownUrl(issuerUri: String): String = "${issuerUri.trimEnd('/')}/.well-known/openid-configuration"
+
         /**
          * Extracts the path component from a URL.
          * e.g. "http://localhost:8081/realms/valtimo" -> "/realms/valtimo"

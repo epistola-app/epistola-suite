@@ -123,19 +123,30 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: {{ include "epistola.otelResourceAttributes" . | quote }}
             {{- end }}
-            {{- /* OIDC / OAuth2 login */}}
+            {{- /* OIDC / OAuth2 login (provider-neutral — registration id is configurable) */}}
             {{- if .Values.oidc.enabled }}
-            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
+            {{- $reg := .Values.oidc.registrationId | upper }}
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_{{ $reg }}_CLIENTID
               value: {{ .Values.oidc.clientId | quote }}
-            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_{{ $reg }}_CLIENTSECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ required "oidc.existingSecret is required when oidc.enabled is true" .Values.oidc.existingSecret }}
                   key: {{ .Values.oidc.secretKey }}
-            - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_{{ $reg }}_ISSUERURI
               value: {{ required "oidc.issuerUri is required when oidc.enabled is true" .Values.oidc.issuerUri | quote }}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
               value: {{ .Values.oidc.issuerUri | quote }}
+            {{- if .Values.oidc.userNameAttribute }}
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_{{ $reg }}_USERNAMEATTRIBUTE
+              value: {{ .Values.oidc.userNameAttribute | quote }}
+            {{- end }}
+            - name: EPISTOLA_AUTH_AUTOPROVISION
+              value: {{ .Values.oidc.autoProvision | quote }}
+            {{- if .Values.oidc.ssoButtonLabel }}
+            - name: EPISTOLA_AUTH_OIDC_SSOBUTTONLABEL
+              value: {{ .Values.oidc.ssoButtonLabel | quote }}
+            {{- end }}
             {{- if .Values.oidc.backchannelBaseUrl }}
             - name: EPISTOLA_AUTH_OIDC_BACKCHANNELBASEURL
               value: {{ .Values.oidc.backchannelBaseUrl | quote }}
@@ -146,24 +157,6 @@ spec:
             {{- end }}
             {{- end }}
 
-            {{- /* Keycloak admin / provisioning */}}
-            {{- if .Values.keycloakAdmin.enabled }}
-            - name: EPISTOLA_KEYCLOAK_ADMINURL
-              value: {{ required "keycloakAdmin.adminUrl is required when keycloakAdmin.enabled is true" .Values.keycloakAdmin.adminUrl | quote }}
-            - name: EPISTOLA_KEYCLOAK_REALM
-              value: {{ required "keycloakAdmin.realm is required when keycloakAdmin.enabled is true" .Values.keycloakAdmin.realm | quote }}
-            - name: EPISTOLA_KEYCLOAK_CLIENTID
-              value: {{ .Values.keycloakAdmin.clientId | quote }}
-            - name: EPISTOLA_KEYCLOAK_CLIENTSECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ required "keycloakAdmin.existingSecret is required when keycloakAdmin.enabled is true" .Values.keycloakAdmin.existingSecret }}
-                  key: {{ .Values.keycloakAdmin.secretKey }}
-            {{- if .Values.keycloakAdmin.ensureGroups }}
-            - name: EPISTOLA_KEYCLOAK_ENSUREGROUPS
-              value: "true"
-            {{- end }}
-            {{- end }}
             {{- /* Commercial support tier (epistola-hub integration) */}}
             {{- if .Values.support.enabled }}
             - name: EPISTOLA_SUPPORT_ENABLED

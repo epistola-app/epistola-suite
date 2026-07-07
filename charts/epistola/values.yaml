@@ -215,9 +215,16 @@ encryption:
   #       secretKey: k1                          # key within the Secret (defaults to id)
   keys: []
 
-# OIDC login configuration (optional, requires config.profiles to include "keycloak")
+# OIDC login configuration (optional). Provider-neutral: works with any compliant OIDC
+# provider (Keycloak, authentik, …) via standard discovery from issuerUri. No Spring profile
+# is required — setting oidc.enabled wires the registration purely from these values.
 oidc:
   enabled: false
+  # OAuth2 client registration id. Provider-neutral — pick any alphanumeric label; it is used
+  # in the login redirect URI ({baseUrl}/login/oauth2/code/<registrationId>) which must be
+  # registered at the provider. Name it after your provider (e.g. "keycloak" or "authentik").
+  # Alphanumeric only (it becomes an env-var segment).
+  registrationId: keycloak
   # Client ID used for browser login and resource-server validation.
   clientId: epistola-suite
   # Name of an existing Kubernetes Secret holding the OIDC client secret.
@@ -227,33 +234,24 @@ oidc:
   secretKey: client-secret
   # Issuer URI for browser-facing OAuth2 / JWT validation.
   issuerUri: ""
+  # Auto-provision users in the local DB on first OIDC login. Supplied explicitly so the
+  # behaviour is identical whether or not the (Keycloak-only) "keycloak" profile is active.
+  autoProvision: true
+  # Label shown on the SSO login button. Leave blank for the app default ("Sign in with SSO").
+  # Override to match your provider (e.g. "Sign in with authentik") or an organisation name.
+  ssoButtonLabel: ""
+  # OIDC "user-name" attribute (Spring principal name). Leave blank for the app default (sub).
+  userNameAttribute: ""
   # Internal base URL for server-to-server OIDC calls (token, JWK, userinfo).
-  # Use when Keycloak is reachable at a different URL from within the cluster
-  # than from the browser (e.g., http://keycloak-svc/auth vs https://auth.example.com/auth).
+  # Use when the provider is reachable at a different URL from within the cluster than from
+  # the browser (e.g., http://sso-svc:9000 vs https://sso.example.com). Endpoint paths are
+  # read from the provider's discovery document, so this works for any OIDC provider.
   backchannelBaseUrl: ""
   # JWT claim name to read flat-role strings (`epg_*` / `ept_*_*` / `eps_*`) from.
   # Leave blank to use the application default (`roles`). Override when your IdP
   # emits the flat-role list under a different claim name (e.g., `app_roles`).
-  # Also re-points the Keycloak `epistola-realm-roles` mapper when
-  # `keycloakAdmin.ensureGroups=true`. See docs/keycloak-setup.md.
+  # See docs/keycloak-setup.md / docs/authentik-setup.md for the token contract.
   flatRolesClaimName: ""
-
-# Keycloak admin/provisioning configuration (optional, for group bootstrap)
-keycloakAdmin:
-  enabled: false
-  # Explicit admin URL for the Keycloak Admin REST API.
-  adminUrl: ""
-  # Realm to manage.
-  realm: epistola
-  # Client ID used for client-credentials authentication.
-  clientId: epistola-suite
-  # Name of an existing Kubernetes Secret holding the admin client secret.
-  # Required when keycloakAdmin.enabled is true — no inline secret is accepted.
-  existingSecret: ""
-  # Key within the existing secret that holds the client secret.
-  secretKey: client-secret
-  # Ensure base group hierarchy (/epistola/tenants, /epistola/global/*, /epistola/platform/*) exists on startup.
-  ensureGroups: false
 
 # Optional commercial support tier (epistola-hub integration).
 # When enabled, the application registers itself with epistola-hub on startup

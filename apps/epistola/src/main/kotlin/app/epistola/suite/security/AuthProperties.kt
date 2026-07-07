@@ -78,6 +78,12 @@ data class OidcProperties(
      *   → token-uri becomes http://keycloak:8080/realms/valtimo/protocol/openid-connect/token
      */
     val backchannelBaseUrl: String? = null,
+
+    /**
+     * Label shown on the SSO login button. Provider-neutral by default; override to match the
+     * configured identity provider (e.g. "Sign in with authentik") or an organisation name.
+     */
+    val ssoButtonLabel: String = "Sign in with SSO",
 )
 
 data class ApiKeyProperties(

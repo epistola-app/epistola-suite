@@ -16,7 +16,9 @@
 #   SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
 #   SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
 #
-# The Helm chart maps oidc.* and keycloakAdmin.* values to these env vars automatically.
+# OIDC login is provider-neutral: any compliant provider (authentik, …) is configured through the
+# same SPRING_SECURITY_OAUTH2_* properties with no profile required — this profile just bakes in a
+# local-dev Keycloak. The Helm chart maps oidc.* values to these env vars automatically.
 
 spring:
   security:
@@ -40,8 +42,3 @@ spring:
 epistola:
   auth:
     auto-provision: true
-  keycloak:
-    admin-url: ${epistola.auth.oidc.backchannel-base-url:http://localhost:8080}
-    realm: epistola
-    client-id: epistola-suite
-    client-secret: epistola-dev-secret

@@ -2,11 +2,17 @@
 
 Epistola Suite uses **bean-driven authentication** that adapts to the runtime environment based on which Spring beans are present:
 
-| Bean Present                   | Authentication Method                         | Provided By                                                  |
-| ------------------------------ | --------------------------------------------- | ------------------------------------------------------------ |
-| `UserDetailsService`           | Form-based login with configurable users      | `LocalUserDetailsService` (`local` / `localauth` profiles)   |
-| `ClientRegistrationRepository` | OAuth2/OIDC (Keycloak, etc.)                  | Spring Security auto-config from `application-keycloak.yaml` |
-| Neither                        | **Startup failure** — safety validator blocks | —                                                            |
+| Bean Present                   | Authentication Method                                     | Provided By                                                                                       |
+| ------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `UserDetailsService`           | Form-based login with configurable users                  | `LocalUserDetailsService` (`local` / `localauth` profiles)                                        |
+| `ClientRegistrationRepository` | OAuth2/OIDC (Keycloak, authentik, any compliant provider) | Spring Security auto-config from `spring.security.oauth2.*` (the `keycloak` profile, or env vars) |
+| Neither                        | **Startup failure** — safety validator blocks             | —                                                                                                 |
+
+OIDC login is **provider-neutral**: it activates for any registration id, so the provider is a
+deployment choice, not a code change. Keycloak has a convenience dev profile
+(`application-keycloak.yaml`); other providers (e.g. **authentik**) are configured purely through
+the standard `spring.security.oauth2.client.*` properties / env vars — see
+[authentik-setup.md](authentik-setup.md).
 
 ## How It Works
 
@@ -14,7 +20,7 @@ Authentication methods are **not determined by profile name checks**. Instead:
 
 1. **`LocalUserDetailsService`** is annotated `@Profile("local | localauth")` — it's the single source of truth for which profiles get form login.
 2. **`SecurityConfig`** and **`LoginHandler`** check for `UserDetailsService` bean presence (not profile names).
-3. **`OAuth2UserProvisioningService`** uses `@ConditionalOnBean(ClientRegistrationRepository::class)` — only loaded when OAuth2 is configured.
+3. **`OAuth2UserProvisioningService`** is provider-neutral and registered unconditionally; it is only invoked through `SecurityConfig`'s `oauth2Login`, which is wired solely when a `ClientRegistrationRepository` bean exists — so it stays inert unless OAuth2 is configured.
 
 Adding a new form-login profile only requires updating `LocalUserDetailsService`'s `@Profile` annotation.
 
@@ -138,7 +144,7 @@ No configuration property is needed — the registration ID from the OAuth2 logi
 
 ### Keycloak Setup
 
-See [docs/keycloak-setup.md](keycloak-setup.md) for detailed Keycloak configuration including group-based authorization, the hierarchical group path convention, and automatic tenant provisioning.
+See [docs/keycloak-setup.md](keycloak-setup.md) for detailed Keycloak configuration including group-based authorization and the hierarchical group path convention, or [docs/authentik-setup.md](authentik-setup.md) for authentik.
 
 ### Auto-Provisioning
 
@@ -154,9 +160,11 @@ Disable this to require manual user creation before login.
 
 ## Configuration Properties
 
-| Property                       | Default | Description                                |
-| ------------------------------ | ------- | ------------------------------------------ |
-| `epistola.auth.auto-provision` | `true`  | Auto-provision OAuth2 users on first login |
+| Property                                  | Default            | Description                                                       |
+| ----------------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| `epistola.auth.auto-provision`            | `true`             | Auto-provision OAuth2 users on first login                        |
+| `epistola.auth.oidc.sso-button-label`     | `Sign in with SSO` | Label on the SSO login button (e.g. `Sign in with authentik`)     |
+| `epistola.auth.oidc.backchannel-base-url` | _(none)_           | Internal base URL for server-to-server OIDC calls (split-horizon) |
 
 ## Session Management
 
