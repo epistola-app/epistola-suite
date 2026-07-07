@@ -9,10 +9,11 @@ Epistola Suite uses **bean-driven authentication** that adapts to the runtime en
 | Neither                        | **Startup failure** — safety validator blocks             | —                                                                                                 |
 
 OIDC login is **provider-neutral**: it activates for any registration id, so the provider is a
-deployment choice, not a code change. Keycloak has a convenience dev profile
-(`application-keycloak.yaml`); other providers (e.g. **authentik**) are configured purely through
-the standard `spring.security.oauth2.client.*` properties / env vars — see
-[authentik-setup.md](authentik-setup.md).
+deployment choice, not a code change. For **local development** the `keycloak` profile bundles a
+ready-to-use registration against a local Keycloak (opt in with `local,keycloak`; it lives in
+`application-local.yaml`). Every other environment — staging, production, and any provider such as
+**authentik** — is configured purely through the standard `spring.security.oauth2.client.*`
+properties / env vars, which the Helm chart emits. See [authentik-setup.md](authentik-setup.md).
 
 ## How It Works
 
@@ -28,23 +29,26 @@ Adding a new form-login profile only requires updating `LocalUserDetailsService`
 
 Profiles are orthogonal — each controls a single concern:
 
-| Profile     | Concern                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------- |
-| `local`     | Dev experience: devtools, filesystem serving, editor watch. Implies form login + demo data. |
-| `localauth` | Form login with configurable users (env-var overridable)                                    |
-| `keycloak`  | OAuth2/OIDC authentication via Keycloak                                                     |
-| `demo`      | Load demo data only (no auth side effects)                                                  |
-| `prod`      | Production hardening: flyway clean disabled, tuned concurrency                              |
+| Profile     | Concern                                                                                                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `local`     | Dev experience: devtools, filesystem serving, editor watch. Implies form login + demo data.                                                                                  |
+| `localauth` | Form login with configurable users (env-var overridable)                                                                                                                     |
+| `keycloak`  | **Local-dev only** — adds an OAuth2/OIDC registration against a local Keycloak. Opt in with `local,keycloak`. Staging/production OIDC comes from env vars, not this profile. |
+| `demo`      | Load demo data only (no auth side effects)                                                                                                                                   |
+| `prod`      | Production hardening: flyway clean disabled, tuned concurrency                                                                                                               |
 
 ### Environment Matrix
 
-| Environment  | Profiles                  | Auth         | Demo | DB Reset |
-| ------------ | ------------------------- | ------------ | ---- | -------- |
-| Local dev    | `local`                   | Form login   | yes  | yes      |
-| Local + KC   | `local,keycloak`          | Form + OAuth | yes  | yes      |
-| Test/Staging | `keycloak,demo`           | OAuth2 only  | yes  | yes      |
-| Test/Staging | `keycloak,demo,localauth` | Both         | yes  | yes      |
-| Production   | `prod,keycloak`           | OAuth2 only  | no   | no       |
+Staging/production run in Kubernetes, where the Helm chart supplies the OIDC registration via
+`SPRING_SECURITY_OAUTH2_*` env vars — so they do **not** use the `keycloak` profile.
+
+| Environment      | Profiles         | OIDC source        | Auth         | Demo |
+| ---------------- | ---------------- | ------------------ | ------------ | ---- |
+| Local dev        | `local`          | —                  | Form login   | yes  |
+| Local + Keycloak | `local,keycloak` | `keycloak` profile | Form + OAuth | yes  |
+| Test/Staging     | `demo`           | Helm `oidc.*` env  | OAuth2 only  | yes  |
+| Test/Staging     | `demo,localauth` | Helm `oidc.*` env  | Both         | yes  |
+| Production       | `prod`           | Helm `oidc.*` env  | OAuth2 only  | no   |
 
 ## Safety Guards
 
@@ -78,10 +82,10 @@ Default test accounts (configured in `application-local.yaml`):
 
 ## Local Auth Profile
 
-The `localauth` profile provides form-based login with **configurable** users, suitable for staging/test environments where you need form login alongside Keycloak:
+The `localauth` profile provides form-based login with **configurable** users, suitable for staging/test environments where you need form login alongside OIDC (OIDC comes from env vars):
 
 ```bash
-SPRING_PROFILES_ACTIVE=keycloak,demo,localauth
+SPRING_PROFILES_ACTIVE=demo,localauth
 ```
 
 Override credentials via environment variables:
@@ -99,37 +103,40 @@ Override credentials via environment variables:
 
 ## Demo Profile
 
-The `demo` profile **only** loads demo data (tenant, themes, templates). It does not affect authentication. Combine it with an auth profile:
+The `demo` profile **only** loads demo data (tenant, themes, templates). It does not affect authentication. In staging/production, OIDC is supplied by env vars (Helm), so `demo` is combined with `prod` and/or `localauth` rather than a `keycloak` profile:
 
 ```bash
-# OAuth2 + demo data
-SPRING_PROFILES_ACTIVE=keycloak,demo
+# OAuth2 (from env vars) + demo data
+SPRING_PROFILES_ACTIVE=demo
 
 # OAuth2 + form login + demo data
-SPRING_PROFILES_ACTIVE=keycloak,demo,localauth
+SPRING_PROFILES_ACTIVE=demo,localauth
 ```
 
 ## Production (OAuth2/OIDC)
 
-Production uses OAuth2/OIDC with Keycloak (or any OIDC-compliant provider).
-
-### Configuration
-
-Set these environment variables:
-
-```bash
-export KEYCLOAK_CLIENT_ID=epistola-suite
-export KEYCLOAK_CLIENT_SECRET=<your-secret>
-export KEYCLOAK_ISSUER_URI=https://keycloak.example.com/realms/epistola
-```
-
-Activate profiles:
+Production uses OAuth2/OIDC with any compliant provider (Keycloak, authentik, …). The registration
+is supplied entirely through env vars — there is **no** `keycloak` profile in production. The Helm
+chart emits these from its `oidc.*` values; to configure by hand, set (with `<REG>` = your
+`oidc.registrationId`, e.g. `KEYCLOAK` or `AUTHENTIK`):
 
 ```bash
-SPRING_PROFILES_ACTIVE=prod,keycloak
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_<REG>_CLIENTID=epistola-suite
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_<REG>_CLIENTSECRET=<your-secret>
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_<REG>_SCOPE=openid,profile,email
+export SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_<REG>_ISSUERURI=https://sso.example.com/realms/epistola
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI=https://sso.example.com/realms/epistola
 ```
 
-The `keycloak` profile provides all OAuth2 configuration with env-var overrides. The `prod` profile provides production hardening (flyway clean disabled, tuned concurrency).
+Activate profiles (no `keycloak`):
+
+```bash
+SPRING_PROFILES_ACTIVE=prod
+```
+
+The presence of the registration properties enables OIDC login; the `prod` profile provides
+production hardening (flyway clean disabled, tuned concurrency). See
+[keycloak-setup.md](keycloak-setup.md) / [authentik-setup.md](authentik-setup.md).
 
 ### AuthProvider Derivation
 

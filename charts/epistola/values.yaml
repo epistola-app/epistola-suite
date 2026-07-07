@@ -303,9 +303,9 @@ support:
 
 # Application configuration
 config:
-  # Spring profiles to activate
-  # Production:    "prod,keycloak"
-  # Staging/Test:  "keycloak,demo" or "keycloak,demo,localauth"
+  # Spring profiles to activate. OIDC login is configured via oidc.* (env vars), not a profile.
+  # Production:    "prod"
+  # Staging/Test:  "demo" or "demo,localauth"
   profiles: ""
   # Additional environment variables
   env: {}

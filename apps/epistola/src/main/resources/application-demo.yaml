@@ -1,9 +1,10 @@
 # Demo profile: loads demo tenant, themes, and templates.
 # Does NOT affect authentication or database management.
 #
-# Combine with an auth profile:
-#   - keycloak,demo         -> OAuth2 + demo data
-#   - keycloak,demo,localauth -> OAuth2 + form login + demo data
+# Combine with an environment/auth setup:
+#   - demo            -> demo data; OIDC from env vars (Helm oidc.*)
+#   - demo,localauth  -> demo data + form login; OIDC from env vars
+#   - local,keycloak  -> local dev with a local Keycloak (demo comes with `local`)
 
 epistola:
   demo:
