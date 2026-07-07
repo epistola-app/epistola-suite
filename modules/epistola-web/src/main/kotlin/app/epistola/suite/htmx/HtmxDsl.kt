@@ -135,6 +135,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     private val headers = mutableMapOf<String, String>()
     private var nonHtmxHandler: (() -> ServerResponse)? = null
     private var fullTemplate: String? = null
+    private var status: Int = 200
 
     /**
      * Adds a primary fragment to the response.
@@ -206,6 +207,55 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
             "errors" to formData.errors
         }
         reswap(HxSwap.OUTER_HTML)
+    }
+
+    /**
+     * Sets the HTTP status of the HTMX response (default 200).
+     *
+     * Note: HTMX ignores 4xx/5xx response bodies unless the response is
+     * "shaped" — carries an HX-Reswap header. app-shell.js allows shaped
+     * error responses to swap, so pair a non-2xx status with reswap()
+     * (globalFormError() does both).
+     */
+    fun status(code: Int) {
+        status = code
+    }
+
+    /**
+     * Reports an operation-level (non-field) form error into the form's
+     * global error slot via an OOB swap, with a real error status.
+     *
+     * The form must include the shared slot fragment with a matching id:
+     * `~{epistola-web/form-error :: form-error(id='create-tenant-error')}`.
+     *
+     * Sets HX-Reswap to none (no primary swap; the OOB fragment still
+     * processes) — app-shell.js recognizes the header and lets the error
+     * response swap. Handlers should still provide onNonHtmx { } re-rendering
+     * the page with the standardized `error` model key.
+     *
+     * Usage:
+     * ```kotlin
+     * return request.htmx {
+     *     globalFormError("start-load-test-error", errorMessage)
+     *     onNonHtmx { page(422, "loadtest/new") { "error" to errorMessage } }
+     * }
+     * ```
+     *
+     * @param errorId The id of the form's error slot element
+     * @param message The error message to display
+     * @param statusCode The response status (default 422)
+     */
+    fun globalFormError(
+        errorId: String,
+        message: String,
+        statusCode: Int = 422,
+    ) {
+        oob("epistola-web/form-error", "form-error-oob") {
+            "id" to errorId
+            "message" to message
+        }
+        reswap(HxSwap.NONE)
+        status(statusCode)
     }
 
     /**
@@ -331,7 +381,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
 
         val model = fragment?.model ?: emptyMap()
 
-        var response = ServerResponse.ok()
+        var response = ServerResponse.status(status)
         headers.forEach { (key, value) -> response = response.header(key, value) }
         return response.render(templatePath, model)
     }
@@ -342,7 +392,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     ): ServerResponse {
         val allFragments = primaryFragments + oobFragments
 
-        var builder = ServerResponse.ok()
+        var builder = ServerResponse.status(status)
         headers.forEach { (key, value) -> builder = builder.header(key, value) }
 
         // Render all fragments into a single response body using the template engine directly.
