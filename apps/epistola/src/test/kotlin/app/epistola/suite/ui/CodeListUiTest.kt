@@ -94,7 +94,11 @@ class CodeListUiTest : BasePlaywrightTest() {
 
         page.locator("button:has-text('Create code list')").click()
 
-        assertThat(page.locator("#code-list-form-area .alert-error")).hasText("Entry codes must be unique within a code list")
+        // Target the field-level error specifically: the form also carries the shared
+        // global-error slot (`.alert-error.form-global-error`), so exclude it to keep the
+        // selector resolving to a single element.
+        assertThat(page.locator("#code-list-form-area .alert-error:not(.form-global-error)"))
+            .hasText("Entry codes must be unique within a code list")
         // Plain boosted form: a validation error re-renders the full page, so the URL
         // is the form's POST action (the collection), not /new. The form + errors + the
         // entered values are still shown (asserted above/below).
