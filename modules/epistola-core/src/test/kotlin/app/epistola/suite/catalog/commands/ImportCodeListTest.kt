@@ -12,7 +12,9 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 /**
@@ -119,6 +121,38 @@ class ImportCodeListTest : IntegrationTestBase() {
             val legacy = entries.single { it.code == "legacy" }
             assertThat(legacy.hidden).isTrue()
             assertThat(legacy.sortOrder).isEqualTo(99)
+        }
+    }
+
+    @Test
+    fun `invalid re-import is rejected before replacing existing entries`() {
+        val tenant = createTenant("ImportCL4")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.DEFAULT
+        val codeListId = CodeListId(CodeListKey.of("countries"), CatalogId(catalogKey, tenantId))
+
+        withMediator {
+            ImportCodeList(
+                tenantId = tenantId,
+                catalogKey = catalogKey,
+                slug = "countries",
+                displayName = "Countries",
+                entries = listOf(CodeListEntry("nl", "Netherlands")),
+            ).execute()
+
+            assertThatThrownBy {
+                ImportCodeList(
+                    tenantId = tenantId,
+                    catalogKey = catalogKey,
+                    slug = "countries",
+                    displayName = "Countries",
+                    entries = listOf(CodeListEntry("x".repeat(65), "Too long")),
+                ).execute()
+            }.isInstanceOf(ValidationException::class.java)
+
+            assertThat(ListCodeListEntries(codeListId).query())
+                .extracting<String> { it.code }
+                .containsExactly("nl")
         }
     }
 }

@@ -11,8 +11,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.validation.FieldLimits.MAX_CODE_LIST_ENTRY_CODE_LENGTH
-import app.epistola.suite.validation.FieldLimits.MAX_CODE_LIST_ENTRY_LABEL_LENGTH
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -54,11 +52,7 @@ data class CreateCodeList(
                 validate("sourceUrl", !sourceUrl.isNullOrBlank()) { "Source URL is required for ${sourceType.name} code lists" }
             }
         }
-        validate("entries", entries.all { it.code.isNotBlank() }) { "Entry codes must not be blank" }
-        validate("entries", entries.all { it.label.isNotBlank() }) { "Entry labels must not be blank" }
-        validate("entries", entries.all { it.code.length <= MAX_CODE_LIST_ENTRY_CODE_LENGTH }) { "Entry codes must be $MAX_CODE_LIST_ENTRY_CODE_LENGTH characters or less" }
-        validate("entries", entries.all { it.label.length <= MAX_CODE_LIST_ENTRY_LABEL_LENGTH }) { "Entry labels must be $MAX_CODE_LIST_ENTRY_LABEL_LENGTH characters or less" }
-        validate("entries", entries.map { it.code }.toSet().size == entries.size) { "Entry codes must be unique within a code list" }
+        validateCodeListEntries(entries)
     }
 }
 

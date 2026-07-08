@@ -4,6 +4,7 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.commands.UpdateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.catalog.commands.ImportCodeList
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -38,6 +39,8 @@ class CodeListEntryLengthValidationTest {
 
     private fun updateWith(entry: CodeListEntry) = UpdateCodeList(codeListId, displayName = "Codes", entries = listOf(entry))
 
+    private fun importWith(entry: CodeListEntry) = ImportCodeList(tenantId, CatalogKey.DEFAULT, slug = "mycodelist", displayName = "Codes", entries = listOf(entry))
+
     @Test
     fun `the canonical code-list entry limits match the DB columns`() {
         assertEquals(64, MAX_CODE_LIST_ENTRY_CODE_LENGTH)
@@ -45,17 +48,19 @@ class CodeListEntryLengthValidationTest {
     }
 
     @Test
-    fun `entry code longer than the column limit is rejected on create and update`() {
+    fun `entry code longer than the column limit is rejected on create, update and import`() {
         val overLong = CodeListEntry(code = "x".repeat(65), label = "ok")
         assertEquals("entries", assertFailsWith<ValidationException> { createWith(overLong) }.field)
         assertEquals("entries", assertFailsWith<ValidationException> { updateWith(overLong) }.field)
+        assertEquals("entries", assertFailsWith<ValidationException> { importWith(overLong) }.field)
     }
 
     @Test
-    fun `entry label longer than the column limit is rejected on create and update`() {
+    fun `entry label longer than the column limit is rejected on create, update and import`() {
         val overLong = CodeListEntry(code = "ok", label = "x".repeat(201))
         assertEquals("entries", assertFailsWith<ValidationException> { createWith(overLong) }.field)
         assertEquals("entries", assertFailsWith<ValidationException> { updateWith(overLong) }.field)
+        assertEquals("entries", assertFailsWith<ValidationException> { importWith(overLong) }.field)
     }
 
     @Test
@@ -63,5 +68,6 @@ class CodeListEntryLengthValidationTest {
         val atLimit = CodeListEntry(code = "x".repeat(64), label = "y".repeat(200))
         createWith(atLimit)
         updateWith(atLimit)
+        importWith(atLimit)
     }
 }
