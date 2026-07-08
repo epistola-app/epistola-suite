@@ -18,7 +18,6 @@ import { CommandChange } from './command-change.js';
 import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from './registry.js';
-import type { EditorFeatureFlags, EditorFeatureFlag } from './feature-flags.js';
 import { DEFAULT_LOCALE } from './locale.js';
 import { deepFreeze } from './freeze.js';
 import { defaultStyleRegistry } from './style-registry.js';
@@ -54,14 +53,6 @@ export class EditorEngine {
   private _fieldPathsCache: FieldPath[] | undefined;
 
   /**
-   * Resolved feature flags forwarded by the host. The contract is the
-   * `EditorFeatureFlags` interface; `isFeatureEnabled(flag)` is the typed
-   * read API and catches typos at the call site. Always defined; an
-   * unset flag reads as `false`.
-   */
-  readonly featureFlags: Readonly<EditorFeatureFlags>;
-
-  /**
    * Effective BCP-47 locale for this editing session. Resolved by the host
    * (variant attribute `system.locale`/`locale` → tenant default → app
    * default — `TenantLocaleResolver.resolve(tenant, variantAttributes)`)
@@ -89,7 +80,6 @@ export class EditorEngine {
       undoDepth?: number;
       dataModel?: object;
       dataExamples?: object[];
-      featureFlags?: EditorFeatureFlags;
       locale?: string;
     },
   ) {
@@ -102,7 +92,6 @@ export class EditorEngine {
     this._inheritableKeys = getInheritableKeys(this.styleRegistry);
     this._dataModel = options?.dataModel;
     this._dataExamples = options?.dataExamples;
-    this.featureFlags = Object.freeze({ ...options?.featureFlags });
     this.locale =
       options?.locale && options.locale.trim().length > 0 ? options.locale : DEFAULT_LOCALE;
     this._recomputeStyles();
@@ -135,20 +124,6 @@ export class EditorEngine {
 
   get events(): EventEmitter<EngineEvents> {
     return this._events;
-  }
-
-  // -----------------------------------------------------------------------
-  // Feature flags
-  // -----------------------------------------------------------------------
-
-  /**
-   * Returns true when the named flag is set to `true` on the engine.
-   * The `flag` parameter is constrained to keys of `EditorFeatureFlags`
-   * so typos fail the compile rather than silently reading `undefined`.
-   * Unset flags read as `false`.
-   */
-  isFeatureEnabled(flag: EditorFeatureFlag): boolean {
-    return this.featureFlags[flag] === true;
   }
 
   // -----------------------------------------------------------------------

@@ -13,7 +13,6 @@ import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
 import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
 import { createDefaultRegistry } from './engine/registry.js';
-import type { EditorFeatureFlags } from './engine/feature-flags.js';
 import { createImageDefinition } from './components/image/image-registration.js';
 import type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dialog.js';
 import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
@@ -98,17 +97,6 @@ export interface EditorOptions {
   /** Optional stencil support with search/get/upgrade callbacks. */
   stencilOptions?: StencilCallbacks;
   /**
-   * Optional feature toggles. The host page reads these from the backend's
-   * feature-toggle service and forwards the resolved booleans here. The
-   * engine exposes them via `engine.isFeatureEnabled(flag)`; components
-   * that need to gate preview/experimental affordances consult the engine
-   * directly rather than receiving flags through their own constructors.
-   *
-   * The shape is governed by `EditorFeatureFlags` so flag names are typed
-   * end-to-end and renames/removals fail the compile.
-   */
-  featureFlags?: EditorFeatureFlags;
-  /**
    * Effective BCP-47 locale for this editing session. Resolved server-side
    * via the variant-attribute → tenant default → app default chain
    * (`TenantLocaleResolver.resolve(tenant, variantAttributes)`) and forwarded
@@ -117,8 +105,6 @@ export interface EditorOptions {
    */
   locale?: string;
 }
-
-export type { EditorFeatureFlags, EditorFeatureFlag } from './engine/feature-flags.js';
 
 export interface EditorInstance {
   /** Tear down the editor and clean up */
@@ -231,7 +217,6 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   editorEl.initEngine(doc, registry, {
     dataModel,
     dataExamples,
-    featureFlags: options.featureFlags,
     locale: options.locale,
   });
 

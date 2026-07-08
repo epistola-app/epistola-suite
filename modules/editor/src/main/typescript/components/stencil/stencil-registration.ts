@@ -266,7 +266,6 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         fieldPaths,
         getExampleData,
         locale: engine.locale,
-        stencilParametersEnabled: engine.isFeatureEnabled('stencilParameters'),
       });
       if (!result) return null; // Cancelled
 

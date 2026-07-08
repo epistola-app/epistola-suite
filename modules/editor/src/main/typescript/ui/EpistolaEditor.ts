@@ -208,7 +208,6 @@ export class EpistolaEditor extends LitElement {
     options?: {
       dataModel?: object;
       dataExamples?: object[];
-      featureFlags?: import('../engine/feature-flags.js').EditorFeatureFlags;
       locale?: string;
     },
   ): void {
@@ -223,7 +222,6 @@ export class EpistolaEditor extends LitElement {
     this._engine = new EditorEngine(doc, reg, {
       dataModel: options?.dataModel,
       dataExamples: options?.dataExamples,
-      featureFlags: options?.featureFlags,
       locale: options?.locale,
     });
     this._doc = this._engine.doc;
