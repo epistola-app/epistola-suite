@@ -23,6 +23,7 @@ import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.versioncheck.VersionCheckService
 import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
@@ -33,6 +34,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class TenantHandler(
     private val changelogRenderer: ChangelogRenderer,
     private val changelogService: ChangelogService,
+    private val versionCheckService: VersionCheckService,
     private val buildProperties: BuildProperties?,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -63,6 +65,7 @@ class TenantHandler(
         val principal = SecurityContext.current()
         val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
         val hasUnseenChanges = changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)
+        val versionCheckStatus = versionCheckService.status()
 
         return ServerResponse.ok().render(
             "layout/shell",
@@ -78,6 +81,7 @@ class TenantHandler(
                 "changelogVersion" to latestEntry?.version,
                 "changelogSummary" to latestEntry?.summary,
                 "changelogIsNew" to hasUnseenChanges,
+                "versionUpdate" to versionCheckStatus,
             ),
         )
     }
