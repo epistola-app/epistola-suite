@@ -13,6 +13,9 @@
 >
 > Your data is now stable across upgrades, but while Epistola is in release-candidate phase the REST APIs, catalog formats, configuration, and internal architecture may still be adjusted before 1.0.0-GA. Review the [changelog](CHANGELOG.md) before updating.
 
+> [!IMPORTANT]
+> **Provided "as is", without warranty.** Epistola takes no responsibility for the correctness of output or for any damages arising from use of this software. Correctness assurances, support, and liability coverage are available only under a commercial SLA — see the [Disclaimer](DISCLAIMER.md).
+
 A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 
 ## Project Structure
@@ -265,4 +268,11 @@ Both the app and Helm chart follow this convention. The Helm chart version is on
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+Epistola Suite is licensed under the [GNU Affero General Public License v3](LICENSE).
+
+The software is provided **"as is", without warranty of any kind**. Epistola
+accepts no responsibility for the correctness of output or for any damages
+incurred through use of the software. Correctness assurances, defect
+remediation, support, and contractual liability coverage are available only
+under a separate commercial **Service Level Agreement (SLA)**. See
+[DISCLAIMER.md](DISCLAIMER.md) for the full statement.
