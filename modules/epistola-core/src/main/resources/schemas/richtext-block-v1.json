@@ -2,7 +2,7 @@
   "$id": "https://epistola.app/schemas/richtext-block-v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Epistola Rich Text (block) v1",
-  "description": "ProseMirror document subset accepted as a *block* rich-text parameter value. Allowed nodes: doc, paragraph, hard_break, bullet_list, ordered_list, list_item, text. Allowed marks: strong, em, underline, strikethrough, subscript, superscript, link, textStyle. Headings and expressions are reserved for future versions. The companion inline schema is richtext-inline-v1.json (single-paragraph subset).",
+  "description": "ProseMirror document subset accepted as a *block* rich-text parameter value. Allowed nodes: doc, paragraph, hard_break, bullet_list, ordered_list, list_item, text. A list item starts with a paragraph, optionally followed by further blocks (paragraphs or nested bullet/ordered lists), matching the editor's 'paragraph block*' content model. Allowed marks: strong, em, underline, strikethrough, subscript, superscript, link, textStyle. Headings and expressions are reserved for future versions. The companion inline schema is richtext-inline-v1.json (single-paragraph subset).",
   "type": "object",
   "required": ["type", "content"],
   "properties": {
@@ -85,7 +85,9 @@
         "type": { "enum": ["list_item", "listItem"] },
         "content": {
           "type": "array",
-          "items": { "$ref": "#/$defs/paragraph" }
+          "minItems": 1,
+          "prefixItems": [{ "$ref": "#/$defs/paragraph" }],
+          "items": { "$ref": "#/$defs/blockNode" }
         }
       },
       "additionalProperties": false
