@@ -651,6 +651,16 @@ its next HTMX request (`app-shell.js`):
 Row-level one-button action forms and GET filter/search forms deliberately do
 not carry a slot — the banner covers them.
 
+> **Constraint — multiple slots in one render.** The `error` model key (fill
+> path 1) is page-global: every slot in a single Thymeleaf render reads the same
+> `${error}`. On a page with **two or more simultaneously-visible slotted
+> forms**, do **not** re-render with `"error" to msg` — all their slots would
+> light up with the same message. Use the shaped `globalFormError()` OOB path
+> (path 2) instead: it targets one slot by id, so only the failing form fills.
+> Paths 2 and 3 are always id-scoped and safe. Single-form pages, and dialog
+> forms that re-render as their own fragment (one slot per render), are
+> unaffected — the constraint only bites when one render emits ≥2 slots.
+
 ## Common Patterns
 
 ### Serving Full Pages and Fragments from One Endpoint

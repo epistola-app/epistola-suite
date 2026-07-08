@@ -147,7 +147,9 @@ return request.htmx {
 }
 ```
 
-Skip the slot on action-only forms (one-click submit, hidden inputs only) and GET filter/search forms — the top-of-page banner covers those. See `docs/htmx.md` → "Global Form Errors".
+Skip the slot on action-only forms (one-click submit, hidden inputs only) and GET filter/search forms — the top-of-page banner covers those.
+
+**Multiple slots on one page:** the `error` model key is page-global, so if a single render emits **two or more slotted forms**, `"error" to msg` lights up _all_ of them. On a page with 2+ simultaneously-visible slotted forms, report failures via `globalFormError()` (id-scoped OOB) rather than a full re-render with `error`. Single-form pages and dialog forms that re-render as their own fragment are unaffected. See `docs/htmx.md` → "Global Form Errors".
 
 ### Delete pattern
 
