@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- feat(editor)!: **Stencil parameters are always available — the `stencil-parameters` feature toggle is retired.** Parameters are an intrinsic property of every stencil (the set is simply sometimes empty), so the editor's parameter-authoring UI (the inspector's "Define parameters…" button, the per-instance Parameters section, and the picker's binding step) now renders unconditionally instead of being gated by a global on/off toggle that only ever affected the editor. Server-side validation and the REST/MCP surfaces already treated parameters as intrinsic, so those surfaces are unchanged. **Breaking:** the `epistola.features.stencil-parameters` configuration property is removed (delete it if set), and a forward migration drops any orphaned `stencil-parameters` tenant toggle rows. (#668)
+
 ## [1.0.0-RC3] - 2026-07-12
 
 This release makes OIDC login provider-neutral — authentik and any compliant OIDC provider now work alongside Keycloak (a deliberate breaking change that also removes the unused Keycloak group provisioning) — and adds a daily version check that surfaces update and support-policy banners on tenant home pages. Every form now shows operation-level failures in a global error field, the templates list REST endpoint is sortable, preview renders carry a subtler "Epistola Preview" header/footer band, and release-candidate versions now display correctly in the in-app changelog. Under the hood, the cluster was hardened to survive wedged nodes without ever orphaning generation jobs.
