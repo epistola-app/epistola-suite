@@ -10,7 +10,8 @@ import java.sql.DriverManager
 /**
  * Guards the RC1 promise: **the database is stable and user data survives every
  * migration**. Seeds a representative tenant on the 1.0.0-RC1 baseline schema, then
- * applies every newer migration and asserts the user data is byte-identical.
+ * applies every newer migration and asserts each preserved value survives intact —
+ * checked row by row, field by field (jsonb compared by value, not bytes).
  *
  * It also guards the flip side — that an **intentional, scoped data migration does exactly
  * what it claims**: retiring the `stencil-parameters` feature toggle (issue #668) must delete
