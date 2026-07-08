@@ -310,6 +310,42 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `importing without a file reports a shaped global form error`() = fixture {
+        lateinit var testTenant: Tenant
+        given { testTenant = tenant("Import No File") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("catalogType", "AUTHORED")
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.MULTIPART_FORM_DATA
+                add("HX-Request", "true")
+            }
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/catalogs/import",
+                HttpEntity(payload, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Shaped error contract (HtmxDsl.globalFormError): real error status +
+            // HX-Reswap (the client opt-in marker) + an OOB fragment replacing
+            // the form's global error slot.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.body).contains("import-catalog-error")
+            assertThat(response.body).contains("No file provided")
+            // The structured import result area is OOB-reset in the same response:
+            // the shaped response's primary swap is `none`, so a stale conflict
+            // report / migration prompt in #import-error would otherwise linger
+            // next to the new message.
+            assertThat(response.body).contains("id=\"import-error\"")
+        }
+    }
+
+    @Test
     fun `importing a too-old ZIP renders the inline schema-error fragment, not a server error`() = fixture {
         lateinit var testTenant: Tenant
         given { testTenant = tenant("Import Too Old") }

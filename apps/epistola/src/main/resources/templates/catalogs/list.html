@@ -192,6 +192,12 @@
             <div class="ep-dialog-header">
                 <h3>Import Catalog from ZIP</h3>
             </div>
+            <!-- Two error surfaces, deliberately: plain single-message failures
+                 go through the global form-error slot (shaped 422, see
+                 CatalogHandler.importError); the structured import responses
+                 (stencil-conflict report, schema error, migration-confirm
+                 prompt) render into the dedicated #import-error target — the
+                 text-only slot cannot hold them. -->
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
                   hx-encoding="multipart/form-data"
                   hx-target="#import-error"
@@ -419,6 +425,13 @@
             </div>
         </div>
     </th:block>
+
+    <!-- OOB reset for the structured import result area. Plain single-message
+         import failures go through the global form-error slot (shaped 422 with
+         primary swap `none`), so a stale conflict report / migration prompt in
+         #import-error must be cleared explicitly in the same response
+         (CatalogHandler.importError). -->
+    <div th:fragment="import-error-reset" id="import-error" hx-swap-oob="outerHTML"></div>
 
     <!-- Inline "update?" prompt for the Import ZIP dialog: an AUTHORED ZIP below
          the current catalog schema version that the migration chain can upgrade.
