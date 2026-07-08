@@ -157,9 +157,6 @@ class TenantHandler(
             }
         }
 
-        // IDP provisioning happens in ProvisionIdpOnTenantCreate (AFTER_COMMIT event
-        // handler on CreateTenant), so REST-created tenants get it too.
-
         val tenants = ListTenants().query()
         return request.htmx {
             fragment("tenants/list", "rows") {

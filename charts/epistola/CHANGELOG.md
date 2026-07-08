@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Removed
+
+- **`keycloakAdmin.*` values removed (Keycloak Admin-API group provisioning dropped).** The app no longer creates or self-heals Keycloak groups / protocol mappers on startup or tenant creation. **Upgrade note:** you can delete any `keycloakAdmin.*` block from your values — it is now inert (leaving it set is harmless; the chart ignores it). Ensure your tenant groups and the `groups` / `roles` protocol mappers **already exist in the IdP** (realm import, Terraform, or manual) — the app only reads the resulting token claims. Also drop `keycloak` from `config.profiles` (use `prod` / `demo`); OIDC login is fully configured by `oidc.*`.
+
+### Added
+
+- **`oidc` is now provider-neutral — configure authentik (or any OIDC provider), not just Keycloak.** New `oidc.registrationId` (default `keycloak`) parameterizes the OAuth2 registration name so the chart no longer hard-codes `KEYCLOAK` in the Spring env vars; point it at any compliant provider via `oidc.issuerUri` with no Spring profile required. The chart is now self-sufficient — it emits the OAuth2 `oidc.scope` (default `openid,profile,email`) so login works without the `keycloak` profile (add your provider's roles/groups scope here, e.g. authentik's scope-mapping name). Added `oidc.autoProvision` (default `true`, supplied explicitly so behaviour no longer depends on the Keycloak-only `keycloak` profile), `oidc.ssoButtonLabel` (customise the login button, e.g. "Sign in with authentik"), and `oidc.userNameAttribute`. `values.schema.json` now validates the `oidc` block (alphanumeric `registrationId`; `existingSecret` + `issuerUri` required when enabled). Existing Keycloak values are unchanged — `registrationId` defaults to `keycloak`. See [`docs/authentik-setup.md`](../../docs/authentik-setup.md).
+
 ## [0.10.0] - 2026-07-05
 
 ### Removed
