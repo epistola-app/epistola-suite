@@ -12,9 +12,8 @@ object KnownFeatures {
      * follow-up rename.
      */
     val SUPPORT_COMPATIBILITY_CHECK = FeatureKey.of("support-compatibility-check")
-    val STENCIL_PARAMETERS = FeatureKey.of("stencil-parameters")
 
-    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, STENCIL_PARAMETERS)
+    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK)
 
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
@@ -67,7 +66,6 @@ object KnownFeatures {
             "Enables the Support → Upgrading feature (compatibility checks against upcoming Epistola releases). " +
                 "Ships its own catalog-export snapshots to the hub for the checks.",
         ),
-        STENCIL_PARAMETERS to FeatureMetadata("Stencil parameters", "Enables typed parameters on stencils."),
     )
 
     fun metadataFor(key: FeatureKey): FeatureMetadata? = metadata[key]

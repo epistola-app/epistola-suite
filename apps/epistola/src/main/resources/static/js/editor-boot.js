@@ -37,7 +37,6 @@ async function mount(container) {
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
     plugins: plugins,
-    featureFlags: config.featureFlags,
     locale: config.locale,
     fontOptions: {
       listFonts: async () => {

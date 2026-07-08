@@ -1,8 +1,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.footer.FooterFragmentResolver
 import app.epistola.suite.htmx.nav.NavMenuAggregator
@@ -69,12 +67,6 @@ class ShellModelInterceptor(
         if (tenantId == null) return
         val tenantKey = TenantKey.of(tenantId)
         val context = UiRequestContext(tenantKey) { auth.has(it) }
-
-        // Editor feature toggle (gates editor UI, not nav/footer). Read through the internal query
-        // like everything else; the per-request cache (FeatureToggleCacheFilter) shares one toggle
-        // query across this and the nav/footer contributors.
-        val toggles = ResolveFeatureToggles(tenantKey).query()
-        modelAndView.addObject("stencilParametersEnabled", toggles[KnownFeatures.STENCIL_PARAMETERS] == true)
 
         // Module-contributed footer chrome (see FooterContributor / FooterFragmentResolver) — global
         // injections like the feedback FAB, rendered by the shell footer and the standalone editor
