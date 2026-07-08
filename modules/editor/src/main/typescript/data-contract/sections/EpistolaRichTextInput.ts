@@ -104,6 +104,9 @@ export function buildRichTextInputPlugins(
     keymap(baseKeymap),
     dropCursor(),
     gapCursor(),
+    // Inline schema exposes marks only, so the shared menu renders formatting
+    // controls without any block/list actions.
+    bubbleMenuPlugin(schema, { isEditable }),
   ];
 }
 

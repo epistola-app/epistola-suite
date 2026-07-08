@@ -6,6 +6,7 @@ import { bubbleMenuPlugin } from './bubble-menu.js';
 import { createMenuElement } from './bubble-menu.js';
 import { epistolaSchema } from './schema.js';
 import { richTextBlockSchema } from './richTextBlockSchema.js';
+import { richTextInlineSchema } from './richTextInlineSchema.js';
 
 /** Which rendered children are separators, in document order. */
 function separatorMask(menuEl: HTMLElement): boolean[] {
@@ -13,6 +14,17 @@ function separatorMask(menuEl: HTMLElement): boolean[] {
 }
 
 describe('bubble menu separators', () => {
+  it('renders only mark buttons for the inline value schema', () => {
+    const { menuEl } = createMenuElement(richTextInlineSchema);
+    const labels = Array.from(menuEl.querySelectorAll('button')).map(
+      (button) => button.textContent,
+    );
+
+    expect(labels).toEqual(['B', 'I', 'U', 'S', 'X₂', 'X²']);
+    expect(labels).not.toEqual(expect.arrayContaining(['UL', 'OL', '#', '⇤', '⇥']));
+    expect(separatorMask(menuEl)).not.toContain(true);
+  });
+
   it('has no leading, trailing, or adjacent separators for the block value schema', () => {
     // richTextBlockSchema omits heading + expression, so those groups are empty.
     // Separators must not divide groups that were never rendered.

@@ -14,11 +14,11 @@ describe('buildRichTextInputPlugins', () => {
     expect(BUBBLE_MENU_KEY.get(state)).toBeDefined();
   });
 
-  it('inline mode has no bubble menu (single paragraph, marks via shortcuts)', () => {
+  it('inline mode includes the bubble menu for mark formatting only', () => {
     const state = EditorState.create({
       schema: richTextInlineSchema,
       plugins: buildRichTextInputPlugins('inline', richTextInlineSchema),
     });
-    expect(BUBBLE_MENU_KEY.get(state)).toBeUndefined();
+    expect(BUBBLE_MENU_KEY.get(state)).toBeDefined();
   });
 });
