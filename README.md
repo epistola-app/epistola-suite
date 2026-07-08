@@ -13,6 +13,9 @@
 >
 > Your data is now stable across upgrades, but while Epistola is in release-candidate phase the REST APIs, catalog formats, configuration, and internal architecture may still be adjusted before 1.0.0-GA. Review the [changelog](CHANGELOG.md) before updating.
 
+> [!IMPORTANT]
+> **Provided "as is", without warranty.** Epistola takes no responsibility for the correctness of output or for any damages arising from use of this software. Correctness assurances, support, and liability coverage are available only under a commercial SLA — see the [Disclaimer](DISCLAIMER.md).
+
 A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 
 ## Project Structure
@@ -94,13 +97,12 @@ gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 
 A Spring profile **must** be set to configure authentication. Without one, the app will fail to start.
 
-| Profile          | Auth Method                     | Use Case                   |
-| ---------------- | ------------------------------- | -------------------------- |
-| `local`          | Form login (in-memory users)    | Local development          |
-| `demo`           | Form login (in-memory users)    | K8s demo environments      |
-| `keycloak`       | OAuth2/OIDC (local Keycloak)    | Testing OAuth2 locally     |
-| `prod`           | OAuth2/OIDC (external Keycloak) | Production                 |
-| `local,keycloak` | Both form + OAuth2              | Testing both login methods |
+| Setup             | Auth Method                                  | Use Case                   |
+| ----------------- | -------------------------------------------- | -------------------------- |
+| `local`           | Form login (in-memory users)                 | Local development          |
+| `local,keycloak`  | Form login + OAuth2/OIDC with local Keycloak | Testing both login methods |
+| `localauth`       | Form login with env-var credentials          | Staging/test fallback      |
+| `prod` + OIDC env | OAuth2/OIDC with any compliant provider      | Production                 |
 
 **Local development** — uses in-memory users, no external dependencies:
 
@@ -112,28 +114,28 @@ gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 **With local services** — start PostgreSQL and Keycloak via the unified Docker Compose:
 
 ```bash
-# Start PostgreSQL + Keycloak (admin console at http://localhost:8080, admin/admin)
+# Start PostgreSQL + Keycloak (admin console at http://localhost:4002, admin/admin)
 docker compose -f apps/epistola/docker/docker-compose.yaml up -d
 
 # Or start only PostgreSQL (sufficient for local profile)
 docker compose -f apps/epistola/docker/docker-compose.yaml up -d postgres
 
-# Run with OAuth2 only
-gradle :apps:epistola:bootRun --args='--spring.profiles.active=keycloak'
-
-# Or run with both form login and OAuth2
+# Run with form login and OAuth2
 gradle :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
 ```
 
-**Production** — requires environment variables for your Keycloak (or any OIDC provider):
+**Production** — configure OIDC via environment variables or the Helm chart's `oidc.*` values. Do not use the `keycloak` profile outside local development.
 
 ```bash
-export KEYCLOAK_CLIENT_ID=epistola-suite
-export KEYCLOAK_CLIENT_SECRET=<your-secret>
-export KEYCLOAK_ISSUER_URI=https://keycloak.example.com/realms/epistola
+export SPRING_PROFILES_ACTIVE=prod
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID=epistola-suite
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET=<your-secret>
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_SCOPE=openid,profile,email
+export SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI=https://sso.example.com/realms/epistola
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI=https://sso.example.com/realms/epistola
 ```
 
-See [docs/auth.md](docs/auth.md) for full details on Keycloak setup, auto-provisioning, and safety guards.
+See [docs/auth.md](docs/auth.md) for full details on OIDC setup, auto-provisioning, and safety guards.
 
 ### Docker
 
@@ -266,4 +268,11 @@ Both the app and Helm chart follow this convention. The Helm chart version is on
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+Epistola Suite is licensed under the [GNU Affero General Public License v3](LICENSE).
+
+The software is provided **"as is", without warranty of any kind**. Epistola
+accepts no responsibility for the correctness of output or for any damages
+incurred through use of the software. Correctness assurances, defect
+remediation, support, and contractual liability coverage are available only
+under a separate commercial **Service Level Agreement (SLA)**. See
+[DISCLAIMER.md](DISCLAIMER.md) for the full statement.

@@ -59,7 +59,7 @@ tool has no resource-level hook, prefer `initContainer` or `embedded`.
 ```bash
 helm upgrade --install epistola oci://ghcr.io/epistola-app/charts/epistola \
   --set image.tag=v0.20.0 \
-  --set config.profiles=prod,keycloak \
+  --set config.profiles=prod \
   --set database.type=external \
   --set database.external.host=pg.internal \
   --set database.external.existingSecret=epistola-db \
@@ -79,7 +79,7 @@ database:
     host: pg.internal
     existingSecret: epistola-db
 config:
-  profiles: prod,keycloak
+  profiles: prod
 replicaCount: 3
 ```
 

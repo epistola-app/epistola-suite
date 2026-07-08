@@ -1,5 +1,6 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.security.AuthProperties
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
@@ -18,6 +19,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class LoginHandler(
     private val userDetailsService: UserDetailsService? = null,
     private val clientRegistrationRepository: ClientRegistrationRepository? = null,
+    private val authProperties: AuthProperties,
 ) {
 
     /**
@@ -30,17 +32,20 @@ class LoginHandler(
      * - Both when running with e.g. 'local,keycloak' profiles
      */
     fun loginPage(request: ServerRequest): ServerResponse {
+        val registrationId = getFirstRegistrationId()
         val hasFormLogin = userDetailsService != null
-        val hasOAuth2 = clientRegistrationRepository != null
-        val oauth2RegistrationId = getFirstRegistrationId() ?: "keycloak"
+        val hasOAuth2 = registrationId != null
 
         return ServerResponse.ok().render(
             "login",
-            mapOf(
-                "hasFormLogin" to hasFormLogin,
-                "hasOAuth2" to hasOAuth2,
-                "oauth2RegistrationId" to oauth2RegistrationId,
-            ),
+            buildMap {
+                put("hasFormLogin", hasFormLogin)
+                put("hasOAuth2", hasOAuth2)
+                if (registrationId != null) {
+                    put("oauth2RegistrationId", registrationId)
+                    put("ssoButtonLabel", authProperties.oidc.ssoButtonLabel)
+                }
+            },
         )
     }
 

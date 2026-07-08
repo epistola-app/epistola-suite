@@ -91,6 +91,185 @@ class RichTextBlockSchemaTest {
     }
 
     @Test
+    fun `accepts a nested bullet list inside a list item`() {
+        val data = dataWithBio(
+            """
+            {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    {
+                      "type": "list_item",
+                      "content": [
+                        { "type": "paragraph", "content": [{ "type": "text", "text": "parent" }] },
+                        {
+                          "type": "bullet_list",
+                          "content": [
+                            { "type": "list_item", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "child" }] }] }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        assertThat(validator.validate(contractSchema, data)).isEmpty()
+    }
+
+    @Test
+    fun `accepts a nested ordered list inside a list item`() {
+        val data = dataWithBio(
+            """
+            {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "ordered_list",
+                  "content": [
+                    {
+                      "type": "list_item",
+                      "content": [
+                        { "type": "paragraph", "content": [{ "type": "text", "text": "parent" }] },
+                        {
+                          "type": "ordered_list",
+                          "attrs": { "listType": "lower-alpha" },
+                          "content": [
+                            { "type": "list_item", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "child" }] }] }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        assertThat(validator.validate(contractSchema, data)).isEmpty()
+    }
+
+    @Test
+    fun `rejects a list item whose first child is not a paragraph`() {
+        // The editor's list item content model is 'paragraph block*': nested
+        // lists may only follow a leading paragraph, never open the item.
+        val data = dataWithBio(
+            """
+            {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    {
+                      "type": "list_item",
+                      "content": [
+                        {
+                          "type": "bullet_list",
+                          "content": [
+                            { "type": "list_item", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "child" }] }] }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        assertThat(validator.validate(contractSchema, data)).isNotEmpty()
+    }
+
+    @Test
+    fun `rejects a list item with empty content`() {
+        // paragraph block* requires a leading paragraph; an empty list item is
+        // not a valid document (the editor never produces one).
+        val data = dataWithBio(
+            """
+            {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    { "type": "list_item", "content": [] }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        assertThat(validator.validate(contractSchema, data)).isNotEmpty()
+    }
+
+    @Test
+    fun `rejects heading inside a list item`() {
+        val data = dataWithBio(
+            """
+            {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    {
+                      "type": "list_item",
+                      "content": [
+                        { "type": "paragraph", "content": [{ "type": "text", "text": "parent" }] },
+                        { "type": "heading", "attrs": { "level": 2 }, "content": [{ "type": "text", "text": "Title" }] }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        assertThat(validator.validate(contractSchema, data)).isNotEmpty()
+    }
+
+    @Test
+    fun `rejects expression nodes inside a nested list`() {
+        val data = dataWithBio(
+            """
+            {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    {
+                      "type": "list_item",
+                      "content": [
+                        { "type": "paragraph", "content": [{ "type": "text", "text": "parent" }] },
+                        {
+                          "type": "bullet_list",
+                          "content": [
+                            {
+                              "type": "list_item",
+                              "content": [
+                                { "type": "paragraph", "content": [{ "type": "expression", "attrs": { "expression": "customer.name" } }] }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        assertThat(validator.validate(contractSchema, data)).isNotEmpty()
+    }
+
+    @Test
     fun `accepts multiple paragraphs`() {
         val data = dataWithBio(
             """
