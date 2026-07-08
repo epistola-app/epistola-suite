@@ -219,7 +219,8 @@ epistola:
   version-check:
     enabled: true
     well-known-url: "https://epistola.app/.well-known/epistola/releases.json"
-    interval-ms: 86400000 # Daily
+    daily-window-start-hour: 8 # Check once daily between 08:00 and 08:59 UTC
+    daily-window-minutes: 60
     connect-timeout: 3s
     read-timeout: 5s
 
