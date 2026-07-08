@@ -94,13 +94,12 @@ gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 
 A Spring profile **must** be set to configure authentication. Without one, the app will fail to start.
 
-| Profile          | Auth Method                     | Use Case                   |
-| ---------------- | ------------------------------- | -------------------------- |
-| `local`          | Form login (in-memory users)    | Local development          |
-| `demo`           | Form login (in-memory users)    | K8s demo environments      |
-| `keycloak`       | OAuth2/OIDC (local Keycloak)    | Testing OAuth2 locally     |
-| `prod`           | OAuth2/OIDC (external Keycloak) | Production                 |
-| `local,keycloak` | Both form + OAuth2              | Testing both login methods |
+| Setup             | Auth Method                                  | Use Case                   |
+| ----------------- | -------------------------------------------- | -------------------------- |
+| `local`           | Form login (in-memory users)                 | Local development          |
+| `local,keycloak`  | Form login + OAuth2/OIDC with local Keycloak | Testing both login methods |
+| `localauth`       | Form login with env-var credentials          | Staging/test fallback      |
+| `prod` + OIDC env | OAuth2/OIDC with any compliant provider      | Production                 |
 
 **Local development** — uses in-memory users, no external dependencies:
 
@@ -112,28 +111,28 @@ gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 **With local services** — start PostgreSQL and Keycloak via the unified Docker Compose:
 
 ```bash
-# Start PostgreSQL + Keycloak (admin console at http://localhost:8080, admin/admin)
+# Start PostgreSQL + Keycloak (admin console at http://localhost:4002, admin/admin)
 docker compose -f apps/epistola/docker/docker-compose.yaml up -d
 
 # Or start only PostgreSQL (sufficient for local profile)
 docker compose -f apps/epistola/docker/docker-compose.yaml up -d postgres
 
-# Run with OAuth2 only
-gradle :apps:epistola:bootRun --args='--spring.profiles.active=keycloak'
-
-# Or run with both form login and OAuth2
+# Run with form login and OAuth2
 gradle :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
 ```
 
-**Production** — requires environment variables for your Keycloak (or any OIDC provider):
+**Production** — configure OIDC via environment variables or the Helm chart's `oidc.*` values. Do not use the `keycloak` profile outside local development.
 
 ```bash
-export KEYCLOAK_CLIENT_ID=epistola-suite
-export KEYCLOAK_CLIENT_SECRET=<your-secret>
-export KEYCLOAK_ISSUER_URI=https://keycloak.example.com/realms/epistola
+export SPRING_PROFILES_ACTIVE=prod
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID=epistola-suite
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET=<your-secret>
+export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_SCOPE=openid,profile,email
+export SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI=https://sso.example.com/realms/epistola
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI=https://sso.example.com/realms/epistola
 ```
 
-See [docs/auth.md](docs/auth.md) for full details on Keycloak setup, auto-provisioning, and safety guards.
+See [docs/auth.md](docs/auth.md) for full details on OIDC setup, auto-provisioning, and safety guards.
 
 ### Docker
 

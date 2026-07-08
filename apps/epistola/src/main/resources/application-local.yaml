@@ -142,7 +142,7 @@ spring:
             user-name-attribute: preferred_username
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/epistola
+          issuer-uri: http://localhost:4002/realms/epistola
 
 epistola:
   auth:
