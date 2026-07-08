@@ -50,6 +50,14 @@ class VersionCheckService(
             log.warn("Version check failed: {}", e.message)
             failed
         }
+        if (status.updateAvailable) {
+            log.info(
+                "Epistola Suite update available: current={}, latest={}, channel={}",
+                status.currentVersion,
+                status.latestVersion,
+                status.channel,
+            )
+        }
         metadata.setAs(STATUS_KEY, status)
         return status
     }
