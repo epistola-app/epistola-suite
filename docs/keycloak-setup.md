@@ -18,9 +18,14 @@ your IdP can produce; the app reads both and takes the union:
 If you control Keycloak, the recommended setup is **client roles → flat `roles` claim** —
 see [Recommended: client roles (step by step)](#recommended-client-roles-step-by-step).
 
-The realm-role and group mappers are auto-provisioned on startup when running against
-Keycloak (see [Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning));
-the client-role mapper is the one manual step.
+The realm-role, group, and client-role mappers are configured in Keycloak (realm import or by
+hand); Epistola only reads the resulting claims.
+
+> **Recommendation — prefer flat roles (client roles) over hierarchical groups.** The flat
+> `roles` claim keeps the Epistola authorization model scoped to its own client, is portable
+> across every IdP (Keycloak, authentik, Auth0, Cognito, …), and is simpler to reason about.
+> The hierarchical `groups` claim still works, but **support for it may be removed in a future
+> release**; new deployments should standardise on flat roles.
 
 ## Choosing a claim shape
 
@@ -134,9 +139,7 @@ Mapping (old → new):
 `/epistola/tenants/{tenant}/` and `/epistola/global/` per the table; users keep their group
 membership across a rename, so no per-user reassignment is needed for the renamed roles. Then,
 for anyone who needs to publish, add them to the new `content-publisher` group (the old `manager`
-no longer implies it). If `keycloakAdmin.ensureGroups` is on, the new empty groups are also
-created automatically on startup — but the app never renames or deletes your existing groups, so
-the rename itself is a manual (or scripted) admin step.
+no longer implies it). The rename is a manual (or scripted) admin step in Keycloak.
 
 **Flat-claim IdPs (`ept_`/`epg_`/`eps_`):** rename the realm-role / claim values the same way
 (e.g. `ept_acme_reader` → `ept_acme_content-viewer`), and add a `content-publisher` value where
@@ -217,8 +220,7 @@ migration):
   model scoped to the `epistola-suite` client instead of polluting the shared realm-role
   namespace or modelling a group tree. Step-by-step below.
 - **Realm roles → flat `roles` claim** — identical wire format, but the roles live in the
-  realm namespace. This is the shape the app **auto-provisions**
-  ([Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning)).
+  realm namespace.
 - **Hierarchical groups → `groups` claim** — a navigable group tree; see
   [Group Membership Mapper](#group-membership-mapper-groups-path) below.
 
@@ -230,7 +232,7 @@ Create an OpenID Connect client named `epistola-suite`:
 
 - Client authentication: ON (confidential)
 - Standard flow: ON
-- Service accounts: ON (needed for tenant group provisioning)
+- Service accounts: not required (Epistola makes no Keycloak Admin API calls)
 - Valid redirect URIs: your app URL (e.g., `http://localhost:4000/*`)
 
 ### Recommended: client roles (step by step)
@@ -298,13 +300,10 @@ scopes → `epistola-suite-dedicated` → Add mapper → By configuration → Us
   while the browser OAuth2 login path reads the **ID token / userinfo**; omitting one breaks
   that surface.
 
-> **Coexistence with auto-provisioning.** If the app runs with mapper auto-provisioning
-> (`ensureGroups: true`) it also ensures a realm-role mapper named `epistola-realm-roles`
-> that writes the **same** `roles` claim. Multiple multivalued mappers targeting one claim
-> are merged into a single array, so the two coexist fine — the realm-role mapper simply
-> contributes nothing when you assign no realm roles. The app will not touch your
-> differently-named `epistola-client-roles` mapper (it logs a one-line WARN that another
-> mapper writes `roles`, then leaves it alone).
+> **Multiple mappers, one claim.** If several multivalued mappers target the same `roles`
+> claim (e.g. a client-role mapper and a realm-role mapper), Keycloak merges them into a
+> single array — so they coexist fine, and a mapper simply contributes nothing when you
+> assign none of its roles.
 
 #### 2d. Verify
 
@@ -319,10 +318,8 @@ scopes → `epistola-suite-dedicated` → Add mapper → By configuration → Us
 
 ### Group Membership Mapper (groups path)
 
-Prefer hierarchical groups instead of (or alongside) client roles? This can be configured
-manually via the admin UI (steps below), or auto-provisioned by the app — see
-[Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning) for the
-managed-Keycloak setup.
+Prefer hierarchical groups instead of (or alongside) client roles? Configure this manually
+via the admin UI (steps below).
 
 Add a protocol mapper to the `epistola-suite` client:
 
@@ -349,94 +346,13 @@ Create the hierarchical group structure:
 5. Under `global`, create the same five role groups
 6. Under `platform`, create: `tenant-manager`, `platform-observer`
 
-Alternatively, configure the chart with `oidc.enabled: true` and `keycloakAdmin.ensureGroups: true` to have the app create the base structure automatically on startup (see below).
-
 #### Assign users to groups
 
 Assign users to the leaf groups (e.g., `/epistola/tenants/demo/content-viewer`). Assigning to intermediate groups (e.g., `/epistola/tenants/demo`) has no effect on authorization.
 
-## Automatic Tenant Provisioning
-
-When the `keycloakAdmin` client secret is configured, Epistola automatically creates hierarchical Keycloak groups when a new tenant is created via the UI. The four role groups are created under `/epistola/tenants/{key}/`:
-
-- `/epistola/tenants/{key}/content-viewer`
-- `/epistola/tenants/{key}/content-author`
-- `/epistola/tenants/{key}/document-generator`
-- `/epistola/tenants/{key}/tenant-administrator`
-
-When a tenant is deleted, the entire `/epistola/tenants/{key}` group is removed (Keycloak cascades to sub-groups).
-
-### Base Group Initialization
-
-For environments without a realm import (e.g., production with an externally managed Keycloak), enable automatic creation of the base group hierarchy on startup:
-
-```yaml
-oidc:
-  enabled: true
-  clientId: epistola-suite
-  issuerUri: https://keycloak.example.com/realms/epistola
-  existingSecret: epistola-keycloak-client
-
-keycloakAdmin:
-  enabled: true
-  adminUrl: https://keycloak.example.com
-  realm: epistola
-  clientId: epistola-suite
-  existingSecret: epistola-keycloak-client
-  ensureGroups: true # disabled by default
-```
-
-This creates `/epistola/tenants`, `/epistola/global/*`, and `/epistola/platform/*` if they don't exist. The operation is idempotent.
-
-### Automatic Client Mapper Provisioning
-
-With `ensureGroups: true`, Epistola ensures **two** protocol mappers exist on its own
-client (`clientId`) on startup, so the JWT carries both supported claim shapes out of
-the box:
-
-- `epistola-groups` — Group Membership mapper writing `claim.name=groups`, with
-  `full.path=true`, included in ID/access/userinfo tokens.
-- `epistola-realm-roles` — User Realm Role mapper writing the configured flat-roles
-  claim (default `roles`), `multivalued=true`, included in ID/access/userinfo tokens.
-
-For each mapper:
-
-- If no mapper writing the target claim exists → creates the canonical one.
-- If a mapper with the canonical name exists but its config has drifted → updates it
-  back to the canonical config (self-heal).
-- If a mapper with a _different_ name already writes the target claim → logs a WARN and
-  leaves it alone, so deliberate operator config is not clobbered.
-
-If the service account is missing the `manage-clients` realm-management role, the app
-logs a warning and the rest of startup continues. In that case, configure the mappers
-manually (see [Group Membership Mapper](#group-membership-mapper-groups-path) above) or
-grant the role.
-
-### Configuration
-
-```yaml
-oidc:
-  enabled: true
-  clientId: epistola-suite
-  issuerUri: http://localhost:8080/realms/epistola
-  existingSecret: epistola-keycloak-client
-
-keycloakAdmin:
-  enabled: true
-  adminUrl: http://localhost:8080 # Keycloak admin base URL
-  realm: epistola # Realm name
-  clientId: epistola-suite # Client with service account
-  existingSecret: epistola-keycloak-client
-  ensureGroups: false # Create base group hierarchy on startup
-```
-
-The `epistola-suite` client's service account needs `realm-management` client roles:
-
-- `manage-users` — required for creating and deleting groups
-- `view-users` — required for listing groups
-- `query-users` — required for searching groups
-- `manage-clients` — required when `ensureGroups: true` so the app can manage its own
-  client's Group Membership protocol mapper (see [Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning))
+The groups and protocol mappers above are configured **in Keycloak** (realm import, Terraform, or
+by hand). Epistola reads the resulting `groups` / `roles` claims from the token; it does not manage
+Keycloak groups or mappers itself.
 
 ## Local Development
 
@@ -472,7 +388,7 @@ Logging out of Epistola also ends the Keycloak SSO session (via OIDC RP-Initiate
 
 ## JWT Claim Example
 
-After login against an auto-provisioned Keycloak, the JWT contains both shapes for the
+After login against a correctly configured Keycloak, the JWT contains both shapes for the
 same effective memberships:
 
 ```json

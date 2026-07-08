@@ -55,4 +55,65 @@ class OidcBackchannelConfigurationTest {
         )
         assertThat(result).isEqualTo("http://keycloak:8080")
     }
+
+    // authentik advertises OIDC endpoints under /application/o/... (not Keycloak's
+    // /protocol/openid-connect/...). Host-rewrite must preserve whatever path the provider's
+    // discovery document advertises, making no provider-specific path assumption.
+    @Test
+    fun `rewriteUrl preserves authentik token endpoint path`() {
+        val result = OidcBackchannelConfiguration.rewriteUrl(
+            "https://sso.example.com/application/o/token/",
+            "http://authentik:9000",
+        )
+        assertThat(result).isEqualTo("http://authentik:9000/application/o/token/") // gitleaks:allow
+    }
+
+    @Test
+    fun `rewriteUrl preserves authentik jwks endpoint path`() {
+        val result = OidcBackchannelConfiguration.rewriteUrl(
+            "https://sso.example.com/application/o/epistola/jwks/",
+            "http://authentik:9000",
+        )
+        assertThat(result).isEqualTo("http://authentik:9000/application/o/epistola/jwks/") // gitleaks:allow
+    }
+
+    // The authorization endpoint is recombined onto the EXTERNAL issuer origin (not the internal
+    // host the discovery document may advertise), so the browser is always redirected externally.
+    @Test
+    fun `originOf returns the scheme host and port of an authentik issuer with a path`() {
+        val origin = OidcBackchannelConfiguration.originOf("https://sso.example.com/application/o/epistola/")
+        assertThat(origin).isEqualTo("https://sso.example.com")
+    }
+
+    @Test
+    fun `originOf returns the scheme host and port of a Keycloak issuer with a path`() {
+        val origin = OidcBackchannelConfiguration.originOf("https://sso.example.com/realms/epistola")
+        assertThat(origin).isEqualTo("https://sso.example.com")
+    }
+
+    @Test
+    fun `originOf returns the URL unchanged when there is no path`() {
+        assertThat(OidcBackchannelConfiguration.originOf("http://localhost:4002")).isEqualTo("http://localhost:4002")
+    }
+
+    @Test
+    fun `authorization endpoint advertised on the internal host is rewritten back to the external origin`() {
+        // Host-reflecting provider: discovery (fetched internally) advertised an internal auth URL.
+        val externalOrigin = OidcBackchannelConfiguration.originOf("https://sso.example.com/application/o/epistola/")
+        val advertisedInternal = "http://authentik:9000/application/o/authorize/" // gitleaks:allow
+        val browserUrl = OidcBackchannelConfiguration.rewriteUrl(advertisedInternal, externalOrigin)
+        assertThat(browserUrl).isEqualTo("https://sso.example.com/application/o/authorize/")
+    }
+
+    @Test
+    fun `wellKnownUrl appends discovery path for a Keycloak issuer without trailing slash`() {
+        val url = OidcBackchannelConfiguration.wellKnownUrl("https://sso.example.com/realms/epistola")
+        assertThat(url).isEqualTo("https://sso.example.com/realms/epistola/.well-known/openid-configuration")
+    }
+
+    @Test
+    fun `wellKnownUrl tolerates an authentik issuer with a trailing slash`() {
+        val url = OidcBackchannelConfiguration.wellKnownUrl("https://sso.example.com/application/o/epistola/")
+        assertThat(url).isEqualTo("https://sso.example.com/application/o/epistola/.well-known/openid-configuration")
+    }
 }

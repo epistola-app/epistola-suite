@@ -4,10 +4,10 @@ Docker Compose setup for running Epistola Suite locally.
 
 ## Services
 
-| Service       | Port | Purpose                                             |
-| ------------- | ---- | --------------------------------------------------- |
-| PostgreSQL 17 | 4001 | Application database                                |
-| Keycloak 26.5 | 8080 | OAuth2/OIDC (optional, requires `keycloak` profile) |
+| Service       | Port | Purpose                                                   |
+| ------------- | ---- | --------------------------------------------------------- |
+| PostgreSQL 18 | 4001 | Application database                                      |
+| Keycloak 26.6 | 4002 | OAuth2/OIDC (optional, local-dev only — `local,keycloak`) |
 
 ## Quick Start
 
@@ -40,7 +40,7 @@ PostgreSQL data is stored in tmpfs (RAM) — it resets on container restart. Fly
 
 ### Admin Console
 
-- URL: http://localhost:8080/admin
+- URL: http://localhost:4002/admin
 - Username: `admin`
 - Password: `admin`
 

@@ -34,7 +34,6 @@ class NoHardcodedSecretsTest {
     private val allowedConfigFiles = setOf(
         "apps/epistola/src/main/resources/application-local.yaml",
         "apps/epistola/src/main/resources/application-localauth.yaml",
-        "apps/epistola/src/main/resources/application-keycloak.yaml",
         "apps/epistola/src/main/resources/application-demo.yaml",
     )
 
