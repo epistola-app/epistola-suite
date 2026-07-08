@@ -194,4 +194,50 @@ class OAuth2UserProvisioningServiceTest {
         assertThat(syncCalls.single()[TenantKey.of("acme-corp")]).containsExactly(TenantRole.CONTENT_VIEWER)
         assertThat(syncCalls.single()[TenantKey.of("beta-org")]).containsExactly(TenantRole.CONTENT_AUTHOR)
     }
+
+    // --- Provider derivation (provider-neutral: any non-Keycloak registration is GENERIC_OIDC) ---
+
+    @Test
+    fun `deriveAuthProvider maps keycloak registration to KEYCLOAK`() {
+        assertThat(OAuth2UserProvisioningService.deriveAuthProvider("keycloak")).isEqualTo(AuthProvider.KEYCLOAK)
+        // Case-insensitive.
+        assertThat(OAuth2UserProvisioningService.deriveAuthProvider("Keycloak")).isEqualTo(AuthProvider.KEYCLOAK)
+    }
+
+    @Test
+    fun `deriveAuthProvider maps authentik and other registrations to GENERIC_OIDC`() {
+        assertThat(OAuth2UserProvisioningService.deriveAuthProvider("authentik")).isEqualTo(AuthProvider.GENERIC_OIDC)
+        assertThat(OAuth2UserProvisioningService.deriveAuthProvider("okta")).isEqualTo(AuthProvider.GENERIC_OIDC)
+        assertThat(OAuth2UserProvisioningService.deriveAuthProvider("oidc")).isEqualTo(AuthProvider.GENERIC_OIDC)
+    }
+
+    @Test
+    fun `provisions a new user via a non-keycloak registration as GENERIC_OIDC`() {
+        val created = mutableListOf<CreateUser>()
+        val newUser = existingUser().copy(provider = AuthProvider.GENERIC_OIDC)
+        val mediator = object : Mediator {
+            @Suppress("UNCHECKED_CAST")
+            override fun <R> send(command: Command<R>): R = when (command) {
+                is UpdateLastLogin -> Unit as R
+                is CreateUser -> {
+                    created.add(command)
+                    newUser as R
+                }
+                else -> error("Unexpected command: $command")
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            override fun <R> query(query: Query<R>): R = when (query) {
+                is GetUserByExternalId -> null as R // first login: user does not exist yet
+                else -> error("Unexpected query: $query")
+            }
+        }
+        val service = OAuth2UserProvisioningService(mediator, AuthProperties(autoProvision = true), null)
+
+        val principal = service.provision(oauth2User(emptyMap()), "authentik")
+
+        assertThat(created).hasSize(1)
+        assertThat(created.single().provider).isEqualTo(AuthProvider.GENERIC_OIDC)
+        assertThat(principal.email).isEqualTo("user@example.com")
+    }
 }

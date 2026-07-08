@@ -1,5 +1,6 @@
 package app.epistola.suite.security
 
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
@@ -45,6 +46,22 @@ class AuthenticationSafetyValidatorTest {
         assertThrows<IllegalStateException> {
             validator.afterSingletonsInstantiated()
         }
+    }
+
+    @Test
+    fun `local and prod are mutually exclusive regardless of auth beans`() {
+        // OAuth configured (no in-memory UserDetailsService), so this is caught by the explicit
+        // local/prod exclusivity rule, not the in-memory-users check.
+        val validator = AuthenticationSafetyValidator(
+            environment = envWith("local", "prod"),
+            userDetailsService = null,
+            clientRegistrationRepository = mockClientRegistrationRepository(),
+        )
+
+        val ex = assertThrows<IllegalStateException> {
+            validator.afterSingletonsInstantiated()
+        }
+        assertThat(ex.message).contains("mutually exclusive")
     }
 
     @Test

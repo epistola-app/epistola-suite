@@ -103,3 +103,47 @@ epistola:
       host: localhost
       port: 9090
       plaintext: true
+
+
+# ---------------------------------------------------------------------------
+# Keycloak OAuth2/OIDC for local development (opt-in).
+#
+# This document activates only when BOTH `local` and `keycloak` are active
+# (`--spring.profiles.active=local,keycloak`). `local` alone stays form-login
+# only, so the app boots without a running Keycloak — important because a
+# registration with an issuer-uri does OIDC discovery against localhost at
+# startup, which would fail if Keycloak weren't up.
+#
+# Start a local Keycloak first:
+#   docker compose -f apps/epistola/docker/docker-compose.yaml up -d
+#
+# Production / staging (k8s) do NOT use this profile — the Helm chart supplies
+# the OIDC registration via SPRING_SECURITY_OAUTH2_* env vars, for any provider
+# (Keycloak, authentik, …). See docs/authentik-setup.md / docs/keycloak-setup.md.
+# ---------------------------------------------------------------------------
+---
+spring:
+  config:
+    activate:
+      on-profile: keycloak
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: epistola-suite
+            client-secret: epistola-dev-secret
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:4002/realms/epistola
+            user-name-attribute: preferred_username
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:4002/realms/epistola
+
+epistola:
+  auth:
+    auto-provision: true # OAuth2 users are created on first login in local dev

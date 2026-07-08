@@ -50,6 +50,39 @@
           "enum": ["job", "initContainer", "embedded"]
         }
       }
+    },
+    "oidc": {
+      "type": "object",
+      "properties": {
+        "registrationId": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+$",
+          "description": "Lowercase alphanumeric only. Rendered into an env-var segment and used verbatim as the login redirect-URI segment (/login/oauth2/code/<registrationId>); Spring lowercases the registration id from env vars, so uppercase here would diverge from the redirect URI. Provider-neutral."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["enabled"],
+            "properties": { "enabled": { "const": true } }
+          },
+          "then": {
+            "required": ["existingSecret", "issuerUri"],
+            "properties": {
+              "existingSecret": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Name of the Secret holding the OIDC client secret; required when oidc.enabled is true."
+              },
+              "issuerUri": {
+                "type": "string",
+                "minLength": 1,
+                "description": "OIDC issuer URI; required when oidc.enabled is true."
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
