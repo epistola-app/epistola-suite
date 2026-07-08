@@ -5,6 +5,7 @@ import java.time.Instant
 data class VersionCheckStatus(
     val checkedAt: Instant? = null,
     val currentVersion: String? = null,
+    val metadataAvailable: Boolean = true,
     val latestVersion: String? = null,
     val channel: VersionCheckChannel? = null,
     val updateAvailable: Boolean = false,

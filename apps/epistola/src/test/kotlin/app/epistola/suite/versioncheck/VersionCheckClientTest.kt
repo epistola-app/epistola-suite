@@ -2,6 +2,7 @@ package app.epistola.suite.versioncheck
 
 import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -57,5 +58,20 @@ class VersionCheckClientTest {
         assertThat(seenUserAgent.get()).isEqualTo("epistola-suite/1.0.0-RC3")
         assertThat(document.schemaVersion).isEqualTo(1)
         assertThat(document.products[VersionCheckService.PRODUCT_KEY]?.stable?.version).isEqualTo("1.0.0")
+    }
+
+    @Test
+    fun `fetch treats missing releases document as metadata unavailable`() {
+        server.createContext("/.well-known/epistola/releases.json") { exchange ->
+            exchange.sendResponseHeaders(404, -1)
+            exchange.close()
+        }
+
+        val client = VersionCheckClient(VersionCheckConfiguration().versionCheckRestClient(VersionCheckProperties()))
+
+        assertThatThrownBy {
+            client.fetch("http://127.0.0.1:$port/.well-known/epistola/releases.json", "1.0.0")
+        }.isInstanceOf(VersionMetadataUnavailableException::class.java)
+            .hasMessageContaining("Release metadata not found")
     }
 }

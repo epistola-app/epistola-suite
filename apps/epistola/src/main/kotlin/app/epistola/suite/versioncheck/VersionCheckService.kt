@@ -31,11 +31,20 @@ class VersionCheckService(
 
         val status = try {
             val document = client.fetch(properties.wellKnownUrl, currentVersion)
-            VersionCheckEvaluator.evaluate(document, currentVersion, now)
+            VersionCheckEvaluator.evaluate(document, currentVersion, now).copy(metadataAvailable = true)
+        } catch (e: VersionMetadataUnavailableException) {
+            val unavailable = VersionCheckStatus(
+                checkedAt = now,
+                currentVersion = currentVersion,
+                metadataAvailable = false,
+            )
+            log.info("Version check metadata unavailable: {}", e.message)
+            unavailable
         } catch (e: Exception) {
             val failed = (previous ?: VersionCheckStatus(currentVersion = currentVersion)).copy(
                 checkedAt = now,
                 currentVersion = currentVersion,
+                metadataAvailable = false,
                 lastError = e.message ?: e.javaClass.simpleName,
             )
             log.warn("Version check failed: {}", e.message)
