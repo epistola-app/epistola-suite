@@ -68,6 +68,10 @@ interface ButtonDef {
   isVisible?: (view: EditorView) => boolean;
 }
 
+export interface BubbleMenuPluginOptions {
+  isEditable?: (view: EditorView) => boolean;
+}
+
 /** True when the selection sits inside a list item (any list type / depth). */
 function inListItem(view: EditorView): boolean {
   const { $from } = view.state.selection;
@@ -416,10 +420,11 @@ function showMenu(
   menuEl: HTMLElement | null,
   buttons: { el: HTMLElement; def: ButtonDef }[],
   view: EditorView,
+  isEditable: (view: EditorView) => boolean,
 ): void {
   if (!menuEl) return;
 
-  if (!view.hasFocus()) {
+  if (!view.hasFocus() || !isEditable(view)) {
     hideMenu(menuEl);
     return;
   }
@@ -450,9 +455,10 @@ function showMenu(
 // Plugin
 // ---------------------------------------------------------------------------
 
-export function bubbleMenuPlugin(schema: Schema): Plugin {
+export function bubbleMenuPlugin(schema: Schema, options: BubbleMenuPluginOptions = {}): Plugin {
   let menuEl: HTMLElement | null = null;
   let buttons: { el: HTMLElement; def: ButtonDef }[] = [];
+  const isEditable = options.isEditable ?? ((view: EditorView) => view.editable);
 
   return new Plugin({
     key: BUBBLE_MENU_KEY,
@@ -476,7 +482,7 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       };
 
       const onEditorFocus = () => {
-        showMenu(menuEl, buttons, view);
+        showMenu(menuEl, buttons, view, isEditable);
       };
 
       // While the menu is visible, re-anchor it to the selection on scroll.
@@ -492,6 +498,10 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       for (const { el, def } of buttons) {
         el.addEventListener('click', (e) => {
           e.preventDefault();
+          if (!isEditable(view)) {
+            hideMenu(menuEl);
+            return;
+          }
           def.command(view);
           view.focus();
         });
@@ -506,7 +516,7 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
 
       return {
         update(view, _prevState) {
-          showMenu(menuEl, buttons, view);
+          showMenu(menuEl, buttons, view, isEditable);
         },
 
         destroy() {

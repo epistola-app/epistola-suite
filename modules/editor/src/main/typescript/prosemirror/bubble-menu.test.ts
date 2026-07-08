@@ -1,5 +1,8 @@
 /** @vitest-environment happy-dom */
 import { describe, expect, it } from 'vitest';
+import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { bubbleMenuPlugin } from './bubble-menu.js';
 import { createMenuElement } from './bubble-menu.js';
 import { epistolaSchema } from './schema.js';
 import { richTextBlockSchema } from './richTextBlockSchema.js';
@@ -32,5 +35,30 @@ describe('bubble menu separators', () => {
     expect(mask.some((isSep, i) => isSep && mask[i + 1])).toBe(false);
     // Four non-empty groups → exactly three dividers.
     expect(mask.filter(Boolean).length).toBe(3);
+  });
+});
+
+describe('bubble menu editable guard', () => {
+  it('does not show the menu when the editor is guarded as read-only', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const state = EditorState.create({
+      schema: richTextBlockSchema,
+      doc: richTextBlockSchema.node('doc', null, [
+        richTextBlockSchema.node('paragraph', null, [richTextBlockSchema.text('Read only')]),
+      ]),
+      plugins: [bubbleMenuPlugin(richTextBlockSchema, { isEditable: () => false })],
+    });
+    const view = new EditorView(host, { state });
+
+    view.focus();
+    view.updateState(view.state);
+
+    const menu = document.body.querySelector<HTMLElement>('.pm-bubble-menu');
+    expect(menu).not.toBeNull();
+    expect(menu?.style.display).toBe('none');
+
+    view.destroy();
+    host.remove();
   });
 });

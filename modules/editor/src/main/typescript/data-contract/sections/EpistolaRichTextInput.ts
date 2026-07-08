@@ -42,7 +42,11 @@ export type RichTextInputMode = 'inline' | 'block';
  * Plugin set for a rich-text value input. Exported for tests: the capability
  * surface (lists, marks, menu) must stay derivable from the mode + schema.
  */
-export function buildRichTextInputPlugins(mode: RichTextInputMode, schema: Schema): Plugin[] {
+export function buildRichTextInputPlugins(
+  mode: RichTextInputMode,
+  schema: Schema,
+  isEditable: () => boolean = () => true,
+): Plugin[] {
   const marks = schema.marks;
   const baseBindings: Record<string, ReturnType<typeof toggleMark>> = {};
   if (marks.strong) baseBindings['Mod-b'] = toggleMark(marks.strong);
@@ -71,7 +75,7 @@ export function buildRichTextInputPlugins(mode: RichTextInputMode, schema: Schem
       gapCursor(),
       // Schema-adaptive: with the value subset schema this renders marks +
       // list buttons only (no heading/expression nodes to offer).
-      bubbleMenuPlugin(schema),
+      bubbleMenuPlugin(schema, { isEditable }),
     ];
   }
 
@@ -226,7 +230,7 @@ export class EpistolaRichTextInput extends LitElement {
   }
 
   private _buildPlugins(): Plugin[] {
-    return buildRichTextInputPlugins(this.mode, this._schema);
+    return buildRichTextInputPlugins(this.mode, this._schema, () => !this.readOnly);
   }
 
   override render() {
