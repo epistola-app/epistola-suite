@@ -22,7 +22,7 @@ class VersionCheckScheduleTest {
     }
 
     @Test
-    fun `daily window cron respects narrower spread windows`() {
+    fun `daily window minutes are the spread width not the selected minute`() {
         val properties = VersionCheckProperties(dailyWindowStartHour = 9, dailyWindowMinutes = 15)
 
         val minutes = (1..50).map {
