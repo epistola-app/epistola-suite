@@ -653,14 +653,26 @@ class CatalogHandler {
         val version: String,
     )
 
-    private fun importError(request: ServerRequest, error: String): ServerResponse {
-        if (request.isHtmx) {
-            val escaped = error.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            return ServerResponse.ok()
-                .header("Content-Type", "text/html")
-                .body("""<div class="alert alert-danger">$escaped</div>""")
+    /**
+     * Plain single-message import failures go through the global form-error
+     * slot (shaped 422; see HtmxDsl.globalFormError). The structured import
+     * responses (conflict report, schema error, migration confirm) keep
+     * rendering into the form's dedicated #import-error target instead — the
+     * text-only slot cannot hold them. Because the shaped response's primary
+     * swap is `none`, stale structured content in #import-error is OOB-reset
+     * in the same response.
+     */
+    private fun importError(request: ServerRequest, error: String): ServerResponse = request.htmx {
+        globalFormError("import-catalog-error", error)
+        oob("catalogs/list", "import-error-reset")
+        onNonHtmx {
+            page(422, "catalogs/list") {
+                "pageTitle" to "Catalogs - Epistola"
+                "activeNavSection" to "catalogs"
+                catalogListModel(request)
+                "error" to error
+            }
         }
-        return listWithError(request, error)
     }
 
     /**

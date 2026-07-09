@@ -16,6 +16,9 @@
 /* Reuse inspector input styles */
 @import '../styles/inspector.css';
 
+/* Floating bubble menu for rich-text value inputs */
+@import '../styles/bubble-menu.css';
+
 /* ============================================================================
  * Layout
  * ========================================================================== */

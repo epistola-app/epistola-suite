@@ -45,6 +45,7 @@
         <form th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}/variants/{variantId}(tenantId=${tenantId},catalogId=${catalogId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
               hx-target="#variants-section"
               hx-swap="outerHTML">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='edit-variant-error')}"></div>
             <div class="ep-dialog-body">
                 <div class="form-group">
                     <label class="ep-label" for="edit-variant-title">Title</label>

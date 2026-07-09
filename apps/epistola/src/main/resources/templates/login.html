@@ -56,7 +56,8 @@
             <!-- OAuth2 login (shown when OAuth2 is configured) -->
             <div th:if="${hasOAuth2}">
                 <a th:href="@{/oauth2/authorization/{id}(id=${oauth2RegistrationId}, popup=${param.popup != null ? 'true' : null})}"
-                   class="ep-btn ep-btn-outline" style="width: 100%;">
+                   class="ep-btn ep-btn-outline" style="width: 100%;"
+                   th:text="${ssoButtonLabel}">
                     Sign in with SSO
                 </a>
             </div>

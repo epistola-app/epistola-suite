@@ -98,6 +98,7 @@
                               hx-target="#comments-section"
                               hx-swap="innerHTML"
                               style="margin-top: var(--ep-space-4);">
+                            <div th:replace="~{epistola-web/form-error :: form-error(id='add-comment-error')}"></div>
                             <div class="form-group">
                                 <textarea name="body" class="ep-textarea" rows="3"
                                            required placeholder="Add a comment..."></textarea>
@@ -117,6 +118,7 @@
               hx-target="#feedback-content"
               hx-swap="innerHTML"
               class="ep-row">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='update-status-error')}"></div>
             <select name="status" class="ep-select ep-select-sm form-control-auto">
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>

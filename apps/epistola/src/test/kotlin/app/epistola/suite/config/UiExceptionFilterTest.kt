@@ -10,6 +10,8 @@ import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import tools.jackson.databind.json.JsonMapper
+import java.sql.BatchUpdateException
+import java.sql.SQLException
 
 @Tag("unit")
 class UiExceptionFilterTest {
@@ -81,6 +83,32 @@ class UiExceptionFilterTest {
         assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/internal-error")
         assertThat(parsed.get("detail").asString()).isEqualTo("An unexpected error occurred.")
         assertThat(parsed.get("detail").asString()).doesNotContain("boom")
+    }
+
+    @Test
+    fun `string truncation (SQLSTATE 22001) maps to a 400, not the opaque 500`() {
+        // Safety net for #608: an over-length value that slips past validation hits a
+        // VARCHAR(n) column. The fixture mirrors the real batch-insert failure chain —
+        // JDBI's UnableToExecuteStatementException (a plain RuntimeException) wrapping
+        // pgjdbc's BatchUpdateException wrapping the driver-level SQLException, with the
+        // SQLSTATE on both SQL layers, as pgjdbc sets it. 22001 carries no column info,
+        // so the message stays form-level rather than a field error.
+        val truncation = RuntimeException(
+            "Unable to execute statement",
+            BatchUpdateException(
+                "Batch entry 0 INSERT INTO code_list_entries ... was aborted",
+                "22001",
+                intArrayOf(),
+                SQLException("ERROR: value too long for type character varying(64)", "22001"),
+            ),
+        )
+        val response = runWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE, isHtmx = false, truncation)
+
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+        val parsed = objectMapper.readTree(response.contentAsString)
+        assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/bad-request")
+        assertThat(parsed.get("detail").asString()).contains("too long")
     }
 
     @Test

@@ -1,6 +1,7 @@
-# Production hardening. Pair with 'keycloak' for OAuth2/OIDC authentication.
+# Production hardening. OAuth2/OIDC comes from SPRING_SECURITY_OAUTH2_* env vars
+# (emitted by the Helm chart's oidc.* values) — no auth profile is needed.
 #
-# Usage: spring.profiles.active=prod,keycloak
+# Usage: spring.profiles.active=prod
 
 spring:
   flyway:

@@ -12,6 +12,7 @@
         <div class="card create-form-card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}" method="post">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-environment-error')}"></div>
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                         <label class="ep-label" for="name">Name</label>
                         <input type="text" id="name" name="name" class="ep-input"

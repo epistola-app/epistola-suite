@@ -857,6 +857,17 @@
     color: var(--ep-red-700);
   }
 
+  /* Global form-error slot (epistola-web/form-error fragment). Ships hidden in
+     every form; .alert's display:flex would defeat the `hidden` attribute
+     without the explicit guard. */
+  .form-global-error {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  .form-global-error[hidden] {
+    display: none;
+  }
+
   /* ── Panel patterns (existing, updated) ──────────────────────────────── */
 
   .panel-heading {

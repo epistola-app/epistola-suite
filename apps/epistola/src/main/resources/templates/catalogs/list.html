@@ -123,6 +123,7 @@
                   hx-swap="outerHTML"
                   data-reset-on-success
                   data-close-dialog-on-success="create-dialog">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='create-catalog-error')}"></div>
                 <div class="ep-dialog-body">
                     <div class="form-group">
                         <label class="ep-label" for="catalogName">Name</label>
@@ -152,6 +153,7 @@
                 <h3>Subscribe to Catalog</h3>
             </div>
             <form th:action="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}" method="post">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='subscribe-catalog-error')}"></div>
                 <div class="ep-dialog-body">
                     <div class="form-group">
                         <label class="ep-label" for="sourceUrl">Catalog URL</label>
@@ -190,10 +192,17 @@
             <div class="ep-dialog-header">
                 <h3>Import Catalog from ZIP</h3>
             </div>
+            <!-- Two error surfaces, deliberately: plain single-message failures
+                 go through the global form-error slot (shaped 422, see
+                 CatalogHandler.importError); the structured import responses
+                 (stencil-conflict report, schema error, migration-confirm
+                 prompt) render into the dedicated #import-error target — the
+                 text-only slot cannot hold them. -->
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
                   hx-encoding="multipart/form-data"
                   hx-target="#import-error"
                   hx-swap="innerHTML">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='import-catalog-error')}"></div>
                 <div class="ep-dialog-body">
                     <div id="import-error"></div>
                     <div class="form-group">
@@ -272,8 +281,8 @@
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                   hx-target="#release-dialog-container" hx-swap="innerHTML">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='release-catalog-error')}"></div>
                 <div class="ep-dialog-body">
-                    <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
                     <div class="form-group">
                         <span class="ep-label">Current published version</span>
                         <p style="margin: var(--ep-space-1) 0 0;">
@@ -417,6 +426,13 @@
         </div>
     </th:block>
 
+    <!-- OOB reset for the structured import result area. Plain single-message
+         import failures go through the global form-error slot (shaped 422 with
+         primary swap `none`), so a stale conflict report / migration prompt in
+         #import-error must be cleared explicitly in the same response
+         (CatalogHandler.importError). -->
+    <div th:fragment="import-error-reset" id="import-error" hx-swap-oob="outerHTML"></div>
+
     <!-- Inline "update?" prompt for the Import ZIP dialog: an AUTHORED ZIP below
          the current catalog schema version that the migration chain can upgrade.
          Importing migrates (mutates) the content, so we confirm first. The button
@@ -507,9 +523,8 @@
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
                   hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='upgrade-catalog-error')}"></div>
                 <div class="ep-dialog-body">
-                    <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
-
                     <th:block th:if="${diff != null}">
                         <div class="form-group">
                             <span class="ep-label">Version</span>

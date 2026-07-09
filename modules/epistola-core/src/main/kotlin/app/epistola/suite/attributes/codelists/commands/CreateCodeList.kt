@@ -52,9 +52,7 @@ data class CreateCodeList(
                 validate("sourceUrl", !sourceUrl.isNullOrBlank()) { "Source URL is required for ${sourceType.name} code lists" }
             }
         }
-        validate("entries", entries.all { it.code.isNotBlank() }) { "Entry codes must not be blank" }
-        validate("entries", entries.all { it.label.isNotBlank() }) { "Entry labels must not be blank" }
-        validate("entries", entries.map { it.code }.toSet().size == entries.size) { "Entry codes must be unique within a code list" }
+        validateCodeListEntries(entries)
     }
 }
 

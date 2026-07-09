@@ -12,6 +12,7 @@
         <div class="card create-form-card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" method="post">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-stencil-error')}"></div>
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select">

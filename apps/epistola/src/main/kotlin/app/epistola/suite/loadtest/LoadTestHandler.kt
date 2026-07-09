@@ -194,13 +194,11 @@ class LoadTestHandler(
         if (form.hasErrors()) {
             val errorMessage = form.errors.values.firstOrNull() ?: "Form validation failed"
             return request.htmx {
-                fragment("loadtest/new", "form-error") {
-                    "error" to errorMessage
-                }
+                globalFormError("start-load-test-error", errorMessage)
                 onNonHtmx {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
-                    ServerResponse.badRequest().page("loadtest/new") {
+                    page(422, "loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
                         "tenantId" to tenantKey
                         "templates" to templates
@@ -256,13 +254,11 @@ class LoadTestHandler(
             val errorMessage = e.message ?: "Failed to start load test"
 
             return request.htmx {
-                fragment("loadtest/new", "form-error") {
-                    "error" to errorMessage
-                }
+                globalFormError("start-load-test-error", errorMessage)
                 onNonHtmx {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
-                    ServerResponse.badRequest().page("loadtest/new") {
+                    page(422, "loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
                         "tenantId" to tenantKey
                         "templates" to templates

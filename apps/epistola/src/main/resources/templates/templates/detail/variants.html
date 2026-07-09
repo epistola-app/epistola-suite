@@ -16,6 +16,7 @@
                   hx-target="#variants-section"
                   hx-swap="outerHTML"
                   id="create-variant-form">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='create-variant-error')}"></div>
                 <div class="ep-dialog-body">
                     <div class="form-group">
                         <label class="ep-label" for="slug">Slug (ID)</label>

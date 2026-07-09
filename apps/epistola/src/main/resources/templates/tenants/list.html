@@ -21,6 +21,7 @@
                       hx-target="#tenant-rows"
                       hx-swap="innerHTML"
                       data-reset-on-success>
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-tenant-error')}"></div>
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                         <label for="name">Name</label>
                         <input type="text" id="name" name="name" required maxlength="100" placeholder="Tenant name"

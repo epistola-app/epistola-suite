@@ -9,19 +9,11 @@
             backLinkLabel='Load Tests'
         )}"></div>
 
-        <div id="form-error">
-            <div th:if="${error}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
-                <strong>Error:</strong> <span th:text="${error}"></span>
-            </div>
-        </div>
-
         <div class="card create-form-card" style="max-width: 40rem;">
             <div class="card-content">
                 <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
-                      th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
-                      hx-target="#form-error"
-                      hx-swap="innerHTML"
-                      hx-disinherit="hx-target hx-swap">
+                      th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='start-load-test-error')}"></div>
                     <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
                         <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Template Configuration</legend>
 
@@ -80,13 +72,6 @@
                     <li><strong>Version vs Environment:</strong> Specify either an explicit version or an environment, not both</li>
                 </ul>
             </div>
-        </div>
-    </th:block>
-
-    <!--/* Error fragment: shown when form submission fails */-->
-    <th:block th:fragment="form-error">
-        <div class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
-            <strong>Error:</strong> <span th:text="${error}"></span>
         </div>
     </th:block>
 
