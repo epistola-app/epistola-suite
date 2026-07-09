@@ -41,6 +41,10 @@ class VersionCheckClientTest {
                         "version": "1.0.0",
                         "releaseUrl": "https://epistola.app/releases/epistola-suite/1.0.0",
                         "changelogUrl": "https://epistola.app/changelog"
+                      },
+                      "support": {
+                        "minVersion": "0.9.0",
+                        "until": "2027-01-31"
                       }
                     }
                   }
@@ -57,7 +61,10 @@ class VersionCheckClientTest {
         assertThat(seenVersion.get()).isEqualTo("1.0.0-RC3")
         assertThat(seenUserAgent.get()).isEqualTo("epistola-suite/1.0.0-RC3")
         assertThat(document.schemaVersion).isEqualTo(1)
-        assertThat(document.products[VersionCheckService.PRODUCT_KEY]?.stable?.version).isEqualTo("1.0.0")
+        val product = document.products[VersionCheckService.PRODUCT_KEY]
+        assertThat(product?.stable?.version).isEqualTo("1.0.0")
+        assertThat(product?.support?.minVersion).isEqualTo("0.9.0")
+        assertThat(product?.support?.until).isEqualTo("2027-01-31")
     }
 
     @Test

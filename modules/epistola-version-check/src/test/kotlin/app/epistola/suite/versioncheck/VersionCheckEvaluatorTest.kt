@@ -51,15 +51,61 @@ class VersionCheckEvaluatorTest {
         assertThat(status.latestVersion).isNull()
     }
 
+    @Test
+    fun `versions below the minimum supported version are flagged unsupported`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseChannel(version = "1.2.0"),
+                support = SupportPolicy(minVersion = "1.1.0", until = "2027-01-31"),
+            ),
+            currentVersion = "1.0.0",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supported).isFalse()
+        assertThat(status.minSupportedVersion).isEqualTo("1.1.0")
+        assertThat(status.supportedUntil).isEqualTo("2027-01-31")
+    }
+
+    @Test
+    fun `versions at or above the minimum supported version stay supported`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseChannel(version = "1.2.0"),
+                support = SupportPolicy(minVersion = "1.1.0", until = "2027-01-31"),
+            ),
+            currentVersion = "1.1.0",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportedUntil).isEqualTo("2027-01-31")
+    }
+
+    @Test
+    fun `absent support policy leaves the install supported`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(stable = ReleaseChannel(version = "1.2.0")),
+            currentVersion = "1.0.0",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.minSupportedVersion).isNull()
+        assertThat(status.supportedUntil).isNull()
+    }
+
     private fun document(
         stable: ReleaseChannel? = null,
         prerelease: ReleaseChannel? = null,
+        support: SupportPolicy? = null,
     ) = EpistolaReleasesDocument(
         schemaVersion = 1,
         products = mapOf(
             VersionCheckService.PRODUCT_KEY to ProductReleases(
                 stable = stable,
                 prerelease = prerelease,
+                support = support,
             ),
         ),
     )

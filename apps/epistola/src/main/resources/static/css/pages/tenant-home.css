@@ -28,6 +28,19 @@
   background: var(--ep-terracotta-50);
 }
 
+.version-unsupported-card {
+  border-color: var(--ep-red-200);
+  background: var(--ep-red-50);
+}
+
+.version-unsupported-card .version-update-info {
+  color: var(--ep-red-700);
+}
+
+.version-unsupported-card .version-update-summary {
+  color: var(--ep-red-600);
+}
+
 .version-update-row {
   display: flex;
   justify-content: space-between;

@@ -29,6 +29,12 @@ object VersionCheckEvaluator {
         }
         val latestVersion = release?.version
         val latest = latestVersion?.let { SemVersion.parse(it) }
+
+        val minSupportedVersion = product.support?.minVersion
+        val minSupported = minSupportedVersion?.let { SemVersion.parse(it) }
+        // Supported unless we have a parseable floor and the running version is strictly below it.
+        val supported = minSupported == null || current >= minSupported
+
         return VersionCheckStatus(
             checkedAt = checkedAt,
             currentVersion = currentVersion,
@@ -37,6 +43,9 @@ object VersionCheckEvaluator {
             updateAvailable = latest != null && latest > current,
             releaseUrl = release?.releaseUrl,
             changelogUrl = release?.changelogUrl,
+            supported = supported,
+            minSupportedVersion = minSupportedVersion,
+            supportedUntil = product.support?.until,
             lastError = if (release == null || latest == null) "Release metadata did not include a comparable $channel version" else null,
         )
     }

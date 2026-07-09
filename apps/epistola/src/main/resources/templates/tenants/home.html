@@ -7,36 +7,10 @@
             pageDescription=${'ID: ' + tenant.id}
         )}"></div>
 
-        <div th:if="${versionUpdate != null and versionUpdate.updateAvailable}"
-             class="version-update-card"
-             role="status">
-            <div class="version-update-row">
-                <div class="version-update-info">
-                    <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
-                    <span>
-                        <strong>Epistola v<span th:text="${versionUpdate.latestVersion}">1.0.0</span> is available</strong>
-                    </span>
-                    <span class="version-update-summary"
-                          th:text="'This instance is running v' + ${versionUpdate.currentVersion} + '.'">This instance is running v0.0.0.</span>
-                </div>
-                <div class="version-update-actions">
-                    <a th:if="${versionUpdate.releaseUrl != null}"
-                       th:href="${versionUpdate.releaseUrl}"
-                       target="_blank"
-                       rel="noopener"
-                       class="ep-btn ep-btn-outline ep-btn-sm">
-                        Release
-                    </a>
-                    <a th:if="${versionUpdate.changelogUrl != null}"
-                       th:href="${versionUpdate.changelogUrl}"
-                       target="_blank"
-                       rel="noopener"
-                       class="ep-btn ep-btn-ghost ep-btn-sm">
-                        Changelog
-                    </a>
-                </div>
-            </div>
-        </div>
+        <!-- Module-contributed home notices (e.g. the version-check banner; see HomeNoticeContributor). -->
+        <th:block th:each="notice : ${homeNotices}">
+            <th:block th:replace="~{__${notice.ref}__}" />
+        </th:block>
 
         <!-- What's New compact teaser (always shown, emphasized when unseen) -->
         <div th:if="${changelogSummary != null}"

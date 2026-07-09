@@ -58,6 +58,35 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `tenant home shows unsupported banner when the running version is below the floor`() {
+        val tenant = createTenant("Version Check Unsupported")
+        metadata.setAs(
+            VersionCheckService.STATUS_KEY,
+            VersionCheckStatus(
+                checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
+                currentVersion = "1.0.0",
+                latestVersion = "1.2.0",
+                channel = VersionCheckChannel.STABLE,
+                updateAvailable = true,
+                supported = false,
+                minSupportedVersion = "1.1.0",
+                supportedUntil = "2027-01-31",
+                releaseUrl = "https://epistola.app/releases/epistola-suite/1.2.0",
+            ),
+        )
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("version-unsupported-card")
+        assertThat(response.body).contains("is no longer supported")
+        assertThat(response.body).contains("Minimum supported version is v1.1.0.")
+        assertThat(response.body).contains("Supported through 2027-01-31.")
+        // The unsupported banner replaces the ordinary update banner (which is gated on supported).
+        assertThat(response.body).doesNotContain("is available")
+    }
+
+    @Test
     fun `tenant home renders when cached status blob is unreadable`() {
         val tenant = createTenant("Version Check Drifted")
         // A blob whose shape no longer maps to VersionCheckStatus (e.g. written by an older build).

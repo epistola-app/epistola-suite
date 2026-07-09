@@ -30,6 +30,9 @@ dependencies {
     // by per-feature UI modules.
     implementation(project(":modules:epistola-web"))
 
+    // OSS release/version-check feature (daily check + tenant-home banner via the HomeNotice SPI)
+    implementation(project(":modules:epistola-version-check"))
+
     // Audit feature (PII-free "who did what, when" trail: recorder, viewer, schema)
     implementation(project(":modules:epistola-audit"))
 

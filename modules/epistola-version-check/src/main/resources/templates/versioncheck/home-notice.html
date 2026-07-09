@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Rendered by the host tenant-home page via the HomeNotice SPI. `notice.data` is the cached
+         VersionCheckStatus; the contributor only emits this when there is an update or the running
+         version is below the supported floor. Styling lives in the host's tenant-home page CSS. -->
+    <th:block th:fragment="banner">
+        <div th:if="${!notice.data.supported}"
+             class="version-update-card version-unsupported-card"
+             role="alert">
+            <div class="version-update-row">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-sm')}" />
+                    <span>
+                        <strong>Epistola v<span th:text="${notice.data.currentVersion}">0.0.0</span> is no longer supported</strong>
+                    </span>
+                    <span class="version-update-summary"
+                          th:if="${notice.data.minSupportedVersion != null}"
+                          th:text="'Minimum supported version is v' + ${notice.data.minSupportedVersion} + '.'">Minimum supported version is v1.0.0.</span>
+                    <span class="version-update-summary"
+                          th:if="${notice.data.supportedUntil != null}"
+                          th:text="'Supported through ' + ${notice.data.supportedUntil} + '.'">Supported through 2027-01-31.</span>
+                </div>
+                <div class="version-update-actions">
+                    <a th:if="${notice.data.releaseUrl != null}"
+                       th:href="${notice.data.releaseUrl}"
+                       target="_blank"
+                       rel="noopener"
+                       class="ep-btn ep-btn-outline ep-btn-sm">
+                        Release
+                    </a>
+                    <a th:if="${notice.data.changelogUrl != null}"
+                       th:href="${notice.data.changelogUrl}"
+                       target="_blank"
+                       rel="noopener"
+                       class="ep-btn ep-btn-ghost ep-btn-sm">
+                        Changelog
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${notice.data.supported and notice.data.updateAvailable}"
+             class="version-update-card"
+             role="status">
+            <div class="version-update-row">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                    <span>
+                        <strong>Epistola v<span th:text="${notice.data.latestVersion}">1.0.0</span> is available</strong>
+                    </span>
+                    <span class="version-update-summary"
+                          th:text="'This instance is running v' + ${notice.data.currentVersion} + '.'">This instance is running v0.0.0.</span>
+                </div>
+                <div class="version-update-actions">
+                    <a th:if="${notice.data.releaseUrl != null}"
+                       th:href="${notice.data.releaseUrl}"
+                       target="_blank"
+                       rel="noopener"
+                       class="ep-btn ep-btn-outline ep-btn-sm">
+                        Release
+                    </a>
+                    <a th:if="${notice.data.changelogUrl != null}"
+                       th:href="${notice.data.changelogUrl}"
+                       target="_blank"
+                       rel="noopener"
+                       class="ep-btn ep-btn-ghost ep-btn-sm">
+                        Changelog
+                    </a>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>
