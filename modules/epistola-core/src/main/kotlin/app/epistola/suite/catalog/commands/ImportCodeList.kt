@@ -1,7 +1,11 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.attributes.codelists.commands.insertEntries
+import app.epistola.suite.attributes.codelists.commands.validateCodeListEntries
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -35,6 +39,10 @@ data class ImportCodeList(
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
+
+    init {
+        validateCodeListEntries(entries)
+    }
 }
 
 @Component
@@ -82,25 +90,7 @@ class ImportCodeListHandler(
                 .bind("slug", codeListSlug)
                 .execute()
 
-            if (command.entries.isNotEmpty()) {
-                val batch = handle.prepareBatch(
-                    """
-                    INSERT INTO code_list_entries (tenant_key, catalog_key, code_list_slug, code, label, sort_order, hidden)
-                    VALUES (:tenantKey, :catalogKey, :slug, :code, :label, :sortOrder, :hidden)
-                    """,
-                )
-                for (entry in command.entries) {
-                    batch.bind("tenantKey", command.tenantKey)
-                        .bind("catalogKey", command.catalogKey)
-                        .bind("slug", codeListSlug)
-                        .bind("code", entry.code)
-                        .bind("label", entry.label)
-                        .bind("sortOrder", entry.sortOrder)
-                        .bind("hidden", entry.hidden)
-                        .add()
-                }
-                batch.execute()
-            }
+            insertEntries(handle, CodeListId(codeListSlug, CatalogId(command.catalogKey, command.tenantId)), command.entries)
 
             if (inserted) InstallStatus.INSTALLED else InstallStatus.UPDATED
         }

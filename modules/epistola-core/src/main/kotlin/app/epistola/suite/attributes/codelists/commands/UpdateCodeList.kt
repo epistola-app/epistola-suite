@@ -47,9 +47,7 @@ data class UpdateCodeList(
         validate("displayName", displayName.isNotBlank()) { "Display name is required" }
         validate("displayName", displayName.length <= MAX_NAME_LENGTH) { "Display name must be $MAX_NAME_LENGTH characters or less" }
         if (entries != null) {
-            validate("entries", entries.all { it.code.isNotBlank() }) { "Entry codes must not be blank" }
-            validate("entries", entries.all { it.label.isNotBlank() }) { "Entry labels must not be blank" }
-            validate("entries", entries.map { it.code }.toSet().size == entries.size) { "Entry codes must be unique within a code list" }
+            validateCodeListEntries(entries)
         }
     }
 }

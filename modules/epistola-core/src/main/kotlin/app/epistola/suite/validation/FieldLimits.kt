@@ -16,4 +16,13 @@ object FieldLimits {
      * and catalog names, plus the template-variant title.
      */
     const val MAX_NAME_LENGTH = 100
+
+    /**
+     * Max length for a code-list entry's `code` and `label`, matching the
+     * `code_list_entries.code VARCHAR(64)` / `label VARCHAR(200)` columns so an
+     * over-length entry is rejected with a field error instead of overflowing the
+     * column (SQLSTATE 22001, which would surface as a global 500). See issue #608.
+     */
+    const val MAX_CODE_LIST_ENTRY_CODE_LENGTH = 64
+    const val MAX_CODE_LIST_ENTRY_LABEL_LENGTH = 200
 }

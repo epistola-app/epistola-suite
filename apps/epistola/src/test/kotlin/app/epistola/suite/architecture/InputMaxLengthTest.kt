@@ -98,6 +98,27 @@ class InputMaxLengthTest {
     }
 
     /**
+     * Issue #608 (UI side): the code-list entry rows are built by JS (dynamic ids),
+     * so they can't be matched by id like the targets above. Since the strict-CSP
+     * migration (ADR 0010) the row markup lives in the static JS file rather than an
+     * inline `<script>`, so read it there. Match the inputs by their `aria-label` and
+     * pin the `maxlength` that mirrors the DB columns (`code VARCHAR(64)`,
+     * `label VARCHAR(200)`), the browser-side counterpart to the server-side
+     * `CodeListEntryLengthValidationTest`.
+     */
+    @Test
+    fun `code-list entry inputs cap at the DB column lengths`() {
+        val js = Files.readString(repoRoot.resolve("apps/epistola/src/main/resources/static/js/pages/asset-forms.js"))
+        val codeTag = inputTagByAria(js, "Entry code")
+        val labelTag = inputTagByAria(js, "Entry label")
+        assertTrue(codeTag != null && codeTag.contains("""maxlength="64""""), "entry code input must carry maxlength=\"64\": $codeTag")
+        assertTrue(labelTag != null && labelTag.contains("""maxlength="200""""), "entry label input must carry maxlength=\"200\": $labelTag")
+    }
+
+    /** Returns the full `<input …>` tag whose attributes include `aria-label="<label>"`, or null. */
+    private fun inputTagByAria(html: String, ariaLabel: String): String? = Regex("""<input\b[^>]*\baria-label="${Regex.escape(ariaLabel)}"[^>]*>""").find(html)?.value
+
+    /**
      * Negative self-test: proves the tag matcher actually finds an input and reads
      * its attributes (and returns null for a missing id), so the main test cannot
      * pass on a matcher that silently matches nothing.
