@@ -31,6 +31,10 @@
           "type": "array",
           "description": "Enclosed documents, rendered as a data-driven bullet list",
           "items": { "type": "string" }
+        },
+        "notes": {
+          "$ref": "https://epistola.app/schemas/richtext-block-v1.json",
+          "description": "Free-form rich-text notes, rendered as block content. Demonstrates nested lists in a rich-text data value."
         }
       }
     },
@@ -51,7 +55,58 @@
           "subject": "Project Update",
           "body": "I am writing to inform you about the progress of our project. Everything is on track and we expect to deliver by the end of the quarter.",
           "date": "2026-04-03",
-          "attachments": ["Project proposal (PDF)", "Budget overview (XLSX)", "Timeline (PDF)"]
+          "attachments": ["Project proposal (PDF)", "Budget overview (XLSX)", "Timeline (PDF)"],
+          "notes": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Before our next call, please review:" }]
+              },
+              {
+                "type": "ordered_list",
+                "attrs": { "listType": "decimal" },
+                "content": [
+                  {
+                    "type": "list_item",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [{ "type": "text", "text": "Deliverables", "marks": [{ "type": "strong" }] }]
+                      },
+                      {
+                        "type": "bullet_list",
+                        "attrs": { "listStyle": "circle" },
+                        "content": [
+                          {
+                            "type": "list_item",
+                            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Signed contract" }] }]
+                          },
+                          {
+                            "type": "list_item",
+                            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Kick-off schedule" }] }]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "list_item",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          { "type": "text", "text": "Confirm the budget in the " },
+                          { "type": "text", "text": "attached overview", "marks": [{ "type": "em" }] },
+                          { "type": "text", "text": "." }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
         }
       }
     ],
@@ -357,6 +412,30 @@
             }
           }
         },
+        "n-notes-label": {
+          "id": "n-notes-label",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "text", "text": "Notes:", "marks": [{ "type": "bold" }] }]
+                }
+              ]
+            }
+          }
+        },
+        "n-notes": {
+          "id": "n-notes",
+          "type": "richTextVariable",
+          "slots": [],
+          "styles": { "marginTop": "1sp" },
+          "props": { "binding": "notes" }
+        },
         "n-footer": {
           "id": "n-footer",
           "type": "pagefooter",
@@ -394,7 +473,7 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-footer", "n-addressblock", "n-letterhead", "n-separator", "n-subject", "n-body", "n-summary", "n-attachments", "n-attachments-list"]
+          "children": ["n-footer", "n-addressblock", "n-letterhead", "n-separator", "n-subject", "n-body", "n-summary", "n-attachments", "n-attachments-list", "n-notes-label", "n-notes"]
         },
         "s-attachments-list-template": {
           "id": "s-attachments-list-template",

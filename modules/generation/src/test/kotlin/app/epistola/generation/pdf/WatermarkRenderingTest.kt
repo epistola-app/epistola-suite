@@ -63,6 +63,18 @@ class WatermarkRenderingTest {
     }
 
     @Test
+    fun `watermark is stamped as header, footer and centre ghost`() {
+        // The handler draws the mark three times per page — header band, footer band,
+        // and a faint centre ghost — so a preview both signals "preview" and brands.
+        val pdfBytes = render(textDocument("Body content"), pdfaCompliant = true, watermarkText = "PREVIEW")
+        val occurrencesPerPage = pageTexts(pdfBytes).map { page -> "PREVIEW".toRegex().findAll(page).count() }
+        assertTrue(
+            occurrencesPerPage.all { it >= 3 },
+            "every page should carry the watermark three times (header, footer, centre ghost), got $occurrencesPerPage",
+        )
+    }
+
+    @Test
     fun `no watermark text when not requested`() {
         val pdfBytes = render(textDocument("Body content"), pdfaCompliant = true, watermarkText = null)
         assertFalse(pageTexts(pdfBytes).any { it.contains("PREVIEW") }, "final output must not be watermarked")

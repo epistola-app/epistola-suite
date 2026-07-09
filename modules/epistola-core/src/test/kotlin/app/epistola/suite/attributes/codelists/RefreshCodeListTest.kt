@@ -140,6 +140,48 @@ class RefreshCodeListTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `refresh with over-length source entries keeps existing entries and records last_refresh_error`() {
+        val responses = mutableListOf(
+            jsonOk(
+                """
+                [{ "code": "initial", "label": "Initial entry" }]
+                """.trimIndent(),
+            ),
+            jsonOk(
+                """
+                [{ "code": "${"x".repeat(65)}", "label": "Too long" }]
+                """.trimIndent(),
+            ),
+        )
+        installSequentialHandler(responses)
+
+        val tenant = createTenant("RefreshLong")
+        val tenantId = TenantId(tenant.id)
+        val id = CodeListId(CodeListKey.of("longsource"), CatalogId.default(tenantId))
+
+        withMediator {
+            CreateCodeList(
+                id = id,
+                displayName = "Long source",
+                sourceType = CodeListSource.URL,
+                sourceUrl = "http://127.0.0.1:$port/longsource.json",
+            ).execute()
+
+            RefreshCodeList(id).execute()
+            assertThat(ListCodeListEntries(id).query()).extracting<String> { it.code }.containsExactly("initial")
+
+            RefreshCodeList(id).execute()
+
+            assertThat(ListCodeListEntries(id).query())
+                .extracting<String> { it.code }
+                .containsExactly("initial")
+
+            val state = GetCodeList(id).query()!!
+            assertThat(state.lastRefreshError).contains("Entry codes must be 64 characters or less")
+        }
+    }
+
+    @Test
     fun `refresh sends Bearer authorization when auth_type is BEARER`() {
         val seenAuth = AtomicReference<String?>()
         installCapturingHandler(

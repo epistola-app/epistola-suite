@@ -13,7 +13,7 @@ import { wrapInList, liftListItem, sinkListItem } from 'prosemirror-schema-list'
 import { computePosition, offset, flip, shift } from '@floating-ui/dom';
 import { TEXT_SHORTCUT_COMMAND_IDS, getTextBubbleTitle } from '../shortcuts/text-runtime.js';
 
-const BUBBLE_MENU_KEY = new PluginKey('bubbleMenu');
+export const BUBBLE_MENU_KEY = new PluginKey('bubbleMenu');
 
 /** Convert a list from one type to another (e.g., bullet → ordered) by changing the node type. */
 function convertListType(view: EditorView, fromType: NodeType, toType: NodeType): void {
@@ -68,6 +68,10 @@ interface ButtonDef {
   isVisible?: (view: EditorView) => boolean;
 }
 
+export interface BubbleMenuPluginOptions {
+  isEditable?: (view: EditorView) => boolean;
+}
+
 /** True when the selection sits inside a list item (any list type / depth). */
 function inListItem(view: EditorView): boolean {
   const { $from } = view.state.selection;
@@ -77,8 +81,16 @@ function inListItem(view: EditorView): boolean {
   return false;
 }
 
-function createButtonDefs(schema: Schema): ButtonDef[] {
-  const defs: ButtonDef[] = [];
+/**
+ * Buttons grouped by section (marks, headings, lists, expression). Each group
+ * is guarded on the schema, so a schema missing a whole section yields an empty
+ * group. Empty groups are dropped, and the caller renders one divider *between*
+ * surviving groups — never leading, trailing, or doubled.
+ */
+function createButtonGroups(schema: Schema): ButtonDef[][] {
+  const groups: ButtonDef[][] = [];
+  // Accumulator for the group currently being built; flushed at each boundary.
+  let defs: ButtonDef[] = [];
 
   // Bold
   if (schema.marks.strong) {
@@ -146,14 +158,9 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     });
   }
 
-  // Separator
-  defs.push({
-    label: '',
-    title: '',
-    className: 'pm-bubble-sep',
-    isActive: () => false,
-    command: () => {},
-  });
+  // End marks group.
+  groups.push(defs);
+  defs = [];
 
   // Headings
   if (schema.nodes.heading) {
@@ -175,14 +182,9 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     }
   }
 
-  // Separator
-  defs.push({
-    label: '',
-    title: '',
-    className: 'pm-bubble-sep',
-    isActive: () => false,
-    command: () => {},
-  });
+  // End headings group.
+  groups.push(defs);
+  defs = [];
 
   // Bullet list (toggle: wrap if not in list, lift if already bullet, convert if ordered)
   if (schema.nodes.bullet_list && schema.nodes.list_item) {
@@ -287,14 +289,9 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     }
   }
 
-  // Separator
-  defs.push({
-    label: '',
-    title: '',
-    className: 'pm-bubble-sep',
-    isActive: () => false,
-    command: () => {},
-  });
+  // End lists group.
+  groups.push(defs);
+  defs = [];
 
   // Expression insert
   if (schema.nodes.expression) {
@@ -311,14 +308,17 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     });
   }
 
-  return defs;
+  // End expression group.
+  groups.push(defs);
+
+  return groups.filter((group) => group.length > 0);
 }
 
 // ---------------------------------------------------------------------------
 // Menu DOM
 // ---------------------------------------------------------------------------
 
-function createMenuElement(schema: Schema): {
+export function createMenuElement(schema: Schema): {
   menuEl: HTMLElement;
   buttons: { el: HTMLElement; def: ButtonDef }[];
 } {
@@ -326,29 +326,31 @@ function createMenuElement(schema: Schema): {
   menuEl.className = 'pm-bubble-menu';
   menuEl.style.display = 'none';
 
-  const buttonDefs = createButtonDefs(schema);
+  const groups = createButtonGroups(schema);
   const buttons: { el: HTMLElement; def: ButtonDef }[] = [];
 
-  for (const def of buttonDefs) {
-    if (def.className === 'pm-bubble-sep') {
+  // One divider between adjacent non-empty groups — never leading/trailing/doubled.
+  groups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
       const sep = document.createElement('span');
       sep.className = 'pm-bubble-sep';
       menuEl.appendChild(sep);
-      continue;
     }
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = def.className;
-    button.textContent = def.label;
-    button.title = def.title;
-    button.addEventListener('mousedown', (e) => {
-      e.preventDefault(); // Prevent blur
-      e.stopPropagation();
-    });
-    menuEl.appendChild(button);
-    buttons.push({ el: button, def });
-  }
+    for (const def of group) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = def.className;
+      button.textContent = def.label;
+      button.title = def.title;
+      button.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Prevent blur
+        e.stopPropagation();
+      });
+      menuEl.appendChild(button);
+      buttons.push({ el: button, def });
+    }
+  });
 
   return { menuEl, buttons };
 }
@@ -390,6 +392,11 @@ function updatePosition(menuEl: HTMLElement, view: EditorView): void {
   };
 
   computePosition(virtualEl, menuEl, {
+    // The menu is position: fixed and coordsAtPos yields viewport coords, so
+    // compute in viewport space too — the default 'absolute' strategy adds the
+    // page scroll offset, dropping the menu scrollY pixels too low on pages
+    // that scroll the window (the canvas editor never does, form pages do).
+    strategy: 'fixed',
     placement: 'top',
     middleware: [offset(8), flip(), shift({ padding: 8 })],
   }).then(({ x, y }) => {
@@ -413,10 +420,11 @@ function showMenu(
   menuEl: HTMLElement | null,
   buttons: { el: HTMLElement; def: ButtonDef }[],
   view: EditorView,
+  isEditable: (view: EditorView) => boolean,
 ): void {
   if (!menuEl) return;
 
-  if (!view.hasFocus()) {
+  if (!view.hasFocus() || !isEditable(view)) {
     hideMenu(menuEl);
     return;
   }
@@ -447,9 +455,10 @@ function showMenu(
 // Plugin
 // ---------------------------------------------------------------------------
 
-export function bubbleMenuPlugin(schema: Schema): Plugin {
+export function bubbleMenuPlugin(schema: Schema, options: BubbleMenuPluginOptions = {}): Plugin {
   let menuEl: HTMLElement | null = null;
   let buttons: { el: HTMLElement; def: ButtonDef }[] = [];
+  const isEditable = options.isEditable ?? ((view: EditorView) => view.editable);
 
   return new Plugin({
     key: BUBBLE_MENU_KEY,
@@ -473,13 +482,26 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       };
 
       const onEditorFocus = () => {
-        showMenu(menuEl, buttons, view);
+        showMenu(menuEl, buttons, view, isEditable);
+      };
+
+      // While the menu is visible, re-anchor it to the selection on scroll.
+      // The menu is position: fixed, so without this it stays pinned to the
+      // viewport as the page scrolls; updatePosition reads the selection's
+      // current coords, so re-running it makes the menu track the text.
+      // Capture phase catches scroll from the window and any nested scroller.
+      const onScroll = () => {
+        if (menuEl && menuEl.style.display !== 'none') updatePosition(menuEl, view);
       };
 
       // Wire up click handlers (need view reference)
       for (const { el, def } of buttons) {
         el.addEventListener('click', (e) => {
           e.preventDefault();
+          if (!isEditable(view)) {
+            hideMenu(menuEl);
+            return;
+          }
           def.command(view);
           view.focus();
         });
@@ -488,16 +510,18 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       // Append to document body for absolute positioning
       ownerDocument.body.appendChild(menuEl);
       ownerDocument.addEventListener('pointerdown', onDocumentPointerDown, true);
+      ownerDocument.addEventListener('scroll', onScroll, true);
       view.dom.addEventListener('blur', onEditorBlur, true);
       view.dom.addEventListener('focus', onEditorFocus, true);
 
       return {
         update(view, _prevState) {
-          showMenu(menuEl, buttons, view);
+          showMenu(menuEl, buttons, view, isEditable);
         },
 
         destroy() {
           ownerDocument.removeEventListener('pointerdown', onDocumentPointerDown, true);
+          ownerDocument.removeEventListener('scroll', onScroll, true);
           view.dom.removeEventListener('blur', onEditorBlur, true);
           view.dom.removeEventListener('focus', onEditorFocus, true);
           menuEl?.remove();

@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -78,24 +79,14 @@ class RefreshCodeListHandler(
             codeListClient.fetchEntries(sourceUrl, current.authType, current.credential?.value)
         } catch (e: CodeListFetchException) {
             recordRefreshError(command.id, e.message ?: "fetch failed")
-            return jdbi.withHandle<CodeList?, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT slug, tenant_key, catalog_key, display_name, description,
-                           source_type, source_url, auth_type, credential,
-                           last_refreshed_at, last_refresh_error,
-                           created_at, updated_at
-                    FROM code_lists
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
-                    """,
-                )
-                    .bind("tenantKey", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
-                    .bind("slug", command.id.key)
-                    .mapTo<CodeList>()
-                    .findOne()
-                    .orElse(null)
-            }
+            return load(command.id)
+        }
+
+        try {
+            validateCodeListEntries(fetched)
+        } catch (e: ValidationException) {
+            recordRefreshError(command.id, e.message)
+            return load(command.id)
         }
 
         return jdbi.inTransaction<CodeList, Exception> { handle ->
@@ -147,5 +138,24 @@ class RefreshCodeListHandler(
                 .bind("error", message)
                 .execute()
         }
+    }
+
+    private fun load(id: CodeListId): CodeList? = jdbi.withHandle<CodeList?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT slug, tenant_key, catalog_key, display_name, description,
+                   source_type, source_url, auth_type, credential,
+                   last_refreshed_at, last_refresh_error,
+                   created_at, updated_at
+            FROM code_lists
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+            """,
+        )
+            .bind("tenantKey", id.tenantKey)
+            .bind("catalogKey", id.catalogKey)
+            .bind("slug", id.key)
+            .mapTo<CodeList>()
+            .findOne()
+            .orElse(null)
     }
 }

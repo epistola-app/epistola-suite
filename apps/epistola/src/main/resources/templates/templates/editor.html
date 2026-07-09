@@ -33,6 +33,10 @@
             background: var(--ep-white);
             flex-shrink: 0;
             gap: var(--ep-space-3);
+            /* Establish a stacking context above the bubble menu (--ep-z-dropdown)
+               so the nav occludes it when a selection scrolls up under the bar. */
+            position: relative;
+            z-index: var(--ep-z-sticky);
         }
         .editor-nav-back {
             display: flex;

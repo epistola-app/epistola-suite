@@ -124,11 +124,15 @@ class DocumentPreviewRenderer(
 
     companion object {
         /**
-         * Watermark stamped on every preview/draft render. Marks the output as a
-         * preview so the fast synchronous preview path (editor, REST `/preview`,
-         * MCP `preview_document`) can't be mistaken for — or abused as — the real
-         * generation endpoint. Final/batch generation passes no watermark.
+         * Watermark stamped on every preview/draft render. Rendered as a
+         * header/footer brand band plus a faint centre ghost (see
+         * [WatermarkEventHandler][app.epistola.generation.pdf.WatermarkEventHandler]),
+         * so it marks the output as a preview and doubles as brand awareness while
+         * keeping the body readable. Ensures the fast synchronous preview path
+         * (editor, REST `/preview`, MCP `preview_document`) can't be mistaken for —
+         * or abused as — the real generation endpoint. Final/batch generation passes
+         * no watermark.
          */
-        const val PREVIEW_WATERMARK = "PREVIEW"
+        const val PREVIEW_WATERMARK = "Epistola Preview"
     }
 }

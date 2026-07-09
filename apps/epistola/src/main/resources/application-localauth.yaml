@@ -2,8 +2,8 @@
 # Override credentials and roles via env vars for non-local environments.
 #
 # Usage:
-#   - local,keycloak,localauth  -> Form login + OAuth2 with custom credentials
-#   - keycloak,demo,localauth   -> Staging with both auth methods
+#   - local,keycloak,localauth  -> Local dev: form login + OAuth2 (local Keycloak)
+#   - demo,localauth            -> Staging: form login + OAuth2 (OIDC from env vars)
 #
 # Override example:
 #   LOCAL_AUTH_ADMIN_USERNAME=admin@staging LOCAL_AUTH_ADMIN_PASSWORD=s3cret
