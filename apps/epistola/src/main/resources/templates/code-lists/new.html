@@ -16,6 +16,7 @@
                 <form th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
                       method="post" id="code-list-form"
                       data-radio-panes="sourceType" data-pane-attr="data-source-pane">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-code-list-error')}"></div>
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-select" required>

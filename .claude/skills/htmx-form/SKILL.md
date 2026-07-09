@@ -127,6 +127,30 @@ Templates receive `tenantId.value` (String), never the wrapper. Commands/queries
 - `errors`: `Map<String, String>` — multi-field form validation (field name → message)
 - `error`: single `String` — operation-level error message
 
+### Global form error slot (required on every data-entry form)
+
+Every data-entry form includes the shared slot as the **first child** of the `<form>`, with a page-unique kebab-case id:
+
+```html
+<form id="create-tenant-form" hx-post="/tenants" ...>
+  <div th:replace="~{epistola-web/form-error :: form-error(id='create-tenant-error')}"></div>
+  ...
+</form>
+```
+
+The slot renders the standardized `error` model key when present (full renders and fragment re-renders), is filled by the client safety net on unhandled 4xx/5xx, and is cleared automatically on the form's next HTMX request. For handled operation-level failures, prefer a **shaped error response** from the handler:
+
+```kotlin
+return request.htmx {
+    globalFormError("create-tenant-error", errorMessage) // 422 by default; e.g. statusCode = 409 for a conflict
+    onNonHtmx { page(422, "tenants/list") { "error" to errorMessage } }
+}
+```
+
+Skip the slot on action-only forms (one-click submit, hidden inputs only) and GET filter/search forms — the top-of-page banner covers those.
+
+**Multiple slots on one page:** the `error` model key is page-global, so if a single render emits **two or more slotted forms**, `"error" to msg` lights up _all_ of them. On a page with 2+ simultaneously-visible slotted forms, report failures via `globalFormError()` (id-scoped OOB) rather than a full re-render with `error`. Single-form pages and dialog forms that re-render as their own fragment are unaffected. See `docs/htmx.md` → "Global Form Errors".
+
 ### Delete pattern
 
 All list/detail page deletes use `openConfirmDialog()`:

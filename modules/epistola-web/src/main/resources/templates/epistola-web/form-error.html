@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    Global (operation-level) form error field.
+
+    Every data-entry form includes the `form-error` slot once, near the top of
+    the form. It is filled three ways:
+    - a full render with the standardized `error` model key (single
+      operation-level message, see the htmx-form skill) shows it directly;
+    - handlers report handled failures with the HTMX DSL's
+      `globalFormError(errorId, message)` — an OOB swap of the
+      `form-error-oob` fragment below plus a real 4xx/5xx status;
+    - the client safety net in app-shell.js fills it for unhandled 4xx/5xx.
+    The slot is cleared automatically when the form issues its next HTMX
+    request (app-shell.js).
+    -->
+
+    <!-- The slot: include once per form with a page-unique id. -->
+    <div th:fragment="form-error(id)"
+         th:id="${id}"
+         class="alert alert-error form-global-error"
+         data-form-error
+         role="alert"
+         th:hidden="${error == null || #strings.isEmpty(error)}"
+         th:text="${error}"></div>
+
+    <!-- OOB variant: replaces the slot in shaped error responses (globalFormError). -->
+    <div th:fragment="form-error-oob(id, message)"
+         th:id="${id}"
+         class="alert alert-error form-global-error"
+         data-form-error
+         role="alert"
+         hx-swap-oob="outerHTML"
+         th:text="${message}"></div>
+</body>
+</html>

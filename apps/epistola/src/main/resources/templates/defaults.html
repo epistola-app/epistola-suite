@@ -11,8 +11,6 @@
             Defaults saved successfully.
         </div>
 
-        <div class="alert alert-error" th:if="${error}" th:text="${error}"></div>
-
         <div class="card">
             <div class="card-header">
                 <h2>Default locale</h2>
@@ -24,6 +22,7 @@
             </div>
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/defaults/locale(tenantId=${tenantId})}" method="post">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='defaults-locale-error')}"></div>
                     <p class="form-hint">
                         <strong>Effective locale:</strong>
                         <span th:text="${effectiveLocale}">en-US</span>

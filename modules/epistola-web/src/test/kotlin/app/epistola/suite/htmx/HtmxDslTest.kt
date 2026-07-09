@@ -190,6 +190,41 @@ class HtmxDslTest {
         }
 
         @Test
+        fun `status overrides the response status`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows")
+                status(409)
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
+
+        @Test
+        fun `globalFormError sets error status and disables the primary swap`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                globalFormError("create-tenant-error", "Something went wrong")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+        }
+
+        @Test
+        fun `globalFormError with explicit status uses it`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                globalFormError("create-tenant-error", "Nope", statusCode = 409)
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
+
+        @Test
         fun `multiple headers can be set`() {
             val request = createHtmxRequest()
 

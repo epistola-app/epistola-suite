@@ -112,10 +112,8 @@
               hx-swap="innerHTML"
               data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane"
 >
+            <div th:replace="~{epistola-web/form-error :: form-error(id='edit-attribute-error')}"></div>
             <div class="ep-dialog-body">
-                <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
-                    <span th:text="${error}"></span>
-                </div>
                 <div class="form-group">
                     <label class="ep-label" for="edit-attr-displayName">Display Name</label>
                     <input type="text" id="edit-attr-displayName" name="displayName" class="ep-input" maxlength="100"
