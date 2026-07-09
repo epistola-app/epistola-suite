@@ -13,6 +13,8 @@ data class VersionCheckStatus(
     val changelogUrl: String? = null,
     /** False when the running version is below the product's minimum supported version. */
     val supported: Boolean = true,
+    /** True when still supported but [supportedUntil] falls within the deprecation-warning window. */
+    val supportEndingSoon: Boolean = false,
     /** The product's minimum supported version, when the metadata declares one. */
     val minSupportedVersion: String? = null,
     /** ISO date (`YYYY-MM-DD`) until which the minimum supported version is supported, if declared. */

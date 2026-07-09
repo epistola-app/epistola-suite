@@ -40,7 +40,41 @@
             </div>
         </div>
 
-        <div th:if="${notice.data.supported and notice.data.updateAvailable}"
+        <div th:if="${notice.data.supported and notice.data.supportEndingSoon}"
+             class="version-update-card version-ending-card"
+             role="status">
+            <div class="version-update-row">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-sm')}" />
+                    <span>
+                        <strong>Support ends on <span th:text="${notice.data.supportedUntil}">2027-01-31</span></strong>
+                    </span>
+                    <span class="version-update-summary"
+                          th:if="${notice.data.updateAvailable}"
+                          th:text="'Upgrade to v' + ${notice.data.latestVersion} + ' to stay supported.'">Upgrade to v1.2.0 to stay supported.</span>
+                    <span class="version-update-summary"
+                          th:unless="${notice.data.updateAvailable}">Upgrade before then to stay supported.</span>
+                </div>
+                <div class="version-update-actions">
+                    <a th:if="${notice.data.releaseUrl != null}"
+                       th:href="${notice.data.releaseUrl}"
+                       target="_blank"
+                       rel="noopener"
+                       class="ep-btn ep-btn-outline ep-btn-sm">
+                        Release
+                    </a>
+                    <a th:if="${notice.data.changelogUrl != null}"
+                       th:href="${notice.data.changelogUrl}"
+                       target="_blank"
+                       rel="noopener"
+                       class="ep-btn ep-btn-ghost ep-btn-sm">
+                        Changelog
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${notice.data.supported and !notice.data.supportEndingSoon and notice.data.updateAvailable}"
              class="version-update-card"
              role="status">
             <div class="version-update-row">

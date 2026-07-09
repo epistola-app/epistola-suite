@@ -87,6 +87,36 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `tenant home shows deprecation warning when support is ending soon`() {
+        val tenant = createTenant("Version Check Ending")
+        metadata.setAs(
+            VersionCheckService.STATUS_KEY,
+            VersionCheckStatus(
+                checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
+                currentVersion = "1.1.0",
+                latestVersion = "1.2.0",
+                channel = VersionCheckChannel.STABLE,
+                updateAvailable = true,
+                supported = true,
+                supportEndingSoon = true,
+                minSupportedVersion = "1.1.0",
+                supportedUntil = "2026-08-01",
+                releaseUrl = "https://epistola.app/releases/epistola-suite/1.2.0",
+            ),
+        )
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("version-ending-card")
+        assertThat(response.body).contains("Support ends on <span>2026-08-01</span>")
+        assertThat(response.body).contains("Upgrade to v1.2.0 to stay supported.")
+        // The amber deprecation banner supersedes the ordinary update banner.
+        assertThat(response.body).doesNotContain("is available")
+        assertThat(response.body).doesNotContain("version-unsupported-card")
+    }
+
+    @Test
     fun `tenant home renders when cached status blob is unreadable`() {
         val tenant = createTenant("Version Check Drifted")
         // A blob whose shape no longer maps to VersionCheckStatus (e.g. written by an older build).

@@ -66,9 +66,15 @@ from tags.
 - **`support.minVersion`:** installations strictly below this are flagged **unsupported** (a distinct
   banner urging an upgrade) instead of the ordinary "update available" banner. Omit the whole
   `support` block to disable support flagging.
-- **`support.until`:** informational ISO date (`YYYY-MM-DD`) through which the floor is supported;
-  shown to operators so they can plan. Support status itself is decided purely by version
-  comparison, not by this date.
+- **`support.until`:** ISO date (`YYYY-MM-DD`) through which the floor is supported. A still-supported
+  install whose `until` falls within `epistola.version-check.deprecation-warning-window` (default
+  `90d`) of the check date gets an amber "support ending" banner to plan an upgrade; outside that
+  window nothing extra shows. Support status itself (supported vs not) is decided purely by version
+  comparison against `minVersion`, not by this date.
+
+Effective banner precedence on the tenant home page: **unsupported** (below `minVersion`, red) →
+**support ending** (supported, `until` within the window, amber) → **update available** (supported,
+newer release, terracotta).
 
 All fields are optional and unknown fields are ignored, so the document can evolve without breaking
 older installations. A missing document (404), an unparseable body, or a version that cannot be

@@ -15,6 +15,12 @@ data class VersionCheckProperties(
      * stable run time while installs are spread across this window.
      */
     val dailyWindowMinutes: Int = 60,
+    /**
+     * How far ahead of a version's end-of-support date the "support ending" (deprecation) warning
+     * starts showing. A still-supported install whose `supportedUntil` falls within this window of
+     * the check date gets an amber heads-up to plan an upgrade; outside it, nothing extra shows.
+     */
+    val deprecationWarningWindow: Duration = Duration.ofDays(90),
     val connectTimeout: Duration = Duration.ofSeconds(3),
     val readTimeout: Duration = Duration.ofSeconds(5),
 )

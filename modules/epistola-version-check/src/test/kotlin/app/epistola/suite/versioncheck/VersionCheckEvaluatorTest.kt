@@ -83,6 +83,51 @@ class VersionCheckEvaluatorTest {
     }
 
     @Test
+    fun `support ending within the window flags a deprecation warning`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseChannel(version = "1.2.0"),
+                support = SupportPolicy(minVersion = "1.1.0", until = "2026-08-01"),
+            ),
+            currentVersion = "1.1.0",
+            checkedAt = checkedAt, // 2026-07-08 → 24 days out, inside 90d
+        )
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportEndingSoon).isTrue()
+    }
+
+    @Test
+    fun `support ending beyond the window does not warn`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseChannel(version = "1.2.0"),
+                support = SupportPolicy(minVersion = "1.1.0", until = "2027-01-31"),
+            ),
+            currentVersion = "1.1.0",
+            checkedAt = checkedAt, // 2026-07-08 → well beyond 90d
+        )
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportEndingSoon).isFalse()
+    }
+
+    @Test
+    fun `unsupported versions do not also warn about ending support`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseChannel(version = "1.2.0"),
+                support = SupportPolicy(minVersion = "1.1.0", until = "2026-08-01"),
+            ),
+            currentVersion = "1.0.0",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supported).isFalse()
+        assertThat(status.supportEndingSoon).isFalse()
+    }
+
+    @Test
     fun `absent support policy leaves the install supported`() {
         val status = VersionCheckEvaluator.evaluate(
             document(stable = ReleaseChannel(version = "1.2.0")),

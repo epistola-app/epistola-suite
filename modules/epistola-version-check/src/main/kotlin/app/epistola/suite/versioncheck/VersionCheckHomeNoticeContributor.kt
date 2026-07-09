@@ -16,7 +16,7 @@ class VersionCheckHomeNoticeContributor(
 ) : HomeNoticeContributor {
     override fun notices(context: UiRequestContext): List<HomeNotice> {
         val status = service.status() ?: return emptyList()
-        if (status.supported && !status.updateAvailable) return emptyList()
+        if (status.supported && !status.updateAvailable && !status.supportEndingSoon) return emptyList()
         return listOf(HomeNotice(template = "versioncheck/home-notice", fragment = "banner", data = status))
     }
 }

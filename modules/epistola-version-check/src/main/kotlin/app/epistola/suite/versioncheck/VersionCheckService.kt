@@ -44,7 +44,7 @@ class VersionCheckService(
 
         val status = try {
             val document = client.fetch(properties.wellKnownUrl, currentVersion)
-            VersionCheckEvaluator.evaluate(document, currentVersion, now)
+            VersionCheckEvaluator.evaluate(document, currentVersion, now, properties.deprecationWarningWindow)
         } catch (e: VersionMetadataUnavailableException) {
             // Metadata temporarily absent (404) — keep any previously known update, like the
             // generic-failure path below, so a transient blip doesn't hide the banner.

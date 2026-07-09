@@ -41,6 +41,19 @@
   color: var(--ep-red-600);
 }
 
+.version-ending-card {
+  border-color: var(--ep-amber-200);
+  background: var(--ep-amber-50);
+}
+
+.version-ending-card .version-update-info {
+  color: var(--ep-amber-800);
+}
+
+.version-ending-card .version-update-summary {
+  color: var(--ep-amber-700);
+}
+
 .version-update-row {
   display: flex;
   justify-content: space-between;

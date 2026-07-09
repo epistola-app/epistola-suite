@@ -1,13 +1,17 @@
 package app.epistola.suite.versioncheck
 
 import app.epistola.suite.version.SemVersion
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 object VersionCheckEvaluator {
     fun evaluate(
         document: EpistolaReleasesDocument,
         currentVersion: String,
         checkedAt: Instant,
+        deprecationWindow: Duration = Duration.ofDays(90),
     ): VersionCheckStatus {
         val current = SemVersion.parse(currentVersion)
             ?: return VersionCheckStatus(checkedAt = checkedAt, currentVersion = currentVersion)
@@ -35,6 +39,9 @@ object VersionCheckEvaluator {
         // Supported unless we have a parseable floor and the running version is strictly below it.
         val supported = minSupported == null || current >= minSupported
 
+        val supportedUntil = product.support?.until
+        val supportEndingSoon = supported && withinDeprecationWindow(supportedUntil, checkedAt, deprecationWindow)
+
         return VersionCheckStatus(
             checkedAt = checkedAt,
             currentVersion = currentVersion,
@@ -44,9 +51,19 @@ object VersionCheckEvaluator {
             releaseUrl = release?.releaseUrl,
             changelogUrl = release?.changelogUrl,
             supported = supported,
+            supportEndingSoon = supportEndingSoon,
             minSupportedVersion = minSupportedVersion,
-            supportedUntil = product.support?.until,
+            supportedUntil = supportedUntil,
             lastError = if (release == null || latest == null) "Release metadata did not include a comparable $channel version" else null,
         )
+    }
+
+    /** True when [until] (an ISO date) is on or before [checkedAt] + [window] — i.e. the end of
+     *  support is within the deprecation-warning window (or already past). Unparseable dates never
+     *  warn. */
+    private fun withinDeprecationWindow(until: String?, checkedAt: Instant, window: Duration): Boolean {
+        val untilDate = until?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return false
+        val cutoff = checkedAt.atZone(ZoneOffset.UTC).toLocalDate().plusDays(window.toDays())
+        return !untilDate.isAfter(cutoff)
     }
 }
