@@ -6,6 +6,8 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.installation.InstallationService
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
@@ -22,6 +24,7 @@ class VersionCheckScheduler(
     private val service: VersionCheckService,
     private val installationService: InstallationService,
     private val properties: VersionCheckProperties,
+    private val mediator: Mediator,
 ) : ClusterScheduledTaskHandler {
     override val taskType: String = TASK_TYPE
 
@@ -37,7 +40,7 @@ class VersionCheckScheduler(
     )
 
     override fun handle(task: ClusterScheduledTask) {
-        service.checkNow()
+        MediatorContext.runWithMediator(mediator) { service.checkNow() }
     }
 
     companion object {

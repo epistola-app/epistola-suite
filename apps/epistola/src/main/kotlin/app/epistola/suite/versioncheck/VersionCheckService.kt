@@ -19,11 +19,24 @@ class VersionCheckService(
 
     fun status(): VersionCheckStatus? {
         if (!properties.enabled) return null
-        return metadata.getAs<VersionCheckStatus>(STATUS_KEY)
+        return readStatus()
+    }
+
+    /**
+     * Reads the cached status, tolerating a schema-drifted blob written by an older build. The
+     * database is stable from RC1 onward (rows are never reset), so a stored [VersionCheckStatus]
+     * whose shape no longer matches must degrade to "no banner" rather than break the page it is
+     * read on (every tenant-home render).
+     */
+    private fun readStatus(): VersionCheckStatus? = try {
+        metadata.getAs<VersionCheckStatus>(STATUS_KEY)
+    } catch (e: Exception) {
+        log.debug("Ignoring unreadable cached version-check status: {}", e.message)
+        null
     }
 
     fun checkNow(): VersionCheckStatus {
-        val previous = metadata.getAs<VersionCheckStatus>(STATUS_KEY)
+        val previous = readStatus()
         val now = EpistolaClock.instant()
         if (!properties.enabled) {
             return previous ?: VersionCheckStatus(checkedAt = now, currentVersion = currentVersion)
@@ -31,12 +44,15 @@ class VersionCheckService(
 
         val status = try {
             val document = client.fetch(properties.wellKnownUrl, currentVersion)
-            VersionCheckEvaluator.evaluate(document, currentVersion, now).copy(metadataAvailable = true)
+            VersionCheckEvaluator.evaluate(document, currentVersion, now)
         } catch (e: VersionMetadataUnavailableException) {
-            val unavailable = VersionCheckStatus(
+            // Metadata temporarily absent (404) — keep any previously known update, like the
+            // generic-failure path below, so a transient blip doesn't hide the banner.
+            val unavailable = (previous ?: VersionCheckStatus(currentVersion = currentVersion)).copy(
                 checkedAt = now,
                 currentVersion = currentVersion,
                 metadataAvailable = false,
+                lastError = null,
             )
             log.info("Version check metadata unavailable: {}", e.message)
             unavailable

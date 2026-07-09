@@ -58,6 +58,19 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `tenant home renders when cached status blob is unreadable`() {
+        val tenant = createTenant("Version Check Drifted")
+        // A blob whose shape no longer maps to VersionCheckStatus (e.g. written by an older build).
+        // The DB is never reset, so such a row can survive an upgrade; it must not break the page.
+        metadata.setAs(VersionCheckService.STATUS_KEY, "not-a-version-check-status")
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).doesNotContain("version-update-card")
+    }
+
+    @Test
     fun `tenant home hides update banner when no update is available`() {
         val tenant = createTenant("Version Check Current")
         metadata.setAs(
