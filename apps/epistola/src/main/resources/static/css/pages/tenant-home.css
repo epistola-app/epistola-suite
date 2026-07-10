@@ -54,6 +54,19 @@
   color: var(--ep-amber-700);
 }
 
+.version-prerelease-card {
+  border-color: var(--ep-blue-200);
+  background: var(--ep-blue-50);
+}
+
+.version-prerelease-card .version-update-info {
+  color: var(--ep-blue-800);
+}
+
+.version-prerelease-card .version-update-summary {
+  color: var(--ep-blue-700);
+}
+
 .version-update-row {
   display: flex;
   justify-content: space-between;

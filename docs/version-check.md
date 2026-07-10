@@ -60,8 +60,10 @@ from tags.
 }
 ```
 
-- **Channel selection:** a running build that is itself a SemVer pre-release (an RC) compares against
-  `prerelease` when it is present, otherwise `stable`; a final build always compares against
+- **Stable vs pre-release build:** there is no "channel" the installation subscribes to — the
+  operator chooses which build to deploy (the Helm image tag). A final build tracks the latest
+  `stable`; a build that is itself a SemVer pre-release (RC/beta) tracks the latest `prerelease` when
+  one is published (so RC testers hear about a newer RC) **and** always references the latest
   `stable`. SemVer precedence applies (a final release outranks its own release candidates).
 - **`support.minVersion`:** installations strictly below this are flagged **unsupported** (a distinct
   banner urging an upgrade) instead of the ordinary "update available" banner. Omit the whole
@@ -73,17 +75,19 @@ from tags.
   comparison against `minVersion`, not by this date.
 
 Effective banner precedence on the tenant home page: **unsupported** (below `minVersion`, red) →
-**support ending** (supported, `until` within the window, amber) → **update available** (supported,
-newer release, terracotta).
+**support ending** (supported, `until` within the window, amber) → **pre-release** (supported
+pre-release build, blue — acknowledges the build, notes a newer pre-release if any, and links the
+latest stable) → **update available** (supported final build, newer stable, terracotta).
 
 ### Release candidates
 
-A running build that is itself a release candidate (`1.0.0-RC3`; the local `-SNAPSHOT` suffix is
-stripped first) follows the `prerelease` channel when one is published, otherwise `stable`. Support
-is compared with **strict SemVer**, where a pre-release ranks **below** its final — so `1.0.0-RC3`
-is _below_ a `1.0.0` floor and is flagged unsupported once GA is the minimum supported version.
-When an install is unsupported, the banner's Release/Changelog links point at the **stable** release
-(the GA that clears the floor), not at the prerelease the RC otherwise tracks.
+A build that is itself a release candidate (`1.0.0-RC3`; the local `-SNAPSHOT` suffix is stripped
+first) gets the blue **pre-release** banner: it acknowledges the running build, points at a newer
+pre-release when one exists, and references the latest stable so the operator can move to GA when
+ready. Support is compared with **strict SemVer**, where a pre-release ranks **below** its final —
+so `1.0.0-RC3` is _below_ a `1.0.0` floor and is flagged unsupported (red) once GA is the minimum
+supported version; in that case the banner's Release/Changelog links point at the **stable** release
+that clears the floor.
 
 All fields are optional and unknown fields are ignored, so the document can evolve without breaking
 older installations. A missing document (404), an unparseable body, or a version that cannot be

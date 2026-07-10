@@ -68,10 +68,10 @@ class VersionCheckService(
         }
         if (status.updateAvailable) {
             log.info(
-                "Epistola Suite update available: current={}, latest={}, channel={}",
+                "Epistola Suite update available: current={}, latest={}, preRelease={}",
                 status.currentVersion,
                 status.latestVersion,
-                status.channel,
+                status.preRelease,
             )
         }
         metadata.setAs(STATUS_KEY, status)

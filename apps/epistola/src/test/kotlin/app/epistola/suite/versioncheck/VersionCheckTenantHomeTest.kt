@@ -27,7 +27,6 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
                 checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
                 currentVersion = "1.0.0",
                 latestVersion = "1.0.0",
-                channel = VersionCheckChannel.STABLE,
                 updateAvailable = false,
             ),
         )
@@ -40,9 +39,9 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
             VersionCheckService.STATUS_KEY,
             VersionCheckStatus(
                 checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
-                currentVersion = "1.0.0-RC2",
+                currentVersion = "0.9.0",
                 latestVersion = "1.0.0",
-                channel = VersionCheckChannel.STABLE,
+                latestStableVersion = "1.0.0",
                 updateAvailable = true,
                 releaseUrl = "https://epistola.app/releases/epistola-suite/1.0.0",
                 changelogUrl = "https://epistola.app/changelog",
@@ -53,7 +52,7 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("Epistola v<span>1.0.0</span> is available")
-        assertThat(response.body).contains("This instance is running v1.0.0-RC2.")
+        assertThat(response.body).contains("This instance is running v0.9.0.")
         assertThat(response.body).contains("https://epistola.app/releases/epistola-suite/1.0.0")
     }
 
@@ -66,7 +65,6 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
                 checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
                 currentVersion = "1.0.0",
                 latestVersion = "1.2.0",
-                channel = VersionCheckChannel.STABLE,
                 updateAvailable = true,
                 supported = false,
                 minSupportedVersion = "1.1.0",
@@ -95,7 +93,6 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
                 checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
                 currentVersion = "1.1.0",
                 latestVersion = "1.2.0",
-                channel = VersionCheckChannel.STABLE,
                 updateAvailable = true,
                 supported = true,
                 supportEndingSoon = true,
@@ -113,6 +110,36 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
         assertThat(response.body).contains("Upgrade to v1.2.0 to stay supported.")
         // The amber deprecation banner supersedes the ordinary update banner.
         assertThat(response.body).doesNotContain("is available")
+        assertThat(response.body).doesNotContain("version-unsupported-card")
+    }
+
+    @Test
+    fun `tenant home shows pre-release banner acknowledging the build and referencing stable`() {
+        val tenant = createTenant("Version Check Prerelease")
+        metadata.setAs(
+            VersionCheckService.STATUS_KEY,
+            VersionCheckStatus(
+                checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
+                currentVersion = "1.1.0-RC1",
+                preRelease = true,
+                latestVersion = "1.1.0-RC2",
+                updateAvailable = true,
+                releaseUrl = "https://epistola.app/releases/epistola-suite/1.1.0-RC2",
+                changelogUrl = "https://epistola.app/pre/changelog",
+                latestStableVersion = "1.0.0",
+                stableReleaseUrl = "https://epistola.app/releases/epistola-suite/1.0.0",
+                supported = true,
+            ),
+        )
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("version-prerelease-card")
+        assertThat(response.body).contains("You're running a pre-release (v<span>1.1.0-RC1</span>)")
+        assertThat(response.body).contains("v1.1.0-RC2 is available.")
+        assertThat(response.body).contains("https://epistola.app/releases/epistola-suite/1.0.0")
+        // The neutral pre-release banner supersedes the terracotta "update available" one.
         assertThat(response.body).doesNotContain("version-unsupported-card")
     }
 
@@ -138,7 +165,6 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
                 checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
                 currentVersion = "1.0.0",
                 latestVersion = "1.0.0",
-                channel = VersionCheckChannel.STABLE,
                 updateAvailable = false,
             ),
         )

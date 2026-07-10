@@ -22,16 +22,13 @@ object VersionCheckEvaluator {
                 lastError = "Release metadata did not include ${VersionCheckService.PRODUCT_KEY}",
             )
 
-        val channel = if (current.isPreRelease && product.prerelease?.version != null) {
-            VersionCheckChannel.PRERELEASE
-        } else {
-            VersionCheckChannel.STABLE
-        }
-        val release = when (channel) {
-            VersionCheckChannel.STABLE -> product.stable
-            VersionCheckChannel.PRERELEASE -> product.prerelease
-        }
-        val latestVersion = release?.version
+        // The operator chose which build to deploy; we only detect whether it is a pre-release and
+        // track the newest build on that same track (a pre-release build tracks the latest
+        // pre-release when one is published, otherwise it references stable).
+        val preRelease = current.isPreRelease
+        val stable = product.stable
+        val track = if (preRelease && product.prerelease?.version != null) product.prerelease else stable
+        val latestVersion = track?.version
         val latest = latestVersion?.let { SemVersion.parse(it) }
 
         val minSupportedVersion = product.support?.minVersion
@@ -43,23 +40,26 @@ object VersionCheckEvaluator {
         val supportEndingSoon = supported && withinDeprecationWindow(supportedUntil, checkedAt, deprecationWindow)
 
         // When unsupported, the upgrade target that clears the floor is the stable (GA) release, not
-        // the prerelease an RC install otherwise tracks — so point the banner links there. Falls back
-        // to the tracked release if no stable channel is published.
-        val linkRelease = if (!supported) (product.stable ?: release) else release
+        // the pre-release an RC build otherwise tracks — so point the banner links there. Falls back
+        // to the tracked release if no stable release is published.
+        val linkRelease = if (!supported) (stable ?: track) else track
 
         return VersionCheckStatus(
             checkedAt = checkedAt,
             currentVersion = currentVersion,
+            preRelease = preRelease,
             latestVersion = latestVersion,
-            channel = channel,
             updateAvailable = latest != null && latest > current,
             releaseUrl = linkRelease?.releaseUrl,
             changelogUrl = linkRelease?.changelogUrl,
+            latestStableVersion = stable?.version,
+            stableReleaseUrl = stable?.releaseUrl,
+            stableChangelogUrl = stable?.changelogUrl,
             supported = supported,
             supportEndingSoon = supportEndingSoon,
             minSupportedVersion = minSupportedVersion,
             supportedUntil = supportedUntil,
-            lastError = if (release == null || latest == null) "Release metadata did not include a comparable $channel version" else null,
+            lastError = if (track == null || latest == null) "Release metadata did not include a comparable version" else null,
         )
     }
 

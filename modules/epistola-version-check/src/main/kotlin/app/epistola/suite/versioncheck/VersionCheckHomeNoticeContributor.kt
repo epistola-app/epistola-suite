@@ -16,7 +16,13 @@ class VersionCheckHomeNoticeContributor(
 ) : HomeNoticeContributor {
     override fun notices(context: UiRequestContext): List<HomeNotice> {
         val status = service.status() ?: return emptyList()
-        if (status.supported && !status.updateAvailable && !status.supportEndingSoon) return emptyList()
+        // Nothing to show only for an up-to-date, supported, final (non pre-release) build; a
+        // pre-release build always gets the informational banner acknowledging it.
+        val nothingToShow = status.supported &&
+            !status.preRelease &&
+            !status.updateAvailable &&
+            !status.supportEndingSoon
+        if (nothingToShow) return emptyList()
         return listOf(HomeNotice(template = "versioncheck/home-notice", fragment = "banner", data = status))
     }
 }
