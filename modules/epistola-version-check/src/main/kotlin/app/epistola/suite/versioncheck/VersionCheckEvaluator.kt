@@ -42,14 +42,19 @@ object VersionCheckEvaluator {
         val supportedUntil = product.support?.until
         val supportEndingSoon = supported && withinDeprecationWindow(supportedUntil, checkedAt, deprecationWindow)
 
+        // When unsupported, the upgrade target that clears the floor is the stable (GA) release, not
+        // the prerelease an RC install otherwise tracks — so point the banner links there. Falls back
+        // to the tracked release if no stable channel is published.
+        val linkRelease = if (!supported) (product.stable ?: release) else release
+
         return VersionCheckStatus(
             checkedAt = checkedAt,
             currentVersion = currentVersion,
             latestVersion = latestVersion,
             channel = channel,
             updateAvailable = latest != null && latest > current,
-            releaseUrl = release?.releaseUrl,
-            changelogUrl = release?.changelogUrl,
+            releaseUrl = linkRelease?.releaseUrl,
+            changelogUrl = linkRelease?.changelogUrl,
             supported = supported,
             supportEndingSoon = supportEndingSoon,
             minSupportedVersion = minSupportedVersion,

@@ -128,6 +128,37 @@ class VersionCheckEvaluatorTest {
     }
 
     @Test
+    fun `release candidate below a GA floor is unsupported with upgrade links pointing at stable`() {
+        val status = VersionCheckEvaluator.evaluate(
+            EpistolaReleasesDocument(
+                schemaVersion = 1,
+                products = mapOf(
+                    VersionCheckService.PRODUCT_KEY to ProductReleases(
+                        stable = ReleaseChannel(
+                            version = "1.0.0",
+                            releaseUrl = "https://epistola.app/releases/epistola-suite/1.0.0",
+                            changelogUrl = "https://epistola.app/changelog",
+                        ),
+                        prerelease = ReleaseChannel(
+                            version = "1.1.0-RC1",
+                            releaseUrl = "https://epistola.app/releases/epistola-suite/1.1.0-RC1",
+                            changelogUrl = "https://epistola.app/pre/changelog",
+                        ),
+                        support = SupportPolicy(minVersion = "1.0.0"),
+                    ),
+                ),
+            ),
+            currentVersion = "1.0.0-RC3", // a pre-release of the GA floor → below it
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supported).isFalse()
+        assertThat(status.channel).isEqualTo(VersionCheckChannel.PRERELEASE)
+        assertThat(status.releaseUrl).isEqualTo("https://epistola.app/releases/epistola-suite/1.0.0")
+        assertThat(status.changelogUrl).isEqualTo("https://epistola.app/changelog")
+    }
+
+    @Test
     fun `absent support policy leaves the install supported`() {
         val status = VersionCheckEvaluator.evaluate(
             document(stable = ReleaseChannel(version = "1.2.0")),

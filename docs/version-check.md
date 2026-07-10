@@ -76,6 +76,15 @@ Effective banner precedence on the tenant home page: **unsupported** (below `min
 **support ending** (supported, `until` within the window, amber) → **update available** (supported,
 newer release, terracotta).
 
+### Release candidates
+
+A running build that is itself a release candidate (`1.0.0-RC3`; the local `-SNAPSHOT` suffix is
+stripped first) follows the `prerelease` channel when one is published, otherwise `stable`. Support
+is compared with **strict SemVer**, where a pre-release ranks **below** its final — so `1.0.0-RC3`
+is _below_ a `1.0.0` floor and is flagged unsupported once GA is the minimum supported version.
+When an install is unsupported, the banner's Release/Changelog links point at the **stable** release
+(the GA that clears the floor), not at the prerelease the RC otherwise tracks.
+
 All fields are optional and unknown fields are ignored, so the document can evolve without breaking
 older installations. A missing document (404), an unparseable body, or a version that cannot be
 compared degrades gracefully to "no banner"; the tenant-home page always renders.
