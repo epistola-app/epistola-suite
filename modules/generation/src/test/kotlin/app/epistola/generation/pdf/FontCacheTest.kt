@@ -51,6 +51,33 @@ class FontCacheTest {
     }
 
     @Test
+    fun `warmUp preloads embedded and standard font faces without throwing`() {
+        // Forces the iText font class graph to load single-threaded (issue #724).
+        // Must be safe to call repeatedly and must not throw.
+        FontCache.warmUp()
+        FontCache.warmUp()
+
+        // After warmup both paths still produce usable faces.
+        assertTrue(FontCache(pdfaCompliant = true).regular.isEmbedded)
+        assertFalse(FontCache(pdfaCompliant = false).regular.isEmbedded)
+    }
+
+    @Test
+    fun `concurrent font builds after warmup do not deadlock`() {
+        FontCache.warmUp()
+
+        val threads = (1..16).map {
+            Thread.ofVirtual().unstarted {
+                val cache = FontCache(pdfaCompliant = true)
+                listOf(cache.regular, cache.bold, cache.italic, cache.boldItalic)
+            }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join(30_000) }
+        assertTrue(threads.none { it.isAlive }, "Font builds should complete without deadlocking after warmup")
+    }
+
+    @Test
     fun `caches font instances across calls`() {
         val cache = FontCache(pdfaCompliant = false)
 

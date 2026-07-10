@@ -128,6 +128,39 @@ class FontCache(
     companion object {
         private val log = LoggerFactory.getLogger(FontCache::class.java)
 
+        /**
+         * Eagerly, single-threaded, forces the iText font class graph to load.
+         *
+         * Building a [PdfFont] the first time class-inits iText's internal
+         * `OpenTypeParser` (embedded path) and the standard-font machinery, and —
+         * inside the executable Spring Boot jar — pulls the bundled TTFs out of a
+         * nested jar. Doing all of that *concurrently* for the first time (a burst
+         * of generation virtual threads after a sibling node dies) deadlocks on the
+         * classloader and nested-jar loader monitors and wedges the whole node
+         * (issue #724). Touching both the embedded and standard faces once at
+         * startup, on a single thread, resolves that class/monitor contention before
+         * any production concurrency can race it.
+         *
+         * Idempotent and cheap after the first call (fonts are cached per instance,
+         * and the classes stay loaded process-wide). Failures are logged but never
+         * thrown — warmup is an optimisation, not a correctness requirement.
+         */
+        fun warmUp() {
+            try {
+                // Embedded (PDF/A) path — drives OpenTypeParser over all four bundled TTFs.
+                FontCache(pdfaCompliant = true).apply {
+                    listOf(regular, bold, italic, boldItalic)
+                }
+                // Standard (non-embedded Helvetica) path — the other createFont branch.
+                FontCache(pdfaCompliant = false).apply {
+                    listOf(regular, bold, italic, boldItalic)
+                }
+                log.info("Font renderer warmup complete (embedded + standard faces preloaded)")
+            } catch (e: Exception) {
+                log.warn("Font renderer warmup failed; first render will pay the class-loading cost", e)
+            }
+        }
+
         /** CSS `font-weight` at or above which the built-in fallback is bold. */
         const val BOLD_THRESHOLD = 700
 
