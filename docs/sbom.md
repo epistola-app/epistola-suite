@@ -25,10 +25,10 @@ gradle :apps:epistola:generateSbom
 
 ### Frontend (TypeScript/npm)
 
-Uses [@cyclonedx/cyclonedx-npm](https://github.com/CycloneDX/cyclonedx-node-npm).
+Uses [cdxgen](https://github.com/CycloneDX/cdxgen).
 
 ```bash
-gradle :modules:editor:npmSbom
+pnpm --filter @epistola/editor sbom
 ```
 
 **Output:** `modules/editor/build/sbom.json`
@@ -36,7 +36,8 @@ gradle :modules:editor:npmSbom
 ### Generate Both
 
 ```bash
-gradle :apps:epistola:generateSbom :modules:editor:npmSbom
+gradle :apps:epistola:generateSbom
+pnpm --filter @epistola/editor sbom
 ```
 
 ## SBOM Locations
@@ -54,7 +55,7 @@ gradle :apps:epistola:generateSbom :modules:editor:npmSbom
 | -------------- | --------- | --------- |
 | Standard       | CycloneDX | CycloneDX |
 | Format         | JSON      | JSON      |
-| Schema Version | 1.6       | 1.4       |
+| Schema Version | 1.6       | 1.6       |
 | Components     | ~290      | ~55       |
 
 ## Using the SBOM
@@ -132,6 +133,42 @@ SBOMs are automatically generated and scanned during CI/CD:
 3. **On release**: Both SBOMs attached to the GitHub Release
 4. **Docker image**: Backend SBOM embedded in the container
 5. **Artifacts**: SBOMs and vulnerability reports uploaded for 7 days
+
+## Third-Party License Notices
+
+The SBOMs above are machine-readable inventories. Separately, Epistola Suite generates a
+human-readable **third-party notices** document that reproduces the copyright and full
+license texts of every bundled dependency. This satisfies the attribution requirements of
+permissive licenses (MIT/BSD/ISC copyright notices, Apache-2.0 §4, the SIL Open Font
+License for the bundled fonts). It is distinct from Epistola's own AGPL-3.0 license (see
+the repository `LICENSE`), which does not discharge third-party attribution.
+
+Unlike the SBOMs (SPDX identifiers only), the notices file inlines the actual license
+texts, gathered by dedicated tooling per ecosystem:
+
+- **Backend (JVM/Maven):** the [jk1 dependency-license-report](https://github.com/jk1/Gradle-License-Report)
+  Gradle plugin over the `runtimeClasspath` (first-party `app.epistola.*` artifacts excluded).
+- **Frontend (npm):** [generate-license-file](https://github.com/TomChristian/generate-license-file)
+  over the editor module's production dependencies.
+- **Fonts:** the bundled OFL 1.1 notices (`LICENSE-LiberationFonts` and each system font's `OFL.txt`).
+
+### Generate
+
+```bash
+# Frontend report first (the Gradle merge task reads it)
+pnpm --filter @epistola/editor notices
+# Merge backend + frontend + fonts into the consolidated file
+gradle :apps:epistola:generateThirdPartyNotices
+```
+
+**Output:** `apps/epistola/build/notices/THIRD-PARTY-NOTICES.md`
+
+### Locations
+
+| Location       | File                                       | Contents                   |
+| -------------- | ------------------------------------------ | -------------------------- |
+| GitHub Release | `THIRD-PARTY-NOTICES.md`                   | Backend + frontend + fonts |
+| Docker Image   | `META-INF/licenses/THIRD-PARTY-NOTICES.md` | Backend + frontend + fonts |
 
 ## Further Reading
 

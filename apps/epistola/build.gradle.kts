@@ -1,4 +1,7 @@
+import com.github.jk1.license.filter.LicenseBundleNormalizer
+import com.github.jk1.license.render.TextReportRenderer
 import org.cyclonedx.model.Component
+import java.io.File
 
 plugins {
     id("epistola-kotlin-conventions")
@@ -8,6 +11,7 @@ plugins {
     id("io.spring.dependency-management")
     id("org.graalvm.buildtools.native") apply false
     id("org.cyclonedx.bom")
+    id("com.github.jk1.dependency-license-report")
 }
 
 // Conditionally apply native plugin only when building native images
@@ -160,6 +164,103 @@ tasks.cyclonedxDirectBom {
     jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
 }
 
+// Third-party license inventory for the backend (JVM/Maven) runtime classpath.
+// apps:epistola pulls every :modules:* in as implementation(project(...)), so its
+// runtimeClasspath carries all transitive external artifacts. Our own first-party
+// artifacts (app.epistola*) are AGPL-covered by our LICENSE and excluded here.
+licenseReport {
+    configurations = arrayOf("runtimeClasspath")
+    excludeOwnGroup = true
+    excludeGroups = arrayOf("app\\.epistola.*")
+    filters = arrayOf(LicenseBundleNormalizer())
+    renderers = arrayOf(TextReportRenderer("third-party-backend.txt"))
+}
+
+// Merge the backend license report, the frontend (npm) report, and the bundled
+// font (OFL 1.1) notices into a single THIRD-PARTY-NOTICES.md that ships in the
+// image and as a release artifact.
+val generateThirdPartyNotices by tasks.registering {
+    group = "verification"
+    description = "Generate a consolidated THIRD-PARTY-NOTICES.md (backend + frontend + fonts)"
+    dependsOn("generateLicenseReport")
+
+    val backendReport = layout.buildDirectory.file("reports/dependency-license/third-party-backend.txt")
+    val frontendReport = rootProject.file("modules/editor/build/THIRD-PARTY-NOTICES-frontend.txt")
+    val fontNotices = buildList {
+        add(rootProject.file("modules/generation/src/main/resources/fonts/LICENSE-LiberationFonts"))
+        rootProject.file("modules/epistola-core/src/main/resources/epistola/fonts")
+            .listFiles()
+            ?.filter { it.isDirectory }
+            ?.sortedBy { it.name }
+            ?.forEach { dir ->
+                val ofl = File(dir, "OFL.txt")
+                if (ofl.exists()) add(ofl)
+            }
+    }
+    val outputFile = layout.buildDirectory.file("notices/THIRD-PARTY-NOTICES.md")
+
+    inputs.file(backendReport)
+    inputs.files(fontNotices)
+    outputs.file(outputFile)
+
+    doLast {
+        if (!frontendReport.exists()) {
+            throw GradleException(
+                """
+                Frontend license report not found at: ${frontendReport.absolutePath}
+
+                Generate it first:
+                  pnpm --filter @epistola/editor notices
+                """.trimIndent(),
+            )
+        }
+
+        val md = buildString {
+            appendLine("# Third-Party Notices")
+            appendLine()
+            appendLine("Epistola Suite is distributed under the GNU Affero General Public License v3.0")
+            appendLine("(see the `LICENSE` file at the repository root). The distributed Docker image bundles")
+            appendLine("the third-party components listed below; their copyright and license notices are")
+            appendLine("reproduced here to satisfy their license terms.")
+            appendLine()
+            appendLine("This file is generated — do not edit by hand. Regenerate with:")
+            appendLine()
+            appendLine("```")
+            appendLine("pnpm --filter @epistola/editor notices")
+            appendLine("./gradlew :apps:epistola:generateThirdPartyNotices")
+            appendLine("```")
+            appendLine()
+            appendLine("## Backend (JVM / Maven) dependencies")
+            appendLine()
+            appendLine("```")
+            append(backendReport.get().asFile.readText())
+            appendLine("```")
+            appendLine()
+            appendLine("## Frontend (npm) dependencies")
+            appendLine()
+            appendLine("```")
+            append(frontendReport.readText())
+            appendLine("```")
+            appendLine()
+            appendLine("## Bundled fonts (SIL Open Font License 1.1)")
+            appendLine()
+            fontNotices.forEach { f ->
+                appendLine("### ${f.parentFile.name}/${f.name}")
+                appendLine()
+                appendLine("```")
+                append(f.readText())
+                appendLine("```")
+                appendLine()
+            }
+        }
+
+        val out = outputFile.get().asFile
+        out.parentFile.mkdirs()
+        out.writeText(md)
+        logger.lifecycle("Wrote third-party notices to ${out.absolutePath}")
+    }
+}
+
 // Self-hosted vendor scripts: copied from the pnpm-installed packages instead of a CDN
 // (the CSP allows no external script hosts).
 val vendoredScripts = mapOf(
@@ -195,6 +296,15 @@ tasks.processResources {
     dependsOn(verifyHtmxVendored)
     from(layout.buildDirectory.file("sbom/bom.json")) {
         into("META-INF/sbom")
+    }
+    // Best-effort embed of the consolidated third-party notices for Docker distribution.
+    // Deliberately NOT wired to generateThirdPartyNotices: the jk1 license-report task is
+    // not configuration-cache compatible, so a hard dependency would discard the config
+    // cache on every build/test/bootRun. The notices are a release/distribution artifact —
+    // CI runs `generateThirdPartyNotices` explicitly before bootBuildImage; locally, run it
+    // first if you want the file inside your image. When absent, nothing is embedded.
+    from(layout.buildDirectory.file("notices/THIRD-PARTY-NOTICES.md")) {
+        into("META-INF/licenses")
     }
     // Copy design-system assets so Spring Boot serves them at /design-system/*
     from(rootProject.file("modules/design-system")) {

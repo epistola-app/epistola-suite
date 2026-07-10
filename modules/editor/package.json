@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "sbom": "mkdir -p build && npx --yes @cyclonedx/cdxgen --no-install-deps --spec-version 1.6 -o build/sbom.json"
+    "sbom": "mkdir -p build && npx --yes @cyclonedx/cdxgen --no-install-deps --spec-version 1.6 -o build/sbom.json",
+    "notices": "mkdir -p build && generate-license-file --input package.json --output build/THIRD-PARTY-NOTICES-frontend.txt --overwrite"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^2.0.0",
@@ -41,6 +42,7 @@
     "@types/node": "^24.10.4",
     "@types/qrcode": "^1.5.6",
     "@vitest/coverage-v8": "^4.0.16",
+    "generate-license-file": "^4.2.1",
     "globals": "^17.0.0",
     "happy-dom": "^20.0.0",
     "typescript": "~6.0.0",
