@@ -99,6 +99,11 @@ jobs:
           gradle :apps:epistola:generateSbom
           pnpm --filter @epistola/editor sbom
 
+      - name: Generate third-party license notices
+        run: |
+          pnpm --filter @epistola/editor notices
+          gradle :apps:epistola:generateThirdPartyNotices
+
       - name: Scan backend SBOM for vulnerabilities
         uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
@@ -559,6 +564,14 @@ jobs:
           gradle :apps:epistola:generateSbom -PreleaseVersion=$VERSION
           pnpm --filter @epistola/editor sbom
 
+      - name: Generate third-party license notices
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          pnpm --filter @epistola/editor notices
+          gradle :apps:epistola:generateThirdPartyNotices -PreleaseVersion=$VERSION
+
       - name: Build Docker image
         if: ${{ matrix.enabled }}
         env:
@@ -616,6 +629,7 @@ jobs:
           mkdir -p release-artifacts
           cp apps/epistola/build/sbom/bom.json release-artifacts/epistola-backend-sbom.json
           cp modules/editor/build/sbom.json release-artifacts/epistola-editor-sbom.json
+          cp apps/epistola/build/notices/THIRD-PARTY-NOTICES.md release-artifacts/THIRD-PARTY-NOTICES.md
 
       - name: Upload release artifacts
         if: ${{ matrix.enabled && matrix.variant == 'JVM' && startsWith(github.ref, 'refs/tags/v') }}

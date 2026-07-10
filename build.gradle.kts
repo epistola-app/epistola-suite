@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.spring.dependency.management) apply false
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.cyclonedx) apply false
+    alias(libs.plugins.dependency.license.report) apply false
     id("org.jetbrains.kotlinx.kover")
 }
 
