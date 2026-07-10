@@ -213,6 +213,23 @@ epistola:
   i18n:
     default-locale: "en-US"
 
+  # Public release metadata check. Independent from epistola.support.hub discovery:
+  # support uses /.well-known/epistola/hub.json for commercial gRPC endpoints,
+  # while this reads public OSS release channels from releases.json.
+  version-check:
+    enabled: true
+    well-known-url: "https://epistola.app/.well-known/epistola/releases.json"
+    # Daily check window in UTC. Epistola deterministically picks one minute
+    # inside this window from the stable installation id, so each installation
+    # checks at the same time every day while load is spread across the hour.
+    daily-window-start-hour: 8 # 08:00 UTC window start
+    daily-window-minutes: 60 # Spread width, not the selected minute
+    # A still-supported install whose end-of-support date falls within this window
+    # gets an amber "support ending" heads-up; outside it, nothing extra shows.
+    deprecation-warning-window: 90d
+    connect-timeout: 3s
+    read-timeout: 5s
+
   # Feedback sync scheduling. Feedback syncs to epistola-hub when the support
   # tier is enabled (epistola.support.enabled=true); otherwise these schedulers
   # run but do nothing (no-op sync target). Sync is installation-wide.

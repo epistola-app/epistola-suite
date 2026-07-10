@@ -7,6 +7,11 @@
             pageDescription=${'ID: ' + tenant.id}
         )}"></div>
 
+        <!-- Module-contributed home notices (e.g. the version-check banner; see HomeNoticeContributor). -->
+        <th:block th:each="notice : ${homeNotices}">
+            <th:block th:replace="~{__${notice.ref}__}" />
+        </th:block>
+
         <!-- What's New compact teaser (always shown, emphasized when unseen) -->
         <div th:if="${changelogSummary != null}"
              id="whats-new-banner"
