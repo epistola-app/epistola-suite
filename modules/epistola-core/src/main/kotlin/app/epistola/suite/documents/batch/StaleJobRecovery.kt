@@ -21,6 +21,17 @@ import java.util.UUID
  *
  * A job is considered stale if it has been IN_PROGRESS for longer than the configured timeout.
  * Stale jobs are reset to PENDING status so they can be claimed by another instance.
+ *
+ * Runs on **every capable node** ([ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE]),
+ * not a single elected owner. Document recovery is the guarantee that no generation
+ * job is ever permanently orphaned, so it must not itself depend on one node staying
+ * healthy: if the recovery task were single-owner and its owner wedged mid-run (holding
+ * a renewed lease), stuck documents would never be recovered — the exact self-amplifying
+ * failure in #723 (the orphaned jobs needed a recovery task pinned to the broken node).
+ * The sweep is idempotent (reset IN_PROGRESS → PENDING) and reclaim uses
+ * `FOR UPDATE SKIP LOCKED`, so running it concurrently on all nodes is harmless and
+ * removes the single point of failure: while any node is healthy, stale jobs are
+ * recovered within one interval regardless of how another node failed.
  */
 @Component
 @ConditionalOnProperty(
@@ -52,7 +63,9 @@ class StaleJobRecovery(
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
         schedule = ClusterScheduledTaskSchedule.FixedRate(INTERVAL_MS),
-        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
+        // Every node runs the idempotent sweep so document recovery never depends on a
+        // single owner staying alive (see class KDoc / #723).
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
     )
 
     override fun handle(task: ClusterScheduledTask) {
