@@ -88,6 +88,19 @@ data class ClusterScheduledTaskProperties(
     val batchSize: Int = 10,
     val candidateScanSize: Int = 100,
     /**
+     * How recently a node must have **completed a scheduler poll cycle** to remain
+     * eligible as a single-owner task owner. Unlike `idleTimeoutMs` (which keys off
+     * the heartbeat, maintained on a separate thread), this keys off the poll thread
+     * itself, so a node that is heartbeating but whose scheduler is wedged (see
+     * issue #723) drops out of ownership election and its due tasks are re-owned by a
+     * healthy node. Comfortably above `pollIntervalMs` so a single slightly-slow
+     * cycle does not cause ownership to flap; kept short so recovery is quick. The
+     * lease remains the correctness boundary — a still-leased task is never taken
+     * over regardless of ownership — so this only accelerates recovery of due tasks
+     * that were never claimed. Default 30 seconds.
+     */
+    val schedulerIdleTimeoutMs: Long = 30_000,
+    /**
      * How often the `core.scheduled-task-reconciliation` task deletes orphaned
      * code-defined tasks (no live node carries them). Default hourly.
      */

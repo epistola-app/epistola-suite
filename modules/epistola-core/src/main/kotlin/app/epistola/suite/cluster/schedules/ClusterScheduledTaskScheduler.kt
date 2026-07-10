@@ -30,6 +30,16 @@ import org.springframework.stereotype.Component
  * leases, so ownership is an affinity mechanism rather than the correctness
  * boundary.
  *
+ * Ownership is computed over the *scheduler-live* node set
+ * ([app.epistola.suite.cluster.ClusterNodeRegistry.schedulerActiveNodes]): a node
+ * only counts as an eligible owner while its poll thread keeps completing cycles
+ * (each cycle stamps `last_poll_completed_at` at the end). A node that is
+ * heartbeating but whose poll thread is wedged therefore drops out of election, so
+ * its due single-owner tasks are re-owned by a healthy node instead of being
+ * skipped fleet-wide (#723). A still-leased task is never taken over regardless of
+ * ownership — the lease stays the correctness boundary — so this only rescues due
+ * tasks the wedged owner never managed to claim.
+ *
  * This engine owns *what* a poll does, not *when* it runs — the active
  * [app.epistola.suite.cluster.ClusterSchedulingDriver] decides the cadence
  * (wall-clock ticks in production, explicit invocation in tests).
@@ -105,15 +115,27 @@ class ClusterScheduledTaskScheduler(
             claimed.forEach { task -> leaseRenewer.withRenewal(task.taskKey) { dispatch(task) } }
             dispatched = claimed.size
         }
+        // Scheduler-liveness stamp: reached only when the cycle above returns, so a
+        // poll thread wedged mid-dispatch stops advancing it even while its heartbeat
+        // keeps beating. That is what lets a healthy peer re-own this node's due
+        // single-owner tasks instead of skipping them forever (#723). Skipped during
+        // shutdown so a draining node doesn't advertise itself as a fresh owner.
+        if (!shuttingDown) {
+            nodeRegistry.recordPollCompleted()
+        }
         dispatched
     }
 
     private fun activeNodesForTaskOwnership(): List<ClusterNode> {
-        val activeNodes = nodeRegistry.activeNodes()
+        val activeNodes = nodeRegistry.schedulerActiveNodes()
         if (activeNodes.any { it.nodeId == nodeIdentity.nodeId }) {
             return activeNodes
         }
 
+        // The current node is, by definition, running this poll right now, so it is a
+        // valid owner even if its last_poll_completed_at is still NULL/stale (first
+        // cycle, or its previous cycle is the one being completed here). Self-include
+        // it so a single fresh node still owns its tasks.
         val currentNode = nodeRegistry.heartbeat()
         return (activeNodes + currentNode).distinctBy { it.nodeId }.sortedBy { it.nodeId }
     }

@@ -64,6 +64,37 @@ class ClusterNodeRegistry(
         return node
     }
 
+    /**
+     * Stamps this node's `last_poll_completed_at` — the scheduler-liveness signal.
+     *
+     * Called by the scheduled-task scheduler at the end of each poll cycle, so the
+     * timestamp advances only while the poll thread is making progress. A node whose
+     * poll thread is wedged stops advancing it even though its heartbeat (written on
+     * a separate thread) keeps `last_seen_at` fresh — which is exactly how
+     * [schedulerActiveNodes] tells a wedged owner apart from a healthy one (#723).
+     *
+     * A no-op for a node that has not yet registered a heartbeat row (the `UPDATE`
+     * simply matches nothing); the first heartbeat inserts the row.
+     */
+    fun recordPollCompleted() {
+        val now = EpistolaClock.offsetDateTime()
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE cluster_nodes
+                SET last_poll_completed_at = :now
+                WHERE node_id = :nodeId
+                """,
+            )
+                // Same liveness-probe rationale as heartbeat: fail fast on a degraded
+                // DB so the poll thread retries next tick instead of wedging.
+                .setQueryTimeout(LIVENESS_QUERY_TIMEOUT_SECONDS)
+                .bind("now", now)
+                .bind("nodeId", nodeIdentity.nodeId)
+                .execute()
+        }
+    }
+
     fun currentNode(): ClusterNode? = jdbi.withHandle<ClusterNode?, Exception> { handle ->
         handle.createQuery(
             """
@@ -90,6 +121,38 @@ class ClusterNodeRegistry(
                 """,
             )
                 .bind("activeSince", activeSince)
+                .map { rs, _ -> mapNode(rs) }
+                .list()
+        }
+    }
+
+    /**
+     * Active nodes whose **scheduler** is also live — heartbeated within
+     * `idleTimeoutMs` AND having completed a poll cycle within
+     * `scheduledTasks.schedulerIdleTimeoutMs`. Used to build the single-owner
+     * ownership set so a heartbeating-but-wedged node is excluded from election and
+     * its due tasks are re-owned by a healthy node (#723). A node that has never
+     * completed a poll (`last_poll_completed_at IS NULL`) is treated as
+     * scheduler-inactive; the scheduler self-includes the current node separately so
+     * a fresh single node still owns its tasks on the first cycle.
+     */
+    fun schedulerActiveNodes(): List<ClusterNode> {
+        val now = EpistolaClock.offsetDateTime()
+        val activeSince = now.minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
+        val schedulerActiveSince = now.minusNanos(properties.scheduledTasks.schedulerIdleTimeoutMs * NANOS_PER_MILLI)
+        return jdbi.withHandle<List<ClusterNode>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT node_id, capabilities::text, version, joined_at, last_seen_at, metadata::text
+                FROM cluster_nodes
+                WHERE last_seen_at > :activeSince
+                  AND last_poll_completed_at IS NOT NULL
+                  AND last_poll_completed_at > :schedulerActiveSince
+                ORDER BY node_id
+                """,
+            )
+                .bind("activeSince", activeSince)
+                .bind("schedulerActiveSince", schedulerActiveSince)
                 .map { rs, _ -> mapNode(rs) }
                 .list()
         }
