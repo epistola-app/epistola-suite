@@ -182,8 +182,8 @@ class LoadTestExecutor(
         jobs: List<SubmittedJob>,
     ): Pair<List<JobResult>, Boolean> {
         val jobIds = jobs.map { it.generationRequestId }.toSet()
-        val pollIntervalMs = 500L // Poll every 500ms
-        val maxWaitTimeMs = 600_000L // 10 minute timeout
+        val pollIntervalMs = POLL_INTERVAL_MS
+        val maxWaitTimeMs = MAX_WAIT_TIME_MS
         val startTime = System.currentTimeMillis()
         var wasCancelled = false
 
@@ -302,13 +302,16 @@ class LoadTestExecutor(
 
     /**
      * Store batch_id in load test run for linking to document_generation_requests.
+     * Also stamps the progress heartbeat so the early phase — after claim but before
+     * the first poll cycle — is not falsely seen as stale (#725).
      */
     private fun storeBatchId(runId: LoadTestRunKey, batchId: BatchKey) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE load_test_runs
-                SET batch_id = :batchId
+                SET batch_id = :batchId,
+                    last_progress_at = NOW()
                 WHERE id = :runId
                 """,
             )
@@ -319,7 +322,11 @@ class LoadTestExecutor(
     }
 
     /**
-     * Update progress counts in the database.
+     * Update progress counts in the database and stamp the progress heartbeat.
+     *
+     * `last_progress_at` advances on every poll cycle (every ~500ms) for as long as
+     * this executor is alive and polling, so stale-run recovery can distinguish a
+     * healthy long run from a genuinely abandoned one (#725).
      */
     private fun updateProgress(runId: LoadTestRunKey, completedCount: Int, failedCount: Int) {
         jdbi.useHandle<Exception> { handle ->
@@ -327,7 +334,8 @@ class LoadTestExecutor(
                 """
                 UPDATE load_test_runs
                 SET completed_count = :completedCount,
-                    failed_count = :failedCount
+                    failed_count = :failedCount,
+                    last_progress_at = NOW()
                 WHERE id = :runId
                 """,
             )
@@ -560,4 +568,17 @@ class LoadTestExecutor(
         val errorType: String?,
         val documentId: DocumentKey?,
     )
+
+    companion object {
+        /** How often the executor polls for job completion (and stamps `last_progress_at`). */
+        const val POLL_INTERVAL_MS = 500L
+
+        /**
+         * Hard cap on how long the executor waits for a batch before finalizing it.
+         * After this the run leaves RUNNING (finalized), so it is no longer eligible
+         * for stale-run recovery — the poller's stale timeout must stay comfortably
+         * above the progress cadence, not this cap (see [LoadTestPoller]).
+         */
+        const val MAX_WAIT_TIME_MS = 600_000L
+    }
 }
