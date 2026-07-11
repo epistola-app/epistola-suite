@@ -249,16 +249,17 @@ class CheckRecentUsageCompatibilityHandler(
     }
 
     /**
-     * Maps a validator error to the dotted schema path(s) it concerns, matching the form used by
+     * Maps a validator error to the dotted schema path it concerns, matching the form used by
      * [SchemaCompatibilityChecker] (`customer.taxId`, `items[].sku`).
      *
-     * networknt reports the *instance location* of the failing value; for a missing required
-     * property that location is the containing object and the property name lives in the message,
-     * so we recover it and append it to line the path up with the corresponding breaking change.
+     * networknt reports the failing value's *instance location* as a JSON Pointer (`/items/0/sku`,
+     * empty at the root); for a missing required property that location is the containing object and
+     * the property name lives in the message, so we recover it and append it to line the path up
+     * with the corresponding breaking change.
      */
     private fun errorFieldPaths(error: ValidationError): List<String> {
-        val base = normalizePath(error.path)
-        val missing = REQUIRED_PROPERTY.find(error.message)?.groupValues?.firstOrNull { it.isNotEmpty() && it != error.message }
+        val base = pointerToDottedPath(error.path)
+        val missing = REQUIRED_PROPERTY.find(error.message)?.groupValues?.get(1)
         return if (missing != null) {
             listOf(if (base.isEmpty()) missing else "$base.$missing")
         } else {
@@ -266,15 +267,22 @@ class CheckRecentUsageCompatibilityHandler(
         }
     }
 
-    /** `$.items[0].sku` → `items[].sku`; `$` → ``. */
-    private fun normalizePath(instanceLocation: String): String {
-        var path = instanceLocation.removePrefix("$").removePrefix(".")
-        path = ARRAY_INDEX.replace(path, "[]")
-        return path
+    /** `/items/0/sku` → `items[].sku`; `/status` → `status`; `` → ``. */
+    private fun pointerToDottedPath(instanceLocation: String): String {
+        val segments = instanceLocation.trim('/').split('/').filter(String::isNotEmpty)
+        val builder = StringBuilder()
+        for (segment in segments) {
+            if (segment.all(Char::isDigit)) {
+                builder.append("[]")
+            } else {
+                if (builder.isNotEmpty()) builder.append('.')
+                builder.append(segment)
+            }
+        }
+        return builder.toString()
     }
 
     private companion object {
-        val ARRAY_INDEX = Regex("""\[\d+]""")
-        val REQUIRED_PROPERTY = Regex("""required property '([^']+)'|required property:?\s*\[?([^\s\]]+)""")
+        val REQUIRED_PROPERTY = Regex("""required property '([^']+)'""")
     }
 }
