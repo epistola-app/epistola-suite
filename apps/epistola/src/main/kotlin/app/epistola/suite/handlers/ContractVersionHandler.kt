@@ -129,12 +129,15 @@ class ContractVersionHandler(
                 .body(objectMapper.writeValueAsString(mapOf("published" to true, "compatible" to result.compatible)))
         }
 
-        // Breaking and not confirmed — return preview
+        // Breaking and not confirmed — return preview, including whether the change would
+        // break real recent usage (#280), shown alongside the affected template versions.
+        val recentUsage = CheckRecentUsageCompatibility(templateId = templateId).query()
         if (isHtmx) {
             return request.htmx {
                 fragment("templates/detail/contract-breaking-dialog", "content") {
                     "breakingChanges" to result.breakingChanges
                     "incompatibleVersions" to result.incompatibleVersions
+                    "recentUsage" to recentUsage
                     "publishUrl" to "/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}/contract/publish"
                 }
                 onNonHtmx { redirect(tabUrl) }
@@ -150,6 +153,12 @@ class ContractVersionHandler(
             "incompatibleVersions" to result.incompatibleVersions.map {
                 mapOf("variantKey" to it.variantKey.value, "versionId" to it.versionId.value, "activeEnvironments" to it.activeEnvironments)
             },
+            "recentUsage" to mapOf(
+                "applicable" to recentUsage.applicable,
+                "sampledDocuments" to recentUsage.sampledDocuments,
+                "failingDocuments" to recentUsage.failingDocuments,
+                "fields" to recentUsage.fields.map { mapOf("path" to it.path, "reason" to it.reason, "failingDocuments" to it.failingDocuments) },
+            ),
         )
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
