@@ -19,7 +19,9 @@
 # Inputs (flags override env; env overrides repo-derived defaults):
 #   --image    IMAGE            suite container image to boot   (required)
 #   --suite    SUITE_VERSION    suite version label for the cell (default: gradle.properties)
-#   --contract CONTRACT_VERSION contract version label for the cell (default: libs.versions.toml)
+#   --contract CONTRACT_VERSION fallback contract label (default: libs.versions.toml).
+#                               The image's bundled contract JAR version is read and
+#                               used instead whenever it can be inspected.
 #   --out      OUT              matrix JSON to update            (default: compatibility/matrix.json)
 #   --profile  PROFILE          Spring profile(s) to boot with   (default: localauth)
 #
@@ -43,6 +45,7 @@ SUITE_VERSION="${SUITE_VERSION:-}"
 CONTRACT_VERSION="${CONTRACT_VERSION:-}"
 OUT="${OUT:-${SCRIPT_DIR}/matrix.json}"
 PROFILE="${PROFILE:-localauth}"
+CONTRACT_SOURCE="label"   # overwritten to "image" if we read it from the image
 
 # --- flag parsing --------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
@@ -102,7 +105,8 @@ record() {
     --arg suite "${SUITE_VERSION}" \
     --arg contract "${CONTRACT_VERSION}" \
     --arg result "${result}" \
-    --arg method "anonymous-ping" \
+    --arg method "client-identity-ping" \
+    --arg contractSource "${CONTRACT_SOURCE}" \
     --arg image "${IMAGE}" \
     --arg detail "${detail}" \
     --arg now "${now}" '
@@ -110,7 +114,8 @@ record() {
     | .cells = (
         [ .cells[]? | select(.suite != $suite or .contract != $contract) ]
         + [ { suite: $suite, contract: $contract, result: $result, method: $method,
-              image: $image, detail: $detail, verifiedAt: $now } ]
+              contractSource: $contractSource, image: $image, detail: $detail,
+              verifiedAt: $now } ]
         | sort_by(.suite, .contract)
       )
     ' "${OUT}" > "${tmp}"
@@ -148,14 +153,47 @@ docker run -d --name "${SUITE}" --network "${NET}" -p "${HOST_PORT}:4000" \
   -e SPRING_DATASOURCE_PASSWORD=epistola \
   "${IMAGE}" >/dev/null
 
-# --- wait for readiness (main port, always-on /readyz) -------------------------
+# --- read the contract version from the image (authoritative) ------------------
+# The contract JAR filename in BOOT-INF/lib is the source of truth. The runtime
+# apiVersion from /api/ping is unreliable ("unknown" when the JAR manifest lacks
+# Implementation-Version), so we read the version off the packaged artifact.
+log "reading contract version from image…"
+for _ in $(seq 1 10); do
+  jar="$(docker exec "${SUITE}" sh -c 'ls /workspace/BOOT-INF/lib 2>/dev/null | grep -iE "^server-kotlin-springboot4-[0-9]"' 2>/dev/null | head -1 || true)"
+  if [[ -n "${jar}" ]]; then
+    image_contract="$(printf '%s' "${jar}" | sed -n 's/^server-kotlin-springboot4-\(.*\)\.jar$/\1/p')"
+    if [[ -n "${image_contract}" ]]; then
+      [[ -n "${CONTRACT_VERSION}" && "${CONTRACT_VERSION}" != "${image_contract}" ]] &&
+        log "note: image contract ${image_contract} overrides label ${CONTRACT_VERSION}"
+      CONTRACT_VERSION="${image_contract}"
+      CONTRACT_SOURCE="image"
+      break
+    fi
+  fi
+  [[ "$(docker inspect -f '{{.State.Running}}' "${SUITE}" 2>/dev/null || echo false)" == "true" ]] || break
+  sleep 2
+done
+log "contract=${CONTRACT_VERSION} (source=${CONTRACT_SOURCE})"
+
+# --- smoke: poll a client-identity POST /api/ping until it reports UP -----------
+# This IS the readiness signal too: /readyz and /livez are not reliably 200 across
+# versions (some redirect to a login page), whereas /api/ping with client-identity
+# headers returns {"status":"UP"} once the app is serving. Older suites also REQUIRE
+# these headers on /api/ping (400 without them), so we always send them.
 BASE="http://localhost:${HOST_PORT}"
-READY_TIMEOUT="${READY_TIMEOUT:-180}"
-log "waiting for readiness at ${BASE}/readyz (timeout ${READY_TIMEOUT}s)…"
-ready=false
-for _ in $(seq 1 "$(( READY_TIMEOUT / 3 ))"); do
-  if [[ "$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/readyz" || true)" == "200" ]]; then
-    ready=true; break
+SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-180}"
+NODE="compat-smoke-${RUN_ID}"
+UA="epistola-contract/${CONTRACT_VERSION:-0.0.0} compat-smoke"
+log "smoke: polling POST /api/ping (User-Agent: ${UA}) up to ${SMOKE_TIMEOUT}s…"
+PING=""
+for _ in $(seq 1 "$(( SMOKE_TIMEOUT / 3 ))"); do
+  PING="$(curl -s -X POST "${BASE}/api/ping" \
+    -H 'Content-Type: application/vnd.epistola.v1+json' \
+    -H 'Accept: application/vnd.epistola.v1+json' \
+    -H "User-Agent: ${UA}" \
+    -H "X-EP-Node-Id: ${NODE}" || true)"
+  if [[ "$(printf '%s' "${PING}" | jq -r '.status // empty' 2>/dev/null || true)" == "UP" ]]; then
+    record pass "POST /api/ping reported UP (with client-identity headers)"
   fi
   # bail early if the container has already died
   if [[ "$(docker inspect -f '{{.State.Running}}' "${SUITE}" 2>/dev/null || echo false)" != "true" ]]; then
@@ -165,17 +203,5 @@ for _ in $(seq 1 "$(( READY_TIMEOUT / 3 ))"); do
   fi
   sleep 3
 done
-[[ "${ready}" == "true" ]] || { docker logs --tail 40 "${SUITE}" >&2 || true; record fail "readiness timeout"; }
-
-# --- the smoke: anonymous POST /api/ping must report UP ------------------------
-log "smoke: POST /api/ping"
-PING="$(curl -s -X POST "${BASE}/api/ping" \
-  -H 'Content-Type: application/vnd.epistola.v1+json' \
-  -H 'Accept: application/vnd.epistola.v1+json' || true)"
-STATUS="$(printf '%s' "${PING}" | jq -r '.status // empty' 2>/dev/null || true)"
-
-if [[ "${STATUS}" == "UP" ]]; then
-  record pass "anonymous /api/ping reported UP"
-else
-  record fail "unexpected /api/ping response: ${PING:-<empty>}"
-fi
+docker logs --tail 40 "${SUITE}" >&2 || true
+record fail "no UP from /api/ping within ${SMOKE_TIMEOUT}s; last response: ${PING:-<empty>}"

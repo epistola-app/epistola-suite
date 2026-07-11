@@ -19,47 +19,58 @@ Because the harness runs against *published artifacts* (a container image) and
 never reaches into app source, it is self-contained and could later be lifted
 into its own repo unchanged — for now it lives here, in `epistola-suite`.
 
-## What v0 does (and deliberately does NOT do yet)
+## What a cell run does
 
 `smoke.sh` runs a single cell:
 
 1. starts a throwaway Postgres,
 2. boots the given suite image with the `localauth` profile (embedded Flyway
    migrates on boot),
-3. waits for readiness (`/readyz` on the main port, 4000),
-4. makes one anonymous `POST /api/ping` and checks it reports `status: UP`,
+3. **reads the contract version from the image** — the
+   `server-kotlin-springboot4-<version>.jar` in `BOOT-INF/lib` — which becomes
+   the cell's authoritative `contract` (recorded as `contractSource: "image"`),
+4. polls `POST /api/ping` **with client-identity headers**
+   (`X-EP-Node-Id`, `User-Agent: epistola-contract/<version>`) until it reports
+   `status: UP` — this doubles as the readiness signal,
 5. records the outcome into [`matrix.json`](./matrix.json).
 
-The suite fails fast on boot unless an authentication mechanism is configured,
-so the harness boots with the `localauth` profile (form login, in-memory users).
-We only make an anonymous request, so the auth mechanism is never exercised — it
-just lets the app start. Override with `--profile` if needed; `prod` is avoided
-(it needs encryption keys and a pre-migrated DB).
+Two things learned the hard way, now baked in:
 
-**Limits of v0 — on purpose:**
+- **Boot profile.** The suite fails fast unless an authentication mechanism is
+  configured (`No authentication mechanism configured`), so we boot with
+  `localauth` (form login, in-memory users). We only make an anonymous request,
+  so the mechanism is never exercised — it just lets the app start. `prod` is
+  avoided (needs encryption keys + a pre-migrated DB); override with `--profile`.
+- **Why read the contract from the image, not `/api/ping`.** The runtime
+  `apiVersion` is unreliable — it is `"unknown"` whenever the contract JAR's
+  manifest lacks `Implementation-Version` (and the in-process test only asserts
+  it is non-blank, which `"unknown"` satisfies). The JAR **filename** is a
+  dependable source of truth, so we read it there.
+- **Why client-identity headers + ping-based readiness.** Older suites *require*
+  `X-EP-Node-Id` on `/api/ping` (400 without it), and `/readyz` / `/livez` are
+  not reliably `200` across versions (some redirect to login). A header-carrying
+  ping returning `UP` is the version-robust "it's serving" signal, so we poll
+  that instead of the actuator probes.
 
-- The ping is **anonymous**, so it proves *reachability* ("this suite boots and
-  serves the API"), not the wire contract version. Reading `apiVersion` needs an
-  authenticated call (`X-API-Key`), and API keys are provisioned via a mediator
-  command, not a public endpoint — so authenticated version verification is a
-  later step.
-- The `contract` label on the cell is taken from `gradle/libs.versions.toml`
-  (the version this suite build pins), **not** independently read over the wire.
-- Only the **co-released pairing** is exercised (suite built against its pinned
-  contract). Cross-version client skew (an older client against a newer suite —
-  the real point of a matrix) comes once we can vary the client contract version.
+**Limits — on purpose:**
+
+- The request is **anonymous** (identity headers, no API key), so it proves
+  *reachability* — "this suite boots and serves the contract surface" — not that
+  individual endpoints behave correctly. Deeper endpoint exercise (using the
+  seeded demo key) is a later step.
+- Only the **co-released pairing** is exercised (the contract the image bundles).
+  Cross-version client skew — an older client against a newer suite, the real
+  point of a matrix — comes once we vary the client's declared contract version.
 
 ## Run one cell locally
 
 ```bash
-# against a published image, deriving version labels from the repo:
-IMAGE=ghcr.io/<owner>/epistola-suite:latest compatibility/smoke.sh
+# against a published image (contract version is read from the image):
+compatibility/smoke.sh --image ghcr.io/<owner>/epistola-suite:0.20.0 --suite 0.20.0
 
-# or fully explicit:
-compatibility/smoke.sh \
-  --image ghcr.io/<owner>/epistola-suite:1.0.0 \
-  --suite 1.0.0 --contract 0.10.0 \
-  --out compatibility/matrix.json
+# --contract is only a fallback label used if image inspection fails:
+compatibility/smoke.sh --image ghcr.io/<owner>/epistola-suite:latest \
+  --suite latest --out compatibility/matrix.json
 ```
 
 Requires `docker`, `curl`, `jq`. Exit code is `0` on a passing cell, non-zero
@@ -68,13 +79,19 @@ human-readable table is rendered from it (later).
 
 ## Roadmap (each an independent, shippable step)
 
-1. **CI wiring** — a release-triggered workflow that runs `smoke.sh` against the
-   freshly-published image. *(next commit)*
-2. **Authenticated version check** — provision a key, read `apiVersion` from
-   `/api/ping` details, and assert it matches the cell's contract version.
-3. **Vary the client** — run the smoke against a range of contract versions
-   (fixed suite image, varying client), turning one cell into a real row.
-4. **Render** a human-readable table from `matrix.json`.
-5. **Commit results back** from CI; later, publish as a feed.
-6. **Plugin (transitive)** — infer `valtimo-epistola-plugin` compatibility from
+**Done:** the smoke harness; release/on-demand CI (`.github/workflows/compatibility.yml`);
+cross-version robustness (client-identity headers, ping-based readiness);
+authoritative contract version read from the image.
+
+**Next:**
+
+1. **Vary the client** — run the smoke against a range of contract versions
+   (fixed suite image, varying the client's declared contract), turning one cell
+   into a real row.
+2. **Render** a human-readable table from `matrix.json`.
+3. **Commit results back** from CI; later, publish as a feed.
+4. **Deeper checks** — use the seeded demo API key
+   (`epk_demo_…`, available under the `demo` profile) to exercise authenticated
+   contract endpoints, not just reachability.
+5. **Plugin (transitive)** — infer `valtimo-epistola-plugin` compatibility from
    its declared supported contract range against verified suite↔contract cells.
