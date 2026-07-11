@@ -63,22 +63,13 @@
 }
 
 .usage-impact-alert__stat {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--ep-space-2);
   margin: 0;
   color: var(--ep-red-700);
+  font-size: var(--ep-text-base);
 }
 
 .usage-impact-alert__count {
-  font-size: 2.5rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.usage-impact-alert__lead {
-  font-size: var(--ep-text-base);
+  font-weight: 700;
 }
 
 .usage-impact-alert__consequence {
@@ -109,7 +100,6 @@
 }
 
 .usage-impact-table__count {
-  color: var(--ep-red-700);
   font-weight: 600;
 }
 
