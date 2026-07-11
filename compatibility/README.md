@@ -24,10 +24,17 @@ into its own repo unchanged — for now it lives here, in `epistola-suite`.
 `smoke.sh` runs a single cell:
 
 1. starts a throwaway Postgres,
-2. boots the given suite image (embedded Flyway migrates on boot),
+2. boots the given suite image with the `localauth` profile (embedded Flyway
+   migrates on boot),
 3. waits for readiness (`/readyz` on the main port, 4000),
 4. makes one anonymous `POST /api/ping` and checks it reports `status: UP`,
 5. records the outcome into [`matrix.json`](./matrix.json).
+
+The suite fails fast on boot unless an authentication mechanism is configured,
+so the harness boots with the `localauth` profile (form login, in-memory users).
+We only make an anonymous request, so the auth mechanism is never exercised — it
+just lets the app start. Override with `--profile` if needed; `prod` is avoided
+(it needs encryption keys and a pre-migrated DB).
 
 **Limits of v0 — on purpose:**
 

@@ -21,6 +21,13 @@
 #   --suite    SUITE_VERSION    suite version label for the cell (default: gradle.properties)
 #   --contract CONTRACT_VERSION contract version label for the cell (default: libs.versions.toml)
 #   --out      OUT              matrix JSON to update            (default: compatibility/matrix.json)
+#   --profile  PROFILE          Spring profile(s) to boot with   (default: localauth)
+#
+# The suite fails fast on boot unless an authentication mechanism is configured,
+# so we boot with the `localauth` profile (form login, in-memory users). We only
+# make an anonymous request, so the auth mechanism itself is never exercised —
+# it just lets the app start. `prod` is deliberately avoided (it needs encryption
+# keys and a pre-migrated DB).
 #
 # Requires: docker, curl, jq.
 
@@ -35,6 +42,7 @@ IMAGE="${IMAGE:-}"
 SUITE_VERSION="${SUITE_VERSION:-}"
 CONTRACT_VERSION="${CONTRACT_VERSION:-}"
 OUT="${OUT:-${SCRIPT_DIR}/matrix.json}"
+PROFILE="${PROFILE:-localauth}"
 
 # --- flag parsing --------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
@@ -43,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --suite)    SUITE_VERSION="$2";    shift 2 ;;
     --contract) CONTRACT_VERSION="$2"; shift 2 ;;
     --out)      OUT="$2";              shift 2 ;;
+    --profile)  PROFILE="$2";          shift 2 ;;
     -h|--help)  grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -131,8 +140,9 @@ for _ in $(seq 1 30); do
 done
 docker exec "${PG}" pg_isready -U epistola >/dev/null 2>&1 || record error "postgres did not become ready"
 
-log "starting suite (embedded Flyway migrates on boot)…"
+log "starting suite (profile=${PROFILE}; embedded Flyway migrates on boot)…"
 docker run -d --name "${SUITE}" --network "${NET}" -p "${HOST_PORT}:4000" \
+  -e SPRING_PROFILES_ACTIVE="${PROFILE}" \
   -e SPRING_DATASOURCE_URL="jdbc:postgresql://${PG}:5432/epistola" \
   -e SPRING_DATASOURCE_USERNAME=epistola \
   -e SPRING_DATASOURCE_PASSWORD=epistola \
