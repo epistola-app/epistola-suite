@@ -82,6 +82,44 @@ what contract they speak; the **charts** just map to a suite.
 - **R7 — Cross-surface consistency.** Whatever compatibility info the suite
   exposes is consistent across REST, the web UI, and MCP (per the "all three
   surfaces" rule).
+- **R8 — Declarations local, aggregation central.** Each artifact owns and
+  publishes *its own* declaration where it lives (suite in the suite, plugin in
+  the plugin repo, contract in its build). Any aggregator only *reads* those
+  feeds, applies the rule, and renders — it never owns declaration logic. This
+  keeps the feed **format** as the real interface and the aggregator's location a
+  reversible deployment detail.
+
+## Where the aggregator/matrix lives (declarations vs. aggregation)
+
+This split (R8) is what finally settles the long-running "separate repo vs.
+in-repo" question.
+
+- Earlier, a **separate repo was a liability**: the version data lived inside
+  `epistola-suite`, so a separate repo turned local reads into cross-repo
+  plumbing.
+- Under the self-declaration model that objection **disappears**: once every
+  artifact publishes its own declaration, *no* artifact's data is local/privileged
+  — they are all feeds. A neutral **aggregator** repo then becomes not just
+  viable but arguably the cleanest home, because it treats the external
+  `valtimo-epistola-plugin` as a **peer** instead of a manually-maintained
+  exception. (This is the AAP-matrix / neutral-aggregator pattern.)
+
+**But the sequencing and the split are load-bearing:**
+
+1. **Declarations first.** The declaration primitives (R1–R5) must exist *in each
+   artifact* before an aggregator is worth anything — an aggregator with no feeds
+   to read is an empty shell. Build the feeds; the aggregator comes after.
+2. **The separate repo is the aggregator, NOT the declarations.** Moving
+   declaration logic into a central repo re-couples everything and loses the
+   benefit. Declarations stay with each artifact; only aggregation centralises.
+3. **Then the boundary is low-stakes and reversible.** Because the feed *format*
+   is the interface, whether the aggregator sits in `epistola-suite` or its own
+   repo is a deployment choice, not an architectural one. Its real payoff is
+   **neutrality**, which matters more as the number of independently-owned
+   artifacts grows.
+
+So: we are **not** choosing the repo now. We are building the self-declaration
+feeds that *earn* that choice and keep it reversible. (Resolves open question #6.)
 
 ## Design principles / constraints (the fixed walls)
 
@@ -123,8 +161,12 @@ what contract they speak; the **charts** just map to a suite.
    against the implemented version? (R2 vs R4)
 5. **Does any of this ship in the contract vs. the suite** — i.e. how much of the
    format/DTO lives in the anchor so both consumers reuse it? (roles table)
-6. **Where does the rendered matrix live** (#246's "location: to be determined")
-   — `docs/compatibility-matrix.md`, generated from the feed?
+6. ~~**Where does the rendered matrix live**~~ — **resolved in principle** (see
+   "Where the aggregator/matrix lives"): an aggregator that reads per-artifact
+   feeds; a separate neutral repo becomes viable once the feeds exist, but the
+   choice is deferred and reversible because the feed *format* is the interface.
+   The concrete rendered target (e.g. `docs/compatibility-matrix.md`) is still
+   open.
 
 ## Next step
 
