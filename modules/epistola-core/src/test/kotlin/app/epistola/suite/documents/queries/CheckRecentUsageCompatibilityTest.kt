@@ -83,6 +83,8 @@ class CheckRecentUsageCompatibilityTest : IntegrationTestBase() {
 
     private fun check(setup: Setup): RecentUsageImpact = withMediator { CheckRecentUsageCompatibility(templateId = setup.templateId).query() }
 
+    private fun checkCandidate(setup: Setup, candidate: String): RecentUsageImpact = withMediator { CheckRecentUsageCompatibility(templateId = setup.templateId, candidateSchema = schema(candidate)).query() }
+
     @Test
     fun `flags recent payloads that omit a newly-required field`() {
         val setup = createSetup("Required Field Tenant")
@@ -158,6 +160,25 @@ class CheckRecentUsageCompatibilityTest : IntegrationTestBase() {
         assertThat(impact.applicable).isFalse()
         assertThat(impact.compatible).isTrue()
         assertThat(impact.failingDocuments).isEqualTo(0)
+    }
+
+    @Test
+    fun `uses a supplied candidate schema instead of the draft`() {
+        val setup = createSetup("Candidate Schema Tenant")
+        publishBaselineContract(setup, """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")
+        repeat(2) { generate(setup, """{"name":"Acme"}""") }
+        drainGenerationJobs(setup.tenant.id)
+
+        // No draft is created; the candidate (taxId now required) is passed directly, as the REST
+        // updateTemplate dry-run does.
+        val impact = checkCandidate(
+            setup,
+            """{"type":"object","properties":{"name":{"type":"string"},"taxId":{"type":"string"}},"required":["name","taxId"]}""",
+        )
+
+        assertThat(impact.applicable).isTrue()
+        assertThat(impact.failingDocuments).isEqualTo(2)
+        assertThat(impact.fields).anySatisfy { assertThat(it.path).isEqualTo("taxId") }
     }
 
     @Test

@@ -40,11 +40,16 @@ import java.time.Duration
  *   retention, so usage older than that is not visible.
  * @property sampleLimit Maximum number of recent payloads to scan; if more exist within the
  *   window the result is flagged [RecentUsageImpact.capped].
+ * @property candidateSchema The prospective new data model to test recent usage against. When
+ *   null (the default), the current draft contract's data model is used — this is the on-demand
+ *   UI case. Callers that detect a breaking change from an unsaved candidate (e.g. the REST
+ *   `updateTemplate` dry-run, where no draft is persisted yet) pass the candidate directly.
  */
 data class CheckRecentUsageCompatibility(
     val templateId: TemplateId,
     val window: Duration = Duration.ofDays(30),
     val sampleLimit: Int = DEFAULT_SAMPLE_LIMIT,
+    val candidateSchema: ObjectNode? = null,
 ) : Query<RecentUsageImpact>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
@@ -121,8 +126,11 @@ class CheckRecentUsageCompatibilityHandler(
     override fun handle(query: CheckRecentUsageCompatibility): RecentUsageImpact {
         val windowDays = query.window.toDays()
 
-        // No draft to publish, or the draft removes validation entirely → nothing can regress.
-        val newSchema = loadContract(query.templateId, "draft")?.dataModel
+        // Use the caller-supplied candidate when present (e.g. the REST dry-run, where no draft is
+        // persisted); otherwise fall back to the current draft. Either being absent, or the schema
+        // being removed entirely, means nothing can regress.
+        val newSchema = query.candidateSchema
+            ?: loadContract(query.templateId, "draft")?.dataModel
             ?: return RecentUsageImpact.notApplicable(windowDays)
         // No published baseline → no notion of "was valid before", so no regression to report.
         val oldSchema = loadContract(query.templateId, "published")?.dataModel
