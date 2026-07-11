@@ -1,0 +1,71 @@
+name: Compatibility Matrix
+
+# Verifies (rather than declares) that a published epistola-suite image works
+# with the contract version it was built against — one (suite, contract) cell.
+# See compatibility/README.md.
+on:
+  # Manual runs — validate the harness on demand against any pullable image.
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Suite image to test (blank = latest published)"
+        required: false
+        default: ""
+  # Release path: run AFTER "Build and Publish" finishes, so the image already
+  # exists. Triggering on the v* tag directly would race the image push.
+  workflow_run:
+    workflows: ["Build and Publish"]
+    types: [completed]
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  smoke:
+    name: Suite × contract smoke
+    runs-on: ubuntu-latest
+    # On workflow_run, only proceed for a successful v* tag build (an image was
+    # published). Manual runs always proceed.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image
+        id: img
+        run: |
+          IMAGE="${{ github.event.inputs.image }}"
+          if [ -z "$IMAGE" ]; then
+            IMAGE="${REGISTRY}/${IMAGE_NAME}:latest"
+          fi
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "Testing image: $IMAGE"
+
+      - name: Run compatibility smoke
+        run: compatibility/smoke.sh --image "${{ steps.img.outputs.image }}"
+
+      - name: Show matrix
+        if: always()
+        run: cat compatibility/matrix.json || true
+
+      - name: Upload matrix
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: compatibility-matrix
+          path: compatibility/matrix.json
