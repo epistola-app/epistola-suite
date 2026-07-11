@@ -101,9 +101,12 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("UP")
         assertThat(JsonPath.read<String>(body, "$.details.serverVersion")).isNotBlank
-        // apiVersion is read from the contract JAR's Implementation-Version manifest
-        // entry; assert non-blank to keep the test stable across contract bumps.
+        // apiVersion is reported by the contract library (ServerContractInfo, built
+        // into the contract JAR from the spec's info.version); assert non-blank to
+        // stay stable across contract bumps, but also that it resolved to a real
+        // version rather than the "unknown" fallback for an unidentifiable contract.
         assertThat(JsonPath.read<String>(body, "$.details.apiVersion")).isNotBlank
+        assertThat(JsonPath.read<String>(body, "$.details.apiVersion")).isNotEqualTo("unknown")
         assertThat(JsonPath.read<String>(body, "$.details.nodeId")).isNotBlank
         assertThat(JsonPath.read<Int>(body, "$.details.partitions.total")).isEqualTo(64)
         // First touch with this node — owns ALL partitions until another node

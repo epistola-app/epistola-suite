@@ -18,6 +18,11 @@ dependencies {
     api(libs.epistola.model)
     api(project(":modules:generation"))
 
+    // Contract server interfaces — GetServerInfo reads the contract version the
+    // running build implements via ServerContractInfo.contractVersion (the /ping
+    // apiVersion). Only this one query touches the contract library.
+    implementation(libs.epistola.server.restapi)
+
     // Credential encryption-at-rest primitives (CredentialCipher, Secret). `api`
     // because Secret appears in core domain types (Catalog, CodeList) that
     // dependent modules read.
