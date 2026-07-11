@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- On-demand dialog wrapper. -->
     <th:block th:fragment="content">
         <div class="ep-dialog-header">
             <h3>Recent Usage Impact</h3>
@@ -9,64 +10,82 @@
                     title="Close">&times;</button>
         </div>
         <div class="ep-dialog-body">
-            <!-- No draft, no published baseline, or the change is backwards compatible. -->
-            <p th:if="${!impact.applicable}" class="text-muted" style="padding: var(--ep-space-3);">
-                No pending schema change to check, or the draft is backwards compatible —
-                recent usage is unaffected.
+            <th:block th:replace="~{templates/detail/contract-usage-impact :: panel(${impact})}" />
+        </div>
+    </th:block>
+
+    <!--
+      Shared impact panel — rendered identically by the on-demand dialog above and by the
+      publish breaking-change dialog, so both surfaces present recent-usage impact the same way.
+    -->
+    <th:block th:fragment="panel(impact)">
+        <!-- No draft/baseline, or the change is backwards compatible: nothing to check. -->
+        <p th:if="${impact == null || !impact.applicable}" class="text-muted"
+           style="padding: var(--ep-space-2) 0;">
+            No pending schema change to check, or the draft is backwards compatible —
+            recent usage is unaffected.
+        </p>
+
+        <th:block th:if="${impact != null && impact.applicable}">
+            <!-- Breaking change, but nothing recent to replay against. -->
+            <p th:if="${impact.sampledDocuments == 0}" class="text-muted" style="padding: var(--ep-space-2) 0;">
+                No completed generations in the last
+                <span th:text="${impact.windowDays}"></span> days to check against.
             </p>
 
-            <th:block th:if="${impact.applicable}">
-                <!-- Breaking change, but nothing recent to replay against. -->
-                <p th:if="${impact.sampledDocuments == 0}" class="text-muted" style="padding: var(--ep-space-3);">
-                    No completed generations in the last
-                    <span th:text="${impact.windowDays}"></span> days to check against.
+            <th:block th:if="${impact.sampledDocuments > 0}">
+                <!-- Reassuring: the change touches nothing that was actually used recently. -->
+                <p th:if="${impact.compatible}" style="margin-bottom: var(--ep-space-2);">
+                    <span class="badge badge-success" style="margin-right: var(--ep-space-1);">OK</span>
+                    No recent usage affected — all <strong th:text="${impact.sampledDocuments}"></strong>
+                    documents generated in the last <span th:text="${impact.windowDays}"></span> days
+                    remain valid under the new schema.
                 </p>
 
-                <th:block th:if="${impact.sampledDocuments > 0}">
-                    <!-- All recent usage still valid. -->
-                    <p th:if="${impact.compatible}" style="margin-bottom: var(--ep-space-3);">
-                        <span class="badge badge-success" style="margin-right: var(--ep-space-1);">OK</span>
-                        All <strong th:text="${impact.sampledDocuments}"></strong> recent documents remain
-                        valid under the new schema.
+                <!-- Alarming: real recent documents would be rejected by the new schema. -->
+                <div th:unless="${impact.compatible}"
+                     style="background: var(--ep-red-50); border: 1px solid var(--ep-red-200);
+                            border-left: 4px solid var(--ep-red-600); border-radius: var(--ep-radius-md);
+                            padding: var(--ep-space-3); margin-bottom: var(--ep-space-3);">
+                    <div style="display: flex; align-items: center; gap: var(--ep-space-2);
+                                color: var(--ep-red-700); font-weight: 700; font-size: var(--ep-text-base);
+                                margin-bottom: var(--ep-space-2);">
+                        <span aria-hidden="true" style="font-size: 1.4em; line-height: 1;">&#9888;</span>
+                        <span>This change will break recent usage</span>
+                    </div>
+                    <p style="margin-bottom: var(--ep-space-3); color: var(--ep-red-700);">
+                        <strong style="font-size: var(--ep-text-xl);"
+                                th:text="${impact.failingDocuments} + ' of ' + ${impact.sampledDocuments}"></strong>
+                        recent documents would be <strong>rejected</strong> by the new schema.
+                        Callers still submitting this data will start getting validation errors.
                     </p>
+                    <table th:if="${!#lists.isEmpty(impact.fields)}" class="ep-table"
+                           style="font-size: var(--ep-text-sm); background: #fff;">
+                        <thead>
+                            <tr><th>Field</th><th>Why it breaks</th>
+                                <th style="text-align: right;">Documents</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="f : ${impact.fields}">
+                                <td><code th:text="${f.path}"></code></td>
+                                <td th:text="${f.reason}"></td>
+                                <td style="text-align: right; color: var(--ep-red-700); font-weight: 600;"
+                                    th:text="${f.failingDocuments}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                    <!-- Regressions detected. -->
-                    <th:block th:unless="${impact.compatible}">
-                        <p style="margin-bottom: var(--ep-space-3);">
-                            <span class="badge badge-warning" style="margin-right: var(--ep-space-1);">!</span>
-                            <strong th:text="${impact.failingDocuments}"></strong> of
-                            <strong th:text="${impact.sampledDocuments}"></strong> recent documents would fail
-                            the new schema
-                            (<span th:text="${impact.failingShapes}"></span> of
-                            <span th:text="${impact.distinctShapes}"></span> distinct payload shapes).
-                        </p>
-                        <table th:if="${!#lists.isEmpty(impact.fields)}" class="ep-table"
-                               style="font-size: var(--ep-text-sm);">
-                            <thead>
-                                <tr><th>Field</th><th>Why it breaks</th><th>Documents</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr th:each="f : ${impact.fields}">
-                                    <td><code th:text="${f.path}"></code></td>
-                                    <td th:text="${f.reason}"></td>
-                                    <td th:text="${f.failingDocuments}"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </th:block>
-
-                    <p th:if="${impact.capped}" class="text-muted"
-                       style="margin-top: var(--ep-space-3); font-size: var(--ep-text-xs);">
-                        Only the most recent <span th:text="${impact.sampledDocuments}"></span> documents were
-                        checked; older usage within the window was not examined.
-                    </p>
-                    <p class="text-muted" style="margin-top: var(--ep-space-2); font-size: var(--ep-text-xs);">
-                        Based on completed generations from the last
-                        <span th:text="${impact.windowDays}"></span> days. Older usage is not retained.
-                    </p>
-                </th:block>
+                <p th:if="${impact.capped}" class="text-muted" style="font-size: var(--ep-text-xs);">
+                    Only the most recent <span th:text="${impact.sampledDocuments}"></span> documents were
+                    checked; older usage within the window was not examined.
+                </p>
+                <p class="text-muted" style="font-size: var(--ep-text-xs);">
+                    Based on completed generations from the last
+                    <span th:text="${impact.windowDays}"></span> days. Older usage is not retained.
+                </p>
             </th:block>
-        </div>
+        </th:block>
     </th:block>
 </body>
 </html>

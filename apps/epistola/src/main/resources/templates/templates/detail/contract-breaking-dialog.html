@@ -24,21 +24,10 @@
                     </li>
                 </ul>
             </div>
-            <!-- Recent usage impact (#280): whether real recent generations would break. -->
-            <div th:if="${recentUsage != null && recentUsage.applicable && !recentUsage.compatible}"
-                 style="margin-top: var(--ep-space-3);">
-                <strong>Recent usage affected:</strong>
-                <p style="margin-top: var(--ep-space-1);">
-                    <span th:text="${recentUsage.failingDocuments}"></span> of
-                    <span th:text="${recentUsage.sampledDocuments}"></span> recent documents would fail
-                    the new schema.
-                </p>
-                <ul th:if="${!#lists.isEmpty(recentUsage.fields)}" style="margin-top: var(--ep-space-1);">
-                    <li th:each="f : ${recentUsage.fields}">
-                        <code th:text="${f.path}"></code> —
-                        <span th:text="${f.failingDocuments}"></span> document(s)
-                    </li>
-                </ul>
+            <!-- Recent usage impact (#280): the same shared panel the on-demand dialog renders,
+                 so both surfaces present it identically. -->
+            <div th:if="${recentUsage != null && recentUsage.applicable}" style="margin-top: var(--ep-space-3);">
+                <th:block th:replace="~{templates/detail/contract-usage-impact :: panel(${recentUsage})}" />
             </div>
             <div style="display: flex; gap: var(--ep-space-2); justify-content: flex-end; margin-top: var(--ep-space-4);">
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
