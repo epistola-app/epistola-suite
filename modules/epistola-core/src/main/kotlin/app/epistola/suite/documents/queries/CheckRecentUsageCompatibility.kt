@@ -55,6 +55,14 @@ data class CheckRecentUsageCompatibility(
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = templateId.tenantKey
 
+    init {
+        // Guard the SQL inputs: a negative window becomes a future-dated predicate (silently
+        // matches nothing), and a non-positive sample limit produces an invalid LIMIT — neither
+        // is a meaningful check. The over-fetch (+1) also stays within Int at these bounds.
+        require(!window.isNegative) { "window must not be negative" }
+        require(sampleLimit in 1 until Int.MAX_VALUE) { "sampleLimit must be between 1 and ${Int.MAX_VALUE - 1}" }
+    }
+
     companion object {
         const val DEFAULT_SAMPLE_LIMIT = 5000
     }
