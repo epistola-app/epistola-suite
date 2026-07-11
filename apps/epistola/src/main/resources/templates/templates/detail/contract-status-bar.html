@@ -59,6 +59,16 @@
                 </button>
             </th:block>
 
+            <!-- Recent usage impact: only meaningful while a draft schema change is pending. -->
+            <th:block th:if="${!editMode && editable && hasDraftContract}">
+                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/usage-impact(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                        hx-target="#recent-usage-impact-body" hx-swap="innerHTML"
+                        data-open-dialog="recent-usage-impact-dialog">
+                    Check recent usage
+                </button>
+            </th:block>
+
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/versions/history(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                     hx-target="#contract-history-body" hx-swap="innerHTML"

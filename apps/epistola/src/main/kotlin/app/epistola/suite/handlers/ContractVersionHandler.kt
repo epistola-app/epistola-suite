@@ -6,6 +6,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.queries.CheckRecentUsageCompatibility
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -206,6 +207,24 @@ class ContractVersionHandler(
                 "allTemplateVersions" to usage.versions
             }
             onNonHtmx { redirect("/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}") }
+        }
+    }
+
+    /**
+     * GET /{catalogId}/{id}/contract/usage-impact — recent-usage impact dialog (HTMX fragment).
+     *
+     * Replays the input data of recent generations against the current draft contract to show
+     * whether the pending schema change would break real recent usage (#280).
+     */
+    fun usageImpact(request: ServerRequest): ServerResponse {
+        val templateId = resolveTemplateId(request)
+        val impact = CheckRecentUsageCompatibility(templateId = templateId).query()
+
+        return request.htmx {
+            fragment("templates/detail/contract-usage-impact", "content") {
+                "impact" to impact
+            }
+            onNonHtmx { redirect("/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}/data-contract") }
         }
     }
 
