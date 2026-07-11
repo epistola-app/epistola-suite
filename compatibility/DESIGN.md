@@ -189,37 +189,61 @@ Encouraging: most of the primitive is already scaffolded.
   suite fills it.** (A spec-level `x-compatibility` vendor extension is also
   idiomatic — precedent: `x-problem-types` drives a generated constant.)
 
-## Open questions (resolve before choosing a mechanism)
+## Decisions
 
-1. ~~**Where does the contract embed its version**~~ — **directed** (see "What the
-   contract repo already gives us"): a small `epistola-contract` build change —
-   (a) mirror the client's version-resource, or (b) a jar manifest
-   `Implementation-Version`. Remaining sub-question: pick (a) vs (b), and whether
-   the suite reads a classpath resource or the manifest. (R1)
-2. ~~**What exactly does the suite declare, and where**~~ — **directed**: extend the
-   **existing** `/ping` → `PongDetailsDto` (already in the spec, already has
-   `serverVersion`/`apiVersion`) with the declared range; the suite *fills* it.
-   Remaining sub-question: is a static at-rest manifest/feed also published for
-   CI/plugin to read without booting (R3), or is the endpoint enough for now? (R2, R3)
-3. **Does the plugin publish a machine-readable target-contract declaration**, or
-   do we key off the `User-Agent: epistola-contract/<version>` it already sends?
-   (R5)
-4. **Is the support *range* declared by the suite, or computed** from semver
-   against the implemented version? (R2 vs R4)
-5. ~~**Does any of this ship in the contract vs. the suite**~~ — **directed**: the
-   **format/DTO lives in the contract spec** (`PongDetailsDto` in
-   `spec/components/schemas/ping.yaml`), so server interfaces, the generated
-   client model, docs and mock all inherit it from one edit; the **suite fills
-   the values**. Confirms the roles table. (roles table)
-6. ~~**Where does the rendered matrix live**~~ — **resolved in principle** (see
-   "Where the aggregator/matrix lives"): an aggregator that reads per-artifact
-   feeds; a separate neutral repo becomes viable once the feeds exist, but the
-   choice is deferred and reversible because the feed *format* is the interface.
-   The concrete rendered target (e.g. `docs/compatibility-matrix.md`) is still
-   open.
+The design forks are settled (all confirmed):
 
-## Next step
+- **D1 — Contract self-identifies via a resource file + accessor.** The
+  `server-kotlin-springboot4` build writes `epistola-contract-version.txt` from
+  the spec's `info.version` (mirroring the client's `generateContractVersionResource`)
+  and exposes a small accessor; the suite calls it. Classpath resources are
+  reliable in Spring Boot fat jars (manifest package-version — the cause of the
+  `"unknown"` — is not). Keeps the "how to know my version" in the anchor. (R1)
+- **D2 — Runtime endpoint first; at-rest feed later.** Extend the existing
+  `/ping` → `PongDetailsDto` now (the harness already boots to read it). Build a
+  static at-rest manifest/feed only when the aggregator or the plugin needs it —
+  don't build ahead of need. (R2, R3)
+- **D3 — The plugin declares in the shared (contract-defined) format; manual
+  until then.** Since the plugin depends on the contract, it can emit the same
+  declaration cheaply once the format exists (peer participation). Its matrix row
+  is hand-maintained in the interim. Keying off `User-Agent` is a runtime
+  *observation*, not a declaration, so it's rejected. (R5)
+- **D4 — Declare the supported range explicitly, verify empirically.** The suite
+  declares a supported *min* client version (policy); the empirical harness
+  verifies it. A purely *computed* semver range is unsafe while the contract is
+  pre-1.0 (`0.x`), where minor bumps may break. Computed semver can take over
+  after 1.0.0-GA. (R2, R4 — declaration proposes, CI verifies.)
+- **D5 — Format in the contract spec; suite fills it.** (from the roles table /
+  contract findings — `PongDetailsDto` in `spec/components/schemas/ping.yaml`.)
+- **D6 — Aggregator location deferred & reversible** (R8): a neutral repo becomes
+  viable once feeds exist; the feed *format* is the interface. Concrete rendered
+  target (e.g. `docs/compatibility-matrix.md`) still open.
 
-Resolve the open questions (at least #1 and #2, the smallest high-value pair),
-then pick the mechanism. R1 (reliable contract-version reporting) is the
-foundation everything else needs and is arguably a standalone bug fix.
+## Remaining detail work (not blocking)
+
+- Exact new `PongDetailsDto` field name(s) for the supported range (e.g.
+  `minClientVersion` / `supportedContractVersions`) — decided when the spec is edited.
+- Whether the suite reads the contract accessor directly or the raw resource (D1
+  sub-detail).
+- The at-rest feed's format/location (deferred with D2).
+- Who sets the declared min and how it's kept honest (policy owner; the harness
+  is the verifier).
+
+## Execution plan (order)
+
+The forks are decided; execution spans repos, so sequence matters. Changes in
+`epistola-contract` and `valtimo-epistola-plugin` are **coordinated with those
+repos, not edited from here.**
+
+1. **R1 / D1 — contract self-identifies** (in `epistola-contract`): server build
+   emits the version resource + accessor. Foundational; also a standalone fix for
+   `apiVersion: "unknown"`. Then the suite reports its real contract version and
+   the harness can stop reading JAR filenames.
+2. **D5 / D2 — extend `PongDetailsDto`** (spec in `epistola-contract`) with the
+   declared range; **suite fills it** (in this repo).
+3. **Verify** the declared range with the empirical harness (this repo) — the
+   existing smoke grows an assertion that the running suite's declaration holds.
+4. **D3 — plugin declaration** (coordinate with `valtimo-epistola-plugin`); manual
+   row until adopted.
+5. **Aggregate + render** (D6) — read declarations, apply the rule, render the
+   matrix; decide the aggregator's home when feeds exist.
