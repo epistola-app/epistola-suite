@@ -244,7 +244,7 @@ repos, not edited from here.**
 
 1. **R1 / D1 — contract self-identifies** ✅ **DONE.** In `epistola-contract`, the
    `server-kotlin-springboot4` build emits `epistola-contract-version.txt` +
-   the `ServerContractInfo` accessor (branch `feat/contract-version-resource`).
+   the `ServerContractInfo` accessor (contract branch `feat/compatibility-matrix`).
    The suite's `GetServerInfo` now sources `/ping`'s `apiVersion` from that
    accessor instead of the (absent) JAR manifest, so it reports the real
    contract version instead of `"unknown"` — verified by `GetServerInfoHandlerIT`
