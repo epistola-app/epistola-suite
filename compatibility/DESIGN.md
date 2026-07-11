@@ -5,6 +5,10 @@ recorded in [ADR 0011](../docs/adr/0011-version-compatibility-declared-and-verif
 This doc is the detailed spec behind that ADR. Companion to
 [`README.md`](./README.md) (the current empirical smoke harness) and issue #246.
 
+**Implementation progress:** step 1 (**D1 — contract self-identifies**) is
+**done and verified** — `apiVersion: "unknown"` is fixed end-to-end. Steps 2–5
+(see [Execution plan](#execution-plan-order)) are not started.
+
 > **Working ideology:** it doesn't have to be perfect the first time. It just
 > needs to work, then get better with each commit.
 
@@ -223,8 +227,11 @@ The design forks are settled (all confirmed):
 
 - Exact new `PongDetailsDto` field name(s) for the supported range (e.g.
   `minClientVersion` / `supportedContractVersions`) — decided when the spec is edited.
-- Whether the suite reads the contract accessor directly or the raw resource (D1
-  sub-detail).
+- ~~Whether the suite reads the contract accessor directly or the raw resource~~
+  — **resolved:** the suite calls `ServerContractInfo.contractVersion` directly
+  (adds a compile dep on the contract server interfaces from `epistola-core`),
+  rather than re-reading the raw resource, so version-reading logic lives once in
+  the anchor.
 - The at-rest feed's format/location (deferred with D2).
 - Who sets the declared min and how it's kept honest (policy owner; the harness
   is the verifier).
@@ -235,10 +242,15 @@ The forks are decided; execution spans repos, so sequence matters. Changes in
 `epistola-contract` and `valtimo-epistola-plugin` are **coordinated with those
 repos, not edited from here.**
 
-1. **R1 / D1 — contract self-identifies** (in `epistola-contract`): server build
-   emits the version resource + accessor. Foundational; also a standalone fix for
-   `apiVersion: "unknown"`. Then the suite reports its real contract version and
-   the harness can stop reading JAR filenames.
+1. **R1 / D1 — contract self-identifies** ✅ **DONE.** In `epistola-contract`, the
+   `server-kotlin-springboot4` build emits `epistola-contract-version.txt` +
+   the `ServerContractInfo` accessor (branch `feat/contract-version-resource`).
+   The suite's `GetServerInfo` now sources `/ping`'s `apiVersion` from that
+   accessor instead of the (absent) JAR manifest, so it reports the real
+   contract version instead of `"unknown"` — verified by `GetServerInfoHandlerIT`
+   and `CollectEndpointSmokeIT`. The suite tracks `0.10.0-compat-SNAPSHOT`
+   (local) until the contract change is released. Next: the harness can stop
+   reading JAR filenames once it reads the declared value.
 2. **D5 / D2 — extend `PongDetailsDto`** (spec in `epistola-contract`) with the
    declared range; **suite fills it** (in this repo).
 3. **Verify** the declared range with the empirical harness (this repo) — the

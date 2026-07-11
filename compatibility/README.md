@@ -41,11 +41,15 @@ Two things learned the hard way, now baked in:
   `localauth` (form login, in-memory users). We only make an anonymous request,
   so the mechanism is never exercised — it just lets the app start. `prod` is
   avoided (needs encryption keys + a pre-migrated DB); override with `--profile`.
-- **Why read the contract from the image, not `/api/ping`.** The runtime
-  `apiVersion` is unreliable — it is `"unknown"` whenever the contract JAR's
-  manifest lacks `Implementation-Version` (and the in-process test only asserts
-  it is non-blank, which `"unknown"` satisfies). The JAR **filename** is a
-  dependable source of truth, so we read it there.
+- **Why read the contract from the image, not `/api/ping`.** Historically the
+  runtime `apiVersion` was `"unknown"` — the contract JAR carried no
+  `Implementation-Version` manifest entry. That root cause is now fixed (D1: the
+  contract self-identifies via a baked-in version resource that `/ping` reports),
+  but the harness still reads the JAR **filename**: it boots *already-published*
+  images that predate the fix and would still report `"unknown"`, and the
+  filename is inspectable without even booting. Once the fix has shipped in the
+  images under test, the harness can cross-check the declared `/ping` value
+  against the filename (and eventually trust the declaration).
 - **Why client-identity headers + ping-based readiness.** Older suites *require*
   `X-EP-Node-Id` on `/api/ping` (400 without it), and `/readyz` / `/livez` are
   not reliably `200` across versions (some redirect to login). A header-carrying
