@@ -146,21 +146,71 @@ feeds that *earn* that choice and keep it reversible. (Resolves open question #6
 - A full per-contract-version generated-client test pack — expensive, and largely
   redundant once R1–R4 make compatibility a declared, computable fact.
 
+## What the contract repo already gives us (verified, read-only)
+
+Explored `epistola-app/epistola-contract` (local `/home/whit3st/projects/contract`).
+Encouraging: most of the primitive is already scaffolded.
+
+- **Spec-first, single version source.** `epistola-api.yaml` `info.version`
+  (currently `0.11.0`) is the source of truth; the `server-kotlin-springboot4`
+  and client Gradle versions derive from it. "The contract's version" is
+  unambiguous and already central.
+- **The contract already anticipated compatibility.** `POST /ping` is defined in
+  the spec as the version-discovery endpoint, and its `PongDetailsDto` already
+  carries `serverVersion` + `apiVersion` ("the API spec version supported by this
+  server"); the path is described as enabling "future compatibility features". We
+  are *completing an existing intent*, not inventing one.
+- **A client IS published** — `client-spring3-restclient` (Spring Boot 3 /
+  Jackson 2). Per-version client testing is more feasible than first assumed
+  (caveat: Boot 3 / Jackson 2 vs the suite's Boot 4 / Jackson 3).
+- **Root cause of `apiVersion: "unknown"`.** The `server-kotlin-springboot4`
+  build never customises the jar manifest, and Gradle omits `Implementation-
+  Version` by default. The version *is* already inside the jar as the resource
+  `/openapi/epistola-contract.yaml` (`info.version`) — just not exposed. The
+  **client already solves this**: its build writes `epistola-contract-version.txt`
+  and `ClientIdentity` reads it lazily; the server lacks that mirror.
+
+### Concrete direction this gives R1 / R2
+
+- **R1 (self-identify) is a small contract-repo change**, two idiomatic options:
+  - (a) mirror the client's `generateContractVersionResource` in the server build
+    → `epistola-contract-version.txt`, and have the suite read that classpath
+    resource (reliable in Spring Boot fat jars; symmetric with the client);
+  - (b) add `Implementation-Version` to the server jar manifest from
+    `project.version` (the suite's `GetServerInfo` already reads the manifest →
+    zero suite change, but nested-jar package-version resolution is less certain).
+  - (a) is more robust and matches repo conventions. Either lands in
+    `epistola-contract` (coordinate with that repo — not ours to edit directly).
+- **R2/R4 (declared range) extend `PongDetailsDto` in the spec** — add e.g.
+  `minClientVersion` / `supportedContractVersions` next to `serverVersion` /
+  `apiVersion` in `spec/components/schemas/ping.yaml`. One spec edit flows to the
+  generated server interfaces, the generated client model, the docs, and the mock
+  server. This confirms the roles table: **the contract owns the format; the
+  suite fills it.** (A spec-level `x-compatibility` vendor extension is also
+  idiomatic — precedent: `x-problem-types` drives a generated constant.)
+
 ## Open questions (resolve before choosing a mechanism)
 
-1. **Where does the contract embed its version** so it's readable at runtime — a
-   build change in the contract repo (`Implementation-Version` in the JAR
-   manifest), or a generated constant? (R1)
-2. **What exactly does the suite declare, and where** — extend `/api/ping`
-   details, or a dedicated `/api/compatibility` (or `.well-known`) endpoint +
-   a static manifest? (R2, R3)
+1. ~~**Where does the contract embed its version**~~ — **directed** (see "What the
+   contract repo already gives us"): a small `epistola-contract` build change —
+   (a) mirror the client's version-resource, or (b) a jar manifest
+   `Implementation-Version`. Remaining sub-question: pick (a) vs (b), and whether
+   the suite reads a classpath resource or the manifest. (R1)
+2. ~~**What exactly does the suite declare, and where**~~ — **directed**: extend the
+   **existing** `/ping` → `PongDetailsDto` (already in the spec, already has
+   `serverVersion`/`apiVersion`) with the declared range; the suite *fills* it.
+   Remaining sub-question: is a static at-rest manifest/feed also published for
+   CI/plugin to read without booting (R3), or is the endpoint enough for now? (R2, R3)
 3. **Does the plugin publish a machine-readable target-contract declaration**, or
    do we key off the `User-Agent: epistola-contract/<version>` it already sends?
    (R5)
 4. **Is the support *range* declared by the suite, or computed** from semver
    against the implemented version? (R2 vs R4)
-5. **Does any of this ship in the contract vs. the suite** — i.e. how much of the
-   format/DTO lives in the anchor so both consumers reuse it? (roles table)
+5. ~~**Does any of this ship in the contract vs. the suite**~~ — **directed**: the
+   **format/DTO lives in the contract spec** (`PongDetailsDto` in
+   `spec/components/schemas/ping.yaml`), so server interfaces, the generated
+   client model, docs and mock all inherit it from one edit; the **suite fills
+   the values**. Confirms the roles table. (roles table)
 6. ~~**Where does the rendered matrix live**~~ — **resolved in principle** (see
    "Where the aggregator/matrix lives"): an aggregator that reads per-artifact
    feeds; a separate neutral repo becomes viable once the feeds exist, but the
