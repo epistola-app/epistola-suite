@@ -43,24 +43,27 @@
                 </p>
 
                 <!-- Alarming: real recent documents would be rejected by the new schema. -->
-                <div th:unless="${impact.compatible}"
-                     style="background: var(--ep-red-50); border: 1px solid var(--ep-red-200);
-                            border-left: 4px solid var(--ep-red-600); border-radius: var(--ep-radius-md);
-                            padding: var(--ep-space-3); margin-bottom: var(--ep-space-3);">
-                    <div style="display: flex; align-items: center; gap: var(--ep-space-2);
-                                color: var(--ep-red-700); font-weight: 700; font-size: var(--ep-text-base);
-                                margin-bottom: var(--ep-space-2);">
-                        <span aria-hidden="true" style="font-size: 1.4em; line-height: 1;">&#9888;</span>
-                        <span>This change will break recent usage</span>
+                <th:block th:unless="${impact.compatible}">
+                    <div style="background: var(--ep-red-50); border: 1px solid var(--ep-red-200);
+                                border-left: 4px solid var(--ep-red-600); border-radius: var(--ep-radius-md);
+                                padding: var(--ep-space-3); margin-bottom: var(--ep-space-3);">
+                        <div style="display: flex; align-items: center; gap: var(--ep-space-2);
+                                    color: var(--ep-red-700); font-weight: 700; font-size: var(--ep-text-base);
+                                    margin-bottom: var(--ep-space-2);">
+                            <span aria-hidden="true" style="font-size: 1.4em; line-height: 1;">&#9888;</span>
+                            <span>This change will break recent usage</span>
+                        </div>
+                        <p style="margin: 0; color: var(--ep-red-700);">
+                            <strong style="font-size: var(--ep-text-xl);"
+                                    th:text="${impact.failingDocuments} + ' of ' + ${impact.sampledDocuments}"></strong>
+                            recent documents would be <strong>rejected</strong> by the new schema.
+                            Callers still submitting this data will start getting validation errors.
+                        </p>
                     </div>
-                    <p style="margin-bottom: var(--ep-space-3); color: var(--ep-red-700);">
-                        <strong style="font-size: var(--ep-text-xl);"
-                                th:text="${impact.failingDocuments} + ' of ' + ${impact.sampledDocuments}"></strong>
-                        recent documents would be <strong>rejected</strong> by the new schema.
-                        Callers still submitting this data will start getting validation errors.
-                    </p>
+
+                    <!-- Breakdown lives outside the alert. -->
                     <table th:if="${!#lists.isEmpty(impact.fields)}" class="ep-table"
-                           style="font-size: var(--ep-text-sm); background: #fff;">
+                           style="font-size: var(--ep-text-sm); margin-bottom: var(--ep-space-3);">
                         <thead>
                             <tr><th>Field</th><th>Why it breaks</th>
                                 <th style="text-align: right;">Documents</th></tr>
@@ -74,7 +77,7 @@
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </th:block>
 
                 <p th:if="${impact.capped}" class="text-muted" style="font-size: var(--ep-text-xs);">
                     Only the most recent <span th:text="${impact.sampledDocuments}"></span> documents were
