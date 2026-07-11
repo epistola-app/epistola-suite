@@ -1,0 +1,133 @@
+# Compatibility system — requirements & design criteria
+
+Status: **draft / thinking**. This is the "what we exactly need" spec we lock
+*before* choosing a mechanism, so the design solves the real problem without
+sprawl. Companion to [`README.md`](./README.md) (the current empirical smoke
+harness) and issue #246.
+
+> **Working ideology:** it doesn't have to be perfect the first time. It just
+> needs to work, then get better with each commit.
+
+## Why this doc exists (what we learned)
+
+We set out to build an *empirical* compatibility matrix — boot a published suite
+image and observe which contract versions it works with. Building it surfaced a
+more fundamental fact:
+
+**The suite has no compatibility contract to observe.** Concretely, verified
+this session against real published images:
+
+- It **cannot reliably report the contract version it implements** — `/api/ping`
+  returns `apiVersion: "unknown"` because the contract JAR ships without an
+  `Implementation-Version` manifest entry. We only recovered the version by
+  reading the JAR *filename* out of the image.
+- It **does not declare a supported client range**, anywhere.
+- It **does not negotiate or reject** on the client's declared contract version.
+  `ClientIdentityFilter` only checks `User-Agent: epistola-contract/<v>` is
+  *present and prefixed* (and only on `/generation/collect`); the version value
+  is never compared to anything. Any `epistola-contract/<anything>` is accepted.
+- There is exactly **one API version** (`application/vnd.epistola.v1+json`,
+  enforced at the media-type layer), decoupled from the contract semver. Nothing
+  serves `v2`.
+
+So compatibility today is **implicit and undeclared**. An empirical matrix can
+therefore only measure "does it boot and serve" — too shallow to be the answer
+#246 wants ("kept **automatically**" implicitly requires that compatibility be
+*expressed*; you cannot auto-maintain a fact nothing declares).
+
+**The opportunity:** because no compatibility mechanism exists yet, we are not
+retrofitting or reverse-engineering — we get to *design the primitive* so the
+matrix falls out of it cheaply. We're in the RC window, where deliberate,
+flagged breaking changes are still allowed, so now is the right time.
+
+## Per-artifact roles (they are NOT uniform)
+
+Compatibility is anchored on **`epistola-contract`** (the wire language the suite
+and the external `valtimo-epistola-plugin` both speak). Each artifact plays a
+different role:
+
+| Artifact | Role | What it must contribute |
+| --- | --- | --- |
+| **epistola-contract** | **Anchor** (not a consumer of itself) | (1) Be **self-identifying** — embed its version so consumers can report it at runtime (fixes `apiVersion: "unknown"`). (2) **Define the declaration format** once, since both suite and plugin depend on it. |
+| **epistola-suite** | **Declarer** | Declare the contract version it implements **and** the client range it supports; expose both at runtime (endpoint) and at rest (manifest/feed). |
+| **valtimo-epistola-plugin** | **Declarer (external)** | Declare the contract version it targets, in its own published metadata (separate repo, so it must be able to participate cheaply). |
+| **Helm charts** | **Mapping** | Declare which suite version they deploy — already done via `appVersion` (informational, decoupled from chart version). |
+
+The key correction to "every artifact declares the same thing": the **contract's**
+contribution is to be readable and to own the *format*; the **consumers** declare
+what contract they speak; the **charts** just map to a suite.
+
+## Requirements (what the primitive must provide)
+
+- **R1 — Reliable self-identification.** Any running suite (and ideally any built
+  artifact) can truthfully state the contract version it implements, without
+  cracking open JAR filenames. (Fixes `apiVersion: "unknown"`.)
+- **R2 — Declared support range.** A suite can declare the range of client
+  contract versions it supports (e.g. `implements 0.10.0, supports clients
+  >= 0.4.0`), not just its own point version.
+- **R3 — Readable two ways.** Declarations are readable **at runtime** (an
+  endpoint, for live checks and the app's own UI) and **at rest** (a
+  machine-readable manifest/feed, for CI and the external plugin to pull without
+  booting anything).
+- **R4 — One compatibility rule.** A single, documented rule turns declarations
+  into a verdict (semver-based: same major, client minor ≤ server minor — or the
+  explicitly declared range). Compatibility becomes a *computation over
+  declarations*, not a guess.
+- **R5 — External participation.** The plugin (a repo we don't control) can
+  declare its target contract version cheaply, so the external side of the
+  matrix is knowable rather than hand-maintained.
+- **R6 — Matrix = aggregation + presentation.** The matrix/table is just a view
+  over R1–R4 (read declarations, apply the rule, render), kept current by CI —
+  not a bespoke reverse-engineering pipeline.
+- **R7 — Cross-surface consistency.** Whatever compatibility info the suite
+  exposes is consistent across REST, the web UI, and MCP (per the "all three
+  surfaces" rule).
+
+## Design principles / constraints (the fixed walls)
+
+- **Contract is the semver anchor** — not up for redesign.
+- **Declaration over enforcement.** Start by *declaring* compatibility (cheap,
+  maintainable). Runtime *negotiation/rejection* (Kafka-style handshake) is a
+  bigger step, added only if a real need appears — not by default.
+- **Simplest thing that's true.** Prefer a readable version string + optional
+  range over elaborate protocol machinery. Avoid over-building the clean canvas.
+- **External plugin must participate cheaply** — no mechanism that assumes we
+  control or can rebuild the plugin.
+- **RC window** — deliberate breaking changes are allowed now and must be flagged
+  (`feat!:` / `BREAKING CHANGE:`); this window narrows at 1.0.0-GA.
+- **Keep the harness useful.** The existing empirical smoke stays valuable as a
+  "does suite S boot and serve" regression check; it becomes the *light
+  verification* layer under R6, not the whole matrix.
+
+## Explicitly out of scope (for now)
+
+- Runtime negotiation / rejecting incompatible clients (enforcement) — deferred
+  behind declaration (R2/R4). Revisit if a concrete need arises.
+- Multiple simultaneous API versions (`v2` alongside `v1`) — not needed; one API
+  version, contract evolves under it via semver.
+- A full per-contract-version generated-client test pack — expensive, and largely
+  redundant once R1–R4 make compatibility a declared, computable fact.
+
+## Open questions (resolve before choosing a mechanism)
+
+1. **Where does the contract embed its version** so it's readable at runtime — a
+   build change in the contract repo (`Implementation-Version` in the JAR
+   manifest), or a generated constant? (R1)
+2. **What exactly does the suite declare, and where** — extend `/api/ping`
+   details, or a dedicated `/api/compatibility` (or `.well-known`) endpoint +
+   a static manifest? (R2, R3)
+3. **Does the plugin publish a machine-readable target-contract declaration**, or
+   do we key off the `User-Agent: epistola-contract/<version>` it already sends?
+   (R5)
+4. **Is the support *range* declared by the suite, or computed** from semver
+   against the implemented version? (R2 vs R4)
+5. **Does any of this ship in the contract vs. the suite** — i.e. how much of the
+   format/DTO lives in the anchor so both consumers reuse it? (roles table)
+6. **Where does the rendered matrix live** (#246's "location: to be determined")
+   — `docs/compatibility-matrix.md`, generated from the feed?
+
+## Next step
+
+Resolve the open questions (at least #1 and #2, the smallest high-value pair),
+then pick the mechanism. R1 (reliable contract-version reporting) is the
+foundation everything else needs and is arguably a standalone bug fix.
