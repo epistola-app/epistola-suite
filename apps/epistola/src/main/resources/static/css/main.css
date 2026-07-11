@@ -29,6 +29,7 @@
 @import url('variant-card.css') layer(app);
 @import url('asset-manager.css') layer(app);
 @import url('feature-toggle.css') layer(app);
+@import url('contract-usage.css') layer(app);
 @import url('pages/login.css') layer(app);
 @import url('pages/tenant-home.css') layer(app);
 @import url('pages/load-test.css') layer(app);

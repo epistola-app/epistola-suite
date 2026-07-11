@@ -26,7 +26,7 @@
             </div>
             <!-- Recent usage impact (#280): the same shared panel the on-demand dialog renders,
                  so both surfaces present it identically. -->
-            <div th:if="${recentUsage != null && recentUsage.applicable}" style="margin-top: var(--ep-space-3);">
+            <div th:if="${recentUsage != null && recentUsage.applicable}" class="usage-impact-embed">
                 <th:block th:replace="~{templates/detail/contract-usage-impact :: panel(${recentUsage})}" />
             </div>
             <div style="display: flex; gap: var(--ep-space-2); justify-content: flex-end; margin-top: var(--ep-space-4);">
