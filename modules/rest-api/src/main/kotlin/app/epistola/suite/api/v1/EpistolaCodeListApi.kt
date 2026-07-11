@@ -57,10 +57,13 @@ class EpistolaCodeListApi : CodeListsApi {
         catalogId: String,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<CodeListListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)
         val codeLists = ListCodeLists(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(codeLists, page, size)
         return ResponseEntity.ok(CodeListListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
     }

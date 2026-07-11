@@ -41,8 +41,15 @@ enum class DocumentTemplateSort(
     ;
 
     companion object {
-        /** Unknown values fall back to [UPDATED] (`lastModified`), matching the contract default. */
-        fun fromParam(param: String?): DocumentTemplateSort = entries.find { it.param == param } ?: UPDATED
+        /** The supported wire values, for enumerating in a rejection when an unknown key is supplied. */
+        val paramValues: List<String> = entries.map { it.param }
+
+        /**
+         * Case-insensitive strict lookup: returns `null` for an unrecognized value rather than
+         * silently falling back. The REST layer maps a non-null-but-unknown `sort` to a 400 (the
+         * contract does no validation of its own), while an absent `sort` selects the default order.
+         */
+        fun fromParamOrNull(param: String): DocumentTemplateSort? = entries.find { it.param.equals(param, ignoreCase = true) }
     }
 }
 

@@ -66,8 +66,11 @@ class EpistolaTenantApi :
         q: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<TenantListResponse> {
         val tenants = ListTenants(searchTerm = q).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(tenants, page, size)
         return ResponseEntity.ok(
             TenantListResponse(
@@ -133,9 +136,12 @@ class EpistolaTenantApi :
         catalogId: String,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<AttributeListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite, catalogKey = CatalogKey.of(catalogId)).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(attributes, page, size)
         return ResponseEntity.ok(AttributeListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
     }
@@ -231,9 +237,12 @@ class EpistolaTenantApi :
         tenantId: String,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<EnvironmentListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val environments = ListEnvironments(tenantId = tenantIdComposite).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(environments, page, size)
         return ResponseEntity.ok(EnvironmentListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
     }

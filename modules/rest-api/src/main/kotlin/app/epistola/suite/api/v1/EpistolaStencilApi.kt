@@ -61,6 +61,8 @@ class EpistolaStencilApi(
         tag: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<StencilListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencils = ListStencilSummaries(
@@ -69,6 +71,7 @@ class EpistolaStencilApi(
             tag = tag,
             catalogKey = CatalogKey.of(catalogId),
         ).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(stencils, page, size)
 
         return ResponseEntity.ok(
@@ -165,6 +168,8 @@ class EpistolaStencilApi(
         status: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<StencilVersionListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
@@ -173,6 +178,7 @@ class EpistolaStencilApi(
             stencilId = stencilIdComposite,
             status = status?.toStencilVersionStatus(),
         ).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(versions, page, size)
 
         return ResponseEntity.ok(
@@ -287,12 +293,15 @@ class EpistolaStencilApi(
         versionId: Int,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<StencilUsageListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val usages = GetStencilUsage(versionId = versionIdComposite).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(usages, page, size)
 
         return ResponseEntity.ok(

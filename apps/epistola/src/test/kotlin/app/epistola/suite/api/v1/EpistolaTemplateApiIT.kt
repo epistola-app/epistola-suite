@@ -773,7 +773,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `list templates falls back to the default order for an unrecognized sort or direction`() {
+    fun `list templates sort field is matched case-insensitively, like direction`() {
         val (tenantKey, key) = seedTenantAndKey()
         val suffix = randomSuffix()
         listOf("Cherry" to "cherry", "Apple" to "apple", "Banana" to "banana").forEach { (name, id) ->
@@ -784,32 +784,51 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
                 String::class.java,
             )
         }
-        // Bump one row so created_at != updated_at; otherwise a created-vs-updated fallback
-        // would be indistinguishable and this test couldn't prove it lands on the default.
-        restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/cherry-$suffix",
-            HttpMethod.PATCH,
-            HttpEntity("""{"name": "Cherry Updated"}""", baseHeaders(key)),
-            String::class.java,
-        )
 
-        // Unknown sort + direction must not 400; it falls back to the contract default
-        // (lastModified, desc) — the same order an explicit lastModified/desc request produces.
-        val bogus = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=bogus&direction=sideways",
+        // Mixed-case 'Name'/'ASC' must be honored, not silently dropped to the default order —
+        // the sort field resolves case-insensitively, matching the direction parameter.
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=Name&direction=ASC",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
-        val default = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=lastModified&direction=desc",
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.items[*].name"))
+            .containsExactly("Apple", "Banana", "Cherry")
+    }
+
+    @Test
+    fun `list templates falls back to the default direction for an unrecognized direction`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val suffix = randomSuffix()
+        listOf("Cherry" to "cherry", "Apple" to "apple", "Banana" to "banana").forEach { (name, id) ->
+            restTemplate.exchange(
+                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                HttpMethod.POST,
+                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                String::class.java,
+            )
+        }
+
+        // direction stays lenient (unlike sort, which 400s on an unknown key): a known sort with an
+        // unrecognized direction must NOT 400 — it falls back to the contract default (desc), the
+        // same order an explicit direction=desc request produces.
+        val bogus = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=sideways",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        val desc = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=desc",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         assertThat(bogus.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<List<String>>(bogus.body!!, "$.items[*].id"))
-            .isEqualTo(JsonPath.read<List<String>>(default.body!!, "$.items[*].id"))
+            .isEqualTo(JsonPath.read<List<String>>(desc.body!!, "$.items[*].id"))
     }
 
     @Test
@@ -934,10 +953,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `unrecognized sort or direction is accepted, not rejected with 400`() {
-        // The contract lists allowed sort/direction values, but the server treats them
-        // leniently: an unrecognized value is NOT a 400 — it falls back to the default
-        // order. Guards the documented fallback against a stricter future binding.
+    fun `list templates rejects an unrecognized sort key with 400`() {
+        // The contract declares sort as a free-form string with no validation of its own, so the
+        // server validates it: a non-null value that isn't a supported key is rejected with a 400
+        // problem+json whose body enumerates the supported keys the contract no longer advertises.
         val (tenantKey, key) = seedTenantAndKey()
         val suffix = randomSuffix()
         restTemplate.exchange(
@@ -948,14 +967,18 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
 
         val resp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=title&direction=up",
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=title",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
-        assertThat(resp.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(resp.statusCode).isNotEqualTo(HttpStatus.BAD_REQUEST)
-        assertThat(JsonPath.read<List<String>>(resp.body!!, "$.items[*].id")).contains("only-$suffix")
+        assertThat(resp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        val problem = resp.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-sort")
+        assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(problem, "$.value")).isEqualTo("title")
+        assertThat(JsonPath.read<List<String>>(problem, "$.supportedValues"))
+            .containsExactly("name", "createdAt", "lastModified")
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {

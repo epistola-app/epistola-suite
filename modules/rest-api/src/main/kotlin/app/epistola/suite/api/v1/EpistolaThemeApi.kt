@@ -42,6 +42,8 @@ class EpistolaThemeApi(
         q: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<ThemeListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val themes = ListThemes(
@@ -49,6 +51,7 @@ class EpistolaThemeApi(
             searchTerm = q,
             catalogKey = CatalogKey.of(catalogId),
         ).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(themes, page, size)
 
         return ResponseEntity.ok(

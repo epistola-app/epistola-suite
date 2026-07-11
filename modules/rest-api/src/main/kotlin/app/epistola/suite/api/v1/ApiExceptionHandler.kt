@@ -1,6 +1,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.model.ValidationError
+import app.epistola.suite.api.v1.shared.UnsupportedSortException
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTooLargeException
@@ -195,6 +196,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     // ------------------------------------------------------------------
 
     @ExceptionHandler(
+        UnsupportedSortException::class,
         ThemeNotFoundException::class,
         TenantNotFoundException::class,
         AttributeNotFoundException::class,

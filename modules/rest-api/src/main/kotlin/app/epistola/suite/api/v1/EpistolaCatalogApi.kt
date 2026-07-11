@@ -26,9 +26,16 @@ import org.springframework.web.multipart.MultipartFile
 @RequestMapping("/api")
 class EpistolaCatalogApi : CatalogsApi {
 
-    override fun listCatalogs(tenantId: String, page: Int, size: Int): ResponseEntity<CatalogListResponse> {
+    override fun listCatalogs(
+        tenantId: String,
+        page: Int,
+        size: Int,
+        sort: String?,
+        direction: String,
+    ): ResponseEntity<CatalogListResponse> {
         val tenantKey = TenantKey.of(tenantId)
         val catalogs = ListCatalogs(tenantKey).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(catalogs, page, size)
         return ResponseEntity.ok(
             CatalogListResponse(

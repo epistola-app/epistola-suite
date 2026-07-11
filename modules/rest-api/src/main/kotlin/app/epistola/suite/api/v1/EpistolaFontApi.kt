@@ -44,10 +44,13 @@ class EpistolaFontApi : FontsApi {
         catalogId: String,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<FontListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)
         val fonts = ListFonts(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
+        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(fonts, page, size)
         val items = slice.items.map { font ->
             val variants = GetFontVariants(

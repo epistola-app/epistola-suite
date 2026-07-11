@@ -1,5 +1,6 @@
 package app.epistola.suite.api.v1
 
+import app.epistola.suite.api.v1.shared.UnsupportedSortException
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTooLargeException
@@ -71,6 +72,13 @@ object ApiExceptionMappings {
 
     init {
         val builder = ApiExceptionMappingBuilder()
+
+        builder.register<UnsupportedSortException>(
+            problemType = ApiProblemTypes.UNSUPPORTED_SORT,
+            defaultDetail = "The requested sort key is not supported by this endpoint",
+            extensions = { mapOf("value" to it.value, "supportedValues" to it.supportedValues) },
+            logMessage = { "Unsupported sort '${it.value}'; supported: ${it.supportedValues.joinToString(", ")}" },
+        )
 
         builder.register<ThemeNotFoundException>(
             problemType = ApiProblemTypes.THEME_NOT_FOUND,
