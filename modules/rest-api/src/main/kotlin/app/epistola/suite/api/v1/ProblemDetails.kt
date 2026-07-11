@@ -101,7 +101,7 @@ object ApiProblemTypes {
     val VERSION_ARCHIVED = problem("VERSION_ARCHIVED", "Version Archived", HttpStatus.CONFLICT, "The version is archived and cannot be published.", listOf("tenantId", "versionId"))
     val ACTIVATION_NOT_FOUND = problem("ACTIVATION_NOT_FOUND", "Activation Not Found", HttpStatus.NOT_FOUND, "No activation exists for the requested variant and environment.", listOf("tenantId", "variantId", "environmentId"))
     val NO_ACTIVE_VERSION = problem("NO_ACTIVE_VERSION", "No Active Version", HttpStatus.NOT_FOUND, "No active version is available for the requested variant and environment.", listOf("tenantId", "variantId", "environmentId"))
-    val CONTRACT_PUBLISH_CONFLICT = problem("CONTRACT_PUBLISH_CONFLICT", "Contract Publish Conflict", HttpStatus.CONFLICT, "The data-model change is backwards-incompatible and was not confirmed; retry with forceUpdate=true to publish it.", listOf("breakingChanges"))
+    val CONTRACT_PUBLISH_CONFLICT = problem("CONTRACT_PUBLISH_CONFLICT", "Contract Publish Conflict", HttpStatus.CONFLICT, "The data-model change is backwards-incompatible and was not confirmed; retry with forceUpdate=true to publish it.", listOf("breakingChanges", "recentUsage"))
 
     val all: List<ApiProblemType> = listOf(
         BATCH_VALIDATION_ERROR,
