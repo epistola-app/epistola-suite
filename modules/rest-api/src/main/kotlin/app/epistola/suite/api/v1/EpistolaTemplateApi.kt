@@ -216,10 +216,10 @@ class EpistolaTemplateApi(
             // confirms it via forceUpdate; otherwise surface a 409 — carrying whether the change
             // would break the input data of recent generations (#280).
             if (!preview.compatible && !confirmBreaking) {
-                val recentUsage = dataModel?.let {
-                    CheckRecentUsageCompatibility(templateId = templateIdComposite, candidateSchema = it).query()
-                }
-                throw ContractPublishConflictException(preview.breakingChanges, recentUsage)
+                throw ContractPublishConflictException(
+                    preview.breakingChanges,
+                    recentUsageImpact(templateIdComposite, dataModel),
+                )
             }
 
             // The REST caller is authoritative: stage the change on a draft, then publish it
@@ -235,7 +235,10 @@ class EpistolaTemplateApi(
             val publish = PublishContractVersion(templateId = templateIdComposite, confirmed = confirmBreaking).execute()
             // Backstop for a concurrent change landing between the preview and the publish.
             if (publish != null && !publish.published) {
-                throw ContractPublishConflictException(publish.breakingChanges.map { it.description })
+                throw ContractPublishConflictException(
+                    publish.breakingChanges.map { it.description },
+                    recentUsageImpact(templateIdComposite, dataModel),
+                )
             }
         }
 
@@ -634,6 +637,16 @@ class EpistolaTemplateApi(
     }
 
     // ================== Helper methods ==================
+
+    /**
+     * Replays recent usage against the [candidateSchema] so a publish-conflict (409) can report
+     * whether the breaking change would reject the input data of recent generations (#280). Shared
+     * by both conflict paths — the up-front preview rejection and the concurrent-change backstop —
+     * so either 409 carries the same body. Null when no schema change was requested.
+     */
+    private fun recentUsageImpact(templateId: TemplateId, candidateSchema: ObjectNode?): RecentUsageImpact? = candidateSchema?.let {
+        CheckRecentUsageCompatibility(templateId = templateId, candidateSchema = it).query()
+    }
 
     private fun getVariantSummary(variant: TemplateVariant, tenantId: TenantKey, catalogId: String): VariantVersionInfo {
         val tenantIdComposite = TenantId(tenantId)
