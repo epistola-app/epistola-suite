@@ -1,9 +1,9 @@
 # Compatibility system — requirements & design criteria
 
-Status: **draft / thinking**. This is the "what we exactly need" spec we lock
-*before* choosing a mechanism, so the design solves the real problem without
-sprawl. Companion to [`README.md`](./README.md) (the current empirical smoke
-harness) and issue #246.
+Status: the design forks are **decided** (D1–D6 below); the accepted decision is
+recorded in [ADR 0011](../docs/adr/0011-version-compatibility-declared-and-verified.md).
+This doc is the detailed spec behind that ADR. Companion to
+[`README.md`](./README.md) (the current empirical smoke harness) and issue #246.
 
 > **Working ideology:** it doesn't have to be perfect the first time. It just
 > needs to work, then get better with each commit.
