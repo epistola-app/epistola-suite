@@ -194,10 +194,48 @@ class LoadTestExecutor(
         jobs: List<SubmittedJob>,
     ): Pair<List<JobResult>, Boolean> {
         val jobIds = jobs.map { it.generationRequestId }.toSet()
+        // O(1) job lookup by request id. The previous `jobs.first { it.id == requestId }`
+        // scanned the whole job list per result row per poll — O(n²) per poll — which for a
+        // large batch dominated the load test's own CPU (JFR: ~11% in equality/hash ops),
+        // stealing cycles from the generation it was meant to measure.
+        val jobsById = jobs.associateBy { it.generationRequestId }
         val pollIntervalMs = POLL_INTERVAL_MS
         val maxWaitTimeMs = MAX_WAIT_TIME_MS
         val startTime = System.currentTimeMillis()
         var wasCancelled = false
+
+        fun fetchResults(): List<JobResult> = jdbi.withHandle<List<JobResult>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT
+                    dgr.id,
+                    dgr.created_at,
+                    dgr.started_at,
+                    dgr.completed_at,
+                    dgr.status,
+                    dgr.error_message,
+                    dgr.document_key
+                FROM document_generation_requests dgr
+                WHERE dgr.id IN (<jobIds>)
+                """,
+            )
+                .bindList("jobIds", jobIds.map { it.value })
+                .map { rs, _ ->
+                    val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
+                    val job = jobsById.getValue(requestId)
+                    JobResult(
+                        sequenceNumber = job.sequenceNumber,
+                        generationRequestId = requestId,
+                        createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                        startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
+                        completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
+                        status = rs.getString("status"),
+                        errorMessage = rs.getString("error_message"),
+                        documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
+                    )
+                }
+                .list()
+        }
 
         while (true) {
             // Check for cancellation
@@ -213,40 +251,7 @@ class LoadTestExecutor(
                 break
             }
 
-            // Query database for job statuses
-            val results = jdbi.withHandle<List<JobResult>, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT
-                        dgr.id,
-                        dgr.created_at,
-                        dgr.started_at,
-                        dgr.completed_at,
-                        dgr.status,
-                        dgr.error_message,
-                        dgr.document_key
-                    FROM document_generation_requests dgr
-                    WHERE dgr.id IN (<jobIds>)
-                    """,
-                )
-                    .bindList("jobIds", jobIds.map { it.value })
-                    .map { rs, _ ->
-                        val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
-                        val job = jobs.first { it.generationRequestId == requestId }
-
-                        JobResult(
-                            sequenceNumber = job.sequenceNumber,
-                            generationRequestId = requestId,
-                            createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                            startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
-                            completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
-                            status = rs.getString("status"),
-                            errorMessage = rs.getString("error_message"),
-                            documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
-                        )
-                    }
-                    .list()
-            }
+            val results = fetchResults()
 
             // Check if all jobs reached terminal state
             val allDone = results.all { it.status in setOf("COMPLETED", "FAILED", "CANCELLED") }
@@ -275,41 +280,7 @@ class LoadTestExecutor(
         }
 
         // Return partial results if cancelled or timed out
-        val finalResults = jdbi.withHandle<List<JobResult>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT
-                    dgr.id,
-                    dgr.created_at,
-                    dgr.started_at,
-                    dgr.completed_at,
-                    dgr.status,
-                    dgr.error_message,
-                    dgr.document_key
-                FROM document_generation_requests dgr
-                WHERE dgr.id IN (<jobIds>)
-                """,
-            )
-                .bindList("jobIds", jobIds.map { it.value })
-                .map { rs, _ ->
-                    val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
-                    val job = jobs.first { it.generationRequestId == requestId }
-
-                    JobResult(
-                        sequenceNumber = job.sequenceNumber,
-                        generationRequestId = requestId,
-                        createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                        startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
-                        completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
-                        status = rs.getString("status"),
-                        errorMessage = rs.getString("error_message"),
-                        documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
-                    )
-                }
-                .list()
-        }
-
-        return Pair(finalResults, wasCancelled)
+        return Pair(fetchResults(), wasCancelled)
     }
 
     /**
