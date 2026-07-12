@@ -101,6 +101,20 @@ data class ClusterScheduledTaskProperties(
      */
     val schedulerIdleTimeoutMs: Long = 30_000,
     /**
+     * Hard ceiling on how long a single-owner task may stay in-flight before it is
+     * **force-reclaimed regardless of its lease**. Normally the lease is the
+     * correctness boundary: a running task is never taken over. But a node wedged
+     * *mid-dispatch* keeps renewing its lease from the maintenance thread forever
+     * (issue #723), so lease expiry never fires and the task would be pinned to the
+     * broken node until its process dies. Once a run exceeds this deadline any
+     * capable node may reclaim it (via `FOR UPDATE SKIP LOCKED`, so only one does),
+     * guaranteeing every recurring task eventually runs again — at the cost of a
+     * possible double-run of a task that legitimately exceeds the deadline. Must
+     * therefore be set **well above** the longest expected single-owner handler
+     * runtime. Default 15 minutes.
+     */
+    val maxRunDurationMs: Long = 900_000,
+    /**
      * How often the `core.scheduled-task-reconciliation` task deletes orphaned
      * code-defined tasks (no live node carries them). Default hourly.
      */
