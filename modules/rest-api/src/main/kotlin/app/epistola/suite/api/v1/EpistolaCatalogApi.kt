@@ -5,6 +5,7 @@ import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
 import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.ImportCatalogResponse
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
@@ -33,9 +34,10 @@ class EpistolaCatalogApi : CatalogsApi {
         sort: String?,
         direction: String,
     ): ResponseEntity<CatalogListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantKey = TenantKey.of(tenantId)
         val catalogs = ListCatalogs(tenantKey).query()
-        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(catalogs, page, size)
         return ResponseEntity.ok(
             CatalogListResponse(

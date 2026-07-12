@@ -5,6 +5,7 @@ import app.epistola.api.model.CreateThemeRequest
 import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDomain
 import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
@@ -45,13 +46,14 @@ class EpistolaThemeApi(
         sort: String?,
         direction: String,
     ): ResponseEntity<ThemeListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val themes = ListThemes(
             tenantId = tenantIdComposite,
             searchTerm = q,
             catalogKey = CatalogKey.of(catalogId),
         ).query()
-        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(themes, page, size)
 
         return ResponseEntity.ok(

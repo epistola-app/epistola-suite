@@ -1,6 +1,7 @@
 package app.epistola.suite.api.v1.shared
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class SortDirectionTest {
@@ -13,11 +14,33 @@ class SortDirectionTest {
     }
 
     @Test
-    fun `unknown, null, and blank values fall back to the DESC default`() {
-        assertThat(SortDirection.fromParam("up")).isEqualTo(SortDirection.DESC)
-        assertThat(SortDirection.fromParam("asc ")).isEqualTo(SortDirection.DESC)
+    fun `an absent (null) direction selects the DESC default`() {
+        // Absent is not an error; the contract default is desc.
         assertThat(SortDirection.fromParam(null)).isEqualTo(SortDirection.DESC)
-        assertThat(SortDirection.fromParam("")).isEqualTo(SortDirection.DESC)
+    }
+
+    @Test
+    fun `unknown and blank values are rejected rather than falling back`() {
+        // Mirrors the sort key: a malformed direction fails loudly rather than being
+        // silently reinterpreted as the default. The REST layer maps this to a 400.
+        listOf("up", "asc ", "").forEach { bad ->
+            assertThatThrownBy { SortDirection.fromParam(bad) }
+                .isInstanceOf(UnsupportedSortDirectionException::class.java)
+        }
+    }
+
+    @Test
+    fun `the rejection enumerates the supported directions`() {
+        assertThatThrownBy { SortDirection.fromParam("sideways") }
+            .isInstanceOfSatisfying(UnsupportedSortDirectionException::class.java) {
+                assertThat(it.value).isEqualTo("sideways")
+                assertThat(it.supportedValues).containsExactly("asc", "desc")
+            }
+    }
+
+    @Test
+    fun `paramValues lists the supported directions in declaration order`() {
+        assertThat(SortDirection.paramValues).containsExactly("asc", "desc")
     }
 
     @Test

@@ -11,6 +11,7 @@ import app.epistola.api.model.StencilVersionListResponse
 import app.epistola.api.model.UpdateStencilDraftRequest
 import app.epistola.api.model.UpdateStencilRequest
 import app.epistola.api.model.UpgradePreviewListResponse
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toStencilVersionStatus
@@ -64,6 +65,8 @@ class EpistolaStencilApi(
         sort: String?,
         direction: String,
     ): ResponseEntity<StencilListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencils = ListStencilSummaries(
             tenantId = tenantIdComposite,
@@ -71,7 +74,6 @@ class EpistolaStencilApi(
             tag = tag,
             catalogKey = CatalogKey.of(catalogId),
         ).query()
-        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(stencils, page, size)
 
         return ResponseEntity.ok(
@@ -171,6 +173,8 @@ class EpistolaStencilApi(
         sort: String?,
         direction: String,
     ): ResponseEntity<StencilVersionListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
 
@@ -178,7 +182,6 @@ class EpistolaStencilApi(
             stencilId = stencilIdComposite,
             status = status?.toStencilVersionStatus(),
         ).query()
-        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(versions, page, size)
 
         return ResponseEntity.ok(
@@ -296,12 +299,13 @@ class EpistolaStencilApi(
         sort: String?,
         direction: String,
     ): ResponseEntity<StencilUsageListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val usages = GetStencilUsage(versionId = versionIdComposite).query()
-        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(usages, page, size)
 
         return ResponseEntity.ok(

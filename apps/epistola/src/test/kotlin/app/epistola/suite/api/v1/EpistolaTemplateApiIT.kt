@@ -799,36 +799,32 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `list templates falls back to the default direction for an unrecognized direction`() {
+    fun `list templates rejects an unrecognized direction with 400`() {
         val (tenantKey, key) = seedTenantAndKey()
         val suffix = randomSuffix()
-        listOf("Cherry" to "cherry", "Apple" to "apple", "Banana" to "banana").forEach { (name, id) ->
-            restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
-                HttpMethod.POST,
-                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
-                String::class.java,
-            )
-        }
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "only-$suffix", "name": "Only"}""", baseHeaders(key)),
+            String::class.java,
+        )
 
-        // direction stays lenient (unlike sort, which 400s on an unknown key): a known sort with an
-        // unrecognized direction must NOT 400 — it falls back to the contract default (desc), the
-        // same order an explicit direction=desc request produces.
-        val bogus = restTemplate.exchange(
+        // direction is validated the same way as sort: an unrecognized non-null value fails loudly
+        // (400) rather than being silently reinterpreted as the contract default. The problem body
+        // enumerates the supported directions.
+        val resp = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=sideways",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
-        val desc = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=desc",
-            HttpMethod.GET,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(bogus.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(bogus.body!!, "$.items[*].id"))
-            .isEqualTo(JsonPath.read<List<String>>(desc.body!!, "$.items[*].id"))
+        assertThat(resp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        val problem = resp.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-sort-direction")
+        assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(problem, "$.value")).isEqualTo("sideways")
+        assertThat(JsonPath.read<List<String>>(problem, "$.supportedValues"))
+            .containsExactly("asc", "desc")
     }
 
     @Test

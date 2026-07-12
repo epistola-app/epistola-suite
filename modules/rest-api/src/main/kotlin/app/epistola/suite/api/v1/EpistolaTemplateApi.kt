@@ -19,6 +19,7 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionListResponse
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.SortDirection
 import app.epistola.suite.api.v1.shared.UnsupportedSortException
@@ -116,8 +117,9 @@ class EpistolaTemplateApi(
         // The contract does no validation on sort/direction (free-form strings), so we do it here.
         // An absent sort selects the default order; a non-null value must name a whitelisted field
         // (the whitelist is what keeps raw input out of ORDER BY) or we reject with 400 — the error
-        // body enumerates the supported keys, which the contract no longer advertises. direction
-        // stays lenient (unrecognized falls back to the contract default, desc).
+        // body enumerates the supported keys, which the contract no longer advertises. direction is
+        // validated the same way by SortDirection.fromParam below: absent → the default desc, an
+        // unrecognized non-null value → 400.
         val sortKey = if (sort == null) {
             DocumentTemplateSort.UPDATED
         } else {
@@ -290,12 +292,13 @@ class EpistolaTemplateApi(
         sort: String?,
         direction: String,
     ): ResponseEntity<VariantListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         // Bounded per-template collection: fetch and slice in application code.
         val variants = ListVariants(templateId = templateIdComposite).query()
-        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(variants, page, size)
         val variantDtos = slice.items.map { variant ->
             val summary = getVariantSummary(variant, typedTenantId, catalogId)
@@ -504,6 +507,8 @@ class EpistolaTemplateApi(
         sort: String?,
         direction: String,
     ): ResponseEntity<VersionListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
@@ -515,7 +520,6 @@ class EpistolaTemplateApi(
         } else {
             versions
         }
-        // sort/direction accepted per contract but not implemented here; only the templates list sorts.
         val slice = Pagination.paginate(filteredVersions, page, size)
         return ResponseEntity.ok(
             VersionListResponse(
