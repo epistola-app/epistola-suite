@@ -69,6 +69,9 @@ class JobPollerIntegrationTest {
     @Autowired
     private lateinit var contentStore: ContentStore
 
+    @Autowired
+    private lateinit var meterRegistry: io.micrometer.core.instrument.MeterRegistry
+
     // This test does not extend IntegrationTestBase, so it must get the production
     // wall-clock scheduling substrate by default — required injection guards that.
     @Autowired
@@ -167,5 +170,14 @@ class JobPollerIntegrationTest {
         val contentBytes = stored.content.readAllBytes()
         assertThat(contentBytes.take(4).toByteArray())
             .isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46)) // %PDF magic bytes
+
+        // Time-accounting metrics are recorded without any DB query: the "waiting"
+        // bucket (queue wait) and the "busy vs no-jobs" drain signal.
+        assertThat(meterRegistry.find("epistola.generation.queue.wait").timer()?.count() ?: 0L)
+            .`as`("queue-wait timer records the PENDING wait")
+            .isGreaterThan(0L)
+        assertThat(meterRegistry.find("epistola.jobs.drain.batches").tag("outcome", "found").counter()?.count() ?: 0.0)
+            .`as`("drain 'found' counter fires when the poller claims work")
+            .isGreaterThan(0.0)
     }
 }

@@ -88,6 +88,35 @@ data class ClusterScheduledTaskProperties(
     val batchSize: Int = 10,
     val candidateScanSize: Int = 100,
     /**
+     * How recently a node must have **completed a scheduler poll cycle** to remain
+     * eligible as a single-owner task owner. Unlike `idleTimeoutMs` (which keys off
+     * the heartbeat, maintained on a separate thread), this keys off the poll thread
+     * itself, so a node that is heartbeating but whose scheduler is wedged (see
+     * issue #723) drops out of ownership election and its due tasks are re-owned by a
+     * healthy node. Comfortably above `pollIntervalMs` so a single slightly-slow
+     * cycle does not cause ownership to flap; kept short so recovery is quick. The
+     * lease remains the correctness boundary — a still-leased task is never taken
+     * over regardless of ownership — so this only accelerates recovery of due tasks
+     * that were never claimed. Default 30 seconds.
+     */
+    val schedulerIdleTimeoutMs: Long = 30_000,
+    /**
+     * Hard ceiling on how long a single-owner task may stay in-flight before it is
+     * **force-reclaimed regardless of its lease**. Normally the lease is the
+     * correctness boundary: a running task is never taken over. But a node wedged
+     * *mid-dispatch* keeps renewing its lease from the maintenance thread forever
+     * (issue #723), so lease expiry never fires and the task would be pinned to the
+     * broken node until its process dies. Once a run exceeds this deadline any
+     * capable node may reclaim it (via `FOR UPDATE SKIP LOCKED`, so only one does),
+     * guaranteeing every recurring task eventually runs again. The cost is a re-run of
+     * a task that legitimately exceeds the deadline — and note the failure mode of
+     * setting this **too low** is not a single double-run but *accumulating concurrent
+     * runs*: a handler that consistently overruns is reclaimed again each deadline
+     * while prior runs are still executing. Must therefore be set **well above** the
+     * longest expected single-owner handler runtime. Default 15 minutes.
+     */
+    val maxRunDurationMs: Long = 900_000,
+    /**
      * How often the `core.scheduled-task-reconciliation` task deletes orphaned
      * code-defined tasks (no live node carries them). Default hourly.
      */
