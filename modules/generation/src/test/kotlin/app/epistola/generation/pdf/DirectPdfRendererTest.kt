@@ -54,17 +54,26 @@ class DirectPdfRendererTest {
     }
 
     @Test
-    fun `warmUp renders both render paths without throwing`() {
+    fun `warmUp warms single-pass and two-pass render paths without throwing`() {
         // Forces the render class graph (PdfDocument/writers/renderers) to load
         // single-threaded at startup so a concurrent first-load burst can't deadlock
         // the classloader (issue #724). Must be safe to call repeatedly and not throw.
         renderer.warmUp()
         renderer.warmUp()
 
-        // And the warmup document still renders a valid PDF through the normal path.
-        val output = ByteArrayOutputStream()
-        renderer.render(documentWithChildren(emptyMap(), emptyList()), emptyMap(), output, pdfaCompliant = true)
-        assertTrue(output.toByteArray().decodeToString(0, 5).startsWith("%PDF"))
+        val docs = renderer.warmupDocuments()
+        // One warmup document must trigger the two-pass branch, else renderTwoPass and
+        // the second measurement PdfDocument never class-load at startup (#724 gap).
+        assertTrue(
+            docs.any { TwoPassAnalyzer.requiresTwoPassRendering(it) },
+            "a warmup document must require two-pass rendering",
+        )
+        // Every warmup document renders a valid PDF through the normal render path.
+        docs.forEach { doc ->
+            val output = ByteArrayOutputStream()
+            renderer.render(doc, emptyMap(), output, pdfaCompliant = true)
+            assertTrue(output.toByteArray().decodeToString(0, 5).startsWith("%PDF"))
+        }
     }
 
     @Test

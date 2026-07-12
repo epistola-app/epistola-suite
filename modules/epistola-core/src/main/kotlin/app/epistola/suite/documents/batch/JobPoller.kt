@@ -57,6 +57,7 @@ class JobPoller(
     private val batchSizer: AdaptiveBatchSizer,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
+    private val renderWarmupGate: RenderWarmupGate,
 ) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
@@ -202,6 +203,13 @@ class JobPoller(
      * Runs on dedicated single thread - no concurrency issues with claiming.
      */
     private fun drain() {
+        // Hold off the concurrent claim burst until the render class graph is warm, so
+        // first-time iText/nested-jar class loading can't deadlock under load (#724).
+        // A deferred drain simply retries on the next scheduled tick or requestDrain().
+        if (!renderWarmupGate.isReady) {
+            logger.debug("Deferring job drain until render warmup completes")
+            return
+        }
         while (true) {
             drainRequested.set(false) // Reset flag, will be set again if more work needed
             lastPollAtMs.set(System.currentTimeMillis()) // heartbeat for the health indicator

@@ -147,32 +147,48 @@ class DirectPdfRenderer(
     }
 
     /**
-     * Renders a throwaway minimal document at startup to force the whole render class
-     * graph to class-load single-threaded: `PdfDocument`/`PdfWriter`, the render
-     * context, `ProseMirrorConverter`, and the node renderers. Complements
-     * [FontCache.warmUp] (which loads the iText font parser — an empty document renders
-     * no text, so it would not touch the fonts on its own).
+     * Renders throwaway documents at startup to force the whole render class graph to
+     * class-load single-threaded: `PdfDocument`/`PdfWriter`, the render context,
+     * `ProseMirrorConverter`, and the node renderers. Complements [FontCache.warmUp]
+     * (which loads the iText font parser — an empty document renders no text, so it
+     * would not touch the fonts on its own).
      *
      * The point is issue #724: a concurrent *first-time* class-load burst can deadlock
      * the JVM classloader / Spring Boot nested-jar loader monitors and wedge the node.
      * Loading the graph once, up front, on a single thread removes that race. Renders
-     * both the standard and PDF/A paths since they diverge. Best-effort — never throws.
+     * every combination of [warmupDocuments] (a single-pass *and* a two-pass document,
+     * so `renderTwoPass` + the measurement pass are warmed too) × standard/PDF/A (the
+     * two font paths diverge). Best-effort — never throws.
      */
     fun warmUp() {
-        val document = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("slot-root"))),
-            slots = mapOf("slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = emptyList())),
-            themeRef = ThemeRef.Inherit,
-        )
-        for (pdfaCompliant in listOf(false, true)) {
-            try {
-                render(document = document, data = emptyMap(), outputStream = OutputStream.nullOutputStream(), pdfaCompliant = pdfaCompliant)
-            } catch (e: Exception) {
-                log.warn("Render warmup pass (pdfaCompliant={}) failed; the first real render will pay the class-loading cost", pdfaCompliant, e)
+        for (document in warmupDocuments()) {
+            for (pdfaCompliant in listOf(false, true)) {
+                try {
+                    render(document = document, data = emptyMap(), outputStream = OutputStream.nullOutputStream(), pdfaCompliant = pdfaCompliant)
+                } catch (e: Exception) {
+                    log.warn("Render warmup pass (pdfaCompliant={}) failed; the first real render will pay the class-loading cost", pdfaCompliant, e)
+                }
             }
         }
+    }
+
+    /**
+     * The documents [warmUp] renders. The first is empty (single-pass). The second
+     * carries an unreferenced node holding a `sys.pages.total` binding so
+     * [requiresTwoPassRendering][TwoPassAnalyzer.requiresTwoPassRendering] fires and
+     * `render` takes the two-pass branch — warming `renderTwoPass` and the second
+     * measurement `PdfDocument`. The node is deliberately *not* placed in a slot (so it
+     * is never rendered, keeping the body trivial) and uses a non-flow-affecting type
+     * so [TwoPassAnalyzer.validate] accepts the two-pass reference.
+     */
+    internal fun warmupDocuments(): List<TemplateDocument> {
+        val rootNodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("slot-root")))
+        val slots = mapOf("slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = emptyList()))
+        val singlePass = TemplateDocument(modelVersion = 1, root = "root", nodes = rootNodes, slots = slots, themeRef = ThemeRef.Inherit)
+        val twoPass = singlePass.copy(
+            nodes = rootNodes + ("twopass" to Node(id = "twopass", type = "text", props = mapOf("parameterBindings" to mapOf("totalPages" to "sys.pages.total")))),
+        )
+        return listOf(singlePass, twoPass)
     }
 
     private fun createRenderContext(
