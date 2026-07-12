@@ -99,6 +99,27 @@ compatibility/render.sh --out -         # print to stdout instead
 Requires only `jq`. CI runs this after the smoke and posts the table to the job
 summary.
 
+## Aggregate external client feeds
+
+The suite side gives per-cell _ranges_; external **clients** (e.g.
+`valtimo-epistola-plugin`) publish their own machine-readable `compatibility.json`
+declaring the contract version they target. `aggregate.sh` joins the two — applying
+the rule `floor <= target <= apiVersion` — into plugin↔suite verdicts:
+
+```bash
+compatibility/aggregate.sh \
+  --feed ../valtimo-epistola-plugin/compatibility.json \
+  --out compatibility/aggregate.json
+compatibility/render.sh                 # picks up aggregate.json → second table
+```
+
+`aggregate.sh` (jq-only) writes `compatibility.json`-derived rows with a
+`compatible` flag and a human reason; `render.sh` adds a "Plugin ↔ suite
+compatibility" table when `aggregate.json` is present. The declarations stay with
+each artifact; the aggregator only reads the feeds and applies the rule (R8). How
+the aggregator _fetches_ remote feeds (raw URL / release asset) and where it
+ultimately _lives_ are still open (deferred with D6).
+
 ## Roadmap (each an independent, shippable step)
 
 **Done:** the smoke harness; release/on-demand CI (`.github/workflows/compatibility.yml`);
@@ -114,17 +135,21 @@ locally built compat-aware image (`rangeVerified: true`) and the published
 under `--profile localauth,demo` seeds ~60-90s after boot — tune `RANGE_TIMEOUT`.
 **Human-readable render** — `render.sh` turns `matrix.json` into
 [`MATRIX.md`](./MATRIX.md); CI posts it to the job summary.
+**Aggregate** — `aggregate.sh` joins the suite ranges with external client feeds
+(the plugin's `compatibility.json`) into plugin↔suite verdicts, rendered as a
+second table. The full pipeline (declare → verify → aggregate → render) works.
 
 **Next:**
 
-1. **Vary the client** — run the smoke against a range of contract versions
+1. **Wire the aggregate into CI / a feed source** — fetch the plugin's
+   `compatibility.json` (raw URL or release asset) and run `aggregate.sh`
+   automatically; decide the aggregator's home (in-repo vs neutral repo).
+2. **Vary the client** — run the smoke against a range of contract versions
    (fixed suite image, varying the client's declared contract), turning one cell
-   into a real row. The declared range now makes each such cell a real
+   into a real row. The declared range makes each such cell a real
    compatible/incompatible verdict, not just reachability.
-2. **Commit results back** from CI so `matrix.json` + `MATRIX.md` persist across
+3. **Commit results back** from CI so `matrix.json` + `MATRIX.md` persist across
    runs; later, publish as a feed.
-3. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
+4. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
    (`epk_demo_…`, available under a demo-capable profile) to exercise authenticated
    contract endpoints, not just the range declaration.
-4. **Plugin (transitive)** — infer `valtimo-epistola-plugin` compatibility from
-   its declared supported contract range against verified suite↔contract cells.
