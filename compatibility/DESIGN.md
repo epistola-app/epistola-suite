@@ -5,16 +5,19 @@ recorded in [ADR 0011](../docs/adr/0011-version-compatibility-declared-and-verif
 This doc is the detailed spec behind that ADR. Companion to
 [`README.md`](./README.md) (the current empirical smoke harness) and issue #246.
 
-**Implementation progress:** step 1 (**D1 — contract self-identifies**) is
-**done and verified** — `apiVersion: "unknown"` is fixed end-to-end. Steps 2–6
-(see [Execution plan](#execution-plan-order)) are not started.
+**Implementation progress:** steps 1–3 are **done and verified end-to-end** — the
+contract self-identifies (D1, fixes `apiVersion: "unknown"`), exposes a
+compatibility floor (D4), and the suite surfaces the derived accepted range
+`[minCompatibleApiVersion … apiVersion]` on `/ping` (D5/D2). Steps 4–6 (harness
+verification, plugin, aggregate/render — see
+[Execution plan](#execution-plan-order)) are not started.
 
 > **Working ideology:** it doesn't have to be perfect the first time. It just
 > needs to work, then get better with each commit.
 
 ## Why this doc exists (what we learned)
 
-We set out to build an *empirical* compatibility matrix — boot a published suite
+We set out to build an _empirical_ compatibility matrix — boot a published suite
 image and observe which contract versions it works with. Building it surfaced a
 more fundamental fact:
 
@@ -24,11 +27,11 @@ this session against real published images:
 - It **cannot reliably report the contract version it implements** — `/api/ping`
   returns `apiVersion: "unknown"` because the contract JAR ships without an
   `Implementation-Version` manifest entry. We only recovered the version by
-  reading the JAR *filename* out of the image.
+  reading the JAR _filename_ out of the image.
 - It **does not declare a supported client range**, anywhere.
 - It **does not negotiate or reject** on the client's declared contract version.
   `ClientIdentityFilter` only checks `User-Agent: epistola-contract/<v>` is
-  *present and prefixed* (and only on `/generation/collect`); the version value
+  _present and prefixed_ (and only on `/generation/collect`); the version value
   is never compared to anything. Any `epistola-contract/<anything>` is accepted.
 - There is exactly **one API version** (`application/vnd.epistola.v1+json`,
   enforced at the media-type layer), decoupled from the contract semver. Nothing
@@ -37,10 +40,10 @@ this session against real published images:
 So compatibility today is **implicit and undeclared**. An empirical matrix can
 therefore only measure "does it boot and serve" — too shallow to be the answer
 #246 wants ("kept **automatically**" implicitly requires that compatibility be
-*expressed*; you cannot auto-maintain a fact nothing declares).
+_expressed_; you cannot auto-maintain a fact nothing declares).
 
 **The opportunity:** because no compatibility mechanism exists yet, we are not
-retrofitting or reverse-engineering — we get to *design the primitive* so the
+retrofitting or reverse-engineering — we get to _design the primitive_ so the
 matrix falls out of it cheaply. We're in the RC window, where deliberate,
 flagged breaking changes are still allowed, so now is the right time.
 
@@ -50,15 +53,15 @@ Compatibility is anchored on **`epistola-contract`** (the wire language the suit
 and the external `valtimo-epistola-plugin` both speak). Each artifact plays a
 different role:
 
-| Artifact | Role | What it must contribute |
-| --- | --- | --- |
-| **epistola-contract** | **Anchor** (not a consumer of itself) | (1) Be **self-identifying** — embed its version so consumers can report it at runtime (fixes `apiVersion: "unknown"`). (2) Embed its **compatibility floor** (`minCompatibleContractVersion`) — the oldest contract version it stays wire-compatible with, bumped only on a breaking change. (3) **Define the declaration format** once, since both suite and plugin depend on it. |
-| **epistola-suite** | **Declarer (derives)** | Report the contract version it implements **and** an accepted client range — but the range is *derived* from the anchor's floor + version, not hand-authored. Surface both at runtime (endpoint) and, later, at rest (manifest/feed). |
-| **valtimo-epistola-plugin** | **Declarer (external, derives)** | Report the contract version it targets, in its own published metadata; derives its range from the same anchor-provided floor (separate repo, so it must participate cheaply — deriving keeps it constant-free). |
-| **Helm charts** | **Mapping** | Declare which suite version they deploy — already done via `appVersion` (informational, decoupled from chart version). |
+| Artifact                    | Role                                  | What it must contribute                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **epistola-contract**       | **Anchor** (not a consumer of itself) | (1) Be **self-identifying** — embed its version so consumers can report it at runtime (fixes `apiVersion: "unknown"`). (2) Embed its **compatibility floor** (`minCompatibleContractVersion`) — the oldest contract version it stays wire-compatible with, bumped only on a breaking change. (3) **Define the declaration format** once, since both suite and plugin depend on it. |
+| **epistola-suite**          | **Declarer (derives)**                | Report the contract version it implements **and** an accepted client range — but the range is _derived_ from the anchor's floor + version, not hand-authored. Surface both at runtime (endpoint) and, later, at rest (manifest/feed).                                                                                                                                              |
+| **valtimo-epistola-plugin** | **Declarer (external, derives)**      | Report the contract version it targets, in its own published metadata; derives its range from the same anchor-provided floor (separate repo, so it must participate cheaply — deriving keeps it constant-free).                                                                                                                                                                    |
+| **Helm charts**             | **Mapping**                           | Declare which suite version they deploy — already done via `appVersion` (informational, decoupled from chart version).                                                                                                                                                                                                                                                             |
 
 The key correction to "every artifact declares the same thing": the **contract's**
-contribution is to be readable and to own the *format*; the **consumers** declare
+contribution is to be readable and to own the _format_; the **consumers** declare
 what contract they speak; the **charts** just map to a suite.
 
 ## Requirements (what the primitive must provide)
@@ -68,7 +71,7 @@ what contract they speak; the **charts** just map to a suite.
   cracking open JAR filenames. (Fixes `apiVersion: "unknown"`.)
 - **R2 — Derived support range.** A suite can state the range of client contract
   versions it supports (e.g. `implements 0.10.0, supports clients >= 0.9.0`), not
-  just its own point version — and it *derives* that range from the anchor's
+  just its own point version — and it _derives_ that range from the anchor's
   compatibility floor rather than hand-maintaining a constant (see D4).
 - **R3 — Readable two ways.** Declarations are readable **at runtime** (an
   endpoint, for live checks and the app's own UI) and **at rest** (a
@@ -77,8 +80,8 @@ what contract they speak; the **charts** just map to a suite.
 - **R4 — One compatibility rule, anchored on the floor.** A single documented
   rule turns declarations into a verdict: a client contract version `C` is
   compatible with a suite when `floor ≤ C ≤ suiteContractVersion`, where `floor`
-  is the anchor's `minCompatibleContractVersion`. Compatibility is a *computation
-  over declarations* seeded by one human-set floor per breaking release, not a
+  is the anchor's `minCompatibleContractVersion`. Compatibility is a _computation
+  over declarations_ seeded by one human-set floor per breaking release, not a
   per-suite guess (see D4).
 - **R5 — External participation.** The plugin (a repo we don't control) can
   declare its target contract version cheaply, so the external side of the
@@ -90,8 +93,8 @@ what contract they speak; the **charts** just map to a suite.
   exposes is consistent across REST, the web UI, and MCP (per the "all three
   surfaces" rule).
 - **R8 — Declarations local, aggregation central.** Each artifact owns and
-  publishes *its own* declaration where it lives (suite in the suite, plugin in
-  the plugin repo, contract in its build). Any aggregator only *reads* those
+  publishes _its own_ declaration where it lives (suite in the suite, plugin in
+  the plugin repo, contract in its build). Any aggregator only _reads_ those
   feeds, applies the rule, and renders — it never owns declaration logic. This
   keeps the feed **format** as the real interface and the aggregator's location a
   reversible deployment detail.
@@ -105,7 +108,7 @@ in-repo" question.
   `epistola-suite`, so a separate repo turned local reads into cross-repo
   plumbing.
 - Under the self-declaration model that objection **disappears**: once every
-  artifact publishes its own declaration, *no* artifact's data is local/privileged
+  artifact publishes its own declaration, _no_ artifact's data is local/privileged
   — they are all feeds. A neutral **aggregator** repo then becomes not just
   viable but arguably the cleanest home, because it treats the external
   `valtimo-epistola-plugin` as a **peer** instead of a manually-maintained
@@ -113,26 +116,26 @@ in-repo" question.
 
 **But the sequencing and the split are load-bearing:**
 
-1. **Declarations first.** The declaration primitives (R1–R5) must exist *in each
-   artifact* before an aggregator is worth anything — an aggregator with no feeds
+1. **Declarations first.** The declaration primitives (R1–R5) must exist _in each
+   artifact_ before an aggregator is worth anything — an aggregator with no feeds
    to read is an empty shell. Build the feeds; the aggregator comes after.
 2. **The separate repo is the aggregator, NOT the declarations.** Moving
    declaration logic into a central repo re-couples everything and loses the
    benefit. Declarations stay with each artifact; only aggregation centralises.
-3. **Then the boundary is low-stakes and reversible.** Because the feed *format*
+3. **Then the boundary is low-stakes and reversible.** Because the feed _format_
    is the interface, whether the aggregator sits in `epistola-suite` or its own
    repo is a deployment choice, not an architectural one. Its real payoff is
    **neutrality**, which matters more as the number of independently-owned
    artifacts grows.
 
 So: we are **not** choosing the repo now. We are building the self-declaration
-feeds that *earn* that choice and keep it reversible. (Resolves open question #6.)
+feeds that _earn_ that choice and keep it reversible. (Resolves open question #6.)
 
 ## Design principles / constraints (the fixed walls)
 
 - **Contract is the semver anchor** — not up for redesign.
-- **Declaration over enforcement.** Start by *declaring* compatibility (cheap,
-  maintainable). Runtime *negotiation/rejection* (Kafka-style handshake) is a
+- **Declaration over enforcement.** Start by _declaring_ compatibility (cheap,
+  maintainable). Runtime _negotiation/rejection_ (Kafka-style handshake) is a
   bigger step, added only if a real need appears — not by default.
 - **Simplest thing that's true.** Prefer a readable version string + optional
   range over elaborate protocol machinery. Avoid over-building the clean canvas.
@@ -141,8 +144,8 @@ feeds that *earn* that choice and keep it reversible. (Resolves open question #6
 - **RC window** — deliberate breaking changes are allowed now and must be flagged
   (`feat!:` / `BREAKING CHANGE:`); this window narrows at 1.0.0-GA.
 - **Keep the harness useful.** The existing empirical smoke stays valuable as a
-  "does suite S boot and serve" regression check; it becomes the *light
-  verification* layer under R6, not the whole matrix.
+  "does suite S boot and serve" regression check; it becomes the _light
+  verification_ layer under R6, not the whole matrix.
 
 ## Explicitly out of scope (for now)
 
@@ -166,13 +169,13 @@ Encouraging: most of the primitive is already scaffolded.
   the spec as the version-discovery endpoint, and its `PongDetailsDto` already
   carries `serverVersion` + `apiVersion` ("the API spec version supported by this
   server"); the path is described as enabling "future compatibility features". We
-  are *completing an existing intent*, not inventing one.
+  are _completing an existing intent_, not inventing one.
 - **A client IS published** — `client-spring3-restclient` (Spring Boot 3 /
   Jackson 2). Per-version client testing is more feasible than first assumed
   (caveat: Boot 3 / Jackson 2 vs the suite's Boot 4 / Jackson 3).
 - **Root cause of `apiVersion: "unknown"`.** The `server-kotlin-springboot4`
   build never customises the jar manifest, and Gradle omits `Implementation-
-  Version` by default. The version *is* already inside the jar as the resource
+Version` by default. The version _is_ already inside the jar as the resource
   `/openapi/epistola-contract.yaml` (`info.version`) — just not exposed. The
   **client already solves this**: its build writes `epistola-contract-version.txt`
   and `ClientIdentity` reads it lazily; the server lacks that mirror.
@@ -196,10 +199,10 @@ Encouraging: most of the primitive is already scaffolded.
   `x-problem-types` drives a generated constant). (2) A **range field** on
   `PongDetailsDto` next to `serverVersion` / `apiVersion` in
   `spec/components/schemas/ping.yaml` carries what the suite surfaces. The suite
-  then *computes* `[floor … apiVersion]` from the two accessors and fills that
+  then _computes_ `[floor … apiVersion]` from the two accessors and fills that
   field — it authors no value. One spec edit still flows to the generated server
   interfaces, client model, docs, and mock server. This confirms the roles table:
-  **the contract owns the format *and* both endpoints; the suite only derives and
+  **the contract owns the format _and_ both endpoints; the suite only derives and
   surfaces.**
 
 ## Decisions
@@ -212,7 +215,7 @@ The design forks are settled (all confirmed):
   and exposes a small accessor; the suite calls it. Classpath resources are
   reliable in Spring Boot fat jars (manifest package-version — the cause of the
   `"unknown"` — is not). Keeps the "how to know my version" in the anchor. (R1)
-- **D2 — Suite *derives* its supported range from the anchor; it does not
+- **D2 — Suite _derives_ its supported range from the anchor; it does not
   hand-author it.** The suite exposes an accepted range at `/ping` →
   `PongDetailsDto`, but the range is **computed** as
   `[minCompatibleContractVersion … contractVersion]`, where both endpoints come
@@ -226,7 +229,7 @@ The design forks are settled (all confirmed):
   declaration cheaply once the format exists — and it derives its range from the
   **same** contract-provided floor (D4), so no plugin-side constant either (peer
   participation). Its matrix row is hand-maintained in the interim. Keying off
-  `User-Agent` is a runtime *observation*, not a declaration, so it's rejected. (R5)
+  `User-Agent` is a runtime _observation_, not a declaration, so it's rejected. (R5)
 - **D4 — The compatibility floor lives in the anchor; consumers derive, CI
   verifies.** The one irreducible human judgment — "does this contract change
   break wire compatibility?" — is made **once per contract release, in the
@@ -235,10 +238,10 @@ The design forks are settled (all confirmed):
   stays compatible with. It is bumped **only** when a breaking change lands
   (`feat!:` / `BREAKING CHANGE:`), otherwise inherited. The contract exposes it
   the same way it exposes its version (D1 — resource + accessor), so every
-  consumer (suite, plugin) *derives* its accepted range mechanically instead of
+  consumer (suite, plugin) _derives_ its accepted range mechanically instead of
   each re-declaring one. This collapses the maintenance burden from
-  *O(repos × releases)* hand-edited constants to *O(breaking releases)* edits in
-  one place. Rationale for a *declared* floor over a *computed* semver rule: pre-1.0
+  _O(repos × releases)_ hand-edited constants to _O(breaking releases)_ edits in
+  one place. Rationale for a _declared_ floor over a _computed_ semver rule: pre-1.0
   (`0.x`), a minor bump is allowed to break, so `^`-style computation is unsafe;
   the explicit floor encodes the human breaking-change call that semver can't. The
   empirical harness still verifies the derived range holds (declaration proposes,
@@ -248,21 +251,21 @@ The design forks are settled (all confirmed):
 - **D5 — Format in the contract spec; the anchor supplies both endpoints, the
   suite only surfaces them.** The declaration format is defined **once** in the
   contract (`PongDetailsDto` in `spec/components/schemas/ping.yaml`), and the
-  contract provides *both* the version (D1) and the floor (D4) via
+  contract provides _both_ the version (D1) and the floor (D4) via
   `ServerContractInfo`. The suite's job shrinks to reading those two accessors,
   computing the range, and putting it on the wire — it neither owns the format nor
   authors any value. (from the roles table / contract findings.)
 - **D6 — Aggregator location deferred & reversible** (R8): a neutral repo becomes
-  viable once feeds exist; the feed *format* is the interface. Concrete rendered
+  viable once feeds exist; the feed _format_ is the interface. Concrete rendered
   target (e.g. `docs/compatibility-matrix.md`) still open.
 
 ## Remaining detail work (not blocking)
 
-- Exact names for (a) the contract's floor accessor/resource
-  (`ServerContractInfo.minCompatibleContractVersion` + a
-  `epistola-contract-min-compatible.txt` resource, or a spec `info` extension like
-  `x-min-compatible-version`) and (b) the `PongDetailsDto` field the suite surfaces
-  the derived range on — decided when the spec is edited.
+- ~~Exact names for the floor accessor/resource and the `PongDetailsDto` field~~ —
+  **resolved:** spec `info.x-min-compatible-version` → build resource
+  `epistola-contract-min-compatible.txt` → `ServerContractInfo.minCompatibleContractVersion`;
+  surfaced on the wire as `PongDetailsDto.minCompatibleApiVersion` (optional, so
+  additive/non-breaking).
 - ~~Whether the suite reads the contract accessor directly or the raw resource~~
   — **resolved:** the suite calls `ServerContractInfo.contractVersion` directly
   (adds a compile dep on the contract server interfaces from `epistola-core`),
@@ -288,17 +291,22 @@ repos, not edited from here.**
    and `CollectEndpointSmokeIT`. The suite tracks `0.10.0-compat-SNAPSHOT`
    (local) until the contract change is released. Next: the harness can stop
    reading JAR filenames once it reads the declared value.
-2. **D4 — anchor exposes the compatibility floor** (in `epistola-contract`): add
-   `minCompatibleContractVersion` to the spec and expose it via `ServerContractInfo`
-   (same resource+accessor mechanism as D1). Seed it to a sensible current floor;
-   thereafter bumped only on a breaking change.
-3. **D5 / D2 — surface the derived range** (spec + suite): add the range field to
-   `PongDetailsDto` (spec in `epistola-contract`), and have the suite **compute**
-   `[floor … contractVersion]` from the two accessors and put it on `/ping` (this
-   repo). No hand-authored constant in the suite.
-4. **Verify** the derived range with the empirical harness (this repo) — the
-   existing smoke grows an assertion that the running suite's declared range holds
-   for the pairing under test.
+2. **D4 — anchor exposes the compatibility floor** ✅ **DONE.** In
+   `epistola-contract`: added `info.x-min-compatible-version` to the spec, the
+   server build writes it to `epistola-contract-min-compatible.txt`, and
+   `ServerContractInfo.minCompatibleContractVersion` reads it (falling back to the
+   version). Seeded to `0.10.0`; sticky across non-breaking releases, raised only
+   on a break.
+3. **D5 / D2 — surface the derived range** ✅ **DONE.** Added optional
+   `minCompatibleApiVersion` to `PongDetailsDto` (spec in `epistola-contract`); the
+   suite's `GetServerInfo` now derives it from
+   `ServerContractInfo.minCompatibleContractVersion` and `EpistolaSystemApi` puts
+   it on `/ping` next to `apiVersion` — the accepted range is
+   `[minCompatibleApiVersion … apiVersion]`, no hand-authored constant. Verified by
+   `GetServerInfoHandlerIT` (derivation) and `CollectEndpointSmokeIT` (on the wire).
+4. **Verify** the derived range with the empirical harness (this repo) — _next_:
+   the existing smoke grows an assertion that the running suite's declared range
+   holds for the pairing under test (now that `/ping` carries both bounds).
 5. **D3 — plugin declaration** (coordinate with `valtimo-epistola-plugin`), deriving
    its range from the same anchor floor; manual row until adopted.
 6. **Aggregate + render** (D6) — read declarations, apply the rule, render the
