@@ -390,6 +390,35 @@ pseudo, blind `waitForSelector("…[open]")`, bare `page.navigate`, and forensic
 | Before committing                     | `./gradlew unitTest integrationTest` (minimum) |
 | Before creating a PR                  | `./gradlew test` (all)                         |
 
+### Multi-instance & concurrency repro scripts (manual — not run by CI)
+
+Two concurrency failure modes can only be reproduced against the **real boot fat
+jar**, not the exploded test classpath, so they live as scripts under `scripts/`
+rather than as JUnit tests. Run them by hand when touching cluster scheduling,
+the `JobPoller`, generation threading, or load-test recovery. Both need Docker
+(they start their own disk-backed Postgres) and `psql`; both use the `local`
+Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a local
+`bootRun` or each other.
+
+- **`scripts/deadlock-burst-test.sh [attempts] [docs]`** — the #724 regression
+  guard. Boots one node from the fat jar and fires a burst of concurrent renders,
+  repeated N times; exits non-zero if any attempt **wedges** (a thread dump is
+  captured). The iText/nested-jar-loader classloader deadlock needs BOTH the
+  Spring Boot fat-jar nested-jar loader AND a concurrent cold first-load burst —
+  neither exists under `./gradlew test`, which is why no unit/integration test can
+  cover it. Rendering runs on **platform** threads specifically to avoid this
+  (JEP 491); a refactor back to virtual threads makes this script wedge and fail.
+  ```bash
+  ./gradlew :apps:epistola:bootJar          # build the fat jar first
+  SKIP_BUILD=1 scripts/deadlock-burst-test.sh 10 2000   # or omit SKIP_BUILD to let it build
+  ```
+- **`scripts/multi-instance-test.sh {up|verify|loadtest|chaos|staleness|down|all}`**
+  — 3-node cluster harness (shared Postgres + round-robin proxy) that verifies the
+  cluster seams: heartbeats, shared JDBC sessions, exactly-once generation,
+  cross-node job distribution, SIGKILL chaos + stale-job recovery (#723/#725), and
+  API-key revocation staleness. `all` runs the full sequence. Found all three of
+  #723/#724/#725. See [`docs/cluster-resilience.md`](docs/cluster-resilience.md).
+
 ## Key Files
 
 | File                             | Purpose                        |
