@@ -57,7 +57,24 @@ jobs:
           echo "Testing image: $IMAGE"
 
       - name: Run compatibility smoke
+        # RANGE_TIMEOUT is short here: the smoke boots with the default (no demo
+        # key) profile, and today's published images predate minCompatibleApiVersion,
+        # so the authenticated range read always degrades — no point waiting the
+        # full budget. Raise it (and boot a demo-capable profile) once compat-aware
+        # images are published so the declared range is actually read.
+        env:
+          RANGE_TIMEOUT: "15"
         run: compatibility/smoke.sh --image "${{ steps.img.outputs.image }}"
+
+      - name: Render matrix
+        if: always()
+        run: |
+          compatibility/render.sh
+          {
+            echo "## Compatibility matrix"
+            echo
+            compatibility/render.sh --out -
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show matrix
         if: always()
@@ -68,4 +85,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: compatibility-matrix
-          path: compatibility/matrix.json
+          path: |
+            compatibility/matrix.json
+            compatibility/MATRIX.md
