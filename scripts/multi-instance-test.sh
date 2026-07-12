@@ -241,8 +241,12 @@ cmd_chaos() {
   for i in 0 1 2; do
     if [ "$(node_pid "$i")" != "$claimer_pid" ]; then victim=$(node_pid "$i"); victim_idx=$i; break; fi
   done
+  # Poll at 1s, not 0.2s: a 10k-doc batch keeps jobs in-flight for minutes, so 1s
+  # catches the victim mid-flight just fine, and the slower cadence keeps the DB
+  # connection rate well under Podman's port-forwarder limits (a 0.2s loop opening a
+  # fresh psql connection each tick exhausts loopback ephemeral ports mid-run).
   local batch=""
-  for _ in $(seq 1 300); do
+  for _ in $(seq 1 120); do
     batch=$(psq "SELECT batch_id FROM load_test_runs WHERE id='$run'")
     if [ -n "$batch" ]; then
       local n
@@ -253,7 +257,7 @@ cmd_chaos() {
         break
       fi
     fi
-    sleep 0.2
+    sleep 1
   done
   # Recovery: stale threshold 1 min + recovery task cadence 60s -> allow 5 min.
   local orphans=-1
