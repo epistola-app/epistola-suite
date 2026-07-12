@@ -89,8 +89,11 @@ authoritative contract version read from the image; **declared-range verificatio
 — an authenticated `/api/ping` reads the server's `[minCompatibleApiVersion ..
 apiVersion]` and asserts the cell's contract falls inside it, recording
 `declaredRange` + `rangeVerified` on the cell (degrades to reachability-only
-against images that predate the field). _Exercised end-to-end once a compat-aware
-suite image exists;_ the in-process contract is covered by `CollectEndpointSmokeIT`.
+against images that predate the field). **Exercised end-to-end** against a
+locally built compat-aware image (`rangeVerified: true`) and the published
+`:latest` image (graceful degradation); the in-process contract is covered by
+`CollectEndpointSmokeIT`. Note the authenticated read needs a valid API key, which
+under `--profile localauth,demo` seeds ~60-90s after boot — tune `RANGE_TIMEOUT`.
 
 **Next:**
 

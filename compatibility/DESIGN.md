@@ -9,8 +9,9 @@ This doc is the detailed spec behind that ADR. Companion to
 contract self-identifies (D1, fixes `apiVersion: "unknown"`), exposes a
 compatibility floor (D4), and the suite surfaces the derived accepted range
 `[minCompatibleApiVersion … apiVersion]` on `/ping` (D5/D2). Step 4 (harness reads
-and verifies that range) is **implemented** — pending a compat-aware suite image to
-exercise it end-to-end. Steps 5–6 (plugin, aggregate/render — see
+and verifies that range) is **done — exercised end-to-end** against a locally built
+compat-aware image (range verified) and the published `:latest` image (graceful
+degradation). Steps 5–6 (plugin, aggregate/render — see
 [Execution plan](#execution-plan-order)) are not started.
 
 > **Working ideology:** it doesn't have to be perfect the first time. It just
@@ -305,14 +306,19 @@ repos, not edited from here.**
    it on `/ping` next to `apiVersion` — the accepted range is
    `[minCompatibleApiVersion … apiVersion]`, no hand-authored constant. Verified by
    `GetServerInfoHandlerIT` (derivation) and `CollectEndpointSmokeIT` (on the wire).
-4. **Verify** the derived range with the empirical harness (this repo) ✅
-   **IMPLEMENTED** (pending a compat-aware image to exercise end-to-end): `smoke.sh`
-   now makes an authenticated `/api/ping`, reads `[minCompatibleApiVersion ..
-apiVersion]`, and asserts the cell's contract falls in range — recording
-   `declaredRange` + `rangeVerified` (a fail if the bundled contract is excluded).
-   Range logic + JSON shaping are unit-tested; it degrades to reachability-only
-   against images predating the field, so no published image exists yet to light it
-   up. The in-process contract is covered by `CollectEndpointSmokeIT`.
+4. **Verify** the derived range with the empirical harness (this repo) ✅ **DONE —
+   exercised end-to-end.** `smoke.sh` makes an authenticated `/api/ping`, reads
+   `[minCompatibleApiVersion .. apiVersion]`, and asserts the cell's contract falls
+   in range — recording `declaredRange` + `rangeVerified` (a fail if the bundled
+   contract is excluded). Proven against two booted container images: a locally
+   built compat-aware suite image → `rangeVerified: true`; the published
+   `ghcr.io/epistola-app/epistola-suite:latest` → **graceful degradation** to
+   reachability-only (authenticated, but no floor field). Two real bugs the run
+   surfaced are fixed: `sort -V` ranks `X-SNAPSHOT` above `X` (normalized by
+   stripping the build/pre-release qualifier for the comparison), and the demo API
+   key seeds ~60-90s **after** the anonymous UP (the range read now polls up to
+   `RANGE_TIMEOUT` for a valid key). The in-process contract stays covered by
+   `CollectEndpointSmokeIT`.
 5. **D3 — plugin declaration** (coordinate with `valtimo-epistola-plugin`), deriving
    its range from the same anchor floor; manual row until adopted.
 6. **Aggregate + render** (D6) — read declarations, apply the rule, render the
