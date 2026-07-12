@@ -11,6 +11,7 @@ import app.epistola.api.model.StencilVersionListResponse
 import app.epistola.api.model.UpdateStencilDraftRequest
 import app.epistola.api.model.UpdateStencilRequest
 import app.epistola.api.model.UpgradePreviewListResponse
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toStencilVersionStatus
@@ -61,7 +62,11 @@ class EpistolaStencilApi(
         tag: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<StencilListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencils = ListStencilSummaries(
             tenantId = tenantIdComposite,
@@ -165,7 +170,11 @@ class EpistolaStencilApi(
         status: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<StencilVersionListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
 
@@ -287,7 +296,11 @@ class EpistolaStencilApi(
         versionId: Int,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<StencilUsageListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)

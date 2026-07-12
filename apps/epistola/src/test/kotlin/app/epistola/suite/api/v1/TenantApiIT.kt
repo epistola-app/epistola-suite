@@ -257,6 +257,64 @@ class TenantApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/not-a-real-api-path")
     }
 
+    @Test
+    fun `list on an unsorted endpoint rejects a sort key with 400 and an empty supported set`() {
+        val (_, apiKey) = seedTenantAndKey()
+
+        // The contract advertises sort/direction on every list endpoint, but the tenants list
+        // supports no sortable columns — a non-null sort is rejected (not silently ignored) so a
+        // caller can tell "sorting isn't supported here" from "sorting was applied". The empty
+        // supportedValues signals the endpoint exposes no sort keys.
+        val response = restTemplate.exchange(
+            "/api/tenants?sort=name",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-sort")
+        assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(body, "$.value")).isEqualTo("name")
+        assertThat(JsonPath.read<List<String>>(body, "$.supportedValues")).isEmpty()
+    }
+
+    @Test
+    fun `list on an unsorted endpoint rejects an unrecognized direction with 400`() {
+        val (_, apiKey) = seedTenantAndKey()
+
+        // direction is validated uniformly across list endpoints, even where it has no effect.
+        val response = restTemplate.exchange(
+            "/api/tenants?direction=sideways",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-sort-direction")
+        assertThat(JsonPath.read<String>(body, "$.value")).isEqualTo("sideways")
+        assertThat(JsonPath.read<List<String>>(body, "$.supportedValues")).containsExactly("asc", "desc")
+    }
+
+    @Test
+    fun `list on an unsorted endpoint accepts an absent sort and the default direction`() {
+        val (_, apiKey) = seedTenantAndKey()
+
+        // No sort + the contract-default direction must pass untouched.
+        val response = restTemplate.exchange(
+            "/api/tenants?direction=desc",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+    }
+
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
         contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))

@@ -5,6 +5,7 @@ import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
 import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.ImportCatalogResponse
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
@@ -26,7 +27,15 @@ import org.springframework.web.multipart.MultipartFile
 @RequestMapping("/api")
 class EpistolaCatalogApi : CatalogsApi {
 
-    override fun listCatalogs(tenantId: String, page: Int, size: Int): ResponseEntity<CatalogListResponse> {
+    override fun listCatalogs(
+        tenantId: String,
+        page: Int,
+        size: Int,
+        sort: String?,
+        direction: String,
+    ): ResponseEntity<CatalogListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantKey = TenantKey.of(tenantId)
         val catalogs = ListCatalogs(tenantKey).query()
         val slice = Pagination.paginate(catalogs, page, size)

@@ -54,6 +54,8 @@ object ApiProblemTypes {
     val MISSING_PARAMETER = problem("MISSING_PARAMETER", "Missing Parameter", HttpStatus.BAD_REQUEST, "A required query or form parameter is missing.", listOf("parameterName", "parameterType"))
     val MISSING_PATH_VARIABLE = problem("MISSING_PATH_VARIABLE", "Missing Path Variable", HttpStatus.BAD_REQUEST, "A required path variable is missing.", listOf("variableName"))
     val TYPE_MISMATCH = problem("TYPE_MISMATCH", "Type Mismatch", HttpStatus.BAD_REQUEST, "A path, query, or form parameter could not be converted to the expected type.", listOf("parameterName", "expectedType", "actualValue"))
+    val UNSUPPORTED_SORT = problem("UNSUPPORTED_SORT", "Unsupported Sort", HttpStatus.BAD_REQUEST, "The requested sort key is not supported by this endpoint.", listOf("value", "supportedValues"))
+    val UNSUPPORTED_SORT_DIRECTION = problem("UNSUPPORTED_SORT_DIRECTION", "Unsupported Sort Direction", HttpStatus.BAD_REQUEST, "The requested sort direction is not supported; use one of the supported values.", listOf("value", "supportedValues"))
 
     val THEME_NOT_FOUND = problem("THEME_NOT_FOUND", "Theme Not Found", HttpStatus.NOT_FOUND, "The requested theme does not exist or is not visible to the caller.", listOf("themeId"))
     val THEME_IN_USE = problem("THEME_IN_USE", "Theme In Use", HttpStatus.CONFLICT, "The theme cannot be deleted because other resources still reference it.", listOf("themeId"))
@@ -119,6 +121,8 @@ object ApiProblemTypes {
         MISSING_PARAMETER,
         MISSING_PATH_VARIABLE,
         TYPE_MISMATCH,
+        UNSUPPORTED_SORT,
+        UNSUPPORTED_SORT_DIRECTION,
         THEME_NOT_FOUND,
         THEME_IN_USE,
         DEFAULT_VARIANT_DELETION,

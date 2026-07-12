@@ -15,6 +15,7 @@ import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.attributes.AttributeNotFoundException
@@ -66,7 +67,11 @@ class EpistolaTenantApi :
         q: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<TenantListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenants = ListTenants(searchTerm = q).query()
         val slice = Pagination.paginate(tenants, page, size)
         return ResponseEntity.ok(
@@ -133,7 +138,11 @@ class EpistolaTenantApi :
         catalogId: String,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<AttributeListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite, catalogKey = CatalogKey.of(catalogId)).query()
         val slice = Pagination.paginate(attributes, page, size)
@@ -231,7 +240,11 @@ class EpistolaTenantApi :
         tenantId: String,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<EnvironmentListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val environments = ListEnvironments(tenantId = tenantIdComposite).query()
         val slice = Pagination.paginate(environments, page, size)

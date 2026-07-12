@@ -19,7 +19,10 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionListResponse
+import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.SortDirection
+import app.epistola.suite.api.v1.shared.UnsupportedSortException
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -65,6 +68,7 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.CountDocumentTemplates
+import app.epistola.suite.templates.queries.DocumentTemplateSort
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
@@ -102,16 +106,32 @@ class EpistolaTemplateApi(
         q: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<TemplateListResponse> {
         // Large, unbounded collection: paginate at the database and get the total
         // from a sibling Count query (see EpistolaDocumentGenerationApi for the
         // documents/jobs variant of this pattern).
         val tid = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)
+        // The contract does no validation on sort/direction (free-form strings), so we do it here.
+        // An absent sort selects the default order; a non-null value must name a whitelisted field
+        // (the whitelist is what keeps raw input out of ORDER BY) or we reject with 400 — the error
+        // body enumerates the supported keys, which the contract no longer advertises. direction is
+        // validated the same way by SortDirection.fromParam below: absent → the default desc, an
+        // unrecognized non-null value → 400.
+        val sortKey = if (sort == null) {
+            DocumentTemplateSort.UPDATED
+        } else {
+            DocumentTemplateSort.fromParamOrNull(sort)
+                ?: throw UnsupportedSortException(sort, DocumentTemplateSort.paramValues)
+        }
         val templates = ListDocumentTemplates(
             tenantId = tid,
             catalogKey = catalogKey,
             searchTerm = q,
+            sort = sortKey,
+            descending = SortDirection.fromParam(direction).descending,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
         ).query()
@@ -269,7 +289,11 @@ class EpistolaTemplateApi(
         templateId: String,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<VariantListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
@@ -480,7 +504,11 @@ class EpistolaTemplateApi(
         status: String?,
         page: Int,
         size: Int,
+        sort: String?,
+        direction: String,
     ): ResponseEntity<VersionListResponse> {
+        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
+        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
