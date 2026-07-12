@@ -108,10 +108,12 @@ data class ClusterScheduledTaskProperties(
      * (issue #723), so lease expiry never fires and the task would be pinned to the
      * broken node until its process dies. Once a run exceeds this deadline any
      * capable node may reclaim it (via `FOR UPDATE SKIP LOCKED`, so only one does),
-     * guaranteeing every recurring task eventually runs again — at the cost of a
-     * possible double-run of a task that legitimately exceeds the deadline. Must
-     * therefore be set **well above** the longest expected single-owner handler
-     * runtime. Default 15 minutes.
+     * guaranteeing every recurring task eventually runs again. The cost is a re-run of
+     * a task that legitimately exceeds the deadline — and note the failure mode of
+     * setting this **too low** is not a single double-run but *accumulating concurrent
+     * runs*: a handler that consistently overruns is reclaimed again each deadline
+     * while prior runs are still executing. Must therefore be set **well above** the
+     * longest expected single-owner handler runtime. Default 15 minutes.
      */
     val maxRunDurationMs: Long = 900_000,
     /**
