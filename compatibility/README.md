@@ -85,17 +85,23 @@ human-readable table is rendered from it (later).
 
 **Done:** the smoke harness; release/on-demand CI (`.github/workflows/compatibility.yml`);
 cross-version robustness (client-identity headers, ping-based readiness);
-authoritative contract version read from the image.
+authoritative contract version read from the image; **declared-range verification**
+— an authenticated `/api/ping` reads the server's `[minCompatibleApiVersion ..
+apiVersion]` and asserts the cell's contract falls inside it, recording
+`declaredRange` + `rangeVerified` on the cell (degrades to reachability-only
+against images that predate the field). _Exercised end-to-end once a compat-aware
+suite image exists;_ the in-process contract is covered by `CollectEndpointSmokeIT`.
 
 **Next:**
 
 1. **Vary the client** — run the smoke against a range of contract versions
    (fixed suite image, varying the client's declared contract), turning one cell
-   into a real row.
+   into a real row. The declared range now makes each such cell a real
+   compatible/incompatible verdict, not just reachability.
 2. **Render** a human-readable table from `matrix.json`.
 3. **Commit results back** from CI; later, publish as a feed.
-4. **Deeper checks** — use the seeded demo API key
-   (`epk_demo_…`, available under the `demo` profile) to exercise authenticated
-   contract endpoints, not just reachability.
+4. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
+   (`epk_demo_…`, available under a demo-capable profile) to exercise authenticated
+   contract endpoints, not just the range declaration.
 5. **Plugin (transitive)** — infer `valtimo-epistola-plugin` compatibility from
    its declared supported contract range against verified suite↔contract cells.

@@ -8,8 +8,9 @@ This doc is the detailed spec behind that ADR. Companion to
 **Implementation progress:** steps 1–3 are **done and verified end-to-end** — the
 contract self-identifies (D1, fixes `apiVersion: "unknown"`), exposes a
 compatibility floor (D4), and the suite surfaces the derived accepted range
-`[minCompatibleApiVersion … apiVersion]` on `/ping` (D5/D2). Steps 4–6 (harness
-verification, plugin, aggregate/render — see
+`[minCompatibleApiVersion … apiVersion]` on `/ping` (D5/D2). Step 4 (harness reads
+and verifies that range) is **implemented** — pending a compat-aware suite image to
+exercise it end-to-end. Steps 5–6 (plugin, aggregate/render — see
 [Execution plan](#execution-plan-order)) are not started.
 
 > **Working ideology:** it doesn't have to be perfect the first time. It just
@@ -304,9 +305,14 @@ repos, not edited from here.**
    it on `/ping` next to `apiVersion` — the accepted range is
    `[minCompatibleApiVersion … apiVersion]`, no hand-authored constant. Verified by
    `GetServerInfoHandlerIT` (derivation) and `CollectEndpointSmokeIT` (on the wire).
-4. **Verify** the derived range with the empirical harness (this repo) — _next_:
-   the existing smoke grows an assertion that the running suite's declared range
-   holds for the pairing under test (now that `/ping` carries both bounds).
+4. **Verify** the derived range with the empirical harness (this repo) ✅
+   **IMPLEMENTED** (pending a compat-aware image to exercise end-to-end): `smoke.sh`
+   now makes an authenticated `/api/ping`, reads `[minCompatibleApiVersion ..
+apiVersion]`, and asserts the cell's contract falls in range — recording
+   `declaredRange` + `rangeVerified` (a fail if the bundled contract is excluded).
+   Range logic + JSON shaping are unit-tested; it degrades to reachability-only
+   against images predating the field, so no published image exists yet to light it
+   up. The in-process contract is covered by `CollectEndpointSmokeIT`.
 5. **D3 — plugin declaration** (coordinate with `valtimo-epistola-plugin`), deriving
    its range from the same anchor floor; manual row until adopted.
 6. **Aggregate + render** (D6) — read declarations, apply the rule, render the
