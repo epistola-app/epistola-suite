@@ -106,19 +106,28 @@ The suite side gives per-cell _ranges_; external **clients** (e.g.
 declaring the contract version they target. `aggregate.sh` joins the two — applying
 the rule `floor <= target <= apiVersion` — into plugin↔suite verdicts:
 
+A feed source is a **local path or an `http(s)` URL** (each client publishes its
+`compatibility.json` in its own repo, so remote is the normal case), and
+[`feeds.txt`](./feeds.txt) lists the sources the matrix aggregates:
+
 ```bash
-compatibility/aggregate.sh \
-  --feed ../valtimo-epistola-plugin/compatibility.json \
+# from the committed feed list (URLs + local paths):
+compatibility/aggregate.sh --feeds-file compatibility/feeds.txt \
   --out compatibility/aggregate.json
+# or a one-off:
+compatibility/aggregate.sh --feed https://raw.githubusercontent.com/…/compatibility.json
 compatibility/render.sh                 # picks up aggregate.json → second table
 ```
 
-`aggregate.sh` (jq-only) writes `compatibility.json`-derived rows with a
-`compatible` flag and a human reason; `render.sh` adds a "Plugin ↔ suite
-compatibility" table when `aggregate.json` is present. The declarations stay with
-each artifact; the aggregator only reads the feeds and applies the rule (R8). How
-the aggregator _fetches_ remote feeds (raw URL / release asset) and where it
-ultimately _lives_ are still open (deferred with D6).
+`aggregate.sh` (jq + curl) writes rows with a `compatible` flag and a human reason;
+`render.sh` adds a "Plugin ↔ suite compatibility" table when `aggregate.json` has
+rows. Fetching is **best effort** — a feed whose repo has not merged its
+declaration yet (404) is warned and skipped, so `feeds.txt` can list a source
+before that side ships. **CI runs this** after the smoke (feeds from `feeds.txt`),
+so the plugin table appears in the job summary automatically once the plugin's feed
+is live. The declarations stay with each artifact; the aggregator only reads feeds
+and applies the rule (R8). The only remaining D6 choice is where the aggregator
+ultimately _lives_ (in this repo vs a neutral repo).
 
 ## Roadmap (each an independent, shippable step)
 
@@ -135,21 +144,19 @@ locally built compat-aware image (`rangeVerified: true`) and the published
 under `--profile localauth,demo` seeds ~60-90s after boot — tune `RANGE_TIMEOUT`.
 **Human-readable render** — `render.sh` turns `matrix.json` into
 [`MATRIX.md`](./MATRIX.md); CI posts it to the job summary.
-**Aggregate** — `aggregate.sh` joins the suite ranges with external client feeds
-(the plugin's `compatibility.json`) into plugin↔suite verdicts, rendered as a
-second table. The full pipeline (declare → verify → aggregate → render) works.
+**Aggregate** — `aggregate.sh` fetches external client feeds ([`feeds.txt`](./feeds.txt),
+URLs or paths) and joins them with the suite ranges into plugin↔suite verdicts,
+rendered as a second table; **CI runs it** after the smoke. The full pipeline
+(declare → verify → aggregate → render) runs automatically.
 
 **Next:**
 
-1. **Wire the aggregate into CI / a feed source** — fetch the plugin's
-   `compatibility.json` (raw URL or release asset) and run `aggregate.sh`
-   automatically; decide the aggregator's home (in-repo vs neutral repo).
-2. **Vary the client** — run the smoke against a range of contract versions
+1. **Vary the client** — run the smoke against a range of contract versions
    (fixed suite image, varying the client's declared contract), turning one cell
    into a real row. The declared range makes each such cell a real
    compatible/incompatible verdict, not just reachability.
-3. **Commit results back** from CI so `matrix.json` + `MATRIX.md` persist across
+2. **Commit results back** from CI so `matrix.json` + `MATRIX.md` persist across
    runs; later, publish as a feed.
-4. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
+3. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
    (`epk_demo_…`, available under a demo-capable profile) to exercise authenticated
    contract endpoints, not just the range declaration.

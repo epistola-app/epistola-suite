@@ -15,9 +15,10 @@ degradation). Step 5 (**plugin declares** via a committed `compatibility.json` f
 step 6's **render** (`render.sh` → `MATRIX.md`, in the CI job summary), and step 6's
 **aggregate** (`aggregate.sh` applies `floor ≤ target ≤ apiVersion` across the suite
 range + client feeds → a plugin↔suite table) are all done. **The full pipeline —
-declare → verify → aggregate → render — works end to end.** What remains is not a
-step but two deferred D6 choices: the aggregator's _home_ (in-repo vs neutral repo)
-and how it _fetches_ external feeds. See [Execution plan](#execution-plan-order).
+declare → verify → aggregate → render — runs end to end in CI** (the aggregate
+fetches client feeds from `feeds.txt`). What remains is not a step but one deferred
+D6 choice: the aggregator's _home_ (in-repo vs a neutral repo). See
+[Execution plan](#execution-plan-order).
 
 > **Working ideology:** it doesn't have to be perfect the first time. It just
 > needs to work, then get better with each commit.
@@ -340,7 +341,9 @@ repos, not edited from here.**
    with a `declaredRange`) + one or more client feeds (the plugin's
    `compatibility.json`), applies the rule `floor ≤ target ≤ apiVersion` for every
    pairing, and writes `aggregate.json` (compatible + reason per row); `render.sh`
-   renders it as a second "Plugin ↔ suite compatibility" table. Only the
-   aggregator's **home** (in-repo vs a neutral repo) and how it **fetches** external
-   feeds (raw URL / release asset) stay open (deferred with D6) — the computation
-   and the feed format are done.
+   renders it as a second "Plugin ↔ suite compatibility" table. Feed **fetching** is
+   wired: `aggregate.sh` accepts `http(s)` URLs and a `--feeds-file` (`feeds.txt`
+   lists the sources), fetches best-effort (a not-yet-merged feed 404s → skipped),
+   and **CI runs it after the smoke** so the plugin table appears in the job summary
+   automatically once the plugin feed is live. Only the aggregator's **home**
+   (in-repo vs a neutral repo) stays open (deferred with D6).
