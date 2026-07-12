@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -70,8 +71,19 @@ class JobPoller(
     private var idleLatch = CountDownLatch(0)
     private val idleLatchLock = Any()
 
-    // Dedicated executor for job processing (virtual threads)
-    private val jobThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()
+    // Dedicated executor for job processing on PLATFORM threads — deliberately NOT
+    // virtual threads. PDF rendering is CPU-bound, so virtual threads add nothing, and
+    // worse: a virtual thread can unmount while holding the Spring Boot nested-jar loader
+    // monitor (JEP 491), which under a concurrent first-load burst deadlocks the fat-jar
+    // class loader against the JVM per-class-name load lock — an invisible-holder wedge
+    // that no amount of warmup fully prevents (#724, reproduced via thread dump). Platform
+    // threads stay mounted, so the monitor holder always makes progress: contention, never
+    // deadlock. Bounded to maxConcurrentJobs since the claim gate already caps in-flight
+    // work at that; threads are created on demand and are daemons.
+    private val jobThreadExecutor: ExecutorService = Executors.newFixedThreadPool(
+        properties.maxConcurrentJobs.coerceAtLeast(1),
+        Thread.ofPlatform().name("job-render-", 0).daemon(true).factory(),
+    )
 
     // Dedicated single-thread executor for drain loop (serializes claiming)
     private val drainExecutor = Executors.newSingleThreadExecutor { runnable ->
@@ -221,6 +233,12 @@ class JobPoller(
         // A deferred drain simply retries on the next scheduled tick or requestDrain().
         if (!renderWarmupGate.isReady) {
             logger.debug("Deferring job drain until render warmup completes")
+            // Release the coalescing latch so a later requestDrain() (next scheduled tick,
+            // or a completing job) re-arms the drain once warmup opens the gate. Without
+            // this, the flag stays stuck true — every future requestDrain() no-ops on the
+            // compareAndSet and the node never drains: a permanent processing=0 wedge if
+            // the first tick loses the startup race with warmup (#724 follow-up).
+            drainRequested.set(false)
             return
         }
         while (true) {
