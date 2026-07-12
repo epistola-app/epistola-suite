@@ -126,18 +126,27 @@ class LoadTestExecutor(
         val completedCount = requestResults.count { it.success }
         val failedCount = requestResults.count { !it.success }
 
+        // Queue wait (created → started): time a request sat PENDING before a node picked
+        // it up, separate from render time. Computed from the polled timestamps, no extra
+        // query — surfaces the "waiting" bucket in the run's own metrics.
+        val queueWaits = jobResults.filter { it.startedAt != null }.map { it.queueWaitMs }.sorted()
+        val avgQueueWaitMs = if (queueWaits.isEmpty()) 0.0 else queueWaits.average()
+        val p95QueueWaitMs = percentile(queueWaits, 0.95)
+
         logger.info(
-            "Load test run {} completed: {}/{} succeeded, {} failed in {}ms",
+            "Load test run {} completed: {}/{} succeeded, {} failed in {}ms (avg queue wait {}ms, p95 {}ms)",
             run.id,
             completedCount,
             run.targetCount,
             failedCount,
             totalDurationMs,
+            avgQueueWaitMs.toLong(),
+            p95QueueWaitMs,
         )
 
         // Calculate and save metrics (no longer save to load_test_requests - query from source instead)
         val metrics = calculateMetrics(requestResults, totalDurationMs)
-        finalizeRun(run.id, batchId, metrics, completedCount, failedCount, wasCancelled)
+        finalizeRun(run.id, batchId, metrics, completedCount, failedCount, wasCancelled, avgQueueWaitMs, p95QueueWaitMs)
     }
 
     /**
@@ -161,6 +170,9 @@ class LoadTestExecutor(
                 0
             }
         }
+
+        /** Time the request waited in PENDING before a node picked it up (created → started). */
+        val queueWaitMs: Long get() = if (startedAt != null) Duration.between(createdAt, startedAt).toMillis() else 0
         val errorType: String? get() = if (!success && errorMessage != null) {
             when {
                 errorMessage.contains("validation", ignoreCase = true) -> "VALIDATION"
@@ -480,6 +492,8 @@ class LoadTestExecutor(
         completedCount: Int,
         failedCount: Int,
         wasCancelled: Boolean,
+        avgQueueWaitMs: Double = 0.0,
+        p95QueueWaitMs: Long = 0,
     ) {
         jdbi.useHandle<Exception> { handle ->
             val status = if (wasCancelled) {
@@ -501,6 +515,8 @@ class LoadTestExecutor(
                 "p99_ms" to metrics.p99ResponseTimeMs,
                 "rps" to metrics.requestsPerSecond,
                 "success_rate_percent" to metrics.successRatePercent,
+                "avg_queue_wait_ms" to avgQueueWaitMs,
+                "p95_queue_wait_ms" to p95QueueWaitMs,
             )
 
             handle.createUpdate(

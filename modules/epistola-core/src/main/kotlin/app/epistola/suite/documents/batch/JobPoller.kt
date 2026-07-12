@@ -94,6 +94,19 @@ class JobPoller(
     private val jobsCompletedCounter = meterRegistry.counter("epistola.jobs.completed.total")
     private val jobsFailedCounter = meterRegistry.counter("epistola.jobs.failed.total")
 
+    // Drain outcome per claim attempt: how often the poller finds work vs wakes to an
+    // empty queue — the "busy vs no-jobs" signal, without querying the DB. The rate of
+    // outcome=empty relative to outcome=found approximates idle time.
+    private val drainFoundCounter = meterRegistry.counter("epistola.jobs.drain.batches", "outcome", "found")
+    private val drainEmptyCounter = meterRegistry.counter("epistola.jobs.drain.batches", "outcome", "empty")
+
+    // Time a request sat PENDING before this node claimed it (created_at → claimed_at),
+    // computed from the in-memory request row — the "waiting" bucket, no DB query. Pairs
+    // with epistola.jobs.duration (the "generation" bucket) to account for end-to-end time.
+    private val queueWaitTimer = Timer.builder("epistola.generation.queue.wait")
+        .description("Time a generation request waited in PENDING before being claimed")
+        .register(meterRegistry)
+
     init {
         // Register gauges for active jobs, max concurrent limit, and queue depth
         meterRegistry.gauge("epistola.jobs.active", activeJobs) { it.get().toDouble() }
@@ -229,6 +242,7 @@ class JobPoller(
 
                 val requests = claimPendingRequests(actualBatchSize)
                 if (requests.isEmpty()) {
+                    drainEmptyCounter.increment()
                     pendingCount.set(0)
                     logger.debug(
                         "No pending jobs available | Batch size: {}, Active: {}/{}",
@@ -238,6 +252,7 @@ class JobPoller(
                     )
                     break // Queue empty
                 }
+                drainFoundCounter.increment()
 
                 logger.info(
                     "Claimed {} job(s) | Requested batch: {}, Available slots: {}, Active: {}/{}",
@@ -326,6 +341,7 @@ class JobPoller(
      * semantics. Must run within a [MediatorContext] bound to the request's tenant principal.
      */
     private fun executeClaimed(request: DocumentGenerationRequest) {
+        recordQueueWait(request)
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
         try {
@@ -342,6 +358,17 @@ class JobPoller(
         ) / 1_000_000
         batchSizer.recordJobCompletion(durationMs)
         logger.info("Job completed: {} in {}ms (outcome={})", request.id.value, durationMs, outcome)
+    }
+
+    /**
+     * Records how long [request] waited in PENDING before this node claimed it
+     * (created_at → claimed_at), from the in-memory row — no DB query. Together with
+     * `epistola.jobs.duration` this attributes end-to-end time to waiting vs generating.
+     */
+    private fun recordQueueWait(request: DocumentGenerationRequest) {
+        val claimedAt = request.claimedAt ?: return
+        val wait = Duration.between(request.createdAt, claimedAt)
+        if (!wait.isNegative) queueWaitTimer.record(wait)
     }
 
     /**
