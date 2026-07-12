@@ -22,7 +22,7 @@ published images this cycle:
 - It **cannot reliably report the contract version it implements** — `/api/ping`
   returns `apiVersion: "unknown"`, because the `server-kotlin-springboot4` JAR
   ships without an `Implementation-Version` manifest entry. We only recovered the
-  version by reading the JAR *filename* out of the image.
+  version by reading the JAR _filename_ out of the image.
 - It **declares no supported client range** anywhere.
 - It **does not negotiate or reject** on the client's declared contract version.
   `ClientIdentityFilter` only checks that `User-Agent: epistola-contract/<v>` is
@@ -34,8 +34,8 @@ published images this cycle:
 So compatibility today is **implicit and undeclared**. Two consequences follow.
 First, an empirical matrix can only measure "does it boot and serve" — too
 shallow to be the answer #246 wants, because **"kept automatically" implicitly
-requires that compatibility be *expressed*; you cannot auto-maintain a fact that
-nothing declares.** Second — and this is the opportunity — because *no*
+requires that compatibility be _expressed_; you cannot auto-maintain a fact that
+nothing declares.** Second — and this is the opportunity — because _no_
 compatibility mechanism exists yet, we are not retrofitting or reverse-
 engineering; we get to **design the primitive** so the matrix falls out of it
 cheaply. We are in the RC window, where deliberate, flagged breaking changes are
@@ -43,7 +43,7 @@ still allowed, so now is the right (and cheapest) time.
 
 A read-only survey of `epistola-contract` made the path concrete: the contract
 is spec-first (`epistola-api.yaml` `info.version` is the single source of
-truth), **already** defines `POST /ping` as a *version-discovery* endpoint whose
+truth), **already** defines `POST /ping` as a _version-discovery_ endpoint whose
 `PongDetailsDto` carries `serverVersion`/`apiVersion` and is described as
 enabling "future compatibility features", and its published **client** already
 exposes its own version at runtime via a generated resource — the exact mirror
@@ -62,9 +62,9 @@ intent, not inventing one.
   not as a manually-reconciled special case.
 - **Simplicity over machinery.** A clean canvas invites over-engineering (a full
   negotiation protocol where a version string would do). Prefer the smallest
-  mechanism that is *true*.
+  mechanism that is _true_.
 - **Pre-1.0 semver is weak.** While the contract is `0.x`, semver does **not**
-  guarantee minor-version backward compatibility, so a purely *computed*
+  guarantee minor-version backward compatibility, so a purely _computed_
   compatibility rule would be unsafe.
 - **Cross-surface consistency.** Whatever the suite exposes must be consistent
   across REST, the web UI, and MCP.
@@ -80,7 +80,7 @@ Make compatibility a **declared** property, anchored on the contract, and
   `apiVersion: "unknown"`) and **owns the declaration format** (extend the
   existing `/ping` `PongDetailsDto` in the spec — one edit reaches the generated
   server interfaces, the generated client, docs, and mock).
-- The **suite** *fills* that declaration — the contract version it implements and
+- The **suite** _fills_ that declaration — the contract version it implements and
   the **explicitly declared** supported client range.
 - The **plugin** declares its target contract version in the same shared format
   (manual row until it adopts it).
@@ -89,26 +89,26 @@ Make compatibility a **declared** property, anchored on the contract, and
 - **Declarations local, aggregation central:** each artifact publishes its own
   declaration; an aggregator only reads them, applies the semver rule, and
   renders. Aggregator location stays a reversible deployment detail (the feed
-  *format* is the interface).
+  _format_ is the interface).
 - **Declaration over enforcement:** we declare compatibility; runtime
   negotiation/rejection is deliberately deferred.
 
 The detailed shape is recorded as decisions **D1–D6** in
 [`compatibility/DESIGN.md`](../../compatibility/DESIGN.md).
 
-**Pros:** turns compatibility from a guess into a *read + a rule*; fixes a real
+**Pros:** turns compatibility from a guess into a _read + a rule_; fixes a real
 bug (`apiVersion: "unknown"`) as a byproduct; completes the contract's existing
 `/ping` intent instead of inventing; the plugin joins as a peer; keeps the
-empirical harness useful as the *verifier*; extends to enforcement later with no
+empirical harness useful as the _verifier_; extends to enforcement later with no
 rework; safe pre-1.0 because the range is declared, not assumed.
-**Cons:** spans three repos and needs coordination; the matrix is *advisory*
+**Cons:** spans three repos and needs coordination; the matrix is _advisory_
 (the suite still accepts any client) until/unless enforcement is added; the
 declared range must be kept honest by a policy owner (with the harness as check).
 
 ### Option B — Pure empirical reverse-engineering
 
 Leave the product as-is; build per-contract-version generated-client test packs
-and run them against the suite to *discover* compatibility behaviorally.
+and run them against the suite to _discover_ compatibility behaviorally.
 
 **Pros:** no product change; exercises real request/response behavior.
 **Cons:** expensive (a client per version, auth, meaningful assertions); it can
@@ -124,7 +124,7 @@ Add an `ApiVersions`-style handshake: the suite advertises supported versions an
 
 **Pros:** strongest guarantee; self-enforcing; decouples upgrade order.
 **Cons:** a large build for a system that today serves a single API version and a
-co-released core; premature. It is a natural *later* layer **on top of**
+co-released core; premature. It is a natural _later_ layer **on top of**
 declaration (Option A), not a substitute for it, and can be added without rework
 if a real need appears.
 
@@ -169,7 +169,7 @@ rejected because it makes #246 structurally unsatisfiable.
 - **We complete the contract's existing intent** (`/ping` as version discovery)
   rather than inventing a parallel surface — one spec edit reaches every consumer.
 - **The plugin participates as a peer**, ending its status as a manual exception.
-- **The empirical harness keeps earning its keep** as the *verifier* of
+- **The empirical harness keeps earning its keep** as the _verifier_ of
   declarations, and as a "does suite S boot and serve" regression check.
 - **Enforcement stays open** — Option C can be layered on later with no rework.
 
@@ -185,7 +185,7 @@ rejected because it makes #246 structurally unsatisfiable.
   is acceptable now and revisited only if Option C is adopted.
 - **A declared range must be kept honest.** Someone owns the supported-min policy;
   the empirical harness is the mechanical check that the declaration holds.
-- **Aggregator location is deferred and reversible.** The feed *format* is the
+- **Aggregator location is deferred and reversible.** The feed _format_ is the
   interface; whether the aggregator lives in `epistola-suite` or a neutral repo
   is a later, low-stakes call (see DESIGN.md R8 / D6).
 - **Timing pressure.** The foundational contract change (self-identification) and

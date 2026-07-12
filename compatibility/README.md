@@ -15,7 +15,7 @@ rule predicted it should. `epistola-contract` is the compatibility **anchor**
 (the wire language the suite and external clients both speak), so a cell is the
 pair **(suite version, contract version)**.
 
-Because the harness runs against *published artifacts* (a container image) and
+Because the harness runs against _published artifacts_ (a container image) and
 never reaches into app source, it is self-contained and could later be lifted
 into its own repo unchanged — for now it lives here, in `epistola-suite`.
 
@@ -45,12 +45,12 @@ Two things learned the hard way, now baked in:
   runtime `apiVersion` was `"unknown"` — the contract JAR carried no
   `Implementation-Version` manifest entry. That root cause is now fixed (D1: the
   contract self-identifies via a baked-in version resource that `/ping` reports),
-  but the harness still reads the JAR **filename**: it boots *already-published*
+  but the harness still reads the JAR **filename**: it boots _already-published_
   images that predate the fix and would still report `"unknown"`, and the
   filename is inspectable without even booting. Once the fix has shipped in the
   images under test, the harness can cross-check the declared `/ping` value
   against the filename (and eventually trust the declaration).
-- **Why client-identity headers + ping-based readiness.** Older suites *require*
+- **Why client-identity headers + ping-based readiness.** Older suites _require_
   `X-EP-Node-Id` on `/api/ping` (400 without it), and `/readyz` / `/livez` are
   not reliably `200` across versions (some redirect to login). A header-carrying
   ping returning `UP` is the version-robust "it's serving" signal, so we poll
@@ -59,7 +59,7 @@ Two things learned the hard way, now baked in:
 **Limits — on purpose:**
 
 - The request is **anonymous** (identity headers, no API key), so it proves
-  *reachability* — "this suite boots and serves the contract surface" — not that
+  _reachability_ — "this suite boots and serves the contract surface" — not that
   individual endpoints behave correctly. Deeper endpoint exercise (using the
   seeded demo key) is a later step.
 - Only the **co-released pairing** is exercised (the contract the image bundles).
