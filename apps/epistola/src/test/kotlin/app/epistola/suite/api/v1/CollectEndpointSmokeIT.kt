@@ -107,6 +107,10 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         // version rather than the "unknown" fallback for an unidentifiable contract.
         assertThat(JsonPath.read<String>(body, "$.details.apiVersion")).isNotBlank
         assertThat(JsonPath.read<String>(body, "$.details.apiVersion")).isNotEqualTo("unknown")
+        // The compatibility floor — lower bound of the accepted client range
+        // [minCompatibleApiVersion .. apiVersion], derived from the contract.
+        assertThat(JsonPath.read<String>(body, "$.details.minCompatibleApiVersion")).isNotBlank
+        assertThat(JsonPath.read<String>(body, "$.details.minCompatibleApiVersion")).isNotEqualTo("unknown")
         assertThat(JsonPath.read<String>(body, "$.details.nodeId")).isNotBlank
         assertThat(JsonPath.read<Int>(body, "$.details.partitions.total")).isEqualTo(64)
         // First touch with this node — owns ALL partitions until another node

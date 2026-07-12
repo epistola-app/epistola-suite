@@ -19,6 +19,12 @@ import org.springframework.stereotype.Component
  *                     `info.version`). The contract is the source of truth;
  *                     hardcoding it in the suite would be one place to forget
  *                     to bump on every contract upgrade.
+ *   - minApiVersion — the compatibility floor: the oldest contract version this
+ *                     build still accepts, from
+ *                     [ServerContractInfo.minCompatibleContractVersion]. Together
+ *                     with [apiVersion] it is the accepted client range
+ *                     `[minApiVersion .. apiVersion]`, derived from the contract —
+ *                     never hand-maintained in the suite.
  *   - nodeId        — opaque per-process identifier (see [NodeIdentity]).
  *
  * SystemInternal — `/ping` may be called unauthenticated, and even when
@@ -31,6 +37,7 @@ class GetServerInfo :
 data class ServerInfo(
     val serverVersion: String,
     val apiVersion: String,
+    val minApiVersion: String,
     val nodeId: String,
 )
 
@@ -48,6 +55,7 @@ class GetServerInfoHandler(
         return ServerInfo(
             serverVersion = serverVersion,
             apiVersion = ServerContractInfo.contractVersion,
+            minApiVersion = ServerContractInfo.minCompatibleContractVersion,
             nodeId = nodeIdentity.nodeId,
         )
     }

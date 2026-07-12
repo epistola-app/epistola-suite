@@ -22,6 +22,13 @@ class GetServerInfoHandlerIT : IntegrationTestBase() {
         assertThat(info.apiVersion).doesNotContain(" ")
         assertThat(info.apiVersion).isNotEqualTo("unknown")
         assertThat(info.apiVersion).matches("""\d+\.\d+\.\d+.*""")
+        // minApiVersion is the compatibility floor, derived from the same contract
+        // library (ServerContractInfo.minCompatibleContractVersion). Like apiVersion
+        // it must resolve to a real version, never the "unknown" fallback — it's the
+        // lower bound of the accepted client range [minApiVersion .. apiVersion].
+        assertThat(info.minApiVersion).isNotBlank
+        assertThat(info.minApiVersion).isNotEqualTo("unknown")
+        assertThat(info.minApiVersion).matches("""\d+\.\d+\.\d+.*""")
         // nodeId always resolves to *something* (env override → HOSTNAME → hostname).
         assertThat(info.nodeId).isNotBlank
     }

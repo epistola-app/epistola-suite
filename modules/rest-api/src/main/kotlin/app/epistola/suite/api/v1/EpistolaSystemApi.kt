@@ -82,6 +82,7 @@ class EpistolaSystemApi : SystemApi {
                 details = PongDetailsDto(
                     serverVersion = info.serverVersion,
                     apiVersion = info.apiVersion,
+                    minCompatibleApiVersion = info.minApiVersion,
                     nodeId = info.nodeId,
                     partitions = partitions,
                 ),
