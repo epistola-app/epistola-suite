@@ -9,7 +9,9 @@ import app.epistola.template.model.ExpressionLanguage
 import app.epistola.template.model.Node
 import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
+import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRef
 import com.itextpdf.kernel.geom.PageSize
 import com.itextpdf.kernel.pdf.PageLabelNumberingStyle
 import com.itextpdf.kernel.pdf.PdfAConformance
@@ -141,6 +143,35 @@ class DirectPdfRenderer(
                 clock = clock,
                 watermarkText = watermarkText,
             )
+        }
+    }
+
+    /**
+     * Renders a throwaway minimal document at startup to force the whole render class
+     * graph to class-load single-threaded: `PdfDocument`/`PdfWriter`, the render
+     * context, `ProseMirrorConverter`, and the node renderers. Complements
+     * [FontCache.warmUp] (which loads the iText font parser — an empty document renders
+     * no text, so it would not touch the fonts on its own).
+     *
+     * The point is issue #724: a concurrent *first-time* class-load burst can deadlock
+     * the JVM classloader / Spring Boot nested-jar loader monitors and wedge the node.
+     * Loading the graph once, up front, on a single thread removes that race. Renders
+     * both the standard and PDF/A paths since they diverge. Best-effort — never throws.
+     */
+    fun warmUp() {
+        val document = TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("slot-root"))),
+            slots = mapOf("slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = emptyList())),
+            themeRef = ThemeRef.Inherit,
+        )
+        for (pdfaCompliant in listOf(false, true)) {
+            try {
+                render(document = document, data = emptyMap(), outputStream = OutputStream.nullOutputStream(), pdfaCompliant = pdfaCompliant)
+            } catch (e: Exception) {
+                log.warn("Render warmup pass (pdfaCompliant={}) failed; the first real render will pay the class-loading cost", pdfaCompliant, e)
+            }
         }
     }
 
