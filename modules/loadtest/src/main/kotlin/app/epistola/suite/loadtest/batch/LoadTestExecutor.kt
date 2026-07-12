@@ -104,7 +104,7 @@ class LoadTestExecutor(
         logger.info("Retrieved {} job IDs, waiting for async processing to complete...", submittedJobs.size)
 
         // Poll database to wait for all jobs to reach terminal state
-        val (jobResults, wasCancelled) = pollForJobCompletion(run.id, submittedJobs)
+        val (jobResults, wasCancelled) = pollForJobCompletion(run.id, batchId, submittedJobs)
 
         val endTime = System.currentTimeMillis()
         val totalDurationMs = endTime - startTime
@@ -186,40 +186,53 @@ class LoadTestExecutor(
     }
 
     /**
-     * Poll database waiting for all async jobs to complete.
-     * Returns results with actual timing data from the database and a cancellation flag.
+     * Poll the database until all of the run's generation requests reach a terminal
+     * state, then return their per-row results (for metric calculation) plus a
+     * cancellation flag.
+     *
+     * Each poll asks the DB only for **status counts** — one row, resolved by the
+     * `(batch_id, status)` index, with no per-request rows shipped or mapped. The full
+     * per-row result set is fetched exactly **once**, at the end, so the load test's own
+     * DB footprint stays a rounding error in the load it is measuring (previously it
+     * re-fetched and re-mapped every request on every 500ms poll).
      */
     private fun pollForJobCompletion(
         runId: LoadTestRunKey,
+        batchId: BatchKey,
         jobs: List<SubmittedJob>,
     ): Pair<List<JobResult>, Boolean> {
-        val jobIds = jobs.map { it.generationRequestId }.toSet()
-        // O(1) job lookup by request id. The previous `jobs.first { it.id == requestId }`
-        // scanned the whole job list per result row per poll — O(n²) per poll — which for a
-        // large batch dominated the load test's own CPU (JFR: ~11% in equality/hash ops),
-        // stealing cycles from the generation it was meant to measure.
         val jobsById = jobs.associateBy { it.generationRequestId }
         val pollIntervalMs = POLL_INTERVAL_MS
         val maxWaitTimeMs = MAX_WAIT_TIME_MS
         val startTime = System.currentTimeMillis()
         var wasCancelled = false
 
+        // Cheap per-poll progress: completed / failed / still-running counts in one row.
+        fun counts(): Triple<Int, Int, Int> = jdbi.withHandle<Triple<Int, Int, Int>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT count(*) FILTER (WHERE status = 'COMPLETED')                 AS completed,
+                       count(*) FILTER (WHERE status = 'FAILED')                    AS failed,
+                       count(*) FILTER (WHERE status IN ('PENDING', 'IN_PROGRESS')) AS in_progress
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
+                """,
+            )
+                .bind("batchId", batchId)
+                .map { rs, _ -> Triple(rs.getInt("completed"), rs.getInt("failed"), rs.getInt("in_progress")) }
+                .one()
+        }
+
+        // Full per-row results — fetched once, at the end, for metric calculation.
         fun fetchResults(): List<JobResult> = jdbi.withHandle<List<JobResult>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT
-                    dgr.id,
-                    dgr.created_at,
-                    dgr.started_at,
-                    dgr.completed_at,
-                    dgr.status,
-                    dgr.error_message,
-                    dgr.document_key
-                FROM document_generation_requests dgr
-                WHERE dgr.id IN (<jobIds>)
+                SELECT id, created_at, started_at, completed_at, status, error_message, document_key
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
                 """,
             )
-                .bindList("jobIds", jobIds.map { it.value })
+                .bind("batchId", batchId)
                 .map { rs, _ ->
                     val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
                     val job = jobsById.getValue(requestId)
@@ -238,48 +251,30 @@ class LoadTestExecutor(
         }
 
         while (true) {
-            // Check for cancellation
             if (isRunCancelled(runId)) {
                 logger.warn("Load test run {} cancelled while waiting for jobs", runId)
                 wasCancelled = true
                 break
             }
-
-            // Check timeout
             if (System.currentTimeMillis() - startTime > maxWaitTimeMs) {
                 logger.error("Load test run {} timed out waiting for jobs after {}ms", runId, maxWaitTimeMs)
                 break
             }
 
-            val results = fetchResults()
-
-            // Check if all jobs reached terminal state
-            val allDone = results.all { it.status in setOf("COMPLETED", "FAILED", "CANCELLED") }
-            val completed = results.count { it.status == "COMPLETED" }
-            val failed = results.count { it.status == "FAILED" }
-            val inProgress = results.count { it.status in setOf("PENDING", "IN_PROGRESS") }
-
-            logger.debug(
-                "Load test progress: {} completed, {} failed, {} in progress (out of {})",
-                completed,
-                failed,
-                inProgress,
-                jobIds.size,
-            )
-
-            // Update progress in database
+            val (completed, failed, inProgress) = counts()
+            logger.debug("Load test progress: {} completed, {} failed, {} in progress", completed, failed, inProgress)
             updateProgress(runId, completed, failed)
 
-            if (allDone) {
-                logger.info("All {} jobs completed for load test run {}", results.size, runId)
-                return Pair(results, wasCancelled)
+            // in_progress == 0 means every request is terminal (COMPLETED/FAILED/CANCELLED).
+            if (inProgress == 0) {
+                logger.info("All jobs terminal for load test run {} ({} completed, {} failed)", runId, completed, failed)
+                return Pair(fetchResults(), wasCancelled)
             }
 
-            // Wait before next poll
             Thread.sleep(pollIntervalMs)
         }
 
-        // Return partial results if cancelled or timed out
+        // Cancelled or timed out: fetch the rows in whatever state they are now.
         return Pair(fetchResults(), wasCancelled)
     }
 
