@@ -32,7 +32,12 @@ into its own repo unchanged — for now it lives here, in `epistola-suite`.
 4. polls `POST /api/ping` **with client-identity headers**
    (`X-EP-Node-Id`, `User-Agent: epistola-contract/<version>`) until it reports
    `status: UP` — this doubles as the readiness signal,
-5. records the outcome into [`matrix.json`](./matrix.json).
+5. then makes an **authenticated** `/api/ping` (the `.details` object is
+   auth-gated) to read the server's declared range
+   `[minCompatibleApiVersion .. apiVersion]` and check the cell's contract falls
+   inside it — recorded as `declaredRange` + `rangeVerified`, or omitted when the
+   image predates the field,
+6. records the outcome into [`matrix.json`](./matrix.json).
 
 Two things learned the hard way, now baked in:
 
@@ -58,10 +63,11 @@ Two things learned the hard way, now baked in:
 
 **Limits — on purpose:**
 
-- The request is **anonymous** (identity headers, no API key), so it proves
-  _reachability_ — "this suite boots and serves the contract surface" — not that
-  individual endpoints behave correctly. Deeper endpoint exercise (using the
-  seeded demo key) is a later step.
+- The pass/fail gate is the **anonymous** reachability ping (identity headers, no
+  API key) — it proves "this suite boots and serves the contract surface", not that
+  individual endpoints behave correctly. The authenticated range read layered on
+  top needs a valid API key (the demo key under a demo-capable profile); deeper
+  endpoint exercise is still a later step.
 - Only the **co-released pairing** is exercised (the contract the image bundles).
   Cross-version client skew — an older client against a newer suite, the real
   point of a matrix — comes once we vary the client's declared contract version.
@@ -78,8 +84,20 @@ compatibility/smoke.sh --image ghcr.io/<owner>/epistola-suite:latest \
 ```
 
 Requires `docker`, `curl`, `jq`. Exit code is `0` on a passing cell, non-zero
-otherwise. The updated `matrix.json` is the single source of truth; a
-human-readable table is rendered from it (later).
+otherwise. The updated `matrix.json` is the single source of truth.
+
+## Render the human-readable table
+
+`matrix.json` is the source of truth; [`MATRIX.md`](./MATRIX.md) is a rendered
+_view_ of it (per R6 — the table is never hand-edited). Regenerate it after a run:
+
+```bash
+compatibility/render.sh                 # matrix.json → MATRIX.md
+compatibility/render.sh --out -         # print to stdout instead
+```
+
+Requires only `jq`. CI runs this after the smoke and posts the table to the job
+summary.
 
 ## Roadmap (each an independent, shippable step)
 
@@ -94,6 +112,8 @@ locally built compat-aware image (`rangeVerified: true`) and the published
 `:latest` image (graceful degradation); the in-process contract is covered by
 `CollectEndpointSmokeIT`. Note the authenticated read needs a valid API key, which
 under `--profile localauth,demo` seeds ~60-90s after boot — tune `RANGE_TIMEOUT`.
+**Human-readable render** — `render.sh` turns `matrix.json` into
+[`MATRIX.md`](./MATRIX.md); CI posts it to the job summary.
 
 **Next:**
 
@@ -101,10 +121,10 @@ under `--profile localauth,demo` seeds ~60-90s after boot — tune `RANGE_TIMEOU
    (fixed suite image, varying the client's declared contract), turning one cell
    into a real row. The declared range now makes each such cell a real
    compatible/incompatible verdict, not just reachability.
-2. **Render** a human-readable table from `matrix.json`.
-3. **Commit results back** from CI; later, publish as a feed.
-4. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
+2. **Commit results back** from CI so `matrix.json` + `MATRIX.md` persist across
+   runs; later, publish as a feed.
+3. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
    (`epk_demo_…`, available under a demo-capable profile) to exercise authenticated
    contract endpoints, not just the range declaration.
-5. **Plugin (transitive)** — infer `valtimo-epistola-plugin` compatibility from
+4. **Plugin (transitive)** — infer `valtimo-epistola-plugin` compatibility from
    its declared supported contract range against verified suite↔contract cells.
