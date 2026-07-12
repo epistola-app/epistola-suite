@@ -66,6 +66,14 @@ jobs:
           RANGE_TIMEOUT: "15"
         run: compatibility/smoke.sh --image "${{ steps.img.outputs.image }}"
 
+      - name: Aggregate client feeds
+        if: always()
+        # Fetches each external client's compatibility.json (compatibility/feeds.txt)
+        # and joins it with the suite ranges into plugin↔suite verdicts. Best effort:
+        # a feed whose repo has not merged its declaration yet (404) is skipped, so
+        # this never fails the run — the plugin table just stays empty until then.
+        run: compatibility/aggregate.sh --feeds-file compatibility/feeds.txt --out compatibility/aggregate.json
+
       - name: Render matrix
         if: always()
         run: |
@@ -87,4 +95,5 @@ jobs:
           name: compatibility-matrix
           path: |
             compatibility/matrix.json
+            compatibility/aggregate.json
             compatibility/MATRIX.md

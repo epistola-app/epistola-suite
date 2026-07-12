@@ -1,0 +1,11 @@
+# Client compatibility-declaration feeds for the aggregate step (aggregate.sh).
+#
+# One source per line — a local path or an http(s) URL to a client's
+# compatibility.json. Fetching is best effort: an unreachable feed (e.g. a repo
+# whose compatibility branch has not merged yet → 404) is warned and skipped, so
+# adding a source here is safe before the other side has shipped.
+#
+# Blank lines and `#` comments are ignored.
+
+# valtimo-epistola-plugin (client) — declares the contract version it targets.
+https://raw.githubusercontent.com/epistola-app/valtimo-epistola-plugin/main/compatibility.json
