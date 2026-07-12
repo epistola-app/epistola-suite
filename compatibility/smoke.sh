@@ -24,12 +24,25 @@
 #                               used instead whenever it can be inspected.
 #   --out      OUT              matrix JSON to update            (default: compatibility/matrix.json)
 #   --profile  PROFILE          Spring profile(s) to boot with   (default: localauth)
+#   --api-key  API_KEY          API key for the authenticated ping that reads the
+#                               server's DECLARED compatibility range from
+#                               /api/ping `.details` (default: the seeded demo key).
 #
 # The suite fails fast on boot unless an authentication mechanism is configured,
-# so we boot with the `localauth` profile (form login, in-memory users). We only
-# make an anonymous request, so the auth mechanism itself is never exercised —
-# it just lets the app start. `prod` is deliberately avoided (it needs encryption
-# keys and a pre-migrated DB).
+# so we boot with the `localauth` profile (form login, in-memory users). The
+# reachability gate is an anonymous request, so the auth mechanism itself is never
+# exercised — it just lets the app start. `prod` is deliberately avoided (it needs
+# encryption keys and a pre-migrated DB).
+#
+# Declared-range verification (best effort): after the app is UP, we additionally
+# make an *authenticated* /api/ping (the `.details` object, incl. `apiVersion` and
+# `minCompatibleApiVersion`, is only returned when authenticated) and check the
+# cell's contract version falls in the server's declared range
+# `[minCompatibleApiVersion .. apiVersion]`. This requires (a) a suite image new
+# enough to expose `minCompatibleApiVersion` and (b) a valid API key — the default
+# demo key only exists when a demo-capable profile is active (e.g.
+# `--profile localauth,demo`). When either is missing the cell still records
+# reachability; the range fields are simply omitted (rangeVerified unset).
 #
 # Requires: docker, curl, jq.
 
@@ -45,7 +58,16 @@ SUITE_VERSION="${SUITE_VERSION:-}"
 CONTRACT_VERSION="${CONTRACT_VERSION:-}"
 OUT="${OUT:-${SCRIPT_DIR}/matrix.json}"
 PROFILE="${PROFILE:-localauth}"
+# Seeded demo API key (DemoLoader, under a demo-capable profile). Used only for the
+# authenticated ping that reads the declared compatibility range.
+API_KEY="${API_KEY:-epk_demo_000000000000000000000000000000000000}"
 CONTRACT_SOURCE="label"   # overwritten to "image" if we read it from the image
+
+# Declared compatibility range, read from an authenticated /api/ping when available.
+# Empty when the image is too old to expose it or the authenticated ping fails.
+DECLARED_MIN=""
+DECLARED_API=""
+RANGE_VERIFIED=""   # "true" | "false" | "" (not checked)
 
 # --- flag parsing --------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
@@ -55,6 +77,7 @@ while [[ $# -gt 0 ]]; do
     --contract) CONTRACT_VERSION="$2"; shift 2 ;;
     --out)      OUT="$2";              shift 2 ;;
     --profile)  PROFILE="$2";          shift 2 ;;
+    --api-key)  API_KEY="$2";          shift 2 ;;
     -h|--help)  grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -92,6 +115,42 @@ trap cleanup EXIT
 
 log() { echo "[compat] $*" >&2; }
 
+# --- semver range helpers (numeric-aware via sort -V) --------------------------
+# ver_le A B  → true when A <= B ; ver_in_range MIN VER MAX → true when in range.
+ver_le() { [[ "$1" == "$2" ]] || [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" == "$1" ]]; }
+ver_in_range() { ver_le "$1" "$2" && ver_le "$2" "$3"; }
+
+# --- read the server's DECLARED compatibility range (best effort) --------------
+# Makes an authenticated /api/ping (the `.details` object is auth-gated) and, when
+# the response carries `apiVersion` + `minCompatibleApiVersion`, sets DECLARED_API
+# / DECLARED_MIN and RANGE_VERIFIED (whether this cell's contract is in range).
+# Silent no-op when the image predates the field or the key is not accepted.
+read_declared_range() {
+  local body api min
+  body="$(curl -s -X POST "${BASE}/api/ping" \
+    -H 'Content-Type: application/vnd.epistola.v1+json' \
+    -H 'Accept: application/vnd.epistola.v1+json' \
+    -H "User-Agent: ${UA}" \
+    -H "X-EP-Node-Id: ${NODE}" \
+    -H "X-API-Key: ${API_KEY}" || true)"
+  api="$(printf '%s' "${body}" | jq -r '.details.apiVersion // empty' 2>/dev/null || true)"
+  min="$(printf '%s' "${body}" | jq -r '.details.minCompatibleApiVersion // empty' 2>/dev/null || true)"
+  # Need both, and a real apiVersion (older builds report "unknown").
+  if [[ -z "${api}" || -z "${min}" || "${api}" == "unknown" || "${min}" == "unknown" ]]; then
+    log "declared range: not available (image predates the field or key not accepted) — recording reachability only"
+    return 0
+  fi
+  DECLARED_API="${api}"
+  DECLARED_MIN="${min}"
+  if ver_in_range "${DECLARED_MIN}" "${CONTRACT_VERSION}" "${DECLARED_API}"; then
+    RANGE_VERIFIED="true"
+    log "declared range [${DECLARED_MIN} .. ${DECLARED_API}] ✓ contains contract ${CONTRACT_VERSION}"
+  else
+    RANGE_VERIFIED="false"
+    log "declared range [${DECLARED_MIN} .. ${DECLARED_API}] ✗ EXCLUDES contract ${CONTRACT_VERSION}"
+  fi
+}
+
 # --- record a cell result and exit ---------------------------------------------
 # args: result(pass|fail|error) detail
 record() {
@@ -109,13 +168,21 @@ record() {
     --arg contractSource "${CONTRACT_SOURCE}" \
     --arg image "${IMAGE}" \
     --arg detail "${detail}" \
+    --arg declaredMin "${DECLARED_MIN}" \
+    --arg declaredApi "${DECLARED_API}" \
+    --arg rangeVerified "${RANGE_VERIFIED}" \
     --arg now "${now}" '
     .generatedAt = $now
     | .cells = (
         [ .cells[]? | select(.suite != $suite or .contract != $contract) ]
-        + [ { suite: $suite, contract: $contract, result: $result, method: $method,
-              contractSource: $contractSource, image: $image, detail: $detail,
-              verifiedAt: $now } ]
+        + [ ( { suite: $suite, contract: $contract, result: $result, method: $method,
+                contractSource: $contractSource, image: $image, detail: $detail,
+                verifiedAt: $now }
+              # Attach the declared range only when an authenticated ping read it.
+              | if $declaredApi != "" then . + {
+                    declaredRange: { min: $declaredMin, max: $declaredApi },
+                    rangeVerified: ($rangeVerified == "true")
+                  } else . end ) ]
         | sort_by(.suite, .contract)
       )
     ' "${OUT}" > "${tmp}"
@@ -193,7 +260,14 @@ for _ in $(seq 1 "$(( SMOKE_TIMEOUT / 3 ))"); do
     -H "User-Agent: ${UA}" \
     -H "X-EP-Node-Id: ${NODE}" || true)"
   if [[ "$(printf '%s' "${PING}" | jq -r '.status // empty' 2>/dev/null || true)" == "UP" ]]; then
-    record pass "POST /api/ping reported UP (with client-identity headers)"
+    read_declared_range
+    if [[ "${RANGE_VERIFIED}" == "false" ]]; then
+      record fail "server declares range [${DECLARED_MIN} .. ${DECLARED_API}] which excludes bundled contract ${CONTRACT_VERSION}"
+    fi
+    pass_detail="POST /api/ping reported UP (with client-identity headers)"
+    [[ "${RANGE_VERIFIED}" == "true" ]] &&
+      pass_detail="${pass_detail}; declared range [${DECLARED_MIN} .. ${DECLARED_API}] verified"
+    record pass "${pass_detail}"
   fi
   # bail early if the container has already died
   if [[ "$(docker inspect -f '{{.State.Running}}' "${SUITE}" 2>/dev/null || echo false)" != "true" ]]; then
