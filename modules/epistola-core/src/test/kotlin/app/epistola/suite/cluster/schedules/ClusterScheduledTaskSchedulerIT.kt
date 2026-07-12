@@ -1,7 +1,10 @@
 package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.cluster.ClusterNode
+import app.epistola.suite.cluster.timers.ClusterTimerOwnership
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -39,6 +42,12 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var ownership: ClusterTimerOwnership
+
+    @Autowired
+    private lateinit var nodeIdentity: NodeIdentity
+
     @BeforeEach
     fun reset() {
         testClock.reset()
@@ -55,6 +64,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
             DisableClusterScheduledTask("scheduler-each-node").execute()
             DisableClusterScheduledTask("scheduler-virtual-time").execute()
             DisableClusterScheduledTask("scheduler-tenant").execute()
+            DisableClusterScheduledTask("scheduler-wedged-owner").execute()
         }
     }
 
@@ -264,6 +274,83 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         val nodeStates = registry.listNodeStates().filter { it.taskKey == key }
         assertThat(nodeStates).hasSize(1)
         assertThat(nodeStates.single().nextDueAt).isAfter(now())
+    }
+
+    @Test
+    fun `a heartbeating-but-wedged owner is bypassed so a healthy node runs its due single-owner task`() {
+        // Reproduces #723: the rendezvous owner of a single-owner task keeps
+        // heartbeating (last_seen_at fresh) but its poll thread is wedged
+        // (last_poll_completed_at stale). The task is due but never claimed by the
+        // wedged owner; without the scheduler-liveness gate every healthy node skips
+        // it as "not mine" and it starves. With the gate the wedged owner drops out of
+        // election and this node takes it over.
+        val wedgedOwner = "wedged-owner-node"
+
+        // Pick a routing key the wedged owner wins over the current node, so without
+        // the fix the current node would never own (and never claim) this task.
+        val routingKey = routingKeyOwnedBy(wedgedOwner, over = nodeIdentity.nodeId)
+        val taskKey = "scheduler-wedged-owner"
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = taskKey,
+                    routingKey = routingKey,
+                    taskType = RecordingClusterScheduledTaskHandler.TYPE,
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                ),
+            ).execute()
+        }
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        // Owner is scheduler-fresh: it owns the task, so this node correctly defers.
+        seedSchedulerNode(wedgedOwner, lastSeenAt = now(), lastPollCompletedAt = now())
+        scheduler.poll()
+        assertThat(handler.handled).doesNotContain(taskKey)
+        assertThat(registry.find(taskKey)?.leaseOwnerNodeId).isNull()
+
+        // Owner now wedged: heartbeat still fresh, but its scheduler poll went stale.
+        seedSchedulerNode(wedgedOwner, lastSeenAt = now(), lastPollCompletedAt = now().minusMinutes(2))
+        scheduler.poll()
+
+        // This node re-owns and runs the previously-starved task.
+        assertThat(handler.handled).contains(taskKey)
+        val task = registry.find(taskKey)
+        assertThat(task?.leaseOwnerNodeId).isNull() // released after a successful run
+        assertThat(task?.nextDueAt).isAfter(now())
+    }
+
+    /** Smallest routing key (searched deterministically) that [owner] wins over [over] under rendezvous. */
+    private fun routingKeyOwnedBy(owner: String, over: String): String {
+        val nodes = listOf(stubNode(owner), stubNode(over))
+        return generateSequence(0) { it + 1 }
+            .map { "wedged-rk-$it" }
+            .first { ownership.ownerFor(it, nodes)?.nodeId == owner }
+    }
+
+    private fun stubNode(nodeId: String): ClusterNode = ClusterNode(
+        nodeId = nodeId,
+        capabilities = listOf("suite"),
+        version = "1.0.0",
+        joinedAt = now(),
+        lastSeenAt = now(),
+    )
+
+    private fun seedSchedulerNode(nodeId: String, lastSeenAt: OffsetDateTime, lastPollCompletedAt: OffsetDateTime) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO cluster_nodes (node_id, capabilities, version, joined_at, last_seen_at, last_poll_completed_at, metadata)
+                VALUES (:nodeId, '["suite"]'::jsonb, '1.0.0', :lastSeenAt, :lastSeenAt, :lastPollCompletedAt, '{}'::jsonb)
+                ON CONFLICT (node_id) DO UPDATE
+                SET last_seen_at = EXCLUDED.last_seen_at,
+                    last_poll_completed_at = EXCLUDED.last_poll_completed_at
+                """,
+            )
+                .bind("nodeId", nodeId)
+                .bind("lastSeenAt", lastSeenAt)
+                .bind("lastPollCompletedAt", lastPollCompletedAt)
+                .execute()
+        }
     }
 
     private fun seedDueTask(taskKey: String) {

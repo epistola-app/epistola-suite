@@ -51,19 +51,27 @@ Custom application meters (in addition to the standard Spring Boot / JVM /
 | `epistola.generation.document.duration`   | Timer (histogram)   | `tenant`, `outcome`, `template`, `path` |
 | `epistola.generation.document.size.bytes` | DistributionSummary | `tenant`, `template`                    |
 | `epistola.generation.queue.depth`         | Gauge               | —                                       |
+| `epistola.generation.queue.wait`          | Timer (histogram)   | —                                       |
+
+Time accounting for a request: `queue.wait` is the **waiting** bucket (created →
+claimed, i.e. time spent PENDING before a node picked it up), `jobs.duration` /
+`document.duration` are the **generation** bucket, and `jobs.drain.batches`
+(below) is the **busy vs no-jobs** signal — all recorded from in-memory state, no
+DB query required.
 
 `epistola.generation.document.*` are the **only** meters carrying a `tenant`
 tag — see [Per-tenant tagging](#per-tenant-tagging).
 
 ### Jobs / batch processing
 
-| Meter                           | Type              | Tags      |
-| ------------------------------- | ----------------- | --------- |
-| `epistola.jobs.duration`        | Timer (histogram) | `outcome` |
-| `epistola.jobs.claimed.total`   | Counter           | —         |
-| `epistola.jobs.completed.total` | Counter           | —         |
-| `epistola.jobs.failed.total`    | Counter           | —         |
-| `epistola.jobs.active`          | Gauge             | —         |
+| Meter                           | Type              | Tags                        |
+| ------------------------------- | ----------------- | --------------------------- |
+| `epistola.jobs.duration`        | Timer (histogram) | `outcome`                   |
+| `epistola.jobs.claimed.total`   | Counter           | —                           |
+| `epistola.jobs.completed.total` | Counter           | —                           |
+| `epistola.jobs.failed.total`    | Counter           | —                           |
+| `epistola.jobs.drain.batches`   | Counter           | `outcome` (`found`/`empty`) |
+| `epistola.jobs.active`          | Gauge             | —                           |
 
 ### Storage
 

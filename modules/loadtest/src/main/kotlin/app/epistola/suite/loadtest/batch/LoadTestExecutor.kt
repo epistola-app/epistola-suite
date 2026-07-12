@@ -104,7 +104,7 @@ class LoadTestExecutor(
         logger.info("Retrieved {} job IDs, waiting for async processing to complete...", submittedJobs.size)
 
         // Poll database to wait for all jobs to reach terminal state
-        val (jobResults, wasCancelled) = pollForJobCompletion(run.id, submittedJobs)
+        val (jobResults, wasCancelled) = pollForJobCompletion(run.id, batchId, submittedJobs)
 
         val endTime = System.currentTimeMillis()
         val totalDurationMs = endTime - startTime
@@ -126,18 +126,27 @@ class LoadTestExecutor(
         val completedCount = requestResults.count { it.success }
         val failedCount = requestResults.count { !it.success }
 
+        // Queue wait (created → started): time a request sat PENDING before a node picked
+        // it up, separate from render time. Computed from the polled timestamps, no extra
+        // query — surfaces the "waiting" bucket in the run's own metrics.
+        val queueWaits = jobResults.filter { it.startedAt != null }.map { it.queueWaitMs }.sorted()
+        val avgQueueWaitMs = if (queueWaits.isEmpty()) 0.0 else queueWaits.average()
+        val p95QueueWaitMs = percentile(queueWaits, 0.95)
+
         logger.info(
-            "Load test run {} completed: {}/{} succeeded, {} failed in {}ms",
+            "Load test run {} completed: {}/{} succeeded, {} failed in {}ms (avg queue wait {}ms, p95 {}ms)",
             run.id,
             completedCount,
             run.targetCount,
             failedCount,
             totalDurationMs,
+            avgQueueWaitMs.toLong(),
+            p95QueueWaitMs,
         )
 
         // Calculate and save metrics (no longer save to load_test_requests - query from source instead)
         val metrics = calculateMetrics(requestResults, totalDurationMs)
-        finalizeRun(run.id, batchId, metrics, completedCount, failedCount, wasCancelled)
+        finalizeRun(run.id, batchId, metrics, completedCount, failedCount, wasCancelled, avgQueueWaitMs, p95QueueWaitMs)
     }
 
     /**
@@ -161,6 +170,9 @@ class LoadTestExecutor(
                 0
             }
         }
+
+        /** Time the request waited in PENDING before a node picked it up (created → started). */
+        val queueWaitMs: Long get() = if (startedAt != null) Duration.between(createdAt, startedAt).toMillis() else 0
         val errorType: String? get() = if (!success && errorMessage != null) {
             when {
                 errorMessage.contains("validation", ignoreCase = true) -> "VALIDATION"
@@ -174,115 +186,56 @@ class LoadTestExecutor(
     }
 
     /**
-     * Poll database waiting for all async jobs to complete.
-     * Returns results with actual timing data from the database and a cancellation flag.
+     * Poll the database until all of the run's generation requests reach a terminal
+     * state, then return their per-row results (for metric calculation) plus a
+     * cancellation flag.
+     *
+     * Each poll asks the DB only for **status counts** — one row, resolved by the
+     * `(batch_id, status)` index, with no per-request rows shipped or mapped. The full
+     * per-row result set is fetched exactly **once**, at the end, so the load test's own
+     * DB footprint stays a rounding error in the load it is measuring (previously it
+     * re-fetched and re-mapped every request on every 500ms poll).
      */
     private fun pollForJobCompletion(
         runId: LoadTestRunKey,
+        batchId: BatchKey,
         jobs: List<SubmittedJob>,
     ): Pair<List<JobResult>, Boolean> {
-        val jobIds = jobs.map { it.generationRequestId }.toSet()
-        val pollIntervalMs = 500L // Poll every 500ms
-        val maxWaitTimeMs = 600_000L // 10 minute timeout
+        val jobsById = jobs.associateBy { it.generationRequestId }
+        val pollIntervalMs = POLL_INTERVAL_MS
+        val maxWaitTimeMs = MAX_WAIT_TIME_MS
         val startTime = System.currentTimeMillis()
         var wasCancelled = false
 
-        while (true) {
-            // Check for cancellation
-            if (isRunCancelled(runId)) {
-                logger.warn("Load test run {} cancelled while waiting for jobs", runId)
-                wasCancelled = true
-                break
-            }
-
-            // Check timeout
-            if (System.currentTimeMillis() - startTime > maxWaitTimeMs) {
-                logger.error("Load test run {} timed out waiting for jobs after {}ms", runId, maxWaitTimeMs)
-                break
-            }
-
-            // Query database for job statuses
-            val results = jdbi.withHandle<List<JobResult>, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT
-                        dgr.id,
-                        dgr.created_at,
-                        dgr.started_at,
-                        dgr.completed_at,
-                        dgr.status,
-                        dgr.error_message,
-                        dgr.document_key
-                    FROM document_generation_requests dgr
-                    WHERE dgr.id IN (<jobIds>)
-                    """,
-                )
-                    .bindList("jobIds", jobIds.map { it.value })
-                    .map { rs, _ ->
-                        val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
-                        val job = jobs.first { it.generationRequestId == requestId }
-
-                        JobResult(
-                            sequenceNumber = job.sequenceNumber,
-                            generationRequestId = requestId,
-                            createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                            startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
-                            completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
-                            status = rs.getString("status"),
-                            errorMessage = rs.getString("error_message"),
-                            documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
-                        )
-                    }
-                    .list()
-            }
-
-            // Check if all jobs reached terminal state
-            val allDone = results.all { it.status in setOf("COMPLETED", "FAILED", "CANCELLED") }
-            val completed = results.count { it.status == "COMPLETED" }
-            val failed = results.count { it.status == "FAILED" }
-            val inProgress = results.count { it.status in setOf("PENDING", "IN_PROGRESS") }
-
-            logger.debug(
-                "Load test progress: {} completed, {} failed, {} in progress (out of {})",
-                completed,
-                failed,
-                inProgress,
-                jobIds.size,
-            )
-
-            // Update progress in database
-            updateProgress(runId, completed, failed)
-
-            if (allDone) {
-                logger.info("All {} jobs completed for load test run {}", results.size, runId)
-                return Pair(results, wasCancelled)
-            }
-
-            // Wait before next poll
-            Thread.sleep(pollIntervalMs)
-        }
-
-        // Return partial results if cancelled or timed out
-        val finalResults = jdbi.withHandle<List<JobResult>, Exception> { handle ->
+        // Cheap per-poll progress: completed / failed / still-running counts in one row.
+        fun counts(): Triple<Int, Int, Int> = jdbi.withHandle<Triple<Int, Int, Int>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT
-                    dgr.id,
-                    dgr.created_at,
-                    dgr.started_at,
-                    dgr.completed_at,
-                    dgr.status,
-                    dgr.error_message,
-                    dgr.document_key
-                FROM document_generation_requests dgr
-                WHERE dgr.id IN (<jobIds>)
+                SELECT count(*) FILTER (WHERE status = 'COMPLETED')                 AS completed,
+                       count(*) FILTER (WHERE status = 'FAILED')                    AS failed,
+                       count(*) FILTER (WHERE status IN ('PENDING', 'IN_PROGRESS')) AS in_progress
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
                 """,
             )
-                .bindList("jobIds", jobIds.map { it.value })
+                .bind("batchId", batchId)
+                .map { rs, _ -> Triple(rs.getInt("completed"), rs.getInt("failed"), rs.getInt("in_progress")) }
+                .one()
+        }
+
+        // Full per-row results — fetched once, at the end, for metric calculation.
+        fun fetchResults(): List<JobResult> = jdbi.withHandle<List<JobResult>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT id, created_at, started_at, completed_at, status, error_message, document_key
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
+                """,
+            )
+                .bind("batchId", batchId)
                 .map { rs, _ ->
                     val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
-                    val job = jobs.first { it.generationRequestId == requestId }
-
+                    val job = jobsById.getValue(requestId)
                     JobResult(
                         sequenceNumber = job.sequenceNumber,
                         generationRequestId = requestId,
@@ -297,18 +250,46 @@ class LoadTestExecutor(
                 .list()
         }
 
-        return Pair(finalResults, wasCancelled)
+        while (true) {
+            if (isRunCancelled(runId)) {
+                logger.warn("Load test run {} cancelled while waiting for jobs", runId)
+                wasCancelled = true
+                break
+            }
+            if (System.currentTimeMillis() - startTime > maxWaitTimeMs) {
+                logger.error("Load test run {} timed out waiting for jobs after {}ms", runId, maxWaitTimeMs)
+                break
+            }
+
+            val (completed, failed, inProgress) = counts()
+            logger.debug("Load test progress: {} completed, {} failed, {} in progress", completed, failed, inProgress)
+            updateProgress(runId, completed, failed)
+
+            // in_progress == 0 means every request is terminal (COMPLETED/FAILED/CANCELLED).
+            if (inProgress == 0) {
+                logger.info("All jobs terminal for load test run {} ({} completed, {} failed)", runId, completed, failed)
+                return Pair(fetchResults(), wasCancelled)
+            }
+
+            Thread.sleep(pollIntervalMs)
+        }
+
+        // Cancelled or timed out: fetch the rows in whatever state they are now.
+        return Pair(fetchResults(), wasCancelled)
     }
 
     /**
      * Store batch_id in load test run for linking to document_generation_requests.
+     * Also stamps the progress heartbeat so the early phase — after claim but before
+     * the first poll cycle — is not falsely seen as stale (#725).
      */
     private fun storeBatchId(runId: LoadTestRunKey, batchId: BatchKey) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE load_test_runs
-                SET batch_id = :batchId
+                SET batch_id = :batchId,
+                    last_progress_at = NOW()
                 WHERE id = :runId
                 """,
             )
@@ -319,7 +300,11 @@ class LoadTestExecutor(
     }
 
     /**
-     * Update progress counts in the database.
+     * Update progress counts in the database and stamp the progress heartbeat.
+     *
+     * `last_progress_at` advances on every poll cycle (every ~500ms) for as long as
+     * this executor is alive and polling, so stale-run recovery can distinguish a
+     * healthy long run from a genuinely abandoned one (#725).
      */
     private fun updateProgress(runId: LoadTestRunKey, completedCount: Int, failedCount: Int) {
         jdbi.useHandle<Exception> { handle ->
@@ -327,7 +312,8 @@ class LoadTestExecutor(
                 """
                 UPDATE load_test_runs
                 SET completed_count = :completedCount,
-                    failed_count = :failedCount
+                    failed_count = :failedCount,
+                    last_progress_at = NOW()
                 WHERE id = :runId
                 """,
             )
@@ -472,6 +458,8 @@ class LoadTestExecutor(
         completedCount: Int,
         failedCount: Int,
         wasCancelled: Boolean,
+        avgQueueWaitMs: Double = 0.0,
+        p95QueueWaitMs: Long = 0,
     ) {
         jdbi.useHandle<Exception> { handle ->
             val status = if (wasCancelled) {
@@ -493,6 +481,8 @@ class LoadTestExecutor(
                 "p99_ms" to metrics.p99ResponseTimeMs,
                 "rps" to metrics.requestsPerSecond,
                 "success_rate_percent" to metrics.successRatePercent,
+                "avg_queue_wait_ms" to avgQueueWaitMs,
+                "p95_queue_wait_ms" to p95QueueWaitMs,
             )
 
             handle.createUpdate(
@@ -560,4 +550,17 @@ class LoadTestExecutor(
         val errorType: String?,
         val documentId: DocumentKey?,
     )
+
+    companion object {
+        /** How often the executor polls for job completion (and stamps `last_progress_at`). */
+        const val POLL_INTERVAL_MS = 500L
+
+        /**
+         * Hard cap on how long the executor waits for a batch before finalizing it.
+         * After this the run leaves RUNNING (finalized), so it is no longer eligible
+         * for stale-run recovery — the poller's stale timeout must stay comfortably
+         * above the progress cadence, not this cap (see [LoadTestPoller]).
+         */
+        const val MAX_WAIT_TIME_MS = 600_000L
+    }
 }

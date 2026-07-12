@@ -364,6 +364,48 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a run wedged in-flight past the max duration is force-reclaimed despite a renewed lease`() {
+        // Models a node wedged mid-dispatch (#723): it never completes the task, but its
+        // maintenance thread keeps the lease fresh forever, so normal lease-expiry never
+        // fires. The hard-deadline watchdog must let another node reclaim it anyway.
+        seedDueTask("task-watchdog")
+        nodeRegistry.heartbeat()
+        registry.claimDue(listOf("task-watchdog")).single() // A leases it; last_started_at = now
+
+        // Keep the lease continuously renewed for ~16.7 min — past the 15 min default deadline.
+        repeat(40) {
+            testClock.advanceBy(Duration.ofSeconds(25))
+            registry.renewLeases(listOf("task-watchdog"))
+        }
+        assertThat(registry.find("task-watchdog")?.leaseExpiresAt).isAfter(now()) // lease still fresh
+
+        nodeRegistryFor("scheduled-node-b").heartbeat()
+        val reclaimed = registryFor("scheduled-node-b").claimDue(listOf("task-watchdog"))
+
+        assertThat(reclaimed).hasSize(1)
+        assertThat(registry.find("task-watchdog")?.leaseOwnerNodeId).isEqualTo("scheduled-node-b")
+    }
+
+    @Test
+    fun `a run within the max duration is not force-reclaimed while its lease is renewed`() {
+        // The watchdog must not preempt a healthy in-progress run: a task well within the
+        // deadline whose lease is being renewed stays owned by its runner.
+        seedDueTask("task-watchdog-fresh")
+        nodeRegistry.heartbeat()
+        registry.claimDue(listOf("task-watchdog-fresh")).single()
+
+        // ~5 min elapsed (< 15 min deadline), lease kept fresh throughout.
+        repeat(12) {
+            testClock.advanceBy(Duration.ofSeconds(25))
+            registry.renewLeases(listOf("task-watchdog-fresh"))
+        }
+
+        nodeRegistryFor("scheduled-node-b").heartbeat()
+        assertThat(registryFor("scheduled-node-b").claimDue(listOf("task-watchdog-fresh"))).isEmpty()
+        assertThat(registry.find("task-watchdog-fresh")?.leaseOwnerNodeId).isEqualTo(nodeIdentity.nodeId)
+    }
+
+    @Test
     fun `commands can disable enable trigger and list tasks`() {
         withMediator {
             deleteTask("task-command")

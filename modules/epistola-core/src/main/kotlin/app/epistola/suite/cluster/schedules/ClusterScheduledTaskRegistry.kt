@@ -120,6 +120,7 @@ class ClusterScheduledTaskRegistry(
 
     fun dueCandidates(limit: Int = properties.scheduledTasks.candidateScanSize): List<ClusterScheduledTask> = jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
         val now = EpistolaClock.offsetDateTime()
+        val runDeadline = now.minusNanos(properties.scheduledTasks.maxRunDurationMs * NANOS_PER_MILLI)
         val singletonCandidates = handle.createQuery(
             """
             SELECT ${selectColumns()}
@@ -127,7 +128,11 @@ class ClusterScheduledTaskRegistry(
             WHERE enabled = true
               AND execution_scope = :singleOwner
               AND next_due_at <= :now
-              AND (lease_owner_node_id IS NULL OR lease_expires_at < :now)
+              -- Normally only an absent/expired lease is a candidate; the last clause
+              -- adds the hard-deadline escape so a task wedged in-flight past
+              -- maxRunDurationMs (lease renewed forever by a wedged node) is offered
+              -- for force-reclaim (#723).
+              AND (lease_owner_node_id IS NULL OR lease_expires_at < :now OR last_started_at < :runDeadline)
             ORDER BY next_due_at, task_key
             LIMIT :limit
             """,
@@ -135,6 +140,7 @@ class ClusterScheduledTaskRegistry(
             .bind("singleOwner", ClusterScheduledTaskExecutionScope.SINGLE_OWNER.dbValue)
             .bind("limit", limit)
             .bind("now", now)
+            .bind("runDeadline", runDeadline)
             .map { rs, _ -> mapTask(rs) }
             .list()
 
@@ -180,6 +186,7 @@ class ClusterScheduledTaskRegistry(
         if (taskKeys.isEmpty()) return emptyList()
         val now = EpistolaClock.offsetDateTime()
         val activeSince = now.minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
+        val runDeadline = now.minusNanos(properties.scheduledTasks.maxRunDurationMs * NANOS_PER_MILLI)
         val leaseExpiresAt = now.plusNanos(properties.scheduledTasks.leaseDurationMs * NANOS_PER_MILLI)
         return jdbi.inTransaction<List<ClusterScheduledTask>, Exception> { handle ->
             val singleOwnerClaimed = handle.createQuery(
@@ -191,7 +198,9 @@ class ClusterScheduledTaskRegistry(
                       AND enabled = true
                       AND execution_scope = :singleOwner
                       AND next_due_at <= :now
-                      AND (lease_owner_node_id IS NULL OR lease_expires_at < :now)
+                      -- Absent/expired lease, OR force-reclaim of a run wedged in-flight
+                      -- past maxRunDurationMs whose lease is being renewed forever (#723).
+                      AND (lease_owner_node_id IS NULL OR lease_expires_at < :now OR last_started_at < :runDeadline)
                       AND EXISTS (
                           SELECT 1
                           FROM cluster_nodes n
@@ -220,6 +229,7 @@ class ClusterScheduledTaskRegistry(
                 .bind("nodeId", nodeIdentity.nodeId)
                 .bind("activeSince", activeSince)
                 .bind("now", now)
+                .bind("runDeadline", runDeadline)
                 .bind("leaseExpiresAt", leaseExpiresAt)
                 .map { rs, _ -> mapTask(rs) }
                 .list()

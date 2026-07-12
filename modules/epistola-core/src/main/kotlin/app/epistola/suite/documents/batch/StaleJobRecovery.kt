@@ -21,6 +21,18 @@ import java.util.UUID
  *
  * A job is considered stale if it has been IN_PROGRESS for longer than the configured timeout.
  * Stale jobs are reset to PENDING status so they can be claimed by another instance.
+ *
+ * Runs on **every capable node** ([ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE]),
+ * not a single elected owner. Document recovery is the guarantee that no generation
+ * job is ever permanently orphaned, so it must not itself depend on one node staying
+ * healthy: if the recovery task were single-owner and its owner wedged mid-run (holding
+ * a renewed lease), stuck documents would never be recovered — the exact self-amplifying
+ * failure in #723 (the orphaned jobs needed a recovery task pinned to the broken node).
+ * The sweep is a single atomic conditional UPDATE (its staleness predicate re-evaluated
+ * under the row lock, so a row re-claimed by the JobPoller since is skipped) and reclaim
+ * uses `FOR UPDATE SKIP LOCKED`, so running it concurrently on all nodes is safe and
+ * removes the single point of failure: while any node is healthy, stale jobs are
+ * recovered within one interval regardless of how another node failed.
  */
 @Component
 @ConditionalOnProperty(
@@ -52,7 +64,9 @@ class StaleJobRecovery(
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
         schedule = ClusterScheduledTaskSchedule.FixedRate(INTERVAL_MS),
-        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
+        // Every node runs the idempotent sweep so document recovery never depends on a
+        // single owner staying alive (see class KDoc / #723).
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
     )
 
     override fun handle(task: ClusterScheduledTask) {
@@ -64,40 +78,35 @@ class StaleJobRecovery(
 
         meterRegistry.recordScheduledTask("stale-job-recovery") {
             val staleInterval = "$staleTimeoutMinutes minutes"
-            jdbi.useTransaction<Exception> { handle ->
-                // Find stale requests (IN_PROGRESS for too long)
-                val staleRequestIds = handle.createQuery(
-                    """
-                SELECT id FROM document_generation_requests
-                WHERE status = 'IN_PROGRESS'
-                  AND claimed_at < NOW() - :staleInterval::interval
-                """,
-                )
-                    .bind("staleInterval", staleInterval)
-                    .mapTo(UUID::class.java)
-                    .list()
-
-                if (staleRequestIds.isEmpty()) {
-                    return@useTransaction
-                }
-
-                logger.warn("Found {} stale jobs to recover: {}", staleRequestIds.size, staleRequestIds)
-
-                // Reset requests to PENDING (in flattened schema, each request = 1 document)
-                val requestsReset = handle.createUpdate(
+            // Single atomic conditional UPDATE — the staleness predicate must live in the
+            // UPDATE itself, not just a prior SELECT. This task runs on EVERY node
+            // (EACH_CAPABLE_NODE), so a SELECT-then-update-by-id could reset a row that a
+            // concurrent node already recovered and the JobPoller then freshly re-claimed
+            // between the SELECT and the UPDATE — clobbering a live IN_PROGRESS claim and
+            // causing duplicate generation. Keeping status/claimed_at in the WHERE (which
+            // Postgres re-evaluates under the row lock) makes concurrent sweeps safe; a
+            // row re-claimed since is no longer stale and is skipped. RETURNING id keeps
+            // the recovered-id logging.
+            val recovered = jdbi.withHandle<List<UUID>, Exception> { handle ->
+                handle.createQuery(
                     """
                 UPDATE document_generation_requests
                 SET status = 'PENDING',
                     claimed_by = NULL,
                     claimed_at = NULL,
                     started_at = NULL
-                WHERE id IN (<requestIds>)
+                WHERE status = 'IN_PROGRESS'
+                  AND claimed_at < NOW() - :staleInterval::interval
+                RETURNING id
                 """,
                 )
-                    .bindList("requestIds", staleRequestIds)
-                    .execute()
+                    .bind("staleInterval", staleInterval)
+                    .mapTo(UUID::class.java)
+                    .list()
+            }
 
-                logger.warn("Recovered {} stale jobs (reset to PENDING)", requestsReset)
+            if (recovered.isNotEmpty()) {
+                logger.warn("Recovered {} stale jobs (reset to PENDING): {}", recovered.size, recovered)
             }
         }
     }

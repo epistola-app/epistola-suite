@@ -9,6 +9,11 @@ The immediate implementation starts with the node registry only. Later
 increments can build clustered timer events, durable processes, cache
 invalidation, and capability-aware job claiming on top of that registry.
 
+> How the cluster survives a **partially-failed / wedged** node (scheduler
+> liveness, the hard-deadline watchdog, per-node document recovery, and the
+> render warmup) is documented separately in
+> [`cluster-resilience.md`](cluster-resilience.md).
+
 ## Why This Is Narrow
 
 The high-traffic path in Epistola is document generation, and it already uses

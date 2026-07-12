@@ -77,6 +77,41 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
         assertThat(nodeIds).contains(nodeIdentity.nodeId, "stale-node")
     }
 
+    @Test
+    fun `scheduler active nodes require a fresh completed poll in addition to a heartbeat`() {
+        deleteNode(nodeIdentity.nodeId)
+        deleteNode("never-polled")
+        deleteNode("poll-stale")
+
+        // Current node: heartbeat then record a completed poll → scheduler-active.
+        registry.heartbeat()
+        registry.recordPollCompleted()
+
+        // Heartbeating but its poll thread has never completed a cycle → excluded.
+        insertNode("never-polled", now(), lastPollCompletedAt = null)
+        // Heartbeat fresh, but its scheduler poll is stale (wedged owner) → excluded.
+        insertNode("poll-stale", now(), lastPollCompletedAt = now().minusMinutes(2))
+
+        val schedulerActiveIds = registry.schedulerActiveNodes().map { it.nodeId }
+
+        assertThat(schedulerActiveIds).contains(nodeIdentity.nodeId)
+        assertThat(schedulerActiveIds).doesNotContain("never-polled", "poll-stale")
+        // Both excluded nodes are still plain-active by heartbeat — proving it is the
+        // scheduler-liveness signal, not the heartbeat, doing the exclusion (#723).
+        assertThat(registry.activeNodes().map { it.nodeId })
+            .contains(nodeIdentity.nodeId, "never-polled", "poll-stale")
+    }
+
+    @Test
+    fun `record poll completed is a no-op before the first heartbeat`() {
+        deleteNode(nodeIdentity.nodeId)
+
+        // No row yet → the UPDATE matches nothing and must not fail.
+        registry.recordPollCompleted()
+
+        assertThat(registry.schedulerActiveNodes().map { it.nodeId }).doesNotContain(nodeIdentity.nodeId)
+    }
+
     private fun deleteNode(nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM cluster_nodes WHERE node_id = :nodeId")
@@ -85,19 +120,21 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
         }
     }
 
-    private fun insertNode(nodeId: String, lastSeenAt: OffsetDateTime) {
+    private fun insertNode(nodeId: String, lastSeenAt: OffsetDateTime, lastPollCompletedAt: OffsetDateTime? = null) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO cluster_nodes (node_id, capabilities, joined_at, last_seen_at, metadata)
-                VALUES (:nodeId, '["suite"]'::jsonb, :joinedAt, :lastSeenAt, '{}'::jsonb)
+                INSERT INTO cluster_nodes (node_id, capabilities, joined_at, last_seen_at, last_poll_completed_at, metadata)
+                VALUES (:nodeId, '["suite"]'::jsonb, :joinedAt, :lastSeenAt, :lastPollCompletedAt, '{}'::jsonb)
                 ON CONFLICT (node_id) DO UPDATE
-                SET last_seen_at = EXCLUDED.last_seen_at
+                SET last_seen_at = EXCLUDED.last_seen_at,
+                    last_poll_completed_at = EXCLUDED.last_poll_completed_at
                 """,
             )
                 .bind("nodeId", nodeId)
                 .bind("joinedAt", lastSeenAt)
                 .bind("lastSeenAt", lastSeenAt)
+                .bind("lastPollCompletedAt", lastPollCompletedAt)
                 .execute()
         }
     }

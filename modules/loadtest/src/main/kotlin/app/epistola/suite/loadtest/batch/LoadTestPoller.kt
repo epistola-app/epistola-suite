@@ -55,6 +55,10 @@ class LoadTestPoller(
     private val activeTests = AtomicInteger(0)
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
 
+    init {
+        validateStaleTimeoutMinutes(staleTimeoutMinutes)
+    }
+
     @Bean
     fun loadTestPollerScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
         taskKey = TASK_KEY,
@@ -117,7 +121,8 @@ class LoadTestPoller(
             SET status = :runningStatus,
                 claimed_by = :instanceId,
                 claimed_at = NOW(),
-                started_at = NOW()
+                started_at = NOW(),
+                last_progress_at = NOW()
             FROM claimed
             WHERE load_test_runs.id = claimed.id
             RETURNING load_test_runs.id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
@@ -155,10 +160,16 @@ class LoadTestPoller(
     }
 
     /**
-     * Recover stale RUNNING tests that have been abandoned by crashed instances.
-     * A test is considered stale if it's been RUNNING for longer than the timeout.
+     * Recover RUNNING tests genuinely abandoned by a crashed instance.
+     *
+     * Staleness keys off the progress heartbeat (`last_progress_at`), not claim age:
+     * a run whose executor is alive keeps stamping progress every ~500ms, so a
+     * healthy long run is never recovered regardless of total duration. Only a run
+     * with no progress for the timeout — a dead executor — is reset to PENDING for
+     * another node to pick up. `COALESCE(last_progress_at, claimed_at)` covers the
+     * pre-migration case and the sliver between claim and first stamp. See #725.
      */
-    private fun recoverStaleTests() {
+    internal fun recoverStaleTests() {
         val recovered = jdbi.withHandle<Int, Exception> { handle ->
             handle.createUpdate(
                 """
@@ -167,7 +178,7 @@ class LoadTestPoller(
                     claimed_by = NULL,
                     claimed_at = NULL
                 WHERE status = :runningStatus
-                  AND claimed_at < :staleThreshold
+                  AND COALESCE(last_progress_at, claimed_at) < :staleThreshold
                 """,
             )
                 .bind("pendingStatus", LoadTestStatus.PENDING.name)
@@ -177,7 +188,7 @@ class LoadTestPoller(
         }
 
         if (recovered > 0) {
-            logger.warn("Recovered {} stale load test runs", recovered)
+            logger.warn("Recovered {} stale load test runs (no progress within {} min)", recovered, staleTimeoutMinutes)
         }
     }
 
@@ -185,6 +196,21 @@ class LoadTestPoller(
         const val TASK_KEY = "loadtest.poller"
         const val ROUTING_KEY = "system:loadtest.poller"
         const val TASK_TYPE = "loadtest.poller"
+
+        /**
+         * Guards against a stale timeout configured into the danger zone. Recovery
+         * keys off the progress heartbeat, which the executor stamps every
+         * [LoadTestExecutor.POLL_INTERVAL_MS]; the timeout must sit comfortably above
+         * that cadence so a briefly-paused-but-alive executor is never falsely
+         * recovered (re-submitting a whole second batch — #725). One minute is already
+         * ~120x the poll interval; reject anything below it.
+         */
+        internal fun validateStaleTimeoutMinutes(staleTimeoutMinutes: Int) {
+            require(staleTimeoutMinutes >= 1) {
+                "epistola.loadtest.polling.stale-timeout-minutes must be >= 1 (progress heartbeat cadence is " +
+                    "${LoadTestExecutor.POLL_INTERVAL_MS}ms); got $staleTimeoutMinutes"
+            }
+        }
 
         /** System principal for load test execution — runs with full access. */
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
