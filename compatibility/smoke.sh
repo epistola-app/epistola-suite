@@ -63,6 +63,12 @@ PROFILE="${PROFILE:-localauth}"
 API_KEY="${API_KEY:-epk_demo_000000000000000000000000000000000000}"
 CONTRACT_SOURCE="label"   # overwritten to "image" if we read it from the image
 
+# How long (seconds) to keep trying the authenticated range read after the app is
+# UP — the API key may seed well after the anonymous UP (e.g. the demo key lands
+# only after the demo catalog import, ~60-90s). Set low to degrade fast when you
+# know the image/profile will never expose the range.
+RANGE_TIMEOUT="${RANGE_TIMEOUT:-120}"
+
 # Declared compatibility range, read from an authenticated /api/ping when available.
 # Empty when the image is too old to expose it or the authenticated ping fails.
 DECLARED_MIN=""
@@ -116,9 +122,14 @@ trap cleanup EXIT
 log() { echo "[compat] $*" >&2; }
 
 # --- semver range helpers (numeric-aware via sort -V) --------------------------
-# ver_le A B  → true when A <= B ; ver_in_range MIN VER MAX → true when in range.
+# ver_core strips a build/pre-release qualifier (everything from the first `-`, e.g.
+# `-compat-SNAPSHOT`, `-RC1`) so a snapshot/RC of X compares as X — released
+# contract versions have no qualifier, so this only matters for local/CI snapshots.
+# `sort -V` also ranks `0.10.0-x` ABOVE `0.10.0` (opposite of semver), which the
+# stripping avoids. ver_in_range MIN VER MAX → true when MIN <= VER <= MAX.
+ver_core() { printf '%s' "${1%%-*}"; }
 ver_le() { [[ "$1" == "$2" ]] || [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" == "$1" ]]; }
-ver_in_range() { ver_le "$1" "$2" && ver_le "$2" "$3"; }
+ver_in_range() { ver_le "$(ver_core "$1")" "$(ver_core "$2")" && ver_le "$(ver_core "$2")" "$(ver_core "$3")"; }
 
 # --- read the server's DECLARED compatibility range (best effort) --------------
 # Makes an authenticated /api/ping (the `.details` object is auth-gated) and, when
@@ -126,29 +137,42 @@ ver_in_range() { ver_le "$1" "$2" && ver_le "$2" "$3"; }
 # / DECLARED_MIN and RANGE_VERIFIED (whether this cell's contract is in range).
 # Silent no-op when the image predates the field or the key is not accepted.
 read_declared_range() {
-  local body api min
-  body="$(curl -s -X POST "${BASE}/api/ping" \
-    -H 'Content-Type: application/vnd.epistola.v1+json' \
-    -H 'Accept: application/vnd.epistola.v1+json' \
-    -H "User-Agent: ${UA}" \
-    -H "X-EP-Node-Id: ${NODE}" \
-    -H "X-API-Key: ${API_KEY}" || true)"
-  api="$(printf '%s' "${body}" | jq -r '.details.apiVersion // empty' 2>/dev/null || true)"
-  min="$(printf '%s' "${body}" | jq -r '.details.minCompatibleApiVersion // empty' 2>/dev/null || true)"
-  # Need both, and a real apiVersion (older builds report "unknown").
-  if [[ -z "${api}" || -z "${min}" || "${api}" == "unknown" || "${min}" == "unknown" ]]; then
-    log "declared range: not available (image predates the field or key not accepted) — recording reachability only"
-    return 0
-  fi
-  DECLARED_API="${api}"
-  DECLARED_MIN="${min}"
-  if ver_in_range "${DECLARED_MIN}" "${CONTRACT_VERSION}" "${DECLARED_API}"; then
-    RANGE_VERIFIED="true"
-    log "declared range [${DECLARED_MIN} .. ${DECLARED_API}] ✓ contains contract ${CONTRACT_VERSION}"
-  else
-    RANGE_VERIFIED="false"
-    log "declared range [${DECLARED_MIN} .. ${DECLARED_API}] ✗ EXCLUDES contract ${CONTRACT_VERSION}"
-  fi
+  local body details api min waited=0
+  log "reading declared range via authenticated /api/ping (up to ${RANGE_TIMEOUT}s for the key to seed)…"
+  # The API key backing this read is seeded during startup (e.g. the demo key lands
+  # only after the demo catalog import), so an authenticated ping can return 401 for
+  # a while AFTER the anonymous UP. Poll until we actually authenticate (details
+  # present), then decide — don't give up on the early 401s.
+  while (( waited < RANGE_TIMEOUT )); do
+    body="$(curl -s -X POST "${BASE}/api/ping" \
+      -H 'Content-Type: application/vnd.epistola.v1+json' \
+      -H 'Accept: application/vnd.epistola.v1+json' \
+      -H "User-Agent: ${UA}" \
+      -H "X-EP-Node-Id: ${NODE}" \
+      -H "X-API-Key: ${API_KEY}" || true)"
+    details="$(printf '%s' "${body}" | jq -r 'if (.details // null) == null then "" else "yes" end' 2>/dev/null || true)"
+    if [[ -n "${details}" ]]; then
+      # Authenticated: .details is populated. Decide now — no more waiting.
+      api="$(printf '%s' "${body}" | jq -r '.details.apiVersion // empty' 2>/dev/null || true)"
+      min="$(printf '%s' "${body}" | jq -r '.details.minCompatibleApiVersion // empty' 2>/dev/null || true)"
+      if [[ -z "${min}" || "${min}" == "unknown" || -z "${api}" || "${api}" == "unknown" ]]; then
+        log "authenticated, but no compatibility range in /api/ping details (image predates it) — recording reachability only"
+        return 0
+      fi
+      DECLARED_API="${api}"
+      DECLARED_MIN="${min}"
+      if ver_in_range "${DECLARED_MIN}" "${CONTRACT_VERSION}" "${DECLARED_API}"; then
+        RANGE_VERIFIED="true"
+        log "declared range [${DECLARED_MIN} .. ${DECLARED_API}] ✓ contains contract ${CONTRACT_VERSION}"
+      else
+        RANGE_VERIFIED="false"
+        log "declared range [${DECLARED_MIN} .. ${DECLARED_API}] ✗ EXCLUDES contract ${CONTRACT_VERSION}"
+      fi
+      return 0
+    fi
+    sleep 3; waited=$(( waited + 3 ))
+  done
+  log "declared range: no authenticated /api/ping within ${RANGE_TIMEOUT}s (no valid key) — recording reachability only"
 }
 
 # --- record a cell result and exit ---------------------------------------------
