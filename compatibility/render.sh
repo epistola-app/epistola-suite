@@ -11,9 +11,12 @@
 #   compatibility/render.sh --in matrix.json --out -   # write to stdout
 #
 # Inputs (flags override env):
-#   --in   IN    matrix JSON to read     (default: compatibility/matrix.json)
-#   --out  OUT   Markdown file to write, or `-` for stdout
-#                                        (default: compatibility/MATRIX.md)
+#   --in        IN   matrix JSON to read    (default: compatibility/matrix.json)
+#   --aggregate AGG  aggregate JSON (plugin↔suite verdicts from ./aggregate.sh);
+#                    an extra table is rendered when it exists and has rows
+#                                           (default: compatibility/aggregate.json)
+#   --out       OUT  Markdown file to write, or `-` for stdout
+#                                           (default: compatibility/MATRIX.md)
 #
 # Requires: jq.
 
@@ -21,12 +24,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 IN="${IN:-${SCRIPT_DIR}/matrix.json}"
+AGG="${AGG:-${SCRIPT_DIR}/aggregate.json}"
 OUT="${OUT:-${SCRIPT_DIR}/MATRIX.md}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --in)  IN="$2";  shift 2 ;;
-    --out) OUT="$2"; shift 2 ;;
+    --in)        IN="$2";  shift 2 ;;
+    --aggregate) AGG="$2"; shift 2 ;;
+    --out)       OUT="$2"; shift 2 ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -77,10 +82,30 @@ markdown="$(jq -r '
   "- **In range** — whether the cell'"'"'s contract falls inside the declared range. `—` when no range was read.",
   "" ' "${IN}")"
 
+# Optional second table: plugin↔suite verdicts from aggregate.sh (D6 aggregate).
+aggregate_md=""
+if [[ -f "${AGG}" ]] && [[ "$(jq '(.rows // []) | length' "${AGG}" 2>/dev/null || echo 0)" -gt 0 ]]; then
+  aggregate_md="$(jq -r '
+    "## Plugin ↔ suite compatibility (derived)",
+    "",
+    "Each **client** feed (e.g. `valtimo-epistola-plugin`) declares the single contract version it targets; a pairing is compatible when that target falls in the suite'"'"'s declared range (`\(.rule // "floor <= target <= apiVersion")`).",
+    "",
+    "| Client | Target contract | Suite | Suite range | Compatible |",
+    "| --- | --- | --- | --- | --- |",
+    ( .rows[]
+      | "| \(.plugin) `\(.pluginVersion)` | `\(.targetContract)` | \(.suite) | `\(.suiteRange.min)` … `\(.suiteRange.max)` | \(if .compatible then "✅ yes" else "❌ no" end) — \(.reason) |"
+    ),
+    "" ' "${AGG}")"
+fi
+
+markdown="${markdown}${aggregate_md:+
+
+${aggregate_md}}"
+
 if [[ "${OUT}" == "-" ]]; then
   printf '%s\n' "${markdown}"
 else
   mkdir -p "$(dirname -- "${OUT}")"
   printf '%s\n' "${markdown}" > "${OUT}"
-  echo "[render] wrote ${OUT} ($(jq '.cells | length' "${IN}") cell(s))" >&2
+  echo "[render] wrote ${OUT} ($(jq '.cells | length' "${IN}") cell(s)$([[ -n "${aggregate_md}" ]] && printf ', %s aggregate row(s)' "$(jq '.rows | length' "${AGG}")"))" >&2
 fi
