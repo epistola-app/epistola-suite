@@ -18,9 +18,10 @@
 # Notes learned from the first run (2026-07-10):
 # - Postgres runs DISK-BACKED here, not the dev compose tmpfs: a 10k-doc load
 #   test writes more WAL+data than the tmpfs default and kills the database.
-# - Do NOT shorten epistola.loadtest.polling.stale-timeout-minutes below the
-#   expected run duration: the stale-run recovery has no progress heartbeat and
-#   will re-execute a healthy long-running test (duplicate batch).
+# - Load-test stale-run recovery now keys off a progress heartbeat
+#   (load_test_runs.last_progress_at, stamped every ~500ms), not claim age, so a
+#   short epistola.loadtest.polling.stale-timeout-minutes no longer re-executes a
+#   healthy long run (the duplicate-batch bug #725 is fixed).
 # - Chaos kills use SIGKILL: SIGTERM lets JobPoller release its claims
 #   gracefully, which defeats the recovery test.
 

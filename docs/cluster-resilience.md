@@ -87,11 +87,18 @@ This is _the_ guarantee that no document is permanently orphaned, so it must not
 itself depend on one node staying healthy.
 
 `StaleJobRecovery` therefore runs as **`EACH_CAPABLE_NODE`**, not
-`SINGLE_OWNER`. The sweep is idempotent and reclaim uses `FOR UPDATE SKIP
-LOCKED`, so running it concurrently on all nodes is harmless — and while any
-node is healthy, stale documents are recovered within one interval regardless of
-how another node failed. (Layers 1 and 2 protect the recurring scheduled tasks;
-this protects the document work directly, without relying on either.)
+`SINGLE_OWNER`. Because it now runs on every node, the sweep is a **single atomic
+conditional `UPDATE ... WHERE status = 'IN_PROGRESS' AND claimed_at < … RETURNING
+id`** — the staleness predicate lives in the UPDATE (re-evaluated under the row
+lock), not in a prior `SELECT`. A `SELECT`-then-update-by-id would let one node
+reset a row that a concurrent node already recovered and the JobPoller freshly
+re-claimed in between, clobbering a live claim and causing duplicate generation.
+With the predicate in the UPDATE, a row re-claimed since is simply skipped, so
+concurrent sweeps are safe. Reclaim of the freed rows uses `FOR UPDATE SKIP
+LOCKED`. While any node is healthy, stale documents are recovered within one
+interval regardless of how another node failed. (Layers 1 and 2 protect the
+recurring scheduled tasks; this protects the document work directly, without
+relying on either.)
 
 ## Load-test stale-run recovery (#725)
 
