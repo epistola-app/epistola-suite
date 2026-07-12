@@ -279,7 +279,9 @@ class CheckRecentUsageCompatibilityHandler(
         return if (missing != null) {
             listOf(if (base.isEmpty()) missing else "$base.$missing")
         } else {
-            listOf(base)
+            // A root-level constraint (e.g. additionalProperties, minProperties) reports an empty
+            // instance location; label it so it never surfaces as a blank field path.
+            listOf(base.ifEmpty { ROOT_PATH })
         }
     }
 
@@ -300,5 +302,8 @@ class CheckRecentUsageCompatibilityHandler(
 
     private companion object {
         val REQUIRED_PROPERTY = Regex("""required property '([^']+)'""")
+
+        /** Label for a regression reported at the document root, where the instance location is empty. */
+        const val ROOT_PATH = "<root>"
     }
 }
