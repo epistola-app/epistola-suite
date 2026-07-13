@@ -103,6 +103,27 @@ document.addEventListener('htmx:load', function (event) {
   root.querySelectorAll('[data-dialog-mount] dialog').forEach(openDialogModal);
 });
 
+// ── Remove a mount dialog from the DOM when it closes ───────────────────────
+// A server-sent dialog lands in [data-dialog-mount] and stays there after it
+// closes (closeDialog / Cancel / ESC only .close() it). If it lingers, a later
+// htmx:load whose subtree contains the mount would re-open the dismissed dialog
+// (the load path can't use matches() the way the swap path does). Remove it on
+// close so nothing can reopen it — for both the load and swap paths.
+//
+// Scoped to dialogs INSIDE the mount only: the legacy data-open-dialog-on-swap /
+// data-show-dialog-on-swap dialogs live outside the mount and must not be
+// removed (they are reused). Reveal (stay-open) dialogs never fire close, so
+// they are unaffected. The <dialog> `close` event does not bubble → capture.
+document.addEventListener(
+  'close',
+  function (event) {
+    const dialog = event.target;
+    if (!dialog || !dialog.matches || !dialog.matches('dialog')) return;
+    if (dialog.closest('[data-dialog-mount]')) dialog.remove();
+  },
+  true,
+);
+
 // ── Confirm dialog for destructive actions ──────────────────────────────────
 // Usage: <button data-confirm-url="…" data-confirm-title="…"
 //                data-confirm-message="…" data-confirm-target="#rows">

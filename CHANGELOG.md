@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** feat(web): **Shared dialog skeleton and lifecycle helpers.** Reusable server-sent dialog shell (`epistola-web/dialog :: dialog-shell` + `dialog-body`/`dialog-footer`/`dialog-mount`) plus HtmxDsl lifecycle helpers (`dialogSuccess`/`dialogReveal`/`dialogFieldErrors`/`dialogFormError`) and a consolidated, server-driven dialog open/close routine — groundwork for unifying create/upload forms into URL-addressable dialogs. See [`docs/dialog-forms.md`](docs/dialog-forms.md).
+
 ## [1.0.0-RC3] - 2026-07-12
 
 This release makes OIDC login provider-neutral — authentik and any compliant OIDC provider now work alongside Keycloak (a deliberate breaking change that also removes the unused Keycloak group provisioning) — and adds a daily version check that surfaces update and support-policy banners on tenant home pages. Every form now shows operation-level failures in a global error field, the templates list REST endpoint is sortable, preview renders carry a subtler "Epistola Preview" header/footer band, and release-candidate versions now display correctly in the in-app changelog. Under the hood, the cluster was hardened to survive wedged nodes without ever orphaning generation jobs.

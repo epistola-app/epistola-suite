@@ -19,6 +19,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='plain-dialog',
             title='New Thing',
+            closeUrl='/tenants/acme/things',
             content=~{::plain-content})}"></div>
     </th:block>
     <th:block th:fragment="plain-content">

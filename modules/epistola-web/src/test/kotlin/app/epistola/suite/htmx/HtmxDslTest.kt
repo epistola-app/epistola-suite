@@ -242,6 +242,115 @@ class HtmxDslTest {
     }
 
     @Nested
+    inner class DialogLifecycleHelpersTest {
+        @Test
+        fun `dialogSuccess closes the dialog, refreshes the list OOB, and disables the primary swap`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogSuccess("environments/list", "rows") {
+                    "environments" to listOf("a", "b")
+                    "oob" to true
+                }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers().getFirst("HX-Trigger")).isEqualTo("closeDialog")
+            // Never swaps the primary target (the list refreshes via the OOB
+            // fragment, and the dialog closes on the trigger).
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+            // No retarget: the list moves out-of-band, nothing is retargeted.
+            assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+        }
+
+        @Test
+        fun `dialogReveal keeps the dialog open - retargets, outerHTML, no closeDialog`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogReveal("api-keys/created", "created-panel", "#api-key-form-area") {
+                    "plaintextKey" to "ep_secret_123"
+                }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers().getFirst("HX-Retarget")).isEqualTo("#api-key-form-area")
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("outerHTML")
+            // The crux: success that stays open sends NO closeDialog trigger.
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+        }
+
+        @Test
+        fun `dialogFieldErrors retargets the inner form (not the dialog) so the re-render never lands in the list`() {
+            val request = createHtmxRequest()
+            val formData = FormData(
+                formData = mapOf("slug" to "bad slug", "name" to "Env"),
+                errors = mapOf("slug" to "Invalid environment ID format"),
+            )
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFieldErrors(
+                    template = "environments/dialog",
+                    fragmentName = "environment-form",
+                    formTarget = "#create-environment-form",
+                    formData = formData,
+                )
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // Targets the inner <form>, NOT the <dialog>: outerHTML-swapping the
+            // dialog would drop it from the top layer (backdrop lost, no reopen).
+            assertThat(response.headers().getFirst("HX-Retarget")).isEqualTo("#create-environment-form")
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("outerHTML")
+            // No closeDialog — the dialog stays open showing the inline errors.
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+        }
+
+        @Test
+        fun `dialogFieldErrors honours an explicit status`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFieldErrors(
+                    template = "environments/dialog",
+                    fragmentName = "environment-form",
+                    formTarget = "#create-environment-form",
+                    formData = FormData(emptyMap(), mapOf("slug" to "taken")),
+                    statusCode = 409,
+                )
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
+
+        @Test
+        fun `dialogFormError swaps only the OOB error slot and disables the primary swap (uploads)`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFormError("upload-font-error", "That font file is not a valid TTF/OTF.")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // OOB-only: the form body (and its file input) is never re-rendered.
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+        }
+
+        @Test
+        fun `dialogFormError honours an explicit status`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFormError("upload-font-error", "Too large.", statusCode = 409)
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
+    }
+
+    @Nested
     inner class HxSwapTest {
         @Test
         fun `all swap modes have correct values`() {

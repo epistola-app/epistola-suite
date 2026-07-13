@@ -70,6 +70,8 @@ class DialogSkeletonFragmentTest {
         // Caller-supplied body/footer content
         assertThat(html).contains("""name="name"""")
         assertThat(html).contains(">Create</button>")
+        // closeUrl (URL-addressable convention) is emitted as data-close-url.
+        assertThat(html).contains("""data-close-url="/tenants/acme/things"""")
         // No CSP-hostile output
         assertThat(html).doesNotContain("<script")
     }
@@ -104,6 +106,8 @@ class DialogSkeletonFragmentTest {
         // Formless: no <form> element and no form-error slot (errorId omitted)
         assertThat(html).doesNotContain("<form")
         assertThat(html).doesNotContain("data-form-error")
+        // closeUrl omitted → th:attr removes the attribute entirely.
+        assertThat(html).doesNotContain("data-close-url")
         assertThat(html).doesNotContain("<script")
     }
 }

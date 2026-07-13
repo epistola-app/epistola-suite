@@ -48,12 +48,18 @@
       content     (required) ~{::…} slot for the caller's <form> (or formless
                              reveal block).
       dialogClass (optional) extra classes on the dialog, e.g. 'ep-dialog-wide'.
+      closeUrl    (optional) the list URL this dialog belongs to. For the
+                             URL-addressable form convention (GET /…/new pushed
+                             via hx-push-url): when the dialog closes — Cancel,
+                             ESC, or a handler's closeDialog trigger — behaviors.js
+                             pushes this URL so the address bar / back button
+                             return to the list. See docs/dialog-forms.md.
     -->
     <dialog th:fragment="dialog-shell"
-            th:with="dialogClass=${dialogClass} ?: null"
             th:id="${dialogId}"
             class="ep-dialog"
-            th:classappend="${dialogClass}">
+            th:classappend="${dialogClass}"
+            th:attr="data-close-url=${closeUrl}">
         <div class="ep-dialog-header">
             <h3 th:text="${title}"></h3>
         </div>

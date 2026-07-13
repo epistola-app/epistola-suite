@@ -309,6 +309,133 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         headers["HX-Retarget"] = selector
     }
 
+    // ── Dialog-form lifecycle helpers ───────────────────────────────────────
+    //
+    // The four terminal shapes a dialog-form handler returns, so handlers stop
+    // hand-rolling retarget/reswap/trigger. They compose the primitives above;
+    // the global `form-error` slot (epistola-web/form-error, embedded inside the
+    // dialog) keeps working in every case. See docs/dialog-forms.md for the full
+    // route convention and per-shape rationale.
+    //
+    // Convention they assume: the dialog's <form> submits with the LIST as its
+    // hx-target (hx-target="#the-list", hx-swap="outerHTML") — the same shape
+    // catalog/variant already use. That makes the happy path a plain list swap
+    // and forces every error path to be explicit about NOT letting the swap land
+    // in the list (which would destroy the open dialog and the user's input).
+
+    /**
+     * Success → refresh the list and CLOSE the dialog.
+     *
+     * OOB-swaps the list fragment (updates it by id wherever it sits on the
+     * page), emits `HX-Trigger("closeDialog")` so the app-shell listener closes
+     * the open dialog, and disables the primary swap (`HX-Reswap: none`) so the
+     * form's own target is left untouched while the dialog closes. 200.
+     *
+     * The list fragment MUST render as an OOB swap: its root element needs an id
+     * and `hx-swap-oob` (catalog's `catalog-list` fragment is the model — it
+     * toggles `hx-swap-oob` via an `oob` flag in the model). Pass whatever the
+     * list fragment needs through [model].
+     *
+     * Pair with: `onNonHtmx { redirect("/…/list") }` (a full-page submit just
+     * lands back on the list).
+     */
+    fun dialogSuccess(
+        listTemplate: String,
+        listFragment: String,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        oob(listTemplate, listFragment, model)
+        trigger("closeDialog")
+        reswap(HxSwap.NONE)
+        status(200)
+    }
+
+    /**
+     * Success that STAYS OPEN (the api-key reveal). Swaps new content into the
+     * dialog in place of the form and does NOT close it, so the user can act on
+     * the revealed content (copy the one-time key) before dismissing it.
+     *
+     * Renders [fragmentName] as the primary swap, retargeted to [revealTarget]
+     * (the element the reveal panel replaces — e.g. the form-area id the reveal
+     * fragment reuses) with `outerHTML`, 200, and — deliberately — NO
+     * `closeDialog` trigger. "Success-that-stays-open" falls out of simply
+     * omitting the trigger.
+     *
+     * Pair with: `onNonHtmx { page("…/created") { … } }` (full-page reveal).
+     */
+    fun dialogReveal(
+        template: String,
+        fragmentName: String,
+        revealTarget: String,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        fragment(template, fragmentName, model)
+        retarget(revealTarget)
+        reswap(HxSwap.OUTER_HTML)
+        status(200)
+    }
+
+    /**
+     * Field-validation errors → re-render the dialog's `<form>` in place with
+     * inline errors, retargeted to the form (NOT the list, and NOT the dialog).
+     *
+     * Spreads `formData` (typed values, preserved) + `errors` (per-field
+     * messages) into the form fragment, retargets the `outerHTML` swap to
+     * [formTarget] — a stable id on the caller's `<form>` (e.g.
+     * `#create-environment-form`) — and returns [statusCode] (422 by default).
+     * The re-rendered [fragmentName] MUST be that same `<form id="…">…</form>`,
+     * so the swap replaces the form in place.
+     *
+     * Why the form and not the dialog: the form's hx-target is the list, so a
+     * default `outerHTML` re-render would replace the list and destroy the open
+     * dialog — hence the retarget. But retargeting the `<dialog>` element itself
+     * is also wrong: `outerHTML`-swapping an open modal dialog removes it from
+     * the top layer and drops in a fresh, plain (closed) `<dialog>`, and nothing
+     * reopens it (the swap targets the dialog id, not the mount, so neither the
+     * `htmx:afterSwap` mount handler nor `htmx:load` calls `showModal`) — the
+     * dialog would lose its backdrop / close on every validation error. Target
+     * the inner form so the `<dialog>` is never touched and stays open/modal —
+     * consistent with [dialogReveal], which swaps an inner element too.
+     *
+     * Do NOT use this for the file uploads (font/image) — re-rendering the form
+     * body clears the chosen `<input type=file>`; use [dialogFormError] instead.
+     *
+     * Pair with: `onNonHtmx { page(422, "…/host") { +formData … } }`
+     * (re-render the host page with the dialog embedded and errors shown).
+     */
+    fun dialogFieldErrors(
+        template: String,
+        fragmentName: String,
+        formTarget: String,
+        formData: FormData,
+        statusCode: Int = 422,
+    ) {
+        fragment(template, fragmentName) {
+            "formData" to formData.formData
+            "errors" to formData.errors
+        }
+        retarget(formTarget)
+        reswap(HxSwap.OUTER_HTML)
+        status(statusCode)
+    }
+
+    /**
+     * Operation-level / OOB-only error → OOB-swap just the form-error slot,
+     * disable the primary swap, real error status. Identical to
+     * [globalFormError]; named in the dialog family and documented for the case
+     * that needs it most: the multipart UPLOADS (font, image). A browser cannot
+     * repopulate `<input type=file>` after a round-trip, so the form body must
+     * NOT be re-rendered — the OOB slot updates only the error text and the form
+     * (with the user's file selection) stays exactly as they left it.
+     *
+     * Pair with: `onNonHtmx { page(422, "…/host") { "error" to message } }`.
+     */
+    fun dialogFormError(
+        errorId: String,
+        message: String,
+        statusCode: Int = 422,
+    ) = globalFormError(errorId, message, statusCode)
+
     /**
      * Sets a handler for non-HTMX requests using a builder DSL.
      * Allows rendering pages or redirects.
