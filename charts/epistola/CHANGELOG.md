@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-13
+
 ### Removed
 
 - **`keycloakAdmin.*` values removed (Keycloak Admin-API group provisioning dropped).** The app no longer creates or self-heals Keycloak groups / protocol mappers on startup or tenant creation. **Upgrade note:** you can delete any `keycloakAdmin.*` block from your values — it is now inert (leaving it set is harmless; the chart ignores it). Ensure your tenant groups and the `groups` / `roles` protocol mappers **already exist in the IdP** (realm import, Terraform, or manual) — the app only reads the resulting token claims. Also drop `keycloak` from `config.profiles` (use `prod` / `demo`); OIDC login is fully configured by `oidc.*`.
