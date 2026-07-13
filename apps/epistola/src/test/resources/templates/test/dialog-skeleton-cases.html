@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    Test-only exercises of the shared dialog shell (epistola-web/dialog ::
+    dialog-shell), one per acceptance shape. Rendered by
+    DialogSkeletonFragmentTest via the Thymeleaf engine — NOT a shipped page
+    (src/test, so it is excluded from the CSP template scan and never served).
+
+    The caller now OWNS the <form> (or the formless reveal block) and drops the
+    error slot + body/footer inside it — the shell only supplies the <dialog> +
+    header.
+    -->
+
+    <!-- Shape (a): plain field form. Carries a form-level data-* attribute
+         (data-radio-panes) to prove arbitrary form attributes survive — the
+         reason the fixed-param form was dropped. -->
+    <th:block th:fragment="plain-case">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='plain-dialog',
+            title='New Thing',
+            content=~{::plain-content})}"></div>
+    </th:block>
+    <th:block th:fragment="plain-content">
+        <form hx-post="/tenants/acme/things"
+              hx-target="#thing-list"
+              hx-swap="outerHTML"
+              data-radio-panes="sourceType"
+              data-testid="thing-create-form">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='plain-error')}"></div>
+            <div class="ep-dialog-body">
+                <div class="form-group">
+                    <label class="ep-label" for="plain-name">Name</label>
+                    <input type="text" id="plain-name" name="name" class="ep-input" required>
+                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="plain-dialog">Cancel</button>
+                <button type="submit" class="ep-btn ep-btn-primary">Create</button>
+            </div>
+        </form>
+    </th:block>
+
+    <!-- Shape (b): multipart upload form. Uses the optional body/footer helper
+         fragments to prove they compose inside a caller-owned form. -->
+    <th:block th:fragment="multipart-case">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='upload-dialog',
+            title='Upload Font',
+            content=~{::multipart-content})}"></div>
+    </th:block>
+    <th:block th:fragment="multipart-content">
+        <form hx-post="/tenants/acme/fonts"
+              hx-target="#font-list"
+              hx-swap="outerHTML"
+              hx-encoding="multipart/form-data">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='upload-error')}"></div>
+            <div th:replace="~{epistola-web/dialog :: dialog-body(~{::upload-fields})}"></div>
+            <div th:replace="~{epistola-web/dialog :: dialog-footer(~{::upload-actions})}"></div>
+        </form>
+    </th:block>
+    <th:block th:fragment="upload-fields">
+        <div class="form-group">
+            <label class="ep-label" for="upload-file">Font file</label>
+            <input type="file" id="upload-file" name="file" class="ep-input" required>
+        </div>
+    </th:block>
+    <th:block th:fragment="upload-actions">
+        <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="upload-dialog">Cancel</button>
+        <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
+    </th:block>
+
+    <!-- Shape (c): reveal panel — formless content (no <form>, no error slot),
+         single Close button. -->
+    <th:block th:fragment="reveal-case">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='reveal-dialog',
+            title='API key created',
+            content=~{::reveal-content})}"></div>
+    </th:block>
+    <th:block th:fragment="reveal-content">
+        <div class="ep-dialog-body">
+            <div class="alert alert-warning"><strong>Copy this key now.</strong> It will not be shown again.</div>
+            <input type="text" id="reveal-secret" class="ep-input" value="ep_secret_123" readonly>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-primary" data-close-dialog="reveal-dialog">Close</button>
+        </div>
+    </th:block>
+</body>
+</html>

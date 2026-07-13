@@ -39,6 +39,70 @@ document.addEventListener('click', function (event) {
   }
 });
 
+// ── Auto-open a server-sent dialog (the one open-on-swap/load routine) ───────
+// App-wide open side of the server-driven dialog lifecycle (the close side is
+// HX-Trigger("closeDialog") in app-shell.js). Both are driven purely by the
+// server response, so a handler can open, close, or intentionally NOT close a
+// dialog — the last is what the api-key reveal needs: it swaps its formless
+// panel in and simply omits closeDialog, so nothing here forces it shut.
+//
+// One routine, three conventions (this replaces the per-page copies that used
+// to live in pages/catalogs.js and pages/template-detail.js):
+//   [data-dialog-mount]         Preferred. <div id="dialog-mount" data-dialog-mount>
+//                               The server renders a <dialog> into it; it opens.
+//                               Works BOTH when an hx-get swap targets the mount
+//                               AND when the host page embeds the dialog in the
+//                               mount at load (direct navigation / shared link).
+//   [data-open-dialog-on-swap]  Legacy catalog containers: open the <dialog>
+//                               with the id named by the attribute, once the
+//                               server has swapped it into the container.
+//   [data-show-dialog-on-swap]  The attribute sits on an element INSIDE a static
+//                               <dialog>; after content is swapped into it, open
+//                               that ancestor <dialog>.
+//
+// CONTRACT: the server always renders a PLAIN <dialog> (never <dialog open>);
+// the client makes it modal via showModal() so it gets a backdrop. A bare
+// `open` attribute would open the dialog NON-modally and be skipped below.
+function openDialogModal(dialog) {
+  // Idempotent: showModal() throws on an already-open dialog, so skip one that
+  // is already open (via showModal or a bare `open` attribute).
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+// Resolve + open the dialog for a recognized element. The element must BE the
+// swap target (the listeners use matches(), not closest()) — otherwise a
+// nested/in-place swap under a mount would re-open a dialog the user already
+// dismissed (closeDialog only .close()s it; it stays in the mount DOM).
+function openDialogFor(el) {
+  if (el.matches('[data-dialog-mount]')) {
+    openDialogModal(el.querySelector('dialog'));
+  } else if (el.matches('[data-open-dialog-on-swap]')) {
+    openDialogModal(document.getElementById(el.getAttribute('data-open-dialog-on-swap')));
+  } else if (el.matches('[data-show-dialog-on-swap]')) {
+    openDialogModal(el.closest('dialog'));
+  }
+}
+
+// Swap-driven: the in-app trigger's hx-target IS one of the recognized elements.
+document.addEventListener('htmx:afterSwap', function (event) {
+  const target = event.detail.target;
+  if (target && target.matches) openDialogFor(target);
+});
+
+// Load-driven (direct navigation / shared link): the host page embeds the dialog
+// inside the mount at load, so no swap targets the mount. htmx:load fires for the
+// initial page (elt = page body) and for hx-boosted navigations (elt = the
+// swapped-in page content); open any not-yet-open dialog that sits inside a mount
+// within the freshly loaded subtree. Scoped to that subtree + idempotent, so it
+// never reopens a dismissed dialog (whose mount is outside the loaded subtree).
+// The swap-into-mount case is already handled above, so this only needs the mount
+// convention, not the two legacy lazy-loaded ones.
+document.addEventListener('htmx:load', function (event) {
+  const root = event.detail && event.detail.elt;
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('[data-dialog-mount] dialog').forEach(openDialogModal);
+});
+
 // ── Confirm dialog for destructive actions ──────────────────────────────────
 // Usage: <button data-confirm-url="…" data-confirm-title="…"
 //                data-confirm-message="…" data-confirm-target="#rows">
