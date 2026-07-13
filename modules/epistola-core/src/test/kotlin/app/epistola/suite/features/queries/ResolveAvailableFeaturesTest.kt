@@ -13,6 +13,11 @@ import org.springframework.beans.factory.ObjectProvider
 
 class ResolveAvailableFeaturesTest {
     private val tenant = TenantKey.of("acme")
+
+    // A feature outside the entitlement gate's gated set: its availability is its plain toggle,
+    // untouched by entitlement. Synthetic because every current known feature is support-tier.
+    private val ungated = FeatureKey.of("ungated-feature")
+
     private val toggleService = mock(FeatureToggleService::class.java)
 
     @Suppress("UNCHECKED_CAST")
@@ -35,13 +40,13 @@ class ResolveAvailableFeaturesTest {
 
     @Test
     fun `support-tier feature is available when the tier is on and entitled`() {
-        withToggles(KnownFeatures.SUPPORT_BACKUPS to true, KnownFeatures.STENCIL_PARAMETERS to true)
+        withToggles(KnownFeatures.SUPPORT_BACKUPS to true, ungated to true)
         given(gateProvider.ifAvailable).willReturn(gate(entitled = true))
 
         val available = handler.handle(ResolveAvailableFeatures(tenant))
 
         assertThat(available[KnownFeatures.SUPPORT_BACKUPS]).isTrue()
-        assertThat(available[KnownFeatures.STENCIL_PARAMETERS]).isTrue()
+        assertThat(available[ungated]).isTrue()
     }
 
     @Test
@@ -57,12 +62,12 @@ class ResolveAvailableFeaturesTest {
         // OSS / support tier off: no gate present, so availability is the plain toggle map. Hub-only
         // features are off by default there (FeatureToggleService.defaultFor), but an explicit toggle
         // still shows them — entitlement only applies once the tier (gate) is present.
-        withToggles(KnownFeatures.SUPPORT_BACKUPS to true, KnownFeatures.STENCIL_PARAMETERS to true)
+        withToggles(KnownFeatures.SUPPORT_BACKUPS to true, ungated to true)
         given(gateProvider.ifAvailable).willReturn(null)
 
         val available = handler.handle(ResolveAvailableFeatures(tenant))
 
         assertThat(available[KnownFeatures.SUPPORT_BACKUPS]).isTrue()
-        assertThat(available[KnownFeatures.STENCIL_PARAMETERS]).isTrue()
+        assertThat(available[ungated]).isTrue()
     }
 }

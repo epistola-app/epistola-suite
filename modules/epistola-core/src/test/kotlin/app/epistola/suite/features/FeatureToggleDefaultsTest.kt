@@ -28,10 +28,4 @@ class FeatureToggleDefaultsTest {
         assertThat(service(supportEnabled = false).defaultFor(KnownFeatures.SUPPORT_FEEDBACK)).isTrue()
         assertThat(service(supportEnabled = true).defaultFor(KnownFeatures.SUPPORT_FEEDBACK)).isTrue()
     }
-
-    @Test
-    fun `non-support features follow FeatureDefaults regardless of the support tier`() {
-        assertThat(service(supportEnabled = false).defaultFor(KnownFeatures.STENCIL_PARAMETERS)).isTrue()
-        assertThat(service(supportEnabled = true).defaultFor(KnownFeatures.STENCIL_PARAMETERS)).isTrue()
-    }
 }

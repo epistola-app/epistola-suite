@@ -7,16 +7,6 @@ import kotlin.test.assertTrue
 
 class FeatureDefaultsTest {
     @Test
-    fun `stencil-parameters defaults to enabled`() {
-        assertTrue(FeatureDefaults().isEnabled(KnownFeatures.STENCIL_PARAMETERS))
-    }
-
-    @Test
-    fun `stencil-parameters returns configured value when disabled`() {
-        assertFalse(FeatureDefaults(stencilParameters = false).isEnabled(KnownFeatures.STENCIL_PARAMETERS))
-    }
-
-    @Test
     fun `unknown feature is disabled`() {
         assertFalse(FeatureDefaults().isEnabled(FeatureKey.of("unknown-feature")))
     }

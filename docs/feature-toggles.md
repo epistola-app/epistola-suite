@@ -140,21 +140,5 @@ rule in `components.css`.
 | `support-feedback`            | Support → Feedback (local; hub sync gated on the support tier)       | Stable | `true`  |
 | `support-backups`             | Support → Backups (faithful full-fidelity tenant backups + restore)  | Beta   | tier\*  |
 | `support-compatibility-check` | Support → Upgrading (compatibility checks against upcoming releases) | Stable | tier\*  |
-| `stencil-parameters`          | Typed parameters on stencils. Existing data renders when disabled.   | Stable | `true`  |
 
 \* Hub-only features (`KnownFeatures.HUB_ONLY`) default to `epistola.support.enabled` — see above.
-
-## Editor feature flags
-
-The template editor receives feature flags from the backend through a typed
-contract (`EditorFeatureFlags` in `modules/editor/src/main/typescript/engine/feature-flags.ts`).
-`ShellModelInterceptor` exposes resolved flags as Thymeleaf model attributes
-(e.g. `stencilParametersEnabled`); `templates/editor.html` forwards them to
-`mountEditor` via the `featureFlags` option, and the engine surfaces them
-through `engine.isFeatureEnabled(flag)`. Components consult the engine
-directly rather than threading boolean props through their own constructors.
-
-To add a new editor flag: add a field to `EditorFeatureFlags`, register the
-matching `FeatureKey` in `KnownFeatures` (with a default in `FeatureDefaults`
-and `application.yaml`), expose it on `ShellModelInterceptor`, and forward
-it from the editor template's `EPISTOLA_FEATURES` window global.

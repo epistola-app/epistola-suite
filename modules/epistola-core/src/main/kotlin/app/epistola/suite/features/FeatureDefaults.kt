@@ -12,11 +12,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties(prefix = "epistola.features")
 data class FeatureDefaults(
     val supportFeedback: Boolean = true,
-    val stencilParameters: Boolean = true,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
-        KnownFeatures.STENCIL_PARAMETERS -> stencilParameters
         else -> false
     }
 }

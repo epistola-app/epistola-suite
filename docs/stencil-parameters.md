@@ -1,23 +1,14 @@
 # Stencil Parameters — Design
 
-> Status: stable — authoring UI is gated behind the `stencil-parameters`
-> feature toggle (default on; manage at `/tenants/{tenantId}/features`)
+> Status: stable — parameters are an intrinsic property of every stencil (the
+> parameter set is simply sometimes empty), so the authoring UI is always
+> available; there is no feature toggle.
 > Decision record: [`adr/0002-stencil-parameters.md`](./adr/0002-stencil-parameters.md)
 
 This document specifies the stencil-parameters feature shipped in
 `feature/stencil-with-parameters`. The alternatives considered and the
 rationale for the design decisions live in the ADR linked above. Read that
 first if you want to know _why_; this file focuses on _what_ and _how_.
-
-## Feature toggle
-
-Authoring UI affordances are gated by the `stencil-parameters` feature toggle
-(see [`feature-toggles.md`](./feature-toggles.md)). The feature is stable and
-defaults on. When the toggle is off, the editor hides the inspector's "Define
-parameters…" button, the per-instance "Parameters" section, and the picker
-dialog's binding step. The REST API, MCP/catalog surfaces, storage, and render
-pipeline remain permissive: existing stencils with parameter schemas still
-round-trip and render correctly when the toggle is later flipped off.
 
 ## 1. Summary
 
