@@ -23,6 +23,121 @@ D6 choice: the aggregator's _home_ (in-repo vs a neutral repo). See
 > **Working ideology:** it doesn't have to be perfect the first time. It just
 > needs to work, then get better with each commit.
 
+## How it fits together
+
+Three diagrams, from the idea to the automation. The prose below (roles,
+requirements, decisions) is the authority; these are the map.
+
+### 1. The floor-in-the-anchor model
+
+The one human judgment — "is this contract change breaking?" — is made **once**,
+in the contract, as the sticky `x-min-compatible-version` floor. Everything
+downstream _derives_ from it: the suite (a **server**) surfaces a range
+`[floor … version]`, the plugin (a **client**) declares a single target point,
+and one rule (`floor ≤ target ≤ apiVersion`, R4) turns those into a verdict. That
+is what collapses maintenance from _O(repos × releases)_ to _O(breaking releases)_.
+
+```mermaid
+flowchart TB
+    subgraph contract["📜 epistola-contract (the ANCHOR — the wire language)"]
+        direction TB
+        spec["epistola-api.yaml<br/><b>version:</b> 0.10.0<br/><b>x-min-compatible-version:</b> 0.10.0 ← sticky FLOOR<br/><i>(the single human judgment:<br/>'is this change breaking?')</i>"]
+        gen["build task:<br/>generateContractInfoResources"]
+        res["baked into the jar:<br/>epistola-contract-version.txt<br/>epistola-contract-min-compatible.txt"]
+        spec --> gen --> res
+    end
+
+    subgraph suite["🖥️ epistola-suite (a SERVER — declares a RANGE)"]
+        sci["ServerContractInfo<br/>reads the baked resources"]
+        ping["POST /api/ping (authenticated .details)<br/><b>apiVersion:</b> 0.10.0<br/><b>minCompatibleApiVersion:</b> 0.10.0<br/>= declared range [floor … version]"]
+        sci --> ping
+    end
+
+    subgraph plugin["🔌 valtimo-epistola-plugin (a CLIENT — declares a POINT)"]
+        decl["compatibility.json<br/><b>targetContractVersion:</b> 0.8.0<br/><i>a client targets ONE version,<br/>not a range</i>"]
+    end
+
+    res -->|jar dependency| sci
+    spec -.->|libs.versions.toml<br/>epistola-client ref| decl
+
+    rule{{"THE ONE RULE (R4):<br/>floor ≤ target ≤ apiVersion"}}
+    ping --> rule
+    decl --> rule
+    rule --> verdict["✅ / ❌ plugin ↔ suite verdict"]
+```
+
+### 2. The CI pipeline — declare → verify → aggregate → render
+
+All four stages run automatically in `compatibility.yml` after an image is
+published (or on manual dispatch). The dotted feed fetch is **best-effort**: a
+client whose declaration branch has not merged yet (404) is skipped, never fatal.
+
+```mermaid
+flowchart LR
+    subgraph triggers["Triggers"]
+        rel["'Build and Publish'<br/>finishes on a v* tag"]
+        man["manual dispatch"]
+    end
+
+    subgraph job["compatibility.yml — one job"]
+        direction TB
+        smoke["<b>smoke.sh</b> — VERIFY<br/>• boot published image + throwaway Postgres<br/>• read contract ver from jar filename<br/>• poll /api/ping (identity headers) → UP<br/>• authed /ping → read declared range<br/>• check contract ∈ range → rangeVerified"]
+        agg["<b>aggregate.sh</b> — JOIN (best-effort)<br/>• fetch each client feed (feeds.txt, URL/path)<br/>• 404 → warn + skip (never fatal)<br/>• apply floor ≤ target ≤ apiVersion"]
+        rend["<b>render.sh</b> — HUMANIZE<br/>matrix.json + aggregate.json → tables"]
+        smoke --> agg --> rend
+    end
+
+    subgraph outputs["Outputs"]
+        mj["matrix.json<br/><i>(source of truth: suite × contract)</i>"]
+        aj["aggregate.json<br/><i>(plugin ↔ suite verdicts)</i>"]
+        sum["📋 GITHUB_STEP_SUMMARY<br/>both tables render themselves"]
+        art["uploaded artifacts"]
+    end
+
+    rel --> job
+    man --> job
+    smoke --> mj
+    agg --> aj
+    rend --> sum
+    mj --> art
+    aj --> art
+
+    ext["🌐 raw.githubusercontent.com/…/<br/>valtimo-epistola-plugin/compatibility.json"] -.->|curl, best-effort| agg
+```
+
+### 3. Where each piece lives (three repos, one PR each)
+
+Declarations stay **with each artifact** (R8); only aggregation is central. The
+self-healing part is the dotted plugin → suite arrow: once the plugin's
+`compatibility.json` is live at its raw URL, the suite's CI picks it up on the
+next run with zero manual steps.
+
+```mermaid
+flowchart TB
+    subgraph r1["📜 contract repo — single PR"]
+        c1["x-min-compatible-version floor"]
+        c2["ServerContractInfo.minCompatibleContractVersion"]
+        c3["PongDetailsDto.minCompatibleApiVersion"]
+    end
+    subgraph r2["🖥️ suite repo — PR"]
+        s1["GetServerInfo → /api/ping surfaces range"]
+        s2["compatibility/ harness<br/>smoke.sh · aggregate.sh · render.sh · feeds.txt"]
+        s3["compatibility.yml workflow"]
+        s4["ADR 0011 · DESIGN.md · README.md"]
+    end
+    subgraph r3["🔌 plugin repo — draft PR"]
+        p1["compatibility.json (declaration)"]
+        p2["gradle verify task (drift guard)"]
+        p3["CI: verifyCompatibilityDeclaration"]
+    end
+
+    r1 ==>|"jar consumed by"| r2
+    r1 -.->|"client ref"| r3
+    r3 -.->|"feed fetched by"| r2
+
+    note["Landing order:<br/>1) contract (real PR) →<br/>2) suite + plugin (drafts) once contract is published"]
+```
+
 ## Why this doc exists (what we learned)
 
 We set out to build an _empirical_ compatibility matrix — boot a published suite
