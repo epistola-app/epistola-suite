@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** feat(ui): **Installation-wide site banner.** A single notice strip renders across the top of the app (below the nav) for every signed-in user — for maintenance/incident announcements. A platform manager edits it at runtime (no redeploy) at `/tenants/{tenant}/site-banner`: message, severity (info/warning/error) and an enabled toggle, or clear it. It is dismissible per browser session, and an edited banner re-appears even if the previous one was dismissed (dismissal is keyed on the content). The **demo** deployment seeds a "data may be reset at any time" warning on first boot, which an admin can then edit or clear. Stored as a single installation-wide `app_metadata` value behind a 60s in-memory cache, so the per-render read costs nothing in steady state. Web-UI only by design — not exposed on REST or MCP; the demo seeding is its demo-catalog demonstration (it is chrome, not a catalog resource).
+
 ## [1.0.0-RC3] - 2026-07-12
 
 This release makes OIDC login provider-neutral — authentik and any compliant OIDC provider now work alongside Keycloak (a deliberate breaking change that also removes the unused Keycloak group provisioning) — and adds a daily version check that surfaces update and support-policy banners on tenant home pages. Every form now shows operation-level failures in a global error field, the templates list REST endpoint is sortable, preview renders carry a subtler "Epistola Preview" header/footer band, and release-candidate versions now display correctly in the in-app changelog. Under the hood, the cluster was hardened to survive wedged nodes without ever orphaning generation jobs.
