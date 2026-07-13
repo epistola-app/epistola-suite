@@ -68,7 +68,7 @@ class ShellModelInterceptor(
 
         if (tenantId == null) return
         val tenantKey = TenantKey.of(tenantId)
-        val context = UiRequestContext(tenantKey, { auth.has(it) }, { auth.has(it.name) })
+        val context = UiRequestContext(tenantKey) { auth.has(it) }
 
         // Editor feature toggle (gates editor UI, not nav/footer). Read through the internal query
         // like everything else; the per-request cache (FeatureToggleCacheFilter) shares one toggle

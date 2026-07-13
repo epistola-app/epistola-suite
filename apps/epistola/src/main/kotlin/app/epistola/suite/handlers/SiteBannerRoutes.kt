@@ -10,7 +10,7 @@ import org.springframework.web.servlet.function.router
 class SiteBannerRoutes(private val handler: SiteBannerHandler) {
     @Bean
     fun siteBannerRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/site-banner".nest {
+        "/platform/banner".nest {
             GET("", handler::edit)
             POST("", handler::save)
         }
