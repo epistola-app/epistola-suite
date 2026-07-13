@@ -5,7 +5,7 @@ type: application
 # Source of truth for the chart version. Dev carries the next version with
 # -SNAPSHOT; a release strips it, tags epistola-<version>, then re-opens the next
 # -SNAPSHOT (see the release-helm-chart skill). CI validates the tag == this value.
-version: 0.10.1-SNAPSHOT
+version: 0.11.1-SNAPSHOT
 # appVersion is synced to the latest app tag at publish time by CI.
 appVersion: "latest"
 maintainers:

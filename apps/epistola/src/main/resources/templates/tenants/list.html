@@ -13,6 +13,12 @@
             pageTitle='Tenants'
         )}"></div>
 
+        <p th:if="${auth.has('TENANT_MANAGER')}" class="platform-actions">
+            <a th:href="@{/platform/banner}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="platform-banner-link">
+                Site banner
+            </a>
+        </p>
+
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
             <section class="ep-panel form-section">
                 <h2>Create New Tenant</h2>

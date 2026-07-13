@@ -23,7 +23,7 @@ class UpgradingNavContributorTest : IntegrationTestBase() {
         val tenant = createTenant("Upgrading Nav Off")
 
         val items = withMediator {
-            contributor.items(UiRequestContext(tenant.id) { true })
+            contributor.items(UiRequestContext(tenant.id, { true }))
         }
 
         assertThat(items).isEmpty()
@@ -41,7 +41,7 @@ class UpgradingNavContributorTest : IntegrationTestBase() {
         }
 
         val items = withMediator {
-            contributor.items(UiRequestContext(tenant.id) { true })
+            contributor.items(UiRequestContext(tenant.id, { true }))
         }
 
         assertThat(items).containsExactly(
@@ -62,8 +62,8 @@ class UpgradingNavContributorTest : IntegrationTestBase() {
         }
 
         withMediator {
-            assertThat(contributor.items(UiRequestContext(enabledTenant.id) { true })).hasSize(1)
-            assertThat(contributor.items(UiRequestContext(disabledTenant.id) { true })).isEmpty()
+            assertThat(contributor.items(UiRequestContext(enabledTenant.id, { true }))).hasSize(1)
+            assertThat(contributor.items(UiRequestContext(disabledTenant.id, { true }))).isEmpty()
         }
     }
 }

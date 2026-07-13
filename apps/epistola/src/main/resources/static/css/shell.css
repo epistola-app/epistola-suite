@@ -19,6 +19,45 @@
     padding-bottom: 0;
   }
 
+  /* ── Site banner ─────────────────────────────────────────────────────────
+     Installation-wide notice strip below the nav. Full-bleed (no rounded box),
+     reusing the design-system .alert severity colours. */
+
+  .site-banner {
+    align-items: center;
+    border-radius: 0;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    flex-shrink: 0;
+  }
+
+  /* JS dismissal sets the `hidden` attribute; .alert's display:flex would
+     otherwise defeat it (same gotcha as .form-global-error). */
+  .site-banner[hidden] {
+    display: none;
+  }
+
+  .site-banner-message {
+    flex: 1 1 auto;
+  }
+
+  .site-banner-dismiss {
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    padding: 0 var(--ep-space-2);
+    font-size: var(--ep-text-lg);
+    line-height: 1;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+  }
+
+  .site-banner-dismiss:hover {
+    opacity: 1;
+  }
+
   /* ── Top navigation bar ──────────────────────────────────────────────── */
 
   .app-nav {

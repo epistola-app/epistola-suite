@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Site Banner - Epistola'">Site Banner</title>
+    <th:block th:replace="~{fragments/styles :: styles}" />
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
+</head>
+<body>
+    <main class="regular">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Site Banner',
+            pageDescription='An installation-wide notice shown to everyone, across all tenants — use it for maintenance or incident messages.'
+        )}"></div>
+
+        <p>
+            <a th:href="@{/}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="banner-back">&larr; Back to tenants</a>
+        </p>
+
+        <div class="alert alert-success" th:if="${param.saved}" data-testid="alert-success">
+            Site banner saved.
+        </div>
+
+        <section class="ep-panel form-section">
+            <form th:action="@{/platform/banner}" method="post">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='site-banner-error')}"></div>
+
+                <div class="form-group">
+                    <label class="ep-label" for="message">Message</label>
+                    <input type="text" id="message" name="message" class="ep-input"
+                           maxlength="500" required
+                           th:value="${banner != null ? banner.message : ''}"
+                           placeholder="e.g. Scheduled maintenance tonight 22:00–23:00 UTC.">
+                </div>
+
+                <div class="form-group">
+                    <label class="ep-label" for="severity">Severity</label>
+                    <select id="severity" name="severity" class="ep-select">
+                        <option th:each="sev : ${severities}"
+                                th:value="${sev}"
+                                th:text="${#strings.capitalize(sev.name().toLowerCase())}"
+                                th:selected="${banner != null ? banner.severity == sev : sev.name() == 'WARNING'}">Warning</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: inline-flex; align-items: center; gap: var(--ep-space-3); cursor: pointer;">
+                        <span class="ep-toggle">
+                            <input type="checkbox" name="enabled"
+                                   th:checked="${banner != null ? banner.enabled : true}">
+                            <span class="ep-toggle-slider" data-testid="site-banner-enabled"></span>
+                        </span>
+                        <span>Show the banner</span>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" name="action" value="save" class="ep-btn ep-btn-primary">Save</button>
+                    <button type="submit" name="action" value="clear" formnovalidate
+                            th:if="${banner != null and banner.message != ''}"
+                            class="ep-btn ep-btn-outline">Clear banner</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>
