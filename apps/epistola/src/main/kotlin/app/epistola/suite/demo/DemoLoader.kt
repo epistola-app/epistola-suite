@@ -1,6 +1,9 @@
 package app.epistola.suite.demo
 
 import app.epistola.suite.apikeys.ApiKeyService
+import app.epistola.suite.banner.SiteBanner
+import app.epistola.suite.banner.SiteBannerSeverity
+import app.epistola.suite.banner.commands.SeedSiteBannerIfAbsent
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -47,6 +50,7 @@ class DemoLoader(
                 MediatorContext.runWithMediator(mediator) {
                     ensureDemoTenant()
                     ensureDemoCatalog()
+                    ensureDemoBanner()
                 }
             }
         } catch (e: Exception) {
@@ -102,6 +106,24 @@ class DemoLoader(
                 result.newVersion,
             )
         }
+    }
+
+    /**
+     * Seeds the installation-wide site banner with the demo "data may be reset"
+     * warning, but only if no banner is set yet — so a platform admin can later
+     * edit or clear it and the change survives restarts (see [SeedSiteBannerIfAbsent]).
+     */
+    private fun ensureDemoBanner() {
+        val seeded = mediator.send(
+            SeedSiteBannerIfAbsent(
+                SiteBanner(
+                    message = "You are on the demo environment — data may be reset at any time.",
+                    severity = SiteBannerSeverity.WARNING,
+                    enabled = true,
+                ),
+            ),
+        )
+        if (seeded) log.info("Seeded demo site banner")
     }
 
     /**
