@@ -5,6 +5,7 @@ import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
 import app.epistola.suite.htmx.nav.NavItem
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.PlatformRole
 import org.springframework.stereotype.Component
 
 /**
@@ -63,6 +64,10 @@ class CoreNavContributor : NavContributor {
         if (context.hasPermission(Permission.TENANT_SETTINGS)) {
             add(NavItem("settings", "features", "Features", "features", 10))
             add(NavItem("settings", "defaults", "Defaults", "defaults", 20))
+        }
+        // Site banner — installation-wide, platform managers only.
+        if (context.hasPlatformRole(PlatformRole.TENANT_MANAGER)) {
+            add(NavItem("settings", "site-banner", "Site banner", "site-banner", 30))
         }
     }
 }

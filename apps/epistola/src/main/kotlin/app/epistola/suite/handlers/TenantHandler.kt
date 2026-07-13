@@ -67,7 +67,9 @@ class TenantHandler(
         val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
         val hasUnseenChanges = changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)
         val auth = AuthContext.from(principal, tenantId.key)
-        val homeNotices = homeNoticeResolver.resolve(UiRequestContext(tenantId.key) { auth.has(it) })
+        val homeNotices = homeNoticeResolver.resolve(
+            UiRequestContext(tenantId.key, { auth.has(it) }, { auth.has(it.name) }),
+        )
 
         return ServerResponse.ok().render(
             "layout/shell",

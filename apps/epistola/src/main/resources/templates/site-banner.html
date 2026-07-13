@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Site Banner',
+            pageDescription='An installation-wide notice shown to everyone in the app — use it for maintenance or incident messages.'
+        )}"></div>
+
+        <div class="alert alert-success" th:if="${param.saved}" data-testid="alert-success">
+            Site banner saved.
+        </div>
+
+        <div class="card">
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/site-banner(tenantId=${tenantId})}" method="post">
+                    <div th:replace="~{epistola-web/form-error :: form-error(id='site-banner-error')}"></div>
+
+                    <div class="form-group">
+                        <label class="ep-label" for="message">Message</label>
+                        <input type="text" id="message" name="message" class="ep-input"
+                               maxlength="500" required
+                               th:value="${banner != null ? banner.message : ''}"
+                               placeholder="e.g. Scheduled maintenance tonight 22:00–23:00 UTC.">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="ep-label" for="severity">Severity</label>
+                        <select id="severity" name="severity" class="ep-select">
+                            <option th:each="sev : ${severities}"
+                                    th:value="${sev}"
+                                    th:text="${#strings.capitalize(sev.name().toLowerCase())}"
+                                    th:selected="${banner != null ? banner.severity == sev : sev.name() == 'WARNING'}">Warning</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="ep-toggle">
+                            <input type="checkbox" name="enabled"
+                                   th:checked="${banner != null ? banner.enabled : true}">
+                            <span class="ep-toggle-slider" data-testid="site-banner-enabled"></span>
+                            <span>Show the banner</span>
+                        </label>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" name="action" value="save" class="ep-btn ep-btn-primary">Save</button>
+                        <button type="submit" name="action" value="clear" formnovalidate
+                                th:if="${banner != null and banner.message != ''}"
+                                class="ep-btn ep-btn-outline">Clear banner</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>
