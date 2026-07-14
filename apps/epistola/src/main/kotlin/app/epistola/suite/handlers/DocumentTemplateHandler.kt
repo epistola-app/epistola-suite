@@ -13,6 +13,7 @@ import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
 import app.epistola.suite.handlers.decorateVariants
 import app.epistola.suite.handlers.filterToUsedDescriptors
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -26,6 +27,8 @@ import app.epistola.suite.htmx.variantId
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.requirePermission
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDataExample
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
@@ -217,18 +220,46 @@ class DocumentTemplateHandler(
     /** Number of pages for [total] rows at [PAGE_SIZE] per page (min 1). */
     private fun pageCount(total: Int): Int = if (total == 0) 1 else ((total + PAGE_SIZE - 1) / PAGE_SIZE)
 
+    /** The catalogs a template can be created in — authored ones only. */
+    private fun authoredCatalogs(tenantId: TenantId) = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+
+    /**
+     * The full-page list model, used by the newForm / create non-HTMX branches
+     * so the list renders behind the embedded create dialog. `authoredCatalogs`
+     * (the dialog's catalog `<select>` source) is threaded separately — the list
+     * already puts *all* `catalogs` in the model for its filter, so the dialog
+     * uses a distinct key to avoid rendering the wrong (non-authored) options.
+     */
+    private fun ModelBuilder.templatePageModel(request: ServerRequest, tenantId: TenantId) {
+        "pageTitle" to "Document Templates - Epistola"
+        "catalogs" to ListCatalogs(tenantId.key).query()
+        templateListModel(request, tenantId).forEach { (key, value) -> key to value }
+    }
+
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("templates/new") {
-            "pageTitle" to "New Template - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        return request.htmx {
+            // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
+            fragment("templates/new", "dialog") {
+                "tenantId" to tenantId.key
+                "authoredCatalogs" to authoredCatalogs(tenantId)
+            }
+            // Direct navigation / boost: the host list page with the dialog
+            // embedded in its mount (openDialog=true), opened on load by the JS.
+            onNonHtmx {
+                page("templates/list") {
+                    templatePageModel(request, tenantId)
+                    "openDialog" to true
+                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                }
+            }
         }
     }
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
 
         val form = request.form {
             field("catalog") {}
@@ -237,6 +268,11 @@ class DocumentTemplateHandler(
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
                 minLength(3)
                 maxLength(50)
+                // Folds the old "invalid TemplateKey" branch into field validation
+                // (same "Invalid template ID format" error) so all three failure
+                // modes share one error path. Layered ON TOP of the pattern/length
+                // rules above — strictly additive, never loosening them.
+                asTemplateId()
             }
             field("name") {
                 required()
@@ -244,51 +280,56 @@ class DocumentTemplateHandler(
         }
 
         val catalogId = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
-        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
 
-        if (form.hasErrors()) {
-            return ServerResponse.ok().page("templates/new") {
-                "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to form.errors
+        // Field validation (incl. slug/TemplateKey) and the command-level failure
+        // (duplicate slug, name length) both land as `errors` on the FormData, so
+        // they share one error path — mirroring EnvironmentHandler.create.
+        val result = if (form.hasErrors()) {
+            form
+        } else {
+            form.executeOrFormError {
+                CreateDocumentTemplate(
+                    id = TemplateId(TemplateKey.validateOrNull(form["slug"])!!, CatalogId(catalogId, tenantId)),
+                    name = form["name"],
+                ).execute()
             }
-        }
-
-        val templateKey = TemplateKey.validateOrNull(form["slug"])
-        if (templateKey == null) {
-            val errors = mapOf("slug" to "Invalid template ID format")
-            return ServerResponse.ok().page("templates/new") {
-                "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to errors
-            }
-        }
-        val name = form["name"]
-
-        val result = form.executeOrFormError {
-            CreateDocumentTemplate(
-                id = TemplateId(templateKey, CatalogId(catalogId, tenantId)),
-                name = name,
-            ).execute()
         }
 
         if (result.hasErrors()) {
-            return ServerResponse.ok().page("templates/new") {
-                "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to result.formData
-                "errors" to result.errors
+            return request.htmx {
+                // Re-render the form inside the dialog (retargeted to the form, not
+                // the list) with inline errors + preserved values. `tenantId` and
+                // `authoredCatalogs` are the prefill the form fragment needs to
+                // rebuild its action URL and catalog <select>.
+                dialogFieldErrors(
+                    template = "templates/new",
+                    fragmentName = "template-form",
+                    formTarget = "#create-template-form",
+                    formData = result,
+                ) {
+                    "tenantId" to tenantId.key
+                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                }
+                onNonHtmx {
+                    page(422, "templates/list") {
+                        templatePageModel(request, tenantId)
+                        "openDialog" to true
+                        "authoredCatalogs" to authoredCatalogs(tenantId)
+                        "formData" to result.formData
+                        "errors" to result.errors
+                    }
+                }
             }
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/templates/$catalogId/$templateKey")
-            .build()
+        // Success: navigate to the newly created template's page. The dialog
+        // disappears with the old page (HX-Redirect), so the list is not refreshed.
+        val templateKey = TemplateKey.validateOrNull(form["slug"])!!
+        val destination = "/tenants/${tenantId.key}/templates/$catalogId/$templateKey"
+        return request.htmx {
+            dialogRedirect(destination)
+            onNonHtmx { redirect(destination) }
+        }
     }
 
     fun editor(request: ServerRequest): ServerResponse {

@@ -1,50 +1,65 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
+    <!--
+    The create-template dialog. Rendered two ways off DocumentTemplateHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `template-form` — re-rendered on field errors (dialogFieldErrors retargets
+        #create-template-form), so the form swaps in place with inline errors and
+        preserved values, leaving the <dialog> untouched.
 
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='New Template',
-            backLinkHref=@{/tenants/{tenantId}/templates(tenantId=${tenantId})},
-            backLinkLabel='Templates'
-        )}"></div>
+    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select> — a
+    distinct key from the list's own `catalogs` filter var), and on error
+    re-render `formData`/`errors`.
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-template-dialog',
+            title='New Template',
+            closeUrl=@{/tenants/{tenantId}/templates(tenantId=${tenantId})},
+            content=~{::template-form})}"></div>
+    </th:block>
 
-        <div class="card create-form-card">
-            <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post">
-                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-template-error')}"></div>
-                    <div class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select">
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label class="ep-label" for="name">Name</label>
-                        <input type="text" id="name" name="name" class="ep-input"
-                               required maxlength="100" placeholder="Monthly Invoice" data-slug-source="slug"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label class="ep-label" for="slug">Template ID (Slug)</label>
-                        <input type="text" id="slug" name="slug" class="ep-input"
-                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="50"
-                               placeholder="monthly-invoice"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Template</button>
-                        <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+    <form th:fragment="template-form" id="create-template-form"
+          method="post" th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
+          hx-target="#create-template-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-template-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group">
+                <label class="ep-label" for="catalog">Catalog</label>
+                <select id="catalog" name="catalog" class="ep-select">
+                    <option th:each="cat : ${authoredCatalogs}"
+                            th:value="${cat.id}"
+                            th:text="${cat.name}"
+                            th:selected="${formData?.catalog == cat.id}"></option>
+                </select>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                <label class="ep-label" for="name">Name</label>
+                <input type="text" id="name" name="name" class="ep-input"
+                       required maxlength="100" placeholder="Monthly Invoice" data-slug-source="slug"
+                       th:value="${formData?.name}">
+                <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+                <label class="ep-label" for="slug">Template ID (Slug)</label>
+                <input type="text" id="slug" name="slug" class="ep-input"
+                       required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                       minlength="3" maxlength="50"
+                       placeholder="monthly-invoice"
+                       th:value="${formData?.slug}">
+                <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
             </div>
         </div>
-    </th:block>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="create-template-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Template</button>
+        </div>
+    </form>
 </body>
 </html>
