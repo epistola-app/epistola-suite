@@ -15,8 +15,9 @@ The pieces:
   `dialog-mount`. See the fragment's own comments.
 - **Open/close** — server-driven, in `static/js/behaviors.js` (open) and
   `static/js/app-shell.js` (close).
-- **Lifecycle helpers** — `dialogSuccess` / `dialogReveal` / `dialogFieldErrors`
-  / `dialogFormError` on `HtmxResponseBuilder` (`modules/epistola-web/.../htmx/HtmxDsl.kt`).
+- **Lifecycle helpers** — `dialogSuccess` / `dialogRedirect` / `dialogReveal` /
+  `dialogFieldErrors` / `dialogFormError` on `HtmxResponseBuilder`
+  (`modules/epistola-web/.../htmx/HtmxDsl.kt`).
 
 ## Route convention (URL-addressable)
 
@@ -158,7 +159,7 @@ to. When the dialog closes (Cancel / ESC / a handler's
 - **No `th:if` on the dialog fragment markup** — it is never rendered unless the
   handler already allowed it.
 
-## Submit lifecycle (the four helpers)
+## Submit lifecycle (the five helpers)
 
 The dialog's `<form>` submits with the **list** as its `hx-target`
 (`hx-target="#the-list" hx-swap="outerHTML"`), the same shape catalog/variant
@@ -169,12 +170,13 @@ the dialog: `~{epistola-web/form-error :: form-error(id='…')}`, and carries a
 **stable id** (e.g. `<form id="create-environment-form" …>`) so field errors can
 retarget it (see below).
 
-| Case                                 | Helper                                                        | Effect                                                                                                                                                                                 |
-| ------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| success → close + refresh list       | `dialogSuccess(listTemplate, listFragment) { … }`             | OOB-swap the list fragment, `HX-Trigger("closeDialog")`, `HX-Reswap: none`, 200                                                                                                        |
-| success → stay open (api-key reveal) | `dialogReveal(template, fragment, revealTarget) { … }`        | swap the reveal panel into the dialog (retarget + `outerHTML`), **no** `closeDialog`, 200                                                                                              |
-| field errors                         | `dialogFieldErrors(template, fragment, formTarget, formData)` | re-render the `<form>` with `formData` + `errors`, `HX-Retarget` to the **form inside the dialog** (e.g. `#create-environment-form`) — not the list, not the dialog — `outerHTML`, 422 |
-| operation error / uploads            | `dialogFormError(errorId, message)`                           | OOB-swap only the form-error slot, `HX-Reswap: none`, 422 — never re-renders the form body (so a `<input type=file>` survives)                                                         |
+| Case                                   | Helper                                                        | Effect                                                                                                                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| success → close + refresh list         | `dialogSuccess(listTemplate, listFragment) { … }`             | OOB-swap the list fragment, `HX-Trigger("closeDialog")`, `HX-Reswap: none`, 200                                                                                                        |
+| success → navigate to created resource | `dialogRedirect(url)`                                         | `HX-Redirect: <url>`, 200, no fragment — the whole page navigates to the created thing (the dialog goes with it); pair with `onNonHtmx { redirect(url) }`                              |
+| success → stay open (api-key reveal)   | `dialogReveal(template, fragment, revealTarget) { … }`        | swap the reveal panel into the dialog (retarget + `outerHTML`), **no** `closeDialog`, 200                                                                                              |
+| field errors                           | `dialogFieldErrors(template, fragment, formTarget, formData)` | re-render the `<form>` with `formData` + `errors`, `HX-Retarget` to the **form inside the dialog** (e.g. `#create-environment-form`) — not the list, not the dialog — `outerHTML`, 422 |
+| operation error / uploads              | `dialogFormError(errorId, message)`                           | OOB-swap only the form-error slot, `HX-Reswap: none`, 422 — never re-renders the form body (so a `<input type=file>` survives)                                                         |
 
 Each pairs with an `onNonHtmx { }` fallback (redirect to the list on success;
 `page(422, …)` re-rendering the host page with the dialog + errors on failure) —

@@ -270,6 +270,20 @@ class HtmxDslTest {
         }
 
         @Test
+        fun `dialogRedirect emits HX-Redirect and 200 with no fragment`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogRedirect("/x")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            // HX-Redirect drives a full-page client-side navigation to the created
+            // resource; no fragment/body is rendered (the dialog goes with the page).
+            assertThat(response.headers().getFirst("HX-Redirect")).isEqualTo("/x")
+        }
+
+        @Test
         fun `dialogReveal keeps the dialog open - retargets, outerHTML, no closeDialog`() {
             val request = createHtmxRequest()
 

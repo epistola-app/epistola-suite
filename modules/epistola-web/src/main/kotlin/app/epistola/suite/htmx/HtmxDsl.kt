@@ -140,6 +140,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     private var nonHtmxHandler: (() -> ServerResponse)? = null
     private var fullTemplate: String? = null
     private var status: Int = 200
+    private var redirectUrl: String? = null
 
     /**
      * Adds a primary fragment to the response.
@@ -384,6 +385,31 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     }
 
     /**
+     * Success → NAVIGATE to a newly created resource (the dialog disappears
+     * because the whole page navigates away).
+     *
+     * Emits `HX-Redirect: <url>` — HTMX performs a client-side, full-page
+     * navigation to [url] — with a 200 status and NO body/fragment. Use this for
+     * the "create → go straight to the created thing" flow, where the list the
+     * dialog sat on is *not* where the user should end up (e.g. creating a
+     * template lands the user on the new template's own page). Contrast
+     * [dialogSuccess], which STAYS on the list (closes the dialog + OOB-refreshes
+     * it in place) for resources that are managed from the list they were created
+     * on.
+     *
+     * No fragment is rendered: `HX-Redirect` supersedes any swap, so there is
+     * nothing to retarget/reswap. The dialog is discarded with the old page.
+     *
+     * Pair with: `onNonHtmx { redirect("/…/created") }` — a full-page (non-HTMX)
+     * submit just 303-redirects to the same resource.
+     */
+    fun dialogRedirect(url: String) {
+        redirectUrl = url
+        headers["HX-Redirect"] = url
+        status(200)
+    }
+
+    /**
      * Field-validation errors → re-render the dialog's `<form>` in place with
      * inline errors, retargeted to the form (NOT the list, and NOT the dialog).
      *
@@ -502,6 +528,14 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
             return nonHtmxHandler?.invoke()
                 ?: fullTemplate?.let { ServerResponse.ok().render(it, mergedModel()) }
                 ?: throw IllegalStateException("No fragment or nonHtmxHandler defined")
+        }
+
+        // Client-side redirect (dialogRedirect): HX-Redirect drives a full-page
+        // navigation, so no fragment/body is rendered — just the headers + status.
+        redirectUrl?.let {
+            var response = ServerResponse.status(status)
+            headers.forEach { (key, value) -> response = response.header(key, value) }
+            return response.build()
         }
 
         // For HTMX requests, render fragments
