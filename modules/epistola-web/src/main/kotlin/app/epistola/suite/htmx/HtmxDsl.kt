@@ -132,6 +132,10 @@ class NonHtmxBuilder {
 @HtmxDsl
 class HtmxResponseBuilder(private val request: ServerRequest) {
     private val fragments = mutableListOf<HtmxFragment>()
+
+    /** The fragments accumulated so far, exposed for assertions in tests. */
+    internal val emittedFragments: List<HtmxFragment> get() = fragments.toList()
+
     private val headers = mutableMapOf<String, String>()
     private var nonHtmxHandler: (() -> ServerResponse)? = null
     private var fullTemplate: String? = null
@@ -333,8 +337,9 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      *
      * The list fragment MUST render as an OOB swap: its root element needs an id
      * and `hx-swap-oob` (catalog's `catalog-list` fragment is the model — it
-     * toggles `hx-swap-oob` via an `oob` flag in the model). Pass whatever the
-     * list fragment needs through [model].
+     * toggles `hx-swap-oob` via an `oob` flag in the model). This helper injects
+     * `"oob" to true` after [model] runs, so callers never have to remember it.
+     * Pass whatever else the list fragment needs through [model].
      *
      * Pair with: `onNonHtmx { redirect("/…/list") }` (a full-page submit just
      * lands back on the list).
@@ -344,7 +349,10 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         listFragment: String,
         model: ModelBuilder.() -> Unit = {},
     ) {
-        oob(listTemplate, listFragment, model)
+        oob(listTemplate, listFragment) {
+            model()
+            "oob" to true
+        }
         trigger("closeDialog")
         reswap(HxSwap.NONE)
         status(200)
@@ -402,6 +410,11 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      *
      * Pair with: `onNonHtmx { page(422, "…/host") { +formData … } }`
      * (re-render the host page with the dialog embedded and errors shown).
+     *
+     * [model] supplies any prefill the form fragment needs to re-render itself
+     * beyond the field values — e.g. the `tenantId` its `th:hx-post` URL is built
+     * from, or attribute descriptors. `formData` + `errors` are added after it,
+     * so they always win.
      */
     fun dialogFieldErrors(
         template: String,
@@ -409,8 +422,10 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         formTarget: String,
         formData: FormData,
         statusCode: Int = 422,
+        model: ModelBuilder.() -> Unit = {},
     ) {
         fragment(template, fragmentName) {
+            model()
             "formData" to formData.formData
             "errors" to formData.errors
         }
@@ -528,15 +543,28 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         return builder.build { request, response ->
             response.contentType = "text/html;charset=UTF-8"
             val application = org.thymeleaf.web.servlet.JakartaServletWebApplication.buildApplication(request.servletContext)
-            val engine = org.springframework.web.context.support.WebApplicationContextUtils
+            val webAppContext = org.springframework.web.context.support.WebApplicationContextUtils
                 .getRequiredWebApplicationContext(request.servletContext)
-                .getBean(org.thymeleaf.spring6.SpringTemplateEngine::class.java)
+            val engine = webAppContext.getBean(org.thymeleaf.spring6.SpringTemplateEngine::class.java)
+            // Global model contributors re-inject what HandlerInterceptors would
+            // add on a normal view render (this engine-direct path skips them):
+            // auth, feature flags, footer chrome, … The fragment's own model
+            // always wins (merged last).
+            val contributors = webAppContext.getBeansOfType(FragmentModelContributor::class.java).values
 
             for (fragment in allFragments) {
+                val variables: Map<String, Any?> = if (contributors.isEmpty()) {
+                    fragment.model
+                } else {
+                    val merged = LinkedHashMap<String, Any?>()
+                    contributors.forEach { merged.putAll(it.contribute(request, fragment.model)) }
+                    merged.putAll(fragment.model)
+                    merged
+                }
                 val context = org.thymeleaf.context.WebContext(
                     application.buildExchange(request, response),
                     java.util.Locale.getDefault(),
-                    fragment.model,
+                    variables,
                 )
                 val spec = if (fragment.fragmentName != null) {
                     org.thymeleaf.TemplateSpec(

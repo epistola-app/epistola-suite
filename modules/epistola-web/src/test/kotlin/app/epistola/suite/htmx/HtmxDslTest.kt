@@ -247,12 +247,14 @@ class HtmxDslTest {
         fun `dialogSuccess closes the dialog, refreshes the list OOB, and disables the primary swap`() {
             val request = createHtmxRequest()
 
-            val response = HtmxResponseBuilder(request).apply {
+            // Note: the caller does NOT pass `"oob" to true` — dialogSuccess
+            // injects it so the list fragment always renders its OOB swap.
+            val builder = HtmxResponseBuilder(request).apply {
                 dialogSuccess("environments/list", "rows") {
                     "environments" to listOf("a", "b")
-                    "oob" to true
                 }
-            }.build()
+            }
+            val response = builder.build()
 
             assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
             assertThat(response.headers().getFirst("HX-Trigger")).isEqualTo("closeDialog")
@@ -261,6 +263,10 @@ class HtmxDslTest {
             assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
             // No retarget: the list moves out-of-band, nothing is retargeted.
             assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+            // dialogSuccess injects the OOB flag itself, so the list fragment's
+            // hx-swap-oob renders even when the caller never sets it.
+            val oobFragment = builder.emittedFragments.single { it.isOob }
+            assertThat(oobFragment.model).containsEntry("oob", true)
         }
 
         @Test
