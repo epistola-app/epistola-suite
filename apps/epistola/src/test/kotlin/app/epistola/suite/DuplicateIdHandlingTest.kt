@@ -90,7 +90,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: the environment create form (now a URL-addressable
+            // dialog) re-renders with the error at 422 on a duplicate slug. This is
+            // a non-HTMX submit, so the host list page comes back (dialog embedded,
+            // error shown) — no HX-Retarget header on this path.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("An environment with this ID already exists")
         }
     }
@@ -125,7 +129,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: on the theme create form (now a URL-addressable
+            // dialog) a duplicate slug re-renders with the error at 422. This is a
+            // non-HTMX submit, so the host list page comes back (dialog embedded,
+            // error shown) — no HX-Retarget header on this path.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("A theme with this ID already exists")
         }
     }
@@ -160,7 +168,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: the template create form (now a URL-addressable
+            // dialog) re-renders with the error at 422 on a duplicate slug. This is
+            // a non-HTMX submit, so the host list page comes back (dialog embedded,
+            // error shown) — no HX-Retarget header on this path.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("A template with this ID already exists")
         }
     }
