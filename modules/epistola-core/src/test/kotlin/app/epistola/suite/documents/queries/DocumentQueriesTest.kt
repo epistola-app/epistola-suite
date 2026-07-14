@@ -9,7 +9,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -25,7 +25,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Autowired
-    private lateinit var contentStore: ContentStore
+    private lateinit var contentStore: DocumentContentStore
 
     @Test
     fun `GetGenerationJob returns job with items`(): Unit = withAuthentication {

@@ -17,6 +17,46 @@ class StorageConfiguration {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /**
+     * The pluggable **document** content store (ephemeral generated PDFs, issue #738).
+     * Each backend reclaims its own way — PostgreSQL via `document_content` partition
+     * drops, S3 via a bucket lifecycle rule, filesystem via an age sweep.
+     */
+    @Bean
+    fun documentContentStore(properties: StorageProperties, jdbi: Jdbi, meterRegistry: MeterRegistry): DocumentContentStore {
+        val backendName = properties.backend.name.lowercase()
+        val store: DocumentContentStore = when (properties.backend) {
+            StorageBackend.POSTGRES -> {
+                logger.info("Using PostgreSQL document content store (document_content)")
+                PostgresDocumentContentStore(jdbi)
+            }
+
+            StorageBackend.S3 -> {
+                require(properties.s3.bucket.isNotBlank()) { "epistola.storage.s3.bucket must be set when using S3 backend" }
+                logger.info("Using S3 document content store (bucket={})", properties.s3.bucket)
+                S3DocumentContentStore(buildS3Client(properties), properties.s3.bucket)
+            }
+
+            StorageBackend.FILESYSTEM -> {
+                val basePath = Path.of(properties.filesystem.basePath)
+                logger.info("Using filesystem document content store (basePath={})", basePath.toAbsolutePath())
+                FilesystemDocumentContentStore(basePath)
+            }
+
+            StorageBackend.MEMORY -> {
+                logger.info("Using in-memory document content store")
+                InMemoryDocumentContentStore()
+            }
+        }
+        return InstrumentedDocumentContentStore(store, meterRegistry, backendName)
+    }
+
+    /**
+     * The pre-split shared content store. Retained through the #738 transition: the
+     * asset commands still use it until the CAS cutover, and the one-time
+     * `ContentBackfillRunner` reads legacy blobs through it. Removed once
+     * `content_store` is dropped.
+     */
     @Bean
     fun contentStore(properties: StorageProperties, jdbi: Jdbi, meterRegistry: MeterRegistry): ContentStore {
         val backendName = properties.backend.name.lowercase()
@@ -29,10 +69,7 @@ class StorageConfiguration {
             StorageBackend.S3 -> {
                 require(properties.s3.bucket.isNotBlank()) { "epistola.storage.s3.bucket must be set when using S3 backend" }
                 logger.info("Using S3 content store (bucket={})", properties.s3.bucket)
-                val clientBuilder = S3Client.builder()
-                    .region(Region.of(properties.s3.region))
-                properties.s3.endpoint?.let { clientBuilder.endpointOverride(URI.create(it)) }
-                S3ContentStore(clientBuilder.build(), properties.s3.bucket)
+                S3ContentStore(buildS3Client(properties), properties.s3.bucket)
             }
 
             StorageBackend.FILESYSTEM -> {
@@ -47,5 +84,12 @@ class StorageConfiguration {
             }
         }
         return InstrumentedContentStore(store, meterRegistry, backendName)
+    }
+
+    private fun buildS3Client(properties: StorageProperties): S3Client {
+        val clientBuilder = S3Client.builder()
+            .region(Region.of(properties.s3.region))
+        properties.s3.endpoint?.let { clientBuilder.endpointOverride(URI.create(it)) }
+        return clientBuilder.build()
     }
 }
