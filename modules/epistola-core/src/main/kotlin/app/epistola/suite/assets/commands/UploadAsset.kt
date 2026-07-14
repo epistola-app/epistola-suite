@@ -4,23 +4,23 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
+import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
-import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.io.ByteArrayInputStream
 
 /**
  * Command to upload a new asset.
@@ -59,7 +59,7 @@ data class UploadAsset(
 @Component
 class UploadAssetHandler(
     private val jdbi: Jdbi,
-    private val contentStore: ContentStore,
+    private val assetContentStore: AssetContentStore,
 ) : CommandHandler<UploadAsset, Asset> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -85,19 +85,18 @@ class UploadAssetHandler(
             command.tenantId,
         )
 
-        // Store content first — an orphaned blob is harmless, a DB row pointing to missing content is not
-        contentStore.put(
-            ContentKey.asset(command.tenantId, id),
-            ByteArrayInputStream(command.content),
-            command.mediaType.mimeType,
-            sizeBytes,
-        )
+        // Content-addressable store: dedup identical bytes within the derived scope.
+        // Store content first — an orphaned blob is harmless (the reaper reclaims it),
+        // a DB row pointing to missing content is not.
+        val contentHash = sha256Hex(command.content)
+        val scope = assetContentScope(command.catalogKey, command.tenantId)
+        assetContentStore.putIfAbsent(scope, contentHash, command.content, command.mediaType.mimeType, sizeBytes)
 
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :createdAt, :createdBy)
+                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, content_hash, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :createdAt, :createdBy)
                 """,
             )
                 .bind("id", id.value)
@@ -108,8 +107,9 @@ class UploadAssetHandler(
                 .bind("sizeBytes", sizeBytes)
                 .bind("width", command.width)
                 .bind("height", command.height)
+                .bind("contentHash", contentHash)
                 .bind("createdAt", now)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
+                .bind("createdBy", auditUser)
                 .execute()
         }
 

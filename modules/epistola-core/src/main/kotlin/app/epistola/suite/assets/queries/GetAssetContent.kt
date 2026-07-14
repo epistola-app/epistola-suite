@@ -2,6 +2,7 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -9,6 +10,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
@@ -40,15 +42,19 @@ data class GetAssetContent(
 @Component
 class GetAssetContentHandler(
     private val jdbi: Jdbi,
-    private val contentStore: ContentStore,
+    private val assetContentStore: AssetContentStore,
+    // Legacy store, read only as a fallback for assets not yet migrated by the
+    // ContentBackfillRunner (content_hash IS NULL). Removed once content_hash is
+    // NOT NULL after cutover (#738).
+    private val legacyContentStore: ContentStore,
 ) : QueryHandler<GetAssetContent, AssetContent?> {
 
     override fun handle(query: GetAssetContent): AssetContent? {
-        // 1. Get metadata from DB
+        // 1. Get metadata (including the content-addressable pointer) from DB
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, media_type
+                SELECT id, tenant_key, catalog_key, media_type, content_hash
                 FROM assets
                 WHERE id = :assetId
                   AND tenant_key = :tenantId
@@ -64,22 +70,28 @@ class GetAssetContentHandler(
                         tenantId = TenantKey(rs.getString("tenant_key")),
                         catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                         mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
+                        contentHash = rs.getString("content_hash"),
                     )
                 }
                 .findOne()
                 .orElse(null)
         } ?: return null
 
-        // 2. Read content from ContentStore (assets are max 5MB, in-memory is fine)
-        val stored = contentStore.get(ContentKey.asset(metadata.tenantId, metadata.id))
-            ?: return null
+        // 2. Read content: from the content-addressable store by (scope, hash), or —
+        // for assets not yet backfilled — from the legacy identity-keyed store.
+        val bytes = if (metadata.contentHash != null) {
+            val scope = assetContentScope(metadata.catalogKey, metadata.tenantId)
+            assetContentStore.get(scope, metadata.contentHash)?.content?.readAllBytes()
+        } else {
+            legacyContentStore.get(ContentKey.asset(metadata.tenantId, metadata.id))?.content?.readAllBytes()
+        } ?: return null
 
         return AssetContent(
             id = metadata.id,
             tenantKey = metadata.tenantId,
             catalogKey = metadata.catalogKey,
             mediaType = metadata.mediaType,
-            content = stored.content.readAllBytes(),
+            content = bytes,
         )
     }
 
@@ -88,5 +100,6 @@ class GetAssetContentHandler(
         val tenantId: TenantKey,
         val catalogKey: CatalogKey,
         val mediaType: AssetMediaType,
+        val contentHash: String?,
     )
 }
