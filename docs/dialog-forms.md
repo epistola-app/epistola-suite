@@ -53,6 +53,33 @@ fun newForm(request: ServerRequest): ServerResponse {
 through `onNonHtmx`, so the shell-level `hx-boost` navigation lands on the host
 page automatically — no extra branching in the handler.
 
+### Host-page embed: the dialog mount
+
+The host list page drops the shared mount once and renders the dialog into it
+**only** on direct navigation, gated by the handler's `openDialog` flag:
+
+```html
+<div id="dialog-mount" data-dialog-mount>
+  <th:block th:if="${openDialog}">
+    <th:block th:replace="~{environments/new :: dialog}"></th:block>
+  </th:block>
+</div>
+```
+
+On a plain list load `openDialog` is unset, so the mount stays empty; the
+in-app trigger swaps the fragment in later (hx-get → `#dialog-mount`), and
+`behaviors.js` opens whatever dialog lands in the mount.
+
+> **Gotcha — never put `th:if`/`th:unless` and `th:replace`/`th:insert` on the
+> SAME element.** `th:replace`/`th:insert` (attribute precedence 100) run
+> **before** `th:if`/`th:unless` (precedence 300), so the fragment is included
+> **unconditionally** and the guard is silently ignored. Always wrap the
+> conditional guard on an **OUTER** element and put the `th:replace`/`th:insert`
+> on an inner one (as above). Writing
+> `<th:block th:if="${openDialog}" th:replace="…">` embeds the dialog on every
+> page load, and `behaviors.js` then pops it open every time. This mount is the
+> exemplar every form copies — keep the guard on the outer element.
+
 ### Trigger markup
 
 The list/detail page's "New …" button:
@@ -91,29 +118,37 @@ The dialog shell is rendered with `closeUrl` = the list URL:
 ```
 
 That emits `data-close-url` on the `<dialog>` — the list URL the dialog belongs
-to. The intent: when the dialog closes (Cancel / ESC / a handler's
-`HX-Trigger("closeDialog")`), restore that URL so the address bar and back button
-return to the list (the list is already behind the dialog; no content swap
-needed).
+to. When the dialog closes (Cancel / ESC / a handler's
+`HX-Trigger("closeDialog")`), the address bar and back button return to the list
+(the list is already behind the dialog; no content swap needed).
 
-> **Phase 2 — history restore not yet implemented.** The `closeUrl` param and
-> `data-close-url` emission exist now, but the client-side history restore is
-> deliberately deferred and **implemented + tested live with the first real
-> form** (there is no consumer route yet). A naive `pushState` of `closeUrl` on
-> close was prototyped and removed because it is wrong in three ways that can
-> only be validated against a real navigation:
->
-> 1. **htmx-boost snapshot cache** — raw `pushState` bypasses htmx's history
->    snapshot, so back/forward can restore stale DOM. A correct version likely
->    uses htmx's own history API rather than raw `pushState`.
-> 2. **stale `/…/new` entry** — opening pushed `/…/new` via `hx-push-url`;
->    closing should almost certainly `replaceState` back to the list rather than
->    `pushState` a third entry.
-> 3. **query string** — `closeUrl` must preserve the list's filters/paging
->    (`?catalog=…`, search, page), not just its path.
->
-> Phase 2 owns wiring the restore (back/forward, query-string preservation,
-> htmx-boost snapshot integration) and testing it end-to-end.
+**The mechanism (implemented — the open/close history split):**
+
+- **Open → push.** The trigger carries `hx-push-url="true"` (see "Trigger
+  markup" above), so opening pushes the `/…/new` URL through htmx's own history
+  API. Using `hx-push-url` rather than a raw `pushState` keeps htmx's boost
+  history **snapshot** consistent, so a later Back/Forward restores the correct
+  DOM (the list) instead of stale markup.
+- **Close → replace.** The capture-phase `close` listener in
+  `static/js/behaviors.js` (which also removes the dismissed mount dialog) reads
+  `data-close-url` and restores it with
+  `history.replaceState(history.state, '', closeUrl)` **before** removing the
+  dialog. It uses `replaceState`, **not** `pushState`: opening already pushed the
+  `/…/new` entry, so closing must overwrite it (the two history states stay
+  `[list, /…/new]`) rather than add a redundant third entry. The listener only
+  replaces when the current path actually differs from the close-url path, to
+  avoid needless history churn.
+- **Back → native.** Pressing Back is handled entirely by htmx's boosted
+  `popstate`/snapshot restore — it pops back to the list URL and restores the
+  list snapshot (which has an empty mount), so the dialog is gone. No extra
+  client code is needed for the back button; it is covered end-to-end by
+  `EnvironmentDialogUiTest`.
+
+> **Known limitation — query string.** `closeUrl` is the list **path** only, so
+> a list that carries filters/paging in its query string (`?catalog=…`, search,
+> page) would lose them on close. The environment list has no such filters, so
+> this is a non-issue there; a filtered list adopting this convention will need
+> `closeUrl` to preserve (or the close handler to merge) the query string.
 
 ### Auth (locked decision E9)
 
@@ -166,7 +201,7 @@ Why the split matters (see also the "Error handling" section of `FORMS_PLAN.md`)
 
 The client open/close mechanism (open on `htmx:load` + `htmx:afterSwap`; close
 removes the mount dialog so it can't be reopened) and the server helpers are
-unit-tested (`DialogSkeletonFragmentTest`, `HtmxDslTest`). Deferred to Phase 2
-(no consumer route yet): the **history restore on close** (see the boxed note
-above) and the full **direct-navigation / shared-link / back-button** round
-trip, both proven end-to-end when the first real form is converted.
+unit-tested (`DialogSkeletonFragmentTest`, `HtmxDslTest`). The **URL-addressable
+history binding** — open pushes `/…/new`, Cancel/ESC `replaceState`-restores the
+list URL, and Back returns to the list with the dialog closed — is proven
+end-to-end by `EnvironmentDialogUiTest` (the first converted form).

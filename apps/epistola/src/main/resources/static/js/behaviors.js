@@ -103,12 +103,21 @@ document.addEventListener('htmx:load', function (event) {
   root.querySelectorAll('[data-dialog-mount] dialog').forEach(openDialogModal);
 });
 
-// ── Remove a mount dialog from the DOM when it closes ───────────────────────
+// ── Restore the list URL + remove a mount dialog when it closes ─────────────
 // A server-sent dialog lands in [data-dialog-mount] and stays there after it
 // closes (closeDialog / Cancel / ESC only .close() it). If it lingers, a later
 // htmx:load whose subtree contains the mount would re-open the dismissed dialog
 // (the load path can't use matches() the way the swap path does). Remove it on
 // close so nothing can reopen it — for both the load and swap paths.
+//
+// URL-addressable dialog history (docs/dialog-forms.md): OPENING pushes the
+// /…/new URL via the trigger's hx-push-url (htmx-native, so its boost snapshot
+// stays consistent). CLOSING restores the dialog's data-close-url (the list URL)
+// with history.replaceState — NOT pushState — so closing does not add a third
+// history entry; the two states remain [list, /…/new] and Back returns to the
+// list. Only replace when the current path actually differs, to avoid redundant
+// history churn (e.g. a dialog closed on the list URL after Back already fired).
+// Pressing Back is handled natively by htmx's boosted popstate/snapshot restore.
 //
 // Scoped to dialogs INSIDE the mount only: the legacy data-open-dialog-on-swap /
 // data-show-dialog-on-swap dialogs live outside the mount and must not be
@@ -119,7 +128,15 @@ document.addEventListener(
   function (event) {
     const dialog = event.target;
     if (!dialog || !dialog.matches || !dialog.matches('dialog')) return;
-    if (dialog.closest('[data-dialog-mount]')) dialog.remove();
+    if (!dialog.closest('[data-dialog-mount]')) return;
+    const closeUrl = dialog.getAttribute('data-close-url');
+    if (closeUrl) {
+      const target = new URL(closeUrl, window.location.origin);
+      if (target.pathname !== window.location.pathname) {
+        history.replaceState(history.state, '', closeUrl);
+      }
+    }
+    dialog.remove();
   },
   true,
 );
