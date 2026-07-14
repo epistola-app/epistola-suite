@@ -296,7 +296,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: a duplicate slug re-renders the form retargeted at
+            // #create-code-list-form with the error at 422. The "code-list"
+            // entityType maps to the slug field (see FormBinder.executeOrFormError).
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-code-list-form")
             assertThat(response.body).contains("A code-list with this ID already exists")
         }
     }
