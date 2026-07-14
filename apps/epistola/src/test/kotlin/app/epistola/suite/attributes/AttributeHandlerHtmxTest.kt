@@ -5,6 +5,7 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -14,6 +15,7 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -30,13 +32,15 @@ import org.springframework.util.MultiValueMap
 
 /**
  * Server-side contract for the attribute create form converted onto the dialog
- * groundwork, combining the ENVIRONMENT stay-on-list shape (success closes the
- * dialog + OOB-refreshes the list; delete refreshes the whole region) with the
- * TEMPLATE prefill (authored-catalog <select>) and a radio-pane cascade
- * (constraintKind → inline / code-list panes). Asserts the URL-addressable dialog
- * convention (docs/dialog-forms.md): HTMX GET → dialog fragment; HTMX POST invalid
- * → retarget the form + 422; HTMX POST valid → closeDialog + OOB list refresh;
- * non-HTMX GET → host list page with the dialog embedded; delete → region refresh.
+ * groundwork. The dialog is list-launched with the TEMPLATE prefill
+ * (authored-catalog <select>) and a radio-pane cascade (constraintKind → inline /
+ * code-list panes); on success it REDIRECTS to the list (the list carries a
+ * catalog filter, so a full navigation keeps the visible rows in step with the
+ * active filter/URL) while delete still refreshes the whole region. Asserts the
+ * URL-addressable dialog convention (docs/dialog-forms.md): HTMX GET → dialog
+ * fragment; HTMX POST invalid → retarget the form + 422; HTMX POST valid →
+ * HX-Redirect to the attribute list; non-HTMX GET → host list page with the
+ * dialog embedded; delete → region refresh.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AttributeHandlerHtmxTest : BaseIntegrationTest() {
@@ -147,7 +151,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST valid closes the dialog and refreshes the list OOB with the new row`() = fixture {
+    fun `HTMX POST valid redirects to the attribute list`() = fixture {
         lateinit var testTenant: Tenant
 
         given { testTenant = tenant("Attr Create Valid") }
@@ -168,17 +172,21 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Server-driven close.
-            assertThat(response.headers.getFirst("HX-Trigger")).isEqualTo("closeDialog")
-            // No primary swap: the list refreshes out-of-band.
-            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
-            // The OOB list fragment carries its id + hx-swap-oob and the new row.
-            assertThat(response.body).contains("""id="attribute-list"""")
-            assertThat(response.body).contains("hx-swap-oob=\"outerHTML\"")
-            assertThat(response.body).contains("Language")
-            assertThat(response.body).contains("language")
-            // The auth-gated delete button rendered → `auth` reached the OOB model.
-            assertThat(response.body).contains("Delete attribute")
+            // Full navigation to the list replaces the whole page — HX-Redirect,
+            // no OOB refresh, no closeDialog (the page navigates away entirely).
+            assertThat(response.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            assertThat(response.headers.getFirst("HX-Trigger")).isNull()
+            // Persistence verified through the mediator, not the (absent) list body.
+            val persisted = withMediator {
+                GetAttributeDefinition(
+                    id = AttributeId(
+                        AttributeKey.of("language"),
+                        CatalogId.default(TenantId(testTenant.id)),
+                    ),
+                ).query()
+            }
+            assertThat(persisted).isNotNull
+            assertThat(persisted!!.displayName).isEqualTo("Language")
         }
     }
 
@@ -205,13 +213,19 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers.getFirst("HX-Trigger")).isEqualTo("closeDialog")
-            // The OOB row renders each allowed value as a badge → the inline
-            // constraint was parsed and persisted.
-            assertThat(response.body).contains("""id="attribute-list"""")
-            assertThat(response.body).contains("dutch")
-            assertThat(response.body).contains("english")
-            assertThat(response.body).contains("german")
+            assertThat(response.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            // The inline constraint was parsed and persisted — verified through the
+            // mediator (the redirect returns no list body to inspect).
+            val persisted = withMediator {
+                GetAttributeDefinition(
+                    id = AttributeId(
+                        AttributeKey.of("language"),
+                        CatalogId.default(TenantId(testTenant.id)),
+                    ),
+                ).query()
+            }
+            assertThat(persisted).isNotNull
+            assertThat(persisted!!.allowedValues).containsExactly("dutch", "english", "german")
         }
     }
 

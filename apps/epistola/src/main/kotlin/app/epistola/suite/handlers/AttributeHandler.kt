@@ -6,6 +6,7 @@ import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.AttributeId
@@ -129,6 +130,10 @@ class AttributeHandler {
         }
 
         if (result.hasErrors()) {
+            // Prefill shared by both render paths — one catalog + code-list query.
+            val allCatalogs = ListCatalogs(tenantId.key).query()
+            val authored = allCatalogs.filter { it.type == CatalogType.AUTHORED }
+            val codeLists = ListCodeLists(tenantId).query()
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
                 // the list) with inline errors + preserved values. `tenantId`,
@@ -141,15 +146,15 @@ class AttributeHandler {
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
-                    "codeLists" to ListCodeLists(tenantId).query()
+                    "authoredCatalogs" to authored
+                    "codeLists" to codeLists
                 }
                 onNonHtmx {
                     page(422, "attributes/list") {
-                        attributePageModel(tenantId)
+                        attributePageModel(tenantId, allCatalogs)
                         "openDialog" to true
-                        "authoredCatalogs" to authoredCatalogs(tenantId)
-                        "codeLists" to ListCodeLists(tenantId).query()
+                        "authoredCatalogs" to authored
+                        "codeLists" to codeLists
                         "formData" to result.formData
                         "errors" to result.errors
                     }
@@ -157,16 +162,14 @@ class AttributeHandler {
             }
         }
 
-        // Success: close the dialog + refresh the list out-of-band (stay on the
-        // list). Global attributes the list fragment needs (`auth` for the row
-        // edit/delete controls) are injected by HtmxFragmentModelContributor on
-        // the OOB render path.
-        val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
+        // Success: full navigation to the (unfiltered) attribute list. The list
+        // has a catalog filter, so an OOB stay-on-list refresh would desync the
+        // visible rows from the active filter/URL; a redirect keeps them in step
+        // (matching the template/theme/stencil conversions and the pre-conversion
+        // 303 semantics). dialogRedirect issues HX-Redirect for the HTMX form and
+        // a plain redirect for the non-HTMX fallback.
         return request.htmx {
-            dialogSuccess("attributes/list", "attribute-list") {
-                "tenantId" to tenantId.key
-                "attributes" to attributes
-            }
+            dialogRedirect("/tenants/${tenantId.key}/attributes")
             onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
         }
     }
@@ -299,11 +302,14 @@ class AttributeHandler {
      * the list already puts *all* `catalogs` in the model for its filter, so the
      * dialog uses a distinct key to avoid rendering the wrong (non-authored) options.
      */
-    private fun ModelBuilder.attributePageModel(tenantId: TenantId) {
+    private fun ModelBuilder.attributePageModel(
+        tenantId: TenantId,
+        catalogs: List<Catalog> = ListCatalogs(tenantId.key).query(),
+    ) {
         "pageTitle" to "Attributes - Epistola"
         "tenant" to GetTenant(tenantId.key).query()
         "tenantId" to tenantId.key
-        "catalogs" to ListCatalogs(tenantId.key).query()
+        "catalogs" to catalogs
         "selectedCatalog" to ""
         "attributes" to ListAttributeDefinitions(tenantId = tenantId).query()
     }
