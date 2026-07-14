@@ -51,6 +51,25 @@ class FormBinderTest {
     }
 
     @Test
+    fun `asCodeListId accepts a valid slug`() {
+        val form = requestWith("slug" to "languages").form {
+            field("slug") { asCodeListId() }
+        }
+
+        assertThat(form.hasErrors()).isFalse()
+    }
+
+    @Test
+    fun `asCodeListId rejects an invalid slug with the code-list id error`() {
+        val form = requestWith("slug" to "BAD SLUG").form {
+            field("slug") { asCodeListId() }
+        }
+
+        assertThat(form.hasErrors()).isTrue()
+        assertThat(form.errors["slug"]).isEqualTo("Invalid code-list ID format")
+    }
+
+    @Test
     fun `asStencilId accepts a valid slug`() {
         val form = requestWith("slug" to "corporate-header").form {
             field("slug") { asStencilId() }

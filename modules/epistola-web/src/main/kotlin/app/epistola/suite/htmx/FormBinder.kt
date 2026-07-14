@@ -1,6 +1,7 @@
 package app.epistola.suite.htmx
 
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -33,6 +34,7 @@ class FieldSpec(val fieldName: String) {
     var required: Boolean = false
     var asInt: Boolean = false
     var asAttributeId: Boolean = false
+    var asCodeListId: Boolean = false
     var asEnvironmentId: Boolean = false
     var asStencilId: Boolean = false
     var asTemplateId: Boolean = false
@@ -139,6 +141,13 @@ class FieldSpec(val fieldName: String) {
      */
     fun asEnvironmentId() {
         this.asEnvironmentId = true
+    }
+
+    /**
+     * Mark this field to be validated as a CodeListId.
+     */
+    fun asCodeListId() {
+        this.asCodeListId = true
     }
 
     /**
@@ -324,6 +333,11 @@ class FormBuilder {
                     spec.asEnvironmentId -> {
                         if (EnvironmentKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid environment ID format"
+                        }
+                    }
+                    spec.asCodeListId -> {
+                        if (CodeListKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid code-list ID format"
                         }
                     }
                     spec.asStencilId -> {
