@@ -1,6 +1,7 @@
 package app.epistola.suite.htmx
 
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -31,6 +32,7 @@ class FieldSpec(val fieldName: String) {
     var required: Boolean = false
     var asInt: Boolean = false
     var asEnvironmentId: Boolean = false
+    var asStencilId: Boolean = false
     var asTemplateId: Boolean = false
     var asThemeId: Boolean = false
     var asVariantId: Boolean = false
@@ -128,6 +130,13 @@ class FieldSpec(val fieldName: String) {
      */
     fun asEnvironmentId() {
         this.asEnvironmentId = true
+    }
+
+    /**
+     * Mark this field to be validated as a StencilId.
+     */
+    fun asStencilId() {
+        this.asStencilId = true
     }
 
     /**
@@ -303,6 +312,11 @@ class FormBuilder {
                             errors[fieldName] = "Invalid environment ID format"
                         }
                     }
+                    spec.asStencilId -> {
+                        if (StencilKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid stencil ID format"
+                        }
+                    }
                     spec.asTemplateId -> {
                         if (TemplateKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid template ID format"
@@ -389,6 +403,7 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
 } catch (e: DuplicateIdException) {
     val field = when (e.entityType) {
         "environment" -> "slug"
+        "stencil" -> "slug"
         "template" -> "slug"
         "tenant" -> "slug"
         "theme" -> "slug"

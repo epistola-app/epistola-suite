@@ -32,6 +32,25 @@ class FormBinderTest {
     }
 
     @Test
+    fun `asStencilId accepts a valid slug`() {
+        val form = requestWith("slug" to "corporate-header").form {
+            field("slug") { asStencilId() }
+        }
+
+        assertThat(form.hasErrors()).isFalse()
+    }
+
+    @Test
+    fun `asStencilId rejects an invalid slug with the stencil id error`() {
+        val form = requestWith("slug" to "Invalid Stencil").form {
+            field("slug") { asStencilId() }
+        }
+
+        assertThat(form.hasErrors()).isTrue()
+        assertThat(form.errors["slug"]).isEqualTo("Invalid stencil ID format")
+    }
+
+    @Test
     fun `asTemplateId accepts a valid slug`() {
         val form = requestWith("slug" to "monthly-invoice").form {
             field("slug") { asTemplateId() }
