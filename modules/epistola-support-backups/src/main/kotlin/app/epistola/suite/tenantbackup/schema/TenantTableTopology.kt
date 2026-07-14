@@ -197,8 +197,9 @@ class TenantTableTopology(
         const val TENANTS = "tenants"
         const val THEMES = "themes"
 
-        /** The asset-blob key prefix in `content_store`; blobs are dumped/restored separately. */
-        fun assetBlobPrefix(tenantKey: String): String = "assets/$tenantKey/"
+        // Asset blobs are dumped/restored separately (see DumpTenantTables /
+        // MergeRestoreTables) from the content-addressable `asset_content` store,
+        // resolved through each asset's `content_hash` pointer (#738).
 
         // "What is in a backup" is a data-fidelity and security decision. It is declared **per module**
         // via TenantBackupTableContributor beans — each module classifies its own tenant tables

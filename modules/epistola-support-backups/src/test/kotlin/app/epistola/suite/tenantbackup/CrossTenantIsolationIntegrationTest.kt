@@ -22,9 +22,10 @@ import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * Tenant isolation: restoring tenant A must never touch tenant B. The restore's **delete-absent**
- * phase scopes by `tenant_key` (regular tables) and by key prefix (`content_store` blobs); this
- * proves a bystander tenant's catalogs, template versions, assets, blobs, and feature toggles all
- * survive a neighbour's restore byte-for-byte.
+ * phase scopes regular tables by `tenant_key`, and asset blobs live in the content-addressable
+ * `asset_content` store scoped by `(scope, content_hash)` (tenant-catalog assets scope to the
+ * tenant); this proves a bystander tenant's catalogs, template versions, assets, blobs, and feature
+ * toggles all survive a neighbour's restore byte-for-byte.
  */
 class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
     @Autowired
@@ -52,8 +53,15 @@ class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
                     catalogKey = bMain,
                 ).execute().id
             }
-        val bBlobKey = "assets/${b.id.value}/${bAssetKey.value}"
-        val bBefore = snapshotTenant(b.id.value, bBlobKey)
+        // Tenant-catalog asset → dedup scope is the tenant key; the pointer is on the row.
+        val bContentHash =
+            jdbi.withHandle<String, Exception> { h ->
+                h.createQuery("SELECT content_hash FROM assets WHERE id = :id")
+                    .bind("id", bAssetKey.value)
+                    .mapTo(String::class.java)
+                    .one()
+            }
+        val bBefore = snapshotTenant(b.id.value, bContentHash)
         assertThat(bBefore.values).allSatisfy { assertThat(it).isNotNull() } // sanity: B actually has data
 
         // Tenant A — backed up, then diverged and restored.
@@ -71,13 +79,13 @@ class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
             assertThat(ListCatalogs(a.id).query().map { it.id.value }).contains("main").doesNotContain("stray")
         }
         // … and B is byte-for-byte untouched.
-        assertThat(snapshotTenant(b.id.value, bBlobKey)).isEqualTo(bBefore)
+        assertThat(snapshotTenant(b.id.value, bContentHash)).isEqualTo(bBefore)
     }
 
     /** Row counts of B's tenant-scoped tables plus its asset blob bytes — the "did anything change?" probe. */
     private fun snapshotTenant(
         tenantKey: String,
-        blobKey: String,
+        contentHash: String,
     ): Map<String, Any?> = jdbi.withHandle<Map<String, Any?>, Exception> { h ->
         fun count(table: String): Int = h.createQuery("SELECT count(*) FROM $table WHERE tenant_key = :tk").bind("tk", tenantKey).mapTo(Int::class.java).one()
         mapOf(
@@ -87,8 +95,9 @@ class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
             "feature_toggles" to count("feature_toggles"),
             "blob" to
                 h
-                    .createQuery("SELECT content FROM content_store WHERE key = :k")
-                    .bind("k", blobKey)
+                    .createQuery("SELECT content FROM asset_content WHERE scope = :s AND content_hash = :h")
+                    .bind("s", tenantKey)
+                    .bind("h", contentHash)
                     .map { rs, _ -> rs.getBytes("content")?.toList() }
                     .findOne()
                     .orElse(null),

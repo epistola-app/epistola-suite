@@ -12,9 +12,14 @@ data class DumpedTable(
     val rows: List<Map<String, Any?>>,
 )
 
-/** One backed-up asset blob from `content_store` (raw bytes). */
+/**
+ * One backed-up asset blob from the content-addressable `asset_content` store (#738),
+ * identified by its `(scope, contentHash)` — the same coordinates the tenant's
+ * `assets.content_hash` rows point at.
+ */
 class DumpedBlob(
-    val key: String,
+    val scope: String,
+    val contentHash: String,
     val contentType: String,
     val sizeBytes: Long,
     val createdAt: String,
@@ -56,25 +61,33 @@ class DumpTenantTables(
         return TenantDump(tables, dumpBlobs(handle, tenantKey))
     }
 
+    /**
+     * The asset_content blobs referenced by this tenant's assets, resolved through the
+     * `content_hash` pointer and the derived dedup scope
+     * (`system` for system-catalog assets, else the tenant key). DISTINCT because many
+     * assets may share one deduplicated blob (#738).
+     */
     private fun dumpBlobs(
         handle: Handle,
         tenantKey: String,
-    ): List<DumpedBlob> {
-        val prefix = TenantTableTopology.assetBlobPrefix(tenantKey)
-        return handle
-            .createQuery(
-                "SELECT key, content_type, size_bytes, created_at::text AS created_at, content " +
-                    "FROM content_store WHERE left(key, :len) = :prefix ORDER BY key",
-            ).bind("len", prefix.length)
-            .bind("prefix", prefix)
-            .map { rs, _ ->
-                DumpedBlob(
-                    key = rs.getString("key"),
-                    contentType = rs.getString("content_type"),
-                    sizeBytes = rs.getLong("size_bytes"),
-                    createdAt = rs.getString("created_at"),
-                    content = rs.getBytes("content"),
-                )
-            }.list()
-    }
+    ): List<DumpedBlob> = handle
+        .createQuery(
+            "SELECT DISTINCT ac.scope, ac.content_hash, ac.content_type, ac.size_bytes, " +
+                "  ac.created_at::text AS created_at, ac.content " +
+                "FROM asset_content ac " +
+                "JOIN assets a ON a.content_hash = ac.content_hash " +
+                "  AND ac.scope = CASE WHEN a.catalog_key = 'system' THEN 'system' ELSE a.tenant_key::text END " +
+                "WHERE a.tenant_key = :tk " +
+                "ORDER BY ac.scope, ac.content_hash",
+        ).bind("tk", tenantKey)
+        .map { rs, _ ->
+            DumpedBlob(
+                scope = rs.getString("scope"),
+                contentHash = rs.getString("content_hash"),
+                contentType = rs.getString("content_type"),
+                sizeBytes = rs.getLong("size_bytes"),
+                createdAt = rs.getString("created_at"),
+                content = rs.getBytes("content"),
+            )
+        }.list()
 }

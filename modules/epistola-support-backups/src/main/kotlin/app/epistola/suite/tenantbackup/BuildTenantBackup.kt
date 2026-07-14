@@ -96,7 +96,7 @@ class BuildTenantBackupHandler(
             dump.blobs.mapIndexed { index, blob ->
                 val file = "blobs/$index.bin"
                 blobFiles[file] = blob.content
-                BackupBlobEntry(blob.key, file, blob.contentType, blob.sizeBytes, blob.createdAt)
+                BackupBlobEntry(blob.scope, blob.contentHash, file, blob.contentType, blob.sizeBytes, blob.createdAt)
             }
 
         val capturedAt = EpistolaClock.instant()
@@ -160,7 +160,7 @@ class BuildTenantBackupHandler(
             }
         }
         dump.blobs.forEach { blob ->
-            digest.update("B:${blob.key}:${blob.sizeBytes}\n".toByteArray(Charsets.UTF_8))
+            digest.update("B:${blob.scope}:${blob.contentHash}:${blob.sizeBytes}\n".toByteArray(Charsets.UTF_8))
             digest.update(blob.content)
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
