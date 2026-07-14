@@ -32,6 +32,25 @@ class FormBinderTest {
     }
 
     @Test
+    fun `asAttributeId accepts a valid slug`() {
+        val form = requestWith("slug" to "language").form {
+            field("slug") { asAttributeId() }
+        }
+
+        assertThat(form.hasErrors()).isFalse()
+    }
+
+    @Test
+    fun `asAttributeId rejects an invalid slug with the attribute id error`() {
+        val form = requestWith("slug" to "Invalid Attribute").form {
+            field("slug") { asAttributeId() }
+        }
+
+        assertThat(form.hasErrors()).isTrue()
+        assertThat(form.errors["slug"]).isEqualTo("Invalid attribute ID format")
+    }
+
+    @Test
     fun `asStencilId accepts a valid slug`() {
         val form = requestWith("slug" to "corporate-header").form {
             field("slug") { asStencilId() }

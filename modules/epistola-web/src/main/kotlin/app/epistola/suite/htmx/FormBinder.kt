@@ -1,5 +1,6 @@
 package app.epistola.suite.htmx
 
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -31,6 +32,7 @@ class FieldSpec(val fieldName: String) {
     private val validators = mutableListOf<Pair<Validator, String>>()
     var required: Boolean = false
     var asInt: Boolean = false
+    var asAttributeId: Boolean = false
     var asEnvironmentId: Boolean = false
     var asStencilId: Boolean = false
     var asTemplateId: Boolean = false
@@ -123,6 +125,13 @@ class FieldSpec(val fieldName: String) {
      */
     fun asInt() {
         this.asInt = true
+    }
+
+    /**
+     * Mark this field to be validated as an AttributeId.
+     */
+    fun asAttributeId() {
+        this.asAttributeId = true
     }
 
     /**
@@ -307,6 +316,11 @@ class FormBuilder {
             // Domain ID validation
             if (value.isNotBlank()) {
                 when {
+                    spec.asAttributeId -> {
+                        if (AttributeKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid attribute ID format"
+                        }
+                    }
                     spec.asEnvironmentId -> {
                         if (EnvironmentKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid environment ID format"
