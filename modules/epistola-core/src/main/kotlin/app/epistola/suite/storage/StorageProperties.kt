@@ -20,6 +20,11 @@ data class S3Properties(
     val bucket: String = "",
     val region: String = "eu-west-1",
     val endpoint: String? = null,
+    /**
+     * Days after which the `documents/` prefix lifecycle rule expires document blobs
+     * (#738). When null, derived from `epistola.partitions.retention-months`.
+     */
+    val documentRetentionDays: Int? = null,
 )
 
 data class FilesystemProperties(
