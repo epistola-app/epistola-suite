@@ -48,28 +48,31 @@ class ContentBackfillRunner(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun afterSingletonsInstantiated() {
-        val locked = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT pg_try_advisory_lock(:key)")
+        // Session-level advisory lock so only one node runs the backfill. It must be
+        // acquired AND released on the SAME connection — a pooled connection keeps the
+        // lock across a Handle close, so we hold one dedicated Handle for its lifetime
+        // and explicitly unlock before returning it to the pool. The batched work runs
+        // on other pooled connections; the lock is only a cross-node mutex.
+        jdbi.open().use { lockHandle ->
+            val locked = lockHandle.createQuery("SELECT pg_try_advisory_lock(:key)")
                 .bind("key", BACKFILL_LOCK_KEY)
                 .mapTo(Boolean::class.java)
                 .one()
-        }
-        if (!locked) {
-            logger.debug("Content backfill skipped — another node holds the lock")
-            return
-        }
-        try {
-            MediatorContext.runWithMediator(mediator) {
-                if (properties.backend == StorageBackend.POSTGRES) {
-                    backfillDocuments()
-                }
-                backfillAssets()
+            if (!locked) {
+                logger.debug("Content backfill skipped — another node holds the lock")
+                return
             }
-        } catch (e: Exception) {
-            logger.error("Content backfill failed (will retry next boot): {}", e.message, e)
-        } finally {
-            jdbi.useHandle<Exception> { handle ->
-                handle.createUpdate("SELECT pg_advisory_unlock(:key)").bind("key", BACKFILL_LOCK_KEY).execute()
+            try {
+                MediatorContext.runWithMediator(mediator) {
+                    if (properties.backend == StorageBackend.POSTGRES) {
+                        backfillDocuments()
+                    }
+                    backfillAssets()
+                }
+            } catch (e: Exception) {
+                logger.error("Content backfill failed (will retry next boot): {}", e.message, e)
+            } finally {
+                lockHandle.createUpdate("SELECT pg_advisory_unlock(:key)").bind("key", BACKFILL_LOCK_KEY).execute()
             }
         }
     }
