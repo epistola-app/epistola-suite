@@ -26,6 +26,7 @@ class StorageConfiguration {
      */
     @Bean
     fun documentContentStore(properties: StorageProperties, jdbi: Jdbi, meterRegistry: MeterRegistry): DocumentContentStore {
+        warnIfAlphaBackend(properties.backend)
         val backendName = properties.backend.name.lowercase()
         val store: DocumentContentStore = when (properties.backend) {
             StorageBackend.POSTGRES -> {
@@ -103,6 +104,26 @@ class StorageConfiguration {
         // window — never expiring one still within retention.
         val retentionDays = properties.s3.documentRetentionDays ?: (retentionMonths * 31)
         return S3DocumentRetentionInitializer(buildS3Client(properties), properties.s3.bucket, retentionDays)
+    }
+
+    /**
+     * PostgreSQL is the only tested/supported document-content backend. S3 and
+     * filesystem are **alpha** — wired but not exercised by CI or in production — so
+     * surface a loud warning if one is selected, and MEMORY is test-only.
+     */
+    private fun warnIfAlphaBackend(backend: StorageBackend) {
+        when (backend) {
+            StorageBackend.S3, StorageBackend.FILESYSTEM ->
+                logger.warn(
+                    "Storage backend {} is ALPHA/untested — only POSTGRES is validated for production. Use at your own risk.",
+                    backend,
+                )
+
+            StorageBackend.MEMORY ->
+                logger.warn("Storage backend MEMORY is for tests only and does not persist content across restarts.")
+
+            StorageBackend.POSTGRES -> Unit
+        }
     }
 
     private fun buildS3Client(properties: StorageProperties): S3Client {

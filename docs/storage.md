@@ -20,6 +20,13 @@ The pluggable backend (`epistola.storage.backend` = `POSTGRES` (default) / `S3` 
 always in PostgreSQL, so the whole installation dedups assets uniformly and a tenant's
 asset bytes are physically theirs (clean erasure).
 
+> **Backend support status.** `POSTGRES` is the only tested, production-supported
+> document backend. `S3` and `FILESYSTEM` are **alpha** — wired end-to-end but not
+> exercised by CI or run in production, so their retention paths (the S3 lifecycle rule
+> and the filesystem age sweep) are unvalidated; selecting one logs a startup warning.
+> `MEMORY` is test-only. Everything below describing S3/filesystem documents how they
+> are _intended_ to work, not a validated guarantee.
+
 ## Document retention is per-backend
 
 A document blob is written with its owning document's `created_at` and reclaimed the

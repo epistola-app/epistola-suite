@@ -9,10 +9,26 @@ data class StorageProperties(
     val filesystem: FilesystemProperties = FilesystemProperties(),
 )
 
+/**
+ * Where **document** content (generated PDFs) is stored. Asset content is always in
+ * PostgreSQL regardless of this setting (issue #738).
+ *
+ * Only [POSTGRES] is tested and supported for production. [S3] and [FILESYSTEM] are
+ * **alpha** — wired end-to-end but not exercised by CI or run in production, so their
+ * retention paths (S3 bucket lifecycle rule, filesystem age sweep) are unvalidated.
+ * [MEMORY] is for tests only.
+ */
 enum class StorageBackend {
+    /** Tested, supported default: the partitioned `document_content` table. */
     POSTGRES,
+
+    /** Alpha, untested: single S3 bucket + a `documents/` lifecycle rule for retention. */
     S3,
+
+    /** Alpha, untested: files under a base path + an age sweep for retention. */
     FILESYSTEM,
+
+    /** Test-only: in-memory, does not persist across restarts. */
     MEMORY,
 }
 
