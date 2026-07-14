@@ -41,7 +41,7 @@
                     <option th:each="cat : ${authoredCatalogs}"
                             th:value="${cat.id}"
                             th:text="${cat.name}"
-                            th:selected="${formData?.catalog == cat.id}"></option>
+                            th:selected="${#strings.equals(formData?.catalog, cat.id)}"></option>
                 </select>
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
