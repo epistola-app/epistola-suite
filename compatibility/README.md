@@ -122,7 +122,9 @@ compatibility/render.sh                 # picks up aggregate.json → second tab
 `aggregate.sh` (jq + curl) writes rows with a `compatible` flag and a human reason;
 `render.sh` adds a "Plugin ↔ suite compatibility" table when `aggregate.json` has
 rows. Fetching is **best effort** — a feed whose repo has not merged its
-declaration yet (404) is warned and skipped, so `feeds.txt` can list a source
+declaration yet (404) is warned and skipped, and so is one that is not a valid
+v1 client declaration (feeds come from repos we don't control, so a malformed
+one must never fail the aggregate). `feeds.txt` can therefore list a source
 before that side ships. **CI runs this** after the smoke (feeds from `feeds.txt`),
 so the plugin table appears in the job summary automatically once the plugin's feed
 is live. The declarations stay with each artifact; the aggregator only reads feeds
@@ -151,12 +153,19 @@ rendered as a second table; **CI runs it** after the smoke. The full pipeline
 
 **Next:**
 
-1. **Vary the client** — run the smoke against a range of contract versions
+1. **Flip CI to actually read the declared range** — once a compat-aware suite
+   image is published, change `compatibility.yml` to boot a demo-capable profile
+   (`--profile localauth,demo`, so the seeded demo API key exists) and raise
+   `RANGE_TIMEOUT` from its current fast-degrade `15`. Until then CI cells carry
+   no `declaredRange`, so the aggregate has no suite range to join against and
+   the plugin table stays empty — the pipeline is wired end-to-end but not yet
+   producing verdicts.
+2. **Vary the client** — run the smoke against a range of contract versions
    (fixed suite image, varying the client's declared contract), turning one cell
    into a real row. The declared range makes each such cell a real
    compatible/incompatible verdict, not just reachability.
-2. **Commit results back** from CI so `matrix.json` + `MATRIX.md` persist across
+3. **Commit results back** from CI so `matrix.json` + `MATRIX.md` persist across
    runs; later, publish as a feed.
-3. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
+4. **Deeper checks** — go beyond `/api/ping` and use the seeded demo API key
    (`epk_demo_…`, available under a demo-capable profile) to exercise authenticated
    contract endpoints, not just the range declaration.

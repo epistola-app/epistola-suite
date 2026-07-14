@@ -21,7 +21,10 @@
 # compatibility.json at its own repo, so remote is the normal case). URL fetches
 # and feeds-file entries are BEST EFFORT: an unreachable feed (e.g. the plugin
 # branch not merged yet → 404) is warned and skipped, not fatal — the aggregate
-# is simply missing that row. A missing local path passed via --feed is an error
+# is simply missing that row. The same applies to a feed whose SHAPE is not a
+# v1 client declaration (missing targetContractVersion, unknown schemaVersion):
+# feeds come from repos we don't control, so a malformed one must never fail the
+# aggregate. A missing or malformed local path passed via --feed is an error
 # (typo protection).
 #
 # Inputs (flags override env):
@@ -61,6 +64,16 @@ log() { echo "[aggregate] $*" >&2; }
 tmp="$(mktemp -d)"
 trap 'rm -rf "${tmp}"' EXIT
 
+# A usable client feed: schemaVersion 1 (the only shape this aggregator knows),
+# a string artifact and a string targetContractVersion. Anything else is skipped
+# (lenient sources) or an error (--feed), never passed into the join — a wrong-
+# shaped feed would otherwise crash the jq program mid-aggregate.
+feed_valid() {
+  jq -e '(.schemaVersion == 1)
+         and (.artifact | type == "string")
+         and (.targetContractVersion | type == "string")' "$1" >/dev/null 2>&1
+}
+
 # --- resolve feed sources to local JSON files (best effort) --------------------
 # Collect sources: explicit --feed first (strict), then feeds-file lines (lenient).
 SOURCES=("${FEEDS[@]}")
@@ -81,13 +94,21 @@ for src in "${SOURCES[@]}"; do
   dest="${tmp}/feed-${i}.json"
   if [[ "${src}" =~ ^https?:// ]]; then
     command -v curl >/dev/null 2>&1 || { echo "curl required to fetch URL feeds" >&2; exit 3; }
-    if curl -fsSL --max-time 30 "${src}" -o "${dest}" 2>/dev/null && jq -e . "${dest}" >/dev/null 2>&1; then
-      resolved+=("${dest}"); log "fetched ${src}"
-    else
+    if ! curl -fsSL --max-time 30 "${src}" -o "${dest}" 2>/dev/null; then
       log "WARN: could not fetch ${src} — skipping (feed absent from the aggregate)"
+    elif ! feed_valid "${dest}"; then
+      log "WARN: ${src} is not a valid v1 client declaration — skipping (feed absent from the aggregate)"
+    else
+      resolved+=("${dest}"); log "fetched ${src}"
     fi
   elif [[ -f "${src}" ]]; then
-    resolved+=("${src}")
+    if feed_valid "${src}"; then
+      resolved+=("${src}")
+    elif [[ "${strict}" -eq 1 ]]; then
+      echo "feed is not a valid v1 client declaration: ${src}" >&2; exit 2
+    else
+      log "WARN: ${src} is not a valid v1 client declaration — skipping"
+    fi
   elif [[ "${strict}" -eq 1 ]]; then
     echo "feed not found: ${src}" >&2; exit 2
   else
