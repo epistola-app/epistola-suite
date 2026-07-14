@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -23,6 +24,8 @@ import app.epistola.suite.htmx.stencilId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.requirePermission
 import app.epistola.suite.stencils.commands.ArchiveStencilVersion
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.CreateStencilVersion
@@ -107,13 +110,42 @@ class StencilHandler(
 
     // ── Create ─────────────────────────────────────────────────────────────
 
+    /** The catalogs a stencil can be created in — authored ones only. */
+    private fun authoredCatalogs(tenantId: TenantId) = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+
+    /**
+     * The full-page list model, used by the newForm non-HTMX branch so the list
+     * renders behind the embedded create dialog. `authoredCatalogs` (the dialog's
+     * catalog `<select>` source) is threaded separately — the list puts *all*
+     * `catalogs` in the model for its filter, so the dialog uses a distinct key to
+     * avoid rendering the wrong (non-authored) options.
+     */
+    private fun ModelBuilder.stencilPageModel(tenantId: TenantId) {
+        "pageTitle" to "Stencils - Epistola"
+        "tenantId" to tenantId.key
+        "catalogs" to ListCatalogs(tenantId.key).query()
+        "selectedCatalog" to ""
+        "stencils" to ListStencils(tenantId = tenantId).query()
+    }
+
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("stencils/new") {
-            "pageTitle" to "New Stencil - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
+        requirePermission(tenantId.key, Permission.STENCIL_EDIT)
+        return request.htmx {
+            // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
+            fragment("stencils/new", "dialog") {
+                "tenantId" to tenantId.key
+                "authoredCatalogs" to authoredCatalogs(tenantId)
+            }
+            // Direct navigation / boost: the host list page with the dialog
+            // embedded in its mount (openDialog=true), opened on load by the JS.
+            onNonHtmx {
+                page("stencils/list") {
+                    stencilPageModel(tenantId)
+                    "openDialog" to true
+                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                }
+            }
         }
     }
 
@@ -134,7 +166,16 @@ class StencilHandler(
         return createForm(request, tenantId)
     }
 
+    /**
+     * The UI create-form path. Reached ONLY for HTMX requests: a non-HTMX POST to
+     * this endpoint is the editor's JSON API (see [create] / [createJson]), so this
+     * function has NO onNonHtmx branch — one would be dead code. This is the one
+     * create dialog that deliberately drops the no-JS form-POST fallback the other
+     * dialogs keep, because that fallback would collide with the JSON API.
+     */
     private fun createForm(request: ServerRequest, tenantId: TenantId): ServerResponse {
+        requirePermission(tenantId.key, Permission.STENCIL_EDIT)
+
         val form = request.form {
             field("catalog") {}
             field("slug") {
@@ -142,66 +183,66 @@ class StencilHandler(
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
                 minLength(3)
                 maxLength(50)
+                // Folds the old "invalid StencilKey" branch into field validation
+                // (same "Invalid stencil ID format" error) so all three failure
+                // modes share one error path. Layered ON TOP of the pattern/length
+                // rules above — strictly additive, never loosening them.
+                asStencilId()
             }
             field("name") {
                 required()
                 maxLength(255)
             }
             field("description") {}
+            // Declared so the comma-separated tags survive an error re-render
+            // (preserved in formData); split into a list below for the command.
+            field("tags") {}
         }
 
         val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
-        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+        val description = form["description"].trim().takeIf { it.isNotEmpty() }
+        val tags = form["tags"].split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-        if (form.hasErrors()) {
-            return ServerResponse.ok().page("stencils/new") {
-                "pageTitle" to "New Stencil - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to form.errors
+        // Field validation (incl. slug/StencilKey) and the command-level failure
+        // (duplicate slug, name length) both land as `errors` on the FormData, so
+        // they share one error path — mirroring DocumentTemplateHandler.create.
+        val result = if (form.hasErrors()) {
+            form
+        } else {
+            form.executeOrFormError {
+                CreateStencil(
+                    id = StencilId(StencilKey.validateOrNull(form["slug"])!!, CatalogId(catalogKey, tenantId)),
+                    name = form["name"],
+                    description = description,
+                    tags = tags,
+                ).execute()
             }
-        }
-
-        val stencilKey = StencilKey.validateOrNull(form["slug"])
-        if (stencilKey == null) {
-            val errors = mapOf("slug" to "Invalid stencil ID format")
-            return ServerResponse.ok().page("stencils/new") {
-                "pageTitle" to "New Stencil - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to errors
-            }
-        }
-
-        val name = form["name"]
-        val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
-        val tagsRaw = request.params().getFirst("tags")?.trim()?.takeIf { it.isNotEmpty() }
-        val tags = tagsRaw?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
-
-        val result = form.executeOrFormError {
-            CreateStencil(
-                id = StencilId(stencilKey, CatalogId(catalogKey, tenantId)),
-                name = name,
-                description = description,
-                tags = tags,
-            ).execute()
         }
 
         if (result.hasErrors()) {
-            return ServerResponse.ok().page("stencils/new") {
-                "pageTitle" to "New Stencil - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to result.formData
-                "errors" to result.errors
+            // Re-render the form inside the dialog (retargeted to the form, not the
+            // list) with inline errors + preserved values. NO onNonHtmx — see the
+            // function KDoc: this path only runs for HTMX requests.
+            return request.htmx {
+                dialogFieldErrors(
+                    template = "stencils/new",
+                    fragmentName = "stencil-form",
+                    formTarget = "#create-stencil-form",
+                    formData = result,
+                ) {
+                    "tenantId" to tenantId.key
+                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                }
             }
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey")
-            .build()
+        // Success: navigate to the newly created stencil's page. The dialog
+        // disappears with the old page (HX-Redirect), so the list is not refreshed.
+        // NO onNonHtmx — HTMX-only path.
+        val stencilKey = StencilKey.validateOrNull(form["slug"])!!
+        return request.htmx {
+            dialogRedirect("/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey")
+        }
     }
 
     private data class CreateStencilJsonRequest(

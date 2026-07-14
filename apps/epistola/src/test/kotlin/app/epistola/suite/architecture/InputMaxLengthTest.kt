@@ -46,7 +46,9 @@ class InputMaxLengthTest {
         name("$base/themes/new.html", "name"),
         name("$base/templates/new.html", "name"),
         name("$base/templates/detail/settings.html", "template-name-input"),
-        name("$base/stencils/new.html", "name"),
+        // Stencil name caps at 255 (matches StencilHandler.createForm's maxLength(255)),
+        // wider than the usual 100 — the create dialog's input mirrors that server limit.
+        Target("$base/stencils/new.html", "name", listOf("maxlength" to "255")),
         name("$base/environments/new.html", "name"),
         name("$base/attributes/new.html", "displayName"),
         name("$base/attributes/list.html", "edit-attr-displayName"),
