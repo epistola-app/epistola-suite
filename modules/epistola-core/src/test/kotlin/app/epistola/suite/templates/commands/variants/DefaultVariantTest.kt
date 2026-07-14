@@ -51,6 +51,21 @@ class DefaultVariantTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `default variant is titled after its slug`() {
+        val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
+
+        withMediator {
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+
+            val variants = ListVariants(templateId = templateId).query()
+            assertThat(variants).hasSize(1)
+            assertThat(variants[0].title).isEqualTo("initial")
+        }
+    }
+
+    @Test
     fun `creating a template with a maximum-length slug succeeds`() {
         // Regression (issue #632): the default variant id used to be "{slug}-default", so a
         // 50-char slug produced a 58-char VariantKey and threw IllegalArgumentException.

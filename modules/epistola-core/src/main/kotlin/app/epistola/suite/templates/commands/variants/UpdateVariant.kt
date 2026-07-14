@@ -25,7 +25,8 @@ data class UpdateVariant(
     override val tenantKey: TenantKey get() = variantId.tenantKey
 
     init {
-        validate("title", title == null || title.length <= MAX_NAME_LENGTH) { "Title must be $MAX_NAME_LENGTH characters or less" }
+        validate("title", !title.isNullOrBlank()) { "Title is required" }
+        validate("title", title.orEmpty().length <= MAX_NAME_LENGTH) { "Title must be $MAX_NAME_LENGTH characters or less" }
     }
 }
 

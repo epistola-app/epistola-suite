@@ -315,7 +315,11 @@ class ImportTemplatesHandler(
                 .bind("tenantId", tenantId.key)
                 .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
-                .bind("title", variantInput.title)
+                // Title is required (#631); default a title-less import to the variant slug.
+                .bind(
+                    "title",
+                    variantInput.title?.takeIf { it.isNotBlank() } ?: variantInput.id,
+                )
                 .bind("attributes", attributesJson)
                 .bind("isDefault", variantInput.isDefault)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
