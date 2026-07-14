@@ -60,6 +60,9 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
                 .bind("bytes", bytes)
                 .bind("size", bytes.size.toLong())
                 .execute()
+            // The real runner already ran (and set the completion marker) at context
+            // startup; clear it so this manual invocation actually does the work.
+            handle.createUpdate("DELETE FROM app_metadata WHERE key = 'content-backfill.completed'").execute()
         }
 
         runner.afterSingletonsInstantiated()
@@ -68,8 +71,10 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
         assertThat(blobRows(tenant.id.value, expectedHash)).isEqualTo(1)
         assertThat(withMediator { GetAssetContent(tenant.id, assetId, cat).query() }!!.content).isEqualTo(bytes)
+        // A full pass records the completion marker (so later boots skip the runner).
+        assertThat(completionMarker()).isNotNull()
 
-        // Idempotent: a second run changes nothing.
+        // Idempotent: a second run changes nothing (now short-circuited by the marker).
         runner.afterSingletonsInstantiated()
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
         assertThat(blobRows(tenant.id.value, expectedHash)).isEqualTo(1)
@@ -78,6 +83,13 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
     private fun contentHash(assetId: AssetKey): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery("SELECT content_hash FROM assets WHERE id = :id")
             .bind("id", assetId.value)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null)
+    }
+
+    private fun completionMarker(): String? = jdbi.withHandle<String?, Exception> { handle ->
+        handle.createQuery("SELECT value::text FROM app_metadata WHERE key = 'content-backfill.completed'")
             .mapTo(String::class.java)
             .findOne()
             .orElse(null)

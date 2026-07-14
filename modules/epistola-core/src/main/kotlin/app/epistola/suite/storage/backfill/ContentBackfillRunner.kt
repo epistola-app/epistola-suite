@@ -2,6 +2,7 @@ package app.epistola.suite.storage.backfill
 
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.storage.StorageBackend
@@ -42,12 +43,21 @@ class ContentBackfillRunner(
     private val legacyContentStore: ContentStore,
     private val assetContentStore: AssetContentStore,
     private val mediator: Mediator,
+    private val appMetadata: AppMetadataService,
     @Value("\${epistola.storage.backfill.asset-batch-size:200}")
     private val assetBatchSize: Int,
 ) : SmartInitializingSingleton {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun afterSingletonsInstantiated() {
+        // Only run when there is still work to do: once a node has completed a full
+        // pass it records a marker, so every later boot (fleet-wide) short-circuits
+        // here — no advisory lock, no scan queries. New content never lands in the
+        // legacy store after this feature ships, so "done" is durable.
+        if (appMetadata.get(COMPLETED_KEY) != null) {
+            logger.debug("Content backfill already completed — skipping")
+            return
+        }
         // Session-level advisory lock so only one node runs the backfill. It must be
         // acquired AND released on the SAME connection — a pooled connection keeps the
         // lock across a Handle close, so we hold one dedicated Handle for its lifetime
@@ -69,6 +79,10 @@ class ContentBackfillRunner(
                     }
                     backfillAssets()
                 }
+                // A full pass completed without error — mark done so future boots skip
+                // entirely. (Assets with irretrievable legacy bytes stay content_hash
+                // NULL and fall back to the legacy store; re-scanning can't fix them.)
+                appMetadata.setAs(COMPLETED_KEY, true)
             } catch (e: Exception) {
                 logger.error("Content backfill failed (will retry next boot): {}", e.message, e)
             } finally {
@@ -190,5 +204,8 @@ class ContentBackfillRunner(
     private companion object {
         // Application-defined advisory lock key ("EpBkfil1"), high range to avoid collisions.
         const val BACKFILL_LOCK_KEY: Long = 0x4570_426B_6669_6C31L
+
+        // app_metadata marker: set after a full pass so later boots skip the whole runner.
+        const val COMPLETED_KEY = "content-backfill.completed"
     }
 }
