@@ -100,6 +100,30 @@ class AssetContentStoreIT : IntegrationTestBase() {
         assertThat(orphanGauge()).isGreaterThanOrEqualTo(0.0)
     }
 
+    @Test
+    fun `system-catalog assets dedup globally across tenants`(): Unit = withMediator {
+        // The bundled system catalog (installed per tenant) ships the system-badge
+        // asset under catalog_key='system' → scope 'system' → global dedup. Two tenants
+        // share ONE asset_content blob per bundled hash — the headline dedup win, and
+        // this feature's demonstration on the bundled catalog (issue #738, rule #13).
+        val a = createTenant("Sys A")
+        val b = createTenant("Sys B")
+
+        val hashesA = systemAssetHashes(a.id)
+        val hashesB = systemAssetHashes(b.id)
+        assertThat(hashesA).isNotEmpty
+        assertThat(hashesB).containsExactlyInAnyOrderElementsOf(hashesA)
+        // Each bundled hash is stored exactly once under scope 'system', regardless of tenant count.
+        hashesA.forEach { hash -> assertThat(blobRows("system", hash)).isEqualTo(1) }
+    }
+
+    private fun systemAssetHashes(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery("SELECT content_hash FROM assets WHERE tenant_key = :t AND catalog_key = 'system' AND content_hash IS NOT NULL")
+            .bind("t", tenant)
+            .mapTo(String::class.java)
+            .list()
+    }
+
     private fun createCatalogFor(tenant: TenantKey, cat: CatalogKey) {
         app.epistola.suite.catalog.commands.CreateCatalog(tenantKey = tenant, id = cat, name = cat.value).execute()
     }
