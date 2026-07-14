@@ -97,12 +97,12 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Target the field-level error specifically: the form also carries the shared
         // global-error slot (`.alert-error.form-global-error`), so exclude it to keep the
         // selector resolving to a single element.
-        assertThat(page.locator("#code-list-form-area .alert-error:not(.form-global-error)"))
+        assertThat(page.locator("#create-code-list-form .alert-error:not(.form-global-error)"))
             .hasText("Entry codes must be unique within a code list")
-        // Plain boosted form: a validation error re-renders the full page, so the URL
-        // is the form's POST action (the collection), not /new. The form + errors + the
-        // entered values are still shown (asserted above/below).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
+        // Server-sent dialog: a validation error retargets the form (422) and swaps it
+        // in place, leaving the dialog open on the /new route (no HX-Push-Url on the
+        // error response). The form + errors + entered values stay shown (asserted here).
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
         assertThat(page.locator("#entries-tbody tr").first().locator("input[placeholder='code']")).hasValue("test")
         assertThat(page.locator("#entries-tbody tr").nth(1).locator("input[placeholder='code']")).hasValue("test")
@@ -134,10 +134,10 @@ class CodeListUiTest : BasePlaywrightTest() {
         page.locator("button:has-text('Create code list')").click()
 
         assertThat(page.locator("#slug + .form-hint + .form-error")).hasText("A code-list with this ID already exists")
-        // Plain boosted form: a validation error re-renders the full page, so the URL
-        // is the form's POST action (the collection), not /new. The form + errors + the
-        // entered values are still shown (asserted above/below).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
+        // Server-sent dialog: a duplicate slug retargets the form (422) and swaps it in
+        // place, leaving the dialog open on the /new route (no HX-Push-Url on the error
+        // response). The form + errors + entered value stay shown (asserted above/below).
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
         assertThat(page.locator("#slug")).hasValue("locales")
     }
 
