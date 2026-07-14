@@ -3,6 +3,7 @@ package app.epistola.suite.htmx
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.validation.DuplicateIdException
@@ -31,6 +32,7 @@ class FieldSpec(val fieldName: String) {
     var asInt: Boolean = false
     var asEnvironmentId: Boolean = false
     var asTemplateId: Boolean = false
+    var asThemeId: Boolean = false
     var asVariantId: Boolean = false
     var asVersionId: Boolean = false
     var asTenantId: Boolean = false
@@ -133,6 +135,13 @@ class FieldSpec(val fieldName: String) {
      */
     fun asTemplateId() {
         this.asTemplateId = true
+    }
+
+    /**
+     * Mark this field to be validated as a ThemeId.
+     */
+    fun asThemeId() {
+        this.asThemeId = true
     }
 
     /**
@@ -297,6 +306,11 @@ class FormBuilder {
                     spec.asTemplateId -> {
                         if (TemplateKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid template ID format"
+                        }
+                    }
+                    spec.asThemeId -> {
+                        if (ThemeKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid theme ID format"
                         }
                     }
                     spec.asVariantId -> {
