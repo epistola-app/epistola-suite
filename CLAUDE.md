@@ -39,6 +39,7 @@ epistola-suite-modules/
 │   │   ├── documents/     # Document generation domain
 │   │   ├── environments/  # Environment domain
 │   │   ├── mediator/      # CQRS mediator pattern
+│   │   ├── quality/       # Quality-checks findings ledger + source SPI
 │   │   ├── common/        # Shared utilities (IDs, UUIDv7)
 │   │   ├── validation/    # JSON schema validation
 │   │   ├── generation/    # GenerationService (orchestration)
@@ -96,6 +97,8 @@ migration — add a new timestamped file. Folding `ALTER`s back into the origina
   - **Footer chrome** — `FooterContributor` (package `app.epistola.suite.htmx.footer`) returns Thymeleaf `FooterFragment`s (`template :: fragment`); `FooterFragmentResolver` collects them and `fragments/footer` `th:replace`s each. Example: `epistola-support-feedback`'s `FeedbackFooterContributor` injects the feedback FAB.
 
   Follow this shape for the next extension point (e.g. a `TemplateDetailTab` SPI: feature module ships a `@Component` + a UI handler returning an HTMX fragment; host page renders a tab strip with `hx-get` lazy-load) — add it when the first contributing feature needs it.
+
+- **Quality checks are a ledger, not a check engine** (`epistola-core/quality/`, feature key `quality`, off by default). The suite does **not** run quality checks. Sources **submit** findings and the ledger owns them: an in-process source implements the `QualityFindingSource` SPI (a pure function from document to findings — the framework runs it on the daily sweep, after publish, and on the editor's "Check now"); a remote checker implements nothing and pushes over REST; a reviewer raises one by hand. All converge on `SubmitQualityFindings`. A submission is a source's **full current set** for a subject, so anything absent auto-resolves — that is where resolution-on-fix comes from, and why an empty submission is meaningful rather than a no-op. Checks only ever see a template's **example data**, never user data. Two invariants are easy to break and guarded by tests: reconciliation is scoped by `source_id` (or sources resolve each other's findings), and `IGNORED` is derived from a live ignore row rather than stored (which is what keeps an unchanged fingerprint's ignore true by construction). Before touching fingerprints, ignore scope, or staleness, read [`docs/quality.md`](docs/quality.md) — the `fingerprint` contract is subtle and everything rests on it. The key is `quality`, deliberately **not** in `SUPPORT_TIER`/`HUB_ONLY`: the hub contract has no `QUALITY` feature to grant, so a key there would be permanently unavailable wherever the support tier is on.
 
 - **Feature-toggle reads go through CQRS queries, not the service.** `GetFeatureToggles` is the permission-gated (`TENANT_SETTINGS`) read backing the admin Features page; `ResolveFeatureToggles` is its `SystemInternal` (auth-bypassing) sibling for internal use — UI rendering (nav/footer contributors, shown to any signed-in user) and background schedulers. Both delegate to `FeatureToggleService.resolveAll`, which memoizes per request via a `ScopedValue` cache (bound by `FeatureToggleCacheFilter`, same idiom as `SecurityContext`/`MediatorContext`), so a whole page render issues one toggle query per tenant. Add new toggle reads as a query; only the resolution service touches JDBI.
 
