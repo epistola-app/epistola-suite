@@ -16,9 +16,17 @@ data class DataContractInfo(
     val catalogId: String,
     /** "draft" or "published". */
     val status: String,
-    /** Full JSON Schema for the input data. May be null for legacy contracts. */
+    /**
+     * Vestigial second schema. Despite the name it is **not** what submitted data is validated
+     * against, and it is not kept in step with [dataModel]. Prefer [dataModel]. May be null.
+     */
     val schema: Any?,
-    /** UI-rendering schema (similar to JSON Schema with form-display hints). May be null. */
+    /**
+     * The authoritative JSON Schema for the input data: this is what every validation path
+     * (generation, preview, the REST validate endpoint) actually checks data against, and what
+     * the data-contract editor authors. May be null, which means no validation. Note that extra
+     * properties not declared here are currently accepted and ignored.
+     */
     val dataModel: Any?,
     val dataExamples: List<DataExampleInfo>,
     val createdAt: OffsetDateTime,
