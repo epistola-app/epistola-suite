@@ -29,10 +29,12 @@ class FilesystemDocumentContentStore(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /** Root under which document blobs live — the sweep is scoped to this subtree. */
-    private val documentsRoot: Path = basePath.resolve(DOCUMENTS_PREFIX)
+    /** Normalized storage root; every resolved key is checked to stay within it. */
+    private val root: Path = basePath.normalize()
+    private val documentsRoot: Path = root.resolve(DOCUMENTS_PREFIX)
 
     override fun put(key: String, content: InputStream, contentType: String, sizeBytes: Long, createdAt: OffsetDateTime) {
-        val file = basePath.resolve(key)
+        val file = resolveWithinRoot(key)
         Files.createDirectories(file.parent)
         content.use { Files.copy(it, file, StandardCopyOption.REPLACE_EXISTING) }
         Files.writeString(metaPath(file), contentType)
@@ -41,7 +43,7 @@ class FilesystemDocumentContentStore(
     }
 
     override fun get(key: String): StoredContent? {
-        val file = basePath.resolve(key)
+        val file = resolveWithinRoot(key)
         if (!Files.exists(file)) return null
         return StoredContent(
             content = Files.newInputStream(file),
@@ -51,13 +53,25 @@ class FilesystemDocumentContentStore(
     }
 
     override fun delete(key: String): Boolean {
-        val file = basePath.resolve(key)
+        val file = resolveWithinRoot(key)
         if (!Files.exists(file)) return false
         Files.deleteIfExists(metaPath(file))
         return Files.deleteIfExists(file)
     }
 
-    override fun exists(key: String): Boolean = Files.exists(basePath.resolve(key))
+    override fun exists(key: String): Boolean = Files.exists(resolveWithinRoot(key))
+
+    /**
+     * Resolve [key] under the storage [root] and prove the result stays within it, so
+     * a key containing `..` (or an absolute path) can never escape the content store.
+     * Keys are internally built from typed UUID ids, but this guards the boundary
+     * regardless of caller.
+     */
+    private fun resolveWithinRoot(key: String): Path {
+        val resolved = root.resolve(key).normalize()
+        require(resolved.startsWith(root)) { "Illegal content key escapes the storage root" }
+        return resolved
+    }
 
     /**
      * Delete document files whose modification time is older than the retention
