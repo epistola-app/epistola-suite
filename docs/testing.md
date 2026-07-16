@@ -101,7 +101,7 @@ IntegrationTestBase (modules/testing)
 │  @SpringBootTest(classes = [TestApplication])
 │  Provides: withMediator(), fixture(), scenario(), createTenant()
 │
-├── Module integration tests (epistola-core, epistola-catalog, etc.)
+├── Module integration tests (epistola-core, epistola-mcp, etc.)
 │     Extend IntegrationTestBase directly
 │     Boot TestApplication (minimal, no web layer)
 │
