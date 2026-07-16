@@ -88,7 +88,7 @@ object KnownFeatures {
             "Enables quality checks — a ledger of findings about templates, surfaced in a report and " +
                 "in the template editor. Findings are submitted by check sources (in-process or remote) " +
                 "and by reviewers; checks only ever analyse a template's example data.",
-            stage = FeatureStage.BETA,
+            stage = FeatureStage.ALPHA,
         ),
     )
 

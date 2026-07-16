@@ -170,11 +170,18 @@ falls out of reconciliation being a full-set upsert.
 
 ## Configuration
 
-| Property                         | Default        | Meaning                           |
-| -------------------------------- | -------------- | --------------------------------- |
-| `epistola.features.quality`      | `false`        | The feature toggle default (BETA) |
-| `epistola.quality.sweep.enabled` | `true`         | Registers the daily sweep task    |
-| `epistola.quality.sweep.cron`    | `0 30 3 * * *` | When the sweep runs               |
+| Property                         | Default        | Meaning                                           |
+| -------------------------------- | -------------- | ------------------------------------------------- |
+| `epistola.features.quality`      | `false`        | The feature toggle default (the feature is alpha) |
+| `epistola.quality.sweep.enabled` | `true`         | Registers the daily sweep task                    |
+| `epistola.quality.sweep.cron`    | `0 30 3 * * *` | When the sweep runs                               |
+
+The feature is **alpha** (`FeatureStage.ALPHA`), so it renders an "Alpha" badge in the nav,
+on its own page, and in the admin Features list. Alpha is the honest label here: the
+ledger's semantics are settled and tested, but the surfaces on top of it are not, and no
+remote source exists yet — so a tenant switching it on today gets the example source and
+whatever they raise by hand. Expect the shape of the report, the editor panel, and the REST
+ingest to move before this is stable.
 
 The feature key is `quality`, **not** `support-quality`, and is deliberately outside
 `SUPPORT_TIER`/`HUB_ONLY`: the ledger and its in-process sources work with the support tier
@@ -191,7 +198,7 @@ this one — renaming a feature key is a migration.
 
 `TEMPLATE_VIEW` reads; `TEMPLATE_EDIT` submits, ignores, comments and resolves. No dedicated
 `QUALITY_*` permissions in v1 — they would ripple into `TenantRole.permissions()`, API-key
-grants and their tests for a BETA feature. A dedicated pair is the natural refinement if
+grants and their tests for an alpha feature. A dedicated pair is the natural refinement if
 quality earns its own role.
 
 No quality command calls `requireCatalogEditable`: a finding is metadata _about_ content,

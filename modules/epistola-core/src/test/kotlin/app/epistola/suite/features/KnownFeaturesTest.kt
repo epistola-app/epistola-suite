@@ -35,7 +35,15 @@ class KnownFeaturesTest {
     fun `quality is toggle-only and never hub-gated`() {
         assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.QUALITY)
         assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.QUALITY)
-        assertThat(KnownFeatures.stageOf(KnownFeatures.QUALITY)).isEqualTo(KnownFeatures.FeatureStage.BETA)
+    }
+
+    /**
+     * Quality is alpha: the ledger's semantics are settled but its surfaces are not, and the
+     * badge is how a tenant admin is told that on the Features page before switching it on.
+     */
+    @Test
+    fun `quality is marked alpha`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.QUALITY)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
     }
 
     /**

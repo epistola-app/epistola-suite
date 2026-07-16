@@ -16,7 +16,7 @@ data class FeatureDefaults(
      * Quality checks. Like feedback (and unlike backups/upgrading) this is **not** hub-gated — the
      * ledger, its in-process sources, and the report all work with the support tier off — so its
      * default lives here rather than following `epistola.support.enabled`. Off while the feature is
-     * BETA; stated explicitly rather than riding the `else` branch below, so enabling it later is a
+     * ALPHA; stated explicitly rather than riding the `else` branch below, so enabling it later is a
      * deliberate edit and not a silent change of meaning.
      */
     val quality: Boolean = false,
