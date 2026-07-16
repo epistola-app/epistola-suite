@@ -45,7 +45,7 @@ CREATE TABLE quality_findings (
     template_key      TEMPLATE_KEY NOT NULL,
     variant_key       VARIANT_KEY,
     version_key       INT,
-    node_id           TEXT,                    -- editor node the finding points at, when it has one
+    node_ids          TEXT[]       NOT NULL DEFAULT '{}',  -- editor nodes this finding points at; drives the in-editor markers
     path              TEXT,                    -- JSON pointer / data path, when it has one
     message           TEXT         NOT NULL,
     docs_url          TEXT,
@@ -78,6 +78,9 @@ CREATE INDEX idx_quality_findings_template ON quality_findings(tenant_key, catal
 CREATE INDEX idx_quality_findings_report ON quality_findings(tenant_key, status, severity, last_seen_at DESC);
 -- Ignore join + per-source reporting.
 CREATE INDEX idx_quality_findings_ignore_scope ON quality_findings(tenant_key, ignore_scope_urn, source_id);
+-- "Which findings touch this node" — the editor asks per subject and fans out client-side, but a
+-- node-anchored lookup is cheap to support and this is the index it needs.
+CREATE INDEX idx_quality_findings_node_ids ON quality_findings USING GIN (node_ids);
 
 COMMENT ON TABLE quality_findings IS 'Ledger of quality findings submitted by check sources (in-process or remote) and by humans. Checks are not run here — sources submit, the ledger owns. Reconciled per (source, subject): a submission is the source''s FULL current set, and anything absent from it auto-resolves.';
 COMMENT ON COLUMN quality_findings.id IS 'UUIDv7 — stable local identity. Deliberately preserved across resolve/resurface so comments survive the cycle.';
@@ -85,6 +88,7 @@ COMMENT ON COLUMN quality_findings.source_id IS 'Who reported this. Reconciliati
 COMMENT ON COLUMN quality_findings.rule_id IS 'Source-defined rule identifier. Findings are self-describing — there is deliberately no local rule catalog table to drift from a remote source''s rules.';
 COMMENT ON COLUMN quality_findings.subject_urn IS 'EntityIdBase.toUrn() of what the source analysed (template / variant / version / contract-version).';
 COMMENT ON COLUMN quality_findings.ignore_scope_urn IS 'What an ignore attaches to — deliberately coarser than subject_urn (a template URN for a finding on one of its versions), so an ignore carries forward across versions instead of being re-applied after every publish. Generalized to a URN rather than flat (catalog, template) columns so a future tenant-scoped finding (e.g. a compatibility verdict) fits the same key.';
+COMMENT ON COLUMN quality_findings.node_ids IS 'The editor nodes this finding is about, in the source''s own order of relevance; the editor marks each and navigates to the first. A LIST, not a single node, because a finding is often genuinely about several elements at once — "these two paragraphs contradict each other", "these blocks disagree on date format". Emitting one finding per node instead would split a single problem into several that ignore and resolve independently. Empty when the finding is not about any particular element (a document-level or data-level observation).';
 COMMENT ON COLUMN quality_findings.fingerprint IS 'Source-computed finding identity — OPAQUE to the ledger (no CHECK; a remote source need not use hex sha256). Contract: stable across re-runs for the same problem, changes when the problem materially changes. Auto-resolve and ignore-carry-forward both rest on it.';
 COMMENT ON COLUMN quality_findings.input_fingerprint IS 'LEDGER-computed hash of the template model this finding was computed against — drives the editor''s "outdated" marker. Deliberately not source-supplied: Postgres normalizes jsonb key order, so a remote source hashing the JSON it fetched would produce a different string and every one of its findings would read as permanently stale.';
 COMMENT ON COLUMN quality_findings.context IS 'Source-supplied structured evidence (e.g. {"length": 142}). Free-form; the ledger never interprets it.';

@@ -33,13 +33,13 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         fingerprint: String,
         message: String = "something is off",
         severity: QualitySeverity = QualitySeverity.WARNING,
-        nodeId: String? = null,
+        nodeIds: List<String> = emptyList(),
     ) = SubmittedFinding(
         ruleId = "example.rule",
         severity = severity,
         fingerprint = fingerprint,
         message = message,
-        nodeId = nodeId,
+        nodeIds = nodeIds,
     )
 
     /** A tenant + template + variant, and the subject naming that variant. */
@@ -252,6 +252,75 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         assertThat(finding.inputFingerprint).isNotNull()
         assertThat(finding.inputFingerprint).isEqualTo(read.currentInputFingerprint)
         assertThat(read.isStale(finding)).isFalse()
+    }
+
+    /**
+     * A finding can be about several elements at once — "these two paragraphs contradict each
+     * other" is one problem, not two. Each named node gets a marker in the editor; the first is
+     * where "go to" lands.
+     */
+    @Test
+    fun `a finding can mark several elements at once`() {
+        val subject = newSubject()
+
+        withMediator {
+            SubmitQualityFindings(
+                sourceA,
+                subject,
+                listOf(
+                    finding(
+                        "fp-1",
+                        message = "These paragraphs state different delivery times",
+                        nodeIds = listOf("node-a", "node-b", "node-c"),
+                    ),
+                ),
+            ).execute()
+        }
+
+        val finding = readBack(subject).findings.single()
+        // Order is the source's own order of relevance and must survive the round trip.
+        assertThat(finding.nodeIds).containsExactly("node-a", "node-b", "node-c")
+        assertThat(finding.primaryNodeId).isEqualTo("node-a")
+        assertThat(finding.marks("node-b")).isTrue()
+        assertThat(finding.marks("node-z")).isFalse()
+    }
+
+    /** A finding about the document as a whole names no element, and that is not an error. */
+    @Test
+    fun `a finding can mark no element at all`() {
+        val subject = newSubject()
+        withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"))).execute() }
+
+        val finding = readBack(subject).findings.single()
+        assertThat(finding.nodeIds).isEmpty()
+        assertThat(finding.primaryNodeId).isNull()
+    }
+
+    /** The marked set is a display field: a source may add or drop a node without it becoming a new problem. */
+    @Test
+    fun `a resubmit updates the marked elements without reopening`() {
+        val subject = newSubject()
+        withMediator {
+            SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1", nodeIds = listOf("node-a")))).execute()
+        }
+        val first = readBack(subject).findings.single()
+
+        withMediator {
+            SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1", nodeIds = listOf("node-a", "node-b")))).execute()
+        }
+
+        val second = readBack(subject).findings.single()
+        assertThat(second.key).isEqualTo(first.key)
+        assertThat(second.nodeIds).containsExactly("node-a", "node-b")
+        assertThat(second.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
+    }
+
+    /** A repeated node would mean two markers on one element — a source bug, caught early. */
+    @Test
+    fun `a finding rejects duplicate element references`() {
+        assertThatThrownBy { finding("fp-1", nodeIds = listOf("node-a", "node-a")) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("node-a")
     }
 
     /** The reserved manual source must not be reachable through the reconciling path. */

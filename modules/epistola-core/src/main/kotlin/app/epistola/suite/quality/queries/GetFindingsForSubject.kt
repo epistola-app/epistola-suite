@@ -141,7 +141,7 @@ internal fun mapFinding(
     templateKey = TemplateKey.of(rs.getString("template_key")),
     variantKey = rs.getString("variant_key"),
     versionKey = rs.getObject("version_key")?.let { (it as Number).toInt() },
-    nodeId = rs.getString("node_id"),
+    nodeIds = readNodeIds(rs),
     path = rs.getString("path"),
     message = rs.getString("message"),
     docsUrl = rs.getString("docs_url"),
@@ -156,3 +156,14 @@ internal fun mapFinding(
     lastSeenAt = rs.getTimestamp("last_seen_at").toInstant(),
     resolvedAt = rs.getTimestamp("resolved_at")?.toInstant(),
 )
+
+/**
+ * Reads the `node_ids TEXT[]` column. Tolerates a NULL array even though the column is
+ * `NOT NULL DEFAULT '{}'` — a read model that throws on an unexpected shape takes out the whole
+ * report page, and "no elements" is a perfectly meaningful answer.
+ */
+private fun readNodeIds(rs: ResultSet): List<String> {
+    val array = rs.getArray("node_ids") ?: return emptyList()
+    @Suppress("UNCHECKED_CAST")
+    return (array.array as? Array<String>)?.toList() ?: emptyList()
+}

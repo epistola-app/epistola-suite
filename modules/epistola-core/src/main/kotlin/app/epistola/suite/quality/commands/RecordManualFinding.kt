@@ -44,13 +44,19 @@ data class RecordManualFinding(
     val message: String,
     val severity: QualitySeverity = QualitySeverity.WARNING,
     val ruleId: String = DEFAULT_RULE_ID,
-    val nodeId: String? = null,
+    /**
+     * The elements the reviewer is pointing at — plural for the same reason automated findings are:
+     * "these two paragraphs say different things" is one remark about two blocks, not two remarks.
+     */
+    val nodeIds: List<String> = emptyList(),
     val path: String? = null,
 ) : Command<QualityFindingKey>,
     RequiresPermission {
     init {
         validate("message", message.isNotBlank()) { "A message is required" }
         validate("ruleId", ruleId.length <= MAX_NAME_LENGTH) { "Rule must be $MAX_NAME_LENGTH characters or less" }
+        validate("nodeIds", nodeIds.none { it.isBlank() }) { "Node references must not be blank" }
+        validate("nodeIds", nodeIds.size == nodeIds.distinct().size) { "Node references must not repeat" }
     }
 
     override val permission: Permission get() = Permission.TEMPLATE_EDIT
@@ -75,11 +81,11 @@ class RecordManualFindingHandler(
                 """
                 INSERT INTO quality_findings (
                     tenant_key, id, source_id, rule_id, severity, subject_urn, subject_type, ignore_scope_urn,
-                    catalog_key, template_key, variant_key, version_key, node_id, path, message, docs_url,
+                    catalog_key, template_key, variant_key, version_key, node_ids, path, message, docs_url,
                     fingerprint, input_fingerprint, context, status, first_seen_at, last_seen_at, resolved_at
                 ) VALUES (
                     :tenantKey, :id, :sourceId, :ruleId, :severity, :subjectUrn, :subjectType, :ignoreScopeUrn,
-                    :catalogKey, :templateKey, :variantKey, :versionKey, :nodeId, :path, :message, NULL,
+                    :catalogKey, :templateKey, :variantKey, :versionKey, :nodeIds, :path, :message, NULL,
                     :fingerprint, NULL, '{}'::jsonb, 'OPEN', :now, :now, NULL
                 )
                 """,
@@ -96,7 +102,7 @@ class RecordManualFindingHandler(
                 .bind("templateKey", command.subject.templateKey)
                 .bind("variantKey", command.subject.variantKey)
                 .bind("versionKey", command.subject.versionKey)
-                .bind("nodeId", command.nodeId)
+                .bindArray("nodeIds", String::class.java, command.nodeIds)
                 .bind("path", command.path)
                 .bind("message", command.message)
                 // Random, not derived from the content: two reviewers raising the same concern are

@@ -60,7 +60,7 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
                 subject = subject,
                 message = "This paragraph contradicts the terms page",
                 severity = QualitySeverity.ERROR,
-                nodeId = "node-abc",
+                nodeIds = listOf("node-abc"),
             ).execute()
         }
 
@@ -68,7 +68,7 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
         assertThat(finding.sourceId).isEqualTo(QualitySourceId.MANUAL)
         assertThat(finding.message).isEqualTo("This paragraph contradicts the terms page")
         assertThat(finding.severity).isEqualTo(QualitySeverity.ERROR)
-        assertThat(finding.nodeId).isEqualTo("node-abc")
+        assertThat(finding.nodeIds).containsExactly("node-abc")
         assertThat(finding.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
         // The flag that tells the UI to offer a Resolve action — this one will not clear itself.
         assertThat(finding.reconciled).isFalse()
@@ -117,6 +117,24 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
 
         assertThat(resolved).isFalse()
         assertThat(readBack(subject).findings.single().effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
+    }
+
+    /** A reviewer can point at several elements in one remark, just as a check can. */
+    @Test
+    fun `a reviewer can raise one finding against several elements`() {
+        val subject = newSubject()
+
+        withMediator {
+            RecordManualFinding(
+                subject = subject,
+                message = "These two paragraphs state different delivery times",
+                nodeIds = listOf("node-a", "node-b"),
+            ).execute()
+        }
+
+        val finding = readBack(subject).findings.single()
+        assertThat(finding.nodeIds).containsExactly("node-a", "node-b")
+        assertThat(finding.primaryNodeId).isEqualTo("node-a")
     }
 
     /** Two reviewers raising the same concern are two notes — a person never re-submits. */

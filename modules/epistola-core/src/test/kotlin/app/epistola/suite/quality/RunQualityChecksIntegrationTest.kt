@@ -86,7 +86,8 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
         assertThat(open).singleElement().satisfies({
             assertThat(it.ruleId).isEqualTo(ExampleQualitySource.RULE_EMPTY_TEXT)
             assertThat(it.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
-            assertThat(it.nodeId).isEqualTo("node-1")
+            // The element the editor will mark, carried end to end from the source.
+            assertThat(it.nodeIds).containsExactly("node-1")
         })
 
         // The author fills the block in and the check runs again. Nobody resolves anything.

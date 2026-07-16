@@ -22,6 +22,26 @@ Findings are **self-describing**: each carries its own `ruleId`, `severity`, `me
 optional `docsUrl`. There is deliberately no local rule catalog — a remote source can add
 or reword rules without a suite release, and there is no second thing to drift.
 
+## Anchoring a finding to elements
+
+A finding carries `nodeIds` — the editor elements it is about. Each one gets a marker on the
+canvas and in the structure tree; the first is where "go to" navigates (`primaryNodeId`).
+
+It is a **list**, not a single node, because a finding is often genuinely about several
+elements at once: two paragraphs that contradict each other, a set of blocks that disagree on
+a date format, a heading inconsistent with its sibling. Emitting one finding per node instead
+would split one problem into several — a reader would have to reassemble them, each would
+have to be ignored separately, and one could resolve while the actual problem persisted.
+
+Order is the source's own order of relevance: put the element an author should look at first,
+first. An empty list is fine and means the finding is not about any particular element — a
+document-level or data-level observation. Use `path` when there is a data location to point
+at instead.
+
+`nodeIds` is a **display field**: a source may add or drop an element without that being a new
+problem, so a resubmit updates the set without reopening. If a changed element set _is_ a
+different problem, that belongs in the fingerprint.
+
 ## Reconciliation: how findings resolve themselves
 
 A source submits its **full current finding set** for a subject, not a delta:

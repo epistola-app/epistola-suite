@@ -64,7 +64,10 @@ class ExampleQualitySource : QualityFindingSource {
                     severity = QualitySeverity.WARNING,
                     fingerprint = fingerprint(RULE_EMPTY_TEXT, input.subject.urn, node.id),
                     message = "This text block is empty and will render as blank space.",
-                    nodeId = node.id,
+                    // Both rules here are about a single block, so they name one node. A
+                    // consistency rule ("these two paragraphs disagree") would name several, and
+                    // the editor would mark each of them — that is why this is a list.
+                    nodeIds = listOf(node.id),
                 ),
             )
 
@@ -74,7 +77,7 @@ class ExampleQualitySource : QualityFindingSource {
                     severity = QualitySeverity.INFO,
                     fingerprint = fingerprint(RULE_LONG_TEXT, input.subject.urn, node.id),
                     message = "This text block is ${text.length} characters long, which is hard to read in a document.",
-                    nodeId = node.id,
+                    nodeIds = listOf(node.id),
                     context = JsonNodeFactory.instance.objectNode()
                         .put("length", text.length)
                         .put("threshold", LONG_TEXT_THRESHOLD),

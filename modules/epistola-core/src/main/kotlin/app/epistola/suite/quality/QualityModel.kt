@@ -139,9 +139,23 @@ data class SubmittedFinding(
      */
     val fingerprint: String,
     val message: String,
-    /** The editor node this points at, when it has one — drives canvas highlighting. */
-    val nodeId: String? = null,
-    /** A data/JSON path, when the finding is about the data rather than a node. */
+    /**
+     * The editor nodes this finding is about — each gets a marker on the canvas and in the
+     * structure tree, and the first is where "go to" navigates.
+     *
+     * A **list**, because a finding is often genuinely about several elements at once: two
+     * paragraphs that contradict each other, a set of blocks that disagree on a date format, a
+     * heading inconsistent with its sibling. Emitting one finding per node would split one problem
+     * into several that a reader has to reassemble — and worse, each would have to be ignored
+     * separately and could resolve independently while the actual problem persisted.
+     *
+     * Order is the source's own order of relevance; put the node an author should look at first, first.
+     *
+     * Empty is fine and means the finding is not about any particular element — a document-level or
+     * data-level observation. Use [path] for those when there is a data location to point at.
+     */
+    val nodeIds: List<String> = emptyList(),
+    /** A data/JSON path, when the finding is about the data rather than an element. */
     val path: String? = null,
     val docsUrl: String? = null,
     /** Structured evidence for the UI (e.g. `{"length": 142}`). Never interpreted by the ledger. */
@@ -151,7 +165,12 @@ data class SubmittedFinding(
         require(ruleId.isNotBlank()) { "ruleId must not be blank" }
         require(fingerprint.isNotBlank()) { "fingerprint must not be blank" }
         require(message.isNotBlank()) { "message must not be blank" }
+        require(nodeIds.none { it.isBlank() }) { "nodeIds must not contain blank entries" }
+        require(nodeIds.size == nodeIds.distinct().size) { "nodeIds must not repeat: $nodeIds" }
     }
+
+    /** The node an author should be taken to first, if any. */
+    val primaryNodeId: String? get() = nodeIds.firstOrNull()
 }
 
 /**
@@ -169,7 +188,8 @@ data class QualityFinding(
     val templateKey: TemplateKey,
     val variantKey: String?,
     val versionKey: Int?,
-    val nodeId: String?,
+    /** The elements this finding marks in the editor; the first is the navigation target. */
+    val nodeIds: List<String>,
     val path: String?,
     val message: String,
     val docsUrl: String?,
@@ -192,7 +212,13 @@ data class QualityFinding(
     val firstSeenAt: Instant,
     val lastSeenAt: Instant,
     val resolvedAt: Instant?,
-)
+) {
+    /** The node an author should be taken to first, if any. */
+    val primaryNodeId: String? get() = nodeIds.firstOrNull()
+
+    /** True when this finding marks [nodeId] in the editor. */
+    fun marks(nodeId: String): Boolean = nodeId in nodeIds
+}
 
 /**
  * A human's disposition of a finding, as a source reads it back.

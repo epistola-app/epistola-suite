@@ -75,7 +75,10 @@ class ExampleQualitySourceTest {
         assertThat(findings).singleElement().satisfies({
             assertThat(it.ruleId).isEqualTo(ExampleQualitySource.RULE_EMPTY_TEXT)
             assertThat(it.severity).isEqualTo(QualitySeverity.WARNING)
-            assertThat(it.nodeId).isEqualTo("node-1")
+            // These rules are about one block each, so they name one node — but through the same
+            // list API a consistency rule would use to name several.
+            assertThat(it.nodeIds).containsExactly("node-1")
+            assertThat(it.primaryNodeId).isEqualTo("node-1")
         })
     }
 
