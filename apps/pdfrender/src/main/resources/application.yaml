@@ -1,0 +1,91 @@
+server:
+  # Distinct from the suite (4000) so both can run on one host during local testing.
+  port: 4010
+  error:
+    include-stacktrace: never
+    include-message: never
+
+spring:
+  application:
+    name: epistola-pdfrender
+  datasource:
+    # URL/username/password come from the environment (SPRING_DATASOURCE_URL/USERNAME/PASSWORD),
+    # exactly like the suite. Point this at the SAME database as the suite — the worker shares
+    # the schema; it just connects as a limited, no-DDL role (it never migrates). Hikari tuning
+    # mirrors the suite; the pool size is the real DB-concurrency bound with virtual threads on.
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 20
+      connection-timeout: 30000
+      validation-timeout: 5000
+      keepalive-time: 30000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+      data-source-properties:
+        socketTimeout: 30
+        tcpKeepAlive: true
+  flyway:
+    # The worker NEVER migrates — the suite (or a dedicated migration Job) owns the schema.
+    # Disabling Flyway is what lets the worker run behind a limited DB user with no DDL rights.
+    enabled: false
+  threads:
+    virtual:
+      enabled: true
+
+epistola:
+  migration:
+    # Read-only: verify the schema is at head and fail fast if behind; never migrate or clean.
+    # (Belt-and-suspenders alongside spring.flyway.enabled=false — no DDL is ever issued.)
+    mode: validate
+  storage:
+    # MUST match the suite's storage backend (postgres | s3 | filesystem) and, for s3, its creds.
+    backend: postgres
+  encryption:
+    # MUST use the SAME keyset as the suite (via EPISTOLA_ENCRYPTION_* env). A read path may need
+    # to decrypt stored credentials; the ephemeral dev key cannot decrypt suite-encrypted data.
+    enabled: true
+    primary-key-id: ""
+    keys: []
+
+  # The load-bearing line: this worker advertises ONLY the render capability, so cluster routing
+  # (enforced in SQL at task-claim time) gives it the JobPoller + StaleJobRecovery and nothing
+  # else. Every other scheduled task requires the `suite` capability and is never claimed here.
+  cluster:
+    capabilities:
+      - render
+
+  generation:
+    # This node always renders (it exists only to render); render-locally stays at its default.
+    polling:
+      enabled: true
+      interval-ms: 5000
+      max-concurrent-jobs: 20
+      stale-timeout-minutes: 10
+
+  # Defense-in-depth: these epistola-core schedulers require the `suite` capability and so can
+  # never run on a render-only node anyway, but disabling them keeps the beans from being
+  # constructed at all — a render worker has no business owning partition DDL, log retention, or
+  # installation-stats publishing.
+  partitions:
+    enabled: false
+  metrics:
+    installation-stats:
+      enabled: false
+  logs:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+        add-additional-paths: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
