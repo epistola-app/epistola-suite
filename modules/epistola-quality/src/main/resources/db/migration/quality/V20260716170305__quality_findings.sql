@@ -35,9 +35,18 @@ CREATE TABLE quality_findings (
     source_id         VARCHAR(64)  NOT NULL,
     rule_id           VARCHAR(128) NOT NULL,
     severity          VARCHAR(16)  NOT NULL,
-    subject_urn       TEXT         NOT NULL,   -- EntityIdBase.toUrn() of what was analysed
+    -- EntityIdBase.toUrn() of what was analysed.
+    --
+    -- 512 is arithmetic, not a guess: a URN is `urn:epistola:<type>:` plus length-capped domain
+    -- slugs (TENANT_KEY 63, CATALOG_KEY/TEMPLATE_KEY/VARIANT_KEY 50 each), so the longest possible
+    -- today is a version URN at 248, and the longest foreseeable is a Phase 5 render subject at
+    -- 284. That leaves ~1.8x headroom while still stating what we expect — and it matters here
+    -- because this column shares a btree entry with `fingerprint` in uq_quality_findings_reconcile,
+    -- so capping one and leaving the other open would protect nothing.
+    subject_urn       VARCHAR(512) NOT NULL,
     subject_type      VARCHAR(32)  NOT NULL,
-    ignore_scope_urn  TEXT         NOT NULL,   -- what an ignore attaches to; derived from the subject at submit
+    -- What an ignore attaches to; derived from the subject at submit, so bounded identically.
+    ignore_scope_urn  VARCHAR(512) NOT NULL,
     -- Flat keys denormalized from the subject URN at submit, for cheap filtering and
     -- ON DELETE CASCADE-adjacent reporting. NOT NULL in v1 because sources are
     -- constrained to template-family subjects; relaxing that is a cheap ALTER that does
@@ -50,7 +59,14 @@ CREATE TABLE quality_findings (
     path              TEXT,                    -- JSON pointer / data path, when it has one
     message           TEXT         NOT NULL,
     docs_url          TEXT,
+    -- 128 = sha512 in hex, the longest standard digest anyone would reasonably use; sha256 (the
+    -- recipe the docs suggest) is 64 and fits with room to spare. Bounded rather than TEXT so the
+    -- expectation is stated: a source needing more than a hash's worth of identity is doing
+    -- something the reconcile key was not designed for, and should fail loudly at the boundary
+    -- rather than quietly widen it.
     fingerprint       VARCHAR(128) NOT NULL,
+    -- 64 = sha256 in hex. The ledger computes this one (md5, 32) — the headroom is for changing
+    -- that algorithm without a migration, not for a caller.
     input_fingerprint VARCHAR(64),
     context           JSONB        NOT NULL DEFAULT '{}',
     status            VARCHAR(16)  NOT NULL DEFAULT 'OPEN',
@@ -133,7 +149,7 @@ COMMENT ON COLUMN quality_findings.severity IS 'Source-defined severity. Deliber
 COMMENT ON COLUMN quality_findings.subject_urn IS 'EntityIdBase.toUrn() of what the source analysed (template / variant / version / contract-version).';
 COMMENT ON COLUMN quality_findings.ignore_scope_urn IS 'What an ignore attaches to — deliberately coarser than subject_urn (a template URN for a finding on one of its versions), so an ignore carries forward across versions instead of being re-applied after every publish. Generalized to a URN rather than flat (catalog, template) columns so a future tenant-scoped finding (e.g. a compatibility verdict) fits the same key.';
 COMMENT ON COLUMN quality_findings.node_ids IS 'The editor nodes this finding is about, in the source''s own order of relevance; the editor marks each and navigates to the first. A LIST, not a single node, because a finding is often genuinely about several elements at once — "these two paragraphs contradict each other", "these blocks disagree on date format". Emitting one finding per node instead would split a single problem into several that ignore and resolve independently. Empty when the finding is not about any particular element (a document-level or data-level observation).';
-COMMENT ON COLUMN quality_findings.fingerprint IS 'Source-computed finding identity — OPAQUE to the ledger (no CHECK; a remote source need not use hex sha256). Contract: stable across re-runs for the same problem, changes when the problem materially changes. Auto-resolve and ignore-carry-forward both rest on it.';
+COMMENT ON COLUMN quality_findings.fingerprint IS 'Source-computed finding identity — OPAQUE to the ledger: no CHECK on its shape, and a source need not use hex sha256. Contract: stable across re-runs for the same problem, changes when the problem materially changes. Auto-resolve and ignore-carry-forward both rest on it. Bounded at 128 = sha512-in-hex, the longest standard digest; that is a stated expectation rather than a guess, and a source needing more identity than a hash is doing something this key was not designed for.';
 COMMENT ON COLUMN quality_findings.input_fingerprint IS 'LEDGER-computed hash of the template model this finding was computed against — drives the editor''s "outdated" marker. Deliberately not source-supplied: Postgres normalizes jsonb key order, so a remote source hashing the JSON it fetched would produce a different string and every one of its findings would read as permanently stale.';
 COMMENT ON COLUMN quality_findings.context IS 'Source-supplied structured evidence (e.g. {"length": 142}). Free-form; the ledger never interprets it.';
 COMMENT ON COLUMN quality_findings.status IS 'OPEN or RESOLVED only. IGNORED is NOT a status — it is DERIVED from a live quality_finding_ignores row. That keeps "an unchanged fingerprint retains its ignore" true by construction, with no dual-write to diverge.';
@@ -151,7 +167,9 @@ COMMENT ON COLUMN quality_findings.last_seen_at IS 'Most recent submission that 
 
 CREATE TABLE quality_finding_ignores (
     tenant_key          TENANT_KEY   NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    ignore_scope_urn    TEXT         NOT NULL,
+    -- Bounded identically to quality_findings.ignore_scope_urn — it holds the same value, and this
+    -- one is in the primary key, where an unbounded column would be the odd one out.
+    ignore_scope_urn    VARCHAR(512) NOT NULL,
     source_id           VARCHAR(64)  NOT NULL,
     rule_id             VARCHAR(128) NOT NULL,
     finding_fingerprint VARCHAR(128) NOT NULL,
