@@ -120,7 +120,14 @@ class ImportNameLengthValidationTest {
     private fun assertAllReject(cases: List<Pair<String, (String) -> Any>>, value: String) {
         val violations = cases.mapNotNull { (label, build) ->
             when (val thrown = runCatching { build(value) }.exceptionOrNull()) {
-                is ValidationException -> null
+                // Require the max-length failure specifically (field + message), so an
+                // unrelated ValidationException can't mask a missing length check.
+                is ValidationException ->
+                    if (thrown.field == label.substringAfterLast('.') && thrown.message.contains("characters or less")) {
+                        null
+                    } else {
+                        "$label: rejected for the wrong reason (field '${thrown.field}': ${thrown.message})"
+                    }
                 null -> "$label: accepted a ${value.length}-char value (no length validation)"
                 else -> "$label: threw ${thrown::class.simpleName} instead of ValidationException"
             }
