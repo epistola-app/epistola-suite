@@ -95,6 +95,23 @@ compatibility/render.sh --out -         # print to stdout instead
 Requires only `jq`. CI runs this after the smoke and posts the table to the job
 summary.
 
+## The suite's own feed (`compatibility.json` at the repo root)
+
+The suite publishes the same kind of at-rest declaration the plugin does — a
+**server** feed stating the contract version this build implements, derived
+from the `epistola-contract` dependency pin (never hand-authored):
+
+```bash
+compatibility/feed.sh             # regenerate after a contract bump
+compatibility/feed.sh --verify    # CI drift guard (verify-feed job, PRs only)
+```
+
+The matrix — hosted in the `epistola-contract` repo — reads this feed next to
+each client's feed and the contract's breaking-change log, and judges the
+pairings there. The floor is not declared in the feed: the aggregator derives
+it from the log, and the runtime `/ping` range keeps deriving it from the
+contract jar (D2).
+
 ## Aggregate external client feeds
 
 `aggregate.sh` joins three declarations into plugin↔suite verdicts:

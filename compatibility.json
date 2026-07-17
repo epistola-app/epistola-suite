@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "artifact": "epistola-suite",
+  "anchor": "epistola-contract",
+  "role": "server",
+  "version": "1.0.0-RC4-SNAPSHOT",
+  "contractVersion": "0.10.0-compat-SNAPSHOT"
+}

@@ -16,6 +16,14 @@ on:
   workflow_run:
     workflows: ["Build and Publish"]
     types: [completed]
+  # Feed drift guard: seconds-cheap, and only when a version-bearing file (or
+  # the harness itself) changes. The smoke job never runs on pull requests.
+  pull_request:
+    paths:
+      - "compatibility.json"
+      - "compatibility/**"
+      - "gradle.properties"
+      - "gradle/libs.versions.toml"
 
 permissions:
   contents: read
@@ -26,6 +34,20 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # The suite's compatibility.json (role "server": the contract version this
+  # build implements, derived from the dependency pin) feeds the matrix hosted
+  # in the epistola-contract repo. This guards it against drifting from
+  # gradle.properties / libs.versions.toml.
+  verify-feed:
+    name: Verify compatibility feed
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Verify feed matches build files
+        run: compatibility/feed.sh --verify
+
   smoke:
     name: Suite × contract smoke
     runs-on: ubuntu-latest
