@@ -1,5 +1,10 @@
 # pdfrender — the slim render worker
 
+> **Beta.** pdfrender is functional but **not yet supported for production**. Its deployment shape
+> (published image, Helm wiring, the limited DB role) is still settling, and the `pdf-render`
+> capability and `epistola.generation.pdf-render.enabled` property may change. Per the project's
+> maturity policy, breaking changes to it may ship in a MINOR release.
+
 `apps/pdfrender` is a second, purpose-built Spring Boot app that does exactly one thing: poll
 the shared job queue for pending document-generation requests and render the PDFs. No UI, no
 REST/MCP surface, no migrations, no maintenance/cron work. It exists so PDF rendering can scale

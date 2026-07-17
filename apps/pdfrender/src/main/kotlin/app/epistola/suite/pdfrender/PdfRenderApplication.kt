@@ -1,6 +1,7 @@
 package app.epistola.suite.pdfrender
 
 import app.epistola.suite.pdfrender.PdfRenderApplication.Companion.BASE_PACKAGE
+import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.runApplication
@@ -8,6 +9,11 @@ import org.springframework.boot.runApplication
 /**
  * Slim, headless render worker: it polls the shared job queue for pending document
  * generation requests and renders PDFs, and does nothing else.
+ *
+ * **Beta.** This app is wired and functional but not yet supported for production; its
+ * deployment shape (image, Helm wiring, the limited DB role) is still settling, and the
+ * `pdf-render` capability and `epistola.generation.pdf-render.enabled` property may change.
+ * Per the project's maturity policy, breaking changes to it may ship in a MINOR release.
  *
  * It reuses the suite's business logic wholesale — the entire render/job pipeline lives in
  * `epistola-core`, which is the only module this app depends on — but stays slim by *not*
@@ -40,5 +46,9 @@ class PdfRenderApplication {
 }
 
 fun main(args: Array<String>) {
+    LoggerFactory.getLogger(PdfRenderApplication::class.java).warn(
+        "pdfrender is a BETA feature — functional but not yet supported for production. " +
+            "Its deployment shape and the pdf-render capability/config may still change.",
+    )
     runApplication<PdfRenderApplication>(*args)
 }
