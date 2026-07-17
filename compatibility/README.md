@@ -3,10 +3,6 @@
 Which versions of Epistola's co-released artifacts actually work together —
 established by **running them and observing**, not by declaration.
 
-> **Working ideology:** it doesn't have to be perfect the first time. It just
-> needs to work, then get better with each commit. This directory is the v0
-> foundation.
-
 ## Approach: verified, not declared
 
 A cell in the matrix goes green because we **booted a real, published

@@ -13,15 +13,22 @@ and verifies that range) is **done — exercised end-to-end** against a locally 
 compat-aware image (range verified) and the published `:latest` image (graceful
 degradation). Step 5 (**plugin declares** via a committed `compatibility.json` feed),
 step 6's **render** (`render.sh` → `MATRIX.md`, in the CI job summary), and step 6's
-**aggregate** (`aggregate.sh` applies `floor ≤ target ≤ apiVersion` across the suite
-range + client feeds → a plugin↔suite table) are all done. **The full pipeline —
-declare → verify → aggregate → render — runs end to end in CI** (the aggregate
-fetches client feeds from `feeds.txt`). What remains is not a step but one deferred
-D6 choice: the aggregator's _home_ (in-repo vs a neutral repo). See
-[Execution plan](#execution-plan-order).
+**aggregate** are all done. **The full pipeline — declare → verify → aggregate →
+render — runs end to end in CI** (the aggregate fetches client feeds from
+`feeds.txt`).
 
-> **Working ideology:** it doesn't have to be perfect the first time. It just
-> needs to work, then get better with each commit.
+The system has since been extended to **operation-level verdicts** (D7,
+[ADR 0012](../docs/adr/0012-operation-level-compatibility-verdicts.md)): the
+contract publishes a machine-computed `compatibility-log.json` (which releases
+broke which operations, derived from the tagged spec history with `oasdiff`),
+clients additionally declare the `operations` they call (source-verified in
+their CI), and the aggregate judges a pairing incompatible only when a breaking
+change in the window actually touches an operation the client uses — falling
+back to the coarse range rule whenever that join would be unsound. The floor
+itself is now CI-gated in the contract repo (`make check-floor`): a breaking
+change must move `info.version` and the floor together, and the floor may not
+move otherwise. What remains is one deferred D6 choice: the aggregator's _home_
+(in-repo vs a neutral repo). See [Execution plan](#execution-plan-order).
 
 ## How it fits together
 
@@ -82,7 +89,7 @@ flowchart LR
     subgraph job["compatibility.yml — one job"]
         direction TB
         smoke["<b>smoke.sh</b> — VERIFY<br/>• boot published image + throwaway Postgres<br/>• read contract ver from jar filename<br/>• poll /api/ping (identity headers) → UP<br/>• authed /ping → read declared range<br/>• check contract ∈ range → rangeVerified"]
-        agg["<b>aggregate.sh</b> — JOIN (best-effort)<br/>• fetch each client feed (feeds.txt, URL/path)<br/>• 404 → warn + skip (never fatal)<br/>• apply floor ≤ target ≤ apiVersion"]
+        agg["<b>aggregate.sh</b> — JOIN (best-effort)<br/>• fetch each client feed (feeds.txt, URL/path)<br/>• fetch the contract's compatibility-log.json<br/>• 404 / malformed → warn + skip (never fatal)<br/>• operation-level: breaking change in window<br/>touches a used operation? (D7)<br/>• fallback: floor ≤ target ≤ apiVersion"]
         rend["<b>render.sh</b> — HUMANIZE<br/>matrix.json + aggregate.json → tables"]
         smoke --> agg --> rend
     end
@@ -325,11 +332,16 @@ drop, and our client-identity headers are essentially KIP-511.
   to reason about at our size; if the contract ever grows large, per-resource
   version lines (Kafka-style) is the escape hatch.
 
-**Two places we are honestly weaker than Kafka**, worth naming rather than
+**Two places we were honestly weaker than Kafka**, worth naming rather than
 glossing:
 
 - **Granularity** — one semver where Kafka has _N_ independent version lines.
-  Acceptable now; revisit if the contract surface grows.
+  This weakness fired on the very first real verdict (the plugin's target sat
+  below the floor although nothing it calls ever broke) and is now **addressed
+  by D7**: the contract's computed `compatibility-log.json` records breaking
+  changes _per operation_, clients declare the operations they use, and the
+  aggregate judges at that granularity — our static equivalent of Kafka's
+  per-API version lines, without adopting per-API versioning.
 - **Staleness** — Kafka's answer is always current because it is live; ours is
   only as fresh as the last CI run that wrote `matrix.json`. The "commit results
   back from CI" roadmap item ([`README.md`](./README.md)) is what keeps that
@@ -452,6 +464,25 @@ The design forks are settled (all confirmed):
 - **D6 — Aggregator location deferred & reversible** (R8): a neutral repo becomes
   viable once feeds exist; the feed _format_ is the interface. Concrete rendered
   target (e.g. `docs/compatibility-matrix.md`) still open.
+- **D7 — Operation-level verdicts from a computed breaking-change log**
+  ([ADR 0012](../docs/adr/0012-operation-level-compatibility-verdicts.md)). The
+  floor (D4) is a whole-contract statement, but breaking changes touch specific
+  operations — the first real verdict was a false negative because the one
+  break in the window touched four endpoints the plugin never calls. Since the
+  contract is spec-first and already diffs releases with `oasdiff`,
+  breaking-ness per operation is _computable_: the contract commits a
+  deterministic `compatibility-log.json` (per release: `breaking`,
+  `brokenOperations`, from comparing consecutive release tags), clients extend
+  their feed with the `operations` they call (source-verified in their CI, both
+  ways), and the aggregate rules a pairing incompatible only when a breaking
+  change in `(target .. suiteContract]` touches a used operation. The join runs
+  only when it is sound — operations declared, log reachable, log spanning the
+  whole window, no `computed: false` entry inside it — and **falls back to the
+  range rule otherwise**, so an incomplete log can only produce a false red,
+  never a false green. The floor stays (it feeds the runtime `/ping` range and
+  the fallback rule) and its staircase invariant is now CI-gated in the
+  contract repo (`make check-floor`): a break must move `info.version` and the
+  floor together; no break means the floor may not move. (R4, R6)
 
 ## Remaining detail work (not blocking)
 
