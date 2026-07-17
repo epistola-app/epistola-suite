@@ -43,7 +43,12 @@ class AccessibilityQualitySource : QualityFindingSource {
 
         // A decorative image is deliberately silent — the renderer marks it as an artifact, which is
         // the correct answer for a divider or a background flourish, not an omission to report.
-        if (props["decorative"] as? Boolean == true) return null
+        //
+        // `== true` rather than `as? Boolean == true`: props is a Java Map<String, Object>, so a
+        // value is a Kotlin platform type, and the redundant cast is what CodeQL reads as a possible
+        // null deref. Structural equality is null-safe and means exactly the same thing — false for
+        // null, a non-Boolean, or Boolean false; true only for boxed true.
+        if (props["decorative"] == true) return null
         if (!(props["alt"] as? String).isNullOrBlank()) return null
 
         return SubmittedFinding(
