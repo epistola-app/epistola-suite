@@ -53,6 +53,8 @@ import java.util.UUID
 class EpistolaDocumentGenerationApi(
     private val objectMapper: ObjectMapper,
     private val contentStore: DocumentContentStore,
+    // Transitional (#742): serves documents not yet moved out of the legacy content_store.
+    private val legacyBlobFallback: app.epistola.suite.storage.backfill.LegacyBlobFallback,
     private val ndjsonResultStream: app.epistola.suite.generation.collect.ndjson.NdjsonResultStream,
 ) : GenerationApi {
 
@@ -158,6 +160,7 @@ class EpistolaDocumentGenerationApi(
             ?: throw DocumentNotFoundException(tid, did)
 
         val stored = contentStore.get(ContentKey.document(tid, did))
+            ?: legacyBlobFallback.documentContent(tid, did) // transitional (#742)
             ?: throw DocumentNotFoundException(tid, did)
 
         return ResponseEntity.ok()

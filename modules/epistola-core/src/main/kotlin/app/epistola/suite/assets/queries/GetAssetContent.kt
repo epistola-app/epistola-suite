@@ -11,8 +11,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.AssetContentStore
-import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.backfill.LegacyBlobFallback
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.util.UUID
@@ -43,10 +42,8 @@ data class GetAssetContent(
 class GetAssetContentHandler(
     private val jdbi: Jdbi,
     private val assetContentStore: AssetContentStore,
-    // Legacy store, read only as a fallback for assets not yet migrated by the
-    // ContentBackfillRunner (content_hash IS NULL). Removed once content_hash is
-    // NOT NULL after cutover (#738).
-    private val legacyContentStore: ContentStore,
+    // Transitional (#742): serves assets not yet migrated to asset_content (content_hash NULL).
+    private val legacyBlobFallback: LegacyBlobFallback,
 ) : QueryHandler<GetAssetContent, AssetContent?> {
 
     override fun handle(query: GetAssetContent): AssetContent? {
@@ -83,7 +80,7 @@ class GetAssetContentHandler(
             val scope = assetContentScope(metadata.catalogKey, metadata.tenantId)
             assetContentStore.get(scope, metadata.contentHash)?.content?.readAllBytes()
         } else {
-            legacyContentStore.get(ContentKey.asset(metadata.tenantId, metadata.id))?.content?.readAllBytes()
+            legacyBlobFallback.assetBytes(metadata.tenantId, metadata.id) // transitional (#742)
         } ?: return null
 
         return AssetContent(

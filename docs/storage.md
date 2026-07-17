@@ -85,15 +85,27 @@ Disable with `epistola.storage.reaper.enabled=false`.
 
 ## Migration from the legacy `content_store`
 
-Blobs used to share a single `content_store` table. `ContentBackfillRunner` is a
-one-time, advisory-locked, batched, idempotent startup runner that moves them forward:
+Blobs used to share a single `content_store` table. Moving them to the two new stores is
+a **transitional layer** deliberately grouped in one package —
+`storage/backfill/` — so it can be deleted wholesale later (tracked in
+[#742](https://github.com/epistola-app/epistola-suite/issues/742)). It has two parts:
 
-- **Documents (PostgreSQL only)** → `document_content`, bucketed into the right monthly
-  partition by the owning document's `created_at`. Blobs whose `documents` row is already
-  gone are pre-existing retention orphans — discarded, not carried forward. On
-  S3/filesystem, document bytes stay in place; only the reclaim mechanism changed.
-- **Assets (all backends)** → `asset_content`, hashing + deduping + stamping
-  `assets.content_hash`.
+- **`ContentBackfillRunner`** — a **single-owner background cluster task** (not on the
+  startup path, so it never races readiness on a large install), batched, resumable, and
+  idempotent. It moves blobs forward and records a `content-backfill.completed` marker in
+  `app_metadata` after a full pass, so later occurrences no-op:
+  - **Documents (PostgreSQL only)** → `document_content`, bucketed into the right monthly
+    partition by the owning document's `created_at`. Blobs whose `documents` row is already
+    gone are pre-existing retention orphans — discarded, not carried forward. On
+    S3/filesystem, document bytes stay in place; only the reclaim mechanism changed.
+  - **Assets (all backends)** → `asset_content`, hashing + deduping + stamping
+    `assets.content_hash`.
+- **`LegacyBlobFallback`** — because the backfill runs in the background, a document or
+  asset may be requested before it's migrated (or on a node that isn't running it). The
+  read paths fall back to `content_store` for a document missing from `document_content`,
+  or an asset whose `content_hash` is still NULL — so serving stays correct throughout the
+  migration window on every node.
 
 The legacy `content_store` table is retained one release as a safety net, then dropped
-once cutover is verified (`assets.content_hash` becomes `NOT NULL`).
+once cutover is verified — at which point the `storage/backfill/` package and the legacy
+`ContentStore` are removed and `assets.content_hash` becomes `NOT NULL` (#742).

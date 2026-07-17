@@ -1,7 +1,10 @@
 package app.epistola.suite.storage.backfill
 
-import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.storage.ContentStore
@@ -9,16 +12,20 @@ import app.epistola.suite.storage.StorageBackend
 import app.epistola.suite.storage.StorageProperties
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.SmartInitializingSingleton
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 /**
+ * **Transitional — remove with the `content_store` drop (#742).**
+ *
  * One-time, forward-only migration of blobs out of the legacy shared `content_store`
- * into the two lifecycle-split stores (issue #738). Runs at startup, is advisory-locked
- * (one node), batched, resumable, and idempotent — safe to re-run every boot until the
- * legacy `content_store` is dropped in a later release.
+ * into the two lifecycle-split stores (issue #738). Runs as a **single-owner background
+ * cluster task** (not on the startup path, so it never races readiness on a large
+ * install), batched, resumable, and idempotent. It records a completion marker after a
+ * full pass so later occurrences short-circuit; the [LegacyBlobFallback] keeps documents
+ * and assets readable on every node *while* it runs.
  *
  * - **Documents (PostgreSQL backend only):** copy `content_store` `documents/…` blobs
  *   into the partitioned `document_content` table, bucketed by the OWNING document's
@@ -42,53 +49,51 @@ class ContentBackfillRunner(
     private val properties: StorageProperties,
     private val legacyContentStore: ContentStore,
     private val assetContentStore: AssetContentStore,
-    private val mediator: Mediator,
     private val appMetadata: AppMetadataService,
     @Value("\${epistola.storage.backfill.asset-batch-size:200}")
     private val assetBatchSize: Int,
-) : SmartInitializingSingleton {
+    @Value("\${epistola.storage.backfill.interval-ms:300000}")
+    private val intervalMs: Long,
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
 
-    override fun afterSingletonsInstantiated() {
-        // Only run when there is still work to do: once a node has completed a full
-        // pass it records a marker, so every later boot (fleet-wide) short-circuits
-        // here — no advisory lock, no scan queries. New content never lands in the
-        // legacy store after this feature ships, so "done" is durable.
+    @Bean
+    fun contentBackfillScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        // FixedDelay: first run shortly after startup, then this long after each
+        // completion — so it retries until done and then no-ops on the marker.
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(intervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
+    )
+
+    override fun handle(task: ClusterScheduledTask) = run()
+
+    /**
+     * Run one backfill pass. Single-owner scheduling gives cross-node mutual exclusion,
+     * and the scheduler binds a [app.epistola.suite.mediator.MediatorContext] so
+     * [app.epistola.suite.time.EpistolaClock] works here. Idempotent, so a re-dispatched
+     * occurrence is safe. Exceptions propagate so the scheduler records the failure and
+     * retries — partial progress is preserved.
+     */
+    fun run() {
+        // Once a full pass has completed, every later occurrence short-circuits here —
+        // one cheap metadata read, no scans. New content never lands in the legacy store
+        // after this feature ships, so "done" is durable.
         if (appMetadata.get(COMPLETED_KEY) != null) {
             logger.debug("Content backfill already completed — skipping")
             return
         }
-        // Session-level advisory lock so only one node runs the backfill. It must be
-        // acquired AND released on the SAME connection — a pooled connection keeps the
-        // lock across a Handle close, so we hold one dedicated Handle for its lifetime
-        // and explicitly unlock before returning it to the pool. The batched work runs
-        // on other pooled connections; the lock is only a cross-node mutex.
-        jdbi.open().use { lockHandle ->
-            val locked = lockHandle.createQuery("SELECT pg_try_advisory_lock(:key)")
-                .bind("key", BACKFILL_LOCK_KEY)
-                .mapTo(Boolean::class.java)
-                .one()
-            if (!locked) {
-                logger.debug("Content backfill skipped — another node holds the lock")
-                return
-            }
-            try {
-                MediatorContext.runWithMediator(mediator) {
-                    if (properties.backend == StorageBackend.POSTGRES) {
-                        backfillDocuments()
-                    }
-                    backfillAssets()
-                }
-                // A full pass completed without error — mark done so future boots skip
-                // entirely. (Assets with irretrievable legacy bytes stay content_hash
-                // NULL and fall back to the legacy store; re-scanning can't fix them.)
-                appMetadata.setAs(COMPLETED_KEY, true)
-            } catch (e: Exception) {
-                logger.error("Content backfill failed (will retry next boot): {}", e.message, e)
-            } finally {
-                lockHandle.createUpdate("SELECT pg_advisory_unlock(:key)").bind("key", BACKFILL_LOCK_KEY).execute()
-            }
+        if (properties.backend == StorageBackend.POSTGRES) {
+            backfillDocuments()
         }
+        backfillAssets()
+        // A full pass completed without error — mark done so future occurrences skip
+        // entirely. (Assets with irretrievable legacy bytes stay content_hash NULL and
+        // fall back to the legacy store; re-scanning can't fix them.)
+        appMetadata.setAs(COMPLETED_KEY, true)
     }
 
     /**
@@ -201,11 +206,12 @@ class ContentBackfillRunner(
         val mediaType: String,
     )
 
-    private companion object {
-        // Application-defined advisory lock key ("EpBkfil1"), high range to avoid collisions.
-        const val BACKFILL_LOCK_KEY: Long = 0x4570_426B_6669_6C31L
+    companion object {
+        const val TASK_KEY = "core.content-backfill"
+        const val ROUTING_KEY = "system:core.content-backfill"
+        const val TASK_TYPE = "core.content-backfill"
 
-        // app_metadata marker: set after a full pass so later boots skip the whole runner.
+        // app_metadata marker: set after a full pass so later occurrences skip the runner.
         const val COMPLETED_KEY = "content-backfill.completed"
     }
 }

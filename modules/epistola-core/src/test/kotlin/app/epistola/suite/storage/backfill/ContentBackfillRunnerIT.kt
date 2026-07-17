@@ -65,7 +65,7 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
             handle.createUpdate("DELETE FROM app_metadata WHERE key = 'content-backfill.completed'").execute()
         }
 
-        runner.afterSingletonsInstantiated()
+        runner.run()
 
         // Pointer stamped, blob present in the CAS store, and served through the query.
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
@@ -75,7 +75,7 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
         assertThat(completionMarker()).isNotNull()
 
         // Idempotent: a second run changes nothing (now short-circuited by the marker).
-        runner.afterSingletonsInstantiated()
+        runner.run()
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
         assertThat(blobRows(tenant.id.value, expectedHash)).isEqualTo(1)
     }
