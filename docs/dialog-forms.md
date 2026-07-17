@@ -43,7 +43,7 @@ fun newForm(request: ServerRequest): ServerResponse {
             page("environments/list") {
                 "tenantId" to tenantId.key
                 "environments" to ListEnvironments(tenantId = tenantId).query()
-                "showDialog" to true // host list renders the dialog into the mount when set
+                "openDialog" to true // host list renders the dialog into the mount when set
             }
         }
     }
