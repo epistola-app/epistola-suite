@@ -133,7 +133,9 @@ internal fun mapFinding(
     key = QualityFindingKey.of(rs.getObject("id", java.util.UUID::class.java)),
     sourceId = QualitySourceId(rs.getString("source_id")),
     ruleId = rs.getString("rule_id"),
-    severity = QualitySeverity.valueOf(rs.getString("severity")),
+    // parse, not valueOf: the column has no CHECK, and one severity this suite does not know
+    // must cost that row its exact label, not the caller its whole page.
+    severity = QualitySeverity.parse(rs.getString("severity")),
     subjectUrn = rs.getString("subject_urn"),
     subjectType = QualitySubjectType.valueOf(rs.getString("subject_type")),
     ignoreScopeUrn = rs.getString("ignore_scope_urn"),

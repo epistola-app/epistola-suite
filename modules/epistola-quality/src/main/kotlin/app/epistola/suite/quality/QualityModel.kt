@@ -38,7 +38,39 @@ value class QualitySourceId(
     }
 }
 
-enum class QualitySeverity { INFO, WARNING, ERROR }
+/**
+ * How bad a finding is. The **known** set — not a closed one.
+ *
+ * The column carries no CHECK, deliberately: the ledger only renders and sorts by severity and
+ * never interprets it, so pinning the vocabulary in the schema would make a fourth level (a HINT,
+ * a CRITICAL) a migration — the same reasoning that keeps rules out of a local catalog table.
+ *
+ * Nothing can write an unknown value *today* — [SubmittedFinding.severity] is this type, so an
+ * in-process source cannot express one. The REST ingest is where one could first arrive, and
+ * [parse] exists so that lands as a rendering question rather than a 500.
+ */
+enum class QualitySeverity {
+    INFO,
+    WARNING,
+    ERROR,
+    ;
+
+    companion object {
+        /**
+         * Reads a stored severity, tolerating one this suite does not know.
+         *
+         * A read model that throws on an unexpected value takes out the whole page rather than the
+         * one row that carries it — the same reason `readNodeIds` tolerates a shape it did not
+         * expect. [WARNING] is the fallback because it is the honest middle: [INFO] would hide a
+         * finding a source thought urgent, [ERROR] would cry wolf about one it did not.
+         *
+         * This coerces, and coercion loses the source's own word for it. When a remote source can
+         * genuinely define severities, this is the seam that becomes an open value class (as
+         * `AssetMediaType` already is) rather than a wider enum.
+         */
+        fun parse(value: String): QualitySeverity = entries.find { it.name == value } ?: WARNING
+    }
+}
 
 /** What kind of thing a finding is about. Mirrors the entity types a subject URN can name. */
 enum class QualitySubjectType { TEMPLATE, VARIANT, VERSION, CONTRACT_VERSION }

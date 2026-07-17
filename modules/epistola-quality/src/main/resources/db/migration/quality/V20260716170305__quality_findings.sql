@@ -1,6 +1,7 @@
 -- backup-restore-compatibility: backward=true forward=false
 -- reason: Additive — creates quality_findings / quality_finding_ignores /
--- quality_finding_comments, which ARE backed up (CoreBackupTables.includedTables).
+-- quality_finding_comments, which ARE backed up (QualityBackupTables.includedTables —
+-- this module's own TenantBackupTableContributor).
 -- backward=true: an older backup predates these tables, lists none of them in its
 -- manifest, and merge-restores cleanly into this newer schema.
 -- forward=false: a backup taken at/after this stamp lists tables an older app does not
@@ -53,39 +54,63 @@ CREATE TABLE quality_findings (
     input_fingerprint VARCHAR(64),
     context           JSONB        NOT NULL DEFAULT '{}',
     status            VARCHAR(16)  NOT NULL DEFAULT 'OPEN',
+    -- first_seen_at IS this row's creation time, so there is deliberately no created_at
+    -- beside it to drift from. updated_at stays: it means something different (last
+    -- modification, including a severity or message reword) and is trigger-maintained.
     first_seen_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     last_seen_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     resolved_at       TIMESTAMPTZ,
-    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (tenant_key, id),
-    CONSTRAINT quality_findings_severity_check CHECK (severity IN ('INFO', 'WARNING', 'ERROR')),
+    -- No CHECK on severity, deliberately. Findings are self-describing precisely so a source
+    -- can add or reword its rules without a suite release; pinning the severity vocabulary in
+    -- the schema would make a fourth level (a HINT, a CRITICAL) a migration — for a value the
+    -- ledger only ever renders and sorts by, and never interprets. The known set lives in
+    -- QualitySeverity, and readers tolerate a value they do not know.
     CONSTRAINT quality_findings_status_check CHECK (status IN ('OPEN', 'RESOLVED')),
     CONSTRAINT quality_findings_resolved_at_check CHECK ((status = 'RESOLVED') = (resolved_at IS NOT NULL))
 );
 
--- The reconciliation key. One row per (source, subject, fingerprint) — forever. The
--- submit upsert targets this, so a resurfacing finding reuses its original row id.
+-- Indexes are kept to the queries that actually run. Each one below names its reader; if a
+-- query goes away, so does its index.
+--
+-- Note what is NOT here, because the omissions are deliberate rather than oversights:
+--   * nothing on `status`. Readers filter on EFFECTIVE status, which is derived from a live
+--     ignore row and computed in a subselect — so the stored column is never a predicate and
+--     leading an index with it strands every column behind it.
+--   * nothing on `ignore_scope_urn`. The ignore LEFT JOIN drives findings -> ignores and is
+--     served by the ignores PK, which is exactly those columns; nothing looks findings up by
+--     scope.
+--   * nothing on `node_ids`. No query asks "which findings touch this node" — the editor reads
+--     per subject and fans out client-side. A GIN index costs writes on every submit and would
+--     be paying for a reader that does not exist.
+
+-- The reconciliation key. One row per (source, subject, fingerprint) — forever. The submit
+-- upsert targets it; the resolve UPDATE and the report's source filter ride its
+-- (tenant_key, source_id, ...) prefix.
 CREATE UNIQUE INDEX uq_quality_findings_reconcile
     ON quality_findings(tenant_key, source_id, subject_urn, fingerprint);
 
--- Editor panel: the open findings for one subject.
-CREATE INDEX idx_quality_findings_subject ON quality_findings(tenant_key, subject_urn) WHERE status = 'OPEN';
--- Report: filter by template.
-CREATE INDEX idx_quality_findings_template ON quality_findings(tenant_key, catalog_key, template_key);
--- Report: the default listing (newest-seen first, filtered by status/severity).
-CREATE INDEX idx_quality_findings_report ON quality_findings(tenant_key, status, severity, last_seen_at DESC);
--- Ignore join + per-source reporting.
-CREATE INDEX idx_quality_findings_ignore_scope ON quality_findings(tenant_key, ignore_scope_urn, source_id);
--- "Which findings touch this node" — the editor asks per subject and fans out client-side, but a
--- node-anchored lookup is cheap to support and this is the index it needs.
-CREATE INDEX idx_quality_findings_node_ids ON quality_findings USING GIN (node_ids);
+-- The editor panel (GetFindingsForSubject) reads a variant's findings, and the report filters
+-- by template. Same prefix, one index; variant_key last so both are served. Note this is NOT
+-- partial on status='OPEN' — the panel deliberately reads resolved findings too, so it can
+-- show one clearing after a fix.
+CREATE INDEX idx_quality_findings_template
+    ON quality_findings(tenant_key, catalog_key, template_key, variant_key);
+
+-- The report's default ordering: newest-seen first within a tenant. The other sort options
+-- (severity rank, rule, first-seen) sort in memory — the page is 50 rows and a tenant's
+-- findings are bounded by templates x rules, so indexing every option would cost writes to
+-- save nothing measurable.
+CREATE INDEX idx_quality_findings_last_seen
+    ON quality_findings(tenant_key, last_seen_at DESC);
 
 COMMENT ON TABLE quality_findings IS 'Ledger of quality findings submitted by check sources (in-process or remote) and by humans. Checks are not run here — sources submit, the ledger owns. Reconciled per (source, subject): a submission is the source''s FULL current set, and anything absent from it auto-resolves.';
 COMMENT ON COLUMN quality_findings.id IS 'UUIDv7 — stable local identity. Deliberately preserved across resolve/resurface so comments survive the cycle.';
 COMMENT ON COLUMN quality_findings.source_id IS 'Who reported this. Reconciliation is scoped by it, so one source can never resolve another''s findings (nor the reserved "manual" source''s).';
 COMMENT ON COLUMN quality_findings.rule_id IS 'Source-defined rule identifier. Findings are self-describing — there is deliberately no local rule catalog table to drift from a remote source''s rules.';
+COMMENT ON COLUMN quality_findings.severity IS 'Source-defined severity. Deliberately unconstrained: the ledger only renders and sorts by it, never interprets it, and a CHECK would make a fourth level a migration — for the same reason there is no rule catalog. QualitySeverity is the known set (INFO/WARNING/ERROR); readers must tolerate a value outside it rather than throw, or one unrecognised row takes out a whole page.';
 COMMENT ON COLUMN quality_findings.subject_urn IS 'EntityIdBase.toUrn() of what the source analysed (template / variant / version / contract-version).';
 COMMENT ON COLUMN quality_findings.ignore_scope_urn IS 'What an ignore attaches to — deliberately coarser than subject_urn (a template URN for a finding on one of its versions), so an ignore carries forward across versions instead of being re-applied after every publish. Generalized to a URN rather than flat (catalog, template) columns so a future tenant-scoped finding (e.g. a compatibility verdict) fits the same key.';
 COMMENT ON COLUMN quality_findings.node_ids IS 'The editor nodes this finding is about, in the source''s own order of relevance; the editor marks each and navigates to the first. A LIST, not a single node, because a finding is often genuinely about several elements at once — "these two paragraphs contradict each other", "these blocks disagree on date format". Emitting one finding per node instead would split a single problem into several that ignore and resolve independently. Empty when the finding is not about any particular element (a document-level or data-level observation).';
