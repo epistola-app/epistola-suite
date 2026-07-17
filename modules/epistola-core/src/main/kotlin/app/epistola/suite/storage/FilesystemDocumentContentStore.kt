@@ -34,7 +34,8 @@ class FilesystemDocumentContentStore(
     private val documentsRoot: Path = root.resolve(DOCUMENTS_PREFIX)
 
     override fun put(key: String, content: InputStream, contentType: String, sizeBytes: Long, createdAt: OffsetDateTime) {
-        val file = resolveWithinRoot(key)
+        val file = root.resolve(key).normalize()
+        if (!file.startsWith(root)) throw IllegalArgumentException(ESCAPE_MESSAGE)
         Files.createDirectories(file.parent)
         content.use { Files.copy(it, file, StandardCopyOption.REPLACE_EXISTING) }
         Files.writeString(metaPath(file), contentType)
@@ -43,7 +44,8 @@ class FilesystemDocumentContentStore(
     }
 
     override fun get(key: String): StoredContent? {
-        val file = resolveWithinRoot(key)
+        val file = root.resolve(key).normalize()
+        if (!file.startsWith(root)) throw IllegalArgumentException(ESCAPE_MESSAGE)
         if (!Files.exists(file)) return null
         return StoredContent(
             content = Files.newInputStream(file),
@@ -53,25 +55,24 @@ class FilesystemDocumentContentStore(
     }
 
     override fun delete(key: String): Boolean {
-        val file = resolveWithinRoot(key)
+        val file = root.resolve(key).normalize()
+        if (!file.startsWith(root)) throw IllegalArgumentException(ESCAPE_MESSAGE)
         if (!Files.exists(file)) return false
         Files.deleteIfExists(metaPath(file))
         return Files.deleteIfExists(file)
     }
 
-    override fun exists(key: String): Boolean = Files.exists(resolveWithinRoot(key))
-
-    /**
-     * Resolve [key] under the storage [root] and prove the result stays within it, so
-     * a key containing `..` (or an absolute path) can never escape the content store.
-     * Keys are internally built from typed UUID ids, but this guards the boundary
-     * regardless of caller.
-     */
-    private fun resolveWithinRoot(key: String): Path {
-        val resolved = root.resolve(key).normalize()
-        require(resolved.startsWith(root)) { "Illegal content key escapes the storage root" }
-        return resolved
+    override fun exists(key: String): Boolean {
+        val file = root.resolve(key).normalize()
+        if (!file.startsWith(root)) throw IllegalArgumentException(ESCAPE_MESSAGE)
+        return Files.exists(file)
     }
+
+    // Each store method resolves the key under [root] and proves the result stays within
+    // it (so a key containing `..` or an absolute path can never escape). The containment
+    // check is inlined per-method — not extracted — so the path-injection static analysis
+    // recognizes the guard as dominating the filesystem use. Keys are internally built
+    // from typed UUID ids; this guards the boundary regardless of caller.
 
     /**
      * Delete document files whose modification time is older than the retention
@@ -108,5 +109,6 @@ class FilesystemDocumentContentStore(
     private companion object {
         const val DOCUMENTS_PREFIX = "documents"
         const val META_SUFFIX = ".meta"
+        const val ESCAPE_MESSAGE = "Illegal content key escapes the storage root"
     }
 }
