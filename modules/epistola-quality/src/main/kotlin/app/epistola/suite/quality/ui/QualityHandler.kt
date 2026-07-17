@@ -35,6 +35,7 @@ import app.epistola.suite.quality.queries.GetFindingComments
 import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.quality.queries.QualityFindingSort
+import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.queries.GetTenant
@@ -62,13 +63,15 @@ class QualityHandler(
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val filters = request.filters()
         val page = filters.toQuery(tenantId).query()
+        val templates = ListDocumentTemplates(tenantId, limit = TEMPLATE_FILTER_LIMIT).query()
 
         return ServerResponse.ok().page("quality/list") {
             "pageTitle" to "Quality - Epistola"
             "tenant" to tenant
             "activeNavSection" to "quality"
             "stage" to KnownFeatures.metadata[KnownFeatures.QUALITY]?.stage
-            "templates" to ListDocumentTemplates(tenantId, limit = TEMPLATE_FILTER_LIMIT).query()
+            "catalogs" to catalogsOf(templates)
+            "templates" to templates.narrowedTo(filters.catalogKey)
             "sources" to registry.availableFor(tenantId.key).map { SourceOption(it.sourceId.value, it.displayName) }
             findingsModel(tenantId, page, filters)
         }
@@ -83,9 +86,31 @@ class QualityHandler(
             fragment("quality/list", "findings") {
                 findingsModel(tenantId, page, filters)
             }
+            // The template picker rides along out-of-band, narrowed to whatever catalog is now
+            // selected — that is the "by extension" half of a catalog filter. One request does
+            // both, so the rows and the picker can never disagree about which catalog is in force.
+            oob("quality/list", "template-filter") {
+                "tenantId" to tenantId.key
+                "templates" to ListDocumentTemplates(tenantId, limit = TEMPLATE_FILTER_LIMIT).query()
+                    .narrowedTo(filters.catalogKey)
+                "selectedTemplate" to filters.selectedTemplateValue()
+            }
             onNonHtmx { redirect("/tenants/${tenantId.key}/quality") }
         }
     }
+
+    /**
+     * The catalogs worth offering: those that actually hold templates.
+     *
+     * Derived from the templates already loaded rather than read from `ListCatalogs`, for two
+     * reasons. `ListCatalogs` needs `CATALOG_VIEW` while this page needs only `TEMPLATE_VIEW`, so
+     * calling it would deny the whole report to a reader who is perfectly entitled to it. And a
+     * catalog with no templates can hold no findings, so offering it would be a filter that can
+     * only ever return nothing.
+     */
+    private fun catalogsOf(templates: List<DocumentTemplate>): List<String> = templates.map { it.catalogKey.value }.distinct().sorted()
+
+    private fun List<DocumentTemplate>.narrowedTo(catalogKey: CatalogKey?): List<DocumentTemplate> = if (catalogKey == null) this else filter { it.catalogKey == catalogKey }
 
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -315,20 +340,33 @@ class QualityHandler(
         return raw.toEnumOrNull()
     }
 
-    private fun ServerRequest.filters() = QualityFilters(
-        // The template filter carries `catalogKey/templateKey`, and sets *both* query filters — a
+    private fun ServerRequest.filters(): QualityFilters {
+        val catalogParam = queryParam("catalog")?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { CatalogKey.of(it) }.getOrNull() }
+
+        // The template filter carries `catalogKey/templateKey` and sets *both* query filters — a
         // template key is unique only within its catalog, so filtering on the key alone would also
-        // match a same-named template in another catalog.
-        catalogKey = templateFilter()?.first,
-        templateKey = templateFilter()?.second,
-        sourceId = queryParam("source")?.takeIf { it.isNotBlank() }?.let { QualitySourceId(it) },
-        severity = queryParam("severity").toEnumOrNull<QualitySeverity>(),
-        status = statusFilter(),
-        searchTerm = queryParam("q")?.takeIf { it.isNotBlank() },
-        sort = QualityFindingSort.fromParam(queryParam("sort")),
-        descending = queryParam("dir")?.let { it == "desc" } ?: QualityFindingSort.fromParam(queryParam("sort")).defaultDescending,
-        page = queryParamInt("page", 1).coerceAtLeast(1),
-    )
+        // match a same-named template elsewhere.
+        //
+        // A template from a different catalog than the one selected is **stale**, not a conflict:
+        // it is the selection the picker was holding when the catalog changed underneath it, and
+        // the browser sends it with that very request. Dropping it here is what stops the rows
+        // being filtered by a template the reader can no longer see in the picker.
+        val template = templateFilter()?.takeIf { catalogParam == null || it.first == catalogParam }
+
+        return QualityFilters(
+            catalogKey = template?.first ?: catalogParam,
+            templateKey = template?.second,
+            sourceId = queryParam("source")?.takeIf { it.isNotBlank() }?.let { QualitySourceId(it) },
+            severity = queryParam("severity").toEnumOrNull<QualitySeverity>(),
+            status = statusFilter(),
+            searchTerm = queryParam("q")?.takeIf { it.isNotBlank() },
+            sort = QualityFindingSort.fromParam(queryParam("sort")),
+            descending = queryParam("dir")?.let { it == "desc" }
+                ?: QualityFindingSort.fromParam(queryParam("sort")).defaultDescending,
+            page = queryParamInt("page", 1).coerceAtLeast(1),
+        )
+    }
 
     private companion object {
         /**
@@ -371,9 +409,10 @@ class QualityHandler(
         "selectedSeverity" to filters.severity
         "selectedStatus" to filters.status
         "selectedSource" to filters.sourceId?.value
+        "selectedCatalog" to filters.catalogKey?.value
         // Round-trips the same `catalogKey/templateKey` the option carries, so the picker
         // re-selects after a swap.
-        "selectedTemplate" to filters.templateKey?.let { "${filters.catalogKey?.value}/${it.value}" }
+        "selectedTemplate" to filters.selectedTemplateValue()
         "searchTerm" to filters.searchTerm
         "sort" to filters.sort.param
         "sortDir" to if (filters.descending) "desc" else "asc"
@@ -396,6 +435,9 @@ class QualityHandler(
         val descending: Boolean,
         val page: Int,
     ) {
+        /** The `catalogKey/templateKey` value the picker's option carries, so it re-selects. */
+        fun selectedTemplateValue(): String? = templateKey?.let { "${catalogKey?.value}/${it.value}" }
+
         fun toQuery(tenantId: TenantId) = ListQualityFindings(
             tenantKey = tenantId.key,
             catalogKey = catalogKey,

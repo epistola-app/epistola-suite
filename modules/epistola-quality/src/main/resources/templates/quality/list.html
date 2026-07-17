@@ -14,7 +14,7 @@
           effective status is derived in SQL, so filtering it here is the only way the count and
           the rows can agree.
         */-->
-        <div class="ep-filters ep-row ep-gap-3" style="margin-bottom: var(--ep-space-4);">
+        <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-4);">
             <select class="ep-select ep-select-sm form-control-auto"
                     name="status"
                     data-testid="quality-filter-status"
@@ -54,20 +54,25 @@
                 <option value="manual" th:selected="${selectedSource == 'manual'}">Raised by hand</option>
             </select>
 
+            <!--/*
+              Catalog, and by extension template: choosing a catalog re-runs the search AND
+              swaps the template picker below to that catalog's templates (out-of-band, on the
+              same response). The handler drops a template selection from another catalog as
+              stale, so the rows can never be filtered by a template the picker no longer offers.
+            */-->
             <select class="ep-select ep-select-sm form-control-auto"
-                    name="template"
-                    data-testid="quality-filter-template"
+                    name="catalog"
+                    data-testid="quality-filter-catalog"
                     hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
                     hx-target="#quality-findings"
                     hx-swap="innerHTML"
-                    hx-include="[name='status'],[name='severity'],[name='source'],[name='q']">
-                <option value="">All templates</option>
-                <!--/* catalogKey/templateKey: a template key is unique only within its catalog. */-->
-                <option th:each="t : ${templates}"
-                        th:value="${t.catalogKey + '/' + t.id}"
-                        th:text="${t.name}"
-                        th:selected="${selectedTemplate != null && selectedTemplate == t.catalogKey + '/' + t.id}">Invoice</option>
+                    hx-include="[name='status'],[name='severity'],[name='source'],[name='template'],[name='q']">
+                <option value="">All catalogs</option>
+                <option th:each="c : ${catalogs}" th:value="${c}" th:text="${c}"
+                        th:selected="${selectedCatalog != null && selectedCatalog == c}">default</option>
             </select>
+
+            <th:block th:replace="~{quality/list :: template-filter}"></th:block>
 
             <input type="search" name="q" class="ep-input ep-input-sm form-control-auto"
                    placeholder="Search messages..."
@@ -115,20 +120,20 @@
                                        navigate out of just makes you search for the template by
                                        hand. Editor when the finding names a variant, template
                                        page otherwise. */-->
-                                <td class="ep-text-sm">
-                                    <a class="ep-link"
+                                <td style="font-size: var(--ep-text-sm);">
+                                    <a
                                        th:if="${f.variantKey != null}"
                                        th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey},variantId=${f.variantKey})}"
                                        th:text="${f.templateKey}">invoice</a>
-                                    <a class="ep-link"
+                                    <a
                                        th:unless="${f.variantKey != null}"
                                        th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey})}"
                                        th:text="${f.templateKey}">invoice</a>
                                 </td>
-                                <td class="ep-text-muted ep-text-sm" th:text="${f.ruleId}">example.empty-text</td>
+                                <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${f.ruleId}">example.empty-text</td>
                                 <td><th:block th:insert="~{quality/fragments/badges :: source-badge(${f.sourceId})}" /></td>
                                 <td><th:block th:insert="~{quality/fragments/badges :: status-badge(${f.effectiveStatus})}" /></td>
-                                <td class="ep-text-muted ep-text-sm" th:text="${#temporals.format(f.lastSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+                                <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${#temporals.format(f.lastSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
                             </tr>
                         </tbody>
                     </table>
@@ -164,6 +169,32 @@
             </div>
         </dialog>
     </th:block>
+
+    <!--/*
+      The template picker, as its own fragment because /search swaps it out-of-band when the
+      catalog changes. `hx-swap-oob` and the id live on the element itself — an OOB response
+      replaces the whole element, so the fragment has to *be* the select, not its options.
+
+      Harmless on the initial render: hx-swap-oob is only read on a swapped-in response, and the
+      page includes this inline.
+    */-->
+    <select th:fragment="template-filter"
+            id="template-filter"
+            hx-swap-oob="outerHTML"
+            class="ep-select ep-select-sm form-control-auto"
+            name="template"
+            data-testid="quality-filter-template"
+            hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
+            hx-target="#quality-findings"
+            hx-swap="innerHTML"
+            hx-include="[name='status'],[name='severity'],[name='source'],[name='catalog'],[name='q']">
+        <option value="">All templates</option>
+        <!--/* catalogKey/templateKey: a template key is unique only within its catalog. */-->
+        <option th:each="t : ${templates}"
+                th:value="${t.catalogKey + '/' + t.id}"
+                th:text="${t.name}"
+                th:selected="${selectedTemplate != null && selectedTemplate == t.catalogKey + '/' + t.id}">Invoice</option>
+    </select>
 
     <th:block th:fragment="quality-list-actions">
         <button type="button" class="ep-btn ep-btn-primary"

@@ -337,6 +337,80 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("quality-open-template")
     }
 
+    /** A catalog is a coarser filter than a template, and the report offers both. */
+    @Test
+    fun `the report can filter by catalog`() {
+        val subject = scenario()
+        submit(subject, finding(message = "In the default catalog"))
+
+        val matching = restTemplate.getForEntity(
+            "/tenants/${subject.tenantKey.value}/quality?catalog=${subject.catalogKey.value}",
+            String::class.java,
+        )
+        val other = restTemplate.getForEntity(
+            "/tenants/${subject.tenantKey.value}/quality?catalog=some-other-catalog",
+            String::class.java,
+        )
+
+        assertThat(matching.body!!).contains("In the default catalog")
+        assertThat(other.body!!).doesNotContain("In the default catalog")
+    }
+
+    /**
+     * The one that is easy to get wrong. When the catalog picker changes, the browser sends the
+     * template it was *still holding* — which may belong to the catalog you just navigated away
+     * from. Honouring it would filter the rows by a template the picker no longer even offers.
+     */
+    @Test
+    fun `a template selection from another catalog is dropped as stale`() {
+        val subject = scenario()
+        submit(subject, finding(message = "Should still be listed"))
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${subject.tenantKey.value}/quality" +
+                "?catalog=${subject.catalogKey.value}&template=some-other-catalog/some-template",
+            String::class.java,
+        )
+
+        // The stale template is ignored and the catalog filter stands, rather than the two
+        // contradicting each other into an empty page.
+        assertThat(response.body!!).contains("Should still be listed")
+    }
+
+    @Test
+    fun `a template selection within the selected catalog still applies`() {
+        val subject = scenario()
+        submit(subject, finding(message = "Only this template"))
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${subject.tenantKey.value}/quality" +
+                "?catalog=${subject.catalogKey.value}" +
+                "&template=${subject.catalogKey.value}/some-other-template",
+            String::class.java,
+        )
+
+        // Same catalog, different template — not stale, so it filters and this finding drops out.
+        assertThat(response.body!!).doesNotContain("Only this template")
+    }
+
+    /** Choosing a catalog re-runs the search and re-renders the template picker in one response. */
+    @Test
+    fun `search swaps the template picker out-of-band`() {
+        val subject = scenario()
+        submit(subject, finding())
+
+        val response = restTemplate.exchange(
+            "/tenants/${subject.tenantKey.value}/quality/search?catalog=${subject.catalogKey.value}",
+            org.springframework.http.HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        )
+
+        val body = response.body!!
+        assertThat(body).contains("hx-swap-oob")
+        assertThat(body).contains("id=\"template-filter\"")
+    }
+
     @Test
     fun `an unknown finding is a 404`() {
         val subject = scenario()

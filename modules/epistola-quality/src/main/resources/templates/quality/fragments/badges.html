@@ -1,18 +1,29 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <!-- Severity: ERROR=destructive, WARNING=warning, INFO=outline -->
-    <span th:fragment="severity-badge(severity)" class="ep-badge"
-          th:classappend="${severity.name() == 'ERROR'} ? 'ep-badge-destructive' : (${severity.name() == 'WARNING'} ? 'ep-badge-warning' : 'ep-badge-outline')"
+    <!--/*
+      The design system's badge vocabulary is `badge badge-<variant>` (modules/design-system/
+      components.css) — there is no `ep-` prefix on these, unlike buttons and panels.
+    */-->
+
+    <!--/* ERROR reads as damage, WARNING as attention, INFO as a remark — not three shades of red. */-->
+    <span th:fragment="severity-badge(severity)" class="badge"
+          th:classappend="${severity.name() == 'ERROR'} ? 'badge-destructive' : (${severity.name() == 'WARNING'} ? 'badge-warning' : 'badge-outline')"
           th:text="${severity.name()}">WARNING</span>
 
-    <!--/* Effective status, never a stored one: IGNORED is derived from a live ignore row. */-->
-    <span th:fragment="status-badge(status)" class="ep-badge"
-          th:classappend="${status.name() == 'OPEN'} ? 'ep-badge-info' : (${status.name() == 'RESOLVED'} ? 'ep-badge-success' : 'ep-badge-muted')"
+    <!--/*
+      Effective status, never a stored one: IGNORED is derived from a live ignore row.
+
+      OPEN is the only one that wants the eye, so it takes the accent; RESOLVED is settled and
+      green; IGNORED borrows `badge-archived` (stone) because that is exactly what it is — set
+      aside on purpose, not a problem and not a success.
+    */-->
+    <span th:fragment="status-badge(status)" class="badge"
+          th:classappend="${status.name() == 'OPEN'} ? 'badge-primary' : (${status.name() == 'RESOLVED'} ? 'badge-success' : 'badge-archived')"
           th:text="${status.name()}">OPEN</span>
 
-    <!--/* The source that reported it. Manual findings read as a person, not a checker. */-->
-    <span th:fragment="source-badge(sourceId)" class="ep-badge ep-badge-outline"
+    <!--/* Which source reported it. Always neutral — a source is not a severity. */-->
+    <span th:fragment="source-badge(sourceId)" class="badge badge-outline"
           th:text="${sourceId}">example</span>
 </body>
 </html>
