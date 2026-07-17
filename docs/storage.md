@@ -120,3 +120,22 @@ a **transitional layer** deliberately grouped in one package —
 The legacy `content_store` table is retained one release as a safety net, then dropped
 once cutover is verified — at which point the `storage/backfill/` package and the legacy
 `ContentStore` are removed and `assets.content_hash` becomes `NOT NULL` (#742).
+
+### Rolling-upgrade caveats
+
+During the mixed-version window of a rolling upgrade, old (pre-#738) nodes still write to
+`content_store`. Two consequences, both bounded:
+
+- **Stragglers** written by an old node after the backfill's completion marker is set are
+  served correctly via `LegacyBlobFallback`, but would be missed by a naive drop. The
+  `content_store` drop (#742) therefore runs a **final catch-up pass and verifies actual
+  drain** — it does not trust the marker alone.
+- **Transient stale asset reads:** an old `ImportAsset` re-importing an _already-migrated_
+  asset updates the legacy `content_store` bytes but leaves `assets.content_hash` pointing
+  at the old CAS blob, so a new reader briefly serves the previous bytes (it only falls back
+  when `content_hash IS NULL`). This resolves once the old nodes drain; avoid catalog
+  re-imports mid-upgrade.
+
+Backups skip a tenant while it still has un-migrated assets (`content_hash IS NULL`), rather
+than write an archive missing those bytes; they resume automatically once the backfill drains
+the tenant.
