@@ -107,11 +107,30 @@ class ExampleQualitySource : QualityFindingSource {
         when (node) {
             is Map<*, *> -> {
                 (node["text"] as? String)?.let { sb.append(it) }
+                collectExpression(node, sb)
                 collectText(node["content"], sb)
             }
 
             is List<*> -> node.forEach { collectText(it, sb) }
         }
+    }
+
+    /**
+     * An expression node carries no literal `text`, but it renders the data behind it — so a block
+     * holding only expressions is emphatically **not** empty. Collecting literals alone would report
+     * every purely dynamic block (the demo catalog's own `hello-world` body among them) as blank.
+     *
+     * The expression *source* stands in for its value, because what it renders is unknowable until
+     * generation. That is exact for the empty rule and only a proxy for the long-text rule — an
+     * accepted imprecision in a source whose length threshold is already arbitrary, and the reason a
+     * real readability check would run against rendered output rather than the node graph.
+     */
+    private fun collectExpression(
+        node: Map<*, *>,
+        sb: StringBuilder,
+    ) {
+        if (node["type"] != EXPRESSION_NODE_TYPE) return
+        ((node["attrs"] as? Map<*, *>)?.get("expression") as? String)?.let { sb.append(it) }
     }
 
     private fun fingerprint(
@@ -128,6 +147,9 @@ class ExampleQualitySource : QualityFindingSource {
         const val RULE_LONG_TEXT = "example.long-text"
 
         private const val TEXT_NODE_TYPE = "text"
+
+        /** A ProseMirror inline node rendering a data expression — content without literal text. */
+        private const val EXPRESSION_NODE_TYPE = "expression"
 
         /** Arbitrary, and openly so — a real readability check would not be a character count. */
         const val LONG_TEXT_THRESHOLD = 600

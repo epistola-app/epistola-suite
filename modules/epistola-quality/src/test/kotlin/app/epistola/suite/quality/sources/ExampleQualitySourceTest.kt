@@ -139,6 +139,37 @@ class ExampleQualitySourceTest {
     }
 
     /**
+     * A block that renders *only* an expression is not empty — it renders whatever the data holds.
+     *
+     * This is the demo catalog's `hello-world` body verbatim, and it is the shape a naive text walk
+     * gets wrong: an expression node carries no `text` key, so collecting literals alone sees the
+     * block as blank and reports a template that is perfectly fine.
+     */
+    @Test
+    fun `a text node holding only an expression is not reported empty`() {
+        val expressionOnly = Node(
+            id = "node-1",
+            type = "text",
+            slots = emptyList(),
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf("type" to "expression", "attrs" to mapOf("expression" to "message")),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertThat(source.check(inputFor(documentWith(expressionOnly)))).isEmpty()
+    }
+
+    /**
      * A source runs over whatever is stored, including documents from an older editor. Throwing
      * mid-sweep would take out the whole tenant run, so an unrecognised shape means "nothing wrong".
      */
