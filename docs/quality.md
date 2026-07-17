@@ -10,6 +10,27 @@ findings and the ledger owns them from then on. That distinction drives everythi
 Checks only ever analyse a template's **example data**
 (`contract_versions.data_examples`) — never real user data.
 
+## Where it lives
+
+`modules/epistola-quality` — an OSS feature module depending on `epistola-core` +
+`epistola-web`, **not** the commercial support tier (the ledger and its in-process sources work
+with the tier off).
+
+Outside core deliberately. Core must never call quality — the intended shape is that the
+generation pipeline _emits_ and this module _subscribes_ — and having the dependency point this
+way makes that a compile-time fact rather than a convention someone has to remember. It also
+means the feature is genuinely droppable while it is alpha.
+
+The module reads core through core's **queries** (`GetEditorContext`, `ListDocumentTemplates`,
+`ListVariants`) rather than core's tables, so a core migration can't silently break the sweep.
+The one exception is tenant enumeration in `QualityCheckScheduler`, which reads `tenants`
+directly: `ListTenants` is `RequiresAuthentication`, but the sweep enumerates tenants precisely
+in order to bind a per-tenant system principal, so it has none to offer yet. `BackupScheduler`
+does the same, for the same reason.
+
+Typed keys (`QualityFindingKey`, `QualityFindingCommentKey`) and `KnownFeatures.QUALITY` stay in
+core, mirroring `FeedbackKey` — feedback is likewise its own module.
+
 ## The model
 
 | Table                      | What it holds                                                                            |
@@ -247,7 +268,7 @@ cannot "just fix it".
 
 ## Backup
 
-All three tables are **included** in tenant backup/restore (`CoreBackupTables`). Machine
+All three tables are **included** in tenant backup/restore (`QualityBackupTables`, the module's own contributor). Machine
 findings ride along, but the human half — a stated ignore reason, a manual finding, a
 comment — is authoring intent and must survive a restore.
 

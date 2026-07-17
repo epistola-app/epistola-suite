@@ -6,13 +6,10 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.mediator.Mediator
@@ -22,6 +19,9 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.commands.RunQualityChecks
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemUser
+import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.templates.queries.variants.ListVariants
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -112,38 +112,44 @@ class QualityCheckScheduler(
     }
 
     /**
-     * Every variant that has a document to check. Variants with no draft and no published version
-     * are skipped here rather than loaded and discarded inside [RunQualityChecks].
+     * Every variant in the tenant, read through core's own queries rather than this module
+     * querying core's tables — so the sweep depends on core's contract, not its schema.
+     *
+     * One query per template rather than a single join: the sweep is nightly and a tenant has tens
+     * of templates, so the round trips are free. Variants with no draft and no published version
+     * are not filtered out here; [RunQualityChecks] resolves no document for them and returns
+     * without running a source — the same outcome for one extra call.
+     *
+     * **Paged deliberately.** `ListDocumentTemplates` defaults to `limit = 50`, so calling it plainly
+     * would sweep a tenant's first 50 templates and silently skip the rest — a partial sweep that
+     * looks exactly like a complete one. A sweep must cover everything or say that it didn't.
      */
-    private fun variantsOf(tenantKey: TenantKey): List<VariantId> = jdbi.withHandle<List<VariantId>, Exception> { handle ->
-        handle
-            .createQuery(
-                """
-                SELECT DISTINCT tv.catalog_key, tv.template_key, tv.id AS variant_key
-                FROM template_variants tv
-                WHERE tv.tenant_key = :tenantKey
-                  AND EXISTS (
-                      SELECT 1 FROM template_versions ver
-                      WHERE ver.tenant_key = tv.tenant_key AND ver.catalog_key = tv.catalog_key
-                        AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
-                        AND ver.status IN ('draft', 'published')
-                  )
-                ORDER BY tv.catalog_key, tv.template_key, variant_key
-                """,
-            )
-            .bind("tenantKey", tenantKey)
-            .map { rs, _ ->
-                VariantId(
-                    VariantKey.of(rs.getString("variant_key")),
-                    TemplateId(
-                        TemplateKey.of(rs.getString("template_key")),
-                        CatalogId(CatalogKey.of(rs.getString("catalog_key")), TenantId(tenantKey)),
-                    ),
-                )
-            }
-            .list()
+    private fun variantsOf(tenantKey: TenantKey): List<VariantId> = allTemplatesOf(tenantKey)
+        .flatMap { template ->
+            val templateId = TemplateId(template.id, CatalogId(template.catalogKey, TenantId(tenantKey)))
+            ListVariants(templateId).query().map { variant -> VariantId(variant.id, templateId) }
+        }
+
+    private fun allTemplatesOf(tenantKey: TenantKey): List<DocumentTemplate> {
+        val tenantId = TenantId(tenantKey)
+        val all = mutableListOf<DocumentTemplate>()
+        var offset = 0
+        while (true) {
+            val page = ListDocumentTemplates(tenantId, limit = TEMPLATE_PAGE_SIZE, offset = offset).query()
+            all += page
+            if (page.size < TEMPLATE_PAGE_SIZE) return all
+            offset += TEMPLATE_PAGE_SIZE
+        }
     }
 
+    /**
+     * The one place this module reads a core table directly, and deliberately.
+     *
+     * `ListTenants` is `RequiresAuthentication`, but the sweep has no principal to offer yet: it
+     * enumerates tenants precisely so it can bind `SystemUser.principalForTenant(tenant)` for each
+     * one, and that principal is per-tenant by construction. `BackupScheduler` — also a feature
+     * module outside core — reads `tenants` raw for exactly this reason.
+     */
     private fun allTenantKeys(): List<TenantKey> = jdbi.withHandle<List<TenantKey>, Exception> { handle ->
         handle
             .createQuery("SELECT id FROM tenants ORDER BY id")
@@ -156,5 +162,8 @@ class QualityCheckScheduler(
         const val TASK_KEY = "quality.sweep.daily"
         const val ROUTING_KEY = "system:quality.sweep.daily"
         const val TASK_TYPE = "quality.sweep.daily"
+
+        /** Page size for template enumeration — the sweep must see every template, so it pages. */
+        private const val TEMPLATE_PAGE_SIZE = 200
     }
 }

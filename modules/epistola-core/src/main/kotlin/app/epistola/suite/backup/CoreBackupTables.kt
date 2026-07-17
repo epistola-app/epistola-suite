@@ -36,12 +36,6 @@ class CoreBackupTables : TenantBackupTableContributor {
         "environment_activations",
         "api_keys",
         "feature_toggles",
-        // Quality: machine findings ride along, but the human half — an ignore with its
-        // stated reason, a manual review finding, a comment — is authoring intent and
-        // must survive a restore.
-        "quality_findings",
-        "quality_finding_ignores",
-        "quality_finding_comments",
     )
 
     /**
