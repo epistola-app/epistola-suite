@@ -64,9 +64,10 @@
             th:id="${dialogId}"
             class="ep-dialog"
             th:classappend="${dialogClass}"
+            th:aria-labelledby="${dialogId} + '-title'"
             th:attr="data-close-url=${closeUrl},data-dialog=${dialogKind != null ? dialogKind : 'form'}">
         <div class="ep-dialog-header">
-            <h3 th:text="${title}"></h3>
+            <h3 th:id="${dialogId} + '-title'" th:text="${title}"></h3>
         </div>
         <th:block th:replace="${content}"></th:block>
     </dialog>
