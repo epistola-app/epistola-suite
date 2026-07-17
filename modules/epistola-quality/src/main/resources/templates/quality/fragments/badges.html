@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Severity: ERROR=destructive, WARNING=warning, INFO=outline -->
+    <span th:fragment="severity-badge(severity)" class="ep-badge"
+          th:classappend="${severity.name() == 'ERROR'} ? 'ep-badge-destructive' : (${severity.name() == 'WARNING'} ? 'ep-badge-warning' : 'ep-badge-outline')"
+          th:text="${severity.name()}">WARNING</span>
+
+    <!--/* Effective status, never a stored one: IGNORED is derived from a live ignore row. */-->
+    <span th:fragment="status-badge(status)" class="ep-badge"
+          th:classappend="${status.name() == 'OPEN'} ? 'ep-badge-info' : (${status.name() == 'RESOLVED'} ? 'ep-badge-success' : 'ep-badge-muted')"
+          th:text="${status.name()}">OPEN</span>
+
+    <!--/* The source that reported it. Manual findings read as a person, not a checker. */-->
+    <span th:fragment="source-badge(sourceId)" class="ep-badge ep-badge-outline"
+          th:text="${sourceId}">example</span>
+</body>
+</html>
