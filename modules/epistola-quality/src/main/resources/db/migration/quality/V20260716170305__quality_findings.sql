@@ -57,7 +57,13 @@ CREATE TABLE quality_findings (
     version_key       INT,
     node_ids          TEXT[]       NOT NULL DEFAULT '{}',  -- editor nodes this finding points at; drives the in-editor markers
     path              TEXT,                    -- JSON pointer / data path, when it has one
-    message           TEXT         NOT NULL,
+    message           TEXT         NOT NULL,   -- rendered text; the default-locale fallback once message_code is set
+    -- Stable i18n key for the message, so it can be re-rendered in another locale later without
+    -- re-running the source (the interpolation params ride in `context`, and `message` is the
+    -- fallback when there is no bundle for the reader's locale). 128 = rule_id's width; a code is
+    -- the same shape of dotted identifier. NULL when a source does not localize, and always NULL
+    -- for manual findings — a person's note is prose, not a template.
+    message_code      VARCHAR(128),
     docs_url          TEXT,
     -- 128 = sha512 in hex, the longest standard digest anyone would reasonably use; sha256 (the
     -- recipe the docs suggest) is 64 and fits with room to spare. Bounded rather than TEXT so the
@@ -68,7 +74,14 @@ CREATE TABLE quality_findings (
     -- 64 = sha256 in hex. The ledger computes this one (md5, 32) — the headroom is for changing
     -- that algorithm without a migration, not for a caller.
     input_fingerprint VARCHAR(64),
+    -- Two jsonb bags, and the split is deliberate rather than one being a dumping ground for the
+    -- other. `context` is EVIDENCE — what the reader is shown under "Evidence" on the detail page,
+    -- and the interpolation params behind message_code. `metadata` is OPERATIONAL — never rendered
+    -- to the reader: a remote checker's version or trace id, the suite version that computed a PDF
+    -- finding (Phase 5), a future hub-sync correlation id. If a value would confuse a reader shown
+    -- as evidence, it belongs here; if it explains the finding, it belongs in context.
     context           JSONB        NOT NULL DEFAULT '{}',
+    metadata          JSONB        NOT NULL DEFAULT '{}',
     status            VARCHAR(16)  NOT NULL DEFAULT 'OPEN',
     -- first_seen_at IS this row's creation time, so there is deliberately no created_at
     -- beside it to drift from. updated_at stays: it means something different (last
@@ -151,7 +164,10 @@ COMMENT ON COLUMN quality_findings.ignore_scope_urn IS 'What an ignore attaches 
 COMMENT ON COLUMN quality_findings.node_ids IS 'The editor nodes this finding is about, in the source''s own order of relevance; the editor marks each and navigates to the first. A LIST, not a single node, because a finding is often genuinely about several elements at once — "these two paragraphs contradict each other", "these blocks disagree on date format". Emitting one finding per node instead would split a single problem into several that ignore and resolve independently. Empty when the finding is not about any particular element (a document-level or data-level observation).';
 COMMENT ON COLUMN quality_findings.fingerprint IS 'Source-computed finding identity — OPAQUE to the ledger: no CHECK on its shape, and a source need not use hex sha256. Contract: stable across re-runs for the same problem, changes when the problem materially changes. Auto-resolve and ignore-carry-forward both rest on it. Bounded at 128 = sha512-in-hex, the longest standard digest; that is a stated expectation rather than a guess, and a source needing more identity than a hash is doing something this key was not designed for.';
 COMMENT ON COLUMN quality_findings.input_fingerprint IS 'LEDGER-computed hash of the template model this finding was computed against — drives the editor''s "outdated" marker. Deliberately not source-supplied: Postgres normalizes jsonb key order, so a remote source hashing the JSON it fetched would produce a different string and every one of its findings would read as permanently stale.';
-COMMENT ON COLUMN quality_findings.context IS 'Source-supplied structured evidence (e.g. {"length": 142}). Free-form; the ledger never interprets it.';
+COMMENT ON COLUMN quality_findings.message IS 'The rendered message. Once message_code is set this is the default-locale fallback — shown as-is when the reader''s locale has no bundle for the code.';
+COMMENT ON COLUMN quality_findings.message_code IS 'Stable i18n key for the message, so it can be re-rendered in another locale without re-running the source (params come from context, message is the fallback). Distinct from rule_id: rule_id is which rule fired, message_code is which message template to render — often 1:1 but not always. NULL when a source does not localize; always NULL for manual findings.';
+COMMENT ON COLUMN quality_findings.context IS 'Source-supplied structured EVIDENCE (e.g. {"length": 142}) — shown to the reader under "Evidence", and the interpolation params behind message_code. Free-form; the ledger never interprets it. For operational data that should NOT be shown, use metadata.';
+COMMENT ON COLUMN quality_findings.metadata IS 'Source-supplied OPERATIONAL data that is never rendered to the reader — a remote checker''s version or trace id, the suite version behind a PDF finding (Phase 5), a future hub-sync correlation id. The opposite of context: context explains the finding to a person, metadata is for machines and debugging. Free-form; the ledger never interprets it.';
 COMMENT ON COLUMN quality_findings.status IS 'OPEN or RESOLVED only. IGNORED is NOT a status — it is DERIVED from a live quality_finding_ignores row. That keeps "an unchanged fingerprint retains its ignore" true by construction, with no dual-write to diverge.';
 COMMENT ON COLUMN quality_findings.first_seen_at IS 'First time any source reported this fingerprint. Never updated by a resubmit.';
 COMMENT ON COLUMN quality_findings.last_seen_at IS 'Most recent submission that still reported this fingerprint.';

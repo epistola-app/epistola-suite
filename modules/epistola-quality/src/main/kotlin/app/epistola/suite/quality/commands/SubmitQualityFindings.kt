@@ -173,12 +173,12 @@ class SubmitQualityFindingsHandler(
             """
             INSERT INTO quality_findings (
                 tenant_key, id, source_id, rule_id, severity, subject_urn, subject_type, ignore_scope_urn,
-                catalog_key, template_key, variant_key, version_key, node_ids, path, message, docs_url,
-                fingerprint, input_fingerprint, context, status, first_seen_at, last_seen_at, resolved_at
+                catalog_key, template_key, variant_key, version_key, node_ids, path, message, message_code, docs_url,
+                fingerprint, input_fingerprint, context, metadata, status, first_seen_at, last_seen_at, resolved_at
             ) VALUES (
                 :tenantKey, :id, :sourceId, :ruleId, :severity, :subjectUrn, :subjectType, :ignoreScopeUrn,
-                :catalogKey, :templateKey, :variantKey, :versionKey, :nodeIds, :path, :message, :docsUrl,
-                :fingerprint, :inputFingerprint, :context::jsonb, 'OPEN', :now, :now, NULL
+                :catalogKey, :templateKey, :variantKey, :versionKey, :nodeIds, :path, :message, :messageCode, :docsUrl,
+                :fingerprint, :inputFingerprint, :context::jsonb, :metadata::jsonb, 'OPEN', :now, :now, NULL
             )
             ON CONFLICT (tenant_key, source_id, subject_urn, fingerprint) DO UPDATE SET
                 -- Display fields may change without the problem materially changing (a reworded
@@ -186,10 +186,12 @@ class SubmitQualityFindingsHandler(
                 -- newest submission.
                 severity          = EXCLUDED.severity,
                 message           = EXCLUDED.message,
+                message_code      = EXCLUDED.message_code,
                 docs_url          = EXCLUDED.docs_url,
                 node_ids          = EXCLUDED.node_ids,
                 path              = EXCLUDED.path,
                 context           = EXCLUDED.context,
+                metadata          = EXCLUDED.metadata,
                 input_fingerprint = EXCLUDED.input_fingerprint,
                 -- Reopen: a fingerprint reported again is open again, on its ORIGINAL row, so its
                 -- comments survive the resolve/resurface cycle.
@@ -214,10 +216,12 @@ class SubmitQualityFindingsHandler(
             .bindArray("nodeIds", String::class.java, finding.nodeIds)
             .bind("path", finding.path)
             .bind("message", finding.message)
+            .bind("messageCode", finding.messageCode)
             .bind("docsUrl", finding.docsUrl)
             .bind("fingerprint", finding.fingerprint)
             .bind("inputFingerprint", inputFingerprint)
             .bind("context", objectMapper.writeValueAsString(finding.context))
+            .bind("metadata", objectMapper.writeValueAsString(finding.metadata))
             .bind("now", now)
             .execute()
     }

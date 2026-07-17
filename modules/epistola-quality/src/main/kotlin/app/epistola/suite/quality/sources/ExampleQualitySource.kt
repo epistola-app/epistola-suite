@@ -64,6 +64,9 @@ class ExampleQualitySource : QualityFindingSource {
                     severity = QualitySeverity.WARNING,
                     fingerprint = fingerprint(RULE_EMPTY_TEXT, input.subject.urn, node.id),
                     message = "This text block is empty and will render as blank space.",
+                    // The i18n key. This message takes no parameters, so a locale render needs
+                    // only the code — the message above is the default-locale text.
+                    messageCode = MSG_EMPTY_TEXT,
                     // Both rules here are about a single block, so they name one node. A
                     // consistency rule ("these two paragraphs disagree") would name several, and
                     // the editor would mark each of them — that is why this is a list.
@@ -77,6 +80,10 @@ class ExampleQualitySource : QualityFindingSource {
                     severity = QualitySeverity.INFO,
                     fingerprint = fingerprint(RULE_LONG_TEXT, input.subject.urn, node.id),
                     message = "This text block is ${text.length} characters long, which is hard to read in a document.",
+                    // The worked example of the whole i18n shape: a stable code, and the `{length}`
+                    // it interpolates carried as a real value in context — so a French render is
+                    // `code + context.length`, never re-parsing the English string above.
+                    messageCode = MSG_LONG_TEXT,
                     nodeIds = listOf(node.id),
                     context = JsonNodeFactory.instance.objectNode()
                         .put("length", text.length)
@@ -145,6 +152,12 @@ class ExampleQualitySource : QualityFindingSource {
     companion object {
         const val RULE_EMPTY_TEXT = "example.empty-text"
         const val RULE_LONG_TEXT = "example.long-text"
+
+        // i18n keys, namespaced so a bundle can't collide with another source's. Distinct constants
+        // from the rule ids on purpose — here they happen to mirror them, but the ledger keeps
+        // "which rule fired" and "which message to render" as separate ideas.
+        const val MSG_EMPTY_TEXT = "quality.example.empty-text"
+        const val MSG_LONG_TEXT = "quality.example.long-text"
 
         private const val TEXT_NODE_TYPE = "text"
 

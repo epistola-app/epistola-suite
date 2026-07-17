@@ -66,6 +66,9 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         assertThat(long.nodeIds).containsExactly("n-long")
         // The source attaches its evidence; the detail page renders it verbatim.
         assertThat(long.context.get("length").asInt()).isGreaterThan(ExampleQualitySource.LONG_TEXT_THRESHOLD)
+        // The i18n hook, demonstrated: a stable code plus the param carried as data, so this
+        // finding could be re-rendered in another locale from `code + context.length` alone.
+        assertThat(long.messageCode).isEqualTo(ExampleQualitySource.MSG_LONG_TEXT)
     }
 
     /**

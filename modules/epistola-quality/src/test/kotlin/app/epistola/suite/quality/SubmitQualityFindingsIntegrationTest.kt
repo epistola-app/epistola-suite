@@ -15,6 +15,7 @@ import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.node.JsonNodeFactory
 import java.time.Duration
 
 /**
@@ -346,5 +347,85 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
             SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1", "a"), finding("fp-1", "b")))
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("fp-1")
+    }
+
+    /**
+     * The i18n key and both jsonb bags survive the round trip, kept distinct — the ledger stores
+     * evidence, operational metadata and the message code without collapsing any into another.
+     */
+    @Test
+    fun `message code, context and metadata round-trip and stay separate`() {
+        val subject = newSubject()
+        val submitted = SubmittedFinding(
+            ruleId = "example.long-text",
+            severity = QualitySeverity.INFO,
+            fingerprint = "fp-1",
+            message = "This block is 879 characters long.",
+            messageCode = "quality.example.long-text",
+            context = JsonNodeFactory.instance.objectNode().put("length", 879),
+            metadata = JsonNodeFactory.instance.objectNode().put("checkerVersion", "2.3"),
+        )
+
+        withMediator { SubmitQualityFindings(sourceA, subject, listOf(submitted)).execute() }
+        val finding = readBack(subject).findings.single()
+
+        assertThat(finding.messageCode).isEqualTo("quality.example.long-text")
+        // Evidence, for the reader.
+        assertThat(finding.context.get("length").asInt()).isEqualTo(879)
+        // Operational, never shown — and NOT leaked into context.
+        assertThat(finding.metadata.get("checkerVersion").asText()).isEqualTo("2.3")
+        assertThat(finding.context.has("checkerVersion")).isFalse()
+    }
+
+    /** A resubmit rewords the message, its code and its metadata to the newest, on the same row. */
+    @Test
+    fun `a resubmit updates message code and metadata to the newest`() {
+        val subject = newSubject()
+        withMediator {
+            SubmitQualityFindings(
+                sourceA,
+                subject,
+                listOf(
+                    SubmittedFinding(
+                        ruleId = "r",
+                        severity = QualitySeverity.INFO,
+                        fingerprint = "fp-1",
+                        message = "old",
+                        messageCode = "quality.old",
+                        metadata = JsonNodeFactory.instance.objectNode().put("checkerVersion", "1.0"),
+                    ),
+                ),
+            ).execute()
+        }
+
+        withMediator {
+            SubmitQualityFindings(
+                sourceA,
+                subject,
+                listOf(
+                    SubmittedFinding(
+                        ruleId = "r",
+                        severity = QualitySeverity.INFO,
+                        fingerprint = "fp-1",
+                        message = "new",
+                        messageCode = "quality.new",
+                        metadata = JsonNodeFactory.instance.objectNode().put("checkerVersion", "2.0"),
+                    ),
+                ),
+            ).execute()
+        }
+
+        val finding = readBack(subject).findings.single()
+        assertThat(finding.messageCode).isEqualTo("quality.new")
+        assertThat(finding.metadata.get("checkerVersion").asText()).isEqualTo("2.0")
+    }
+
+    /** A source that does not localize leaves the code null rather than inventing one. */
+    @Test
+    fun `a finding without a message code reads back null`() {
+        val subject = newSubject()
+        withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"))).execute() }
+
+        assertThat(readBack(subject).findings.single().messageCode).isNull()
     }
 }

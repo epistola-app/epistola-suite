@@ -95,6 +95,25 @@ class ExampleQualitySourceTest {
         })
     }
 
+    /**
+     * The i18n shape, end to end on the reference source: a stable code, and the value it
+     * interpolates carried in context as data — so a locale render is `code + params`, never a
+     * re-parse of the English string.
+     */
+    @Test
+    fun `findings carry an i18n message code, and long-text carries its param in context`() {
+        val long = "a".repeat(ExampleQualitySource.LONG_TEXT_THRESHOLD + 1)
+
+        val empty = source.check(inputFor(documentWith(textNode("node-1", "")))).single()
+        val overlong = source.check(inputFor(documentWith(textNode("node-1", long)))).single()
+
+        assertThat(empty.messageCode).isEqualTo(ExampleQualitySource.MSG_EMPTY_TEXT)
+        assertThat(overlong.messageCode).isEqualTo(ExampleQualitySource.MSG_LONG_TEXT)
+        // The param that "{length}" would interpolate is present as a real number, not just baked
+        // into the message text.
+        assertThat(overlong.context.get("length").asInt()).isEqualTo(long.length)
+    }
+
     @Test
     fun `a healthy document produces nothing`() {
         val findings = source.check(inputFor(documentWith(textNode("node-1", "Dear customer, your invoice is attached."))))

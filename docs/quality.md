@@ -110,6 +110,30 @@ Findings are **self-describing**: each carries its own `ruleId`, `severity`, `me
 optional `docsUrl`. There is deliberately no local rule catalog — a remote source can add
 or reword rules without a suite release, and there is no second thing to drift.
 
+### message, message_code, context, metadata
+
+Four columns that are easy to confuse, so worth stating plainly:
+
+- **`message`** — the rendered text. Once `message_code` is set it is the default-locale
+  fallback: shown as-is when the reader's locale has no bundle for the code.
+- **`message_code`** — a stable i18n key, so the message can be re-rendered in another locale
+  _without re-running the source_. Distinct from `rule_id`: `rule_id` is which rule fired,
+  `message_code` is which message template to render — often 1:1, but a rule that emits
+  materially different wording per case wants distinct codes. Null when a source does not
+  localize (most do not yet); always null for a manual finding, which is prose.
+- **`context`** — source-supplied **evidence**, shown to the reader under "Evidence" (e.g.
+  `{"length": 879}`), and the interpolation params behind `message_code`. A locale render is
+  `message_code + context`, never a re-parse of the English `message`.
+- **`metadata`** — source-supplied **operational** data that is _never_ rendered: a remote
+  checker's version or trace id, the suite version behind a PDF finding (Phase 5), a future
+  hub-sync correlation id. The boundary against `context`: if a value explains the finding to a
+  person it is context; if it would only confuse them shown as evidence, it is metadata. Two
+  bags rather than one because they have different audiences and different UI treatment, and
+  because Phase 5's writer of `metadata` is the _pipeline_, not the source.
+
+The ledger never interprets `context` or `metadata`; both take the newest submission on a
+resubmit, on the same row.
+
 ## Deletion: the database does it
 
 A finding is metadata _about_ a resource and means nothing once that resource is gone, so the

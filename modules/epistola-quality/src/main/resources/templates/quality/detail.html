@@ -61,6 +61,13 @@
                             <dt>Rule</dt>
                             <dd><code th:text="${finding.ruleId}">example.empty-text</code></dd>
 
+                            <!--/* Shown only when a source localizes. The message above is already
+                                   the rendered text; this is the key a future locale render uses.
+                                   `metadata` is deliberately NOT here — it is operational, not for
+                                   the reader. */-->
+                            <dt th:if="${finding.messageCode != null}">Message key</dt>
+                            <dd th:if="${finding.messageCode != null}"><code th:text="${finding.messageCode}">quality.example.empty-text</code></dd>
+
                             <!--/* A list because one problem can genuinely span several elements;
                                    the editor panel marks each of them (Phase 2). */-->
                             <dt>Elements</dt>

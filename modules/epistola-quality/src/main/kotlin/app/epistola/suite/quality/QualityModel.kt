@@ -172,6 +172,16 @@ data class SubmittedFinding(
     val fingerprint: String,
     val message: String,
     /**
+     * Stable i18n key for [message], letting the ledger re-render it in another locale later
+     * without re-running the source. The interpolation params ride in [context]; [message] is the
+     * default-locale fallback shown when nothing translates the code.
+     *
+     * Distinct from [ruleId]: the rule that fired versus the message template to render. Often the
+     * same, but a rule that emits materially different wording per case wants distinct codes. Null
+     * when a source does not localize — most do not, yet.
+     */
+    val messageCode: String? = null,
+    /**
      * The editor nodes this finding is about — each gets a marker on the canvas and in the
      * structure tree, and the first is where "go to" navigates.
      *
@@ -190,11 +200,21 @@ data class SubmittedFinding(
     /** A data/JSON path, when the finding is about the data rather than an element. */
     val path: String? = null,
     val docsUrl: String? = null,
-    /** Structured evidence for the UI (e.g. `{"length": 142}`). Never interpreted by the ledger. */
+    /**
+     * Structured **evidence** for the reader (e.g. `{"length": 142}`), shown under "Evidence", and
+     * the interpolation params behind [messageCode]. Never interpreted by the ledger.
+     */
     val context: ObjectNode = JsonNodeFactory.instance.objectNode(),
+    /**
+     * **Operational** data that is never shown to the reader — a checker's version or trace id, the
+     * suite version behind a PDF finding. The opposite of [context]: context explains the finding
+     * to a person, metadata is for machines and debugging. Never interpreted by the ledger.
+     */
+    val metadata: ObjectNode = JsonNodeFactory.instance.objectNode(),
 ) {
     init {
         require(ruleId.isNotBlank()) { "ruleId must not be blank" }
+        require(messageCode == null || messageCode.isNotBlank()) { "messageCode, when present, must not be blank" }
         require(fingerprint.isNotBlank()) { "fingerprint must not be blank" }
         require(message.isNotBlank()) { "message must not be blank" }
         require(nodeIds.none { it.isBlank() }) { "nodeIds must not contain blank entries" }
@@ -224,10 +244,15 @@ data class QualityFinding(
     val nodeIds: List<String>,
     val path: String?,
     val message: String,
+    /** The i18n key for [message]; null when the source did not localize. */
+    val messageCode: String?,
     val docsUrl: String?,
     val fingerprint: String,
     val inputFingerprint: String?,
+    /** Evidence, shown to the reader. */
     val context: ObjectNode,
+    /** Operational data, never shown to the reader. */
+    val metadata: ObjectNode,
     val effectiveStatus: EffectiveQualityStatus,
     /** Why it was ignored, when it is. */
     val ignoreReason: String?,
