@@ -176,7 +176,11 @@ class ContentBackfillRunner(
             }
             if (batch.isEmpty()) break
 
-            batch.forEach { if (migrateAsset(it)) migratedTotal++ else unresolved++ }
+            // Plain for-loop (not forEach): the counters are mutated in the enclosing
+            // scope, not captured in a lambda.
+            for (row in batch) {
+                if (migrateAsset(row)) migratedTotal++ else unresolved++
+            }
             lastId = batch.last().id
         }
         if (migratedTotal > 0) logger.info("Backfilled {} asset blob(s) into asset_content", migratedTotal)
