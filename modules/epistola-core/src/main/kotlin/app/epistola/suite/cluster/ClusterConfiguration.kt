@@ -42,17 +42,43 @@ data class ClusterProperties(
      */
     val schedulingSubstrate: String = SUBSTRATE_WALL_CLOCK,
 ) {
-    fun normalizedCapabilities(): List<String> = capabilities
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
-        .distinct()
-        .ifEmpty { listOf(DEFAULT_CAPABILITY) }
+    /**
+     * The capability set this node advertises into `cluster_nodes`.
+     *
+     * Starts from the configured `epistola.cluster.capabilities` (trimmed, de-duped,
+     * defaulting to `[suite]` when blank) and then folds in the local-rendering decision:
+     * the two render tasks require [RENDER_CAPABILITY], so a node renders iff it advertises
+     * it. [renderLocally] (default true) **adds** `render` to the set; setting it false
+     * **removes** `render`, which is how an operator turns off rendering on a node that
+     * otherwise carries `suite`. A dedicated worker instead sets
+     * `epistola.cluster.capabilities: [render]` explicitly and leaves this at its default.
+     */
+    fun normalizedCapabilities(renderLocally: Boolean = true): List<String> {
+        val configured = capabilities
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .ifEmpty { listOf(DEFAULT_CAPABILITY) }
+        return if (renderLocally) {
+            (configured + RENDER_CAPABILITY).distinct()
+        } else {
+            configured.filterNot { it == RENDER_CAPABILITY }
+        }
+    }
 
     /** True when autonomous wall-clock triggering is active (production). */
     fun autonomousSchedulingEnabled(): Boolean = schedulingSubstrate == SUBSTRATE_WALL_CLOCK
 
     companion object {
         const val DEFAULT_CAPABILITY = "suite"
+
+        /**
+         * Capability required to run the document render pipeline (`JobPoller`,
+         * `StaleJobRecovery`). Kept separate from [DEFAULT_CAPABILITY] so rendering can be
+         * routed to dedicated render workers (`apps/pdfrender`, advertising only this) while
+         * all control-plane/maintenance tasks stay gated on [DEFAULT_CAPABILITY].
+         */
+        const val RENDER_CAPABILITY = "render"
         const val SUBSTRATE_WALL_CLOCK = "wall-clock"
         const val SUBSTRATE_TEST = "test"
     }

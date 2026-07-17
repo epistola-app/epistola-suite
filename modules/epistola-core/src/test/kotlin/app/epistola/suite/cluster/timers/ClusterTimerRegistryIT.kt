@@ -261,21 +261,21 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
 
     @Test
     fun `claim due ignores timers requiring a capability the current node does not advertise`() {
-        deleteTimer("timer-pdf-render")
+        deleteTimer("timer-unrelated-cap")
         registry.schedule(
-            timerKey = "timer-pdf-render",
+            timerKey = "timer-unrelated-cap",
             routingKey = "tenant-a",
             timerType = "test",
             dueAt = now().plusMinutes(1),
-            requiredCapability = "pdf-render",
+            requiredCapability = "unrelated-cap",
         )
         testClock.advanceBy(Duration.ofSeconds(61))
         nodeRegistry.heartbeat()
 
-        val claimed = registry.claimDue(listOf("timer-pdf-render"))
+        val claimed = registry.claimDue(listOf("timer-unrelated-cap"))
 
         assertThat(claimed).isEmpty()
-        assertThat(registry.find("timer-pdf-render")?.leaseOwnerNodeId).isNull()
+        assertThat(registry.find("timer-unrelated-cap")?.leaseOwnerNodeId).isNull()
     }
 
     @Test

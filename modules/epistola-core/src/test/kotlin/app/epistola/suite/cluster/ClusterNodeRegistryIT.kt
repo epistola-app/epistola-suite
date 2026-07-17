@@ -13,7 +13,7 @@ import java.time.OffsetDateTime
 @TestPropertySource(
     properties = [
         "epistola.cluster.capabilities[0]=suite",
-        "epistola.cluster.capabilities[1]=pdf-render",
+        "epistola.cluster.capabilities[1]=unrelated-cap",
         "epistola.cluster.idle-timeout-ms=30000",
     ],
 )
@@ -35,7 +35,9 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
         val node = registry.heartbeat()
 
         assertThat(node.nodeId).isEqualTo(nodeIdentity.nodeId)
-        assertThat(node.capabilities).containsExactly("suite", "pdf-render")
+        // The render capability is folded in by default (epistola.generation.render-locally=true),
+        // so a node advertising `suite` also renders — see ClusterProperties.normalizedCapabilities.
+        assertThat(node.capabilities).containsExactlyInAnyOrder("suite", "unrelated-cap", "render")
         assertThat(node.joinedAt).isNotNull()
         assertThat(node.lastSeenAt).isNotNull()
 
