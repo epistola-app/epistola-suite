@@ -25,6 +25,8 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
 
     private val registerFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/subscribe$")
 
+    private val importFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/import$")
+
     @Test
     fun `dialog is not open on initial load of the catalogs list`() {
         val tenant = createTestTenant()
@@ -68,5 +70,21 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
         assertThat(page.locator("dialog[open]#subscribe-catalog-dialog")).isVisible()
         // Opening the dialog pushes the shareable /…/register URL via hx-push-url.
         assertThat(page).hasURL(registerFormUrlPattern)
+    }
+
+    @Test
+    fun `activating the Import ZIP trigger opens the dialog and pushes the import URL`() {
+        val tenant = createTestTenant()
+
+        gotoAndReady("/tenants/${tenant.id}/catalogs")
+        page.htmxSettle()
+
+        val trigger = page.locator("[data-testid='catalog-import-open']")
+        assertThat(trigger).isVisible()
+        trigger.press("Enter")
+
+        assertThat(page.locator("dialog[open]#import-catalog-dialog")).isVisible()
+        // Opening the dialog pushes the shareable /…/import URL via hx-push-url.
+        assertThat(page).hasURL(importFormUrlPattern)
     }
 }

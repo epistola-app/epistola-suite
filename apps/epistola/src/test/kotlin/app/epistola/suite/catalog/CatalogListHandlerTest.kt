@@ -2,6 +2,9 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
@@ -36,6 +39,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
@@ -448,6 +452,137 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).doesNotContain("Letter B")
             // And it tells the user to publish after upgrading.
             assertThat(body).contains("publish")
+        }
+    }
+
+    @Test
+    fun `HTMX GET import returns the dialog fragment`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Import Dialog") }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/import",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The dialog-shell chrome + the caller-owned multipart form with its fields.
+            assertThat(body).contains("id=\"import-catalog-dialog\"")
+            assertThat(body).contains("id=\"import-catalog-form\"")
+            assertThat(body).contains("type=\"file\"")
+            assertThat(body).contains("name=\"catalogType\"")
+            // It is a fragment, not the whole page (no app shell).
+            assertThat(body).doesNotContain("<html")
+        }
+    }
+
+    @Test
+    fun `HTMX POST import with no file shows the form error`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Import No File") }
+
+        whenever {
+            // Multipart POST with a catalogType part but NO file part.
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("catalogType", "AUTHORED")
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.MULTIPART_FORM_DATA
+                add("HX-Request", "true")
+            }
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/import",
+                HttpEntity(payload, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Shaped global form error (HtmxDsl.globalFormError): the body/file input
+            // is NOT re-rendered — only the global error slot is OOB-swapped.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            val body = response.body!!
+            assertThat(body).contains("No file provided")
+            assertThat(body).contains("id=\"import-catalog-error\"")
+        }
+    }
+
+    @Test
+    fun `non-HTMX GET import renders the list page with the dialog embedded and open`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Import DirectNav") }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs/import", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // Full host page (app shell) with the dialog embedded in the mount.
+            assertThat(body).contains("<html")
+            assertThat(body).contains("id=\"dialog-mount\"")
+            assertThat(body).contains("id=\"import-catalog-dialog\"")
+        }
+    }
+
+    @Test
+    fun `HTMX POST import valid redirects to the imported catalog's browse page`() = fixture {
+        lateinit var consumer: Tenant
+        lateinit var zipHolder: ByteArray
+        given {
+            // Export the demo catalog from a publisher tenant to get a real ZIP…
+            val publisher = tenant("Catalog Import Publisher")
+            withMediator {
+                RegisterCatalog(publisher.id, sourceUrl = "classpath:epistola/catalogs/demo/catalog.json", authType = AuthType.NONE).execute()
+                InstallFromCatalog(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+                zipHolder = ExportCatalogZip(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute().zipBytes
+            }
+            // …then import it into a fresh consumer tenant via the UI endpoint.
+            consumer = tenant("Catalog Import Consumer")
+        }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("catalogType", "SUBSCRIBED")
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource(zipHolder) {
+                        override fun getFilename(): String = "demo.zip"
+                    },
+                    HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+                ),
+            )
+            restTemplate.postForEntity(
+                "/tenants/${consumer.id}/catalogs/import",
+                HttpEntity(
+                    payload,
+                    HttpHeaders().apply {
+                        contentType = MediaType.MULTIPART_FORM_DATA
+                        add("HX-Request", "true")
+                    },
+                ),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Success = HX-Redirect to the imported catalog's browse page; the
+            // dialog disappears with the navigation.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Redirect"))
+                .isEqualTo("/tenants/${consumer.id}/catalogs/epistola-demo/browse")
         }
     }
 

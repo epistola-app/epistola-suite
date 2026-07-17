@@ -607,8 +607,31 @@ class CatalogHandler {
         }
     }
 
+    /**
+     * The Import-ZIP dialog, mirroring [newForm]/[registerForm]: an in-app
+     * trigger (hx-get → #dialog-mount) gets just the `dialog` fragment; direct
+     * navigation / boost gets the host list page with the dialog embedded in its
+     * mount (openDialog=true), opened on load by JS. Gated on TEMPLATE_EDIT —
+     * the same permission [ImportCatalogZip] enforces.
+     */
+    fun importForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        return request.htmx {
+            fragment("catalogs/import", "dialog") { "tenantId" to tenantId.key }
+            onNonHtmx {
+                page("catalogs/list") {
+                    catalogPageModel(request)
+                    "openDialog" to true
+                    "openDialogFragment" to "catalogs/import :: dialog"
+                }
+            }
+        }
+    }
+
     fun importZip(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
 
         val multipartData = request.multipartData()
         val filePart = multipartData["file"]?.firstOrNull()
@@ -694,7 +717,7 @@ class CatalogHandler {
                 )
             }
             ServerResponse.ok().render(
-                "catalogs/list :: import-conflict-content",
+                "catalogs/import :: import-conflict-content",
                 mapOf(
                     "catalogId" to e.catalogKey.value,
                     "stencilImportConflicts" to conflicts,
@@ -713,7 +736,7 @@ class CatalogHandler {
                 is CatalogSchemaUnknownException -> "Import blocked: unrecognised catalog format"
             }
             ServerResponse.ok().render(
-                "catalogs/list :: import-schema-error",
+                "catalogs/import :: import-schema-error",
                 mapOf(
                     "schemaErrorTitle" to title,
                     "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
@@ -724,7 +747,7 @@ class CatalogHandler {
             // updating mutates the imported content, so prompt before importing. The
             // "Update" button re-submits the same form with confirmMigration=true.
             ServerResponse.ok().render(
-                "catalogs/list :: import-migration-confirm",
+                "catalogs/import :: import-migration-confirm",
                 mapOf(
                     "tenantId" to tenantId.key,
                     "fromSchemaVersion" to e.fromVersion,
@@ -754,7 +777,7 @@ class CatalogHandler {
      */
     private fun importError(request: ServerRequest, error: String): ServerResponse = request.htmx {
         globalFormError("import-catalog-error", error)
-        oob("catalogs/list", "import-error-reset")
+        oob("catalogs/import", "import-error-reset")
         onNonHtmx {
             page(422, "catalogs/list") {
                 "pageTitle" to "Catalogs - Epistola"
