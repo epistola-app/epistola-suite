@@ -18,9 +18,12 @@ enum class ContractVersionStatus {
 /**
  * Versioned data contract for a template.
  *
- * @property schema JSON Schema (2020-12) for strict validation. May be null if no validation is needed.
- * @property dataModel JSON Schema describing the input structure, used by the visual editor. This is
- *           the primary schema used for validation throughout the application.
+ * @property dataModel JSON Schema describing the expected input structure, authored by the visual
+ *           editor. **This is the schema every validation path actually uses** — generation, both
+ *           previews, and the REST validate endpoint all read `dataModel`. Null means no validation.
+ * @property schema Written by `CreateContractVersion` / `UpdateContractVersion` and surfaced over MCP,
+ *           but **no validation path consults it** — despite the name, it is not the schema data is
+ *           checked against. Vestigial, pending a decision to use or drop it.
  * @property dataExamples Named sample data sets conforming to the schema, used for preview and testing.
  */
 data class ContractVersion(

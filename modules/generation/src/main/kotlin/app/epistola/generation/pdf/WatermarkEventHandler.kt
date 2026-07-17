@@ -2,6 +2,7 @@ package app.epistola.generation.pdf
 
 import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.kernel.font.PdfFont
+import com.itextpdf.kernel.pdf.canvas.CanvasArtifact
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
@@ -32,6 +33,13 @@ import kotlin.math.sqrt
  * [font] must be the document's content font ([FontCache.regular]) so that, under
  * PDF/A, the watermark text is drawn with the same embedded font and stays
  * PDF/A-2b valid (PDF/A-2 permits the transparency used for the soft fade).
+ *
+ * The whole stamp is marked as an artifact: renders are tagged and declare
+ * PDF/UA-1, which requires every piece of content to be either in the structure
+ * tree or explicitly an artifact — and a decorative watermark must never be
+ * announced to a screen reader. It also means a watermarked preview's structure
+ * tree is identical to the un-watermarked final's, so accessibility checks can
+ * run on preview bytes.
  */
 class WatermarkEventHandler(
     private val text: String,
@@ -50,50 +58,58 @@ class WatermarkEventHandler(
 
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)
         pdfCanvas.saveState()
-        val canvas = Canvas(pdfCanvas, pageSize)
-            .setFont(font)
-            .setFontColor(ColorConstants.GRAY)
+        // try/finally guarantees the marked-content sequence stays balanced and the
+        // canvas is released. closeTag() must follow canvas.close(), which is what
+        // flushes the layout content into the stream.
+        pdfCanvas.openTag(CanvasArtifact())
+        try {
+            val canvas = Canvas(pdfCanvas, pageSize)
+                .setFont(font)
+                .setFontColor(ColorConstants.GRAY)
 
-        val centreX = pageSize.left + pageSize.width / 2f
+            val centreX = pageSize.left + pageSize.width / 2f
 
-        // Centre ghost first, so the crisper header/footer bands read on top of it.
-        // Size it to a modest fraction of the page diagonal — a faint background
-        // brand mark, not a page-dominating stamp.
-        val diagonal = sqrt(pageSize.width * pageSize.width + pageSize.height * pageSize.height)
-        pdfCanvas.setExtGState(PdfExtGState().setFillOpacity(CENTER_OPACITY))
-        canvas.setFontSize(CENTER_WIDTH_FRACTION * diagonal / unitWidth)
-        canvas.showTextAligned(
-            text,
-            centreX,
-            pageSize.bottom + pageSize.height / 2f,
-            TextAlignment.CENTER,
-            VerticalAlignment.MIDDLE,
-            WATERMARK_ANGLE_RAD,
-        )
+            // Centre ghost first, so the crisper header/footer bands read on top of it.
+            // Size it to a modest fraction of the page diagonal — a faint background
+            // brand mark, not a page-dominating stamp.
+            val diagonal = sqrt(pageSize.width * pageSize.width + pageSize.height * pageSize.height)
+            pdfCanvas.setExtGState(PdfExtGState().setFillOpacity(CENTER_OPACITY))
+            canvas.setFontSize(CENTER_WIDTH_FRACTION * diagonal / unitWidth)
+            canvas.showTextAligned(
+                text,
+                centreX,
+                pageSize.bottom + pageSize.height / 2f,
+                TextAlignment.CENTER,
+                VerticalAlignment.MIDDLE,
+                WATERMARK_ANGLE_RAD,
+            )
 
-        // Header and footer bands, in the page margins, clear of body text.
-        pdfCanvas.setExtGState(PdfExtGState().setFillOpacity(BAND_OPACITY))
-        canvas.setFontSize(WATERMARK_FONT_SIZE)
-        canvas.showTextAligned(
-            text,
-            centreX,
-            pageSize.top - EDGE_MARGIN,
-            TextAlignment.CENTER,
-            VerticalAlignment.MIDDLE,
-            0f,
-        )
-        canvas.showTextAligned(
-            text,
-            centreX,
-            pageSize.bottom + EDGE_MARGIN,
-            TextAlignment.CENTER,
-            VerticalAlignment.MIDDLE,
-            0f,
-        )
+            // Header and footer bands, in the page margins, clear of body text.
+            pdfCanvas.setExtGState(PdfExtGState().setFillOpacity(BAND_OPACITY))
+            canvas.setFontSize(WATERMARK_FONT_SIZE)
+            canvas.showTextAligned(
+                text,
+                centreX,
+                pageSize.top - EDGE_MARGIN,
+                TextAlignment.CENTER,
+                VerticalAlignment.MIDDLE,
+                0f,
+            )
+            canvas.showTextAligned(
+                text,
+                centreX,
+                pageSize.bottom + EDGE_MARGIN,
+                TextAlignment.CENTER,
+                VerticalAlignment.MIDDLE,
+                0f,
+            )
 
-        canvas.close()
-        pdfCanvas.restoreState()
-        pdfCanvas.release()
+            canvas.close()
+        } finally {
+            pdfCanvas.closeTag()
+            pdfCanvas.restoreState()
+            pdfCanvas.release()
+        }
     }
 
     companion object {

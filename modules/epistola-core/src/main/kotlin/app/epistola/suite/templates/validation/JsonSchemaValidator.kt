@@ -11,8 +11,12 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Validates JSON data against JSON Schema definitions.
- * Uses networknt/json-schema-validator 3.0.0 with JSON Schema 2020-12 specification.
+ * Validates JSON data against JSON Schema definitions, using networknt/json-schema-validator.
+ *
+ * 2020-12 is the *default* dialect — it applies only to a schema that omits `$schema`. Contracts
+ * authored in the data-contract editor declare `$schema: draft-07` (see `schemaUtils.ts`) and are
+ * therefore evaluated as draft-07, so keyword support differs from 2020-12 for those: notably
+ * `unevaluatedProperties` does not exist, and `$ref` siblings are ignored.
  */
 @Component
 class JsonSchemaValidator(
