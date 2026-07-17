@@ -178,7 +178,8 @@ class QualityHandler(
         val tenantId = request.tenantId()
 
         return request.htmx {
-            fragment("quality/manual-form") {
+            // Named, so the trailing variant-options fragment does not ride along into the dialog.
+            fragment("quality/manual-form", "content") {
                 "tenantId" to tenantId.key
                 "templates" to ListDocumentTemplates(tenantId, limit = TEMPLATE_FILTER_LIMIT).query()
                 "severities" to QualitySeverity.entries

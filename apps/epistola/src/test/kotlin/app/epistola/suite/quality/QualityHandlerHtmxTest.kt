@@ -268,6 +268,75 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body!!).contains("Default")
     }
 
+    /**
+     * `.ep-dialog` has no padding of its own, so the header/body/footer classes *are* the dialog's
+     * chrome — without them the form renders edge-to-edge with no title bar and no way out.
+     */
+    @Test
+    fun `the raise-a-finding dialog has its chrome and a close button`() {
+        val subject = scenario()
+
+        val response = restTemplate.exchange(
+            "/tenants/${subject.tenantKey.value}/quality/manual-form",
+            org.springframework.http.HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        )
+
+        val body = response.body!!
+        assertThat(body).contains("ep-dialog-header")
+        assertThat(body).contains("ep-dialog-body")
+        assertThat(body).contains("ep-dialog-footer")
+        assertThat(body).contains("data-close-dialog")
+    }
+
+    /**
+     * The form is rendered as a *named* fragment. Rendering the whole template would drag the
+     * trailing variant-options block in with it and leak a stray option into the dialog.
+     */
+    @Test
+    fun `the raise-a-finding dialog does not leak the variant-options fragment`() {
+        val subject = scenario()
+
+        val response = restTemplate.exchange(
+            "/tenants/${subject.tenantKey.value}/quality/manual-form",
+            org.springframework.http.HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        )
+
+        assertThat(response.body!!).doesNotContain("No variants")
+    }
+
+    /** A report you cannot navigate out of just makes you hunt for the template by hand. */
+    @Test
+    fun `the report links each finding to its template in the editor`() {
+        val subject = scenario()
+        submit(subject, finding())
+
+        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/quality", String::class.java)
+
+        val editorHref = "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+            "/${subject.templateKey.value}/variants/${subject.variantKey}/editor"
+        assertThat(response.body!!).contains(editorHref)
+    }
+
+    @Test
+    fun `the detail page offers a way to the editor and the template`() {
+        val subject = scenario()
+        submit(subject, finding())
+        val key = onlyFinding(subject).key
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${subject.tenantKey.value}/quality/${key.value}",
+            String::class.java,
+        )
+
+        val body = response.body!!
+        assertThat(body).contains("quality-open-editor")
+        assertThat(body).contains("quality-open-template")
+    }
+
     @Test
     fun `an unknown finding is a 404`() {
         val subject = scenario()

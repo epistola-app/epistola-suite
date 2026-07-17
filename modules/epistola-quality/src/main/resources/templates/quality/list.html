@@ -111,7 +111,20 @@
                                        style="font-weight: 500;"
                                        th:text="${f.message}">Message</a>
                                 </td>
-                                <td class="ep-text-sm" th:text="${f.templateKey}">invoice</td>
+                                <!--/* Straight to the thing that is wrong. A report you cannot
+                                       navigate out of just makes you search for the template by
+                                       hand. Editor when the finding names a variant, template
+                                       page otherwise. */-->
+                                <td class="ep-text-sm">
+                                    <a class="ep-link"
+                                       th:if="${f.variantKey != null}"
+                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey},variantId=${f.variantKey})}"
+                                       th:text="${f.templateKey}">invoice</a>
+                                    <a class="ep-link"
+                                       th:unless="${f.variantKey != null}"
+                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey})}"
+                                       th:text="${f.templateKey}">invoice</a>
+                                </td>
                                 <td class="ep-text-muted ep-text-sm" th:text="${f.ruleId}">example.empty-text</td>
                                 <td><th:block th:insert="~{quality/fragments/badges :: source-badge(${f.sourceId})}" /></td>
                                 <td><th:block th:insert="~{quality/fragments/badges :: status-badge(${f.effectiveStatus})}" /></td>

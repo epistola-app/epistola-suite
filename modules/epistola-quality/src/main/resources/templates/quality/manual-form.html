@@ -8,58 +8,80 @@
       It differs in exactly one way, and the UI must not hide it — nothing reconciles a human's note
       away, so it closes only when someone resolves it. RecordManualFinding reflects that by never
       being touched by a submission.
+
+      Rendered as a *named* fragment: `.ep-dialog` has no padding of its own, so the header/body/
+      footer classes are the dialog's chrome rather than decoration. The variant-options fragment
+      below must stay out of the swap, which is why the handler names this one.
     */-->
-    <form th:fragment="manual-form"
-          th:hx-post="@{/tenants/{tenantId}/quality(tenantId=${tenantId})}"
-          hx-swap="none"
-          data-testid="quality-manual-form">
-        <h2>Raise a finding</h2>
-        <p class="ep-text-muted ep-text-sm">
-            For something a check cannot see — tone, factual errors, a review remark.
-        </p>
-
-        <label class="ep-label" for="manual-template">Template</label>
-        <!--/* catalogKey/templateKey — unique only as a pair, so they travel as one value and are
-               split server-side. Choosing one loads its variants into the select below. */-->
-        <select id="manual-template" name="template" class="ep-select" required
-                data-testid="quality-manual-template"
-                th:hx-get="@{/tenants/{tenantId}/quality/variants(tenantId=${tenantId})}"
-                hx-target="#manual-variant"
-                hx-swap="innerHTML"
-                hx-trigger="change">
-            <option value="">Choose a template...</option>
-            <option th:each="t : ${templates}"
-                    th:value="${t.catalogKey + '/' + t.id}"
-                    th:text="${t.name}">Invoice</option>
-        </select>
-
-        <label class="ep-label" for="manual-variant">Variant</label>
-        <select id="manual-variant" name="variantKey" class="ep-select" required
-                data-testid="quality-manual-variant">
-            <option value="">Choose a template first...</option>
-        </select>
-
-        <label class="ep-label" for="manual-severity">Severity</label>
-        <select id="manual-severity" name="severity" class="ep-select" required
-                data-testid="quality-manual-severity">
-            <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${s.name()}"
-                    th:selected="${s.name() == 'WARNING'}">WARNING</option>
-        </select>
-
-        <label class="ep-label" for="manual-message">What is wrong?</label>
-        <textarea id="manual-message" name="message" class="ep-textarea" rows="3" required
-                  data-testid="quality-manual-message"
-                  placeholder="Describe the problem..."></textarea>
-
-        <div class="ep-row ep-gap-2" style="margin-top: var(--ep-space-3);">
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="quality-manual-submit">Raise finding</button>
-            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="quality-manual-dialog">Cancel</button>
+    <th:block th:fragment="content">
+        <div class="ep-dialog-header">
+            <h2>Raise a finding</h2>
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-icon" data-close-dialog aria-label="Close">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='x', class='ep-icon')}" />
+            </button>
         </div>
-    </form>
 
-    <!--/* Swapped into the variant select when a template is chosen — QualityHandler.variantOptions. */-->
+        <form th:hx-post="@{/tenants/{tenantId}/quality(tenantId=${tenantId})}"
+              hx-swap="none"
+              data-testid="quality-manual-form">
+            <div class="ep-dialog-body ep-stack ep-gap-4">
+                <p class="ep-text-muted ep-text-sm" style="margin: 0;">
+                    For something a check cannot see — tone, factual errors, a review remark.
+                </p>
+
+                <div class="form-group">
+                    <label class="ep-label" for="manual-template">Template</label>
+                    <!--/* catalogKey/templateKey — unique only as a pair, so they travel as one
+                           value and are split server-side. Choosing one loads its variants. */-->
+                    <select id="manual-template" name="template" class="ep-select" required
+                            data-testid="quality-manual-template"
+                            th:hx-get="@{/tenants/{tenantId}/quality/variants(tenantId=${tenantId})}"
+                            hx-target="#manual-variant"
+                            hx-swap="innerHTML"
+                            hx-trigger="change">
+                        <option value="" disabled selected>Select...</option>
+                        <option th:each="t : ${templates}"
+                                th:value="${t.catalogKey + '/' + t.id}"
+                                th:text="${t.name}">Invoice</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="ep-label" for="manual-variant">Variant</label>
+                    <select id="manual-variant" name="variantKey" class="ep-select" required
+                            data-testid="quality-manual-variant">
+                        <option value="" disabled selected>Choose a template first...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="ep-label" for="manual-severity">Severity</label>
+                    <select id="manual-severity" name="severity" class="ep-select" required
+                            data-testid="quality-manual-severity">
+                        <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${s.name()}"
+                                th:selected="${s.name() == 'WARNING'}">WARNING</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="ep-label" for="manual-message">What is wrong?</label>
+                    <textarea id="manual-message" name="message" class="ep-textarea" rows="3" required
+                              data-testid="quality-manual-message"
+                              placeholder="Describe the problem..."></textarea>
+                </div>
+            </div>
+
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-outline" data-close-dialog>Cancel</button>
+                <button type="submit" class="ep-btn ep-btn-primary" data-testid="quality-manual-submit">Raise finding</button>
+            </div>
+        </form>
+    </th:block>
+
+    <!--/* Swapped into the variant select when a template is chosen — QualityHandler.variantOptions.
+           Kept outside the content fragment so it never rides along into the dialog. */-->
     <th:block th:fragment="variant-options">
-        <option value="" th:if="${#lists.isEmpty(variants)}">No variants</option>
+        <option value="" th:if="${#lists.isEmpty(variants)}" disabled selected>No variants</option>
         <option th:each="v : ${variants}" th:value="${v.id}" th:text="${v.title}">Default</option>
     </th:block>
 </body>
