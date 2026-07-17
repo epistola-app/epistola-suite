@@ -141,6 +141,25 @@ document.addEventListener(
   true,
 );
 
+// ── History restore: re-promote restored dialogs to modal ────────────────────
+// htmx's history cache serialises `<dialog open>` but NOT showModal()'s
+// top-layer state (backdrop, centering, ESC-to-close). On Back/Forward a mount
+// dialog comes back open-but-NON-modal, and the openDialogModal guard skips it
+// because it is already `open`. Re-promote it here so the backdrop/centering/ESC
+// return. Use removeAttribute('open') — NOT dialog.close() — because close()
+// fires the `close` event above, which removes the dialog from the mount before
+// we can reopen it; removing the attribute is silent, then showModal() re-opens
+// it modally. Scoped to mount dialogs (the ones we open modally in the first
+// place); htmx:historyRestore fires after the snapshot DOM is in place.
+document.addEventListener('htmx:historyRestore', function () {
+  document.querySelectorAll('[data-dialog-mount] dialog[open]').forEach(function (dialog) {
+    if (!dialog.matches(':modal')) {
+      dialog.removeAttribute('open');
+      dialog.showModal();
+    }
+  });
+});
+
 // ── Confirm dialog for destructive actions ──────────────────────────────────
 // Usage: <button data-confirm-url="…" data-confirm-title="…"
 //                data-confirm-message="…" data-confirm-target="#rows">
