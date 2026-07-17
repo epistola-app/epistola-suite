@@ -3,6 +3,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -18,6 +19,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.PublishStencilVersion
@@ -59,14 +61,71 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `creating the first catalog returns the #catalog-list region with a table`() = fixture {
+    fun `HTMX GET new returns the dialog fragment`() = fixture {
         lateinit var t: Tenant
-        given { t = tenant("Catalog List Create") }
+        given { t = tenant("Catalog New Dialog") }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/new",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The dialog-shell chrome + the caller-owned form with its fields.
+            assertThat(body).contains("id=\"create-catalog-dialog\"")
+            assertThat(body).contains("id=\"create-catalog-form\"")
+            assertThat(body).contains("name=\"name\"")
+            assertThat(body).contains("name=\"slug\"")
+            // It is a fragment, not the whole page (no app shell).
+            assertThat(body).doesNotContain("<html")
+        }
+    }
+
+    @Test
+    fun `HTMX POST create invalid retargets the form with 422`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Create Invalid") }
 
         whenever {
             val payload = LinkedMultiValueMap<String, String>()
-            payload.add("slug", "list-region-cat")
-            payload.add("name", "List Region Cat")
+            payload.add("slug", "BAD SLUG") // uppercase + space → fails asCatalogId
+            payload.add("name", "Bad Slug Cat")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/create",
+                HttpEntity(payload, htmxForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // Retargets the FORM (not the dialog, not the list) so the open modal
+            // dialog is never removed from the top layer.
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-catalog-form")
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")
+            val body = response.body!!
+            assertThat(body).contains("id=\"create-catalog-form\"")
+            assertThat(body).contains("form-error")
+        }
+    }
+
+    @Test
+    fun `HTMX POST create valid closes the dialog and OOB-refreshes the list`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Create Valid") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, String>()
+            payload.add("slug", "my-catalog")
+            payload.add("name", "My Catalog")
             restTemplate.postForEntity(
                 "/tenants/${t.id}/catalogs/create",
                 HttpEntity(payload, htmxForm()),
@@ -77,13 +136,86 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Stay-on-list: close the dialog + OOB-refresh the list region.
+            assertThat(response.headers.getFirst("HX-Trigger")).isEqualTo("closeDialog")
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             val body = response.body!!
-            // The stable wrapper, containing the table (not a bare <tbody>),
-            // swapped directly into #catalog-list (no OOB marker).
             assertThat(body).contains("id=\"catalog-list\"")
-            assertThat(body).contains("<table")
-            assertThat(body).contains("List Region Cat")
-            assertThat(body).doesNotContain("hx-swap-oob")
+            assertThat(body).contains("hx-swap-oob")
+            assertThat(body).contains("My Catalog")
+            // Persistence verified through the mediator.
+            val persisted = withMediator { ListCatalogs(tenantKey = t.id).query() }
+            assertThat(persisted.map { it.name }).contains("My Catalog")
+        }
+    }
+
+    @Test
+    fun `HTMX POST create duplicate slug returns 422 with inline error`() = fixture {
+        lateinit var t: Tenant
+        given {
+            t = tenant("Catalog Create Duplicate")
+            withMediator {
+                CreateCatalog(tenantKey = t.id, id = CatalogKey.of("dup"), name = "Dup Cat").execute()
+            }
+        }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, String>()
+            payload.add("slug", "dup")
+            payload.add("name", "Second Dup")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/create",
+                HttpEntity(payload, htmxForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-catalog-form")
+            val body = response.body!!
+            assertThat(body).contains("A catalog with this ID already exists")
+        }
+    }
+
+    @Test
+    fun `non-HTMX GET new renders the list page with the dialog embedded and open`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog New DirectNav") }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs/new", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // Full host page (app shell) with the dialog embedded in the mount.
+            assertThat(body).contains("<html")
+            assertThat(body).contains("id=\"dialog-mount\"")
+            assertThat(body).contains("id=\"create-catalog-dialog\"")
+        }
+    }
+
+    @Test
+    fun `plain list route does not embed the create dialog`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Plain List") }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The mount is present but empty on the plain list route (openDialog is
+            // unset, so the th:if guard must wrap the th:replace). See docs/dialog-forms.md.
+            assertThat(body).contains("id=\"dialog-mount\"")
+            assertThat(body).doesNotContain("id=\"create-catalog-dialog\"")
         }
     }
 

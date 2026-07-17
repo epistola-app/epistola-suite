@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    The create-catalog dialog. Rendered two ways off CatalogHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `catalog-form` — re-rendered on field errors (dialogFieldErrors retargets
+        #create-catalog-form), so the form swaps in place with inline errors and
+        preserved values, leaving the <dialog> untouched.
+
+    STAY-ON-LIST: on success the handler closes the dialog and OOB-refreshes the
+    #catalog-list region (dialogSuccess), unlike the code-list/template dialogs
+    that redirect to a detail page.
+
+    Model it needs: `tenantId` (URLs), and on error re-render `formData`/`errors`.
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-catalog-dialog',
+            title='New Catalog',
+            closeUrl=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            content=~{::catalog-form})}"></div>
+    </th:block>
+
+    <form th:fragment="catalog-form" id="create-catalog-form"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
+          hx-target="#create-catalog-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-catalog-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                <label class="ep-label" for="catalogName">Name</label>
+                <input type="text" id="catalogName" name="name" class="ep-input" maxlength="100"
+                       required placeholder="My Templates" data-slug-source="catalogSlug"
+                       th:value="${formData?.name}">
+                <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+                <label class="ep-label" for="catalogSlug">Catalog ID (Slug)</label>
+                <input type="text" id="catalogSlug" name="slug" class="ep-input"
+                       required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                       minlength="3" maxlength="50"
+                       placeholder="my-templates"
+                       th:value="${formData?.slug}">
+                <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="create-catalog-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
+        </div>
+    </form>
+</body>
+</html>

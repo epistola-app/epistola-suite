@@ -113,39 +113,17 @@
         </div>
         <!-- /#catalog-list -->
 
-        <!-- Create Catalog Dialog -->
-        <dialog id="create-dialog" class="ep-dialog">
-            <div class="ep-dialog-header">
-                <h3>New Catalog</h3>
-            </div>
-            <form th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
-                  hx-target="#catalog-list"
-                  hx-swap="outerHTML"
-                  data-reset-on-success
-                  data-close-dialog-on-success="create-dialog">
-                <div th:replace="~{epistola-web/form-error :: form-error(id='create-catalog-error')}"></div>
-                <div class="ep-dialog-body">
-                    <div class="form-group">
-                        <label class="ep-label" for="catalogName">Name</label>
-                        <input type="text" id="catalogName" name="name" class="ep-input" maxlength="100"
-                               required placeholder="My Templates" data-slug-source="catalogSlug">
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="catalogSlug">Catalog ID (Slug)</label>
-                        <input type="text" id="catalogSlug" name="slug" class="ep-input"
-                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="50"
-                               placeholder="my-templates">
-                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
-                    </div>
-                </div>
-                <div class="ep-dialog-footer">
-                    <button type="button" class="ep-btn ep-btn-ghost"
-                            data-close-dialog="create-dialog">Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
-                </div>
-            </form>
-        </dialog>
+        <!-- Dialog mount: create/register/import dialogs are swapped in here by their
+             triggers (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
+             direct navigation to /new (etc.) the handler renders THIS page with
+             openDialog=true and openDialogFragment set to the specific dialog fragment.
+             GOTCHA: the openDialog guard MUST wrap the th:replace on an OUTER element —
+             th:replace (100) runs before th:if (300). See docs/dialog-forms.md. -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{__${openDialogFragment}__}"></th:block>
+            </th:block>
+        </div>
 
         <!-- Subscribe to Catalog Dialog -->
         <dialog id="subscribe-dialog" class="ep-dialog">
@@ -608,7 +586,8 @@
             Subscribe
         </button>
         <button type="button" class="ep-btn ep-btn-primary"
-                data-open-dialog="create-dialog"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="catalog-create-open">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Catalog

@@ -53,7 +53,7 @@ class InputMaxLengthTest {
         name("$base/attributes/new.html", "displayName"),
         name("$base/attributes/list.html", "edit-attr-displayName"),
         name("$base/code-lists/new.html", "displayName"),
-        name("$base/catalogs/list.html", "catalogName"),
+        name("$base/catalogs/new.html", "catalogName"),
         name("$base/templates/detail/variants.html", "title"),
         name("$base/templates/detail.html", "edit-variant-title"),
         name("$base/api-keys/new.html", "name"),
