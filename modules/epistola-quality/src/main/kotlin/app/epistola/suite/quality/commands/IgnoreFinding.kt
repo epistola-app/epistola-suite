@@ -60,7 +60,7 @@ class IgnoreFindingHandler(
             // back to this row, so it outlives the finding and can pre-exist a resurface.
             val key = handle.createQuery(
                 """
-                SELECT ignore_scope_urn, source_id, rule_id, fingerprint
+                SELECT ignore_scope_urn, source_id, rule_id, fingerprint, catalog_key, template_key
                 FROM quality_findings
                 WHERE tenant_key = :tenantKey AND id = :findingKey
                 """,
@@ -73,6 +73,8 @@ class IgnoreFindingHandler(
                         sourceId = rs.getString("source_id"),
                         ruleId = rs.getString("rule_id"),
                         fingerprint = rs.getString("fingerprint"),
+                        catalogKey = rs.getString("catalog_key"),
+                        templateKey = rs.getString("template_key"),
                     )
                 }
                 .findOne()
@@ -82,9 +84,11 @@ class IgnoreFindingHandler(
                 """
                 INSERT INTO quality_finding_ignores (
                     tenant_key, ignore_scope_urn, source_id, rule_id, finding_fingerprint,
+                    catalog_key, template_key,
                     reason, ignored_by, ignored_at, revoked_by, revoked_at
                 ) VALUES (
                     :tenantKey, :ignoreScopeUrn, :sourceId, :ruleId, :fingerprint,
+                    :catalogKey, :templateKey,
                     :reason, :actor, :now, NULL, NULL
                 )
                 ON CONFLICT (tenant_key, ignore_scope_urn, source_id, rule_id, finding_fingerprint) DO UPDATE SET
@@ -102,6 +106,10 @@ class IgnoreFindingHandler(
                 .bind("sourceId", key.sourceId)
                 .bind("ruleId", key.ruleId)
                 .bind("fingerprint", key.fingerprint)
+                // Carried from the finding purely so the database can collect this row when the
+                // template goes; never read back.
+                .bind("catalogKey", key.catalogKey)
+                .bind("templateKey", key.templateKey)
                 .bind("reason", command.reason)
                 .bind("actor", actor)
                 .bind("now", now)
@@ -114,5 +122,7 @@ class IgnoreFindingHandler(
         val sourceId: String,
         val ruleId: String,
         val fingerprint: String,
+        val catalogKey: String,
+        val templateKey: String,
     )
 }

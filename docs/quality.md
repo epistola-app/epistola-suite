@@ -110,6 +110,34 @@ Findings are **self-describing**: each carries its own `ruleId`, `severity`, `me
 optional `docsUrl`. There is deliberately no local rule catalog — a remote source can add
 or reword rules without a suite release, and there is no second thing to drift.
 
+## Deletion: the database does it
+
+A finding is metadata _about_ a resource and means nothing once that resource is gone, so the
+tables carry foreign keys to `document_templates` and `template_variants` with
+`ON DELETE CASCADE`. Delete a template and its findings, ignores and comments go with it;
+delete one variant and only that variant's findings go. Catalog and tenant deletion already
+cascade through `document_templates`, so those come free. Versions need no rule of their own —
+they are archived, never deleted.
+
+**Why foreign keys rather than an event handler.** They point quality → core, the same
+direction the module dependency already points, so the cleanup costs nothing architecturally:
+`DeleteDocumentTemplate` never learns that quality exists, which is the invariant that keeps
+this module droppable. An event subscription would be more code, eventually-consistent, and
+able to fail.
+
+Two subtleties, both pinned by `QualityCascadeIntegrationTest`:
+
+- A **template-subject** finding has a NULL `variant_key`, so the variant FK does not apply to
+  it at all (Postgres skips a composite FK when any referencing column is NULL, under the
+  default `MATCH SIMPLE`). That is the wanted behaviour rather than an accident: such a finding
+  must survive a variant being deleted.
+- **Ignores cascade too**, and that is a correctness rule rather than tidiness. URNs are built
+  from slugs, so deleting `invoice` and creating a new `invoice` reproduces `ignore_scope_urn`
+  _exactly_ — a reviewer's "does not apply here" from the deleted template would silently
+  suppress findings on a template nobody has ever looked at. `quality_finding_ignores` carries
+  `catalog_key`/`template_key` for no other purpose: they are never read, are not part of the
+  key, and are nullable so a future non-template scope simply is not cascade-bound.
+
 ## Anchoring a finding to elements
 
 A finding carries `nodeIds` — the editor elements it is about. Each one gets a marker on the
@@ -395,3 +423,9 @@ The migration declares `forward=false`: these tables are backed up, so a backup 
 it lists tables an older app lacks, and `RestoreTenantBackup.validateColumns` rejects a
 manifest table absent from the live topology. (Contrast `audit_log`, which declares
 `forward=true` only because it is _excluded_ from backup.)
+
+Restore **order** is derived from the foreign keys rather than declared, so the FKs to
+`document_templates` / `template_variants` (see [Deletion](#deletion-the-database-does-it))
+place these tables after the resources they describe automatically —
+`TenantTableTopologyDriftIntegrationTest` resolves the topology and fails if that ever stops
+being satisfiable.

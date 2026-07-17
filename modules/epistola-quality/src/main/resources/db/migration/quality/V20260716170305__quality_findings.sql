@@ -63,6 +63,25 @@ CREATE TABLE quality_findings (
     updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (tenant_key, id),
+
+    -- A finding is metadata ABOUT a resource and has no meaning once that resource is gone, so
+    -- the database collects it rather than leaving a report full of findings against templates
+    -- that no longer exist (with links that 404).
+    --
+    -- These point quality -> core, the same direction the module dependency already points, so
+    -- they buy the cleanup without core ever learning that quality exists — DeleteDocumentTemplate
+    -- stays ignorant, which is the invariant that keeps this module droppable.
+    --
+    -- Deleting a catalog or a tenant already cascades through document_templates, so this covers
+    -- those too. Versions need no rule of their own: they are archived, never deleted.
+    FOREIGN KEY (tenant_key, catalog_key, template_key)
+        REFERENCES document_templates(tenant_key, catalog_key, id) ON DELETE CASCADE,
+    -- Variant-level findings die with their variant while the template lives on. NULL variant_key
+    -- (a TEMPLATE- or CONTRACT_VERSION-subject finding) skips this check entirely under the
+    -- default MATCH SIMPLE, which is exactly the wanted behaviour rather than an accident.
+    FOREIGN KEY (tenant_key, catalog_key, template_key, variant_key)
+        REFERENCES template_variants(tenant_key, catalog_key, template_key, id) ON DELETE CASCADE,
+
     -- No CHECK on severity, deliberately. Findings are self-describing precisely so a source
     -- can add or reword its rules without a suite release; pinning the severity vocabulary in
     -- the schema would make a fourth level (a HINT, a CRITICAL) a migration — for a value the
@@ -136,6 +155,17 @@ CREATE TABLE quality_finding_ignores (
     source_id           VARCHAR(64)  NOT NULL,
     rule_id             VARCHAR(128) NOT NULL,
     finding_fingerprint VARCHAR(128) NOT NULL,
+    -- Not part of the key, and not read: these exist ONLY so the database can collect an ignore
+    -- when its template goes. The URN stays the key, so a future non-template scope still fits —
+    -- it simply leaves these NULL and, under MATCH SIMPLE, is not cascade-bound.
+    --
+    -- Without them an ignore outlives its template, and the failure is worse than a leak: URNs are
+    -- built from slugs, so deleting `invoice` and creating a new `invoice` reproduces the URN
+    -- exactly — and a reviewer's "does not apply here" from the old template would silently
+    -- suppress findings on the new one. The ignore deliberately has no FK to quality_findings (it
+    -- must outlive a resolve and pre-exist a resurface); this is the cleanup that costs nothing.
+    catalog_key         CATALOG_KEY,
+    template_key        TEMPLATE_KEY,
     reason              TEXT         NOT NULL,
     ignored_by          UUID         REFERENCES users(id) ON DELETE SET NULL,
     ignored_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -143,7 +173,9 @@ CREATE TABLE quality_finding_ignores (
     revoked_at          TIMESTAMPTZ,
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    PRIMARY KEY (tenant_key, ignore_scope_urn, source_id, rule_id, finding_fingerprint)
+    PRIMARY KEY (tenant_key, ignore_scope_urn, source_id, rule_id, finding_fingerprint),
+    FOREIGN KEY (tenant_key, catalog_key, template_key)
+        REFERENCES document_templates(tenant_key, catalog_key, id) ON DELETE CASCADE
 );
 
 -- The disposition feed: sources pull "what did humans mark irrelevant" with a `since`
