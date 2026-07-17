@@ -1,6 +1,7 @@
 package app.epistola.suite.htmx
 
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
@@ -34,6 +35,7 @@ class FieldSpec(val fieldName: String) {
     var required: Boolean = false
     var asInt: Boolean = false
     var asAttributeId: Boolean = false
+    var asCatalogId: Boolean = false
     var asCodeListId: Boolean = false
     var asEnvironmentId: Boolean = false
     var asStencilId: Boolean = false
@@ -141,6 +143,13 @@ class FieldSpec(val fieldName: String) {
      */
     fun asEnvironmentId() {
         this.asEnvironmentId = true
+    }
+
+    /**
+     * Mark this field to be validated as a CatalogId.
+     */
+    fun asCatalogId() {
+        this.asCatalogId = true
     }
 
     /**
@@ -335,6 +344,11 @@ class FormBuilder {
                             errors[fieldName] = "Invalid environment ID format"
                         }
                     }
+                    spec.asCatalogId -> {
+                        if (CatalogKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid catalog ID format"
+                        }
+                    }
                     spec.asCodeListId -> {
                         if (CodeListKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid code-list ID format"
@@ -436,6 +450,7 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
         "tenant" -> "slug"
         "theme" -> "slug"
         "attribute" -> "slug"
+        "catalog" -> "slug"
         "code-list" -> "slug"
         else -> "id"
     }

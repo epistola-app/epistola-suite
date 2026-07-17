@@ -51,6 +51,25 @@ class FormBinderTest {
     }
 
     @Test
+    fun `asCatalogId accepts a valid slug`() {
+        val form = requestWith("slug" to "my-templates").form {
+            field("slug") { asCatalogId() }
+        }
+
+        assertThat(form.hasErrors()).isFalse()
+    }
+
+    @Test
+    fun `asCatalogId rejects an invalid slug with the catalog id error`() {
+        val form = requestWith("slug" to "BAD SLUG").form {
+            field("slug") { asCatalogId() }
+        }
+
+        assertThat(form.hasErrors()).isTrue()
+        assertThat(form.errors["slug"]).isEqualTo("Invalid catalog ID format")
+    }
+
+    @Test
     fun `asCodeListId accepts a valid slug`() {
         val form = requestWith("slug" to "languages").form {
             field("slug") { asCodeListId() }
