@@ -20,6 +20,9 @@ class PdfAccessibilityTest {
 
     private val renderer = DirectPdfRenderer()
 
+    /** Stand-in for the preview watermark; the real text is DocumentPreviewRenderer's concern. */
+    private val watermark = "Epistola Preview"
+
     // ---------------------------------------------------------------------------
     // Document-level metadata
     // ---------------------------------------------------------------------------
@@ -205,6 +208,59 @@ class PdfAccessibilityTest {
     }
 
     // ---------------------------------------------------------------------------
+    // Watermark artifact
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `preview watermark is drawn but marked as an artifact`() {
+        val pdfBytes = renderToBytes(watermarkableDocument(), watermarkText = watermark)
+
+        // Artifact content is still extractable, so this guards the visible watermark.
+        assertTrue(
+            PdfContentExtractor.extract(pdfBytes).contains(watermark),
+            "watermark is still drawn",
+        )
+
+        val artifactText = PdfMarkedContentInspector.artifactText(pdfBytes)
+        assertTrue(
+            artifactText.any { it.contains(watermark) },
+            "watermark must be inside an /Artifact marked-content sequence; artifacts=$artifactText",
+        )
+    }
+
+    @Test
+    fun `watermarked render draws no content outside the structure tree or an artifact`() {
+        val pdfBytes = renderToBytes(watermarkableDocument(), watermarkText = watermark)
+
+        assertTrue(PdfAccessibilityInspector.inspect(pdfBytes).tagged)
+        assertEquals(
+            emptyList(),
+            PdfMarkedContentInspector.unmarkedText(pdfBytes),
+            "a tagged render declaring PDF/UA-1 must draw no unmarked content",
+        )
+    }
+
+    @Test
+    fun `watermarked render has the same structure tree as the shipped document`() {
+        val doc = watermarkableDocument()
+
+        val shipped = PdfAccessibilityInspector.inspect(renderToBytes(doc))
+        val preview = PdfAccessibilityInspector.inspect(renderToBytes(doc, watermarkText = watermark))
+
+        assertEquals(
+            shipped.structRoles,
+            preview.structRoles,
+            "watermark must not add anything to the structure tree — this is what lets " +
+                "accessibility checks run on preview bytes",
+        )
+    }
+
+    private fun watermarkableDocument() = documentWithChildren(
+        mapOf("h1" to headingNode("h1", "Report", 1), "p1" to textNode("p1", "Body.")),
+        listOf("h1", "p1"),
+    )
+
+    // ---------------------------------------------------------------------------
     // Rendering helper
     // ---------------------------------------------------------------------------
 
@@ -213,9 +269,17 @@ class PdfAccessibilityTest {
         data: Map<String, Any?> = emptyMap(),
         metadata: PdfMetadata = PdfMetadata(),
         resolver: AssetResolver? = null,
+        watermarkText: String? = null,
     ): ByteArray {
         val output = ByteArrayOutputStream()
-        renderer.render(doc, data, output, metadata = metadata, assetResolver = resolver)
+        renderer.render(
+            doc,
+            data,
+            output,
+            metadata = metadata,
+            assetResolver = resolver,
+            watermarkText = watermarkText,
+        )
         return output.toByteArray()
     }
 
