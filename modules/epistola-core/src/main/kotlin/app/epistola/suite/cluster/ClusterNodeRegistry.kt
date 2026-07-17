@@ -4,6 +4,7 @@ import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -23,6 +24,15 @@ class ClusterNodeRegistry(
     private val nodeIdentity: NodeIdentity,
     private val properties: ClusterProperties,
     private val buildProperties: BuildProperties? = null,
+    /**
+     * Whether this node performs PDF rendering. Folds [ClusterProperties.PDF_RENDER_CAPABILITY]
+     * into the advertised capability set (default true). Set `epistola.generation.pdf-render.enabled=false`
+     * to stop a `suite` node from claiming render jobs; a dedicated `apps/pdfrender` worker
+     * leaves this at its default and advertises only `[pdf-render]`. The same property is the
+     * pdfrender app's own on/off switch.
+     */
+    @Value("\${epistola.generation.pdf-render.enabled:true}")
+    private val pdfRenderEnabled: Boolean = true,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val capabilitiesType = objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java)
@@ -30,7 +40,7 @@ class ClusterNodeRegistry(
 
     fun heartbeat(): ClusterNode {
         val now = EpistolaClock.offsetDateTime()
-        val capabilities = properties.normalizedCapabilities()
+        val capabilities = properties.normalizedCapabilities(pdfRenderEnabled)
         val capabilitiesJson = objectMapper.writeValueAsString(capabilities)
         val metadataJson = objectMapper.writeValueAsString(emptyMap<String, Any?>())
         val version = buildProperties?.version
