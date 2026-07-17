@@ -313,6 +313,8 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 **Breaking changes**: Use `feat!:` or `fix!:` or add `BREAKING CHANGE:` in footer.
 
+**Feature maturity vs. version bumps**: A feature can be **alpha** or **beta** (experimental/preview — wired but not yet tested/supported for production; flagged as such in code, docs, and the CHANGELOG) or **GA** (stable, supported). Breaking changes to **alpha or beta** features may ship in a **MINOR** release — they do **not** require a major version bump. Only breaking changes to **GA** features require a **MAJOR** bump (and, post-GA, a deliberate deprecation). So `feat!`/`fix!` scoped entirely to an alpha/beta surface is a minor, not a major; call out the alpha/beta scope in the CHANGELOG entry. (This is separate from **data stability**, which is non-negotiable from RC1 onward regardless of feature maturity — no destructive migrations, ever.)
+
 **Git hook**: Commit messages are validated by commitlint. Invalid messages will be rejected.
 
 **Commit signing**: SSH commit signing is enabled. Commits will be signed automatically.
