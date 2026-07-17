@@ -270,6 +270,77 @@ feeds that _earn_ that choice and keep it reversible. (Resolves open question #6
   "does suite S boot and serve" regression check; it becomes the _light
   verification_ layer under R6, not the whole matrix.
 
+## Prior art: how this differs from Kafka
+
+Two principles above lean on "Kafka-style" as shorthand, so it is worth being
+precise about what Kafka actually does — because the useful half is the part we
+borrowed, and the other half is the part we deliberately do _not_ do.
+
+**How Kafka really does it.** Kafka's compatibility is not a document — it is a
+_runtime protocol mechanism_. Every RPC is independently versioned by an
+`(ApiKey, ApiVersion)` pair (`Produce` v9, `Fetch` v13, …), each evolving on its
+own version line. At connect time, before sending anything, a client issues
+`ApiVersionsRequest`; the broker replies with the full list of every ApiKey and
+the min–max range it supports, and the client picks, _per API_, the highest
+version both sides support. Compatibility is thus **computed live, per
+connection** — new-client↔old-broker and old-client↔new-broker both work
+(bidirectional since 0.10.2), which is why Kafka never publishes a tested-pairs
+matrix: the "matrix" is implicit in each API's advertised range and enforced by
+negotiation. A moving baseline (`inter.broker.protocol.version`, and the outright
+removal of ancient API versions in Kafka 4.0) is Kafka's version of a **floor**.
+
+**What we borrowed vs. where we diverge.**
+
+| Aspect                | Kafka                                               | Epistola (ours)                                                                |
+| --------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Unit of versioning    | per-RPC `(ApiKey, version)`, many lines             | one contract semver (whole wire surface)                                       |
+| How compat is settled | **live negotiation** each connection                | **empirical**: boot a real pair, observe it serve + **static** rule at CI (R4) |
+| Where truth lives     | the running broker's advertised ranges              | `matrix.json` (verified) + the anchor's floor                                  |
+| The floor             | `inter.broker.protocol.version` / 4.0 baseline drop | `x-min-compatible-version` (sticky, D4)                                        |
+| Client identity       | `ApiVersionsRequest` + KIP-511 name/ver             | `X-EP-Node-Id` + `User-Agent: epistola-contract/<v>`                           |
+| Durable artifact      | _none_ — it is runtime behavior                     | a published matrix + plugin↔suite verdicts                                     |
+
+**Where we legitimately echo Kafka** (the good half): a server that advertises a
+_range_ and a client that fits inside it is exactly a broker advertising
+`[minVersion … maxVersion]` and a client picking within it — our `/api/ping`
+returning `[minCompatibleApiVersion … apiVersion]` plus the R4 rule
+(`floor ≤ target ≤ apiVersion`) is that same shape, evaluated **statically at CI
+time** instead of live at connect time. The sticky floor (D4) is Kafka's baseline
+drop, and our client-identity headers are essentially KIP-511.
+
+**Where we deliberately diverge — and why it is correct for us:**
+
+- **Kafka negotiates; we verify-then-declare.** Kafka can skip a matrix because
+  the protocol makes an incompatible selection _impossible_. We can't: a released
+  Docker image and a Helm-pinned plugin are **frozen artifacts** on separate
+  release trains with no live handshake we control end to end. So we do the thing
+  Kafka doesn't need — boot the actual pair and watch it serve. That is _more_
+  evidence than Kafka has for any pair (it trusts the protocol; we trust an
+  observation), and it produces a durable artifact a human can read when choosing
+  which plugin to deploy against which suite in a values file — a choice Kafka
+  users never make by hand.
+- **One coarse version vs. many fine ones.** Kafka's per-API granularity means a
+  `Fetch` change never touches `Produce` compatibility; our single contract
+  semver is coarser — any breaking change anywhere lifts the whole floor. Simpler
+  to reason about at our size; if the contract ever grows large, per-resource
+  version lines (Kafka-style) is the escape hatch.
+
+**Two places we are honestly weaker than Kafka**, worth naming rather than
+glossing:
+
+- **Granularity** — one semver where Kafka has _N_ independent version lines.
+  Acceptable now; revisit if the contract surface grows.
+- **Staleness** — Kafka's answer is always current because it is live; ours is
+  only as fresh as the last CI run that wrote `matrix.json`. The "commit results
+  back from CI" roadmap item ([`README.md`](./README.md)) is what keeps that
+  honest.
+
+This is why the "Declaration over enforcement" principle below defers the
+Kafka-style _handshake_ specifically: we adopt Kafka's **advertised-range + floor
+idea** in the one context its negotiation mechanism cannot reach (frozen,
+independently-released artifacts), and substitute _empirical verification_ for
+the runtime enforcement we can't perform.
+
 ## Explicitly out of scope (for now)
 
 - Runtime negotiation / rejecting incompatible clients (enforcement) — deferred
