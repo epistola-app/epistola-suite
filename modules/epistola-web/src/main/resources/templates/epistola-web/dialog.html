@@ -47,6 +47,11 @@
       title       (required) header text.
       content     (required) ~{::…} slot for the caller's <form> (or formless
                              reveal block).
+      dialogKind  (optional) layout archetype, emitted as data-dialog=… and
+                             branched in css/dialogs.css. Defaults to 'form'
+                             (sticky header/footer, scrolling body). Other kinds
+                             (viewer/reveal/confirm) are reserved for the
+                             hand-rolled dialogs as they migrate.
       dialogClass (optional) extra classes on the dialog, e.g. 'ep-dialog-wide'.
       closeUrl    (optional) the list URL this dialog belongs to. For the
                              URL-addressable form convention (GET /…/new pushed
@@ -59,7 +64,7 @@
             th:id="${dialogId}"
             class="ep-dialog"
             th:classappend="${dialogClass}"
-            th:attr="data-close-url=${closeUrl}">
+            th:attr="data-close-url=${closeUrl},data-dialog=${dialogKind != null ? dialogKind : 'form'}">
         <div class="ep-dialog-header">
             <h3 th:text="${title}"></h3>
         </div>
