@@ -82,10 +82,12 @@ class DataPreservationMigrationIT {
                 INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_catalog_key, theme_key)
                 VALUES ('invoice', '$TENANT', 'default', 'Invoice Template', 'default', 'brand');
 
-                -- 'legacy' has a NULL title (allowed pre-#631); the migration must backfill it.
+                -- 'legacy' (NULL) and 'blanktitle' (whitespace) were both allowed pre-#631;
+                -- the migration must backfill each with its own slug.
                 INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, is_default)
                 VALUES ('main', '$TENANT', 'default', 'invoice', 'Main Variant', true),
-                       ('legacy', '$TENANT', 'default', 'invoice', NULL, false);
+                       ('legacy', '$TENANT', 'default', 'invoice', NULL, false),
+                       ('blanktitle', '$TENANT', 'default', 'invoice', '   ', false);
 
                 INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key,
                                                template_model, status, published_at, referenced_paths)
@@ -124,6 +126,9 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'legacy'"))
                 .describedAs("legacy NULL-title variant must be backfilled with its own slug")
                 .isEqualTo("legacy")
+            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'blanktitle'"))
+                .describedAs("blank-title variant must be backfilled with its own slug")
+                .isEqualTo("blanktitle")
             assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
                 .isEqualTo(one("SELECT '$TEMPLATE_MODEL'::jsonb::text"))
             assertThat(one("SELECT status FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
