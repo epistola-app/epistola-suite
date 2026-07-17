@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
+import app.epistola.suite.validation.formMessage
 import org.springframework.web.servlet.function.ServerRequest
 
 /**
@@ -382,9 +383,8 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
         "code-list" -> "slug"
         else -> "id"
     }
-    val article = if (e.entityType.firstOrNull() in setOf('a', 'e', 'i', 'o', 'u')) "An" else "A"
     FormData(
         this.formData,
-        this.errors.toMutableMap().apply { put(field, "$article ${e.entityType} with this ID already exists") },
+        this.errors.toMutableMap().apply { put(field, e.formMessage) },
     )
 }

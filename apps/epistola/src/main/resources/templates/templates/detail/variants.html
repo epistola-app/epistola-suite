@@ -19,14 +19,14 @@
                 <div th:replace="~{epistola-web/form-error :: form-error(id='create-variant-error')}"></div>
                 <div class="ep-dialog-body">
                     <div class="form-group">
+                        <label class="ep-label" for="title">Title</label>
+                        <input type="text" id="title" name="title" class="ep-input" required maxlength="100" placeholder="English Newsletter" data-slug-source="slug">
+                    </div>
+                    <div class="form-group">
                         <label class="ep-label" for="slug">Slug (ID)</label>
                         <input type="text" id="slug" name="slug" class="ep-input" required
                                pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" minlength="3" maxlength="50" placeholder="english-newsletter">
                         <span class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="title">Title (optional)</label>
-                        <input type="text" id="title" name="title" class="ep-input" maxlength="100" placeholder="English Newsletter">
                     </div>
                     <div th:if="${attributeDescriptors != null and !#lists.isEmpty(attributeDescriptors)}"
                          id="create-attr-rows" data-attr-rows>
@@ -101,8 +101,8 @@
                      th:data-variant-id="${variant.id}">
                     <div class="variant-card-header">
                         <div>
-                            <span class="variant-card-title" th:text="${variant.title != null ? variant.title : variant.id}"></span>
-                            <code th:if="${variant.title != null}" class="variant-card-slug" th:text="${variant.id}"></code>
+                            <span class="variant-card-title" th:text="${variant.title}"></span>
+                            <code class="variant-card-slug" th:text="${variant.id}"></code>
                         </div>
                         <span th:if="${variant.isDefault}" class="badge badge-primary">Default</span>
                     </div>
@@ -184,7 +184,7 @@
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}" type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon" title="Delete variant"
                                 data-confirm-title="Delete Variant"
-                                th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title != null ? variant.title : variant.id} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                                th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                 data-confirm-target="#variants-section" data-confirm-swap="outerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
