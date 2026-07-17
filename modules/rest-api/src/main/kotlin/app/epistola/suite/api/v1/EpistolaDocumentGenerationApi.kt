@@ -34,7 +34,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.validation.ValidationException
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.Resource
@@ -52,7 +52,9 @@ import java.util.UUID
 @RequestMapping("/api")
 class EpistolaDocumentGenerationApi(
     private val objectMapper: ObjectMapper,
-    private val contentStore: ContentStore,
+    private val contentStore: DocumentContentStore,
+    // Transitional (#742): serves documents not yet moved out of the legacy content_store.
+    private val legacyBlobFallback: app.epistola.suite.storage.backfill.LegacyBlobFallback,
     private val ndjsonResultStream: app.epistola.suite.generation.collect.ndjson.NdjsonResultStream,
 ) : GenerationApi {
 
@@ -158,6 +160,7 @@ class EpistolaDocumentGenerationApi(
             ?: throw DocumentNotFoundException(tid, did)
 
         val stored = contentStore.get(ContentKey.document(tid, did))
+            ?: legacyBlobFallback.documentContent(tid, did) // transitional (#742)
             ?: throw DocumentNotFoundException(tid, did)
 
         return ResponseEntity.ok()

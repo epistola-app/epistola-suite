@@ -27,7 +27,7 @@ import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
@@ -61,7 +61,7 @@ class DocumentGenerationExecutor(
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
     private val schemaValidator: JsonSchemaValidator,
-    private val contentStore: ContentStore,
+    private val contentStore: DocumentContentStore,
     private val meterRegistry: MeterRegistry,
     private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
     private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
@@ -106,12 +106,15 @@ class DocumentGenerationExecutor(
             val (document, pdfBytes, usedPath) = generateDocument(request)
             renderPath = usedPath
 
-            // Store content first — orphaned blob is harmless, missing content is not
+            // Store content first — orphaned blob is harmless, missing content is not.
+            // createdAt = the document's created_at, so the blob lands in the same
+            // monthly document_content partition as its metadata and ages out with it.
             contentStore.put(
                 ContentKey.document(document.tenantKey, document.id),
                 ByteArrayInputStream(pdfBytes),
                 document.contentType,
                 document.sizeBytes,
+                document.createdAt,
             )
 
             // Record document size

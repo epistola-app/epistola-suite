@@ -78,7 +78,7 @@ class MergeRestoreTables(
             }
         }
 
-        val blobsRestored = mergeBlobs(handle, manifest, blobBytes, tenantKey)
+        val blobsRestored = mergeBlobs(handle, manifest, blobBytes)
 
         reapplyDefaultTheme(handle, tenantKey, targetThemeCatalog, targetThemeKey)
 
@@ -124,36 +124,31 @@ class MergeRestoreTables(
             }
     }
 
+    /**
+     * Restore the tenant's asset blobs into the content-addressable `asset_content`
+     * store (#738). Insert-if-absent by `(scope, content_hash)` — blob bytes are
+     * immutable for a given hash, and a blob may be shared (same `system` scope across
+     * tenants, or the same hash across a tenant's assets), so this never overwrites.
+     *
+     * No orphan deletion here: once the `assets` rows are merge-restored (their
+     * `content_hash` pointers included), any `asset_content` row no longer referenced
+     * is reclaimed by the content reaper's mark-and-sweep. Deleting shared `system`
+     * blobs here would be actively wrong.
+     */
     private fun mergeBlobs(
         handle: Handle,
         manifest: TenantBackupManifest,
         blobBytes: Map<String, ByteArray>,
-        tenantKey: String,
     ): Int {
-        val prefix = TenantTableTopology.assetBlobPrefix(tenantKey)
-        val liveKeys =
-            handle
-                .createQuery("SELECT key FROM content_store WHERE left(key, :len) = :prefix")
-                .bind("len", prefix.length)
-                .bind("prefix", prefix)
-                .mapTo(String::class.java)
-                .set()
-        val backupKeys = manifest.blobs.map { it.key }.toSet()
-
-        (liveKeys - backupKeys).forEach { key ->
-            handle.createUpdate("DELETE FROM content_store WHERE key = :key").bind("key", key).execute()
-        }
-
         manifest.blobs.forEach { blob ->
             val bytes = blobBytes[blob.file] ?: error("Backup archive is missing blob file ${blob.file}")
             handle
                 .createUpdate(
-                    "INSERT INTO content_store (key, content, content_type, size_bytes, created_at) " +
-                        "VALUES (:key, :content, :contentType, :sizeBytes, :createdAt::timestamptz) " +
-                        "ON CONFLICT (key) DO UPDATE SET content = EXCLUDED.content, " +
-                        "content_type = EXCLUDED.content_type, size_bytes = EXCLUDED.size_bytes, " +
-                        "created_at = EXCLUDED.created_at",
-                ).bind("key", blob.key)
+                    "INSERT INTO asset_content (scope, content_hash, content, content_type, size_bytes, created_at) " +
+                        "VALUES (:scope, :hash, :content, :contentType, :sizeBytes, :createdAt::timestamptz) " +
+                        "ON CONFLICT (scope, content_hash) DO NOTHING",
+                ).bind("scope", blob.scope)
+                .bind("hash", blob.contentHash)
                 .bind("content", bytes)
                 .bind("contentType", blob.contentType)
                 .bind("sizeBytes", blob.sizeBytes)

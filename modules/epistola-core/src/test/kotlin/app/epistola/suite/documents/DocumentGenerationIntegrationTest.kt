@@ -20,7 +20,7 @@ import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -46,7 +46,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     private lateinit var jdbi: Jdbi
 
     @Autowired
-    private lateinit var contentStore: ContentStore
+    private lateinit var contentStore: DocumentContentStore
 
     @Autowired
     private lateinit var meterRegistry: MeterRegistry

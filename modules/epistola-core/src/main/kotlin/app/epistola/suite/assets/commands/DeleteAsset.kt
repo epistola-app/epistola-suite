@@ -11,8 +11,6 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -37,7 +35,6 @@ data class DeleteAsset(
 @Component
 class DeleteAssetHandler(
     private val jdbi: Jdbi,
-    private val contentStore: ContentStore,
 ) : CommandHandler<DeleteAsset, Boolean> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -79,7 +76,9 @@ class DeleteAssetHandler(
         }
 
         if (deleted) {
-            contentStore.delete(ContentKey.asset(command.tenantId, command.assetId))
+            // The blob is NOT deleted here: under the content-addressable store a blob
+            // may back many assets. The content reaper mark-and-sweeps it once no
+            // `assets` row references its (scope, content_hash). (#738)
             logger.info("Deleted asset {}", command.assetId)
         } else {
             logger.warn("Asset {} not found for tenant {}", command.assetId, command.tenantId)

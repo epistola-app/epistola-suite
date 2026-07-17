@@ -1,6 +1,6 @@
 package app.epistola.suite.observability
 
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.storage.StorageProperties
 import org.springframework.boot.health.contributor.Health
 import org.springframework.boot.health.contributor.HealthIndicator
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class ContentStoreHealthIndicator(
-    private val contentStore: ContentStore,
+    private val contentStore: DocumentContentStore,
     private val storageProperties: StorageProperties,
 ) : HealthIndicator {
 

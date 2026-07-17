@@ -18,7 +18,7 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -67,7 +67,7 @@ class JobPollerIntegrationTest {
     private lateinit var mediator: Mediator
 
     @Autowired
-    private lateinit var contentStore: ContentStore
+    private lateinit var contentStore: DocumentContentStore
 
     @Autowired
     private lateinit var meterRegistry: io.micrometer.core.instrument.MeterRegistry
