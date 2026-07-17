@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 4,
+  "resource": {
+    "type": "template",
+    "slug": "quality-showcase",
+    "name": "Quality Showcase",
+    "themeId": "corporate",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "customerName": {
+          "type": "string",
+          "description": "Name of the customer being written to"
+        },
+        "policyNumber": {
+          "type": "string",
+          "description": "The policy this letter concerns"
+        }
+      }
+    },
+    "dataExamples": [
+      {
+        "name": "Default",
+        "data": {
+          "customerName": "Marlowe Fenwick",
+          "policyNumber": "PN-4471-B"
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-heading": {
+          "id": "n-heading",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 1 },
+                  "content": [{ "type": "text", "text": "Quality checks, demonstrated" }]
+                }
+              ]
+            }
+          }
+        },
+        "n-intro": {
+          "id": "n-intro",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Dear " },
+                    { "type": "expression", "attrs": { "expression": "customerName" } },
+                    {
+                      "type": "text",
+                      "text": ", this template exists to be found wanting. Every block below trips one of the example source's rules on purpose, so the report page and the editor panel have something real to show. Open Authoring → Quality to see what it reported."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-dynamic-only": {
+          "id": "n-dynamic-only",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "expression", "attrs": { "expression": "policyNumber" } }]
+                }
+              ]
+            }
+          }
+        },
+        "n-empty": {
+          "id": "n-empty",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [{ "type": "paragraph", "content": [] }]
+            }
+          }
+        },
+        "n-long": {
+          "id": "n-long",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Pursuant to the terms and conditions set forth in the aforementioned policy documentation, and without prejudice to any rights or remedies which may otherwise be available to either party under the general law or under any other provision of the said policy, it is hereby noted and agreed that the schedule of benefits, exclusions, endorsements and warranties appended hereto shall be read and construed as one document with the policy wording, provided always that in the event of any inconsistency or conflict arising between the provisions of the schedule and the provisions of the policy wording, the provisions of the policy wording shall prevail to the extent of such inconsistency, save where the schedule expressly states otherwise by reference to the specific clause number which it is intended to vary, amend, extend or delete, in which case the schedule shall prevail."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-closing": {
+          "id": "n-closing",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "text", "text": "Yours sincerely," }]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-heading", "n-intro", "n-dynamic-only", "n-empty", "n-long", "n-closing"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Default",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      }
+    ]
+  }
+}
