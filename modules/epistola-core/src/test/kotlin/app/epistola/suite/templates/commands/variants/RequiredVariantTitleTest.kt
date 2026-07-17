@@ -13,31 +13,32 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 
+/**
+ * A null title is not covered here: [CreateVariant.title] and [UpdateVariant.title] are
+ * non-null `String`s, so the compiler rejects it and there is no runtime case to assert.
+ * These tests cover what the type system cannot — blank and over-length titles.
+ */
 class RequiredVariantTitleTest {
 
     private val templateId = TemplateId(TemplateKey("invoice"), CatalogId(CatalogKey.DEFAULT, TenantId(TenantKey("testtenant"))))
     private val variantId = VariantId(VariantKey("english"), templateId)
 
     @Test
-    fun `CreateVariant rejects a null title`() {
-        val thrown = assertThrows<ValidationException> { CreateVariant(variantId, title = null, description = null) }
-        assertEquals("title", thrown.field)
-    }
-
-    @Test
     fun `CreateVariant rejects a blank title`() {
-        assertThrows<ValidationException> { CreateVariant(variantId, title = "   ", description = null) }
-    }
-
-    @Test
-    fun `UpdateVariant rejects a null title`() {
-        val thrown = assertThrows<ValidationException> { UpdateVariant(variantId, title = null, attributes = emptyMap()) }
+        val thrown = assertThrows<ValidationException> { CreateVariant(variantId, title = "   ", description = null) }
         assertEquals("title", thrown.field)
     }
 
     @Test
     fun `UpdateVariant rejects a blank title`() {
-        assertThrows<ValidationException> { UpdateVariant(variantId, title = "", attributes = emptyMap()) }
+        val thrown = assertThrows<ValidationException> { UpdateVariant(variantId, title = "", attributes = emptyMap()) }
+        assertEquals("title", thrown.field)
+    }
+
+    @Test
+    fun `CreateVariant rejects an over-length title`() {
+        val thrown = assertThrows<ValidationException> { CreateVariant(variantId, title = "x".repeat(101), description = null) }
+        assertEquals("title", thrown.field)
     }
 
     @Test
