@@ -73,6 +73,18 @@ surfaces**, with the range rule retained as the fallback.
    must cover the newest release. Breaking changes themselves are never
    blocked — only an inconsistent spec is.
 
+5. **The matrix's home is the contract repo (resolves ADR 0011's deferred
+   D6).** The anchor is the neutral ground every artifact already depends on
+   and where the log lives, so judging runs there:
+   `epistola-contract/compatibility/` fetches every artifact's feed (the suite
+   publishes its own `compatibility.json` server feed, drift-guarded by a
+   PR-only `verify-feed` job; the plugin its client feed), joins them with the
+   log, and a seconds-cheap scheduled workflow commits the deterministic
+   `aggregate.json` + `MATRIX.md` — the matrix gains memory and a stable URL.
+   Only **verification** (the smoke, which boots published suite images) stays
+   in `epistola-suite`, because evidence about suite releases belongs where
+   suite releases happen; it runs per release, never on pull requests.
+
 ## Consequences
 
 - The one human judgment ADR 0011 centralized ("is this change breaking?") is

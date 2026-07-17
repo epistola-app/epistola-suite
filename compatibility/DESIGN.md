@@ -27,8 +27,12 @@ change in the window actually touches an operation the client uses — falling
 back to the coarse range rule whenever that join would be unsound. The floor
 itself is now CI-gated in the contract repo (`make check-floor`): a breaking
 change must move `info.version` and the floor together, and the floor may not
-move otherwise. What remains is one deferred D6 choice: the aggregator's _home_
-(in-repo vs a neutral repo). See [Execution plan](#execution-plan-order).
+move otherwise. **D6 is resolved**: the matrix's home is the **contract repo**
+(`compatibility/` there — a lightweight scheduled workflow judges the feeds
+against the log and commits the results), the suite publishes its own server
+feed (`compatibility.json`, drift-guarded), and only **verification** (the
+smoke, which boots published suite images) stays in the suite. See
+[Execution plan](#execution-plan-order).
 
 ## How it fits together
 
@@ -81,66 +85,59 @@ client whose declaration branch has not merged yet (404) is skipped, never fatal
 
 ```mermaid
 flowchart LR
-    subgraph triggers["Triggers"]
-        rel["'Build and Publish'<br/>finishes on a v* tag"]
-        man["manual dispatch"]
-    end
-
-    subgraph job["compatibility.yml — one job"]
+    subgraph suiteci["🖥️ epistola-suite — compatibility.yml (per release + manual)"]
         direction TB
-        smoke["<b>smoke.sh</b> — VERIFY<br/>• boot published image + throwaway Postgres<br/>• read contract ver from jar filename<br/>• poll /api/ping (identity headers) → UP<br/>• authed /ping → read declared range<br/>• check contract ∈ range → rangeVerified"]
-        agg["<b>aggregate.sh</b> — JOIN (best-effort)<br/>• fetch each client feed (feeds.txt, URL/path)<br/>• fetch the contract's compatibility-log.json<br/>• 404 / malformed → warn + skip (never fatal)<br/>• operation-level: breaking change in window<br/>touches a used operation? (D7)<br/>• fallback: floor ≤ target ≤ apiVersion"]
-        rend["<b>render.sh</b> — HUMANIZE<br/>matrix.json + aggregate.json → tables"]
-        smoke --> agg --> rend
+        smoke["<b>smoke.sh</b> — VERIFY (heavy, minutes)<br/>• boot published image + throwaway Postgres<br/>• read contract ver from jar filename<br/>• poll /api/ping (identity headers) → UP<br/>• authed /ping → read declared range<br/>• check contract ∈ range → rangeVerified"]
+        rend["<b>render.sh</b> — matrix.json → smoke-cell table"]
+        vfeed["<b>verify-feed</b> job (PRs only, seconds)<br/>compatibility.json ↔ build files drift guard"]
+        smoke --> rend
     end
 
-    subgraph outputs["Outputs"]
-        mj["matrix.json<br/><i>(source of truth: suite × contract)</i>"]
-        aj["aggregate.json<br/><i>(plugin ↔ suite verdicts)</i>"]
-        sum["📋 GITHUB_STEP_SUMMARY<br/>both tables render themselves"]
-        art["uploaded artifacts"]
+    subgraph contractci["📜 epistola-contract — compatibility-matrix.yml (daily + manual + on log change)"]
+        direction TB
+        agg["<b>aggregate.sh</b> — JUDGE (seconds)<br/>• fetch every artifact's feed (feeds.txt)<br/>• 404 / malformed → warn + skip (never fatal)<br/>• join with local compatibility-log.json<br/>• operation-level: breaking change in window<br/>touches a used operation? (D7)<br/>• fallback: floor ≤ target ≤ serverContract"]
+        crend["<b>render.sh</b> → MATRIX.md"]
+        commit["commit aggregate.json + MATRIX.md<br/><i>(deterministic — commits only real changes)</i>"]
+        agg --> crend --> commit
     end
 
-    rel --> job
-    man --> job
-    smoke --> mj
-    agg --> aj
-    rend --> sum
-    mj --> art
-    aj --> art
+    sfeed["epistola-suite/compatibility.json<br/><i>(server feed: implemented contract ver)</i>"]
+    pfeed["valtimo-epistola-plugin/compatibility.json<br/><i>(client feed: target ver + operations)</i>"]
 
-    ext["🌐 raw.githubusercontent.com/…/<br/>valtimo-epistola-plugin/compatibility.json"] -.->|curl, best-effort| agg
+    sfeed -.->|raw URL, best-effort| agg
+    pfeed -.->|raw URL, best-effort| agg
 ```
 
 ### 3. Where each piece lives (three repos, one PR each)
 
-Declarations stay **with each artifact** (R8); only aggregation is central. The
-self-healing part is the dotted plugin → suite arrow: once the plugin's
-`compatibility.json` is live at its raw URL, the suite's CI picks it up on the
-next run with zero manual steps.
+Declarations stay **with each artifact** (R8); judging is central, in the
+**anchor** (D6 resolved — the contract repo hosts the matrix, so the suite and
+external plugins are equal peers). The self-healing part is the dotted feed
+arrows: once an artifact's `compatibility.json` is live at its raw URL, the
+contract's scheduled matrix workflow picks it up with zero manual steps.
 
 ```mermaid
 flowchart TB
-    subgraph r1["📜 contract repo — single PR"]
-        c1["x-min-compatible-version floor"]
-        c2["ServerContractInfo.minCompatibleContractVersion"]
-        c3["PongDetailsDto.minCompatibleApiVersion"]
+    subgraph r1["📜 contract repo — the anchor AND the matrix's home"]
+        c1["x-min-compatible-version floor<br/>+ check-floor CI gate"]
+        c2["ServerContractInfo accessors"]
+        c3["compatibility-log.json<br/>(computed breaking-change log)"]
+        c4["compatibility/ matrix home<br/>aggregate.sh · render.sh · feeds.txt<br/>MATRIX.md committed by workflow"]
     end
-    subgraph r2["🖥️ suite repo — PR"]
+    subgraph r2["🖥️ suite repo — server peer"]
         s1["GetServerInfo → /api/ping surfaces range"]
-        s2["compatibility/ harness<br/>smoke.sh · aggregate.sh · render.sh · feeds.txt"]
-        s3["compatibility.yml workflow"]
-        s4["ADR 0011 · DESIGN.md · README.md"]
+        s2["compatibility.json (server feed)<br/>+ verify-feed CI drift guard"]
+        s3["compatibility/ smoke harness<br/>(empirical verification)"]
     end
-    subgraph r3["🔌 plugin repo — draft PR"]
-        p1["compatibility.json (declaration)"]
-        p2["gradle verify task (drift guard)"]
-        p3["CI: verifyCompatibilityDeclaration"]
+    subgraph r3["🔌 plugin repo — client peer"]
+        p1["compatibility.json (client feed:<br/>target ver + used operations)"]
+        p2["CI: verifyCompatibilityDeclaration<br/>(two-way source scan)"]
     end
 
     r1 ==>|"jar consumed by"| r2
     r1 -.->|"client ref"| r3
-    r3 -.->|"feed fetched by"| r2
+    r2 -.->|"feed fetched by"| c4
+    r3 -.->|"feed fetched by"| c4
 
     note["Landing order:<br/>1) contract (real PR) →<br/>2) suite + plugin (drafts) once contract is published"]
 ```
@@ -258,8 +255,18 @@ in-repo" question.
    **neutrality**, which matters more as the number of independently-owned
    artifacts grows.
 
-So: we are **not** choosing the repo now. We are building the self-declaration
-feeds that _earn_ that choice and keep it reversible. (Resolves open question #6.)
+**Resolution (D6, settled):** once the feeds existed on every side, the choice
+was made — the matrix's home is the **contract repo**, which is better than a
+new neutral repo because the anchor already is the neutral ground: every
+artifact depends on it, the breaking-change log lives there, and no fourth
+repository is needed. The split fell exactly along the load-bearing line above:
+declarations stayed with each artifact (the suite gained its own
+`compatibility.json` server feed for this), **judging** moved to the anchor
+(`compatibility/` there, run by a seconds-cheap scheduled workflow that commits
+the deterministic results — the matrix gained memory in the same move), and
+**verification** (the smoke, which boots published suite images) stayed in the
+suite, because evidence about suite releases belongs where suite releases
+happen.
 
 ## Design principles / constraints (the fixed walls)
 
@@ -461,9 +468,15 @@ The design forks are settled (all confirmed):
   `ServerContractInfo`. The suite's job shrinks to reading those two accessors,
   computing the range, and putting it on the wire — it neither owns the format nor
   authors any value. (from the roles table / contract findings.)
-- **D6 — Aggregator location deferred & reversible** (R8): a neutral repo becomes
-  viable once feeds exist; the feed _format_ is the interface. Concrete rendered
-  target (e.g. `docs/compatibility-matrix.md`) still open.
+- **D6 — The matrix's home is the contract repo** (R8, **resolved**). Deferred
+  until the feeds existed on every side; then settled in favor of the anchor
+  over a new neutral repo (the anchor already _is_ the neutral ground — every
+  artifact depends on it and the breaking-change log lives there). Judging runs
+  in `epistola-contract/compatibility/` (scheduled workflow, seconds per run,
+  deterministic `aggregate.json` + `MATRIX.md` committed back — the matrix has
+  memory and a stable URL). Declarations stay with each artifact (the suite
+  publishes its own `compatibility.json` server feed); verification (the smoke)
+  stays in the suite, where suite releases happen.
 - **D7 — Operation-level verdicts from a computed breaking-change log**
   ([ADR 0012](../docs/adr/0012-operation-level-compatibility-verdicts.md)). The
   floor (D4) is a whole-contract statement, but breaking changes touch specific
@@ -560,7 +573,9 @@ repos, not edited from here.**
    pairing, and writes `aggregate.json` (compatible + reason per row); `render.sh`
    renders it as a second "Plugin ↔ suite compatibility" table. Feed **fetching** is
    wired: `aggregate.sh` accepts `http(s)` URLs and a `--feeds-file` (`feeds.txt`
-   lists the sources), fetches best-effort (a not-yet-merged feed 404s → skipped),
-   and **CI runs it after the smoke** so the plugin table appears in the job summary
-   automatically once the plugin feed is live. Only the aggregator's **home**
-   (in-repo vs a neutral repo) stays open (deferred with D6).
+   lists the sources), fetches best-effort (a not-yet-merged feed 404s → skipped).
+   The aggregator's **home** was subsequently settled (D6 resolved): judging moved
+   to the **contract repo** (`compatibility/` there, scheduled workflow, committed
+   results), the suite publishes its own `compatibility.json` server feed
+   (drift-guarded by the `verify-feed` job), and this repo keeps only the
+   empirical smoke verification.

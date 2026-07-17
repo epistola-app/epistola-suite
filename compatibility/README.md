@@ -112,55 +112,30 @@ pairings there. The floor is not declared in the feed: the aggregator derives
 it from the log, and the runtime `/ping` range keeps deriving it from the
 contract jar (D2).
 
-## Aggregate external client feeds
+## Where the verdicts are judged (the matrix's home)
 
-`aggregate.sh` joins three declarations into plugin↔suite verdicts:
+The judged plugin↔suite matrix does **not** live here. It lives in the
+**`epistola-contract` repo** (`compatibility/` there) — the neutral anchor
+every artifact speaks — where a lightweight scheduled workflow fetches every
+artifact's `compatibility.json` feed (this repo's server feed, each plugin's
+client feed), joins them with the contract's breaking-change log
+(`compatibility-log.json`), and commits the judged `MATRIX.md`. Verdicts are
+**operation-level** when possible (a release that breaks only calls a client
+never makes does not mark that client incompatible), with the range rule
+`floor <= target <= serverContract` as the always-safe fallback.
 
-1. the suite's per-cell **range** (`matrix.json` cells with a `declaredRange`);
-2. each external **client's** `compatibility.json` (e.g. `valtimo-epistola-plugin`):
-   the contract version it targets and, optionally, the **operations** it calls;
-3. the contract's **compatibility log** (`compatibility-log.json` in
-   `epistola-contract`): per released contract version, whether it broke wire
-   compatibility and exactly which operations it broke.
+This split resolves D6 (see `DESIGN.md`): **declarations** live with each
+artifact, **judging** lives with the anchor, and **verification** — this
+directory — stays with the suite, because booting published suite images
+belongs where suite releases happen. The division of labor:
 
-Verdicts are **operation-level** when possible: a client is compatible with a
-suite unless a breaking contract change between the client's target version and
-the suite's contract version touches an operation the client actually uses. A
-release that breaks only calls a client never makes does not mark that client
-incompatible. When the operation-level join is not possible — the feed declares
-no operations, the log is unreachable, or the log does not fully cover the
-version window (an incomplete log must never produce a false green) — the
-verdict falls back to the coarse range rule `floor <= target <= apiVersion`.
-Each row records which rule judged it (`basis`), and the rendered table shows
-it in the _Judged by_ column.
-
-A feed source is a **local path or an `http(s)` URL** (each client publishes its
-`compatibility.json` in its own repo, so remote is the normal case), and
-[`feeds.txt`](./feeds.txt) lists the sources the matrix aggregates. The log is
-fetched from the contract repo's main branch by default (`--log` overrides;
-`--log none` disables):
-
-```bash
-# from the committed feed list (URLs + local paths):
-compatibility/aggregate.sh --feeds-file compatibility/feeds.txt \
-  --out compatibility/aggregate.json
-# or a one-off:
-compatibility/aggregate.sh --feed https://raw.githubusercontent.com/…/compatibility.json
-compatibility/render.sh                 # picks up aggregate.json → second table
-```
-
-`aggregate.sh` (jq + curl) writes rows with a `compatible` flag, the judging
-`basis`, and a human reason; `render.sh` adds a "Plugin ↔ suite compatibility"
-table when `aggregate.json` has rows. Fetching is **best effort** — a feed whose
-repo has not merged its declaration yet (404) is warned and skipped, and so is
-one that is not a valid v1 client declaration or a log that is unreachable or
-malformed (these all come from repos we don't control, so none of them may fail
-the aggregate). `feeds.txt` can therefore list a source before that side ships.
-**CI runs this** after the smoke (feeds from `feeds.txt`), so the plugin table
-appears in the job summary automatically once the plugin's feed is live. The
-declarations stay with each artifact; the aggregator only reads feeds and
-applies the rule (R8). The only remaining D6 choice is where the aggregator
-ultimately _lives_ (in this repo vs a neutral repo).
+| Concern                                | Home                             |
+| -------------------------------------- | -------------------------------- |
+| Breaking-change log + floor            | `epistola-contract`              |
+| Judged matrix (feeds × log → verdicts) | `epistola-contract`              |
+| Suite feed (`compatibility.json`)      | this repo (root)                 |
+| Plugin feed                            | `valtimo-epistola-plugin` (root) |
+| Empirical verification (`smoke.sh`)    | this directory                   |
 
 ## Roadmap (each an independent, shippable step)
 
@@ -177,10 +152,10 @@ locally built compat-aware image (`rangeVerified: true`) and the published
 under `--profile localauth,demo` seeds ~60-90s after boot — tune `RANGE_TIMEOUT`.
 **Human-readable render** — `render.sh` turns `matrix.json` into
 [`MATRIX.md`](./MATRIX.md); CI posts it to the job summary.
-**Aggregate** — `aggregate.sh` fetches external client feeds ([`feeds.txt`](./feeds.txt),
-URLs or paths) and joins them with the suite ranges into plugin↔suite verdicts,
-rendered as a second table; **CI runs it** after the smoke. The full pipeline
-(declare → verify → aggregate → render) runs automatically.
+**The suite's feed** — `compatibility.json` at the repo root (see above),
+drift-guarded by the `verify-feed` job. Judging (feeds × breaking-change log →
+verdicts) moved to its home in the `epistola-contract` repo, whose scheduled
+workflow runs it automatically.
 
 **Next:**
 
@@ -188,9 +163,8 @@ rendered as a second table; **CI runs it** after the smoke. The full pipeline
    image is published, change `compatibility.yml` to boot a demo-capable profile
    (`--profile localauth,demo`, so the seeded demo API key exists) and raise
    `RANGE_TIMEOUT` from its current fast-degrade `15`. Until then CI cells carry
-   no `declaredRange`, so the aggregate has no suite range to join against and
-   the plugin table stays empty — the pipeline is wired end-to-end but not yet
-   producing verdicts.
+   no `declaredRange`, so the smoke verifies reachability but not yet the
+   declared range against published images.
 2. **Vary the client** — run the smoke against a range of contract versions
    (fixed suite image, varying the client's declared contract), turning one cell
    into a real row. The declared range makes each such cell a real

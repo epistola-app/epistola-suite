@@ -12,9 +12,6 @@
 #
 # Inputs (flags override env):
 #   --in        IN   matrix JSON to read    (default: compatibility/matrix.json)
-#   --aggregate AGG  aggregate JSON (plugin↔suite verdicts from ./aggregate.sh);
-#                    an extra table is rendered when it exists and has rows
-#                                           (default: compatibility/aggregate.json)
 #   --out       OUT  Markdown file to write, or `-` for stdout
 #                                           (default: compatibility/MATRIX.md)
 #
@@ -24,13 +21,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 IN="${IN:-${SCRIPT_DIR}/matrix.json}"
-AGG="${AGG:-${SCRIPT_DIR}/aggregate.json}"
 OUT="${OUT:-${SCRIPT_DIR}/MATRIX.md}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --in)        IN="$2";  shift 2 ;;
-    --aggregate) AGG="$2"; shift 2 ;;
     --out)       OUT="$2"; shift 2 ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -82,30 +77,15 @@ markdown="$(jq -r '
   "- **In range** — whether the cell'"'"'s contract falls inside the declared range. `—` when no range was read.",
   "" ' "${IN}")"
 
-# Optional second table: plugin↔suite verdicts from aggregate.sh (D6 aggregate).
-aggregate_md=""
-if [[ -f "${AGG}" ]] && [[ "$(jq '(.rows // []) | length' "${AGG}" 2>/dev/null || echo 0)" -gt 0 ]]; then
-  aggregate_md="$(jq -r '
-    "## Plugin ↔ suite compatibility (derived)",
-    "",
-    "Each **client** feed (e.g. `valtimo-epistola-plugin`) declares the contract version it targets and, optionally, the operations it calls. A pairing is judged **operation-level** when possible (incompatible only if a breaking contract change between the client'"'"'s target and the suite'"'"'s contract touches an operation the client uses — from the contract'"'"'s `compatibility-log.json`), falling back to the **range** rule (`floor <= target <= apiVersion`) otherwise. The _Judged by_ column says which rule decided each row.",
-    "",
-    "| Client | Target contract | Suite | Suite range | Judged by | Compatible |",
-    "| --- | --- | --- | --- | --- | --- |",
-    ( .rows[]
-      | "| \(.plugin) `\(.pluginVersion)` | `\(.targetContract)` | \(.suite) | `\(.suiteRange.min)` … `\(.suiteRange.max)` | \(.basis // "range") | \(if .compatible then "✅ yes" else "❌ no" end) — \(.reason) |"
-    ),
-    "" ' "${AGG}")"
-fi
-
-markdown="${markdown}${aggregate_md:+
-
-${aggregate_md}}"
+# The judged plugin↔suite table is NOT rendered here: the matrix's home is the
+# epistola-contract repo (compatibility/ there), which joins every artifact's
+# feed with the breaking-change log. This render covers only what this repo
+# owns — the empirical smoke cells.
 
 if [[ "${OUT}" == "-" ]]; then
   printf '%s\n' "${markdown}"
 else
   mkdir -p "$(dirname -- "${OUT}")"
   printf '%s\n' "${markdown}" > "${OUT}"
-  echo "[render] wrote ${OUT} ($(jq '.cells | length' "${IN}") cell(s)$([[ -n "${aggregate_md}" ]] && printf ', %s aggregate row(s)' "$(jq '.rows | length' "${AGG}")"))" >&2
+  echo "[render] wrote ${OUT} ($(jq '.cells | length' "${IN}") cell(s))" >&2
 fi
