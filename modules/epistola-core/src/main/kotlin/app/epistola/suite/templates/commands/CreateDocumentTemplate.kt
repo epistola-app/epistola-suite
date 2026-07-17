@@ -68,7 +68,8 @@ class CreateDocumentTemplateHandler(
 
                 // 2. Create the default variant with the fixed VariantKey.INITIAL id — a
                 // role-neutral provenance slug, not the mutable is_default role. See its KDoc.
-                // Title is required (#631); default it to the variant slug, like import.
+                // Title is required (#631); the template's own name is the most meaningful
+                // title available here, and carries the same non-blank/length guarantees.
                 val variantId = VariantKey.INITIAL
                 handle.createUpdate(
                     """
@@ -80,7 +81,7 @@ class CreateDocumentTemplateHandler(
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", template.id)
-                    .bind("title", variantId.value)
+                    .bind("title", command.name)
                     .bind("createdBy", auditUser)
                     .bind("updatedBy", auditUser)
                     .execute()
