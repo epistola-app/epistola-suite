@@ -151,8 +151,29 @@ class CatalogHandler {
         }
     }
 
+    fun registerForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        return request.htmx {
+            // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
+            fragment("catalogs/register", "dialog") {
+                "tenantId" to tenantId.key
+            }
+            // Direct navigation / boost: the host list page with the subscribe
+            // dialog embedded in its mount (openDialog=true), opened on load by JS.
+            onNonHtmx {
+                page("catalogs/list") {
+                    catalogPageModel(request)
+                    "openDialog" to true
+                    "openDialogFragment" to "catalogs/register :: dialog"
+                }
+            }
+        }
+    }
+
     fun register(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
 
         val form = request.form {
             field("sourceUrl") {
@@ -162,7 +183,7 @@ class CatalogHandler {
         }
 
         if (form.hasErrors()) {
-            return listWithError(request, "Catalog URL is required.")
+            return registerError(request, "Catalog URL is required.")
         }
 
         val sourceUrl = form.formData["sourceUrl"]!!
@@ -182,12 +203,32 @@ class CatalogHandler {
                 authCredential = authCredential,
             ).execute()
 
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs?saved=true")
-                .build()
+            // Stay-on-list: close the dialog + OOB-refresh the list with the new catalog.
+            request.htmx {
+                dialogSuccess("catalogs/list", "catalog-list") {
+                    catalogListModel(request)
+                }
+                onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+            }
         } catch (e: Exception) {
             logger.warn("Failed to register catalog: ${e.message}", e)
-            listWithError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
+            registerError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
+        }
+    }
+
+    /**
+     * Register error → OOB-update just the dialog's form-error slot, leaving the
+     * live form (URL, auth type, credential) exactly as the user left it.
+     * dialogFieldErrors would re-render the body and reset the authType <select>
+     * / credential toggle, so we keep the operational failure text-only here.
+     */
+    private fun registerError(request: ServerRequest, message: String): ServerResponse = request.htmx {
+        dialogFormError("subscribe-catalog-error", message)
+        onNonHtmx {
+            page(422, "catalogs/list") {
+                catalogPageModel(request)
+                "error" to message
+            }
         }
     }
 

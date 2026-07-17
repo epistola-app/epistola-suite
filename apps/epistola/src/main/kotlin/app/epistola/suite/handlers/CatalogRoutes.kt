@@ -13,6 +13,7 @@ class CatalogRoutes(private val handler: CatalogHandler) {
         "/tenants/{tenantId}/catalogs".nest {
             GET("", handler::list)
             GET("/new", handler::newForm)
+            GET("/register", handler::registerForm)
             POST("/register", handler::register)
             POST("/create", handler::createCatalog)
             POST("/import", handler::importZip)

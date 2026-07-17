@@ -200,6 +200,114 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `HTMX GET register returns the dialog fragment`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Subscribe Dialog") }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/register",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The dialog-shell chrome + the caller-owned form with its fields.
+            assertThat(body).contains("id=\"subscribe-catalog-dialog\"")
+            assertThat(body).contains("id=\"subscribe-catalog-form\"")
+            assertThat(body).contains("name=\"sourceUrl\"")
+            assertThat(body).contains("name=\"authType\"")
+            // It is a fragment, not the whole page (no app shell).
+            assertThat(body).doesNotContain("<html")
+        }
+    }
+
+    @Test
+    fun `HTMX POST register invalid URL shows the form error and keeps the form`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Subscribe Invalid") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, String>()
+            // A classpath manifest that does not exist → RegisterCatalog throws.
+            payload.add("sourceUrl", "classpath:epistola/catalogs/does-not-exist/catalog.json")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/register",
+                HttpEntity(payload, htmxForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // The OOB error slot handles the swap — no retarget, primary swap disabled —
+            // so the live form (URL, auth type, credential toggle) is left untouched.
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.headers.getFirst("HX-Retarget")).isNull()
+            val body = response.body!!
+            assertThat(body).contains("id=\"subscribe-catalog-error\"")
+            assertThat(body).contains("Failed to register catalog")
+        }
+    }
+
+    @Test
+    fun `HTMX POST register valid closes the dialog and OOB-refreshes the list`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Subscribe Valid") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, String>()
+            payload.add("sourceUrl", "classpath:epistola/catalogs/demo/catalog.json")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/register",
+                HttpEntity(payload, htmxForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Stay-on-list: close the dialog + OOB-refresh the list region.
+            assertThat(response.headers.getFirst("HX-Trigger")).isEqualTo("closeDialog")
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            val body = response.body!!
+            assertThat(body).contains("id=\"catalog-list\"")
+            assertThat(body).contains("hx-swap-oob")
+            assertThat(body).contains("Epistola Demo Catalog")
+            // Persistence verified through the mediator.
+            val persisted = withMediator { ListCatalogs(tenantKey = t.id).query() }
+            assertThat(persisted.map { it.name }).contains("Epistola Demo Catalog")
+        }
+    }
+
+    @Test
+    fun `non-HTMX GET register renders the list page with the dialog embedded and open`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Subscribe DirectNav") }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs/register", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // Full host page (app shell) with the dialog embedded in the mount.
+            assertThat(body).contains("<html")
+            assertThat(body).contains("id=\"dialog-mount\"")
+            assertThat(body).contains("id=\"subscribe-catalog-dialog\"")
+        }
+    }
+
+    @Test
     fun `plain list route does not embed the create dialog`() = fixture {
         lateinit var t: Tenant
         given { t = tenant("Catalog Plain List") }

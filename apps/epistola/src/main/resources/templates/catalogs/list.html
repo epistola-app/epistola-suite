@@ -125,46 +125,6 @@
             </th:block>
         </div>
 
-        <!-- Subscribe to Catalog Dialog -->
-        <dialog id="subscribe-dialog" class="ep-dialog">
-            <div class="ep-dialog-header">
-                <h3>Subscribe to Catalog</h3>
-            </div>
-            <form th:action="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}" method="post">
-                <div th:replace="~{epistola-web/form-error :: form-error(id='subscribe-catalog-error')}"></div>
-                <div class="ep-dialog-body">
-                    <div class="form-group">
-                        <label class="ep-label" for="sourceUrl">Catalog URL</label>
-                        <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
-                               required placeholder="https://example.com/catalog.json"
-                               value="classpath:epistola/catalogs/demo/catalog.json">
-                        <span class="form-hint">
-                            URL to the catalog manifest (<code>.json</code>). Supports <code>https://</code>, <code>classpath:</code>, and <code>file:///</code>.
-                        </span>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="authType">Authentication</label>
-                        <select id="authType" name="authType" class="ep-select"
-                                data-auth-credential-toggle="credential-group">
-                            <option value="NONE">None (public catalog)</option>
-                            <option value="BEARER">Bearer Token</option>
-                            <option value="API_KEY">API Key</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="credential-group" style="display: none;">
-                        <label class="ep-label" for="authCredential">Credential</label>
-                        <input type="password" id="authCredential" name="authCredential" class="ep-input"
-                               placeholder="Token or API key">
-                    </div>
-                </div>
-                <div class="ep-dialog-footer">
-                    <button type="button" class="ep-btn ep-btn-ghost"
-                            data-close-dialog="subscribe-dialog">Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary">Subscribe</button>
-                </div>
-            </form>
-        </dialog>
-
         <!-- Import ZIP Dialog -->
         <dialog id="import-dialog" class="ep-dialog">
             <div class="ep-dialog-header">
@@ -581,7 +541,9 @@
             Import ZIP
         </button>
         <button type="button" class="ep-btn ep-btn-outline"
-                data-open-dialog="subscribe-dialog">
+                th:hx-get="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="catalog-subscribe-open">
             <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
             Subscribe
         </button>
