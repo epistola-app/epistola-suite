@@ -254,6 +254,18 @@ than reconciled away on the strength of a bug), but it costs the run.
 
 `QualitySourceId.MANUAL` is reserved and rejected at startup.
 
+Two ship today, and they are worth reading in that order:
+
+- **`ExampleQualitySource`** (`example`) — a reference implementation, deliberately trivial. Its
+  job is to demonstrate the seam and the fingerprint contract, not to be a good check.
+- **`AccessibilityQualitySource`** (`accessibility`) — a real one. It reports an `image` node
+  with no `alt` that is not marked `decorative`, which is exactly the case where
+  `ImageNodeRenderer` will stamp a **PDF/UA-1 identifier** on a document with no alternate
+  description behind it. The rule mirrors that renderer, so the two must move together; it is
+  also the first source to carry a `docsUrl`, since it can point at the WCAG technique rather
+  than explain itself. It needs nothing but the template model, which is why it did not wait for
+  the widened input.
+
 ### Remote
 
 Implement nothing. Push your full finding set over the REST ingest and read dispositions
@@ -341,8 +353,9 @@ remote source exists yet — so a tenant switching it on today gets the example 
 whatever they raise by hand. Expect the shape of the report, the editor panel, and the REST
 ingest to move before this is stable.
 
-The demo catalog's **`quality-showcase`** template exists to be found wanting: an empty block
-and an overlong one, so the report has real findings to show. `DemoShowcaseQualityIntegrationTest`
+The demo catalog's **`quality-showcase`** template exists to be found wanting: an empty block,
+an overlong one, an image with no alt text, and a decorative image the accessibility source is
+right to stay quiet about — so the report has real findings to show. `DemoShowcaseQualityIntegrationTest`
 installs the bundled catalog and asserts exactly those, so the demo cannot quietly be tidied
 into demonstrating nothing. `DemoLoader` turns the toggle on for the demo tenant and seeds the
 human half too (a hand-raised finding, a comment, an ignore with a reason) — that half has no

@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.commands.RunQualityChecks
 import app.epistola.suite.quality.queries.ListQualityFindings
+import app.epistola.suite.quality.sources.AccessibilityQualitySource
 import app.epistola.suite.quality.sources.ExampleQualitySource
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -68,6 +69,26 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
     }
 
     /**
+     * The showcase carries an image with no alt *and* a decorative one, so the demo shows both
+     * halves of the rule: the real accessibility defect, and the case the source is right to stay
+     * quiet about.
+     */
+    @Test
+    fun `the showcase reports its unlabelled image and stays quiet about the decorative one`() {
+        val variantId = showcaseVariant()
+
+        withMediator { RunQualityChecks(variantId).execute() }
+
+        val findings = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+
+        val alt = findings.single { it.ruleId == AccessibilityQualitySource.RULE_IMAGE_MISSING_ALT }
+        assertThat(alt.severity).isEqualTo(QualitySeverity.WARNING)
+        assertThat(alt.nodeIds).containsExactly("n-unlabelled-image")
+        // Marking an image decorative is a real answer, not a way of dodging the check.
+        assertThat(findings.flatMap { it.nodeIds }).doesNotContain("n-decorative-rule")
+    }
+
+    /**
      * `n-dynamic-only` renders nothing but an expression, and must not be reported empty — the
      * false positive that would otherwise greet a reader on the demo's own templates.
      */
@@ -94,6 +115,8 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         assertThat(second[source]!!.opened).isZero()
         assertThat(second[source]!!.resolved).isZero()
         assertThat(second[source]!!.unchanged).isEqualTo(2)
-        assertThat(withMediator { ListQualityFindings(variantId.tenantKey).query().total }).isEqualTo(2)
+        // The example source's counts are per-source and so unchanged; the tenant-wide total now
+        // also carries the accessibility source's unlabelled-image finding.
+        assertThat(withMediator { ListQualityFindings(variantId.tenantKey).query().total }).isEqualTo(3)
     }
 }

@@ -127,6 +127,25 @@
             }
           }
         },
+        "n-unlabelled-image": {
+          "id": "n-unlabelled-image",
+          "type": "image",
+          "slots": [],
+          "props": {
+            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "width": "90pt"
+          }
+        },
+        "n-decorative-rule": {
+          "id": "n-decorative-rule",
+          "type": "image",
+          "slots": [],
+          "props": {
+            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "decorative": true,
+            "width": "40pt"
+          }
+        },
         "n-closing": {
           "id": "n-closing",
           "type": "text",
@@ -149,7 +168,16 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-heading", "n-intro", "n-dynamic-only", "n-empty", "n-long", "n-closing"]
+          "children": [
+            "n-heading",
+            "n-intro",
+            "n-dynamic-only",
+            "n-empty",
+            "n-long",
+            "n-unlabelled-image",
+            "n-decorative-rule",
+            "n-closing"
+          ]
         }
       }
     },
