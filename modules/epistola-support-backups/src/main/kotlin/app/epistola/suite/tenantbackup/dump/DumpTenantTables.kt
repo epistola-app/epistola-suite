@@ -64,8 +64,8 @@ class DumpTenantTables(
     /**
      * The asset_content blobs referenced by this tenant's assets, resolved through the
      * `content_hash` pointer and the derived dedup scope
-     * (`system` for system-catalog assets, else the tenant key). DISTINCT because many
-     * assets may share one deduplicated blob (#738).
+     * (`sensitive ? tenant_key : 'global'`). DISTINCT because many assets may share one
+     * deduplicated blob (#738).
      */
     private fun dumpBlobs(
         handle: Handle,
@@ -76,7 +76,7 @@ class DumpTenantTables(
                 "  ac.created_at::text AS created_at, ac.content " +
                 "FROM asset_content ac " +
                 "JOIN assets a ON a.content_hash = ac.content_hash " +
-                "  AND ac.scope = CASE WHEN a.catalog_key = 'system' THEN 'system' ELSE a.tenant_key::text END " +
+                "  AND ac.scope = CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END " +
                 "WHERE a.tenant_key = :tk " +
                 "ORDER BY ac.scope, ac.content_hash",
         ).bind("tk", tenantKey)

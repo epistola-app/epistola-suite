@@ -53,15 +53,23 @@ way each backend does best:
 ## Asset dedup and scope
 
 Asset blobs are content-addressable (SHA-256, reusing `sha256Hex`). Deduplication is
-namespaced by a derived **scope** — a privacy boundary, never stored, always derived
-from the owning asset's `catalog_key` (`CASE WHEN catalog_key = 'system' THEN 'system'
-ELSE tenant_key END`, see `assetContentScope`):
+namespaced by a derived **scope** — never stored, always derived from the asset's
+`sensitive` flag (`CASE WHEN sensitive THEN tenant_key ELSE 'global' END`, see
+`assetContentScope`):
 
-- **`system`** — bundled / system-catalog assets (fonts, demo images) dedup **globally**:
-  the system-badge, a bundled font, etc. are stored **once per installation** regardless
-  of how many tenants install the system catalog. This is the headline saving.
-- **tenant key** — user uploads dedup only **within the tenant**, avoiding a
-  cross-tenant existence side-channel and keeping "delete all my data" clean.
+- **`global`** (default) — non-sensitive assets (branding, images, fonts, and the
+  bundled system catalog) dedup **installation-wide**: identical bytes — a shared font, a
+  logo two tenants happen to reuse, the system-badge across every tenant — are stored
+  **once**. This is the headline saving.
+- **tenant key** — assets marked **sensitive** are stored in isolation per tenant, so
+  there's no cross-tenant existence side-channel (a tenant can't infer another uploaded
+  the same bytes) and physical erasure is clean. Sensitive assets still dedup against each
+  other within one tenant.
+
+The `sensitive` flag is honoured by the backend today; surfacing it on the UI, REST, and
+catalog-exchange formats is tracked in
+[#751](https://github.com/epistola-app/epistola-suite/issues/751) (all assets are
+non-sensitive / global until then).
 
 `assets.content_hash` points into `asset_content`. Writes (`UploadAsset`, `ImportAsset`)
 hash + `putIfAbsent`; `GetAssetContent` reads by `(scope, hash)`. `DeleteAsset` deletes

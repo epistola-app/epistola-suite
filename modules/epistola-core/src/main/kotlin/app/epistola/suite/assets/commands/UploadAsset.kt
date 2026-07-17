@@ -42,6 +42,8 @@ data class UploadAsset(
     val height: Int?,
     val catalogKey: CatalogKey,
     val id: AssetKey? = null,
+    /** When true, the blob is stored in a per-tenant isolated dedup scope (see #738/#751). */
+    val sensitive: Boolean = false,
 ) : Command<Asset>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -89,14 +91,16 @@ class UploadAssetHandler(
         // Store content first — an orphaned blob is harmless (the reaper reclaims it),
         // a DB row pointing to missing content is not.
         val contentHash = sha256Hex(command.content)
-        val scope = assetContentScope(command.catalogKey, command.tenantId)
+        // Non-sensitive assets dedup in the shared global scope; sensitive ones are
+        // isolated per tenant (#738/#751).
+        val scope = assetContentScope(command.sensitive, command.tenantId)
         assetContentStore.putIfAbsent(scope, contentHash, command.content, command.mediaType.mimeType, sizeBytes)
 
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, content_hash, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :createdAt, :createdBy)
+                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, content_hash, sensitive, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :sensitive, :createdAt, :createdBy)
                 """,
             )
                 .bind("id", id.value)
@@ -108,6 +112,7 @@ class UploadAssetHandler(
                 .bind("width", command.width)
                 .bind("height", command.height)
                 .bind("contentHash", contentHash)
+                .bind("sensitive", command.sensitive)
                 .bind("createdAt", now)
                 .bind("createdBy", auditUser)
                 .execute()

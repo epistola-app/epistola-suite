@@ -1,22 +1,23 @@
 package app.epistola.suite.assets
 
-import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 
+/** The shared dedup scope every non-sensitive asset uses (issue #738). */
+const val GLOBAL_ASSET_SCOPE = "global"
+
 /**
- * Derive the content-addressable dedup scope for an asset blob (issue #738).
+ * The content-addressable dedup scope for an asset blob (issue #738).
  *
- * The scope is a privacy boundary, not stored on the asset — always derived from the
- * owning `catalog_key` so it can never drift:
+ * - **non-sensitive → [GLOBAL_ASSET_SCOPE]** — identical bytes dedup once installation-wide,
+ *   maximizing savings. This is the default and fits branding assets (logos, images, fonts).
+ * - **sensitive → the tenant key** — stored in isolation, so there is no cross-tenant
+ *   existence side-channel (a tenant can't infer another uploaded the same bytes) and physical
+ *   erasure is clean. Sensitive assets still dedup against each other **within** a tenant.
  *
- * - **`"system"`** — bundled / system-catalog assets (fonts, demo images) shared with
- *   every tenant by design, so identical bytes dedup **globally**. High win, no leak.
- * - **the tenant key** — user-uploaded tenant assets dedup only **within the tenant**,
- *   avoiding a cross-tenant existence side-channel (a tenant inferring another uploaded
- *   the same bytes) and keeping tenant erasure clean.
+ * Derived — never stored as a separate column — so it can't drift. The SQL equivalent used by
+ * the reaper and the backups dump is `CASE WHEN sensitive THEN tenant_key ELSE 'global' END`.
  *
- * Keep this identical everywhere content is written, read, or reaped — the SQL
- * equivalent is `CASE WHEN catalog_key = 'system' THEN 'system' ELSE tenant_key END`.
+ * The backend honours the flag today; surfacing it on the UI / REST / catalog-exchange formats
+ * is tracked in issue #751 (and the contract-repo catalog-format issue).
  */
-fun assetContentScope(catalogKey: CatalogKey, tenantKey: TenantKey): String = if (catalogKey == SYSTEM_CATALOG_KEY) "system" else tenantKey.value
+fun assetContentScope(sensitive: Boolean, tenantKey: TenantKey): String = if (sensitive) tenantKey.value else GLOBAL_ASSET_SCOPE

@@ -30,6 +30,9 @@ data class ImportAsset(
     val content: ByteArray,
     val width: Int? = null,
     val height: Int? = null,
+    // The catalog exchange format does not carry sensitivity yet (contract issue); catalog
+    // imports are non-sensitive/global until #751 wires it through.
+    val sensitive: Boolean = false,
 ) : Command<InstallStatus>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -70,14 +73,14 @@ class ImportAssetHandler(
             // then repoint the asset row's content_hash. The previous hash's blob is
             // left for the reaper to mark-and-sweep if nothing else references it.
             val contentHash = sha256Hex(command.content)
-            val scope = assetContentScope(command.catalogKey, command.tenantKey)
+            val scope = assetContentScope(command.sensitive, command.tenantKey)
             assetContentStore.putIfAbsent(scope, contentHash, command.content, command.mediaType.mimeType, command.content.size.toLong())
 
             jdbi.useHandle<Exception> { handle ->
                 handle.createUpdate(
                     """
                     UPDATE assets
-                    SET name = :name, media_type = :mediaType, width = :width, height = :height, size_bytes = :sizeBytes, content_hash = :contentHash
+                    SET name = :name, media_type = :mediaType, width = :width, height = :height, size_bytes = :sizeBytes, content_hash = :contentHash, sensitive = :sensitive
                     WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :id
                     """,
                 )
@@ -90,6 +93,7 @@ class ImportAssetHandler(
                     .bind("height", command.height)
                     .bind("sizeBytes", command.content.size.toLong())
                     .bind("contentHash", contentHash)
+                    .bind("sensitive", command.sensitive)
                     .execute()
             }
 
@@ -106,6 +110,7 @@ class ImportAssetHandler(
             width = command.width,
             height = command.height,
             id = command.id,
+            sensitive = command.sensitive,
         ).execute()
 
         return InstallStatus.INSTALLED

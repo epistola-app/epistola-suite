@@ -149,7 +149,7 @@ class ContentBackfillRunner(
             val batch = jdbi.withHandle<List<AssetRow>, Exception> { handle ->
                 handle.createQuery(
                     """
-                    SELECT id, tenant_key, catalog_key, media_type
+                    SELECT id, tenant_key, media_type, sensitive
                     FROM assets
                     WHERE content_hash IS NULL
                     LIMIT :limit
@@ -160,8 +160,8 @@ class ContentBackfillRunner(
                         AssetRow(
                             id = rs.getString("id"),
                             tenantKey = rs.getString("tenant_key"),
-                            catalogKey = rs.getString("catalog_key"),
                             mediaType = rs.getString("media_type"),
+                            sensitive = rs.getBoolean("sensitive"),
                         )
                     }
                     .list()
@@ -185,7 +185,7 @@ class ContentBackfillRunner(
         val stored = legacyContentStore.get(legacyKey) ?: return false
         val bytes = stored.content.readAllBytes()
         val hash = app.epistola.suite.fonts.model.sha256Hex(bytes)
-        val scope = if (row.catalogKey == "system") "system" else row.tenantKey
+        val scope = app.epistola.suite.assets.assetContentScope(row.sensitive, app.epistola.suite.common.ids.TenantKey.of(row.tenantKey))
         assetContentStore.putIfAbsent(scope, hash, bytes, row.mediaType, bytes.size.toLong())
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -202,8 +202,8 @@ class ContentBackfillRunner(
     private data class AssetRow(
         val id: String,
         val tenantKey: String,
-        val catalogKey: String,
         val mediaType: String,
+        val sensitive: Boolean,
     )
 
     companion object {

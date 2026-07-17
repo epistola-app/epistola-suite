@@ -23,8 +23,8 @@ import org.springframework.beans.factory.annotation.Autowired
 /**
  * Tenant isolation: restoring tenant A must never touch tenant B. The restore's **delete-absent**
  * phase scopes regular tables by `tenant_key`, and asset blobs live in the content-addressable
- * `asset_content` store scoped by `(scope, content_hash)` (tenant-catalog assets scope to the
- * tenant); this proves a bystander tenant's catalogs, template versions, assets, blobs, and feature
+ * `asset_content` store scoped by `(scope, content_hash)` (non-sensitive assets use the 'global'
+ * scope); this proves a bystander tenant's catalogs, template versions, assets, blobs, and feature
  * toggles all survive a neighbour's restore byte-for-byte.
  */
 class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
@@ -96,7 +96,7 @@ class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
             "blob" to
                 h
                     .createQuery("SELECT content FROM asset_content WHERE scope = :s AND content_hash = :h")
-                    .bind("s", tenantKey)
+                    .bind("s", "global") // non-sensitive asset → global scope
                     .bind("h", contentHash)
                     .map { rs, _ -> rs.getBytes("content")?.toList() }
                     .findOne()

@@ -95,9 +95,9 @@ class ContentReaper(
 
     /**
      * Delete `asset_content` blobs older than the grace window that no `assets` row
-     * references. Scope is derived from the referencing asset's catalog exactly as at
-     * write time, so a system-scoped blob survives as long as ANY tenant's system
-     * catalog references it.
+     * references. Scope is derived from the referencing asset's `sensitive` flag exactly
+     * as at write time (`sensitive ? tenant_key : 'global'`), so a global blob survives
+     * as long as ANY asset references it, and a sensitive blob only while its tenant does.
      */
     private fun sweepUnreferencedAssetBlobs(): Int {
         val cutoff = EpistolaClock.offsetDateTime().minusMinutes(assetGraceMinutes)
@@ -109,7 +109,7 @@ class ContentReaper(
                   AND NOT EXISTS (
                       SELECT 1 FROM assets a
                       WHERE a.content_hash = ac.content_hash
-                        AND (CASE WHEN a.catalog_key = 'system' THEN 'system' ELSE a.tenant_key::text END) = ac.scope
+                        AND (CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END) = ac.scope
                   )
                 """,
             )
@@ -126,7 +126,7 @@ class ContentReaper(
             WHERE NOT EXISTS (
                 SELECT 1 FROM assets a
                 WHERE a.content_hash = ac.content_hash
-                  AND (CASE WHEN a.catalog_key = 'system' THEN 'system' ELSE a.tenant_key::text END) = ac.scope
+                  AND (CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END) = ac.scope
             )
             """,
         )

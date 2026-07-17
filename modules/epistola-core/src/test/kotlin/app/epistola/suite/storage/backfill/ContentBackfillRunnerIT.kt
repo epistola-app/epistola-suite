@@ -69,7 +69,7 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
 
         // Pointer stamped, blob present in the CAS store, and served through the query.
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
-        assertThat(blobRows(tenant.id.value, expectedHash)).isEqualTo(1)
+        assertThat(blobRows("global", expectedHash)).isEqualTo(1)
         assertThat(withMediator { GetAssetContent(tenant.id, assetId, cat).query() }!!.content).isEqualTo(bytes)
         // A full pass records the completion marker (so later boots skip the runner).
         assertThat(completionMarker()).isNotNull()
@@ -77,7 +77,7 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
         // Idempotent: a second run changes nothing (now short-circuited by the marker).
         runner.run()
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
-        assertThat(blobRows(tenant.id.value, expectedHash)).isEqualTo(1)
+        assertThat(blobRows("global", expectedHash)).isEqualTo(1)
     }
 
     private fun contentHash(assetId: AssetKey): String? = jdbi.withHandle<String?, Exception> { handle ->

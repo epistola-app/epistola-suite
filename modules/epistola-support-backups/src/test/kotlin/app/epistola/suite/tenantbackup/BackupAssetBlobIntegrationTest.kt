@@ -16,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired
  * blob must build (the bytes are carried raw, not base64 — Postgres
  * `encode(…, 'base64')` wraps lines, which Java's basic decoder rejects) and restore
  * the exact bytes. Post-#738 the blob lives in the content-addressable `asset_content`
- * store, keyed by `(scope, content_hash)`; tenant-catalog assets scope to the tenant.
+ * store, keyed by `(scope, content_hash)`; non-sensitive assets scope to 'global'.
  */
 class BackupAssetBlobIntegrationTest : IntegrationTestBase() {
     @Autowired
@@ -42,8 +42,8 @@ class BackupAssetBlobIntegrationTest : IntegrationTestBase() {
                     catalogKey = main,
                 ).execute().id
             }
-        // Tenant-catalog asset → dedup scope is the tenant key; the pointer is on the row.
-        val scope = tenant.id.value
+        // Non-sensitive asset → dedup scope is 'global'; the pointer is on the row.
+        val scope = "global"
         val contentHash =
             jdbi.withHandle<String, Exception> { h ->
                 h.createQuery("SELECT content_hash FROM assets WHERE id = :id")

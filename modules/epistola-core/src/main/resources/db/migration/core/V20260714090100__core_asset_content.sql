@@ -6,15 +6,17 @@
 -- keep-forever reference data. Blobs are keyed by (scope, content_hash) so identical
 -- bytes are stored ONCE. The `assets` row becomes a pointer via `assets.content_hash`.
 --
--- Dedup scope is a privacy boundary:
---   * 'system'  -> bundled / system-catalog assets (fonts, demo images). Shared by
---                  design, so dedup GLOBALLY across all tenants.
---   * <tenant>  -> user-uploaded tenant assets. Dedup only WITHIN the tenant, to
---                  avoid a cross-tenant existence side-channel (a tenant inferring
---                  another uploaded the same bytes via put-if-exists behaviour).
--- The scope is DERIVED from the owning asset's catalog_key at write/read/GC time
--- (CASE WHEN catalog_key = 'system' THEN 'system' ELSE tenant_key END) — not stored
--- on assets, so nothing can drift.
+-- Dedup scope is a privacy boundary DERIVED from the owning asset's `sensitive` flag
+-- at write/read/GC time (CASE WHEN sensitive THEN tenant_key ELSE 'global' END), so it
+-- can never drift:
+--   * 'global'  -> normal (non-sensitive) assets — branding, images, fonts. Dedup
+--                  GLOBALLY: identical bytes stored once installation-wide. Default.
+--   * <tenant>  -> sensitive assets. Stored in isolation per tenant, so there is no
+--                  cross-tenant existence side-channel (a tenant inferring another
+--                  uploaded the same bytes via put-if-exists) and physical erasure is
+--                  clean. Within one tenant, sensitive assets still dedup against each
+--                  other. The flag is surfaced on the UI / REST / catalog surfaces by
+--                  issue #751; the backend honours it today.
 --
 -- content_hash is the lowercase hex SHA-256 of the bytes — the same digest the font
 -- feature already stores in font_variants.content_hash, so font-face binaries dedup
@@ -42,4 +44,10 @@ COMMENT ON COLUMN asset_content.content_hash IS 'Lowercase hex SHA-256 of the by
 -- transition; a later release (after cluster-wide backfill) sets NOT NULL.
 ALTER TABLE assets ADD COLUMN content_hash TEXT;
 
-COMMENT ON COLUMN assets.content_hash IS 'Lowercase hex SHA-256 pointer into asset_content (scope derived from catalog_key). NULL only until the one-time content backfill has run. See issue #738.';
+-- Whether this asset's bytes are stored in a per-tenant isolated dedup scope (sensitive)
+-- or the shared global scope (default). The backend honours it today; UI/REST/catalog
+-- exposure is issue #751.
+ALTER TABLE assets ADD COLUMN sensitive BOOLEAN NOT NULL DEFAULT false;
+
+COMMENT ON COLUMN assets.content_hash IS 'Lowercase hex SHA-256 pointer into asset_content. NULL only until the one-time content backfill has run. See issue #738.';
+COMMENT ON COLUMN assets.sensitive IS 'When true, the blob is stored in a per-tenant dedup scope (isolated); otherwise the global scope. See issue #738 / #751.';

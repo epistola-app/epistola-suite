@@ -51,7 +51,7 @@ class GetAssetContentHandler(
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, media_type, content_hash
+                SELECT id, tenant_key, catalog_key, media_type, content_hash, sensitive
                 FROM assets
                 WHERE id = :assetId
                   AND tenant_key = :tenantId
@@ -68,6 +68,7 @@ class GetAssetContentHandler(
                         catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                         mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                         contentHash = rs.getString("content_hash"),
+                        sensitive = rs.getBoolean("sensitive"),
                     )
                 }
                 .findOne()
@@ -77,7 +78,7 @@ class GetAssetContentHandler(
         // 2. Read content: from the content-addressable store by (scope, hash), or —
         // for assets not yet backfilled — from the legacy identity-keyed store.
         val bytes = if (metadata.contentHash != null) {
-            val scope = assetContentScope(metadata.catalogKey, metadata.tenantId)
+            val scope = assetContentScope(metadata.sensitive, metadata.tenantId)
             assetContentStore.get(scope, metadata.contentHash)?.content?.readAllBytes()
         } else {
             legacyBlobFallback.assetBytes(metadata.tenantId, metadata.id) // transitional (#742)
@@ -98,5 +99,6 @@ class GetAssetContentHandler(
         val catalogKey: CatalogKey,
         val mediaType: AssetMediaType,
         val contentHash: String?,
+        val sensitive: Boolean,
     )
 }
