@@ -88,12 +88,12 @@ if [[ -f "${AGG}" ]] && [[ "$(jq '(.rows // []) | length' "${AGG}" 2>/dev/null |
   aggregate_md="$(jq -r '
     "## Plugin ↔ suite compatibility (derived)",
     "",
-    "Each **client** feed (e.g. `valtimo-epistola-plugin`) declares the single contract version it targets; a pairing is compatible when that target falls in the suite'"'"'s declared range (`\(.rule // "floor <= target <= apiVersion")`).",
+    "Each **client** feed (e.g. `valtimo-epistola-plugin`) declares the contract version it targets and, optionally, the operations it calls. A pairing is judged **operation-level** when possible (incompatible only if a breaking contract change between the client'"'"'s target and the suite'"'"'s contract touches an operation the client uses — from the contract'"'"'s `compatibility-log.json`), falling back to the **range** rule (`floor <= target <= apiVersion`) otherwise. The _Judged by_ column says which rule decided each row.",
     "",
-    "| Client | Target contract | Suite | Suite range | Compatible |",
-    "| --- | --- | --- | --- | --- |",
+    "| Client | Target contract | Suite | Suite range | Judged by | Compatible |",
+    "| --- | --- | --- | --- | --- | --- |",
     ( .rows[]
-      | "| \(.plugin) `\(.pluginVersion)` | `\(.targetContract)` | \(.suite) | `\(.suiteRange.min)` … `\(.suiteRange.max)` | \(if .compatible then "✅ yes" else "❌ no" end) — \(.reason) |"
+      | "| \(.plugin) `\(.pluginVersion)` | `\(.targetContract)` | \(.suite) | `\(.suiteRange.min)` … `\(.suiteRange.max)` | \(.basis // "range") | \(if .compatible then "✅ yes" else "❌ no" end) — \(.reason) |"
     ),
     "" ' "${AGG}")"
 fi
