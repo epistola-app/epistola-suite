@@ -41,7 +41,11 @@ way each backend does best:
 - **S3** — `S3DocumentRetentionInitializer` reconciles a bucket **lifecycle rule** at
   startup that expires the `documents/` prefix after the retention window
   (`epistola.storage.s3.document-retention-days`, default `retention-months × 31`).
-  Assets are never in the bucket, so the rule can never touch permanent data.
+  Assets are never in the bucket, so the rule can never touch permanent data. It
+  **amends** the bucket configuration — reads the existing rules and merges ours in by
+  id — so any other lifecycle rules on the bucket are preserved. Set
+  `epistola.storage.s3.manage-document-lifecycle=false` to opt out entirely and manage
+  the bucket lifecycle yourself.
 - **Filesystem** — `FilesystemDocumentContentStore` implements
   `ContentRetentionMaintainer`; the reaper drives an age sweep of `documents/**` by
   modification time.

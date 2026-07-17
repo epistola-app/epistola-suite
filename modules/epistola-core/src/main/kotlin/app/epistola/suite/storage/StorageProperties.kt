@@ -37,6 +37,13 @@ data class S3Properties(
     val region: String = "eu-west-1",
     val endpoint: String? = null,
     /**
+     * Whether the app manages the `documents/` expiration lifecycle rule on the bucket
+     * (#738). When true (default), it reconciles a single rule by id, preserving any
+     * other rules already on the bucket. Set false to manage the bucket lifecycle
+     * entirely yourself (the app then never touches it).
+     */
+    val manageDocumentLifecycle: Boolean = true,
+    /**
      * Days after which the `documents/` prefix lifecycle rule expires document blobs
      * (#738). When null, derived from `epistola.partitions.retention-months`.
      */

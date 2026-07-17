@@ -91,15 +91,18 @@ class StorageConfiguration {
 
     /**
      * On the S3 backend, ensure a bucket lifecycle rule expires the `documents/` prefix
-     * (#738). A no-op singleton for every other backend, which reclaim differently
-     * (PostgreSQL partition drops, filesystem sweep).
+     * (#738), unless the operator opts out via `manage-document-lifecycle=false`. A
+     * no-op singleton for every other backend, which reclaim differently (PostgreSQL
+     * partition drops, filesystem sweep).
      */
     @Bean
     fun s3DocumentRetentionInitializer(
         properties: StorageProperties,
         @Value("\${epistola.partitions.retention-months:3}") retentionMonths: Int,
     ): SmartInitializingSingleton {
-        if (properties.backend != StorageBackend.S3) return SmartInitializingSingleton { }
+        if (properties.backend != StorageBackend.S3 || !properties.s3.manageDocumentLifecycle) {
+            return SmartInitializingSingleton { }
+        }
         // 31 days/month errs toward keeping blobs slightly longer than the partition
         // window — never expiring one still within retention.
         val retentionDays = properties.s3.documentRetentionDays ?: (retentionMonths * 31)
