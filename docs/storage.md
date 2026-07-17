@@ -93,7 +93,10 @@ a **transitional layer** deliberately grouped in one package —
 - **`ContentBackfillRunner`** — a **single-owner background cluster task** (not on the
   startup path, so it never races readiness on a large install), batched, resumable, and
   idempotent. It moves blobs forward and records a `content-backfill.completed` marker in
-  `app_metadata` after a full pass, so later occurrences no-op:
+  `app_metadata` after a full pass, so later occurrences no-op. During a rolling deploy it
+  only ever _executes_ on an upgraded node that carries its handler — an old node that
+  claims an occurrence defers it rather than running or deleting it (see
+  [`cluster-resilience.md`](cluster-resilience.md#4-version-skew-during-rolling-deploys)):
   - **Documents (PostgreSQL only)** → `document_content`, bucketed into the right monthly
     partition by the owning document's `created_at`. Blobs whose `documents` row is already
     gone are pre-existing retention orphans — discarded, not carried forward. On
