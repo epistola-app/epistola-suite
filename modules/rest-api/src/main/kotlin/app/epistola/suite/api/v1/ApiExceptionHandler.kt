@@ -72,6 +72,7 @@ import org.springframework.web.context.request.ServletWebRequest
 import org.springframework.web.context.request.WebRequest
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
+import tools.jackson.databind.DatabindException
 
 /**
  * Global exception handler for REST API controllers.
@@ -100,10 +101,44 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         status: HttpStatusCode,
         request: WebRequest,
     ): ResponseEntity<Any> {
+        // A required non-null DTO property that is absent or explicitly null fails during
+        // Jackson binding, before any @Valid check or command validation runs. Without this,
+        // omitting a required field yields a bare "malformed or unreadable" that never names
+        // it, while sending it blank yields a field-scoped error — the same mistake reported
+        // two different ways. Surface the bound property so both paths name the field.
+        val field = ex.bindingFieldName()
+        if (field != null) {
+            logger.warn("Request body rejected: property '{}' is missing or not bindable", field)
+            return problemEntity(
+                request,
+                headers,
+                ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+                "Request body validation failed",
+                mapOf(
+                    "errors" to listOf(
+                        // Deliberately covers both shapes a binding failure takes — an absent
+                        // required property and a value of the wrong type — because they are not
+                        // reliably distinguishable here, and claiming "required" for a type
+                        // mismatch would misdirect the client.
+                        ValidationError(field = field, message = "$field is missing or invalid", rejectedValue = null),
+                    ),
+                ),
+            )
+        }
+
         logger.warn("Unreadable request body: {}", ex.message)
 
         return problemEntity(request, headers, ApiProblemTypes.BAD_REQUEST, "Request body is malformed or unreadable")
     }
+
+    /**
+     * The JSON property a binding failure is anchored to, or null when the body failed as a
+     * whole (malformed JSON, wrong root type) and no single field is to blame.
+     */
+    private fun HttpMessageNotReadableException.bindingFieldName(): String? = (cause as? DatabindException)
+        ?.path
+        ?.firstOrNull { !it.propertyName.isNullOrBlank() }
+        ?.propertyName
 
     override fun handleMethodArgumentNotValid(
         ex: MethodArgumentNotValidException,
