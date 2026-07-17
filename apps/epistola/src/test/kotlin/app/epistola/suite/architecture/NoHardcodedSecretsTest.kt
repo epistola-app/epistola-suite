@@ -35,6 +35,9 @@ class NoHardcodedSecretsTest {
         "apps/epistola/src/main/resources/application-local.yaml",
         "apps/epistola/src/main/resources/application-localauth.yaml",
         "apps/epistola/src/main/resources/application-demo.yaml",
+        // The pdfrender worker's local profile reuses the suite's throwaway local-dev
+        // encryption key (it must decrypt data the suite wrote locally). Dev/local only.
+        "apps/pdfrender/src/main/resources/application-local.yaml",
     )
 
     @Test
