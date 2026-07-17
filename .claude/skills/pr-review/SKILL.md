@@ -60,13 +60,20 @@ _shape_ of the change.
 - **Branched off `main`** — the diff isn't bloated by an unrelated long-lived
   feature branch. If the base looks wrong, flag it (we want a clean path to
   `main`).
-- **Backward compatibility — INVERTED rule for this repo.** epistola is
-  pre-production: do **not** demand compat. Flag any back-compat shim, migration
-  path, legacy-format tolerance, version-tolerance layer, "V2 keeps old
-  behavior" mechanism, feature flag for old behavior, or engine-version bump
-  done purely to keep old output deterministic — as **waste to delete**. The
-  change should break directly (plus a destructive migration if needed). A
-  transient defensive-parse _within a single PR's_ transition window is fine.
+- **Backward compatibility — split rule since 1.0.0-RC1.**
+  - **Data: compat is mandatory and non-negotiable.** The database is stable and
+    is no longer reset between versions. Every schema change ships as a
+    **forward, data-preserving** Flyway migration. A destructive migration that
+    drops or resets user data, or a rewrite of an already-released migration, is
+    a **blocking finding**.
+  - **Code / API / arch: do not demand compat.** REST APIs, catalog wire
+    formats, config, and internal architecture may still break before
+    1.0.0-GA — but deliberately, and flagged `feat!:` / `fix!:` /
+    `BREAKING CHANGE:`. Flag a back-compat shim, legacy-format tolerance,
+    version-tolerance layer, "V2 keeps old behavior" mechanism, feature flag for
+    old behavior, or engine-version bump kept purely for old-output determinism
+    as **waste to delete** — but never at the cost of stored data. A transient
+    defensive-parse _within a single PR's_ transition window is fine.
 - **CHANGELOG.md** updated under `[Unreleased]` with a commit-style entry
   (`- [**[audience]** ]type(scope): **Title.** Description`), correct audience
   badge (`**[user]**` / `**[dev]**` / none), required `type(scope)`. Helm
@@ -111,8 +118,9 @@ _shape_ of the change.
 - **Editor component** added/changed ⇒ registry
   (`modules/editor/.../engine/registry.ts`) and demo catalog kept in sync, and
   the `ComponentDefinition` has at least one `examples[]` entry (PR blocker).
-- **Catalog exchange** impact considered (`modules/epistola-catalog/` — import/
-  export, serialization, manifest schema, version handling).
+- **Catalog exchange** impact considered (`epistola-core`'s `app/epistola/suite/
+catalog/` package — import/export, serialization, manifest schema, version
+  handling).
 
 ### Data & migrations
 

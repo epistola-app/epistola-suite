@@ -61,12 +61,6 @@ export interface StencilPickerOptions {
    * preview and number-format examples use the session's culture.
    */
   locale?: string;
-  /**
-   * When false (default), the binding step is skipped even if the picked
-   * stencil version declares parameters — the stencil is inserted with
-   * empty bindings. Existing data still renders; only authoring is gated.
-   */
-  stencilParametersEnabled?: boolean;
 }
 
 export async function openStencilPickerDialog(
@@ -471,12 +465,11 @@ export async function openStencilPickerDialog(
         return;
       }
 
-      // If the stencil has parameters declared and the feature is enabled,
-      // transition to the binding step. Otherwise insert immediately with
-      // empty bindings + default alias.
+      // If the stencil has parameters declared, transition to the binding
+      // step. Otherwise insert immediately with empty bindings + default alias.
       const props = versionInfo.parameterSchema?.properties;
       const hasParams = !!(props && Object.keys(props).length > 0);
-      if (hasParams && options.stencilParametersEnabled) {
+      if (hasParams) {
         showBindingStep(versionInfo);
         return;
       }

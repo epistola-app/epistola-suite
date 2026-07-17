@@ -124,7 +124,7 @@
                     hx-swap="innerHTML">
                 <option th:each="variant : ${variants}"
                         th:value="${variant.id}"
-                        th:text="${(variant.title != null ? variant.title : variant.id)} + ${variant.isDefault ? ' (default)' : ''}"
+                        th:text="${variant.title} + ${variant.isDefault ? ' (default)' : ''}"
                         th:selected="${#strings.toString(variant.id) == selectedVariantId}">
                 </option>
             </select>

@@ -18,7 +18,6 @@ class KnownFeaturesTest {
     fun `backups is marked beta and other features are stable by default`() {
         assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_BACKUPS)).isEqualTo(KnownFeatures.FeatureStage.BETA)
         assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_FEEDBACK)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
-        assertThat(KnownFeatures.stageOf(KnownFeatures.STENCIL_PARAMETERS)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
     }
 
     @Test

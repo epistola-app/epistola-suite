@@ -35,17 +35,17 @@ epistola-suite-modules/
 │   ├── epistola-core/     # Business logic (NEW)
 │   │   ├── tenants/       # Tenant domain
 │   │   ├── themes/        # Theme domain
-│   │   ├── templates/     # Template domain
+│   │   ├── templates/     # Template domain (incl. templates/validation/ — JSON Schema)
 │   │   ├── documents/     # Document generation domain
 │   │   ├── environments/  # Environment domain
+│   │   ├── catalog/       # Catalog exchange (import/export, snapshots, system catalogs)
 │   │   ├── mediator/      # CQRS mediator pattern
 │   │   ├── common/        # Shared utilities (IDs, UUIDv7)
-│   │   ├── validation/    # JSON schema validation
+│   │   ├── validation/    # Command validation (ValidationException, codes, field limits)
 │   │   ├── generation/    # GenerationService (orchestration)
 │   │   ├── metadata/      # App metadata service
 │   │   ├── config/        # JDBI, Jackson config
 │   │   └── api/           # REST API controllers
-│   ├── epistola-catalog/  # Catalog exchange (import/export templates)
 │   ├── generation/        # Pure PDF rendering
 │   ├── rest-api/          # OpenAPI specs
 │   ├── editor/            # Lit + ProseMirror editors (template, theme, data contract)
@@ -59,8 +59,7 @@ epistola-suite-modules/
 ### Module Responsibilities
 
 - **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers)
-- **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config)
-- **modules/epistola-catalog**: Catalog exchange — importing templates from remote catalogs (independent of core)
+- **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config). **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, bundled demo/system catalogs, and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
 - **modules/generation**: Pure PDF rendering (no business logic)
 - **modules/rest-api**: OpenAPI specifications
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
@@ -314,6 +313,8 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 **Breaking changes**: Use `feat!:` or `fix!:` or add `BREAKING CHANGE:` in footer.
 
+**Feature maturity vs. version bumps**: A feature can be **alpha** or **beta** (experimental/preview — wired but not yet tested/supported for production; flagged as such in code, docs, and the CHANGELOG) or **GA** (stable, supported). Breaking changes to **alpha or beta** features may ship in a **MINOR** release — they do **not** require a major version bump. Only breaking changes to **GA** features require a **MAJOR** bump (and, post-GA, a deliberate deprecation). So `feat!`/`fix!` scoped entirely to an alpha/beta surface is a minor, not a major; call out the alpha/beta scope in the CHANGELOG entry. (This is separate from **data stability**, which is non-negotiable from RC1 onward regardless of feature maturity — no destructive migrations, ever.)
+
 **Git hook**: Commit messages are validated by commitlint. Invalid messages will be rejected.
 
 **Commit signing**: SSH commit signing is enabled. Commits will be signed automatically.
@@ -451,7 +452,7 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
 7. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns.
 8. **Small commits** - Commit logical units of work separately
 9. **Cut a demo/system catalog release** - When modifying bundled resources in `modules/epistola-core/src/main/resources/epistola/catalogs/{demo,system}/`, bump `release.version` (SemVer, strictly increasing) **and** regenerate `release.fingerprint` in `catalog.json`: run `./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"`, paste the reported "actual" fingerprint, re-run green. The loaders detect changes by **fingerprint**, not the version string. See [`docs/catalog-versioning.md`](docs/catalog-versioning.md).
-10. **Consider catalog impact** - Whenever you add, modify, or remove a resource (template, stencil, theme, data contract, etc.), consider whether the change affects catalog exchange in `modules/epistola-catalog/`. Check if catalog import/export, serialization formats, manifest schemas, or version handling need updating to stay consistent with the resource change.
+10. **Consider catalog impact** - Whenever you add, modify, or remove a resource (template, stencil, theme, data contract, etc.), consider whether the change affects catalog exchange in `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/`. Check if catalog import/export, serialization formats, manifest schemas, or version handling need updating to stay consistent with the resource change. Note that a per-resource setting only round-trips if it is threaded through **all** of `ImportTemplates` (insert **and** both update paths), `CatalogContentBuilder` (the SELECT and the emitted resource), and the `epistola-contract` protocol model — a field missing from any one of those is silently dropped on re-import.
 11. **Consider all surfaces** - When adding, changing, or removing a feature, evaluate the impact on all three surfaces the suite exposes: the **web UI** (Thymeleaf + HTMX handlers in `apps/epistola`), the **REST API** (`modules/epistola-core/api` + OpenAPI spec in `modules/rest-api`), and the **MCP server** (`modules/epistola-mcp`). A capability change usually needs to be reflected in all three (or an explicit decision to scope it to a subset). Don't ship a feature on one surface and silently drift the others.
 12. **Keep components, registry, and demo catalog in sync** - When adding, changing, or removing an editor component, update both the component registry (`modules/editor/src/main/typescript/engine/registry.ts` — including `examples[]`) and the demo catalog (`modules/epistola-core/src/main/resources/epistola/catalogs/demo/`). The demo catalog is our kitchen sink: every feature should be exercised there in every reasonable way (variants, options, edge cases). New capability ⇒ new demo usage; changed signature ⇒ updated demo usage; removed component ⇒ removed demo usage (and bumped catalog version per item 9).
 13. **Every feature MUST be demonstrated in the demo catalog** - This is a hard requirement and a PR blocker, broader than item 12 (which is component-specific). No feature is complete until it is exercised in the demo catalog (`modules/epistola-core/src/main/resources/epistola/catalogs/demo/`). Any user-facing capability — a rendering feature, a generation option, an editor behavior, a new template/theme/stencil/data-contract capability — must ship with a concrete demo resource (new, or an update to an existing one) that uses it realistically, including reasonable variants and edge cases. If a feature genuinely cannot be represented in the demo catalog, the PR must state explicitly why. Bump the catalog version per item 9 whenever you touch demo resources.

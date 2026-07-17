@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+        Installation-wide site banner (maintenance/incident notices, demo warning).
+        Populated by SiteBannerInterceptor as `siteBanner`; only rendered when set.
+        Dismissal is per browser session and keyed on data-banner-hash — a delegated
+        listener in js/pages/site-banner.js hides it (no inline JS; strict CSP, ADR 0010).
+    -->
+    <th:block th:fragment="banner">
+        <div class="site-banner alert"
+             th:classappend="${siteBanner.cssClass}"
+             th:attr="data-banner-hash=${siteBanner.contentHash}"
+             data-site-banner
+             role="status"
+             data-testid="site-banner">
+            <span class="site-banner-message" th:text="${siteBanner.message}">Notice</span>
+            <button type="button"
+                    class="site-banner-dismiss"
+                    data-dismiss-banner
+                    aria-label="Dismiss banner"
+                    title="Dismiss">&times;</button>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -175,6 +175,6 @@ class RestoreTenantBackupHandler(
     )
 
     private companion object {
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
     }
 }

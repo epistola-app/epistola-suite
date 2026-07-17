@@ -669,6 +669,107 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             .isEqualTo("Hello #662")
     }
 
+    /**
+     * #631: variant title is required. Contract 0.12.0 makes `CreateVariantRequest.title` a
+     * required non-null string, so the two rejection paths differ and both are pinned here:
+     * an **omitted** title fails Jackson binding (the DTO field is non-null) and never reaches
+     * `CreateVariant`, while a **blank** title binds and is rejected by the command's validation.
+     * Both must be a 400 that names `title` — a client cannot act on "malformed or unreadable".
+     */
+    @Test
+    fun `create variant without a title returns 400 naming the title field`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "notitle-${randomSuffix()}"
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "No Title"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "english"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        // Assert on the errors[] entry, not a bare contains("title"): the ProblemDetail's own
+        // "title":"Bad Request" member makes a substring check pass even when the field is unnamed.
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field"))
+            .describedAs("a 400 for a missing title must name the offending field, not just say the body is unreadable")
+            .contains("title")
+    }
+
+    @Test
+    fun `create variant with a blank title returns 400 naming the title field`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "blank-${randomSuffix()}"
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Blank Title"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "english", "title": "   "}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).contains("title")
+    }
+
+    @Test
+    fun `create variant with a wrong-typed field returns 400 naming that field`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "wrongtype-${randomSuffix()}"
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Wrong Type"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // attributes is Map<String,String>; a scalar cannot bind. This is a *type* failure, not a
+        // missing one — it must still name the field, and must not claim the field is "required".
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "english", "title": "English", "attributes": 42}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).contains("attributes")
+    }
+
+    @Test
+    fun `create variant with a valid title returns 201`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "valid-${randomSuffix()}"
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Valid Title"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "english", "title": "English Invoice"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(JsonPath.read<String>(response.body!!, "$.title")).isEqualTo("English Invoice")
+    }
+
     @Test
     fun `list templates paginates with a page envelope and accurate totals`() {
         val (tenantKey, key) = seedTenantAndKey()

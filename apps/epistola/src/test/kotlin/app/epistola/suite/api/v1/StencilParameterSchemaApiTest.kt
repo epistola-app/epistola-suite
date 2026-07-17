@@ -31,9 +31,9 @@ import java.util.UUID
  * REST API (issue #384). Verifies the field round-trips through the create,
  * create-version, and update-draft write paths and the version read path.
  *
- * The `stencil-parameters` feature toggle is a UI-authoring affordance only; the
- * REST surface — like MCP and the internal handler — accepts and returns
- * `parameterSchema` unconditionally, so these tests do not touch the toggle.
+ * Parameters are an intrinsic property of every stencil (there is no feature
+ * toggle); the REST surface — like MCP and the internal handler — accepts and
+ * returns `parameterSchema` unconditionally.
  */
 @Import(
     TestcontainersConfiguration::class,

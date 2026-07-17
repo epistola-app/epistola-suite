@@ -58,6 +58,37 @@ class ImportTemplatesTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `import falls back to the variant slug for a title-less variant`() {
+        val tenant = createTenant("Import Test")
+        val tenantId = TenantId(tenant.id)
+
+        withMediator {
+            val slug = TestIdHelpers.nextTemplateId().value
+            ImportTemplates(
+                tenantId = tenantId,
+                templates = listOf(
+                    ImportTemplateInput(
+                        slug = slug,
+                        name = "Fallback Template",
+                        version = "1.0.0",
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "english-invoice", title = null, attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = emptyList(),
+                    ),
+                ),
+            ).execute()
+
+            val variants = ListVariants(templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))).query()
+            assertThat(variants).hasSize(1)
+            assertThat(variants[0].title).isEqualTo("english-invoice")
+        }
+    }
+
+    @Test
     fun `import with multiple variants marks only the declared default`() {
         val tenant = createTenant("Import Test")
         val tenantId = TenantId(tenant.id)

@@ -1,8 +1,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.footer.FooterFragmentResolver
 import app.epistola.suite.mediator.query
@@ -13,8 +11,8 @@ import org.springframework.stereotype.Component
 
 /**
  * The one source of truth for the common tenant-view model attributes that every
- * tenant-scoped UI render needs — `tenantName`, `auth`, `isManager`, editor
- * feature flags, and footer chrome.
+ * tenant-scoped UI render needs — `tenantName`, `auth`, `isManager`, and footer
+ * chrome.
  *
  * Two render paths consume it, so they can't drift:
  * - [ShellModelInterceptor] — normal MVC view renders (interceptor `postHandle`).
@@ -35,8 +33,7 @@ class CommonViewModel(
      * - `auth` — resolved from the current principal + `tenantId` (only if not
      *   already in [model], so a handler that set its own `auth` keeps it).
      * - `isManager` — derived from the effective `auth`.
-     * - `stencilParametersEnabled`, `footerFragments` — only when `tenantId` is
-     *   present.
+     * - `footerFragments` — only when `tenantId` is present.
      *
      * Callers must apply these WITHOUT overriding keys already set in [model]
      * (the returned map already skips `tenantName`/`auth` when the caller set
@@ -64,12 +61,7 @@ class CommonViewModel(
         result["isManager"] = auth.has(Permission.TENANT_SETTINGS)
 
         if (tenantId != null) {
-            val tenantKey = TenantKey.of(tenantId)
-            val context = UiRequestContext(tenantKey) { auth.has(it) }
-            // Editor feature toggle (gates editor UI). The per-request cache
-            // (FeatureToggleCacheFilter) shares one toggle query across callers.
-            val toggles = ResolveFeatureToggles(tenantKey).query()
-            result["stencilParametersEnabled"] = toggles[KnownFeatures.STENCIL_PARAMETERS] == true
+            val context = UiRequestContext(TenantKey.of(tenantId)) { auth.has(it) }
             // Module-contributed footer chrome (e.g. the feedback FAB).
             result["footerFragments"] = footerFragmentResolver.resolve(context)
         }

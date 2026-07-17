@@ -4,7 +4,6 @@ import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
@@ -12,6 +11,7 @@ import app.epistola.suite.handlers.decorateVariants
 import app.epistola.suite.handlers.filterToUsedDescriptors
 import app.epistola.suite.handlers.resolveVariantAttributes
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.templateId
@@ -30,6 +30,8 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.validation.DuplicateIdException
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.formMessage
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -47,25 +49,32 @@ class VariantRouteHandler {
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val slug = request.params().getFirst("slug")?.trim()
-        val variantKey = if (slug != null) VariantKey.validateOrNull(slug) else null
-        if (variantKey == null) {
-            return ServerResponse.badRequest().build()
+        val form = request.form {
+            field("slug") {
+                required()
+                asVariantId()
+            }
+            field("title") {
+                required()
+                maxLength(MAX_NAME_LENGTH)
+            }
+        }
+        if (form.hasErrors()) {
+            return variantFormError(request, tenantId, templateId, "create-variant-error", form.errors.values.first())
         }
 
-        val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
         val attributes = readAttributesFromForm(request, tenantId)
 
         try {
             CreateVariant(
-                id = VariantId(variantKey, templateId),
-                title = title,
+                id = VariantId(form.getVariantId("slug")!!, templateId),
+                title = form["title"],
                 description = description,
                 attributes = attributes,
             ).execute()
         } catch (e: DuplicateIdException) {
-            return renderVariantsSection(request, tenantId, templateId, "A variant with this ID already exists")
+            return variantFormError(request, tenantId, templateId, "create-variant-error", e.formMessage)
         }
 
         return renderVariantsSection(request, tenantId, templateId)
@@ -117,13 +126,20 @@ class VariantRouteHandler {
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
-        val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
-        val attributes = readAttributesFromForm(request, tenantId)
+        val form = request.form {
+            field("title") {
+                required()
+                maxLength(MAX_NAME_LENGTH)
+            }
+        }
+        if (form.hasErrors()) {
+            return variantFormError(request, tenantId, templateId, "edit-variant-error", form.errors.values.first())
+        }
 
         UpdateVariant(
             variantId = variantId,
-            title = title,
-            attributes = attributes,
+            title = form["title"],
+            attributes = readAttributesFromForm(request, tenantId),
         ).execute()
 
         val variants = GetVariantSummaries(templateId = templateId).query()
@@ -188,6 +204,24 @@ class VariantRouteHandler {
     }
 
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
+
+    /**
+     * OOB-swaps an error into the dialog's form-error slot with no primary swap, so the
+     * dialog stays open with the user's input instead of the list swapping and closing.
+     */
+    private fun variantFormError(
+        request: ServerRequest,
+        tenantId: TenantId,
+        templateId: TemplateId,
+        errorId: String,
+        message: String,
+    ): ServerResponse {
+        val catalogId = request.catalogId()
+        return request.htmx {
+            globalFormError(errorId, message)
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
+        }
+    }
 
     internal fun renderVariantsSection(
         request: ServerRequest,

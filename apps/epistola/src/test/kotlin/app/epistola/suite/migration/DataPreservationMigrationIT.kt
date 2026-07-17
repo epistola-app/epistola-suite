@@ -10,17 +10,20 @@ import java.sql.DriverManager
 /**
  * Guards the RC1 promise: **the database is stable and user data survives every
  * migration**. Seeds a representative tenant on the 1.0.0-RC1 baseline schema, then
- * applies every newer migration and asserts the data is byte-identical.
+ * applies every newer migration and asserts each preserved value survives intact —
+ * checked row by row, field by field (jsonb compared by value, not bytes).
+ *
+ * It also guards the flip side — that an **intentional, scoped data migration does exactly
+ * what it claims**: retiring the `stencil-parameters` feature toggle (issue #668) must delete
+ * that key's orphaned `feature_toggles` rows while leaving unrelated toggle rows untouched.
  *
  * Mechanics: a fresh logical database in the shared Testcontainer is migrated with
  * `spring.flyway.target` pinned to the last RC1 migration, seeded with raw SQL (raw on
  * purpose — commands can only speak the *current* schema, while this fixture must match
  * the frozen RC1 shape, which never changes because released migrations are immutable),
- * then migrated to latest via the exact production migration context.
- *
- * Today the RC1 target IS the latest migration, so the second migrate is a no-op; the
- * moment a new migration lands, this test automatically exercises it against RC1-shaped
- * data and fails if it drops or mangles any of the seeded rows.
+ * then migrated to latest via the exact production migration context. Every migration that
+ * lands after RC1 is thereby exercised against RC1-shaped data and fails this test if it
+ * drops or mangles a preserved row — or fails to perform (or over-performs) an expected cleanup.
  */
 @Tag("integration")
 class DataPreservationMigrationIT {
@@ -79,13 +82,23 @@ class DataPreservationMigrationIT {
                 INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_catalog_key, theme_key)
                 VALUES ('invoice', '$TENANT', 'default', 'Invoice Template', 'default', 'brand');
 
+                -- 'legacy' (NULL) and 'blanktitle' (whitespace) were both allowed pre-#631;
+                -- the migration must backfill each with its own slug.
                 INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, is_default)
-                VALUES ('main', '$TENANT', 'default', 'invoice', 'Main Variant', true);
+                VALUES ('main', '$TENANT', 'default', 'invoice', 'Main Variant', true),
+                       ('legacy', '$TENANT', 'default', 'invoice', NULL, false),
+                       ('blanktitle', '$TENANT', 'default', 'invoice', '   ', false);
 
                 INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key,
                                                template_model, status, published_at, referenced_paths)
                 VALUES (1, '$TENANT', 'default', 'invoice', 'main',
                         '$TEMPLATE_MODEL'::jsonb, 'published', NOW(), '["customer.name","total"]'::jsonb);
+
+                -- An orphaned toggle row for the retired 'stencil-parameters' feature (deleted by
+                -- V20260708110402) plus a control row for a still-live feature that must survive.
+                INSERT INTO feature_toggles (tenant_key, feature_key, enabled)
+                VALUES ('$TENANT', 'stencil-parameters', true),
+                       ('$TENANT', 'support-feedback', false);
                 """.trimIndent(),
             )
         }
@@ -110,12 +123,27 @@ class DataPreservationMigrationIT {
                 .isEqualTo("brand")
             assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'main'"))
                 .isEqualTo("Main Variant")
+            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'legacy'"))
+                .describedAs("legacy NULL-title variant must be backfilled with its own slug")
+                .isEqualTo("legacy")
+            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'blanktitle'"))
+                .describedAs("blank-title variant must be backfilled with its own slug")
+                .isEqualTo("blanktitle")
             assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
                 .isEqualTo(one("SELECT '$TEMPLATE_MODEL'::jsonb::text"))
             assertThat(one("SELECT status FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
                 .isEqualTo("published")
             assertThat(one("SELECT referenced_paths::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
                 .isEqualTo(one("""SELECT '["customer.name","total"]'::jsonb::text"""))
+
+            // Intentional scoped cleanup (V20260708110402, issue #668): the retired
+            // stencil-parameters toggle's orphaned rows are gone, unrelated toggles survive.
+            assertThat(one("SELECT count(*) FROM feature_toggles WHERE tenant_key = '$TENANT' AND feature_key = 'stencil-parameters'"))
+                .describedAs("retired stencil-parameters toggle rows must be deleted")
+                .isEqualTo("0")
+            assertThat(one("SELECT count(*) FROM feature_toggles WHERE tenant_key = '$TENANT' AND feature_key = 'support-feedback'"))
+                .describedAs("unrelated feature-toggle rows must survive the scoped delete")
+                .isEqualTo("1")
         }
     }
 

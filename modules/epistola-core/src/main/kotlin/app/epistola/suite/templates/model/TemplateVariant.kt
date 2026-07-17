@@ -16,7 +16,7 @@ data class TemplateVariant(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateKey: TemplateKey,
-    val title: String?,
+    val title: String,
     val description: String?,
     @Json val attributes: Map<String, String> = emptyMap(),
     val isDefault: Boolean,
@@ -31,7 +31,7 @@ data class TemplateVariant(
  */
 data class VariantSummary(
     val id: VariantKey,
-    val title: String?,
+    val title: String,
     @Json val attributes: Map<String, String>,
     val isDefault: Boolean,
     val hasDraft: Boolean,

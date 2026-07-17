@@ -10,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 class WebMvcConfig(
     private val shellModelInterceptor: ShellModelInterceptor,
     private val versionInterceptor: VersionInterceptor,
+    private val siteBannerInterceptor: SiteBannerInterceptor,
 ) : WebMvcConfigurer {
 
     override fun addInterceptors(registry: InterceptorRegistry) {
@@ -17,6 +18,8 @@ class WebMvcConfig(
             .addPathPatterns("/**")
         registry.addInterceptor(shellModelInterceptor)
             .addPathPatterns("/tenants/**")
+        registry.addInterceptor(siteBannerInterceptor)
+            .addPathPatterns("/**")
     }
 
     override fun addResourceHandlers(registry: ResourceHandlerRegistry) {

@@ -127,8 +127,15 @@ class TenantApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.detail")).isEqualTo("Request body is malformed or unreadable")
     }
 
+    /**
+     * A missing required property is a validation failure, not an unreadable body: it fails in
+     * Jackson (the DTO field is non-null) rather than at `@Valid`, but the client's mistake is
+     * the same one a blank value makes, so it reports the same way — a validation problem whose
+     * `errors[]` names the field. Contrast `malformed json returns stable problem detail`, where
+     * the body fails as a whole and no single field is to blame.
+     */
     @Test
-    fun `missing required body fields returns bad request problem details`() {
+    fun `missing required body fields returns a validation problem naming the field`() {
         val (_, apiKey) = seedTenantAndKey()
 
         val response = restTemplate.exchange(
@@ -141,11 +148,11 @@ class TenantApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
-        assertThat(JsonPath.read<String>(body, "$.detail")).isEqualTo("Request body is malformed or unreadable")
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants")
+        assertThat(JsonPath.read<List<String>>(body, "$.errors[*].field"))
+            .describedAs("the client must be told which property is missing")
+            .isNotEmpty()
     }
 
     @Test

@@ -57,12 +57,12 @@ class SchemaBackupCompatibilityFileTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a fresh backup is v2 and records applied migrations with their compatibility flags`() {
+    fun `a fresh backup is v3 and records applied migrations with their compatibility flags`() {
         val tenant = createTenant("Compat Manifest")
         val artifact = withMediator { BuildTenantBackup(tenant.id).execute()!! }
         val manifest = readManifest(artifact.bytes)
 
-        assertThat(manifest.formatVersion).isEqualTo(2)
+        assertThat(manifest.formatVersion).isEqualTo(3)
         assertThat(manifest.appliedMigrations).isNotNull()
         // The listed migration is recorded with the file's flags (backward + forward).
         val rename = manifest.appliedMigrations!!.single { it.version == "20260618204750" }

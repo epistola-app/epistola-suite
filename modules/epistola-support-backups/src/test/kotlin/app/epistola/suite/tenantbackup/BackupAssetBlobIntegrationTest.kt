@@ -12,10 +12,11 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
 /**
- * Regression for the asset-blob path: a backup of a tenant that has a `content_store` asset blob
- * must build (the bytes are carried raw, not base64 — Postgres `encode(…, 'base64')` wraps lines,
- * which Java's basic decoder rejects) and restore the exact bytes. Tenants without assets never
- * exercised this, so the bug only surfaced in a real run.
+ * Regression for the asset-blob path: a backup of a tenant that has an `asset_content`
+ * blob must build (the bytes are carried raw, not base64 — Postgres
+ * `encode(…, 'base64')` wraps lines, which Java's basic decoder rejects) and restore
+ * the exact bytes. Post-#738 the blob lives in the content-addressable `asset_content`
+ * store, keyed by `(scope, content_hash)`; non-sensitive assets scope to 'global'.
  */
 class BackupAssetBlobIntegrationTest : IntegrationTestBase() {
     @Autowired
@@ -41,7 +42,15 @@ class BackupAssetBlobIntegrationTest : IntegrationTestBase() {
                     catalogKey = main,
                 ).execute().id
             }
-        val blobKey = "assets/${tenant.id.value}/${assetKey.value}"
+        // Non-sensitive asset → dedup scope is 'global'; the pointer is on the row.
+        val scope = "global"
+        val contentHash =
+            jdbi.withHandle<String, Exception> { h ->
+                h.createQuery("SELECT content_hash FROM assets WHERE id = :id")
+                    .bind("id", assetKey.value)
+                    .mapTo(String::class.java)
+                    .one()
+            }
 
         val backup = withMediator { BuildTenantBackup(tenant.id).execute()!! }
         // At least our uploaded blob; the tenant also subscribes to the shared
@@ -50,14 +59,20 @@ class BackupAssetBlobIntegrationTest : IntegrationTestBase() {
         assertThat(backup.blobCount).isGreaterThanOrEqualTo(1)
 
         // Diverge: wipe the stored bytes, then restore them from the backup.
-        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM content_store WHERE key = :k").bind("k", blobKey).execute() }
+        jdbi.useHandle<Exception> {
+            it.createUpdate("DELETE FROM asset_content WHERE scope = :s AND content_hash = :h")
+                .bind("s", scope)
+                .bind("h", contentHash)
+                .execute()
+        }
         withMediator { RestoreTenantBackup(tenant.id, backup.bytes).execute() }
 
         val restored =
             jdbi.withHandle<ByteArray?, Exception> { h ->
                 h
-                    .createQuery("SELECT content FROM content_store WHERE key = :k")
-                    .bind("k", blobKey)
+                    .createQuery("SELECT content FROM asset_content WHERE scope = :s AND content_hash = :h")
+                    .bind("s", scope)
+                    .bind("h", contentHash)
                     .map { rs, _ -> rs.getBytes("content") }
                     .findOne()
                     .orElse(null)

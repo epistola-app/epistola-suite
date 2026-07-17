@@ -55,9 +55,13 @@ data class BackupColumn(
     val nullable: Boolean,
 )
 
-/** One asset blob's metadata; its bytes live at [file] in the archive. */
+/**
+ * One asset blob's metadata; its bytes live at [file] in the archive. Identified by
+ * its content-addressable `(scope, contentHash)` coordinates (#738).
+ */
 data class BackupBlobEntry(
-    val key: String,
+    val scope: String,
+    val contentHash: String,
     val file: String,
     val contentType: String,
     val sizeBytes: Long,

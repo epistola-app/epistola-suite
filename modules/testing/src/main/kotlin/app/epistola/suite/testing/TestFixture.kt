@@ -121,12 +121,15 @@ class TestFixture(private val namespace: String) {
             template: DocumentTemplate,
             title: String? = null,
             attributes: Map<String, String> = emptyMap(),
-        ): TemplateVariant = CreateVariant(
-            id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
-            title = title,
-            description = null,
-            attributes = attributes,
-        ).execute()!!
+        ): TemplateVariant {
+            val id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id))))
+            return CreateVariant(
+                id = id,
+                title = title ?: id.key.value,
+                description = null,
+                attributes = attributes,
+            ).execute()!!
+        }
     }
 
     @TestFixtureDsl

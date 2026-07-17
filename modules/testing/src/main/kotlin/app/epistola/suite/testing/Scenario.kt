@@ -179,14 +179,17 @@ class ScenarioBuilder(private val namespace: String) {
             title: String? = null,
             description: String? = null,
             attributes: Map<String, String> = emptyMap(),
-        ): TemplateVariant = capturedMediator.send(
-            CreateVariant(
-                id = VariantId(TestIdHelpers.nextVariantId(), templateId),
-                title = title,
-                description = description,
-                attributes = attributes,
-            ),
-        )!!
+        ): TemplateVariant {
+            val id = VariantId(TestIdHelpers.nextVariantId(), templateId)
+            return capturedMediator.send(
+                CreateVariant(
+                    id = id,
+                    title = title ?: id.key.value,
+                    description = description,
+                    attributes = attributes,
+                ),
+            )!!
+        }
 
         /**
          * Updates a template version draft with a template model.
