@@ -1,6 +1,7 @@
 package app.epistola.suite.tenantbackup
 
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.GLOBAL_ASSET_SCOPE
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -10,8 +11,10 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
+import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -31,6 +34,9 @@ class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
     @Autowired
     lateinit var jdbi: Jdbi
 
+    @Autowired
+    lateinit var assetContentStore: AssetContentStore
+
     @Test
     fun `restoring one tenant leaves another tenant's data untouched`() {
         // Tenant B — the bystander: its own catalog, template (→ versions), asset blob, and toggle.
@@ -38,29 +44,22 @@ class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
         val bMain = CatalogKey.of("main")
         val bCatalogId = CatalogId(bMain, TenantId(b.id))
         val bBytes = ByteArray(400) { (it % 256).toByte() }
-        val bAssetKey =
-            withMediator {
-                CreateCatalog(tenantKey = b.id, id = bMain, name = "B Main").execute()
-                CreateDocumentTemplate(id = TemplateId(TestIdHelpers.nextTemplateId(), bCatalogId), name = "B Invoice").execute()
-                SaveFeatureToggle(tenantKey = b.id, featureKey = KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
-                UploadAsset(
-                    tenantId = b.id,
-                    name = "b-logo.png",
-                    mediaType = AssetMediaType.PNG,
-                    content = bBytes,
-                    width = 1,
-                    height = 1,
-                    catalogKey = bMain,
-                ).execute().id
-            }
-        // Tenant-catalog asset → dedup scope is the tenant key; the pointer is on the row.
-        val bContentHash =
-            jdbi.withHandle<String, Exception> { h ->
-                h.createQuery("SELECT content_hash FROM assets WHERE id = :id")
-                    .bind("id", bAssetKey.value)
-                    .mapTo(String::class.java)
-                    .one()
-            }
+        withMediator {
+            CreateCatalog(tenantKey = b.id, id = bMain, name = "B Main").execute()
+            CreateDocumentTemplate(id = TemplateId(TestIdHelpers.nextTemplateId(), bCatalogId), name = "B Invoice").execute()
+            SaveFeatureToggle(tenantKey = b.id, featureKey = KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
+            UploadAsset(
+                tenantId = b.id,
+                name = "b-logo.png",
+                mediaType = AssetMediaType.PNG,
+                content = bBytes,
+                width = 1,
+                height = 1,
+                catalogKey = bMain,
+            ).execute()
+        }
+        // Non-sensitive asset → global scope; hash derived from the bytes.
+        val bContentHash = sha256Hex(bBytes)
         val bBefore = snapshotTenant(b.id.value, bContentHash)
         assertThat(bBefore.values).allSatisfy { assertThat(it).isNotNull() } // sanity: B actually has data
 
@@ -82,25 +81,25 @@ class CrossTenantIsolationIntegrationTest : IntegrationTestBase() {
         assertThat(snapshotTenant(b.id.value, bContentHash)).isEqualTo(bBefore)
     }
 
-    /** Row counts of B's tenant-scoped tables plus its asset blob bytes — the "did anything change?" probe. */
+    /**
+     * Row counts of B's tenant-scoped tables plus its asset blob bytes — the "did anything
+     * change?" probe. The blob is read through the [AssetContentStore] port; the per-table
+     * counts stay raw SQL (a compact multi-table integrity probe has no single query).
+     */
     private fun snapshotTenant(
         tenantKey: String,
         contentHash: String,
-    ): Map<String, Any?> = jdbi.withHandle<Map<String, Any?>, Exception> { h ->
-        fun count(table: String): Int = h.createQuery("SELECT count(*) FROM $table WHERE tenant_key = :tk").bind("tk", tenantKey).mapTo(Int::class.java).one()
-        mapOf(
-            "catalogs" to count("catalogs"),
-            "template_versions" to count("template_versions"),
-            "assets" to count("assets"),
-            "feature_toggles" to count("feature_toggles"),
-            "blob" to
-                h
-                    .createQuery("SELECT content FROM asset_content WHERE scope = :s AND content_hash = :h")
-                    .bind("s", "global") // non-sensitive asset → global scope
-                    .bind("h", contentHash)
-                    .map { rs, _ -> rs.getBytes("content")?.toList() }
-                    .findOne()
-                    .orElse(null),
-        )
+    ): Map<String, Any?> {
+        val blob = assetContentStore.get(GLOBAL_ASSET_SCOPE, contentHash)?.content?.readAllBytes()?.toList()
+        return jdbi.withHandle<Map<String, Any?>, Exception> { h ->
+            fun count(table: String): Int = h.createQuery("SELECT count(*) FROM $table WHERE tenant_key = :tk").bind("tk", tenantKey).mapTo(Int::class.java).one()
+            mapOf(
+                "catalogs" to count("catalogs"),
+                "template_versions" to count("template_versions"),
+                "assets" to count("assets"),
+                "feature_toggles" to count("feature_toggles"),
+                "blob" to blob,
+            )
+        }
     }
 }

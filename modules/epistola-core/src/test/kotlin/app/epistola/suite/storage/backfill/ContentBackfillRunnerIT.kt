@@ -1,5 +1,6 @@
 package app.epistola.suite.storage.backfill
 
+import app.epistola.suite.assets.GLOBAL_ASSET_SCOPE
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.AssetKey
@@ -7,6 +8,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -25,6 +27,9 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var runner: ContentBackfillRunner
+
+    @Autowired
+    private lateinit var assetContentStore: AssetContentStore
 
     @Test
     fun `backfills a legacy asset blob into asset_content and is idempotent`() {
@@ -67,19 +72,23 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
 
         runner.run()
 
-        // Pointer stamped, blob present in the CAS store, and served through the query.
-        assertThat(contentHash(assetId)).isEqualTo(expectedHash)
-        assertThat(blobRows("global", expectedHash)).isEqualTo(1)
+        // Blob present in the CAS store (via the port) and served through the query…
+        assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, expectedHash)).isTrue()
         assertThat(withMediator { GetAssetContent(tenant.id, assetId, cat).query() }!!.content).isEqualTo(bytes)
+        // …and the pointer was actually stamped (not served via the legacy fallback, which
+        // is still present in this test). No query surfaces content_hash, so read it directly.
+        assertThat(contentHash(assetId)).isEqualTo(expectedHash)
         // A full pass records the completion marker (so later boots skip the runner).
         assertThat(completionMarker()).isNotNull()
 
         // Idempotent: a second run changes nothing (now short-circuited by the marker).
         runner.run()
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
-        assertThat(blobRows("global", expectedHash)).isEqualTo(1)
+        assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, expectedHash)).isTrue()
     }
 
+    // Raw SQL: no query surfaces an asset's content_hash pointer or the internal
+    // app_metadata backfill marker, so these two read them directly ("no other way").
     private fun contentHash(assetId: AssetKey): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery("SELECT content_hash FROM assets WHERE id = :id")
             .bind("id", assetId.value)
@@ -93,13 +102,5 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
             .mapTo(String::class.java)
             .findOne()
             .orElse(null)
-    }
-
-    private fun blobRows(scope: String, hash: String): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM asset_content WHERE scope = :s AND content_hash = :h")
-            .bind("s", scope)
-            .bind("h", hash)
-            .mapTo(Int::class.java)
-            .one()
     }
 }
