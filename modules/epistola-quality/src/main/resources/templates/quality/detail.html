@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/*
+      Built from the house detail-page vocabulary (see stencils/detail.html): `ep-panel
+      detail-section` for a card, `detail-section-header` + `detail-section-body` inside it,
+      `description-list` for a dl, `badge badge-<variant>`, `text-muted`. None of it is
+      quality-specific, and none of it is invented here.
+    */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${finding.ruleId},
+            backLinkHref=@{/tenants/{tenantId}/quality(tenantId=${tenantId})},
+            backLinkLabel='Quality',
+            actions=~{::quality-detail-actions}
+        )}"></div>
+
+        <div id="quality-finding-content">
+            <th:block th:fragment="finding-content">
+
+                <!--/* What is wrong. The message leads, because it is the only part a reader
+                       needs before deciding whether to care. */-->
+                <div class="ep-panel detail-section">
+                    <div class="detail-section-body">
+                        <div class="ep-row ep-gap-3 ep-row-wrap" style="margin-bottom: var(--ep-space-4);">
+                            <th:block th:insert="~{quality/fragments/badges :: severity-badge(${finding.severity})}" />
+                            <th:block th:insert="~{quality/fragments/badges :: status-badge(${finding.effectiveStatus})}" />
+                            <span class="badge badge-outline" th:text="${sourceName}">Example checks</span>
+                        </div>
+
+                        <p data-testid="quality-finding-message"
+                           style="font-size: var(--ep-text-lg); margin: 0 0 var(--ep-space-2) 0;"
+                           th:text="${finding.message}">Message</p>
+
+                        <p th:if="${finding.docsUrl != null}" style="margin: 0;">
+                            <a th:href="${finding.docsUrl}" target="_blank" rel="noopener"
+                               class="ep-row ep-gap-1" style="display: inline-flex; font-size: var(--ep-text-sm);">
+                                <span>Read about this rule</span>
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                            </a>
+                        </p>
+                    </div>
+                </div>
+
+                <!--/* Where it is. */-->
+                <div class="ep-panel detail-section">
+                    <div class="detail-section-header">
+                        <h3>Subject</h3>
+                    </div>
+                    <div class="detail-section-body">
+                        <dl class="description-list">
+                            <dt>Template</dt>
+                            <dd><code th:text="${finding.templateKey}">invoice</code></dd>
+
+                            <dt>Catalog</dt>
+                            <dd><span class="badge badge-outline" th:text="${finding.catalogKey}">default</span></dd>
+
+                            <dt th:if="${finding.variantKey != null}">Variant</dt>
+                            <dd th:if="${finding.variantKey != null}"><code th:text="${finding.variantKey}">default</code></dd>
+
+                            <dt>Rule</dt>
+                            <dd><code th:text="${finding.ruleId}">example.empty-text</code></dd>
+
+                            <!--/* Shown only when a source localizes. The message above is already
+                                   the rendered text; this is the key a future locale render uses.
+                                   `metadata` is deliberately NOT here — it is operational, not for
+                                   the reader. */-->
+                            <dt th:if="${finding.messageCode != null}">Message key</dt>
+                            <dd th:if="${finding.messageCode != null}"><code th:text="${finding.messageCode}">quality.example.empty-text</code></dd>
+
+                            <!--/* A list because one problem can genuinely span several elements;
+                                   the editor panel marks each of them (Phase 2). */-->
+                            <dt>Elements</dt>
+                            <dd>
+                                <span th:if="${!#lists.isEmpty(finding.nodeIds)}" th:each="n : ${finding.nodeIds}"
+                                      class="badge badge-outline" th:text="${n}"
+                                      style="margin-right: var(--ep-space-1);">node-1</span>
+                                <span th:if="${#lists.isEmpty(finding.nodeIds)}" class="text-muted">
+                                    Not about a particular element
+                                </span>
+                            </dd>
+
+                            <dt th:if="${finding.path != null}">Data path</dt>
+                            <dd th:if="${finding.path != null}"><code th:text="${finding.path}">$.customer.name</code></dd>
+
+                            <dt>First seen</dt>
+                            <dd th:text="${#temporals.format(finding.firstSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</dd>
+
+                            <dt>Last seen</dt>
+                            <dd th:text="${#temporals.format(finding.lastSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</dd>
+
+                            <dt th:if="${finding.resolvedAt != null}">Resolved</dt>
+                            <dd th:if="${finding.resolvedAt != null}"
+                                th:text="${#temporals.format(finding.resolvedAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <!--/* Whatever structured evidence the source chose to attach. Never interpreted
+                       here — the ledger does not know what a rule's context means. */-->
+                <div th:if="${!finding.context.isEmpty()}" class="ep-panel detail-section">
+                    <div class="detail-section-header">
+                        <h3>Evidence</h3>
+                    </div>
+                    <div class="detail-section-body">
+                        <pre style="margin: 0; overflow-x: auto;"><code th:text="${finding.context.toString()}">{}</code></pre>
+                    </div>
+                </div>
+
+                <!--/* How this finding goes away. The two lifecycles are genuinely different and
+                       the page says which one this is, rather than offering the same buttons for
+                       both. */-->
+                <div class="ep-panel detail-section">
+                    <div class="detail-section-header">
+                        <h3>Disposition</h3>
+                    </div>
+                    <div class="detail-section-body">
+                        <p th:if="${finding.reconciled && finding.effectiveStatus.name() == 'OPEN'}"
+                           class="text-muted" style="margin: 0 0 var(--ep-space-4) 0; font-size: var(--ep-text-sm);">
+                            Fix the problem and this closes itself on the next check. If it is a false
+                            positive, or does not apply here, ignore it with a reason.
+                        </p>
+
+                        <div th:if="${finding.effectiveStatus.name() == 'IGNORED'}"
+                             class="alert" data-testid="quality-ignore-reason"
+                             style="margin: 0 0 var(--ep-space-4) 0;">
+                            <strong>Ignored.</strong>
+                            <span th:text="${finding.ignoreReason}">Reason</span>
+                        </div>
+
+                        <div class="ep-row ep-gap-3 ep-row-wrap">
+                            <button th:if="${finding.effectiveStatus.name() != 'IGNORED'}"
+                                    type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    data-testid="quality-ignore-open"
+                                    data-open-dialog="quality-ignore-dialog">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon')}" />
+                                Ignore with a reason
+                            </button>
+
+                            <form th:if="${finding.effectiveStatus.name() == 'IGNORED'}"
+                                  th:hx-post="@{/tenants/{tenantId}/quality/{id}/unignore(tenantId=${tenantId},id=${finding.key})}"
+                                  hx-target="#quality-finding-content"
+                                  hx-swap="innerHTML">
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="quality-unignore">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='undo-2', class='ep-icon')}" />
+                                    Stop ignoring
+                                </button>
+                            </form>
+
+                            <!--/* Manual findings only: nothing reconciles a person's note away, so
+                                   this is the only finding kind that needs a human to close it. */-->
+                            <form th:if="${!finding.reconciled && finding.effectiveStatus.name() != 'RESOLVED'}"
+                                  th:id="'resolve-form-' + ${finding.key}"
+                                  th:hx-post="@{/tenants/{tenantId}/quality/{id}/resolve(tenantId=${tenantId},id=${finding.key})}"
+                                  hx-target="#quality-finding-content"
+                                  hx-swap="innerHTML">
+                                <button type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                                        data-testid="quality-resolve"
+                                        th:data-confirm-submit="'resolve-form-' + ${finding.key}"
+                                        data-confirm-submit-title="Resolve finding"
+                                        data-confirm-submit-message="Mark this finding as resolved?"
+                                        data-confirm-submit-label="Resolve">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon')}" />
+                                    Mark resolved
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="quality-comments">
+                    <th:block th:fragment="comments-section">
+                        <div class="ep-panel detail-section">
+                            <div class="detail-section-header">
+                                <h3>Discussion</h3>
+                            </div>
+                            <div class="detail-section-body">
+                                <div th:if="${#lists.isEmpty(comments)}" class="empty-state"
+                                     data-testid="quality-no-comments" style="padding: var(--ep-space-4);">
+                                    <div class="empty-state-description">No comments yet.</div>
+                                </div>
+
+                                <div th:if="${!#lists.isEmpty(comments)}" class="ep-stack ep-gap-4"
+                                     data-testid="quality-comments" style="margin-bottom: var(--ep-space-4);">
+                                    <div th:each="c : ${comments}">
+                                        <div class="ep-row ep-gap-1" style="margin-bottom: var(--ep-space-1);">
+                                            <strong th:text="${c.authorName}" style="font-size: var(--ep-text-sm);">Author</strong>
+                                            <span class="text-muted" style="font-size: var(--ep-text-sm);"
+                                                  th:text="${#temporals.format(c.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</span>
+                                        </div>
+                                        <p th:text="${c.body}" style="margin: 0;">Comment body</p>
+                                    </div>
+                                </div>
+
+                                <form th:hx-post="@{/tenants/{tenantId}/quality/{id}/comments(tenantId=${tenantId},id=${finding.key})}"
+                                      hx-target="#quality-comments"
+                                      hx-swap="innerHTML"
+                                      data-reset-on-success>
+                                    <div class="form-group">
+                                        <textarea name="body" class="ep-textarea" rows="3"
+                                                  data-testid="quality-comment-body"
+                                                  placeholder="Add a comment..." required></textarea>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm"
+                                                data-testid="quality-comment-submit">Comment</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </th:block>
+                </div>
+
+                <!--/* `.ep-dialog` has no padding of its own, so the header/body/footer classes are
+                       the dialog's chrome, not decoration.
+
+                       On success the response swaps #quality-finding-content and the dialog goes
+                       with it. On a validation error the handler retargets to the body below, so
+                       the message lands in the still-open dialog rather than in one the swap has
+                       just closed. */-->
+                <dialog id="quality-ignore-dialog" class="ep-dialog" data-backdrop-close>
+                    <div id="quality-ignore-dialog-body">
+                        <th:block th:replace="~{quality/detail :: ignore-form}"></th:block>
+                    </div>
+                </dialog>
+            </th:block>
+        </div>
+    </th:block>
+
+    <!--/* Straight to the thing that is wrong — the editor when the finding names a variant,
+           since that is where it can actually be fixed. */-->
+    <th:block th:fragment="quality-detail-actions">
+        <a th:if="${finding.variantKey != null}"
+           class="ep-btn ep-btn-primary"
+           data-testid="quality-open-editor"
+           th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${finding.catalogKey},id=${finding.templateKey},variantId=${finding.variantKey})}">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon')}" />
+            Open in editor
+        </a>
+        <a class="ep-btn ep-btn-outline"
+           data-testid="quality-open-template"
+           th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${finding.catalogKey},id=${finding.templateKey})}">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon')}" />
+            View template
+        </a>
+    </th:block>
+
+    <th:block th:fragment="ignore-form">
+        <div class="ep-dialog-header">
+            <h2>Ignore this finding</h2>
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-icon" data-close-dialog aria-label="Close">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='x', class='ep-icon')}" />
+            </button>
+        </div>
+
+        <form th:hx-post="@{/tenants/{tenantId}/quality/{id}/ignore(tenantId=${tenantId},id=${finding.key})}"
+              hx-target="#quality-finding-content"
+              hx-swap="innerHTML">
+            <div class="ep-dialog-body">
+                <p class="text-muted" style="margin: 0 0 var(--ep-space-4) 0; font-size: var(--ep-text-sm);">
+                    The ignore rides this finding's fingerprint, so it carries across publishes —
+                    and lifts by itself if the problem materially changes.
+                </p>
+
+                <div class="form-group" th:classappend="${errors != null && errors['reason'] != null} ? 'error' : ''">
+                    <label class="ep-label" for="ignore-reason">Reason</label>
+                    <textarea id="ignore-reason" name="reason" class="ep-textarea" rows="3"
+                              data-testid="quality-ignore-reason-input"
+                              placeholder="Why does this not apply?" required
+                              th:text="${formData != null} ? ${formData['reason']} : ''"></textarea>
+                    <span class="form-error" th:if="${errors != null && errors['reason'] != null}"
+                          data-testid="quality-ignore-error" th:text="${errors['reason']}">Required</span>
+                </div>
+            </div>
+
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-outline" data-close-dialog>Cancel</button>
+                <button type="submit" class="ep-btn ep-btn-primary" data-testid="quality-ignore-submit">Ignore</button>
+            </div>
+        </form>
+    </th:block>
+</body>
+</html>

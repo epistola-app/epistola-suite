@@ -5,13 +5,30 @@ import app.epistola.suite.banner.SiteBanner
 import app.epistola.suite.banner.SiteBannerSeverity
 import app.epistola.suite.banner.commands.SeedSiteBannerIfAbsent
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.quality.EffectiveQualityStatus
+import app.epistola.suite.quality.QualitySeverity
+import app.epistola.suite.quality.QualitySourceId
+import app.epistola.suite.quality.QualitySubject
+import app.epistola.suite.quality.commands.AddFindingComment
+import app.epistola.suite.quality.commands.IgnoreFinding
+import app.epistola.suite.quality.commands.RecordManualFinding
+import app.epistola.suite.quality.commands.RunQualityChecks
+import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
@@ -51,6 +68,7 @@ class DemoLoader(
                     ensureDemoTenant()
                     ensureDemoCatalog()
                     ensureDemoBanner()
+                    ensureQualityDemo()
                 }
             }
         } catch (e: Exception) {
@@ -127,6 +145,94 @@ class DemoLoader(
     }
 
     /**
+     * Demonstrates the quality feature on the `quality-showcase` template.
+     *
+     * The feature is alpha and off by default, so the demo turns it on for its own tenant — a demo
+     * that ships a deliberately flawed template and no way to see what is wrong with it would be
+     * demonstrating nothing.
+     *
+     * Seeds **both halves** of the ledger. The automated half runs the real sources through the real
+     * command; the human half — a finding raised by a person, a comment, and an ignore with a reason
+     * — has no source to produce it, so without seeding it the demo would show only the machine side
+     * of a feature whose whole point is that the two share one ledger.
+     *
+     * Runs on every boot, so every step is idempotent: the toggle and the ignore are upserts, and a
+     * reconciling submission converges on the same rows. The manual finding is the exception —
+     * `RecordManualFinding` fingerprints randomly, precisely so two reviewers raising the same
+     * concern stay two notes — so it is guarded by a check for one that already exists rather than
+     * accumulating a fresh copy on every restart.
+     */
+    private fun ensureQualityDemo() {
+        val tenantKey = TenantKey.of(DEMO_TENANT_ID)
+        val templateId = TemplateId(
+            TemplateKey.of(SHOWCASE_TEMPLATE_KEY),
+            CatalogId(CatalogKey.of(DEMO_CATALOG_KEY), TenantId(tenantKey)),
+        )
+        val variantId = VariantId(VariantKey.of(SHOWCASE_VARIANT_KEY), templateId)
+
+        try {
+            mediator.send(SaveFeatureToggle(tenantKey, KnownFeatures.QUALITY, enabled = true))
+            mediator.send(RunQualityChecks(variantId))
+
+            val subject = QualitySubject.of(variantId)
+            seedManualFindingIfAbsent(tenantKey, subject)
+            seedIgnoreIfPresent(tenantKey)
+            log.info("Seeded quality demo on {}", templateId.toUrn())
+        } catch (e: Exception) {
+            // The rest of the demo is worth having even if the showcase is missing (an older
+            // catalog, say). Never fail the boot over it.
+            log.warn("Could not seed the quality demo: {}", e.message)
+        }
+    }
+
+    private fun seedManualFindingIfAbsent(
+        tenantKey: TenantKey,
+        subject: QualitySubject,
+    ) {
+        val existing = mediator.query(
+            ListQualityFindings(tenantKey = tenantKey, sourceId = QualitySourceId.MANUAL, status = null),
+        )
+        if (existing.total > 0) return
+
+        val key = mediator.send(
+            RecordManualFinding(
+                subject = subject,
+                message = "The closing is abrupt — a reminder letter should say what happens next.",
+                severity = QualitySeverity.WARNING,
+            ),
+        )
+        mediator.send(
+            AddFindingComment(
+                tenantKey = tenantKey,
+                findingKey = key,
+                body = "Agreed. No check can catch this one, which is why it is here by hand.",
+            ),
+        )
+    }
+
+    /**
+     * Ignores the overlong-text finding, with a reason.
+     *
+     * Keyed on the finding's fingerprint rather than its row, so it survives the block being edited
+     * (as long as it stays overlong) and every later publish — the property the demo is here to
+     * show. Skips silently when the finding is absent; the source may have been changed.
+     */
+    private fun seedIgnoreIfPresent(tenantKey: TenantKey) {
+        val longText = mediator.query(
+            ListQualityFindings(tenantKey = tenantKey, ruleId = LONG_TEXT_RULE_ID, status = null),
+        ).items.firstOrNull() ?: return
+
+        if (longText.effectiveStatus == EffectiveQualityStatus.IGNORED) return
+        mediator.send(
+            IgnoreFinding(
+                tenantKey = tenantKey,
+                findingKey = longText.key,
+                reason = "Legal signed off on this wording — it has to stay verbatim.",
+            ),
+        )
+    }
+
+    /**
      * Ensures the well-known demo API key exists for testing external API access, with the full
      * ("everything") role scope. Idempotent: re-asserts the scope on conflict so it self-heals
      * across upgrades, and is safe to call on every boot.
@@ -161,8 +267,14 @@ class DemoLoader(
 
     companion object {
         private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
+        private const val DEMO_CATALOG_KEY = "epistola-demo"
         private const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
+
+        /** The deliberately-flawed template the quality demo hangs off. */
+        private const val SHOWCASE_TEMPLATE_KEY = "quality-showcase"
+        private const val SHOWCASE_VARIANT_KEY = "default"
+        private const val LONG_TEXT_RULE_ID = "example.long-text"
         private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-100000000001"
         private const val DEMO_API_KEY_ID = "00000000-0000-0000-0000-200000000001"
         const val DEMO_API_KEY = "epk_demo_000000000000000000000000000000000000"

@@ -20,6 +20,43 @@ class KnownFeaturesTest {
         assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_FEEDBACK)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
     }
 
+    /**
+     * Quality is not a support-tier feature and must never become one by accident. A key in
+     * [KnownFeatures.SUPPORT_TIER] is gated on a hub entitlement, and the hub wire contract has no
+     * `QUALITY` feature to grant — so a quality key there would make the feature *permanently
+     * unavailable* on every installation running with the support tier on, silently. Membership of
+     * [KnownFeatures.HUB_ONLY] would likewise default it off whenever the tier is off, when in fact
+     * the ledger and its in-process sources work perfectly well without a hub.
+     *
+     * `WireContractAlignmentTest` does not catch this — it asserts three named keys rather than
+     * iterating [KnownFeatures.all]. This is the guard.
+     */
+    @Test
+    fun `quality is toggle-only and never hub-gated`() {
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.QUALITY)
+        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.QUALITY)
+    }
+
+    /**
+     * Quality is alpha: the ledger's semantics are settled but its surfaces are not, and the
+     * badge is how a tenant admin is told that on the Features page before switching it on.
+     */
+    @Test
+    fun `quality is marked alpha`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.QUALITY)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+    }
+
+    /**
+     * The `quality` default is stated explicitly in [FeatureDefaults.isEnabled] rather than falling
+     * through to its `else -> false`. Both yield "off" today, so this pins the intent: the branch is
+     * what makes flipping the default a deliberate one-line edit.
+     */
+    @Test
+    fun `quality default is off and resolved by its own branch`() {
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.QUALITY)).isFalse()
+        assertThat(FeatureDefaults(quality = true).isEnabled(KnownFeatures.QUALITY)).isTrue()
+    }
+
     @Test
     fun `stable stage has no label so the UI renders no badge`() {
         assertThat(KnownFeatures.FeatureStage.STABLE.label).isNull()

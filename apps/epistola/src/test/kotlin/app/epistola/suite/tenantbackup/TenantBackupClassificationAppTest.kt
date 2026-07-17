@@ -34,6 +34,9 @@ class TenantBackupClassificationAppTest : BaseIntegrationTest() {
                 "feedback_comments",
                 "feedback_assets",
                 "load_test_runs",
+                "quality_findings",
+                "quality_finding_ignores",
+                "quality_finding_comments",
             )
 
             // Resolving must not throw — every discovered tenant table is classified, the cross-module
