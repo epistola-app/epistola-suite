@@ -82,5 +82,32 @@ java -jar apps/pdfrender/build/libs/pdfrender-*.jar
 Health/readiness probes are on the main port (`server.port: 4010` by default) at `/livez` and
 `/readyz`, plus `/actuator/health` and `/actuator/prometheus`.
 
+## Local testing
+
+pdfrender ships a `local` profile (`application-local.yaml`) that points at the same throwaway
+Postgres as the suite (`127.0.0.1:4001`), reuses the suite's fixed local-dev encryption key, and
+sets a distinct `epistola.node-id` (so the two co-located processes don't collide on one
+`cluster_nodes` row). To watch the worker actually claim jobs, run the suite as a **control plane
+only** (rendering off) so every job lands on pdfrender:
+
+```bash
+# Terminal 1 — the local database (throwaway, tmpfs)
+./gradlew :apps:epistola:resetLocalDb
+
+# Terminal 2 — the suite, migrating the schema but NOT rendering
+./gradlew :apps:epistola:bootRun \
+  --args='--spring.profiles.active=local --epistola.generation.pdf-render.enabled=false'
+
+# Terminal 3 — the render worker
+./gradlew :apps:pdfrender:bootRun --args='--spring.profiles.active=local'
+```
+
+Then sign in to the suite at <http://localhost:4000> (`admin@local` / `admin`), generate a
+document from a demo template, and watch Terminal 3: the worker's `job-render-…` threads log
+`Claimed N job(s)` → `Job completed`. Leaving the suite's `pdf-render.enabled` at its default
+`true` instead makes both processes render and race for jobs (also valid, but then a given job may
+be picked up by either). Confirm the split in the database: `SELECT node_id, capabilities FROM
+cluster_nodes;` shows the suite as `["suite"]` and the worker as `["pdf-render"]`.
+
 See also [`docs/cluster-resilience.md`](cluster-resilience.md) for how render nodes participate in
 the cluster (heartbeats, capability routing, stale-job recovery).
