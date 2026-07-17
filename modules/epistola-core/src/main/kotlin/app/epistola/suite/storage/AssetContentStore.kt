@@ -8,9 +8,10 @@ package app.epistola.suite.storage
  * `epistola.storage.backend` — assets are small, low-churn, keep-forever reference
  * data. The `assets.content_hash` column points into this store.
  *
- * Deduplication scope is a privacy boundary: `"system"` (bundled / system-catalog
- * assets, deduped globally) or the tenant key (user uploads, deduped only within the
- * tenant — no cross-tenant existence side-channel). Callers derive the scope with
+ * Deduplication scope is a privacy boundary derived from the asset's `sensitive` flag:
+ * non-sensitive assets use a single `"global"` scope (dedup installation-wide), while
+ * sensitive assets scope to their tenant key (isolated — no cross-tenant existence
+ * side-channel, clean erasure). Callers derive the scope with
  * [app.epistola.suite.assets.assetContentScope].
  *
  * There is no public delete: a blob may back many assets, so reclamation is

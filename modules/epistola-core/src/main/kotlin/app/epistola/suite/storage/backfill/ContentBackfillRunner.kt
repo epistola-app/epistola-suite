@@ -145,16 +145,24 @@ class ContentBackfillRunner(
      */
     private fun backfillAssets() {
         var migratedTotal = 0
+        var unresolved = 0
+        // Keyset pagination by id: advance past EVERY processed row (including
+        // unresolvable ones with no legacy bytes), so a batch full of unresolvable rows
+        // can never strand resolvable rows behind it. A plain `LIMIT` with break-on-no-
+        // progress re-selected the same unresolvable rows and could stop early.
+        var lastId = "00000000-0000-0000-0000-000000000000"
         while (true) {
             val batch = jdbi.withHandle<List<AssetRow>, Exception> { handle ->
                 handle.createQuery(
                     """
                     SELECT id, tenant_key, media_type, sensitive
                     FROM assets
-                    WHERE content_hash IS NULL
+                    WHERE content_hash IS NULL AND id > :lastId::uuid
+                    ORDER BY id
                     LIMIT :limit
                     """,
                 )
+                    .bind("lastId", lastId)
                     .bind("limit", assetBatchSize)
                     .map { rs, _ ->
                         AssetRow(
@@ -168,15 +176,11 @@ class ContentBackfillRunner(
             }
             if (batch.isEmpty()) break
 
-            val migratedThisBatch = batch.count { migrateAsset(it) }
-            migratedTotal += migratedThisBatch
-            // No progress on a full batch → the rest are unresolvable; stop looping.
-            if (migratedThisBatch == 0) {
-                logger.warn("Content backfill: {} asset(s) have no legacy bytes and were left unmigrated", batch.size)
-                break
-            }
+            batch.forEach { if (migrateAsset(it)) migratedTotal++ else unresolved++ }
+            lastId = batch.last().id
         }
         if (migratedTotal > 0) logger.info("Backfilled {} asset blob(s) into asset_content", migratedTotal)
+        if (unresolved > 0) logger.warn("Content backfill: {} asset(s) have no legacy bytes and were left unmigrated", unresolved)
     }
 
     /** @return true if the asset's bytes were migrated and its pointer stamped. */
