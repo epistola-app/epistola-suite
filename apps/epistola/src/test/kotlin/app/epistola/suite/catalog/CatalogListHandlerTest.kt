@@ -206,7 +206,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${t.id}/catalogs/register",
+                "/tenants/${t.id}/catalogs/subscribe",
                 HttpMethod.GET,
                 HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
                 String::class.java,
@@ -237,7 +237,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             // A classpath manifest that does not exist → RegisterCatalog throws.
             payload.add("sourceUrl", "classpath:epistola/catalogs/does-not-exist/catalog.json")
             restTemplate.postForEntity(
-                "/tenants/${t.id}/catalogs/register",
+                "/tenants/${t.id}/catalogs/subscribe",
                 HttpEntity(payload, htmxForm()),
                 String::class.java,
             )
@@ -265,7 +265,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             val payload = LinkedMultiValueMap<String, String>()
             payload.add("sourceUrl", "classpath:epistola/catalogs/demo/catalog.json")
             restTemplate.postForEntity(
-                "/tenants/${t.id}/catalogs/register",
+                "/tenants/${t.id}/catalogs/subscribe",
                 HttpEntity(payload, htmxForm()),
                 String::class.java,
             )
@@ -293,7 +293,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         given { t = tenant("Catalog Subscribe DirectNav") }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${t.id}/catalogs/register", String::class.java)
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs/subscribe", String::class.java)
         }
 
         then {

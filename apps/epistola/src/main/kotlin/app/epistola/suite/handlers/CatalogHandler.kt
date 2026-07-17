@@ -156,7 +156,7 @@ class CatalogHandler {
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
-            fragment("catalogs/register", "dialog") {
+            fragment("catalogs/subscribe", "dialog") {
                 "tenantId" to tenantId.key
             }
             // Direct navigation / boost: the host list page with the subscribe
@@ -165,7 +165,7 @@ class CatalogHandler {
                 page("catalogs/list") {
                     catalogPageModel(request)
                     "openDialog" to true
-                    "openDialogFragment" to "catalogs/register :: dialog"
+                    "openDialogFragment" to "catalogs/subscribe :: dialog"
                 }
             }
         }

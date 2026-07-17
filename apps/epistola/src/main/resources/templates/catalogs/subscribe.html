@@ -28,8 +28,8 @@
     </th:block>
 
     <form th:fragment="subscribe-form" id="subscribe-catalog-form"
-          method="post" th:action="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
           hx-target="#subscribe-catalog-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='subscribe-catalog-error')}"></div>
         <div class="ep-dialog-body">

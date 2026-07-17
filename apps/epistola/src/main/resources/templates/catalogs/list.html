@@ -541,7 +541,7 @@
             Import ZIP
         </button>
         <button type="button" class="ep-btn ep-btn-outline"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="catalog-subscribe-open">
             <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />

@@ -23,7 +23,7 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
 
     private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/new$")
 
-    private val registerFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/register$")
+    private val registerFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/subscribe$")
 
     @Test
     fun `dialog is not open on initial load of the catalogs list`() {
