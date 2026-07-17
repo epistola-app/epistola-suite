@@ -23,6 +23,13 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
+/**
+ * Title given to the default variant a new template is created with. Mirrors the title the
+ * bundled catalogs give theirs, so a template authored in the UI and one imported from a
+ * catalog read the same.
+ */
+const val DEFAULT_VARIANT_TITLE = "Default"
+
 data class CreateDocumentTemplate(
     val id: TemplateId,
     val name: String,
@@ -68,8 +75,11 @@ class CreateDocumentTemplateHandler(
 
                 // 2. Create the default variant with the fixed VariantKey.INITIAL id — a
                 // role-neutral provenance slug, not the mutable is_default role. See its KDoc.
-                // Title is required (#631); the template's own name is the most meaningful
-                // title available here, and carries the same non-blank/length guarantees.
+                // Title is required (#631). A variant title discriminates between variants of
+                // one template ("Default"/"US English"/"Dutch"), so it is deliberately not the
+                // template's name: that is constant across every variant and would distinguish
+                // nothing, duplicate the parent in the UI, and go stale on rename. Matches the
+                // title the bundled catalogs give their own default variants.
                 val variantId = VariantKey.INITIAL
                 handle.createUpdate(
                     """
@@ -81,7 +91,7 @@ class CreateDocumentTemplateHandler(
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", template.id)
-                    .bind("title", command.name)
+                    .bind("title", DEFAULT_VARIANT_TITLE)
                     .bind("createdBy", auditUser)
                     .bind("updatedBy", auditUser)
                     .execute()

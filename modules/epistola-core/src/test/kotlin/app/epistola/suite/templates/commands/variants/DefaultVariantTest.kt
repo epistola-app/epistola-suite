@@ -51,7 +51,7 @@ class DefaultVariantTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `default variant is titled after the template name`() {
+    fun `default variant is titled Default, not after the template`() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
 
@@ -62,8 +62,8 @@ class DefaultVariantTest : IntegrationTestBase() {
             val variants = ListVariants(templateId = templateId).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].title)
-                .describedAs("the template name is the most meaningful title available at creation")
-                .isEqualTo("Invoice")
+                .describedAs("a variant title discriminates between a template's variants, so it is not the template's name")
+                .isEqualTo("Default")
         }
     }
 
