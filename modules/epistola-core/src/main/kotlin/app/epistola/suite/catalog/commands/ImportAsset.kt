@@ -14,6 +14,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.AssetContentStore
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -37,6 +39,12 @@ data class ImportAsset(
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
+
+    init {
+        // Column ceiling (#692): assets.name is VARCHAR(255). Covers the re-import
+        // UPDATE path; the insert path additionally validates via UploadAsset.
+        validate("name", name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

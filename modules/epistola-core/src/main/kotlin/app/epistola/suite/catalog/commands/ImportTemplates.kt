@@ -17,6 +17,8 @@ import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -45,6 +47,19 @@ data class ImportTemplates(
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
+
+    init {
+        // Column ceilings (#692): document_templates.name and template_variants.title are
+        // VARCHAR(255). Validate the RESOLVED title (a blank import falls back to the variant
+        // id), so what actually gets written is bounded. One template per command in the
+        // catalog fan-out, so a rejection isolates to that resource.
+        templates.forEach { template ->
+            validate("name", template.name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
+            template.variants.forEach { variant ->
+                validate("title", variant.resolvedTitle().length <= MAX_NAME_COLUMN_LENGTH) { "Title must be $MAX_NAME_COLUMN_LENGTH characters or less" }
+            }
+        }
+    }
 }
 
 data class ImportTemplateInput(
@@ -67,6 +82,13 @@ data class ImportVariantInput(
     val templateModel: TemplateDocument?,
     val isDefault: Boolean = false,
 )
+
+/**
+ * The title actually written for an imported variant: a title-less or blank
+ * import falls back to the variant id (#631). Shared by [ImportTemplates] length
+ * validation and the handler bind so the two never drift.
+ */
+internal fun ImportVariantInput.resolvedTitle(): String = title?.takeIf { it.isNotBlank() } ?: id
 
 data class ImportTemplateResult(
     val slug: String,
@@ -316,10 +338,7 @@ class ImportTemplatesHandler(
                 .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 // Title is required (#631); default a title-less import to the variant slug.
-                .bind(
-                    "title",
-                    variantInput.title?.takeIf { it.isNotBlank() } ?: variantInput.id,
-                )
+                .bind("title", variantInput.resolvedTitle())
                 .bind("attributes", attributesJson)
                 .bind("isDefault", variantInput.isDefault)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)

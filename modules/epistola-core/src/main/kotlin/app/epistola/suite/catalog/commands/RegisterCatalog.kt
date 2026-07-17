@@ -45,6 +45,8 @@ class RegisterCatalogHandler(
         )
 
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
+        // #692: bound the manifest name to catalogs.name VARCHAR(255) before insert.
+        validateCatalogNameLength(manifest.catalog.name)
 
         // Source-side per-resource baseline, captured at register exactly like
         // installed_fingerprint (never publisher-authored). The upgrade preview
