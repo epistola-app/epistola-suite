@@ -68,9 +68,9 @@ class StaleJobRecovery(
         // Every node runs the idempotent sweep so document recovery never depends on a
         // single owner staying alive (see class KDoc / #723).
         executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
-        // Scoped to render-capable nodes: the sweep only concerns the render pipeline, and a
+        // Scoped to pdf-render-capable nodes: the sweep only concerns the render pipeline, and a
         // suite-only control node holds no render claims to recover.
-        requiredCapability = ClusterProperties.RENDER_CAPABILITY,
+        requiredCapability = ClusterProperties.PDF_RENDER_CAPABILITY,
     )
 
     override fun handle(task: ClusterScheduledTask) {

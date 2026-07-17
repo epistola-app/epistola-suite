@@ -35,9 +35,9 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
         val node = registry.heartbeat()
 
         assertThat(node.nodeId).isEqualTo(nodeIdentity.nodeId)
-        // The render capability is folded in by default (epistola.generation.render-locally=true),
+        // The pdf-render capability is folded in by default (epistola.generation.pdf-render.enabled=true),
         // so a node advertising `suite` also renders — see ClusterProperties.normalizedCapabilities.
-        assertThat(node.capabilities).containsExactlyInAnyOrder("suite", "unrelated-cap", "render")
+        assertThat(node.capabilities).containsExactlyInAnyOrder("suite", "unrelated-cap", "pdf-render")
         assertThat(node.joinedAt).isNotNull()
         assertThat(node.lastSeenAt).isNotNull()
 

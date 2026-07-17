@@ -138,11 +138,13 @@ epistola:
     # spring.ai.mcp.server.enabled above) and the endpoint returns 404.
     enabled: true
   generation:
-    # Whether THIS node renders documents. When true (default) the node advertises the
-    # cluster `render` capability and claims render jobs; set false to keep the suite as a
-    # control plane only and offload rendering to dedicated apps/pdfrender workers. Toggle
-    # per-process via env/CLI (e.g. --epistola.generation.render-locally=false).
-    render-locally: true
+    # Whether THIS node performs PDF rendering. When true (default) the node advertises the
+    # cluster `pdf-render` capability and claims render jobs; set false to keep the suite as a
+    # control plane only and offload rendering to dedicated apps/pdfrender workers. The same
+    # property is the pdfrender app's own on/off switch. Toggle per-process via env/CLI
+    # (e.g. --epistola.generation.pdf-render.enabled=false).
+    pdf-render:
+      enabled: true
     polling:
       enabled: true # Enable polling-based job execution
       interval-ms: 5000 # Fallback poll interval (drain loop handles active work)

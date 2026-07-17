@@ -15,9 +15,9 @@ import org.springframework.boot.runApplication
  * on the classpath to be component-scanned.
  *
  * What keeps it to rendering only is cluster capability routing, not a pile of disabled
- * schedulers: this app advertises the `render` capability alone (`epistola.cluster.capabilities`
+ * schedulers: this app advertises the `pdf-render` capability alone (`epistola.cluster.capabilities`
  * in its `application.yaml`), and every non-render scheduled task requires the `suite`
- * capability, so a `render`-only node can never claim partition maintenance, content reaping,
+ * capability, so a `pdf-render`-only node can never claim partition maintenance, content reaping,
  * quality sweeps, hub sync, log retention, etc. It also never migrates — Flyway is disabled and
  * `epistola.migration.mode=validate` only reads the schema history — so it is safe behind a
  * limited, no-DDL database user. The suite (or a dedicated migration Job) remains the sole

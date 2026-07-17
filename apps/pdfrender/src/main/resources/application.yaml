@@ -1,5 +1,8 @@
 server:
-  # Distinct from the suite (4000) so both can run on one host during local testing.
+  # The worker serves NO application HTTP — it has no controllers (rest-api/MCP/UI aren't on its
+  # classpath). The embedded server (pulled in transitively by epistola-core's starter-web) exists
+  # only to expose actuator health probes and the Prometheus metrics endpoint (see `management`
+  # below). Port is distinct from the suite (4000) so both can run on one host during local testing.
   port: 4010
   error:
     include-stacktrace: never
@@ -47,15 +50,20 @@ epistola:
     primary-key-id: ""
     keys: []
 
-  # The load-bearing line: this worker advertises ONLY the render capability, so cluster routing
-  # (enforced in SQL at task-claim time) gives it the JobPoller + StaleJobRecovery and nothing
-  # else. Every other scheduled task requires the `suite` capability and is never claimed here.
+  # The load-bearing line: this worker advertises ONLY the pdf-render capability, so cluster
+  # routing (enforced in SQL at task-claim time) gives it the JobPoller + StaleJobRecovery and
+  # nothing else. Every other scheduled task requires the `suite` capability and is never claimed
+  # here. (Note: `suite` is deliberately absent — do NOT add it, or this node would start
+  # claiming control-plane/maintenance tasks it has no business running.)
   cluster:
     capabilities:
-      - render
+      - pdf-render
 
   generation:
-    # This node always renders (it exists only to render); render-locally stays at its default.
+    # This worker exists only to render, so its on/off switch is left on. It's the SAME property
+    # the suite uses to turn its own local rendering off — here it is the worker's enable flag.
+    pdf-render:
+      enabled: true
     polling:
       enabled: true
       interval-ms: 5000

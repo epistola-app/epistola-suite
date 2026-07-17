@@ -10,18 +10,18 @@ import org.springframework.test.context.TestPropertySource
 
 /**
  * Proves the render-offload switch is honored end-to-end: with
- * `epistola.generation.render-locally=false` bound from configuration, a `suite` node must
- * advertise `suite` only — no `render` — so it never claims render jobs and the pipeline moves
+ * `epistola.generation.pdf-render.enabled=false` bound from configuration, a `suite` node must
+ * advertise `suite` only — no `pdf-render` — so it never claims render jobs and the pipeline moves
  * to dedicated apps/pdfrender workers. Complements the pure-logic ClusterPropertiesTest by
  * exercising the actual @Value binding into ClusterNodeRegistry and the persisted cluster_nodes row.
  */
 @TestPropertySource(
     properties = [
         "epistola.cluster.capabilities[0]=suite",
-        "epistola.generation.render-locally=false",
+        "epistola.generation.pdf-render.enabled=false",
     ],
 )
-class ClusterRenderLocallyDisabledIT : IntegrationTestBase() {
+class ClusterPdfRenderDisabledIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var registry: ClusterNodeRegistry
@@ -33,7 +33,7 @@ class ClusterRenderLocallyDisabledIT : IntegrationTestBase() {
     private lateinit var jdbi: Jdbi
 
     @Test
-    fun `render-locally=false keeps render off a suite node`() {
+    fun `pdf-render disabled keeps the capability off a suite node`() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM cluster_nodes WHERE node_id = :nodeId")
                 .bind("nodeId", nodeIdentity.nodeId)

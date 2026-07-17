@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 
 /**
- * Both render tasks must be gated on [ClusterProperties.RENDER_CAPABILITY], not the default
+ * Both render tasks must be gated on [ClusterProperties.PDF_RENDER_CAPABILITY], not the default
  * `suite` capability. This is what keeps the render pipeline off suite-only control nodes and
  * routes it onto dedicated apps/pdfrender workers. A silent revert to the default capability
  * would make every control node start rendering again (and would break render-offload
@@ -30,7 +30,7 @@ class RenderTaskCapabilityTest {
         )
 
         assertThat(poller.jobPollerScheduledTaskDefinition().requiredCapability)
-            .isEqualTo(ClusterProperties.RENDER_CAPABILITY)
+            .isEqualTo(ClusterProperties.PDF_RENDER_CAPABILITY)
     }
 
     @Test
@@ -42,6 +42,6 @@ class RenderTaskCapabilityTest {
         )
 
         assertThat(recovery.staleJobRecoveryScheduledTaskDefinition().requiredCapability)
-            .isEqualTo(ClusterProperties.RENDER_CAPABILITY)
+            .isEqualTo(ClusterProperties.PDF_RENDER_CAPABILITY)
     }
 }

@@ -46,23 +46,24 @@ data class ClusterProperties(
      * The capability set this node advertises into `cluster_nodes`.
      *
      * Starts from the configured `epistola.cluster.capabilities` (trimmed, de-duped,
-     * defaulting to `[suite]` when blank) and then folds in the local-rendering decision:
-     * the two render tasks require [RENDER_CAPABILITY], so a node renders iff it advertises
-     * it. [renderLocally] (default true) **adds** `render` to the set; setting it false
-     * **removes** `render`, which is how an operator turns off rendering on a node that
-     * otherwise carries `suite`. A dedicated worker instead sets
-     * `epistola.cluster.capabilities: [render]` explicitly and leaves this at its default.
+     * defaulting to `[suite]` when blank) and then folds in the PDF-rendering decision:
+     * the two render tasks require [PDF_RENDER_CAPABILITY], so a node renders iff it advertises
+     * it. [pdfRenderEnabled] — bound from `epistola.generation.pdf-render.enabled` (default true) —
+     * **adds** `pdf-render` to the set; setting it false **removes** `pdf-render`, which is how an
+     * operator turns off rendering on a node that otherwise carries `suite`. A dedicated worker
+     * (`apps/pdfrender`) instead sets `epistola.cluster.capabilities: [pdf-render]` explicitly and
+     * leaves the flag at its default.
      */
-    fun normalizedCapabilities(renderLocally: Boolean = true): List<String> {
+    fun normalizedCapabilities(pdfRenderEnabled: Boolean = true): List<String> {
         val configured = capabilities
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .distinct()
             .ifEmpty { listOf(DEFAULT_CAPABILITY) }
-        return if (renderLocally) {
-            (configured + RENDER_CAPABILITY).distinct()
+        return if (pdfRenderEnabled) {
+            (configured + PDF_RENDER_CAPABILITY).distinct()
         } else {
-            configured.filterNot { it == RENDER_CAPABILITY }
+            configured.filterNot { it == PDF_RENDER_CAPABILITY }
         }
     }
 
@@ -78,7 +79,7 @@ data class ClusterProperties(
          * routed to dedicated render workers (`apps/pdfrender`, advertising only this) while
          * all control-plane/maintenance tasks stay gated on [DEFAULT_CAPABILITY].
          */
-        const val RENDER_CAPABILITY = "render"
+        const val PDF_RENDER_CAPABILITY = "pdf-render"
         const val SUBSTRATE_WALL_CLOCK = "wall-clock"
         const val SUBSTRATE_TEST = "test"
     }

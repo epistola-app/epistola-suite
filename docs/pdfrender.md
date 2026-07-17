@@ -15,18 +15,21 @@ database user — independently of the main suite (`apps/epistola`).
   commercial-support modules are simply not on its classpath and their beans are never
   component-scanned.
 - **By capability routing.** Every cluster scheduled task is gated on a node **capability**,
-  enforced in SQL at claim time. The two render tasks require the `render` capability
-  (`ClusterProperties.RENDER_CAPABILITY`); every other task (partition maintenance, content
+  enforced in SQL at claim time. The two render tasks require the `pdf-render` capability
+  (`ClusterProperties.PDF_RENDER_CAPABILITY`); every other task (partition maintenance, content
   reaper/backfill, installation-stats, log retention, stale-consumer reaper, the scheduled-task
   reconciler, quality, version-check, hub/support sync) requires the default `suite` capability.
-  pdfrender advertises `render` **alone** (`epistola.cluster.capabilities: [render]`), so it can
-  never be routed a `suite` task — including the one that needs DDL
+  pdfrender advertises `pdf-render` **alone** (`epistola.cluster.capabilities: [pdf-render]`), so it
+  can never be routed a `suite` task — including the one that needs DDL
   (`PartitionMaintenanceScheduler`), which its DB user could not run anyway. This is guaranteed by
-  construction, not by turning schedulers off one at a time.
+  construction, not by turning schedulers off one at a time. The capability is deliberately
+  `pdf-render` (not a generic `render`) so future renderer types get their own capability and their
+  own workers.
 
-The suite renders by default (it advertises `[suite, render]`). Set
-`epistola.generation.render-locally=false` on the suite to make it a control plane only and push
-all rendering onto pdfrender workers. See the render-capability seam in
+The suite renders by default (it advertises `[suite, pdf-render]`). Set
+`epistola.generation.pdf-render.enabled=false` on the suite to make it a control plane only and
+push all rendering onto pdfrender workers — that is the **same** property the pdfrender app uses as
+its own render on/off switch. See the pdf-render-capability seam in
 [`ClusterProperties`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/cluster/ClusterConfiguration.kt).
 
 ## No migrations, limited DB user
