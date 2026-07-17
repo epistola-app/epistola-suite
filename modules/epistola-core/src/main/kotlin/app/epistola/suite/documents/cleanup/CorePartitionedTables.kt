@@ -25,6 +25,10 @@ class CorePartitionedTables(
 ) : PartitionedTableContributor {
     override fun partitionedTables(): List<PartitionedTable> = listOf(
         PartitionedTable("documents", retentionMonths),
+        // document_content holds the ephemeral document blobs (PostgreSQL backend);
+        // it MUST share the exact retention of `documents` so its monthly partitions
+        // are dropped in lockstep and blobs are reclaimed with their metadata (#738).
+        PartitionedTable("document_content", retentionMonths),
         PartitionedTable("document_generation_requests", retentionMonths),
         PartitionedTable("generation_results", generationResultsRetentionMonths),
         PartitionedTable("event_log", eventLogRetentionMonths),

@@ -17,7 +17,7 @@ import tools.jackson.databind.ObjectMapper
 
 data class UpdateVariant(
     val variantId: VariantId,
-    val title: String?,
+    val title: String,
     val attributes: Map<String, String>,
 ) : Command<TemplateVariant?>,
     RequiresPermission {
@@ -25,7 +25,8 @@ data class UpdateVariant(
     override val tenantKey: TenantKey get() = variantId.tenantKey
 
     init {
-        validate("title", title == null || title.length <= MAX_NAME_LENGTH) { "Title must be $MAX_NAME_LENGTH characters or less" }
+        validate("title", title.isNotBlank()) { "Title is required" }
+        validate("title", title.length <= MAX_NAME_LENGTH) { "Title must be $MAX_NAME_LENGTH characters or less" }
     }
 }
 

@@ -31,7 +31,8 @@ grep '^version=' gradle.properties
 git log "$LATEST_TAG"..HEAD --oneline
 ```
 
-- `feat!:`/`BREAKING CHANGE:` → MAJOR · `feat:` → MINOR · else → PATCH (pre-1.0, a breaking change is a MINOR bump).
+- `feat!:`/`fix!:`/`BREAKING CHANGE:` → MAJOR · `feat:` → MINOR · else → PATCH (pre-1.0, a breaking change is a MINOR bump).
+- **Feature-maturity exception:** a breaking change scoped **entirely to an alpha or beta feature** is a **MINOR**, not a major — only breaking changes to **GA (stable)** features force a MAJOR bump. So a `feat!`/`fix!` that touches only an experimental/preview surface (e.g. an alpha storage backend) does **not** by itself trigger a major; verify the `!`/`BREAKING CHANGE` commits since the last release are GA-scoped before choosing MAJOR, and note the alpha/beta scope in the CHANGELOG entry.
 
 ### 2. Release commit — version + CHANGELOG
 

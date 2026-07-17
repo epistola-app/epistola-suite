@@ -21,8 +21,8 @@ A backup captures every **tenant-scoped authoring table**, classified in
   `template_versions` (all of draft/published/archived, **exact version numbers
   preserved**), `contract_versions`
 - `stencils` + `stencil_versions`, `themes`, `code_lists` + `code_list_entries`,
-  `fonts` + `font_variants`, `assets` (+ their `content_store` blobs),
-  `variant_attribute_definitions`
+  `fonts` + `font_variants`, `assets` (+ their `asset_content` blobs, resolved
+  through each asset's `content_hash` pointer), `variant_attribute_definitions`
 - `environments` + `environment_activations`, `api_keys` (SHA-256 hashes, dumped
   verbatim), `feature_toggles`
 - the feedback feature tables when present (`feedback*`)
@@ -79,7 +79,9 @@ valid across a restore.
 Special cases the merge handles: the `tenants`↔`themes` circular FK (the default
 theme is nulled during the merge and re-applied at the end), the deferred
 `font_variants`→`assets` FK, the RESTRICT `variant_attribute_definitions`→
-`code_lists` edge, and the `content_store` asset blobs.
+`code_lists` edge, and the `asset_content` blobs (inserted if-absent by
+`(scope, content_hash)`; not orphan-deleted here — the content reaper reclaims
+unreferenced blobs, and deleting shared `system`-scoped blobs would be wrong).
 
 ## Schema compatibility
 

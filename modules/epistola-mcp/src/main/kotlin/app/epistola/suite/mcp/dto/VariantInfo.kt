@@ -11,7 +11,7 @@ import java.time.OffsetDateTime
 data class VariantInfo(
     val id: String,
     val templateId: String,
-    val title: String?,
+    val title: String,
     val description: String?,
     /** Free-form attribute map (e.g. `{"language": "en", "brand": "acme"}`). */
     val attributes: Map<String, String>,

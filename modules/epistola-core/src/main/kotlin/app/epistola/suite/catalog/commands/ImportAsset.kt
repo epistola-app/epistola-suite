@@ -1,21 +1,21 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.AssetContentStore
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.io.ByteArrayInputStream
 
 /**
  * Imports an asset with a specific ID, preserving TemplateDocument image node references.
@@ -30,6 +30,9 @@ data class ImportAsset(
     val content: ByteArray,
     val width: Int? = null,
     val height: Int? = null,
+    // The catalog exchange format does not carry sensitivity yet (contract issue); catalog
+    // imports are non-sensitive/global until #751 wires it through.
+    val sensitive: Boolean = false,
 ) : Command<InstallStatus>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -47,7 +50,7 @@ data class ImportAsset(
 @Component
 class ImportAssetHandler(
     private val jdbi: Jdbi,
-    private val contentStore: ContentStore,
+    private val assetContentStore: AssetContentStore,
 ) : CommandHandler<ImportAsset, InstallStatus> {
 
     override fun handle(command: ImportAsset): InstallStatus {
@@ -66,12 +69,18 @@ class ImportAssetHandler(
         }
 
         if (exists) {
-            // Update existing asset metadata and replace content
+            // Re-import replaces the bytes: hash + put-if-absent into the CAS store,
+            // then repoint the asset row's content_hash. The previous hash's blob is
+            // left for the reaper to mark-and-sweep if nothing else references it.
+            val contentHash = sha256Hex(command.content)
+            val scope = assetContentScope(command.sensitive, command.tenantKey)
+            assetContentStore.putIfAbsent(scope, contentHash, command.content, command.mediaType.mimeType, command.content.size.toLong())
+
             jdbi.useHandle<Exception> { handle ->
                 handle.createUpdate(
                     """
                     UPDATE assets
-                    SET name = :name, media_type = :mediaType, width = :width, height = :height, size_bytes = :sizeBytes
+                    SET name = :name, media_type = :mediaType, width = :width, height = :height, size_bytes = :sizeBytes, content_hash = :contentHash, sensitive = :sensitive
                     WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :id
                     """,
                 )
@@ -83,11 +92,10 @@ class ImportAssetHandler(
                     .bind("width", command.width)
                     .bind("height", command.height)
                     .bind("sizeBytes", command.content.size.toLong())
+                    .bind("contentHash", contentHash)
+                    .bind("sensitive", command.sensitive)
                     .execute()
             }
-
-            val key = ContentKey.asset(command.tenantKey, command.id)
-            contentStore.put(key, ByteArrayInputStream(command.content), command.mediaType.mimeType, command.content.size.toLong())
 
             return InstallStatus.UPDATED
         }
@@ -102,6 +110,7 @@ class ImportAssetHandler(
             width = command.width,
             height = command.height,
             id = command.id,
+            sensitive = command.sensitive,
         ).execute()
 
         return InstallStatus.INSTALLED

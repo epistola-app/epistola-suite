@@ -3,7 +3,7 @@ package app.epistola.suite.testing
 import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.springframework.beans.factory.annotation.Value
@@ -27,7 +27,7 @@ class FakeExecutorTestConfiguration {
         generationService: GenerationService,
         mediator: Mediator,
         objectMapper: ObjectMapper,
-        contentStore: ContentStore,
+        contentStore: DocumentContentStore,
         meterRegistry: MeterRegistry,
         schemaValidator: app.epistola.suite.templates.validation.JsonSchemaValidator,
         fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,

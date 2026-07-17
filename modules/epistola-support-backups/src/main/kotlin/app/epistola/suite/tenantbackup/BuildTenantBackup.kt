@@ -11,6 +11,7 @@ import app.epistola.suite.tenantbackup.schema.SchemaStamp
 import app.epistola.suite.tenantbackup.schema.TenantTableTopology
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
+import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -56,10 +57,31 @@ class BuildTenantBackupHandler(
     private val restoreCompatibility: RestoreCompatibility,
     private val buildProperties: BuildProperties?,
 ) : CommandHandler<BuildTenantBackup, TenantBackupArtifact?> {
+    private val logger = LoggerFactory.getLogger(javaClass)
     private val buildVersion: String get() = buildProperties?.version ?: "dev"
 
     @Transactional(readOnly = true)
     override fun handle(command: BuildTenantBackup): TenantBackupArtifact? = jdbi.withHandle<TenantBackupArtifact?, Exception> { handle ->
+        // Faithfulness guard (transitional, removed with #742): the blob dump captures only
+        // `asset_content`. An asset still at `content_hash IS NULL` has its bytes only in the
+        // legacy `content_store`, which is no longer archived — so a backup taken mid-#738
+        // migration would silently omit those bytes. Skip the whole cycle until this tenant's
+        // assets are migrated; backups resume automatically once the background
+        // ContentBackfillRunner drains it. (Backups are an alpha feature; simplest safe option.)
+        val unmigratedAssets = handle
+            .createQuery("SELECT count(*) FROM assets WHERE tenant_key = :tk AND content_hash IS NULL")
+            .bind("tk", command.tenantKey.value)
+            .mapTo(Int::class.java)
+            .one()
+        if (unmigratedAssets > 0) {
+            logger.warn(
+                "Skipping backup for tenant {} — {} asset(s) not yet migrated to asset_content (#738 backfill in progress); backups resume once migrated",
+                command.tenantKey.value,
+                unmigratedAssets,
+            )
+            return@withHandle null
+        }
+
         val resolved = topology.resolve(handle)
         val schemaStamp = SchemaStamp.current(handle)
         val dump = dumpTenantTables.dump(handle, resolved, command.tenantKey.value)
@@ -96,7 +118,7 @@ class BuildTenantBackupHandler(
             dump.blobs.mapIndexed { index, blob ->
                 val file = "blobs/$index.bin"
                 blobFiles[file] = blob.content
-                BackupBlobEntry(blob.key, file, blob.contentType, blob.sizeBytes, blob.createdAt)
+                BackupBlobEntry(blob.scope, blob.contentHash, file, blob.contentType, blob.sizeBytes, blob.createdAt)
             }
 
         val capturedAt = EpistolaClock.instant()
@@ -160,7 +182,7 @@ class BuildTenantBackupHandler(
             }
         }
         dump.blobs.forEach { blob ->
-            digest.update("B:${blob.key}:${blob.sizeBytes}\n".toByteArray(Charsets.UTF_8))
+            digest.update("B:${blob.scope}:${blob.contentHash}:${blob.sizeBytes}\n".toByteArray(Charsets.UTF_8))
             digest.update(blob.content)
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
@@ -186,6 +208,6 @@ class BuildTenantBackupHandler(
     }
 
     private companion object {
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
     }
 }

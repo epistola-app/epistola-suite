@@ -100,6 +100,31 @@ interval regardless of how another node failed. (Layers 1 and 2 protect the
 recurring scheduled tasks; this protects the document work directly, without
 relying on either.)
 
+### 4. Version skew during rolling deploys
+
+A rolling deploy runs old and new nodes against the same database, and a new
+release may add a scheduled task the old build has no handler for (e.g. a one-time
+migration task). A single-owner task uses the **default capability**, so an old
+node _can_ claim an occurrence — the safety is not capability-gating, it's
+**registration vouching**:
+
+- Each node, at startup, registers every task definition it carries into
+  `cluster_scheduled_task_registrations` — a live registration means "this node has
+  the handler."
+- If a node claims a task whose `taskType` has **no handler on that node**, dispatch
+  does not run anything. It deletes the task **only** when _no_ live node vouches for
+  it (`deleteIfOrphaned` → `... WHERE NOT <live registration exists>`) — genuinely
+  orphaned, nothing could ever run it. Otherwise it calls `skipNoHandler`, which just
+  advances `next_due_at` with **no** failure/error state.
+- So an old node that grabs a new task simply **defers** it; a newer node that
+  carries the handler runs it on a later occurrence. Only handler-bearing nodes ever
+  execute it, and no node destroys a task another node still vouches for.
+
+The one visible effect is that old nodes grabbing-and-deferring can delay the first
+successful run by an occurrence or two during the mixed-version window — harmless for
+work that is either idempotent or (like the #738 content backfill) shielded by a
+read-fallback so serving stays correct whether or not it has run yet.
+
 ## Load-test stale-run recovery (#725)
 
 `LoadTestPoller.recoverStaleTests` previously judged a RUNNING run stale by claim

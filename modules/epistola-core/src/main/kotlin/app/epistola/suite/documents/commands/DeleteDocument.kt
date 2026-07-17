@@ -7,7 +7,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -30,7 +30,7 @@ data class DeleteDocument(
 @Component
 class DeleteDocumentHandler(
     private val jdbi: Jdbi,
-    private val contentStore: ContentStore,
+    private val contentStore: DocumentContentStore,
 ) : CommandHandler<DeleteDocument, Boolean> {
 
     private val logger = LoggerFactory.getLogger(javaClass)

@@ -48,7 +48,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
 
         val secondVariant = CreateVariant(
             id = VariantId(TestIdHelpers.nextVariantId(), templateId),
-            title = null,
+            title = "Second",
             description = null,
         ).execute()!!
         val secondVariantId = VariantId(secondVariant.id, templateId)

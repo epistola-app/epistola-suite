@@ -8,7 +8,7 @@ import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
-import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -28,7 +28,7 @@ class FakeDocumentGenerationExecutor(
     generationService: app.epistola.suite.generation.GenerationService,
     mediator: app.epistola.suite.mediator.Mediator,
     objectMapper: tools.jackson.databind.ObjectMapper,
-    contentStore: ContentStore,
+    contentStore: DocumentContentStore,
     meterRegistry: io.micrometer.core.instrument.MeterRegistry,
     schemaValidator: app.epistola.suite.templates.validation.JsonSchemaValidator,
     fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
@@ -85,13 +85,17 @@ class FakeDocumentGenerationExecutor(
             // Generate fake document
             val documentId = DocumentKey.generate()
             val filename = request.filename ?: "document-${request.id.value}.pdf"
+            // Single timestamp for both the blob and the metadata row so they land in
+            // the same document_content / documents monthly partition (#738).
+            val createdAt = EpistolaClock.offsetDateTime()
 
-            // Store fake PDF content in ContentStore
+            // Store fake PDF content in the document content store
             localContentStore.put(
                 ContentKey.document(request.tenantKey, documentId),
                 ByteArrayInputStream(fakePdfBytes),
                 "application/pdf",
                 fakePdfBytes.size.toLong(),
+                createdAt,
             )
 
             // Mirror production: per-tenant document-size summary.
@@ -140,7 +144,7 @@ class FakeDocumentGenerationExecutor(
                     VALUES (
                         :id, :tenantId, :templateId, :variantId, :versionId,
                         :filename, :correlationId, 'application/pdf', :sizeBytes,
-                        NOW(), :createdBy
+                        :createdAt, :createdBy
                     )
                     """,
                 )
@@ -152,6 +156,7 @@ class FakeDocumentGenerationExecutor(
                     .bind("filename", filename)
                     .bind("correlationId", request.correlationId)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())
+                    .bind("createdAt", createdAt)
                     .bind("createdBy", currentUserIdOrNull()?.value)
                     .execute()
             }
