@@ -123,6 +123,21 @@ document.addEventListener('htmx:load', function (event) {
 // data-show-dialog-on-swap dialogs live outside the mount and must not be
 // removed (they are reused). Reveal (stay-open) dialogs never fire close, so
 // they are unaffected. The <dialog> `close` event does not bubble → capture.
+// CR7: opening a create dialog pushes the bare /…/new URL (hx-push-url), which
+// drops any list filter/sort/paging query string that was in the address bar.
+// Capture the full list URL when a mount-dialog trigger is clicked so the close
+// listener below can put that query back when it restores the list URL.
+let dialogReturnUrl = null;
+document.addEventListener(
+  'click',
+  function (event) {
+    const trigger =
+      event.target.closest && event.target.closest('[hx-target="#dialog-mount"][hx-push-url]');
+    if (trigger) dialogReturnUrl = window.location.href;
+  },
+  true,
+);
+
 document.addEventListener(
   'close',
   function (event) {
@@ -132,10 +147,21 @@ document.addEventListener(
     const closeUrl = dialog.getAttribute('data-close-url');
     if (closeUrl) {
       const target = new URL(closeUrl, window.location.origin);
-      if (target.pathname !== window.location.pathname) {
-        history.replaceState(history.state, '', closeUrl);
+      // data-close-url is the bare list path; the list's query string lives only in
+      // the URL we captured at open time. Restore it when it's for the same path so
+      // Cancel/ESC returns to the FILTERED list, not the unfiltered one (CR7).
+      if (!target.search && dialogReturnUrl) {
+        const captured = new URL(dialogReturnUrl, window.location.origin);
+        if (captured.pathname === target.pathname) target.search = captured.search;
+      }
+      if (
+        target.pathname !== window.location.pathname ||
+        target.search !== window.location.search
+      ) {
+        history.replaceState(history.state, '', target.href);
       }
     }
+    dialogReturnUrl = null;
     dialog.remove();
   },
   true,
