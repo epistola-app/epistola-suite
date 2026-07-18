@@ -397,6 +397,7 @@
     <th:block th:fragment="upgrade-done"></th:block>
     <th:block th:fragment="catalog-list-actions">
         <button type="button" class="ep-btn ep-btn-outline"
+                th:if="${auth.has('TEMPLATE_EDIT')}"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="catalog-import-open">
@@ -404,6 +405,7 @@
             Import ZIP
         </button>
         <button type="button" class="ep-btn ep-btn-outline"
+                th:if="${auth.has('CATALOG_MANAGE')}"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="catalog-subscribe-open">
@@ -411,6 +413,7 @@
             Subscribe
         </button>
         <button type="button" class="ep-btn ep-btn-primary"
+                th:if="${auth.has('CATALOG_MANAGE')}"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="catalog-create-open">
