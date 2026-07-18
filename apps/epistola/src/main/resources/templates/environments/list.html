@@ -36,8 +36,13 @@
                 </button>
             </div>
 
-            <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">
-                <thead>
+            <!-- The table is always rendered (hidden when empty) so its
+                 #environment-rows tbody — the header search box's hx-target —
+                 always exists; a th:if would remove it and the search box would
+                 fire htmx:targetError on an empty list (CR5). The thead is gated
+                 so an empty list carries no visible header and no stray table row. -->
+            <table th:style="${#lists.isEmpty(environments)} ? 'display:none' : null" class="ep-table">
+                <thead th:if="${!#lists.isEmpty(environments)}">
                     <tr>
                         <th>Name</th>
                         <th>ID</th>

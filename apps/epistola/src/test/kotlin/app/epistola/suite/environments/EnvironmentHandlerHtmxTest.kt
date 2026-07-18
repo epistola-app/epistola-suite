@@ -194,7 +194,12 @@ class EnvironmentHandlerHtmxTest : BaseIntegrationTest() {
             // tbody) can replace the table.
             assertThat(response.body).contains("""id="environment-list"""")
             assertThat(response.body).contains("No environments yet")
-            // No data rows and no full page — just the refreshed fragment.
+            // CR5: even when empty, the #environment-rows tbody (the header search
+            // box's hx-target) stays in the DOM — the table is hidden, not removed —
+            // so typing in search doesn't fire htmx:targetError.
+            assertThat(response.body).contains("""id="environment-rows"""")
+            // No data rows and no full page — just the refreshed fragment. (The
+            // thead is th:if-gated when empty, so no header <tr> either.)
             assertThat(response.body).doesNotContain("<tr")
             assertThat(response.body).doesNotContain("<html")
         }
