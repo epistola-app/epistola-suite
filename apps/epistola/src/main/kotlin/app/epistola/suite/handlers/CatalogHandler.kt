@@ -144,7 +144,7 @@ class CatalogHandler {
         // Success: close the dialog + OOB-refresh the list (the catalog-list
         // fragment toggles hx-swap-oob via the `oob` flag dialogSuccess injects).
         return request.htmx {
-            dialogSuccess("catalogs/list", "catalog-list") {
+            dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
                 catalogListModel(request)
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
@@ -205,7 +205,7 @@ class CatalogHandler {
 
             // Stay-on-list: close the dialog + OOB-refresh the list with the new catalog.
             request.htmx {
-                dialogSuccess("catalogs/list", "catalog-list") {
+                dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
                     catalogListModel(request)
                 }
                 onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }

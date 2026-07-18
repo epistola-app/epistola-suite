@@ -250,7 +250,7 @@ class HtmxDslTest {
             // Note: the caller does NOT pass `"oob" to true` — dialogSuccess
             // injects it so the list fragment always renders its OOB swap.
             val builder = HtmxResponseBuilder(request).apply {
-                dialogSuccess("environments/list", "rows") {
+                dialogSuccess("environments/list", "rows", "/tenants/acme/environments") {
                     "environments" to listOf("a", "b")
                 }
             }
@@ -263,6 +263,11 @@ class HtmxDslTest {
             assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
             // No retarget: the list moves out-of-band, nothing is retargeted.
             assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+            // Puts the address bar back on the list via HTMX's own history machinery
+            // (HX-Replace-Url) — NOT a raw replaceState — so HTMX's cached list
+            // snapshot stays consistent and Back after a create shows the fresh list
+            // (CR3), not the stale pre-open one.
+            assertThat(response.headers().getFirst("HX-Replace-Url")).isEqualTo("/tenants/acme/environments")
             // dialogSuccess injects the OOB flag itself, so the list fragment's
             // hx-swap-oob renders even when the caller never sets it.
             val oobFragment = builder.emittedFragments.single { it.isOob }

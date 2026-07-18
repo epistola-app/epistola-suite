@@ -342,12 +342,23 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * `"oob" to true` after [model] runs, so callers never have to remember it.
      * Pass whatever else the list fragment needs through [model].
      *
+     * [listUrl] is the list's own URL — the one the dialog was opened over. The
+     * open pushed the `/…/new` URL via `hx-push-url`, so on success we must put
+     * the address bar back to the list. This emits `HX-Replace-Url: <listUrl>` so
+     * HTMX performs the replace through its OWN history machinery, keeping its
+     * internal current-path in sync — a raw `history.replaceState` (what the
+     * dialog close listener does for Cancel/ESC) does NOT tell HTMX, which would
+     * leave the pre-open (row-less) list snapshot cached under the list URL and
+     * shown stale on Back after a create (CR3). Baked in here rather than left to
+     * each caller so it can't be forgotten and reintroduce the bug.
+     *
      * Pair with: `onNonHtmx { redirect("/…/list") }` (a full-page submit just
      * lands back on the list).
      */
     fun dialogSuccess(
         listTemplate: String,
         listFragment: String,
+        listUrl: String,
         model: ModelBuilder.() -> Unit = {},
     ) {
         oob(listTemplate, listFragment) {
@@ -356,6 +367,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         }
         trigger("closeDialog")
         reswap(HxSwap.NONE)
+        replaceUrl(listUrl)
         status(200)
     }
 

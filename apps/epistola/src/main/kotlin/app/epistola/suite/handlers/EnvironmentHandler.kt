@@ -126,7 +126,7 @@ class EnvironmentHandler {
             // Success: close the dialog + refresh the list out-of-band. Global
             // attributes the list fragment needs (`auth` for permission checks)
             // are injected by HtmxFragmentModelContributor on the OOB render path.
-            dialogSuccess("environments/list", "environment-list") {
+            dialogSuccess("environments/list", "environment-list", "/tenants/${tenantId.key}/environments") {
                 "tenantId" to tenantId.key
                 "environments" to environments
             }
