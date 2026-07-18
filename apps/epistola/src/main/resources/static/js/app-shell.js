@@ -111,6 +111,15 @@ document.addEventListener('closeDialog', function () {
   document.querySelectorAll('dialog[open]').forEach(function (d) {
     d.close();
   });
+  // A dialogSuccess close means the list was just OOB-refreshed UNFILTERED — the
+  // create request carried no search term, so the server can't re-apply one.
+  // Clear any list search box so the visible full list and the box agree; a stale
+  // term otherwise sits above rows that no longer match it (CR6). Scoped to the
+  // server-driven closeDialog event (success), so a Cancel/ESC — which never fires
+  // it — keeps the user's search intact.
+  document.querySelectorAll('.search-box input[name="q"]').forEach(function (input) {
+    if (input.value) input.value = '';
+  });
 });
 
 // ── Promise-based confirm (replaces native confirm()) ─────────
