@@ -167,11 +167,19 @@ class StencilHandler(
     }
 
     /**
-     * The UI create-form path. Reached ONLY for HTMX requests: a non-HTMX POST to
-     * this endpoint is the editor's JSON API (see [create] / [createJson]), so this
-     * function has NO onNonHtmx branch — one would be dead code. This is the one
-     * create dialog that deliberately drops the no-JS form-POST fallback the other
-     * dialogs keep, because that fallback would collide with the JSON API.
+     * The UI create-form path. Reached ONLY for HTMX requests: a genuinely non-HTMX
+     * POST to this endpoint is the editor's JSON API (see [create] / [createJson]),
+     * which is why this dialog drops the plain no-JS form-POST fallback the other
+     * create dialogs keep — that fallback would collide with the JSON API.
+     *
+     * The `onNonHtmx { }` branches below therefore never serve the JSON API: within
+     * [build] they fire only for **boosted** (HX-Boosted) or **history-restore**
+     * (HX-History-Restore-Request) requests, which still carry `HX-Request: true` and
+     * so land here rather than in [createJson]. Both are full-page browser
+     * navigations that must NOT get a bare fragment — a stale tab left open across a
+     * deploy submits this form as a boosted POST, and without an onNonHtmx fallback
+     * [build] would throw (HTTP 500) even for a valid create. Mirrors
+     * DocumentTemplateHandler.create.
      */
     private fun createForm(request: ServerRequest, tenantId: TenantId): ServerResponse {
         requirePermission(tenantId.key, Permission.STENCIL_EDIT)
@@ -221,8 +229,10 @@ class StencilHandler(
 
         if (result.hasErrors()) {
             // Re-render the form inside the dialog (retargeted to the form, not the
-            // list) with inline errors + preserved values. NO onNonHtmx — see the
-            // function KDoc: this path only runs for HTMX requests.
+            // list) with inline errors + preserved values. The onNonHtmx fallback
+            // (boosted / history-restore only — see the function KDoc) re-renders the
+            // list page with the dialog embedded and its errors, so a stale-tab boosted
+            // POST never throws.
             return request.htmx {
                 dialogFieldErrors(
                     template = "stencils/new",
@@ -233,15 +243,26 @@ class StencilHandler(
                     "tenantId" to tenantId.key
                     "authoredCatalogs" to authoredCatalogs(tenantId)
                 }
+                onNonHtmx {
+                    page(422, "stencils/list") {
+                        stencilPageModel(tenantId)
+                        "openDialog" to true
+                        "authoredCatalogs" to authoredCatalogs(tenantId)
+                        "formData" to result.formData
+                        "errors" to result.errors
+                    }
+                }
             }
         }
 
         // Success: navigate to the newly created stencil's page. The dialog
         // disappears with the old page (HX-Redirect), so the list is not refreshed.
-        // NO onNonHtmx — HTMX-only path.
+        // onNonHtmx (boosted / history-restore only) redirects to the same page.
         val stencilKey = StencilKey.validateOrNull(form["slug"])!!
+        val destination = "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey"
         return request.htmx {
-            dialogRedirect("/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey")
+            dialogRedirect(destination)
+            onNonHtmx { redirect(destination) }
         }
     }
 

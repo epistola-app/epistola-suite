@@ -490,6 +490,42 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `boosted POST create does not 500 (stale pre-conversion tab)`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Stencil Boosted Create") }
+
+        whenever {
+            // A tab left open from before this branch converted the stencil form
+            // submits the old plain method=post form as an hx-boosted POST
+            // (HX-Request + HX-Boosted). build() routes boosted requests to the
+            // non-HTMX branch; without an onNonHtmx fallback that branch threw
+            // IllegalStateException → 500 even for a valid create.
+            val form: MultiValueMap<String, String> = LinkedMultiValueMap()
+            form.add("catalog", "default")
+            form.add("name", "Boosted Header")
+            form.add("slug", "boosted-header")
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set("HX-Boosted", "true")
+                contentType = MediaType.APPLICATION_FORM_URLENCODED
+            }
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/stencils",
+                HttpEntity(form, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Pre-fix: 500 (IllegalStateException). The onNonHtmx { redirect(...) }
+            // fallback now keeps a valid boosted create out of the 5xx range.
+            assertThat(response.statusCode.value()).isLessThan(500)
+        }
+    }
+
+    @Test
     fun `plain list route does not embed the create dialog`() = fixture {
         lateinit var testTenant: Tenant
 
