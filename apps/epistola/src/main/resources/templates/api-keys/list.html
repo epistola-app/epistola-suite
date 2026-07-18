@@ -8,6 +8,18 @@
             actions=~{::api-key-list-actions}
         )}"></div>
 
+        <!-- Whole list body (empty-state + table) in one OOB-swappable region,
+             mirroring environments/list :: environment-list. On a successful
+             create the one-time-key reveal stays open (dialogReveal) and the
+             handler OOB-refreshes THIS region so the list behind the reveal shows
+             the new key regardless of how the reveal is dismissed — ESC, backdrop,
+             or Done (CR8). It also flips empty → populated when the first key is
+             created.
+             NOTE: this fragment uses `auth`, and the OOB render path passes only
+             the fragment model (no global attributes) — so the handler must supply
+             the model this needs; `auth` is re-injected by HtmxFragmentModelContributor. -->
+        <div id="api-key-list" th:fragment="api-key-list"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
@@ -82,6 +94,7 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 

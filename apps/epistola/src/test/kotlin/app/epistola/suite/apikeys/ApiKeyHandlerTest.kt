@@ -143,6 +143,16 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")
             assertThat(response.headers.getFirst("HX-Trigger")).isNull()
 
+            // CR1: the one-time key page is marked hx-history="false" so htmx never
+            // snapshots it into its sessionStorage history cache — the plaintext key
+            // cannot be re-shown on Back or persisted to disk.
+            assertThat(response.body).contains("hx-history=\"false\"")
+            // CR8: the reveal also OOB-refreshes the list BEHIND the still-open
+            // dialog, so dismissing via ESC/backdrop (not just Done) leaves a list
+            // that already shows the new key instead of a stale one.
+            assertThat(response.body).contains("id=\"api-key-list\"")
+            assertThat(response.body).contains("hx-swap-oob")
+
             // Persisted as enabled
             val keys = withMediator { ListApiKeys(tenantId = testTenant.id).query() }
             assertThat(keys).hasSize(1)

@@ -116,6 +116,7 @@ class ApiKeyHandler {
         // swapped into the dialog in place of the form and the dialog STAYS OPEN
         // (dialogReveal omits closeDialog) so the user can copy the key before
         // dismissing it. "Done" is a link back to the list.
+        val apiKeys = ListApiKeys(tenantId = tenantId.key).query().filter { it.enabled }
         return request.htmx {
             dialogReveal(
                 template = "api-keys/created",
@@ -125,6 +126,17 @@ class ApiKeyHandler {
                 "tenantId" to tenantId.key
                 "plaintextKey" to result.plaintextKey
                 "apiKey" to result.apiKey
+            }
+            // Refresh the list BEHIND the still-open reveal so it reflects the new
+            // key no matter how the reveal is dismissed — ESC, backdrop, or Done.
+            // Without this the list stays stale and dismissing via ESC looks like
+            // the create failed, tempting the user to mint a duplicate (CR8). Also
+            // flips empty → populated when the first key is created.
+            oob("api-keys/list", "api-key-list") {
+                "tenantId" to tenantId.key
+                "apiKeys" to apiKeys
+                "roleLabels" to ROLE_LABELS
+                "oob" to true
             }
             onNonHtmx {
                 page("api-keys/created") {
