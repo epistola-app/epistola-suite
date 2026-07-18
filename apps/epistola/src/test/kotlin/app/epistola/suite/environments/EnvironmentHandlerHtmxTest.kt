@@ -64,6 +64,40 @@ class EnvironmentHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `history-restore GET new renders the full host page, not a bare dialog fragment`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Env New HistoryRestore") }
+
+        whenever {
+            // A cold-cache history restore: HTMX re-requests the URL with
+            // HX-Request + HX-History-Restore-Request and swaps the response in as
+            // the WHOLE page body. Returning only the dialog fragment would blank
+            // the page (no shell/nav/list).
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set("HX-History-Restore-Request", "true")
+            }
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/environments/new",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Full host page (app shell), NOT a lone fragment — the whole-page swap
+            // lands the list + embedded dialog, not a stray <dialog>.
+            assertThat(response.body).contains("<html")
+            assertThat(response.body).contains("""id="dialog-mount"""")
+            assertThat(response.body).contains("""id="create-environment-dialog"""")
+        }
+    }
+
+    @Test
     fun `HTMX POST invalid retargets the form with 422 and inline errors`() = fixture {
         lateinit var testTenant: Tenant
 

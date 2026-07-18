@@ -524,7 +524,13 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * For non-HTMX requests: executes the nonHtmxHandler or renders full template.
      */
     internal fun build(): ServerResponse {
-        if (!request.isHtmx || request.htmxBoosted) {
+        // A history-restore request (HX-History-Restore-Request) is htmx re-fetching
+        // the URL after a local history-cache miss and swapping the response in as the
+        // WHOLE page body — not into a target. It must therefore render the full host
+        // template / onNonHtmx page, never a bare fragment (which would replace the
+        // entire page with, e.g., a lone unopened dialog). Route it through the same
+        // full-page branch as non-HTMX and boosted requests.
+        if (!request.isHtmx || request.htmxBoosted || request.htmxHistoryRestoreRequest) {
             return nonHtmxHandler?.invoke()
                 ?: fullTemplate?.let { ServerResponse.ok().render(it, mergedModel()) }
                 ?: throw IllegalStateException("No fragment or nonHtmxHandler defined")
