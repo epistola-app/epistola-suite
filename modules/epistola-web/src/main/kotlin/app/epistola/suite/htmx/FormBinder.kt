@@ -332,8 +332,20 @@ class FormBuilder {
                 errors[fieldName] = error
             }
 
-            // Domain ID validation
-            if (value.isNotBlank()) {
+            // Domain ID validation.
+            //
+            // Skipped when a field rule already failed. Every key these validators
+            // wrap (EntityKey.kt) restates the same pattern + length rules the field
+            // specs declare — AttributeKey/CatalogKey/TemplateKey/StencilKey 3..50,
+            // ThemeKey 3..20, CodeListKey 3..64, all on the same SLUG_PATTERN — so a
+            // failure here is almost always a second opinion on a failure already
+            // recorded above. Overwriting would replace a specific, actionable
+            // message ("Slug must be at least 3 characters") with a generic one
+            // ("Invalid theme ID format"). What these checks genuinely ADD beyond the
+            // specs is the reserved-word rule on TemplateKey/StencilKey ("new",
+            // "edit", "admin", …), and that only ever fires when the format and
+            // length rules have already passed — i.e. exactly when this block runs.
+            if (value.isNotBlank() && errors[fieldName] == null) {
                 when {
                     spec.asAttributeId -> {
                         if (AttributeKey.validateOrNull(value) == null) {
