@@ -205,6 +205,20 @@ class FeedbackCommentId(key: FeedbackCommentKey, feedbackId: FeedbackId) : Entit
     val tenantKey = feedbackId.tenantKey
 }
 
+class QualityFindingId(key: QualityFindingKey, tenantId: TenantId) : EntityId<QualityFindingKey, UUID, TenantId>(key, tenantId) {
+    override val type = "quality-finding"
+    val tenantKey = tenantId.key
+}
+
+class QualityFindingCommentId(
+    key: QualityFindingCommentKey,
+    findingId: QualityFindingId,
+) : EntityId<QualityFindingCommentKey, UUID, QualityFindingId>(key, findingId) {
+    override val type = "quality-finding-comment"
+    val findingKey = findingId.key
+    val tenantKey = findingId.tenantKey
+}
+
 class FeedbackAssetId(key: FeedbackAssetKey, feedbackId: FeedbackId) : EntityId<FeedbackAssetKey, UUID, FeedbackId>(key, feedbackId) {
     override val type = "feedback-asset"
     val feedbackKey = feedbackId.key

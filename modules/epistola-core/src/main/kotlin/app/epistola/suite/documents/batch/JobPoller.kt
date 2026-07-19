@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -198,6 +199,9 @@ class JobPoller(
         taskType = TASK_TYPE,
         schedule = ClusterScheduledTaskSchedule.FixedDelay(properties.intervalMs),
         executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+        // Render pipeline runs only on nodes advertising the pdf-render capability (the suite by
+        // default, plus dedicated apps/pdfrender workers), never on suite-only control nodes.
+        requiredCapability = ClusterProperties.PDF_RENDER_CAPABILITY,
     )
 
     override fun handle(task: ClusterScheduledTask) {

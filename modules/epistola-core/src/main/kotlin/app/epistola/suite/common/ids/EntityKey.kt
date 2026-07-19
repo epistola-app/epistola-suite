@@ -455,6 +455,46 @@ value class FeedbackCommentKey(@JsonValue override val value: UUID) : UuidKey<Fe
 }
 
 /**
+ * Typed key for QualityFinding entities.
+ *
+ * A finding's key is minted once, when a source first reports its fingerprint, and is then
+ * **stable for the life of that fingerprint** — reconciliation reopens the existing row rather
+ * than inserting a new one, so comments hang off a key that survives a resolve/resurface cycle.
+ */
+@JvmInline
+value class QualityFindingKey(@JsonValue override val value: UUID) : UuidKey<QualityFindingKey> {
+    companion object {
+        fun generate(): QualityFindingKey = QualityFindingKey(UUIDv7.generate())
+        fun of(value: UUID): QualityFindingKey = QualityFindingKey(value)
+        fun of(value: String): QualityFindingKey = QualityFindingKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): QualityFindingKey = QualityFindingKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
+ * Typed key for QualityFindingComment entities.
+ */
+@JvmInline
+value class QualityFindingCommentKey(@JsonValue override val value: UUID) : UuidKey<QualityFindingCommentKey> {
+    companion object {
+        fun generate(): QualityFindingCommentKey = QualityFindingCommentKey(UUIDv7.generate())
+        fun of(value: UUID): QualityFindingCommentKey = QualityFindingCommentKey(value)
+        fun of(value: String): QualityFindingCommentKey = QualityFindingCommentKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): QualityFindingCommentKey = QualityFindingCommentKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
  * Typed key for FeedbackAsset entities.
  */
 @JvmInline

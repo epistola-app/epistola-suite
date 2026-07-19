@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -67,6 +68,9 @@ class StaleJobRecovery(
         // Every node runs the idempotent sweep so document recovery never depends on a
         // single owner staying alive (see class KDoc / #723).
         executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+        // Scoped to pdf-render-capable nodes: the sweep only concerns the render pipeline, and a
+        // suite-only control node holds no render claims to recover.
+        requiredCapability = ClusterProperties.PDF_RENDER_CAPABILITY,
     )
 
     override fun handle(task: ClusterScheduledTask) {

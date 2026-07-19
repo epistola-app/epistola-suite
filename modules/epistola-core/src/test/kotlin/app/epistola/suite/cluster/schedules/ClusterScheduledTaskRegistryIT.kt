@@ -249,23 +249,23 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
     @Test
     fun `claim due ignores scheduled tasks requiring a capability the current node does not advertise`() {
-        deleteTask("task-pdf-render")
+        deleteTask("task-unrelated-cap")
         registry.upsert(
             ClusterScheduledTaskDefinition(
-                taskKey = "task-pdf-render",
-                routingKey = "system:task-pdf-render",
+                taskKey = "task-unrelated-cap",
+                routingKey = "system:task-unrelated-cap",
                 taskType = "test",
-                requiredCapability = "pdf-render",
+                requiredCapability = "unrelated-cap",
                 schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
             ),
         )
         testClock.advanceBy(Duration.ofSeconds(61))
         nodeRegistry.heartbeat()
 
-        val claimed = registry.claimDue(listOf("task-pdf-render"))
+        val claimed = registry.claimDue(listOf("task-unrelated-cap"))
 
         assertThat(claimed).isEmpty()
-        assertThat(registry.find("task-pdf-render")?.leaseOwnerNodeId).isNull()
+        assertThat(registry.find("task-unrelated-cap")?.leaseOwnerNodeId).isNull()
     }
 
     @Test

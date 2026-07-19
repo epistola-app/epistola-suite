@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Quality',
+            pageDescription='Findings reported against your templates, from every source.',
+            stage=${stage},
+            actions=~{::quality-list-actions}
+        )}"></div>
+
+        <!--/*
+          Filters post back to /search, which re-runs the same query the page load ran — the
+          effective status is derived in SQL, so filtering it here is the only way the count and
+          the rows can agree.
+        */-->
+        <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-4);">
+            <select class="ep-select ep-select-sm form-control-auto"
+                    name="status"
+                    data-testid="quality-filter-status"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
+                    hx-target="#quality-findings"
+                    hx-swap="innerHTML"
+                    hx-include="[name='severity'],[name='source'],[name='template'],[name='q']">
+                <option value="">All statuses</option>
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                        th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">OPEN</option>
+            </select>
+
+            <select class="ep-select ep-select-sm form-control-auto"
+                    name="severity"
+                    data-testid="quality-filter-severity"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
+                    hx-target="#quality-findings"
+                    hx-swap="innerHTML"
+                    hx-include="[name='status'],[name='source'],[name='template'],[name='q']">
+                <option value="">All severities</option>
+                <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${s.name()}"
+                        th:selected="${selectedSeverity != null && selectedSeverity.name() == s.name()}">ERROR</option>
+            </select>
+
+            <select class="ep-select ep-select-sm form-control-auto"
+                    name="source"
+                    data-testid="quality-filter-source"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
+                    hx-target="#quality-findings"
+                    hx-swap="innerHTML"
+                    hx-include="[name='status'],[name='severity'],[name='template'],[name='q']">
+                <option value="">All sources</option>
+                <!--/* Sources that have a bean here. A finding from a remote checker or a person
+                       still lists; it just has no entry to filter by until one exists. */-->
+                <option th:each="src : ${sources}" th:value="${src.id}" th:text="${src.name}"
+                        th:selected="${selectedSource != null && selectedSource == src.id}">Example checks</option>
+                <option value="manual" th:selected="${selectedSource == 'manual'}">Raised by hand</option>
+            </select>
+
+            <!--/*
+              Catalog, and by extension template: choosing a catalog re-runs the search AND
+              swaps the template picker below to that catalog's templates (out-of-band, on the
+              same response). The handler drops a template selection from another catalog as
+              stale, so the rows can never be filtered by a template the picker no longer offers.
+            */-->
+            <select class="ep-select ep-select-sm form-control-auto"
+                    name="catalog"
+                    data-testid="quality-filter-catalog"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
+                    hx-target="#quality-findings"
+                    hx-swap="innerHTML"
+                    hx-include="[name='status'],[name='severity'],[name='source'],[name='template'],[name='q']">
+                <option value="">All catalogs</option>
+                <option th:each="c : ${catalogs}" th:value="${c}" th:text="${c}"
+                        th:selected="${selectedCatalog != null && selectedCatalog == c}">default</option>
+            </select>
+
+            <th:block th:replace="~{quality/list :: template-filter}"></th:block>
+
+            <input type="search" name="q" class="ep-input ep-input-sm form-control-auto"
+                   placeholder="Search messages..."
+                   data-testid="quality-filter-search"
+                   th:value="${searchTerm}"
+                   hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
+                   hx-target="#quality-findings"
+                   hx-swap="innerHTML"
+                   hx-trigger="input changed delay:300ms, search"
+                   hx-include="[name='status'],[name='severity'],[name='source'],[name='template']" />
+        </div>
+
+        <div id="quality-findings">
+            <th:block th:fragment="findings">
+                <div th:if="${#lists.isEmpty(findings)}" class="empty-state" data-testid="quality-empty">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No findings</div>
+                    <div class="empty-state-description">Nothing to fix here — either your templates are clean, or no filter matches.</div>
+                </div>
+
+                <th:block th:if="${!#lists.isEmpty(findings)}">
+                    <table class="ep-table" data-testid="quality-table">
+                        <thead>
+                            <tr>
+                                <th>Severity</th>
+                                <th>Message</th>
+                                <th>Template</th>
+                                <th>Rule</th>
+                                <th>Source</th>
+                                <th>Status</th>
+                                <th>Last seen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="f : ${findings}" th:data-testid="'quality-row-' + ${f.key}">
+                                <td><th:block th:insert="~{quality/fragments/badges :: severity-badge(${f.severity})}" /></td>
+                                <td>
+                                    <a th:href="@{/tenants/{tenantId}/quality/{id}(tenantId=${tenantId},id=${f.key})}"
+                                       style="font-weight: 500;"
+                                       th:text="${f.message}">Message</a>
+                                </td>
+                                <!--/* Straight to the thing that is wrong. A report you cannot
+                                       navigate out of just makes you search for the template by
+                                       hand. Editor when the finding names a variant, template
+                                       page otherwise. */-->
+                                <td style="font-size: var(--ep-text-sm);">
+                                    <a
+                                       th:if="${f.variantKey != null}"
+                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey},variantId=${f.variantKey})}"
+                                       th:text="${f.templateKey}">invoice</a>
+                                    <a
+                                       th:unless="${f.variantKey != null}"
+                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey})}"
+                                       th:text="${f.templateKey}">invoice</a>
+                                </td>
+                                <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${f.ruleId}">example.empty-text</td>
+                                <td><th:block th:insert="~{quality/fragments/badges :: source-badge(${f.sourceId})}" /></td>
+                                <td><th:block th:insert="~{quality/fragments/badges :: status-badge(${f.effectiveStatus})}" /></td>
+                                <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${#temporals.format(f.lastSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <nav th:if="${totalPages > 1}" class="ep-pagination" aria-label="Quality findings pagination" data-testid="quality-pagination">
+                        <a th:if="${hasPrev}" class="ep-btn ep-btn-ghost ep-btn-sm"
+                           data-testid="pagination-prev"
+                           th:href="@{/tenants/{tenantId}/quality(tenantId=${tenantId},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           hx-target="#quality-findings"
+                           hx-swap="innerHTML">Previous</a>
+                        <span th:unless="${hasPrev}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Previous</span>
+
+                        <span class="ep-pagination-info" th:text="'Page ' + ${page} + ' of ' + ${totalPages} + ' (' + ${total} + ' findings)'"></span>
+
+                        <a th:if="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm"
+                           data-testid="pagination-next"
+                           th:href="@{/tenants/{tenantId}/quality(tenantId=${tenantId},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           hx-target="#quality-findings"
+                           hx-swap="innerHTML">Next</a>
+                        <span th:unless="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Next</span>
+                    </nav>
+                </th:block>
+            </th:block>
+        </div>
+
+        <!--/* data-open-dialog / data-close-dialog come from the app's behaviors.js — no inline
+               script anywhere, per the strict script-src CSP (ADR 0010). */-->
+        <dialog id="quality-manual-dialog" class="ep-dialog ep-dialog-wide" data-backdrop-close>
+            <div id="quality-manual-dialog-content">
+                <!-- Loaded via HTMX -->
+            </div>
+        </dialog>
+    </th:block>
+
+    <!--/*
+      The template picker, as its own fragment because /search swaps it out-of-band when the
+      catalog changes. `hx-swap-oob` and the id live on the element itself — an OOB response
+      replaces the whole element, so the fragment has to *be* the select, not its options.
+
+      Harmless on the initial render: hx-swap-oob is only read on a swapped-in response, and the
+      page includes this inline.
+    */-->
+    <select th:fragment="template-filter"
+            id="template-filter"
+            hx-swap-oob="outerHTML"
+            class="ep-select ep-select-sm form-control-auto"
+            name="template"
+            data-testid="quality-filter-template"
+            hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
+            hx-target="#quality-findings"
+            hx-swap="innerHTML"
+            hx-include="[name='status'],[name='severity'],[name='source'],[name='catalog'],[name='q']">
+        <option value="">All templates</option>
+        <!--/* catalogKey/templateKey: a template key is unique only within its catalog. */-->
+        <option th:each="t : ${templates}"
+                th:value="${t.catalogKey + '/' + t.id}"
+                th:text="${t.name}"
+                th:selected="${selectedTemplate != null && selectedTemplate == t.catalogKey + '/' + t.id}">Invoice</option>
+    </select>
+
+    <th:block th:fragment="quality-list-actions">
+        <button type="button" class="ep-btn ep-btn-primary"
+                data-testid="quality-raise-finding"
+                hx-get th:hx-get="@{/tenants/{tenantId}/quality/manual-form(tenantId=${tenantId})}"
+                hx-target="#quality-manual-dialog-content"
+                hx-swap="innerHTML"
+                data-open-dialog="quality-manual-dialog">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            Raise a finding
+        </button>
+    </th:block>
+</body>
+</html>

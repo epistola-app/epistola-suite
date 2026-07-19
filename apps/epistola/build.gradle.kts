@@ -40,6 +40,10 @@ dependencies {
     // Audit feature (PII-free "who did what, when" trail: recorder, viewer, schema)
     implementation(project(":modules:epistola-audit"))
 
+    // Quality checks — the findings ledger, its source SPI and the daily sweep. OSS feature,
+    // alpha and off by default (epistola.features.quality).
+    implementation(project(":modules:epistola-quality"))
+
     // Support module (optional commercial-tier hub integration; off by default)
     implementation(project(":modules:epistola-support"))
 
