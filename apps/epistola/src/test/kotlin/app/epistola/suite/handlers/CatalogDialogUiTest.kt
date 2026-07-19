@@ -23,7 +23,7 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
 
     private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/new$")
 
-    private val registerFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/subscribe$")
+    private val subscribeFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/subscribe$")
 
     private val importFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/import$")
 
@@ -57,7 +57,7 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `activating the Subscribe trigger opens the dialog and pushes the register URL`() {
+    fun `activating the Subscribe trigger opens the dialog and pushes the subscribe URL`() {
         val tenant = createTestTenant()
 
         gotoAndReady("/tenants/${tenant.id}/catalogs")
@@ -68,8 +68,8 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
         trigger.press("Enter")
 
         assertThat(page.locator("dialog[open]#subscribe-catalog-dialog")).isVisible()
-        // Opening the dialog pushes the shareable /…/register URL via hx-push-url.
-        assertThat(page).hasURL(registerFormUrlPattern)
+        // Opening the dialog pushes the shareable /…/subscribe URL via hx-push-url.
+        assertThat(page).hasURL(subscribeFormUrlPattern)
     }
 
     @Test

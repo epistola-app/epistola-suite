@@ -15,9 +15,9 @@
              environment (empty → populated) refreshes it via a single outerHTML
              OOB swap (dialogSuccess). The #environment-rows tbody + `rows`
              fragment stay INSIDE it so search/delete keep swapping just the rows.
-             NOTE: this fragment uses `auth`, and the OOB render path passes only
-             the fragment model (no global attributes) — so the handler must put
-             `auth` in the dialogSuccess model. -->
+             NOTE: this fragment uses `auth`; the OOB render path passes only the
+             fragment model, so the handler relies on HtmxFragmentModelContributor
+             to inject `auth`. -->
         <div id="environment-list" th:fragment="environment-list"
              th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
             <div th:if="${#lists.isEmpty(environments)}" class="empty-state">

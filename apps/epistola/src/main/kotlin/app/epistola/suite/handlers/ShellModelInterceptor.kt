@@ -18,7 +18,11 @@ import org.springframework.web.servlet.ModelAndView
  * paths can't drift. This interceptor adds, on top, the shell-only nav model
  * (`navGroups`, `activeNavSection`) when rendering `layout/shell`.
  *
- * Only applies to views that carry a `tenantId`.
+ * The [CommonViewModel] attributes are merged into EVERY view that renders (not
+ * just tenant-scoped ones) — `auth` and `isManager` are deliberately always
+ * present so templates never need null checks; only `tenantName` and the footer
+ * chrome are tenant-gated inside [CommonViewModel] itself. The extra nav model
+ * below is the part that requires a `tenantId`, and only on `layout/shell`.
  */
 @Component
 class ShellModelInterceptor(
