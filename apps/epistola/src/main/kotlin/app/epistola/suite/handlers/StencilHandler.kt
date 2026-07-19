@@ -185,7 +185,13 @@ class StencilHandler(
         requirePermission(tenantId.key, Permission.STENCIL_EDIT)
 
         val form = request.form {
-            field("catalog") {}
+            // Validated like any other field so a missing or malformed catalog
+            // lands in the dialog's error path rather than a bodyless 400 (which
+            // HTMX does not swap) or a CatalogKey.of throw (a 500).
+            field("catalog") {
+                required()
+                asCatalogId()
+            }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -193,8 +199,9 @@ class StencilHandler(
                 maxLength(50)
                 // Folds the old "invalid StencilKey" branch into field validation
                 // (same "Invalid stencil ID format" error) so all three failure
-                // modes share one error path. Layered ON TOP of the pattern/length
-                // rules above — strictly additive, never loosening them.
+                // modes share one error path. Reported only when no rule above
+                // failed first, so the specific message wins; what it adds beyond
+                // them is StencilKey's reserved-word rule.
                 asStencilId()
             }
             field("name") {
@@ -207,19 +214,22 @@ class StencilHandler(
             field("tags") {}
         }
 
-        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val description = form["description"].trim().takeIf { it.isNotEmpty() }
         val tags = form["tags"].split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-        // Field validation (incl. slug/StencilKey) and the command-level failure
-        // (duplicate slug, name length) both land as `errors` on the FormData, so
-        // they share one error path — mirroring DocumentTemplateHandler.create.
+        // Field validation (incl. catalog/CatalogKey and slug/StencilKey) and the
+        // command-level failure (duplicate slug, name length) both land as `errors`
+        // on the FormData, so they share one error path — mirroring
+        // DocumentTemplateHandler.create.
         val result = if (form.hasErrors()) {
             form
         } else {
             form.executeOrFormError {
                 CreateStencil(
-                    id = StencilId(StencilKey.validateOrNull(form["slug"])!!, CatalogId(catalogKey, tenantId)),
+                    id = StencilId(
+                        StencilKey.validateOrNull(form["slug"])!!,
+                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                    ),
                     name = form["name"],
                     description = description,
                     tags = tags,
@@ -258,7 +268,9 @@ class StencilHandler(
         // Success: navigate to the newly created stencil's page. The dialog
         // disappears with the old page (HX-Redirect), so the list is not refreshed.
         // onNonHtmx (boosted / history-restore only) redirects to the same page.
+        // Safe !!/of(): both fields were validated above and the create succeeded.
         val stencilKey = StencilKey.validateOrNull(form["slug"])!!
+        val catalogKey = CatalogKey.of(form["catalog"])
         val destination = "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey"
         return request.htmx {
             dialogRedirect(destination)

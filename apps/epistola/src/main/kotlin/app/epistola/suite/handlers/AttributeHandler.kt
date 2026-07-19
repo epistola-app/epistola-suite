@@ -81,7 +81,13 @@ class AttributeHandler {
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
 
         val form = request.form {
-            field("catalog") {}
+            // Validated like any other field so a missing or malformed catalog
+            // lands in the dialog's error path rather than a bodyless 400 (which
+            // HTMX does not swap) or a CatalogKey.of throw (a 500).
+            field("catalog") {
+                required()
+                asCatalogId()
+            }
             field("constraintKind") {}
             field("slug") {
                 required()
@@ -101,8 +107,6 @@ class AttributeHandler {
             field("codeList") {}
         }
 
-        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
-
         // Constraint parsing is preserved verbatim: constraintKind defaults to
         // "free"; the inline/code-list panes feed parseConstraint → the command.
         val constraintKind = form.formData["constraintKind"]?.ifBlank { null } ?: "free"
@@ -118,10 +122,13 @@ class AttributeHandler {
         } else {
             form.executeOrFormError {
                 CreateAttributeDefinition(
-                    // Safe !!: asAttributeId already rejected an invalid non-blank
-                    // slug, and required() rejected a blank one, so success is reached
-                    // only with a valid key.
-                    id = AttributeId(AttributeKey.validateOrNull(form["slug"])!!, CatalogId(catalogKey, tenantId)),
+                    // Safe !!/of(): required() rejected blank values and
+                    // asAttributeId()/asCatalogId() rejected malformed ones, so this
+                    // is reached only with a valid slug and catalog.
+                    id = AttributeId(
+                        AttributeKey.validateOrNull(form["slug"])!!,
+                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                    ),
                     displayName = form["displayName"],
                     allowedValues = allowedValues,
                     codeListId = codeListId,

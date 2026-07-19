@@ -153,6 +153,64 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `HTMX POST with a blank catalog reports it on the form instead of a bodyless 400`() = fixture {
+        // A blank catalog used to short-circuit to ServerResponse.badRequest() with no
+        // body. HTMX does not swap a 4xx by default, so the dialog just sat there and
+        // nothing told the user why — worse than the full-page 400 it replaced.
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Tpl Blank Catalog") }
+
+        whenever {
+            val form: MultiValueMap<String, String> = LinkedMultiValueMap()
+            form.add("catalog", "")
+            form.add("name", "Valid Name")
+            form.add("slug", "valid-slug")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/templates",
+                HttpEntity(form, htmxFormHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // Re-rendered into the dialog's form, like every other field error.
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
+            assertThat(response.body).contains("Catalog is required")
+        }
+    }
+
+    @Test
+    fun `HTMX POST with a malformed catalog reports it on the form instead of throwing`() = fixture {
+        // A malformed catalog reached CatalogKey.of un-validated, which throws
+        // IllegalArgumentException → 500. It is now an ordinary field error.
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Tpl Bad Catalog") }
+
+        whenever {
+            val form: MultiValueMap<String, String> = LinkedMultiValueMap()
+            form.add("catalog", "Not A Catalog")
+            form.add("name", "Valid Name")
+            form.add("slug", "valid-slug")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/templates",
+                HttpEntity(form, htmxFormHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
+            assertThat(response.body).contains("Invalid catalog ID format")
+        }
+    }
+
+    @Test
     fun `HTMX POST valid returns HX-Redirect to the new template page`() = fixture {
         lateinit var testTenant: Tenant
 

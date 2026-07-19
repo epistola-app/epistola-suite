@@ -132,7 +132,13 @@ class ThemeHandler(
         requirePermission(tenantId.key, Permission.THEME_EDIT)
 
         val form = request.form {
-            field("catalog") {}
+            // Validated like any other field so a missing or malformed catalog
+            // lands in the dialog's error path rather than a bodyless 400 (which
+            // HTMX does not swap) or a CatalogKey.of throw (a 500).
+            field("catalog") {
+                required()
+                asCatalogId()
+            }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -140,8 +146,8 @@ class ThemeHandler(
                 maxLength(20)
                 // Folds the old "invalid ThemeKey" branch into field validation
                 // (same "Invalid theme ID format" error) so all three failure
-                // modes share one error path. Layered ON TOP of the pattern/length
-                // rules above — strictly additive, never loosening them.
+                // modes share one error path. Reported only when no rule above
+                // failed first, so the specific message wins.
                 asThemeId()
             }
             field("name") {
@@ -151,18 +157,21 @@ class ThemeHandler(
             field("description") {}
         }
 
-        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val description = form["description"].trim().takeIf { it.isNotEmpty() }
 
-        // Field validation (incl. slug/ThemeKey) and the command-level failure
-        // (duplicate slug, name length) both land as `errors` on the FormData, so
-        // they share one error path — mirroring DocumentTemplateHandler.create.
+        // Field validation (incl. catalog/CatalogKey and slug/ThemeKey) and the
+        // command-level failure (duplicate slug, name length) both land as `errors`
+        // on the FormData, so they share one error path — mirroring
+        // DocumentTemplateHandler.create.
         val result = if (form.hasErrors()) {
             form
         } else {
             form.executeOrFormError {
                 CreateTheme(
-                    id = ThemeId(ThemeKey.validateOrNull(form["slug"])!!, CatalogId(catalogKey, tenantId)),
+                    id = ThemeId(
+                        ThemeKey.validateOrNull(form["slug"])!!,
+                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                    ),
                     name = form["name"],
                     description = description,
                 ).execute()
@@ -198,7 +207,9 @@ class ThemeHandler(
 
         // Success: navigate to the newly created theme's page. The dialog
         // disappears with the old page (HX-Redirect), so the list is not refreshed.
+        // Safe !!/of(): both fields were validated above and the create succeeded.
         val themeKey = ThemeKey.validateOrNull(form["slug"])!!
+        val catalogKey = CatalogKey.of(form["catalog"])
         val destination = "/tenants/${tenantId.key}/themes/$catalogKey/$themeKey"
         return request.htmx {
             dialogRedirect(destination)

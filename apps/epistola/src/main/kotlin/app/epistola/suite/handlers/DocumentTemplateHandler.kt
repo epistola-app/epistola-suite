@@ -262,7 +262,15 @@ class DocumentTemplateHandler(
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
 
         val form = request.form {
-            field("catalog") {}
+            // Validated like any other field so a missing or malformed catalog
+            // lands in the dialog's error path. It used to bypass the form: a blank
+            // value returned a bodyless 400 (which HTMX does not swap, so the dialog
+            // just froze with no explanation) and a malformed one reached
+            // CatalogKey.of and threw, i.e. a 500.
+            field("catalog") {
+                required()
+                asCatalogId()
+            }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -270,8 +278,9 @@ class DocumentTemplateHandler(
                 maxLength(50)
                 // Folds the old "invalid TemplateKey" branch into field validation
                 // (same "Invalid template ID format" error) so all three failure
-                // modes share one error path. Layered ON TOP of the pattern/length
-                // rules above — strictly additive, never loosening them.
+                // modes share one error path. Reported only when no rule above
+                // failed first, so the specific message wins; what it adds beyond
+                // them is TemplateKey's reserved-word rule.
                 asTemplateId()
             }
             field("name") {
@@ -279,17 +288,19 @@ class DocumentTemplateHandler(
             }
         }
 
-        val catalogId = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
-
-        // Field validation (incl. slug/TemplateKey) and the command-level failure
-        // (duplicate slug, name length) both land as `errors` on the FormData, so
-        // they share one error path — mirroring EnvironmentHandler.create.
+        // Field validation (incl. catalog/CatalogKey and slug/TemplateKey) and the
+        // command-level failure (duplicate slug, name length) both land as `errors`
+        // on the FormData, so they share one error path — mirroring
+        // EnvironmentHandler.create.
         val result = if (form.hasErrors()) {
             form
         } else {
             form.executeOrFormError {
                 CreateDocumentTemplate(
-                    id = TemplateId(TemplateKey.validateOrNull(form["slug"])!!, CatalogId(catalogId, tenantId)),
+                    id = TemplateId(
+                        TemplateKey.validateOrNull(form["slug"])!!,
+                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                    ),
                     name = form["name"],
                 ).execute()
             }
@@ -324,7 +335,9 @@ class DocumentTemplateHandler(
 
         // Success: navigate to the newly created template's page. The dialog
         // disappears with the old page (HX-Redirect), so the list is not refreshed.
+        // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
+        val catalogId = CatalogKey.of(form["catalog"])
         val destination = "/tenants/${tenantId.key}/templates/$catalogId/$templateKey"
         return request.htmx {
             dialogRedirect(destination)

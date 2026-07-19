@@ -28,7 +28,8 @@
           hx-target="#create-theme-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-theme-error')}"></div>
         <div class="ep-dialog-body">
-            <div th:if="${authoredCatalogs != null and !authoredCatalogs.isEmpty()}" class="form-group">
+            <div th:if="${authoredCatalogs != null and !authoredCatalogs.isEmpty()}" class="form-group"
+                 th:classappend="${errors?.containsKey('catalog')} ? 'error' : ''">
                 <label class="ep-label" for="catalog">Catalog</label>
                 <select id="catalog" name="catalog" class="ep-select">
                     <option th:each="cat : ${authoredCatalogs}"
@@ -36,6 +37,7 @@
                             th:text="${cat.name}"
                             th:selected="${#strings.equals(formData?.catalog, cat.id)}"></option>
                 </select>
+                <span class="form-error" th:if="${errors?.containsKey('catalog')}" th:text="${errors.catalog}"></span>
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                 <label class="ep-label" for="name">Name</label>

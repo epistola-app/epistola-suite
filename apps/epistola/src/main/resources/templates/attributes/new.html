@@ -33,7 +33,8 @@
           data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-attribute-error')}"></div>
         <div class="ep-dialog-body">
-            <div th:if="${authoredCatalogs != null && !authoredCatalogs.isEmpty()}" class="form-group">
+            <div th:if="${authoredCatalogs != null && !authoredCatalogs.isEmpty()}" class="form-group"
+                 th:classappend="${errors?.containsKey('catalog')} ? 'error' : ''">
                 <label class="ep-label" for="catalog">Catalog</label>
                 <select id="catalog" name="catalog" class="ep-select">
                     <option th:each="cat : ${authoredCatalogs}"
@@ -41,6 +42,7 @@
                             th:text="${cat.name}"
                             th:selected="${#strings.equals(formData?.catalog, cat.id)}"></option>
                 </select>
+                <span class="form-error" th:if="${errors?.containsKey('catalog')}" th:text="${errors.catalog}"></span>
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
                 <label class="ep-label" for="displayName">Display Name</label>
