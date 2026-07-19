@@ -224,9 +224,17 @@ class CatalogHandler {
      */
     private fun registerError(request: ServerRequest, message: String): ServerResponse = request.htmx {
         dialogFormError("subscribe-catalog-error", message)
+        // The subscribe form keeps a real no-JS fallback (method="post" th:action),
+        // so this branch is reachable — re-embed the dialog rather than dropping the
+        // user on a bare list with their URL/auth input gone. The dialog's
+        // form-error slot renders the message from the standardized `error` key
+        // (see epistola-web/form-error), so it shows INSIDE the reopened dialog
+        // instead of only in the list banner behind the modal backdrop.
         onNonHtmx {
             page(422, "catalogs/list") {
                 catalogPageModel(request)
+                "openDialog" to true
+                "openDialogFragment" to "catalogs/subscribe :: dialog"
                 "error" to message
             }
         }
@@ -778,11 +786,16 @@ class CatalogHandler {
     private fun importError(request: ServerRequest, error: String): ServerResponse = request.htmx {
         globalFormError("import-catalog-error", error)
         oob("catalogs/import", "import-error-reset")
+        // Defensive only: unlike the subscribe/create forms, the import form is
+        // HTMX-only (no method/action fallback — a file upload has nothing to
+        // restore on a re-render anyway), so a genuine non-HTMX POST cannot reach
+        // this. Kept consistent with registerError so the branch stays correct if a
+        // fallback is ever added; `error` renders in the dialog's form-error slot.
         onNonHtmx {
             page(422, "catalogs/list") {
-                "pageTitle" to "Catalogs - Epistola"
-                "activeNavSection" to "catalogs"
-                catalogListModel(request)
+                catalogPageModel(request)
+                "openDialog" to true
+                "openDialogFragment" to "catalogs/import :: dialog"
                 "error" to error
             }
         }

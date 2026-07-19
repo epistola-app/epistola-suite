@@ -64,6 +64,11 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         add("HX-Request", "true")
     }
 
+    /** A plain browser form POST — no HX-Request, i.e. the no-JS fallback path. */
+    private fun plainForm() = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_FORM_URLENCODED
+    }
+
     @Test
     fun `HTMX GET new returns the dialog fragment`() = fixture {
         lateinit var t: Tenant
@@ -255,6 +260,39 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             assertThat(response.headers.getFirst("HX-Retarget")).isNull()
             val body = response.body!!
+            assertThat(body).contains("id=\"subscribe-catalog-error\"")
+            assertThat(body).contains("Failed to register catalog")
+        }
+    }
+
+    @Test
+    fun `non-HTMX POST register invalid re-embeds the open dialog with the error inside it`() = fixture {
+        // The subscribe form keeps a real no-JS fallback (method="post" th:action), so
+        // this branch is reachable. It must put the user back INTO the dialog: dropping
+        // them on a bare list loses everything they typed, and the list's own error
+        // banner would sit behind the modal backdrop where it cannot be read.
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Subscribe NoJs") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, String>()
+            payload.add("sourceUrl", "classpath:epistola/catalogs/does-not-exist/catalog.json")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/subscribe",
+                HttpEntity(payload, plainForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            val body = response.body!!
+            // The subscribe dialog is embedded in the mount and opened on load…
+            assertThat(body).contains("id=\"subscribe-catalog-dialog\"")
+            assertThat(body).contains("id=\"subscribe-catalog-form\"")
+            // …and the message renders in the dialog's own form-error slot, which
+            // epistola-web/form-error fills from the standardized `error` model key.
             assertThat(body).contains("id=\"subscribe-catalog-error\"")
             assertThat(body).contains("Failed to register catalog")
         }
