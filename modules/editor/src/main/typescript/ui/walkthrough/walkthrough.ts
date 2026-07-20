@@ -15,8 +15,10 @@
  */
 import driverCss from 'driver.js/dist/driver.css?inline';
 import type { Driver, DriveStep } from 'driver.js';
-import { firstIncompleteTour, nextTour, tourById, type Tour } from './registry.js';
-import { markChapterComplete } from './progress.js';
+import { firstIncompleteTour, nextTour, tourById, TOURS, type Tour } from './registry.js';
+import { hasSeenIntro, markChapterComplete, markIntroSeen } from './progress.js';
+
+const GUIDE_TRIGGER = '[data-tour="guide-trigger"]';
 
 const STYLE_ID = 'ep-driver-css';
 
@@ -81,13 +83,49 @@ export async function startTour(host: HTMLElement, tourId: string): Promise<void
   if (tour) await runTour(host, tour);
 }
 
+/** Start at the first unfinished chapter, or replay from the top when all are done. */
+export async function startWalkthrough(host: HTMLElement): Promise<void> {
+  const tour = firstIncompleteTour() ?? TOURS[0];
+  if (tour) await runTour(host, tour);
+}
+
 /**
- * Start the walkthrough at the first chapter the user hasn't finished. No-op when
- * every chapter is complete, or when the editor chrome isn't present yet.
+ * First-run awareness nudge: a single driver.js spotlight on the Guide button,
+ * offering to start the tour or dismiss ("maybe later"). Not an auto-started
+ * tour — just a one-step coach-mark, shown once. No-op if already seen or if the
+ * Guide button isn't present.
  */
-export async function maybeStartEditorWalkthrough(host: HTMLElement): Promise<void> {
-  const tour = firstIncompleteTour();
-  if (!tour) return;
-  if (!host.querySelector('epistola-toolbar')) return;
-  await runTour(host, tour);
+export async function startIntro(host: HTMLElement): Promise<void> {
+  if (hasSeenIntro()) return;
+  if (!host.querySelector(GUIDE_TRIGGER)) return;
+
+  const { driver } = await import('driver.js');
+  ensureDriverStyles();
+
+  let d: Driver;
+  d = driver({
+    allowClose: true,
+    // Fires whether the user starts the tour or dismisses — either way, don't nag again.
+    onDestroyed: () => markIntroSeen(),
+    steps: [
+      {
+        element: GUIDE_TRIGGER,
+        popover: {
+          title: 'Take the tour',
+          description:
+            'New here? A short guided walkthrough of the editor lives in this Guide button — ' +
+            'start it now, or open it whenever you like.',
+          side: 'bottom',
+          align: 'end',
+          showButtons: ['next', 'close'],
+          doneBtnText: 'Start the tour',
+          onDoneClick: () => {
+            d.destroy();
+            void startWalkthrough(host);
+          },
+        },
+      },
+    ],
+  });
+  d.drive();
 }

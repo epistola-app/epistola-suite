@@ -341,25 +341,6 @@ export class EpistolaEditor extends LitElement {
     }
   }
 
-  override firstUpdated(): void {
-    this._maybeStartWalkthrough();
-  }
-
-  /**
-   * Kick off the guided walkthrough when the `editorWalkthrough` feature flag is
-   * on. The walkthrough module (and driver.js) sits behind this dynamic import,
-   * so nothing is downloaded when the flag is off. Deferred one frame so child
-   * chrome (the toolbar) has laid out before driver.js measures it.
-   */
-  private _maybeStartWalkthrough(): void {
-    if (!this._engine?.isFeatureEnabled('editorWalkthrough')) return;
-    requestAnimationFrame(() => {
-      void import('./walkthrough/walkthrough.js')
-        .then((m) => m.maybeStartEditorWalkthrough(this))
-        .catch((e) => console.warn('Editor walkthrough failed to start:', e));
-    });
-  }
-
   override disconnectedCallback(): void {
     window.removeEventListener('keydown', this._onKeydown);
     window.removeEventListener('copy', this._onCopy);

@@ -1,14 +1,22 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { maybeStartEditorWalkthrough } from './walkthrough.js';
-import { TOURS } from './registry.js';
-import { markChapterComplete } from './progress.js';
+import { startIntro, startTour } from './walkthrough.js';
+import { markIntroSeen } from './progress.js';
 
 const STYLE_ID = 'ep-driver-css';
 
-function makeHost(withChrome: boolean): HTMLElement {
+function styleCount(): number {
+  return document.querySelectorAll(`#${STYLE_ID}`).length;
+}
+
+function makeHost(opts: { guide?: boolean; chrome?: boolean } = {}): HTMLElement {
   const host = document.createElement('div');
-  if (withChrome) {
+  if (opts.guide) {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-tour', 'guide-trigger');
+    host.appendChild(btn);
+  }
+  if (opts.chrome) {
     host.appendChild(document.createElement('epistola-toolbar'));
     host.appendChild(document.createElement('epistola-sidebar'));
     host.appendChild(document.createElement('epistola-canvas'));
@@ -23,33 +31,43 @@ function reset(): void {
   document.getElementById(STYLE_ID)?.remove();
 }
 
-describe('maybeStartEditorWalkthrough', () => {
+describe('startIntro', () => {
   beforeEach(reset);
   afterEach(reset);
 
-  it('starts the walkthrough (injecting driver styles once) when a chapter is incomplete', async () => {
-    const host = makeHost(true);
-    await maybeStartEditorWalkthrough(host);
-    expect(document.querySelectorAll(`#${STYLE_ID}`)).toHaveLength(1);
+  it('spotlights the Guide button (injecting styles once) on first run', async () => {
+    const host = makeHost({ guide: true });
+    await startIntro(host);
+    expect(styleCount()).toBe(1);
   });
 
-  it('does nothing when every chapter is already complete', async () => {
-    for (const t of TOURS) markChapterComplete(t.id, t.version);
-    const host = makeHost(true);
-    await maybeStartEditorWalkthrough(host);
+  it('no-ops once the intro has been seen', async () => {
+    markIntroSeen();
+    const host = makeHost({ guide: true });
+    await startIntro(host);
     expect(document.getElementById(STYLE_ID)).toBeNull();
   });
 
-  it('does nothing when the editor chrome is absent', async () => {
-    const host = makeHost(false);
-    await maybeStartEditorWalkthrough(host);
+  it('no-ops when the Guide button is absent', async () => {
+    const host = makeHost({ guide: false });
+    await startIntro(host);
     expect(document.getElementById(STYLE_ID)).toBeNull();
   });
+});
 
-  it('does not inject a second style tag on a repeat start', async () => {
-    const host = makeHost(true);
-    await maybeStartEditorWalkthrough(host);
-    await maybeStartEditorWalkthrough(host);
-    expect(document.querySelectorAll(`#${STYLE_ID}`)).toHaveLength(1);
+describe('startTour', () => {
+  beforeEach(reset);
+  afterEach(reset);
+
+  it('runs a known chapter, injecting the driver styles once', async () => {
+    const host = makeHost({ chrome: true });
+    await startTour(host, 'orientation');
+    expect(styleCount()).toBe(1);
+  });
+
+  it('does nothing for an unknown chapter id', async () => {
+    const host = makeHost({ chrome: true });
+    await startTour(host, 'does-not-exist');
+    expect(document.getElementById(STYLE_ID)).toBeNull();
   });
 });

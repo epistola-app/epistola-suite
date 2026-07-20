@@ -10,7 +10,7 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { TOURS } from './registry.js';
-import { isChapterComplete } from './progress.js';
+import { hasSeenIntro, isChapterComplete } from './progress.js';
 
 interface ChapterView {
   id: string;
@@ -86,6 +86,19 @@ export class WalkthroughLauncher extends LitElement {
     document.removeEventListener('pointerdown', this._onDocPointerDown);
     document.removeEventListener('keydown', this._onKeydown);
     super.disconnectedCallback();
+  }
+
+  /** First-run awareness nudge pointing at this Guide button (shown once). */
+  override firstUpdated(): void {
+    if (hasSeenIntro()) return;
+    const host = this._host;
+    if (!host) return;
+    // Defer a frame so the button has laid out before driver.js measures it.
+    requestAnimationFrame(() => {
+      void import('./walkthrough.js')
+        .then((m) => m.startIntro(host))
+        .catch((e) => console.warn('Walkthrough intro failed to start:', e));
+    });
   }
 
   /** The editor root, used to scope the tour's spotlights. */
