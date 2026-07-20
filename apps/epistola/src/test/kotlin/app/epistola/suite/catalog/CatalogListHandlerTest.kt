@@ -145,8 +145,10 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Stay-on-list: close the dialog + OOB-refresh the list region.
-            assertThat(response.headers.getFirst("HX-Trigger")).isEqualTo("closeDialog")
+            // Stay-on-list: close the dialog + OOB-refresh the list region (the
+            // extra dialogSuccess event drives the app-shell search-box reset).
+            assertThat(response.headers.getFirst("HX-Trigger"))
+                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             val body = response.body!!
             assertThat(body).contains("id=\"catalog-list\"")
@@ -316,8 +318,10 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Stay-on-list: close the dialog + OOB-refresh the list region.
-            assertThat(response.headers.getFirst("HX-Trigger")).isEqualTo("closeDialog")
+            // Stay-on-list: close the dialog + OOB-refresh the list region (the
+            // extra dialogSuccess event drives the app-shell search-box reset).
+            assertThat(response.headers.getFirst("HX-Trigger"))
+                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             val body = response.body!!
             assertThat(body).contains("id=\"catalog-list\"")

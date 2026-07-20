@@ -276,19 +276,25 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         status(statusCode)
     }
 
+    private val triggers = linkedMapOf<String, String?>()
+
     /**
      * Triggers a client-side event after the response is processed.
+     *
+     * May be called more than once — all events accumulate onto the single
+     * `HX-Trigger` header (a later call for the same event replaces its detail,
+     * it does not clobber the other events).
      *
      * @param event The event name to trigger
      * @param detail Optional JSON detail to include with the event
      */
     fun trigger(event: String, detail: String? = null) {
-        val value = if (detail != null) {
-            """{"$event": $detail}"""
-        } else {
+        triggers[event] = detail
+        headers["HX-Trigger"] = if (triggers.size == 1 && triggers.values.single() == null) {
             event
+        } else {
+            triggers.entries.joinToString(", ", "{", "}") { (name, d) -> "\"$name\": ${d ?: "null"}" }
         }
-        headers["HX-Trigger"] = value
     }
 
     /**
@@ -345,9 +351,13 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * Success → refresh the list and CLOSE the dialog.
      *
      * OOB-swaps the list fragment (updates it by id wherever it sits on the
-     * page), emits `HX-Trigger("closeDialog")` so the app-shell listener closes
-     * the open dialog, and disables the primary swap (`HX-Reswap: none`) so the
-     * form's own target is left untouched while the dialog closes. 200.
+     * page), emits `HX-Trigger` with `closeDialog` (the app-shell listener closes
+     * the open dialog) plus a distinct `dialogSuccess` event (this specific
+     * outcome — "the list was just OOB-refreshed unfiltered" — for listeners that
+     * must not fire on the generic close other handlers also emit, e.g. the
+     * app-shell search-box reset), and disables the primary swap
+     * (`HX-Reswap: none`) so the form's own target is left untouched while the
+     * dialog closes. 200.
      *
      * The list fragment MUST render as an OOB swap: its root element needs an id
      * and `hx-swap-oob` (catalog's `catalog-list` fragment is the model — it
@@ -379,6 +389,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
             "oob" to true
         }
         trigger("closeDialog")
+        trigger("dialogSuccess")
         reswap(HxSwap.NONE)
         replaceUrl(listUrl)
         status(200)

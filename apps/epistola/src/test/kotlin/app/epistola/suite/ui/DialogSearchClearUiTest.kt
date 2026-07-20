@@ -6,9 +6,10 @@ import org.junit.jupiter.api.Test
 /**
  * CR6: a stay-on-list create (dialogSuccess) OOB-refreshes the list UNFILTERED, but
  * the header search box lives outside the swapped region and keeps the user's term —
- * leaving a stale term above rows that no longer match it. The shared closeDialog
- * handler clears the list search box on a successful create-close (and only then;
- * Cancel/ESC never fire closeDialog, so a cancelled create keeps the search).
+ * leaving a stale term above rows that no longer match it. The app-shell listener on
+ * the dialogSuccess trigger clears the list search box on a successful create (and
+ * only then: it is a distinct event from the generic closeDialog other handlers also
+ * emit, and Cancel/ESC fires neither, so a cancelled create keeps the search).
  */
 class DialogSearchClearUiTest : BasePlaywrightTest() {
 

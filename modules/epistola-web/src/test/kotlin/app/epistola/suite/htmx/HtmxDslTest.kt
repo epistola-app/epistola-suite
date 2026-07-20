@@ -152,6 +152,20 @@ class HtmxDslTest {
         }
 
         @Test
+        fun `multiple triggers accumulate onto one header`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list")
+                trigger("closeDialog")
+                trigger("dialogSuccess")
+            }.build()
+
+            assertThat(response.headers().getFirst("HX-Trigger"))
+                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
+        }
+
+        @Test
         fun `trigger with detail is set correctly`() {
             val request = createHtmxRequest()
 
@@ -280,7 +294,13 @@ class HtmxDslTest {
             val response = builder.build()
 
             assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers().getFirst("HX-Trigger")).isEqualTo("closeDialog")
+            // Both the generic close and the distinct success event ride one
+            // header: closeDialog closes the dialog; dialogSuccess carries the
+            // "list was just OOB-refreshed unfiltered" meaning for listeners
+            // (e.g. the app-shell search-box reset) that must NOT fire on the
+            // non-success closeDialog closes other handlers emit.
+            assertThat(response.headers().getFirst("HX-Trigger"))
+                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
             // Never swaps the primary target (the list refreshes via the OOB
             // fragment, and the dialog closes on the trigger).
             assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")

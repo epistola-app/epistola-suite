@@ -184,8 +184,10 @@ class EnvironmentHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Server-driven close.
-            assertThat(response.headers.getFirst("HX-Trigger")).isEqualTo("closeDialog")
+            // Server-driven close, plus the distinct success event the search-box
+            // reset listens on (never emitted by non-success closeDialog closes).
+            assertThat(response.headers.getFirst("HX-Trigger"))
+                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
             // No primary swap: the list refreshes out-of-band.
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             // The OOB list fragment carries its id + hx-swap-oob and the new row.
