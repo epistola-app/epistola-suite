@@ -9,6 +9,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
 import app.epistola.suite.handlers.decorateVariants
@@ -318,6 +320,14 @@ class DocumentTemplateHandler(
         // raced against a wall clock. Absent in production → attribute omitted.
         val leaderTiming = request.queryParam("leaderTiming")?.ifBlank { null }
 
+        // Editor-facing feature flags: resolve the tenant's toggles and forward
+        // the editor-scoped ones to `mountEditor` (see EditorFeatureFlags). Keys
+        // are the flag names the editor bundle reads, not the backend keys.
+        val toggles = ResolveFeatureToggles(tenantId.key).query()
+        val featureFlags = mapOf(
+            "editorWalkthrough" to (toggles[KnownFeatures.EDITOR_WALKTHROUGH] == true),
+        )
+
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
@@ -332,6 +342,7 @@ class DocumentTemplateHandler(
                 "dataModel" to context.dataModel,
                 "leaderTiming" to leaderTiming,
                 "resolvedLocale" to resolvedLocale,
+                "featureFlags" to featureFlags,
             ),
         )
     }
