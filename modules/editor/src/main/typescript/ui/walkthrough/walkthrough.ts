@@ -1,40 +1,24 @@
 /**
- * Guided editor walkthrough (driver.js).
+ * Guided editor walkthrough (driver.js) — chapter runner.
+ *
+ * The walkthrough is a registry of small chapters (see {@link ./registry}). This
+ * module drives one chapter at a time and chains to the next on completion.
  *
  * This whole module is behind a gated dynamic import in {@link EpistolaEditor}:
- * it is only ever downloaded when the `editorWalkthrough` feature flag is on, so
- * driver.js and its CSS cost nothing when the feature is off.
+ * it (and driver.js) only download when the `editorWalkthrough` feature flag is
+ * on. driver.js's value is itself `await import`ed here so it stays a separate
+ * lazy chunk; its types are erased type-only imports.
  *
  * driver.css is imported with Vite's `?inline` suffix and injected as a single
- * <style> element rather than emitted as a separate stylesheet — this keeps the
- * CSS inside this lazy chunk (loaded only with the flag) and avoids lib-mode
- * async-CSS link-injection quirks. `style-src` permits inline styles (ADR 0010).
- *
- * We start small: one step. The `steps` array is the extension point — add more
- * entries here as the tour grows.
+ * <style> rather than emitted as a stylesheet — keeps the CSS inside this lazy
+ * chunk and avoids lib-mode async-CSS quirks. `style-src` permits inline styles.
  */
 import driverCss from 'driver.js/dist/driver.css?inline';
+import type { Driver, DriveStep } from 'driver.js';
+import { firstIncompleteTour, nextTour, tourById, type Tour } from './registry.js';
+import { markChapterComplete } from './progress.js';
 
-/** Bumped when the tour changes materially, so returning users see it again. */
-const SEEN_KEY = 'ep:editor-walkthrough:v1';
 const STYLE_ID = 'ep-driver-css';
-
-function hasSeenWalkthrough(): boolean {
-  try {
-    return localStorage.getItem(SEEN_KEY) === 'true';
-  } catch {
-    // localStorage may be unavailable (private mode, etc.) — treat as unseen.
-    return false;
-  }
-}
-
-function markWalkthroughSeen(): void {
-  try {
-    localStorage.setItem(SEEN_KEY, 'true');
-  } catch {
-    // Non-fatal: the tour simply shows again next time.
-  }
-}
 
 function ensureDriverStyles(): void {
   if (document.getElementById(STYLE_ID)) return;
@@ -44,40 +28,66 @@ function ensureDriverStyles(): void {
   document.head.appendChild(style);
 }
 
-/**
- * Start the walkthrough for a first-time visitor of this editor instance.
- *
- * No-ops if the user has already seen the current tour, or if the target chrome
- * is not present yet. `host` is the `<epistola-editor>` root; the tour is scoped
- * to elements within it.
- */
-export async function maybeStartEditorWalkthrough(host: HTMLElement): Promise<void> {
-  if (hasSeenWalkthrough()) return;
-
-  const toolbar = host.querySelector('epistola-toolbar');
-  if (!toolbar) return;
-
+/** Run a single chapter, chaining to the next chapter when the user finishes it. */
+async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   const { driver } = await import('driver.js');
   ensureDriverStyles();
 
-  const tour = driver({
-    allowClose: true,
-    showProgress: false,
-    // Fires on both completion and dismissal — either way, don't nag again.
-    onDestroyed: () => markWalkthroughSeen(),
-    steps: [
-      {
-        element: toolbar,
-        popover: {
-          title: 'Welcome to the editor',
-          description:
-            'This is the toolbar — save your work, open the live preview, and ' +
-            'switch modes from here. More of the editor will be covered as this ' +
-            'tour grows.',
-        },
+  const upcoming = nextTour(tour.id);
+  let d: Driver;
+
+  const steps: DriveStep[] = tour.steps(host).map((step, i, all) => {
+    const isLast = i === all.length - 1;
+    return {
+      element: step.target,
+      onHighlightStarted: step.before ? () => step.before?.(host) : undefined,
+      popover: {
+        title: step.title,
+        description: step.body,
+        side: step.side,
+        align: 'start',
+        // The last step's Done button both records completion and, if there is a
+        // next chapter, chains straight into it — the "level up" affordance. The
+        // X (onCloseClick, default) just dismisses without marking complete.
+        ...(isLast
+          ? {
+              doneBtnText: upcoming ? `Next: ${upcoming.title} →` : 'Done',
+              onDoneClick: () => {
+                markChapterComplete(tour.id, tour.version);
+                d.destroy();
+                if (upcoming) void runTour(host, upcoming);
+              },
+            }
+          : {}),
       },
-    ],
+      skipMissingElement: true,
+    };
   });
 
-  tour.drive();
+  if (steps.length === 0) return;
+
+  d = driver({
+    showProgress: true,
+    progressText: '{{current}} of {{total}}',
+    allowClose: true,
+    steps,
+  });
+  d.drive();
+}
+
+/** Start a specific chapter by id (used by the Guide launcher). No-op if unknown. */
+export async function startTour(host: HTMLElement, tourId: string): Promise<void> {
+  const tour = tourById(tourId);
+  if (tour) await runTour(host, tour);
+}
+
+/**
+ * Start the walkthrough at the first chapter the user hasn't finished. No-op when
+ * every chapter is complete, or when the editor chrome isn't present yet.
+ */
+export async function maybeStartEditorWalkthrough(host: HTMLElement): Promise<void> {
+  const tour = firstIncompleteTour();
+  if (!tour) return;
+  if (!host.querySelector('epistola-toolbar')) return;
+  await runTour(host, tour);
 }

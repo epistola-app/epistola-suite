@@ -278,6 +278,7 @@ export class EpistolaToolbar extends LitElement {
               <div class="toolbar-separator"></div>
               <button
                 class="toolbar-btn ${this.previewOpen ? 'active' : ''}"
+                data-tour="preview-toggle"
                 @click=${this._handleTogglePreview}
                 title="${this.previewOpen ? 'Hide preview' : 'Show preview'}"
               >
@@ -373,6 +374,7 @@ export class EpistolaToolbar extends LitElement {
       <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
         <button
           class=${cssClass}
+          data-tour="save"
           ?disabled=${disabled}
           @click=${this._handleForceSave}
           title=${title}
