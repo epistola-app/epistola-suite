@@ -77,6 +77,18 @@ class ModelBuilder {
         model[this] = value
     }
 
+    /**
+     * Adds every entry of [entries] to the model.
+     *
+     * Use this to spread a prebuilt map — NOT `entries.forEach { (k, v) -> k to v }`,
+     * which only works through the member-extension overload resolution described
+     * in the class KDoc: lift that loop out of the `ModelBuilder` receiver scope
+     * and it silently degrades to constructing and discarding stdlib `Pair`s.
+     */
+    fun putAll(entries: Map<String, Any?>) {
+        model.putAll(entries)
+    }
+
     internal fun build(): Map<String, Any?> = model.toMap()
 }
 

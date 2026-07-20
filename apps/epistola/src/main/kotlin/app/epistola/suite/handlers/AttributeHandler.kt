@@ -56,21 +56,27 @@ class AttributeHandler {
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        // Fragment models are lazy, so only the branch that renders evaluates —
+        // one ListCatalogs and one ListCodeLists per request, shared by the list
+        // filter and the dialog's two <select>s.
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        val codeLists by lazy { ListCodeLists(tenantId).query() }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("attributes/new", "dialog") {
                 "tenantId" to tenantId.key
-                "authoredCatalogs" to authoredCatalogs(tenantId)
-                "codeLists" to ListCodeLists(tenantId).query()
+                "authoredCatalogs" to authoredCatalogs
+                "codeLists" to codeLists
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
             onNonHtmx {
                 page("attributes/list") {
-                    attributePageModel(tenantId)
+                    attributePageModel(tenantId, allCatalogs)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
-                    "codeLists" to ListCodeLists(tenantId).query()
+                    "authoredCatalogs" to authoredCatalogs
+                    "codeLists" to codeLists
                 }
             }
         }
@@ -299,9 +305,6 @@ class AttributeHandler {
         }
     }
 
-    /** The catalogs an attribute can be created in — authored ones only. */
-    private fun authoredCatalogs(tenantId: TenantId) = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-
     /**
      * The full-page list model, used by the newForm / create non-HTMX branches so
      * the list renders behind the embedded create dialog. `authoredCatalogs` (the
@@ -311,7 +314,7 @@ class AttributeHandler {
      */
     private fun ModelBuilder.attributePageModel(
         tenantId: TenantId,
-        catalogs: List<Catalog> = ListCatalogs(tenantId.key).query(),
+        catalogs: List<Catalog>,
     ) {
         "pageTitle" to "Attributes - Epistola"
         "tenant" to GetTenant(tenantId.key).query()

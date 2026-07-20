@@ -1,5 +1,6 @@
 package app.epistola.suite.themes
 
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
@@ -87,9 +88,6 @@ class ThemeHandler(
         }
     }
 
-    /** The catalogs a theme can be created in — authored ones only. */
-    private fun authoredCatalogs(tenantId: TenantId) = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-
     /**
      * The full-page list model, used by the newForm / create non-HTMX branches so
      * the list renders behind the embedded create dialog. `authoredCatalogs` (the
@@ -97,11 +95,11 @@ class ThemeHandler(
      * *all* `catalogs` in the model for its filter, so the dialog uses a distinct
      * key to avoid rendering the wrong (non-authored) options.
      */
-    private fun ModelBuilder.themePageModel(tenantId: TenantId) {
+    private fun ModelBuilder.themePageModel(tenantId: TenantId, catalogs: List<Catalog>) {
         "pageTitle" to "Themes - Epistola"
         "tenantId" to tenantId.key
         "tenant" to GetTenant(id = tenantId.key).query()
-        "catalogs" to ListCatalogs(tenantId.key).query()
+        "catalogs" to catalogs
         "selectedCatalog" to ""
         "themes" to ListThemes(tenantId = tenantId).query()
     }
@@ -109,19 +107,24 @@ class ThemeHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.THEME_EDIT)
+        // Fragment models are lazy, so only the branch that renders evaluates —
+        // one ListCatalogs per request, shared by the list filter and the
+        // dialog's authored-only <select>.
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("themes/new", "dialog") {
                 "tenantId" to tenantId.key
-                "authoredCatalogs" to authoredCatalogs(tenantId)
+                "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
             onNonHtmx {
                 page("themes/list") {
-                    themePageModel(tenantId)
+                    themePageModel(tenantId, allCatalogs)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -179,6 +182,9 @@ class ThemeHandler(
         }
 
         if (result.hasErrors()) {
+            // One ListCatalogs whichever branch renders (fragment models are lazy).
+            val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+            val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
                 // the list) with inline errors + preserved values. `tenantId` and
@@ -191,13 +197,13 @@ class ThemeHandler(
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                    "authoredCatalogs" to authoredCatalogs
                 }
                 onNonHtmx {
                     page(422, "themes/list") {
-                        themePageModel(tenantId)
+                        themePageModel(tenantId, allCatalogs)
                         "openDialog" to true
-                        "authoredCatalogs" to authoredCatalogs(tenantId)
+                        "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
                         "errors" to result.errors
                     }

@@ -1,6 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
@@ -134,7 +135,7 @@ class DocumentTemplateHandler(
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "catalogs" to catalogs
-            model.forEach { (key, value) -> key to value }
+            putAll(model)
         }
     }
 
@@ -143,7 +144,7 @@ class DocumentTemplateHandler(
         val model = templateListModel(request, tenantId)
         return request.htmx {
             fragment("templates/list", "table") {
-                model.forEach { (key, value) -> key to value }
+                putAll(model)
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
         }
@@ -220,9 +221,6 @@ class DocumentTemplateHandler(
     /** Number of pages for [total] rows at [PAGE_SIZE] per page (min 1). */
     private fun pageCount(total: Int): Int = if (total == 0) 1 else ((total + PAGE_SIZE - 1) / PAGE_SIZE)
 
-    /** The catalogs a template can be created in — authored ones only. */
-    private fun authoredCatalogs(tenantId: TenantId) = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-
     /**
      * The full-page list model, used by the newForm / create non-HTMX branches
      * so the list renders behind the embedded create dialog. `authoredCatalogs`
@@ -230,28 +228,37 @@ class DocumentTemplateHandler(
      * already puts *all* `catalogs` in the model for its filter, so the dialog
      * uses a distinct key to avoid rendering the wrong (non-authored) options.
      */
-    private fun ModelBuilder.templatePageModel(request: ServerRequest, tenantId: TenantId) {
+    private fun ModelBuilder.templatePageModel(
+        request: ServerRequest,
+        tenantId: TenantId,
+        catalogs: List<Catalog>,
+    ) {
         "pageTitle" to "Document Templates - Epistola"
-        "catalogs" to ListCatalogs(tenantId.key).query()
-        templateListModel(request, tenantId).forEach { (key, value) -> key to value }
+        "catalogs" to catalogs
+        putAll(templateListModel(request, tenantId))
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        // Fragment models are lazy, so only the branch that renders evaluates —
+        // one ListCatalogs per request, shared by the list filter and the
+        // dialog's authored-only <select>.
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("templates/new", "dialog") {
                 "tenantId" to tenantId.key
-                "authoredCatalogs" to authoredCatalogs(tenantId)
+                "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
             onNonHtmx {
                 page("templates/list") {
-                    templatePageModel(request, tenantId)
+                    templatePageModel(request, tenantId, allCatalogs)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -307,6 +314,9 @@ class DocumentTemplateHandler(
         }
 
         if (result.hasErrors()) {
+            // One ListCatalogs whichever branch renders (fragment models are lazy).
+            val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+            val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
                 // the list) with inline errors + preserved values. `tenantId` and
@@ -319,13 +329,13 @@ class DocumentTemplateHandler(
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                    "authoredCatalogs" to authoredCatalogs
                 }
                 onNonHtmx {
                     page(422, "templates/list") {
-                        templatePageModel(request, tenantId)
+                        templatePageModel(request, tenantId, allCatalogs)
                         "openDialog" to true
-                        "authoredCatalogs" to authoredCatalogs(tenantId)
+                        "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
                         "errors" to result.errors
                     }

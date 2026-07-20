@@ -66,20 +66,24 @@ class CodeListHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        // Fragment models are lazy, so only the branch that renders evaluates —
+        // one ListCatalogs per request, shared by the list filter and the
+        // dialog's authored-only <select>.
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("code-lists/new", "dialog") {
                 "tenantId" to tenantId.key
-                "authoredCatalogs" to authoredCatalogs(tenantId)
+                "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
             onNonHtmx {
-                val allCatalogs = ListCatalogs(tenantId.key).query()
                 page("code-lists/list") {
                     codeListPageModel(tenantId, allCatalogs)
                     "openDialog" to true
-                    "authoredCatalogs" to allCatalogs.filter { it.type == CatalogType.AUTHORED }
+                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -166,24 +170,28 @@ class CodeListHandler(
         request: ServerRequest,
         formData: FormData,
         tenantId: TenantId,
-    ): ServerResponse = request.htmx {
-        dialogFieldErrors(
-            template = "code-lists/new",
-            fragmentName = "code-list-form",
-            formTarget = "#create-code-list-form",
-            formData = formData,
-        ) {
-            "tenantId" to tenantId.key
-            "authoredCatalogs" to authoredCatalogs(tenantId)
-        }
-        onNonHtmx {
-            val allCatalogs = ListCatalogs(tenantId.key).query()
-            page(422, "code-lists/list") {
-                codeListPageModel(tenantId, allCatalogs)
-                "openDialog" to true
-                "authoredCatalogs" to allCatalogs.filter { it.type == CatalogType.AUTHORED }
-                "formData" to formData.formData
-                "errors" to formData.errors
+    ): ServerResponse {
+        // One ListCatalogs whichever branch renders (fragment models are lazy).
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        return request.htmx {
+            dialogFieldErrors(
+                template = "code-lists/new",
+                fragmentName = "code-list-form",
+                formTarget = "#create-code-list-form",
+                formData = formData,
+            ) {
+                "tenantId" to tenantId.key
+                "authoredCatalogs" to authoredCatalogs
+            }
+            onNonHtmx {
+                page(422, "code-lists/list") {
+                    codeListPageModel(tenantId, allCatalogs)
+                    "openDialog" to true
+                    "authoredCatalogs" to authoredCatalogs
+                    "formData" to formData.formData
+                    "errors" to formData.errors
+                }
             }
         }
     }
@@ -287,9 +295,6 @@ class CodeListHandler(
         }
     }
 
-    /** The catalogs a code list can be created in — authored ones only. */
-    private fun authoredCatalogs(tenantId: TenantId) = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-
     /**
      * The full-page list model, used by the newForm / create non-HTMX branches so
      * the list renders behind the embedded create dialog. `authoredCatalogs` (the
@@ -299,7 +304,7 @@ class CodeListHandler(
      */
     private fun ModelBuilder.codeListPageModel(
         tenantId: TenantId,
-        catalogs: List<Catalog> = ListCatalogs(tenantId.key).query(),
+        catalogs: List<Catalog>,
     ) {
         "pageTitle" to "Code lists - Epistola"
         "tenant" to GetTenant(tenantId.key).query()

@@ -1,5 +1,6 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
@@ -110,9 +111,6 @@ class StencilHandler(
 
     // ── Create ─────────────────────────────────────────────────────────────
 
-    /** The catalogs a stencil can be created in — authored ones only. */
-    private fun authoredCatalogs(tenantId: TenantId) = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-
     /**
      * The full-page list model, used by the newForm non-HTMX branch so the list
      * renders behind the embedded create dialog. `authoredCatalogs` (the dialog's
@@ -120,10 +118,10 @@ class StencilHandler(
      * `catalogs` in the model for its filter, so the dialog uses a distinct key to
      * avoid rendering the wrong (non-authored) options.
      */
-    private fun ModelBuilder.stencilPageModel(tenantId: TenantId) {
+    private fun ModelBuilder.stencilPageModel(tenantId: TenantId, catalogs: List<Catalog>) {
         "pageTitle" to "Stencils - Epistola"
         "tenantId" to tenantId.key
-        "catalogs" to ListCatalogs(tenantId.key).query()
+        "catalogs" to catalogs
         "selectedCatalog" to ""
         "stencils" to ListStencils(tenantId = tenantId).query()
     }
@@ -131,19 +129,24 @@ class StencilHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.STENCIL_EDIT)
+        // Fragment models are lazy, so only the branch that renders evaluates —
+        // one ListCatalogs per request, shared by the list filter and the
+        // dialog's authored-only <select>.
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("stencils/new", "dialog") {
                 "tenantId" to tenantId.key
-                "authoredCatalogs" to authoredCatalogs(tenantId)
+                "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
             onNonHtmx {
                 page("stencils/list") {
-                    stencilPageModel(tenantId)
+                    stencilPageModel(tenantId, allCatalogs)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -238,6 +241,9 @@ class StencilHandler(
         }
 
         if (result.hasErrors()) {
+            // One ListCatalogs whichever branch renders (fragment models are lazy).
+            val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+            val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             // Re-render the form inside the dialog (retargeted to the form, not the
             // list) with inline errors + preserved values. The onNonHtmx fallback
             // (boosted / history-restore only — see the function KDoc) re-renders the
@@ -251,13 +257,13 @@ class StencilHandler(
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
-                    "authoredCatalogs" to authoredCatalogs(tenantId)
+                    "authoredCatalogs" to authoredCatalogs
                 }
                 onNonHtmx {
                     page(422, "stencils/list") {
-                        stencilPageModel(tenantId)
+                        stencilPageModel(tenantId, allCatalogs)
                         "openDialog" to true
-                        "authoredCatalogs" to authoredCatalogs(tenantId)
+                        "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
                         "errors" to result.errors
                     }
