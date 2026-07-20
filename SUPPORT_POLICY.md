@@ -17,11 +17,11 @@ not long-term maintenance of old versions.
 
 Epistola uses [Semantic Versioning](https://semver.org/).
 
-| Change | Version | Meaning |
-| ------ | ------- | ------- |
-| **Patch** (`x.y.z`) | Bug fixes, security fixes | No breaking changes |
-| **Minor** (`x.y.0`) | New functionality | Backwards compatible within the same major version |
-| **Major** (`x.0.0`) | May include breaking changes | Migration guidance is always provided |
+| Change              | Version                      | Meaning                                            |
+| ------------------- | ---------------------------- | -------------------------------------------------- |
+| **Patch** (`x.y.z`) | Bug fixes, security fixes    | No breaking changes                                |
+| **Minor** (`x.y.0`) | New functionality            | Backwards compatible within the same major version |
+| **Major** (`x.0.0`) | May include breaking changes | Migration guidance is always provided              |
 
 ## Release cadence
 
