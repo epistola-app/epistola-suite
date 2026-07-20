@@ -104,6 +104,29 @@ class HtmxDslTest {
         }
 
         @Test
+        fun `fragment model lambdas are not evaluated when the non-HTMX branch discards the fragments`() {
+            val request = createNonHtmxRequest()
+            var evaluations = 0
+
+            HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    evaluations++
+                    "items" to listOf("a")
+                }
+                oob("templates/list", "count") {
+                    evaluations++
+                    "total" to 1
+                }
+                onNonHtmx { redirect("/templates") }
+            }.build()
+
+            // The non-HTMX / boosted / history-restore branch renders the
+            // onNonHtmx page and throws every fragment away — the (potentially
+            // query-issuing) model lambdas must not run for it.
+            assertThat(evaluations).isZero()
+        }
+
+        @Test
         fun `HTMX request with single fragment returns OK`() {
             val request = createHtmxRequest()
 

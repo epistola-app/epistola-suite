@@ -17,17 +17,21 @@ import jakarta.servlet.http.HttpServletRequest
  *
  * Contract: **the fragment's own model always wins** — a contributor must never
  * override a key the handler explicitly set. Contributions are additive globals,
- * not overrides.
+ * not overrides. They are also **request-scoped**: [contribute] is called ONCE
+ * per response (against the union of all fragment models), not once per
+ * fragment, so an implementation that queries (e.g. resolving the tenant) pays
+ * once however many fragments the response carries.
  */
 interface FragmentModelContributor {
     /**
-     * Extra model attributes to merge into [fragmentModel] before rendering.
-     * Keys already present in [fragmentModel] take precedence and must not be
-     * clobbered by the caller.
+     * Extra model attributes to merge into every fragment's model before
+     * rendering. Keys already present in a fragment's own model take precedence
+     * and must not be clobbered by the caller.
      *
      * @param request the current HTTP request (for host apps that read request
      *   state; implementations may read the tenant from [fragmentModel] instead).
-     * @param fragmentModel the model the handler built for this fragment.
+     * @param fragmentModel the union of the models of all fragments in the
+     *   response (first fragment wins on duplicate keys).
      */
     fun contribute(request: HttpServletRequest, fragmentModel: Map<String, Any?>): Map<String, Any?>
 }

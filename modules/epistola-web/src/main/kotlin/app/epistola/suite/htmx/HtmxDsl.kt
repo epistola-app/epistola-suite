@@ -14,17 +14,32 @@ annotation class HtmxDsl
 /**
  * A fragment to be rendered in the HTMX response.
  *
+ * The model is built lazily on first access: [HtmxResponseBuilder.build] routes
+ * non-HTMX, boosted, and history-restore requests to the full-page branch, which
+ * discards fragments entirely — a model built eagerly at `fragment()`/`oob()`
+ * call time (often issuing queries) would be paid for and thrown away on those
+ * requests.
+ *
  * @property template The Thymeleaf template path
  * @property fragmentName The fragment name within the template (null for full template)
  * @property model The model attributes for this fragment
  * @property isOob Whether this is an Out-of-Band swap fragment
  */
-data class HtmxFragment(
+class HtmxFragment(
     val template: String,
     val fragmentName: String?,
-    val model: Map<String, Any?>,
+    modelSupplier: () -> Map<String, Any?>,
     val isOob: Boolean = false,
-)
+) {
+    constructor(
+        template: String,
+        fragmentName: String?,
+        model: Map<String, Any?>,
+        isOob: Boolean = false,
+    ) : this(template, fragmentName, { model }, isOob)
+
+    val model: Map<String, Any?> by lazy(LazyThreadSafetyMode.NONE, modelSupplier)
+}
 
 /**
  * Builder for constructing model maps in a DSL-friendly way.
@@ -155,8 +170,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         fragmentName: String? = null,
         model: ModelBuilder.() -> Unit = {},
     ) {
-        val modelMap = ModelBuilder().apply(model).build()
-        fragments.add(HtmxFragment(template, fragmentName, modelMap, isOob = false))
+        fragments.add(HtmxFragment(template, fragmentName, { ModelBuilder().apply(model).build() }, isOob = false))
         if (fullTemplate == null) {
             fullTemplate = template
         }
@@ -177,8 +191,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         fragmentName: String? = null,
         model: ModelBuilder.() -> Unit = {},
     ) {
-        val modelMap = ModelBuilder().apply(model).build()
-        fragments.add(HtmxFragment(template, fragmentName, modelMap, isOob = true))
+        fragments.add(HtmxFragment(template, fragmentName, { ModelBuilder().apply(model).build() }, isOob = true))
     }
 
     /**
@@ -600,18 +613,30 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
             val engine = webAppContext.getBean(org.thymeleaf.spring6.SpringTemplateEngine::class.java)
             // Global model contributors re-inject what HandlerInterceptors would
             // add on a normal view render (this engine-direct path skips them):
-            // auth, feature flags, footer chrome, … The fragment's own model
-            // always wins (merged last).
+            // auth, feature flags, footer chrome, … Contributions are
+            // request-scoped (they cannot differ between fragments of one
+            // response), so they are computed ONCE against the union of all
+            // fragment models — not per fragment, where a contributor that
+            // queries (e.g. GetTenant) would pay per fragment. The fragment's
+            // own model always wins (merged last).
             val contributors = webAppContext.getBeansOfType(FragmentModelContributor::class.java).values
+            val contributions: Map<String, Any?> = if (contributors.isEmpty()) {
+                emptyMap()
+            } else {
+                val unionModel = LinkedHashMap<String, Any?>()
+                allFragments.forEach { fragment ->
+                    fragment.model.forEach { (key, value) -> if (key !in unionModel) unionModel[key] = value }
+                }
+                val merged = LinkedHashMap<String, Any?>()
+                contributors.forEach { merged.putAll(it.contribute(request, unionModel)) }
+                merged
+            }
 
             for (fragment in allFragments) {
-                val variables: Map<String, Any?> = if (contributors.isEmpty()) {
+                val variables: Map<String, Any?> = if (contributions.isEmpty()) {
                     fragment.model
                 } else {
-                    val merged = LinkedHashMap<String, Any?>()
-                    contributors.forEach { merged.putAll(it.contribute(request, fragment.model)) }
-                    merged.putAll(fragment.model)
-                    merged
+                    LinkedHashMap<String, Any?>(contributions).apply { putAll(fragment.model) }
                 }
                 val context = org.thymeleaf.context.WebContext(
                     application.buildExchange(request, response),
