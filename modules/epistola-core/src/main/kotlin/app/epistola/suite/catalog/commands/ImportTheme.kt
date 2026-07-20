@@ -12,6 +12,8 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -30,6 +32,12 @@ data class ImportTheme(
     RequiresPermission {
     override val permission get() = Permission.THEME_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
+
+    init {
+        // Column ceiling (#692), not the tighter interactive MAX_NAME_LENGTH: imported
+        // content that fits themes.name VARCHAR(255) must keep importing.
+        validate("name", name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
+    }
 }
 
 @Component
