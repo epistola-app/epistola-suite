@@ -7,9 +7,24 @@
  *    so bumping a chapter's version re-surfaces just that chapter for people who
  *    finished the older one;
  *  - whether the first-run intro coach-mark has been shown.
+ *
+ * Writes notify subscribers so any live UI (the launcher's ✓/▶ marks) can refresh
+ * instead of relying on an incidental re-render.
  */
 const NS = 'ep:editor-walkthrough:';
 const INTRO_KEY = `${NS}intro-seen`;
+
+const listeners = new Set<() => void>();
+
+/** Subscribe to progress changes; returns an unsubscribe function. */
+export function subscribeProgress(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
 
 function read(key: string): string | null {
   try {
@@ -25,6 +40,7 @@ function write(key: string, value: string): void {
   } catch {
     // Non-fatal: progress simply isn't remembered.
   }
+  notify();
 }
 
 /** A chapter is complete when a completion at least as new as `version` is stored. */
@@ -34,7 +50,12 @@ export function isChapterComplete(id: string, version: number): boolean {
 }
 
 export function markChapterComplete(id: string, version: number): void {
-  write(`${NS}chapter:${id}`, String(version));
+  const key = `${NS}chapter:${id}`;
+  const stored = Number(read(key));
+  // Never downgrade: a stale bundle replaying an older chapter must not overwrite
+  // a newer completion and re-surface the chapter for everyone.
+  const next = Math.max(Number.isFinite(stored) ? stored : 0, version);
+  write(key, String(next));
 }
 
 /** Whether the first-run intro coach-mark (pointing at the Guide button) has been shown. */
