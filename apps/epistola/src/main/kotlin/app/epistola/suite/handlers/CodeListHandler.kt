@@ -150,11 +150,12 @@ class CodeListHandler(
             return renderCreateError(request, result, tenantId)
         }
 
-        // Success: navigate to the newly created code list's page. The dialog
-        // disappears with the old page (HX-Redirect), so the list is not refreshed.
+        // Success: soft-navigate to the newly created code list's page via a
+        // boosted body-swap (HX-Location) — no full-page reload. The dialog goes
+        // with the swapped-out body; the list is not refreshed.
         val destination = "/tenants/${tenantId.key}/code-lists/${catalogKey.value}/${slug.value}"
         return request.htmx {
-            dialogRedirect(destination)
+            dialogLocation(destination)
             onNonHtmx { redirect(destination) }
         }
     }

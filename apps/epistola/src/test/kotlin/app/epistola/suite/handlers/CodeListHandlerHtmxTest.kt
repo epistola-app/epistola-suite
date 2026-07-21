@@ -48,11 +48,12 @@ import org.springframework.util.MultiValueMap
  *
  * Also covers the code-list create form converted onto the dialog groundwork
  * (docs/dialog-forms.md): the dialog is list-launched with the authored-catalog
- * <select> prefill and a sourceType radio-pane cascade; on SUCCESS it REDIRECTS
- * to the new code list's own detail page (HX-Redirect), mirroring the template
- * conversion. HTMX GET → dialog fragment; HTMX POST invalid → retarget the form
- * + 422; HTMX POST valid → HX-Redirect to the detail page; non-HTMX GET → host
- * list page with the dialog embedded; plain list route omits the dialog.
+ * <select> prefill and a sourceType radio-pane cascade; on SUCCESS it soft-
+ * navigates to the new code list's own detail page (HX-Location, a boosted
+ * body-swap), mirroring the template conversion. HTMX GET → dialog fragment; HTMX
+ * POST invalid → retarget the form + 422; HTMX POST valid → HX-Location to the
+ * detail page; non-HTMX GET → host list page with the dialog embedded; plain list
+ * route omits the dialog.
  */
 class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
@@ -226,7 +227,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST valid redirects to the code-list detail page`() = fixture {
+    fun `HTMX POST valid soft-navigates to the code-list detail page`() = fixture {
         lateinit var testTenant: Tenant
 
         given { testTenant = tenant("Code List Create Valid") }
@@ -248,10 +249,11 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Full navigation to the new code list's own detail page — HX-Redirect,
-            // no OOB refresh, no closeDialog (the page navigates away entirely).
-            assertThat(response.headers.getFirst("HX-Redirect"))
+            // Soft boosted navigation to the new code list's own detail page —
+            // HX-Location, no OOB refresh, no closeDialog (the page navigates away).
+            assertThat(response.headers.getFirst("HX-Location"))
                 .isEqualTo("/tenants/${testTenant.id}/code-lists/default/languages")
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             assertThat(response.headers.getFirst("HX-Trigger")).isNull()
             // Persistence verified through the mediator, not the (absent) body.
             val persisted = withMediator {
