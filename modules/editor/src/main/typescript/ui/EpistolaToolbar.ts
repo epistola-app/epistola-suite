@@ -109,6 +109,9 @@ export class EpistolaToolbar extends LitElement {
     if (!this._walkthroughEnabled || walkthroughLauncherLoad) return;
     walkthroughLauncherLoad = import('./walkthrough/launcher.js').catch((e) => {
       console.warn('Walkthrough launcher failed to load:', e);
+      // Clear the cache so a later render retries instead of leaving the Guide
+      // button permanently unregistered after one transient failure.
+      walkthroughLauncherLoad = null;
     });
   }
 
