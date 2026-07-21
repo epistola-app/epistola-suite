@@ -163,6 +163,40 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `HTMX POST accumulates multiple field errors into their spans at once`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Font Multi Error") }
+
+        whenever {
+            // Missing name AND missing catalog AND no face file → three errors in
+            // one response. The point of accumulating (vs first-error-wins): the
+            // user sees every problem at once.
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("slug", "acme-sans")
+            payload.add("kind", "sans")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(payload, htmxMultipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            // All three messages arrive together, each in its own span.
+            assertThat(response.body).contains("""id="font-name-error"""")
+            assertThat(response.body).contains("Display name is required")
+            assertThat(response.body).contains("""id="font-catalog-error"""")
+            assertThat(response.body).contains("Catalog is required")
+            assertThat(response.body).contains("""id="font-faces-error"""")
+            assertThat(response.body).contains("At least one face file is required")
+        }
+    }
+
+    @Test
     fun `HTMX POST valid closes the dialog and refreshes the grid OOB with the new family`() = fixture {
         lateinit var testTenant: Tenant
 
