@@ -5,9 +5,12 @@
  *
  * Add a chapter by writing a `tours/<id>.ts` and appending it to {@link TOURS}.
  */
-import { isChapterComplete } from './progress.js';
 import { orientationTour } from './tours/orientation.js';
 import { buildingTour } from './tours/building.js';
+
+/** Predicate: has the given chapter version been completed? (Injected, not imported —
+ * keeps this catalog pure data and independent of how progress is persisted.) */
+export type CompletionPredicate = (id: string, version: number) => boolean;
 
 /** Which side of the target the popover is placed. Mirrors driver.js's `Side`. */
 export type TourSide = 'top' | 'right' | 'bottom' | 'left';
@@ -52,7 +55,7 @@ export function nextTour(id: string): Tour | undefined {
   return i >= 0 ? TOURS[i + 1] : undefined;
 }
 
-/** The first chapter the user has not completed, or undefined when all are done. */
-export function firstIncompleteTour(): Tour | undefined {
-  return TOURS.find((t) => !isChapterComplete(t.id, t.version));
+/** The first chapter not yet completed per `isComplete`, or undefined when all are done. */
+export function firstIncompleteTour(isComplete: CompletionPredicate): Tour | undefined {
+  return TOURS.find((t) => !isComplete(t.id, t.version));
 }

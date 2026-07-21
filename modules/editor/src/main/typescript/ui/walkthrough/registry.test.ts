@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { firstIncompleteTour, nextTour, tourById, TOURS } from './registry.js';
-import { markChapterComplete } from './progress.js';
+import { isChapterComplete, markChapterComplete } from './progress.js';
 
 describe('walkthrough registry', () => {
   beforeEach(() => localStorage.clear());
@@ -24,10 +24,10 @@ describe('walkthrough registry', () => {
   });
 
   it('firstIncompleteTour advances as chapters are completed', () => {
-    expect(firstIncompleteTour()?.id).toBe('orientation');
+    expect(firstIncompleteTour(isChapterComplete)?.id).toBe('orientation');
     markChapterComplete('orientation', 1);
-    expect(firstIncompleteTour()?.id).toBe('building');
+    expect(firstIncompleteTour(isChapterComplete)?.id).toBe('building');
     for (const t of TOURS) markChapterComplete(t.id, t.version);
-    expect(firstIncompleteTour()).toBeUndefined();
+    expect(firstIncompleteTour(isChapterComplete)).toBeUndefined();
   });
 });
