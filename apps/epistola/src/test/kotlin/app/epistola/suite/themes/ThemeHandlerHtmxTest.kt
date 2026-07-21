@@ -22,11 +22,11 @@ import org.springframework.util.MultiValueMap
  * Server-side contract for the theme create form converted onto the dialog
  * groundwork, mirroring TemplateHandlerHtmxTest. Asserts the URL-addressable
  * dialog convention (docs/dialog-forms.md) with the theme form's twist: success
- * is a client-side REDIRECT to the new theme's page (HX-Redirect), not an
- * in-place list refresh. Branches covered: HTMX GET → dialog fragment (catalog
- * <select> from AUTHORED catalogs); HTMX POST invalid → retarget the form + 422;
- * HTMX POST valid → HX-Redirect; plain list route → mount stays empty (guards
- * the th:if/th:replace precedence trap).
+ * is a client-side soft navigation to the new theme's page (HX-Location, a
+ * boosted body-swap), not an in-place list refresh. Branches covered: HTMX GET →
+ * dialog fragment (catalog <select> from AUTHORED catalogs); HTMX POST invalid →
+ * retarget the form + 422; HTMX POST valid → HX-Location; plain list route →
+ * mount stays empty (guards the th:if/th:replace precedence trap).
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ThemeHandlerHtmxTest : BaseIntegrationTest() {
@@ -115,7 +115,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST valid returns HX-Redirect to the new theme page`() = fixture {
+    fun `HTMX POST valid returns HX-Location to the new theme page`() = fixture {
         lateinit var testTenant: Tenant
 
         given { testTenant = tenant("Theme Create Valid") }
@@ -135,11 +135,13 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // Success navigates the whole page to the created theme (the dialog
-            // goes with it) — asserted via the header, not a body.
+            // Success soft-navigates the page to the created theme via a boosted
+            // body-swap (HX-Location), so the dialog goes with the swapped-out body
+            // — asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers.getFirst("HX-Redirect"))
+            assertThat(response.headers.getFirst("HX-Location"))
                 .isEqualTo("/tenants/${testTenant.id}/themes/default/corporate")
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }
 

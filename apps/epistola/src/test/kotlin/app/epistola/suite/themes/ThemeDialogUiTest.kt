@@ -57,4 +57,33 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         // Opening the dialog pushes the shareable /…/new URL via hx-push-url.
         assertThat(page).hasURL(newFormUrlPattern)
     }
+
+    @Test
+    fun `submitting the create form soft-navigates to the new theme and boots the editor`() {
+        val tenant = createTestTenant()
+
+        gotoAndReady("/tenants/${tenant.id}/themes?catalog=default")
+        page.htmxSettle()
+
+        page.openDialogByTrigger(
+            page.locator("[data-testid='theme-create-open']"),
+            "#create-theme-dialog",
+        )
+        assertThat(page.locator("dialog[open]#create-theme-dialog")).isVisible()
+
+        page.locator("#create-theme-dialog #name").fill("Corporate Theme")
+        page.locator("#create-theme-dialog #slug").fill("corporate")
+        page.locator("[data-testid='create-form-submit']").click()
+        page.htmxSettle()
+
+        // Success emits HX-Location: HTMX performs a boosted body-swap to the new
+        // theme's detail page — a SOFT navigation, not a full reload. The address
+        // bar lands on the created theme…
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/themes/default/corporate$"))
+        // …the dialog is gone with the swapped-out body…
+        assertThat(page.locator("#create-theme-dialog")).hasCount(0)
+        // …and the theme editor booted on htmx:load after the swap (proving the
+        // editor survives the boosted navigation the soft redirect performs).
+        assertThat(page.locator("#theme-editor-container[data-editor-mounted='true']")).isVisible()
+    }
 }

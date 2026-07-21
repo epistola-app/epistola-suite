@@ -211,14 +211,17 @@ class ThemeHandler(
             }
         }
 
-        // Success: navigate to the newly created theme's page. The dialog
-        // disappears with the old page (HX-Redirect), so the list is not refreshed.
+        // Success: navigate to the newly created theme's page. Soft boosted
+        // navigation (HX-Location) — the same body-swap a theme click from the list
+        // already performs, so the theme editor's body-hosted boot script re-runs
+        // as usual; the dialog goes with the swapped-out body. (Experiment: was
+        // HX-Redirect; trying the soft path to drop the full-page reload.)
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val themeKey = ThemeKey.validateOrNull(form["slug"])!!
         val catalogKey = CatalogKey.of(form["catalog"])
         val destination = "/tenants/${tenantId.key}/themes/$catalogKey/$themeKey"
         return request.htmx {
-            dialogRedirect(destination)
+            dialogLocation(destination)
             onNonHtmx { redirect(destination) }
         }
     }
