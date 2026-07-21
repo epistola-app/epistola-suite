@@ -203,6 +203,10 @@ class ImportCatalogZipHandler(
             CatalogImportSchemaAction.IMPORT -> {} // proceed
         }
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
+        // #692: bound the manifest name to catalogs.name VARCHAR(255). SUBSCRIBED writes
+        // it directly (insert/update); AUTHORED goes through CreateCatalog (tighter cap),
+        // so this only tightens the direct-write paths that had no guard.
+        validateCatalogNameLength(manifest.catalog.name)
 
         // A ZIP import targets a catalog *type*. A slug that already exists
         // with a different type is a conflict — importing AUTHORED content over

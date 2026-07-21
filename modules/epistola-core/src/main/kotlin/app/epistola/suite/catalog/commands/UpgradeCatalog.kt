@@ -205,6 +205,8 @@ class UpgradeCatalogHandler(
         name: String,
         description: String?,
     ) {
+        // #692: bound the re-fetched manifest name to catalogs.name VARCHAR(255).
+        validateCatalogNameLength(name)
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """

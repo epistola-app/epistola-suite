@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -231,6 +232,59 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 .hasMessageContaining("every part of a catalog must carry the same wire version")
         }
     }
+
+    /**
+     * A remote (`file:`) manifest whose catalog name overflows the
+     * `catalogs.name VARCHAR(255)` column must be rejected with a clear
+     * [ValidationException] at registration, not surface as a raw SQLSTATE 22001
+     * (an opaque 500 on the REST surface, a silent job failure on hub sync). See
+     * issue #692. RegisterCatalog also backs the background `EnsureSubscribedCatalog`.
+     */
+    @Test
+    fun `registering a catalog whose name overflows the column is rejected cleanly`(@TempDir tmp: Path) {
+        val tenant = createTenant("Overlong Name Test")
+        val sourceUrl = writeCatalogWithName(tmp, name = "x".repeat(256))
+
+        withMediator {
+            assertThatThrownBy {
+                RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+            }.isInstanceOf(ValidationException::class.java)
+        }
+    }
+
+    /**
+     * A name at exactly the column ceiling (255) — legal for the column, over the
+     * interactive UX cap — must still register. The backwards-compatibility
+     * guarantee: content that fits the column keeps importing (issue #692).
+     */
+    @Test
+    fun `registering a catalog whose name is exactly the column ceiling succeeds`(@TempDir tmp: Path) {
+        val tenant = createTenant("At Ceiling Test")
+        val name = "y".repeat(255)
+        val sourceUrl = writeCatalogWithName(tmp, name = name)
+
+        withMediator {
+            val catalog = RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+            assertThat(catalog.name).isEqualTo(name)
+        }
+    }
+
+    /** Writes a minimal, resource-free current-version manifest with the given catalog [name]. */
+    private fun writeCatalogWithName(dir: Path, name: String): String {
+        val manifest = """
+            {
+              "schemaVersion": 4,
+              "catalog": { "slug": "overlong-name", "name": ${escapeJson(name)} },
+              "publisher": { "name": "Test" },
+              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "resources": []
+            }
+        """.trimIndent()
+        dir.resolve("catalog.json").writeText(manifest)
+        return dir.resolve("catalog.json").toUri().toString()
+    }
+
+    private fun escapeJson(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
     /**
      * Writes a minimal `file:` catalog under [dir]: a current-version (4) manifest

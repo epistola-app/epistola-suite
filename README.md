@@ -16,6 +16,9 @@
 > [!IMPORTANT]
 > **Provided "as is", without warranty.** Epistola takes no responsibility for the correctness of output or for any damages arising from use of this software. Correctness assurances, support, and liability coverage are available only under a commercial SLA — see the [Disclaimer](DISCLAIMER.md).
 
+> [!NOTE]
+> **Supported versions and upgrades.** Epistola follows continuous delivery with a limited set of supported release lines and low-friction upgrades (not long-lived legacy support). See the [Release & Support Policy](SUPPORT_POLICY.md).
+
 A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 
 ## Project Structure
@@ -265,6 +268,19 @@ Version bumps are determined automatically from commit messages:
 - `feat!:` or `fix!:` with `BREAKING CHANGE` - major version bump
 
 Both the app and Helm chart follow this convention. The Helm chart version is only bumped when changes are made to the `charts/` directory.
+
+## Support and upgrades
+
+Epistola publishes releases when ready and expects installations to stay on a
+**supported** version. Upgrades are designed to be direct (no intermediate
+releases required), with automated migrations and documented manual steps when
+needed. Downgrades after a successful upgrade are not supported; rollback of a
+**failed** upgrade is supported via backup restore.
+
+Full details: [SUPPORT_POLICY.md](SUPPORT_POLICY.md). Currently supported
+versions are published separately (website / release metadata), not hardcoded
+in the policy. See also [docs/version-check.md](docs/version-check.md) and
+[docs/migrations.md](docs/migrations.md).
 
 ## License
 
