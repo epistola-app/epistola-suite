@@ -175,14 +175,15 @@ class AttributeHandler {
             }
         }
 
-        // Success: full navigation to the (unfiltered) attribute list. The list
-        // has a catalog filter, so an OOB stay-on-list refresh would desync the
-        // visible rows from the active filter/URL; a redirect keeps them in step
-        // (matching the template/theme/stencil conversions and the pre-conversion
-        // 303 semantics). dialogRedirect issues HX-Redirect for the HTMX form and
-        // a plain redirect for the non-HTMX fallback.
+        // Success: soft-navigate to the (unfiltered) attribute list via a boosted
+        // body-swap (HX-Location) — no full-page reload. Attributes have no page of
+        // their own, so we return to the list; a full boosted GET re-renders the
+        // whole list fresh (not an OOB partial), which keeps the visible rows in
+        // step with the URL and sidesteps the catalog-filter desync an OOB
+        // stay-on-list refresh would cause. onNonHtmx 303-redirects for the
+        // non-HTMX fallback.
         return request.htmx {
-            dialogRedirect("/tenants/${tenantId.key}/attributes")
+            dialogLocation("/tenants/${tenantId.key}/attributes")
             onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
         }
     }

@@ -34,13 +34,14 @@ import org.springframework.util.MultiValueMap
  * Server-side contract for the attribute create form converted onto the dialog
  * groundwork. The dialog is list-launched with the TEMPLATE prefill
  * (authored-catalog <select>) and a radio-pane cascade (constraintKind → inline /
- * code-list panes); on success it REDIRECTS to the list (the list carries a
- * catalog filter, so a full navigation keeps the visible rows in step with the
- * active filter/URL) while delete still refreshes the whole region. Asserts the
- * URL-addressable dialog convention (docs/dialog-forms.md): HTMX GET → dialog
- * fragment; HTMX POST invalid → retarget the form + 422; HTMX POST valid →
- * HX-Redirect to the attribute list; non-HTMX GET → host list page with the
- * dialog embedded; delete → region refresh.
+ * code-list panes); on success it soft-navigates to the list (the list carries a
+ * catalog filter, so a full boosted GET re-renders the whole list and keeps the
+ * visible rows in step with the active filter/URL) while delete still refreshes
+ * the whole region. Asserts the URL-addressable dialog convention
+ * (docs/dialog-forms.md): HTMX GET → dialog fragment; HTMX POST invalid →
+ * retarget the form + 422; HTMX POST valid → HX-Location to the attribute list;
+ * non-HTMX GET → host list page with the dialog embedded; delete → region
+ * refresh.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AttributeHandlerHtmxTest : BaseIntegrationTest() {
@@ -172,9 +173,10 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Full navigation to the list replaces the whole page — HX-Redirect,
-            // no OOB refresh, no closeDialog (the page navigates away entirely).
-            assertThat(response.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            // Soft boosted navigation to the list re-renders the whole list page —
+            // HX-Location, no OOB refresh, no closeDialog (the page navigates away).
+            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             assertThat(response.headers.getFirst("HX-Trigger")).isNull()
             // Persistence verified through the mediator, not the (absent) list body.
             val persisted = withMediator {
@@ -213,7 +215,8 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             // The inline constraint was parsed and persisted — verified through the
             // mediator (the redirect returns no list body to inspect).
             val persisted = withMediator {
