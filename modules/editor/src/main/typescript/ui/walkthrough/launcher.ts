@@ -9,8 +9,10 @@
  */
 import { html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { TOURS } from './registry.js';
-import { hasSeenIntro, isChapterComplete } from './progress.js';
+import { firstIncompleteTour, TOURS } from './registry.js';
+import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
+import { isTourActive, stopActiveTour } from './session.js';
+import { injectStyleOnce } from './styles.js';
 
 interface ChapterView {
   id: string;
@@ -47,14 +49,6 @@ const CSS = `
 .ep-wt-summary { font-size: 0.85em; opacity: 0.7; }
 `;
 
-function ensureStyles(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = CSS;
-  document.head.appendChild(style);
-}
-
 @customElement('epistola-walkthrough-launcher')
 export class WalkthroughLauncher extends LitElement {
   /** Light DOM so global editor styles and the injected popover CSS apply. */
@@ -63,6 +57,8 @@ export class WalkthroughLauncher extends LitElement {
   }
 
   @state() private _open = false;
+
+  private _unsubscribeProgress?: () => void;
 
   private readonly _onDocPointerDown = (e: Event): void => {
     if (!this._open) return;
@@ -77,14 +73,21 @@ export class WalkthroughLauncher extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    ensureStyles();
+    injectStyleOnce(STYLE_ID, CSS);
     document.addEventListener('pointerdown', this._onDocPointerDown);
     document.addEventListener('keydown', this._onKeydown);
+    // Refresh the ✓/▶ marks whenever completion changes, even while the menu is open.
+    this._unsubscribeProgress = subscribeProgress(() => this.requestUpdate());
   }
 
   override disconnectedCallback(): void {
     document.removeEventListener('pointerdown', this._onDocPointerDown);
     document.removeEventListener('keydown', this._onKeydown);
+    this._unsubscribeProgress?.();
+    this._unsubscribeProgress = undefined;
+    // Tear down any live tour so a DOM/HTMX swap can't strand the driver overlay
+    // (which leaves the whole page mouse-dead until Escape/reload).
+    stopActiveTour();
     super.disconnectedCallback();
   }
 
@@ -93,10 +96,16 @@ export class WalkthroughLauncher extends LitElement {
     if (hasSeenIntro()) return;
     const host = this._host;
     if (!host) return;
-    // Defer a frame so the button has laid out before driver.js measures it.
+    // Defer a frame so the button has laid out before driver.js measures it. Bail
+    // if we've since disconnected — otherwise the intro would resolve the Guide
+    // button against a detached tree and render as an orphan centered modal over
+    // whatever swapped in (also marking the one-time intro "seen" out of context).
     requestAnimationFrame(() => {
+      if (!this.isConnected) return;
       void import('./walkthrough.js')
-        .then((m) => m.startIntro(host))
+        .then((m) => {
+          if (this.isConnected) void m.startIntro(host);
+        })
         .catch((e) => console.warn('Walkthrough intro failed to start:', e));
     });
   }
@@ -108,16 +117,21 @@ export class WalkthroughLauncher extends LitElement {
 
   /** Chapters with completion + which one is "current" (first not-yet-complete). */
   private get _chapters(): ChapterView[] {
-    let currentTaken = false;
-    return TOURS.map((t) => {
-      const complete = isChapterComplete(t.id, t.version);
-      const current = !complete && !currentTaken;
-      if (current) currentTaken = true;
-      return { id: t.id, title: t.title, summary: t.summary, complete, current };
-    });
+    // Single source of truth for "current" — same rule startWalkthrough() drives.
+    const currentId = firstIncompleteTour(isChapterComplete)?.id;
+    return TOURS.map((t) => ({
+      id: t.id,
+      title: t.title,
+      summary: t.summary,
+      complete: isChapterComplete(t.id, t.version),
+      current: t.id === currentId,
+    }));
   }
 
   private readonly _toggle = (): void => {
+    // Ignore while a tour/intro overlay is up: the menu would open as a sibling of
+    // the spotlighted button, land under driver's pointer-events:none, and be dead.
+    if (isTourActive()) return;
     this._open = !this._open;
   };
 
