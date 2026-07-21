@@ -197,6 +197,41 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `HTMX POST with malformed catalog OOB-swaps the catalog error span without re-rendering the form body`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Font Create Bad Catalog") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("slug", "acme-sans")
+            payload.add("name", "Acme Sans")
+            payload.add("kind", "sans")
+            payload.add("catalog", "Bad Catalog!")
+            payload.add("file", facePart("acme-sans-regular.ttf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(payload, htmxMultipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.headers.getFirst("HX-Retarget")).isNull()
+            assertThat(response.headers.getFirst("HX-Trigger")).isNull()
+            assertThat(response.body).contains("""id="font-catalog-error"""")
+            assertThat(response.body).contains("Invalid catalog ID format")
+            assertThat(response.body).doesNotContain("""id="upload-font-form"""")
+            assertThat(response.body).doesNotContain("""type="file"""")
+        }
+    }
+
+    @Test
     fun `HTMX POST valid closes the dialog and refreshes the grid OOB with the new family`() = fixture {
         lateinit var testTenant: Tenant
 

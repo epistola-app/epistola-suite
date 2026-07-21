@@ -144,6 +144,36 @@ class ImageDialogHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `HTMX POST with malformed catalog OOB-swaps the catalog error span without re-rendering the form body`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Image Create Bad Catalog") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("catalog", "Bad Catalog!")
+            payload.add("file", pngPart("diagram.png"))
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/images",
+                HttpEntity(payload, htmxMultipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.headers.getFirst("HX-Retarget")).isNull()
+            assertThat(response.headers.getFirst("HX-Trigger")).isNull()
+            assertThat(response.body).contains("""id="image-catalog-error"""")
+            assertThat(response.body).contains("Invalid catalog ID format")
+            assertThat(response.body).doesNotContain("""id="upload-image-form"""")
+            assertThat(response.body).doesNotContain("""type="file"""")
+        }
+    }
+
+    @Test
     fun `HTMX POST valid closes the dialog and refreshes the grid OOB with the new image`() = fixture {
         lateinit var testTenant: Tenant
 

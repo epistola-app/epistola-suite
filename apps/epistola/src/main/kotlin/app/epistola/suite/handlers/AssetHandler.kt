@@ -176,8 +176,16 @@ class AssetHandler(
         val catalogStr = multipartData["catalog"]?.firstOrNull()?.let {
             String(it.inputStream.readAllBytes()).trim()
         }?.ifBlank { null }
-        if (catalogStr == null) errors["catalog"] = "Catalog is required"
-        val catalogKey = catalogStr?.let { CatalogKey.of(it) }
+        val catalogKey = when {
+            catalogStr == null -> {
+                errors["catalog"] = "Catalog is required"
+                null
+            }
+
+            else -> CatalogKey.validateOrNull(catalogStr).also {
+                if (it == null) errors["catalog"] = "Invalid catalog ID format"
+            }
+        }
 
         val filePart: Part? = multipartData["file"]?.firstOrNull()
         var contentBytes: ByteArray? = null

@@ -172,11 +172,15 @@ class FontHandler(
             }
         }
         val catalogStr = field("catalog")
-        val catalogKey: CatalogKey? = if (catalogStr == null) {
-            errors["catalog"] = "Catalog is required"
-            null
-        } else {
-            CatalogKey.of(catalogStr)
+        val catalogKey: CatalogKey? = when {
+            catalogStr == null -> {
+                errors["catalog"] = "Catalog is required"
+                null
+            }
+
+            else -> CatalogKey.validateOrNull(catalogStr).also {
+                if (it == null) errors["catalog"] = "Invalid catalog ID format"
+            }
         }
 
         // Read each provided face ONCE (Part streams are one-shot), then validate
