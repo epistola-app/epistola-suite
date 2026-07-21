@@ -3,6 +3,7 @@ package app.epistola.suite.fonts
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.UnsupportedAssetTypeException
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -23,9 +24,9 @@ import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
-import app.epistola.suite.htmx.page
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -82,17 +83,44 @@ class FontHandler(
     }
 
     /**
-     * Upload form (mirrors `AssetHandler.newForm`). Only AUTHORED catalogs are
-     * offered as upload targets — SUBSCRIBED catalogs reject writes.
+     * Upload dialog (mirrors `AssetHandler.newForm`). URL-addressable create
+     * convention: an in-app trigger (hx-get) gets just the dialog fragment;
+     * direct navigation / boost gets the host list page with the dialog embedded
+     * and opened. Only AUTHORED catalogs are offered as upload targets —
+     * SUBSCRIBED catalogs reject writes — under the distinct `authoredCatalogs`
+     * key so it doesn't collide with the list's own `catalogs` filter var.
      */
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val catalogs = ListCatalogs(tenantKey).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("fonts/new") {
-            "pageTitle" to "Upload Font - Epistola"
-            "tenantId" to tenantKey.value
-            "catalogs" to catalogs
+        // One ListCatalogs whichever branch renders (fragment models are lazy):
+        // the list filter uses all catalogs, the dialog's <select> the authored subset.
+        val allCatalogs by lazy { ListCatalogs(tenantKey).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        return request.htmx {
+            fragment("fonts/new", "dialog") {
+                "tenantId" to tenantKey.value
+                "authoredCatalogs" to authoredCatalogs
+            }
+            onNonHtmx {
+                page("fonts/list") {
+                    fontPageModel(tenantKey, allCatalogs)
+                    "openDialog" to true
+                    "authoredCatalogs" to authoredCatalogs
+                }
+            }
         }
+    }
+
+    /** The full-page list model (shared by the newForm / upload non-HTMX branches). */
+    private fun ModelBuilder.fontPageModel(tenantKey: TenantKey, catalogs: List<Catalog>) {
+        val tenantId = TenantId(tenantKey)
+        "pageTitle" to "Fonts - Epistola"
+        "tenantId" to tenantKey.value
+        "tenant" to GetTenant(id = tenantKey).query()
+        "catalogs" to catalogs
+        "selectedCatalog" to ""
+        "fonts" to ListFonts(tenantId = tenantId).query().map { toFontView(tenantId, it) }
+        "activeNavSection" to "fonts"
     }
 
     /**
@@ -109,112 +137,199 @@ class FontHandler(
         fun field(name: String): String? = multipartData[name]?.firstOrNull()
             ?.let { String(it.inputStream.readAllBytes()).trim() }?.ifBlank { null }
 
-        fun badRequest(message: String?): ServerResponse = ServerResponse.badRequest()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("error" to (message ?: "Invalid request")))
+        // Accumulate field → message (the OOB per-field error track) instead of
+        // first-error-wins, so the dialog can surface every problem at once. The
+        // repeating faces fold into ONE aggregate `faces` key (per-row errors are
+        // out of scope), mirroring code-list's `errors.entries`.
+        val errors = LinkedHashMap<String, String>()
 
-        val slugStr = field("slug") ?: return badRequest("slug is required")
-        val slug = try {
-            FontKey.of(slugStr)
-        } catch (e: IllegalArgumentException) {
-            return badRequest(e.message)
+        val slugStr = field("slug")
+        val slug: FontKey? = when {
+            slugStr == null -> {
+                errors["slug"] = "Slug is required"
+                null
+            }
+            else -> try {
+                FontKey.of(slugStr)
+            } catch (e: IllegalArgumentException) {
+                errors["slug"] = e.message ?: "Invalid slug"
+                null
+            }
         }
-        val name = field("name") ?: return badRequest("name is required")
-        val kind = try {
-            FontKind.fromWire(field("kind") ?: "")
-        } catch (e: IllegalArgumentException) {
-            return badRequest(e.message)
+        val name = field("name")
+        if (name == null) errors["name"] = "Display name is required"
+        val kindStr = field("kind")
+        val kind: FontKind? = when {
+            kindStr == null -> {
+                errors["kind"] = "Kind is required"
+                null
+            }
+            else -> try {
+                FontKind.fromWire(kindStr)
+            } catch (e: IllegalArgumentException) {
+                errors["kind"] = e.message ?: "Invalid kind"
+                null
+            }
         }
-        val catalogKeyStr = field("catalog") ?: return badRequest("catalog is required")
-        val catalogKey = CatalogKey.of(catalogKeyStr)
+        val catalogStr = field("catalog")
+        val catalogKey: CatalogKey? = if (catalogStr == null) {
+            errors["catalog"] = "Catalog is required"
+            null
+        } else {
+            CatalogKey.of(catalogStr)
+        }
 
-        // Collect the repeating face rows: parallel `file` / `weight` /
-        // `italic` fields, indexed positionally. Rows whose file is empty are
-        // skipped (the template renders at least one row but extras may be
-        // blank). At least one face file is required.
+        // Read each provided face ONCE (Part streams are one-shot), then validate
+        // ALL of them before persisting anything — so a bad face reports an error
+        // rather than leaving partially-created asset rows behind. Rows whose file
+        // is empty are skipped (the form renders one row; extras may be blank).
         val fileParts: List<Part> = multipartData["file"].orEmpty()
         val weights: List<String> = multipartData["weight"].orEmpty()
             .map { String(it.inputStream.readAllBytes()).trim() }
         val italics: List<String> = multipartData["italic"].orEmpty()
             .map { String(it.inputStream.readAllBytes()).trim() }
 
-        data class FaceRow(val part: Part, val weight: Int, val italic: Boolean)
+        data class FaceRow(
+            val weight: Int,
+            val italic: Boolean,
+            val filename: String,
+            val contentType: String?,
+            val bytes: ByteArray,
+        )
         val rows = mutableListOf<FaceRow>()
+        var faceError: String? = null
         for ((idx, part) in fileParts.withIndex()) {
             if ((part.submittedFileName ?: "").isBlank() || part.size <= 0L) continue
             val weight = weights.getOrNull(idx)?.toIntOrNull()
-                ?: return badRequest("Each face needs a numeric weight (1–1000)")
+            if (weight == null) {
+                faceError = "Each face needs a numeric weight (1–1000)"
+                break
+            }
             if (weight !in 1..1000) {
-                return badRequest("Font weight must be between 1 and 1000")
+                faceError = "Font weight must be between 1 and 1000"
+                break
             }
             val italic = italics.getOrNull(idx)?.equals("true", ignoreCase = true) == true
-            rows += FaceRow(part, weight, italic)
+            val bytes = part.inputStream.use { it.readAllBytes() }
+            rows += FaceRow(
+                weight = weight,
+                italic = italic,
+                filename = part.submittedFileName
+                    ?: "${slug?.value ?: "font"}-$weight${if (italic) "i" else ""}",
+                contentType = part.contentType,
+                bytes = bytes,
+            )
         }
-
-        if (rows.isEmpty()) {
-            return badRequest("At least one face file is required")
+        if (faceError == null && rows.isEmpty()) {
+            faceError = "At least one face file is required"
         }
-        if (rows.map { it.weight to it.italic }.toSet().size != rows.size) {
-            return badRequest("Each (weight, italic) face must be unique")
+        if (faceError == null && rows.map { it.weight to it.italic }.toSet().size != rows.size) {
+            faceError = "Each (weight, italic) face must be unique"
         }
-
-        val importVariants = mutableListOf<ImportFontVariant>()
-        try {
+        if (faceError == null) {
             for (row in rows) {
-                val part = row.part
-                val contentType = part.contentType
-                    ?: return badRequest("No content type on uploaded face")
+                val contentType = row.contentType
+                if (contentType == null) {
+                    faceError = "No content type on uploaded face"
+                    break
+                }
                 val mediaType = try {
                     assetTypeCatalog.require(contentType)
                 } catch (e: UnsupportedAssetTypeException) {
-                    return badRequest(e.message)
+                    faceError = e.message ?: "Unsupported font format"
+                    break
                 }
                 if (mediaType !in FONT_MEDIA_TYPES) {
-                    return badRequest("Unsupported font format: $contentType. Use TTF or OTF.")
+                    faceError = "Unsupported font format: $contentType. Use TTF or OTF."
+                    break
                 }
-                val bytes = part.inputStream.use { it.readAllBytes() }
-                app.epistola.generation.pdf.FontBytesValidator.rejectionReason(bytes)?.let { reason ->
-                    return badRequest("Face ${row.weight}${if (row.italic) " italic" else ""}: $reason")
+                val reason = app.epistola.generation.pdf.FontBytesValidator.rejectionReason(row.bytes)
+                if (reason != null) {
+                    faceError = "Face ${row.weight}${if (row.italic) " italic" else ""}: $reason"
+                    break
                 }
-                val asset = UploadAsset(
-                    tenantId = tenantKey,
-                    name = part.submittedFileName ?: "${slug.value}-${row.weight}${if (row.italic) "i" else ""}",
-                    mediaType = mediaType,
-                    content = bytes,
-                    width = null,
-                    height = null,
-                    catalogKey = catalogKey,
-                ).execute()
-                importVariants += ImportFontVariant(
-                    weight = row.weight,
-                    italic = row.italic,
-                    source = FontVariantSource.ASSET,
-                    assetKey = asset.id,
-                )
             }
+        }
+        if (faceError != null) errors["faces"] = faceError
 
-            ImportFont(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
-                slug = slug.value,
-                name = name,
-                kind = kind.wire,
-                variants = importVariants,
-            ).execute()
-        } catch (e: CatalogReadOnlyException) {
+        // Persist only when everything validated. UploadAsset/ImportFont can still
+        // reject a read-only (SUBSCRIBED) catalog — fold that onto the catalog field.
+        if (errors.isEmpty()) {
+            try {
+                val importVariants = rows.map { row ->
+                    val asset = UploadAsset(
+                        tenantId = tenantKey,
+                        name = row.filename,
+                        mediaType = assetTypeCatalog.require(row.contentType!!),
+                        content = row.bytes,
+                        width = null,
+                        height = null,
+                        catalogKey = catalogKey!!,
+                    ).execute()
+                    ImportFontVariant(
+                        weight = row.weight,
+                        italic = row.italic,
+                        source = FontVariantSource.ASSET,
+                        assetKey = asset.id,
+                    )
+                }
+                ImportFont(
+                    tenantId = tenantId,
+                    catalogKey = catalogKey!!,
+                    slug = slug!!.value,
+                    name = name!!,
+                    kind = kind!!.wire,
+                    variants = importVariants,
+                ).execute()
+            } catch (e: CatalogReadOnlyException) {
+                errors["catalog"] = e.message ?: "Catalog is read-only"
+            }
+        }
+
+        if (errors.isNotEmpty()) {
+            // Browser dialog (HTMX): OOB-swap the per-field spans only — never
+            // re-render the form body (file inputs + added face rows would be lost).
+            if (request.isHtmx) {
+                val authoredCatalogs by lazy {
+                    ListCatalogs(tenantKey).query().filter { it.type == CatalogType.AUTHORED }
+                }
+                return request.htmx {
+                    dialogFieldErrorsOob("fonts/new", "field-errors", errors)
+                    // Boosted full-page submit: re-render the host page with the
+                    // dialog open and the messages shown (files can't survive a
+                    // full navigation regardless).
+                    onNonHtmx {
+                        page(422, "fonts/list") {
+                            fontPageModel(tenantKey, ListCatalogs(tenantKey).query())
+                            "openDialog" to true
+                            "authoredCatalogs" to authoredCatalogs
+                            "errors" to errors
+                        }
+                    }
+                }
+            }
+            // Editor / non-HTMX JSON contract (unchanged): first error message.
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to e.message))
+                .body(mapOf("error" to errors.values.first()))
         }
 
+        // Success. Browser dialog: close + OOB-refresh the grid; boosted: redirect.
         if (request.isHtmx) {
-            return ServerResponse.ok()
-                .header("HX-Redirect", "/tenants/${tenantKey.value}/fonts")
-                .build()
+            val fonts = ListFonts(tenantId = tenantId).query().map { toFontView(tenantId, it) }
+            return request.htmx {
+                dialogSuccess("fonts/list", "font-grid-items", "/tenants/${tenantKey.value}/fonts") {
+                    "tenantId" to tenantKey.value
+                    "tenant" to GetTenant(id = tenantKey).query()
+                    "fonts" to fonts
+                }
+                onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
+            }
         }
+        // Editor / non-HTMX JSON contract (unchanged).
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("slug" to slug.value, "catalogKey" to catalogKey.value))
+            .body(mapOf("slug" to slug!!.value, "catalogKey" to catalogKey!!.value))
     }
 
     /**

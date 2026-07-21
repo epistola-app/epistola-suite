@@ -416,6 +416,47 @@ class HtmxDslTest {
 
             assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
         }
+
+        @Test
+        fun `dialogFieldErrorsOob swaps only the OOB field spans and never re-renders the form body (uploads)`() {
+            val request = createHtmxRequest()
+
+            val builder = HtmxResponseBuilder(request).apply {
+                dialogFieldErrorsOob(
+                    template = "fonts/new",
+                    fragmentName = "field-errors",
+                    errors = mapOf("slug" to "Slug is required", "faces" to "At least one face file is required"),
+                )
+            }
+            val response = builder.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // OOB-only: the form body (file inputs + added face rows) is never
+            // re-rendered — only the per-field message spans are swapped.
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+            // No closeDialog — the dialog stays open showing the inline errors.
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+            // The errors map reaches the OOB field-errors fragment model.
+            val oob = builder.emittedFragments.single { it.isOob }
+            assertThat(oob.template).isEqualTo("fonts/new")
+            assertThat(oob.fragmentName).isEqualTo("field-errors")
+            assertThat(oob.model).containsEntry(
+                "errors",
+                mapOf("slug" to "Slug is required", "faces" to "At least one face file is required"),
+            )
+        }
+
+        @Test
+        fun `dialogFieldErrorsOob honours an explicit status`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFieldErrorsOob("fonts/new", "field-errors", mapOf("faces" to "bad"), statusCode = 409)
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
     }
 
     @Nested

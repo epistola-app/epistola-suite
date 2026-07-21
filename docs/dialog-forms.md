@@ -16,8 +16,8 @@ The pieces:
 - **Open/close** — server-driven, in `static/js/behaviors.js` (open) and
   `static/js/app-shell.js` (close).
 - **Lifecycle helpers** — `dialogSuccess` / `dialogRedirect` / `dialogReveal` /
-  `dialogFieldErrors` / `dialogFormError` on `HtmxResponseBuilder`
-  (`modules/epistola-web/.../htmx/HtmxDsl.kt`).
+  `dialogFieldErrors` / `dialogFormError` / `dialogFieldErrorsOob` on
+  `HtmxResponseBuilder` (`modules/epistola-web/.../htmx/HtmxDsl.kt`).
 
 ## Route convention (URL-addressable)
 
@@ -159,7 +159,7 @@ to. When the dialog closes (Cancel / ESC / a handler's
 - **No `th:if` on the dialog fragment markup** — it is never rendered unless the
   handler already allowed it.
 
-## Submit lifecycle (the five helpers)
+## Submit lifecycle (the six helpers)
 
 The dialog's `<form>` submits with the **list** as its `hx-target`
 (`hx-target="#the-list" hx-swap="outerHTML"`), the same shape catalog/variant
@@ -170,13 +170,14 @@ the dialog: `~{epistola-web/form-error :: form-error(id='…')}`, and carries a
 **stable id** (e.g. `<form id="create-environment-form" …>`) so field errors can
 retarget it (see below).
 
-| Case                                   | Helper                                                        | Effect                                                                                                                                                                                 |
-| -------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| success → close + refresh list         | `dialogSuccess(listTemplate, listFragment) { … }`             | OOB-swap the list fragment, `HX-Trigger` with `closeDialog` + `dialogSuccess` (the distinct success event the app-shell search-box reset listens on), `HX-Reswap: none`, 200           |
-| success → navigate to created resource | `dialogRedirect(url)`                                         | `HX-Redirect: <url>`, 200, no fragment — the whole page navigates to the created thing (the dialog goes with it); pair with `onNonHtmx { redirect(url) }`                              |
-| success → stay open (api-key reveal)   | `dialogReveal(template, fragment, revealTarget) { … }`        | swap the reveal panel into the dialog (retarget + `outerHTML`), **no** `closeDialog`, 200                                                                                              |
-| field errors                           | `dialogFieldErrors(template, fragment, formTarget, formData)` | re-render the `<form>` with `formData` + `errors`, `HX-Retarget` to the **form inside the dialog** (e.g. `#create-environment-form`) — not the list, not the dialog — `outerHTML`, 422 |
-| operation error / uploads              | `dialogFormError(errorId, message)`                           | OOB-swap only the form-error slot, `HX-Reswap: none`, 422 — never re-renders the form body (so a `<input type=file>` survives)                                                         |
+| Case                                        | Helper                                                        | Effect                                                                                                                                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| success → close + refresh list              | `dialogSuccess(listTemplate, listFragment) { … }`             | OOB-swap the list fragment, `HX-Trigger` with `closeDialog` + `dialogSuccess` (the distinct success event the app-shell search-box reset listens on), `HX-Reswap: none`, 200           |
+| success → navigate to created resource      | `dialogRedirect(url)`                                         | `HX-Redirect: <url>`, 200, no fragment — the whole page navigates to the created thing (the dialog goes with it); pair with `onNonHtmx { redirect(url) }`                              |
+| success → stay open (api-key reveal)        | `dialogReveal(template, fragment, revealTarget) { … }`        | swap the reveal panel into the dialog (retarget + `outerHTML`), **no** `closeDialog`, 200                                                                                              |
+| field errors (standard forms)               | `dialogFieldErrors(template, fragment, formTarget, formData)` | re-render the `<form>` with `formData` + `errors`, `HX-Retarget` to the **form inside the dialog** (e.g. `#create-environment-form`) — not the list, not the dialog — `outerHTML`, 422 |
+| field errors (**uploads** — file inputs)    | `dialogFieldErrorsOob(template, fragment, errors)`            | OOB-swap only the per-field `field-error` **spans**, `HX-Reswap: none`, 422 — the form body (and its `<input type=file>` + added rows) is never re-rendered                            |
+| operation error / generic 5xx (global slot) | `dialogFormError(errorId, message)`                           | OOB-swap only the single global form-error slot, `HX-Reswap: none`, 422                                                                                                                |
 
 Each pairs with an `onNonHtmx { }` fallback (redirect to the list on success;
 `page(422, …)` re-rendering the host page with the dialog + errors on failure) —
@@ -197,13 +198,63 @@ Why the split matters (see also the "Error handling" section of `FORMS_PLAN.md`)
   dialog would lose its backdrop / close on every validation error. Targeting
   the inner form leaves the `<dialog>` untouched, matching `dialogReveal`.
 - **Uploads** (font, image) must never re-render the form body — the browser
-  cannot repopulate a file input — so they use the OOB-only `dialogFormError`.
+  cannot repopulate a file input — so their **field** errors take a separate
+  track (`dialogFieldErrorsOob`, below), and a genuine operation-level failure
+  falls to the global slot (`dialogFormError`).
+
+### Uploads: the per-field OOB error track
+
+The multipart upload forms (font, image) can't use `dialogFieldErrors`: it
+re-renders the form body, and a browser cannot repopulate `<input type=file>`
+(the font form additionally builds face rows in JS with no hydration), so the
+user's file selection and any added rows would be wiped on every validation
+error. Instead they carry per-field error **spans** with stable ids and swap
+only those:
+
+- **Same error model as the standard forms** — a `field → message` map — but with
+  any repeating group folded into ONE **aggregate key** (font uses `faces`;
+  per-row errors are out of scope, mirroring code-list's `errors.entries`). Font
+  ends up with five keys (`catalog`, `slug`, `name`, `kind`, `faces`); image with
+  two (`catalog`, `file` — everything file-related folds into `file`).
+- **The span fragment** — `epistola-web/form-error :: field-error(id, message, oob)`.
+  It renders one inline `.form-error` span. The form embeds each with `oob=false`
+  (plain, empty on first render); the handler's error response re-renders the
+  **same ids** with `oob=true` (carrying `hx-swap-oob`) via a `field-errors`
+  fragment. Because the form body is never touched, the handler MUST emit **every**
+  span each time (empty where resolved) so a fixed field's stale message clears.
+- **The helper** — `dialogFieldErrorsOob(template, "field-errors", errors)`:
+  `oob`-renders the spans, `HX-Reswap: none` (no primary swap), 422. The in-dialog
+  global `form-error` slot is left in place for the 5xx safety net.
+- **The message is the affordance.** The re-rendering forms outline the field via
+  a `.form-group.error` class stamped on during re-render; uploads never
+  re-render, so there is no red box outline — the inline red `.form-error` message
+  is the signal.
+
+> **Dual-purpose endpoint caveat.** The `POST /…/images` (and `/…/fonts`) route
+> serves BOTH this browser dialog AND the Lit editor's asset picker, which POSTs
+> the same multipart with `Accept: application/json` and no HTMX headers. The
+> handler branches on `request.isHtmx`: HTMX → the dialog helpers above; non-HTMX
+> → the **unchanged JSON contract** (first error as a `400 {"error": …}`, success
+> as a JSON body). Keep both paths — `FontUploadHandlerTest` covers the JSON one,
+> `FontDialogHandlerHtmxTest` the dialog one.
+
+> **Auth deviation (fonts/images).** Unlike the E9 convention above, the
+> font/image handlers currently gate **nothing** (there is no `FONT_EDIT` /
+> `ASSET_EDIT` permission), so their triggers are not `th:if`-hidden and the GET/
+> POST are not `requirePermission`-guarded. This mirrors the pre-conversion
+> behavior; revisit if a per-surface permission is introduced.
 
 ## Verification boundary
 
 The client open/close mechanism (open on `htmx:load` + `htmx:afterSwap`; close
 removes the mount dialog so it can't be reopened) and the server helpers are
-unit-tested (`DialogSkeletonFragmentTest`, `HtmxDslTest`). The **URL-addressable
-history binding** — open pushes `/…/new`, Cancel/ESC `replaceState`-restores the
-list URL, and Back returns to the list with the dialog closed — is proven
-end-to-end by `EnvironmentDialogUiTest` (the first converted form).
+unit-tested (`DialogSkeletonFragmentTest`, `HtmxDslTest` — including
+`dialogFieldErrorsOob`). The **URL-addressable history binding** — open pushes
+`/…/new`, Cancel/ESC `replaceState`-restores the list URL, and Back returns to
+the list with the dialog closed — is proven end-to-end by
+`EnvironmentDialogUiTest` (the first converted form). The **upload per-field OOB
+track** is covered at the handler level by `FontDialogHandlerHtmxTest` (dialog
+branches: GET fragment vs host page, OOB field error, close+refresh) with the
+JSON/editor contract held by `FontUploadHandlerTest`, and end-to-end in the
+browser by `GlobalFormErrorUiTest` (the faces error fills its span while the
+dialog stays open).

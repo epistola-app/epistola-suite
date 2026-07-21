@@ -526,6 +526,49 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     ) = globalFormError(errorId, message, statusCode)
 
     /**
+     * Per-FIELD validation errors for the multipart UPLOADS (font, image),
+     * delivered as an OOB-only swap so the form body is never re-rendered.
+     *
+     * This is the upload-family counterpart to [dialogFieldErrors]: same
+     * field→message error model (with a repeating group folded into ONE
+     * aggregate key, e.g. `faces` — mirroring code-list's `errors.entries`), but
+     * the messages arrive as an out-of-band swap of the per-field
+     * `epistola-web/form-error :: field-error` spans rather than a re-render of
+     * the whole form. A browser cannot repopulate `<input type=file>`, and the
+     * font face-rows have no hydration, so re-rendering the form body would wipe
+     * the user's file selection and any added rows. Swapping just the message
+     * spans (`HX-Reswap: none`, no primary swap) leaves everything the user
+     * typed and picked exactly in place.
+     *
+     * [fragmentName] MUST render every field's `field-error(..., oob=true)`
+     * span (empty where there is no error) so a fixed field's stale message is
+     * cleared — the form body, which would otherwise clear it on a re-render, is
+     * deliberately left untouched here.
+     *
+     * The `<dialog>`'s global `form-error` slot is untouched and keeps working
+     * for the 5xx client safety net. Pair with, for the boosted full-page case:
+     * `onNonHtmx { page(422, "…/host") { openDialog=true; "errors" to errors } }`.
+     *
+     * @param template The template holding the OOB field-errors fragment.
+     * @param fragmentName The fragment that renders the OOB `field-error` spans.
+     * @param errors field → message map (an aggregate key per repeating group).
+     */
+    fun dialogFieldErrorsOob(
+        template: String,
+        fragmentName: String,
+        errors: Map<String, String>,
+        statusCode: Int = 422,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        oob(template, fragmentName) {
+            model()
+            "errors" to errors
+        }
+        reswap(HxSwap.NONE)
+        status(statusCode)
+    }
+
+    /**
      * Sets a handler for non-HTMX requests using a builder DSL.
      * Allows rendering pages or redirects.
      *
