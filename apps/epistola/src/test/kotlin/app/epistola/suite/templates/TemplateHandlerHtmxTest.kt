@@ -22,11 +22,12 @@ import org.springframework.util.MultiValueMap
  * Server-side contract for the document-template create form converted onto the
  * dialog groundwork, mirroring EnvironmentHandlerHtmxTest. Asserts the
  * URL-addressable dialog convention (docs/dialog-forms.md) with the template
- * form's twist: success is a client-side REDIRECT to the new template's page
- * (HX-Redirect), not an in-place list refresh. Branches covered: HTMX GET →
- * dialog fragment (catalog <select> from AUTHORED catalogs); HTMX POST invalid →
- * retarget the form + 422; HTMX POST valid → HX-Redirect; plain list route →
- * mount stays empty (guards the th:if/th:replace precedence trap).
+ * form's twist: success is a client-side soft navigation to the new template's
+ * page (HX-Location, a boosted body-swap), not an in-place list refresh. Branches
+ * covered: HTMX GET → dialog fragment (catalog <select> from AUTHORED catalogs);
+ * HTMX POST invalid → retarget the form + 422; HTMX POST valid → HX-Location;
+ * plain list route → mount stays empty (guards the th:if/th:replace precedence
+ * trap).
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TemplateHandlerHtmxTest : BaseIntegrationTest() {
@@ -101,6 +102,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")
             // No closeDialog / redirect — the dialog stays open showing the error.
             assertThat(response.headers.getFirst("HX-Trigger")).isNull()
+            assertThat(response.headers.getFirst("HX-Location")).isNull()
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             // The re-rendered form: preserved values + an inline error.
             assertThat(response.body).contains("""id="create-template-form"""")
@@ -211,7 +213,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST valid returns HX-Redirect to the new template page`() = fixture {
+    fun `HTMX POST valid returns HX-Location to the new template page`() = fixture {
         lateinit var testTenant: Tenant
 
         given { testTenant = tenant("Tpl Create Valid") }
@@ -230,11 +232,13 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // Success navigates the whole page to the created template (the dialog
-            // goes with it) — asserted via the header, not a body.
+            // Success soft-navigates the page to the created template via a boosted
+            // body-swap (HX-Location); the dialog goes with the swapped-out body —
+            // asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers.getFirst("HX-Redirect"))
+            assertThat(response.headers.getFirst("HX-Location"))
                 .isEqualTo("/tenants/${testTenant.id}/templates/default/monthly-invoice")
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }
 

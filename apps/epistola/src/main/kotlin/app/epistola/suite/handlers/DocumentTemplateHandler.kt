@@ -343,14 +343,16 @@ class DocumentTemplateHandler(
             }
         }
 
-        // Success: navigate to the newly created template's page. The dialog
-        // disappears with the old page (HX-Redirect), so the list is not refreshed.
+        // Success: soft-navigate to the newly created template's page via a
+        // boosted body-swap (HX-Location) — the same navigation an in-app link
+        // click performs, so no full-page reload. The dialog goes with the
+        // swapped-out body; the list is not refreshed.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
         val catalogId = CatalogKey.of(form["catalog"])
         val destination = "/tenants/${tenantId.key}/templates/$catalogId/$templateKey"
         return request.htmx {
-            dialogRedirect(destination)
+            dialogLocation(destination)
             onNonHtmx { redirect(destination) }
         }
     }
