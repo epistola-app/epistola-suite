@@ -4,14 +4,16 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
-import app.epistola.suite.htmx.page
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -124,42 +126,83 @@ class AssetHandler(
             .body(catalogList)
     }
 
+    /**
+     * Upload dialog (mirrors `FontHandler.newForm`). URL-addressable create
+     * convention: an in-app trigger (hx-get) gets just the dialog fragment;
+     * direct navigation / boost gets the host list page with the dialog embedded
+     * and opened. Only AUTHORED catalogs are offered as upload targets (under the
+     * distinct `authoredCatalogs` key so it doesn't collide with the list's own
+     * `catalogs` filter var).
+     */
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val catalogs = ListCatalogs(tenantId).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("images/new") {
-            "pageTitle" to "Upload Image - Epistola"
-            "tenantId" to tenantId.value
-            "catalogs" to catalogs
+        val allCatalogs by lazy { ListCatalogs(tenantId).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        return request.htmx {
+            fragment("images/new", "dialog") {
+                "tenantId" to tenantId.value
+                "authoredCatalogs" to authoredCatalogs
+            }
+            onNonHtmx {
+                page("images/list") {
+                    imagePageModel(tenantId, allCatalogs)
+                    "openDialog" to true
+                    "authoredCatalogs" to authoredCatalogs
+                }
+            }
         }
+    }
+
+    /** The full-page list model (shared by the newForm / upload non-HTMX branches). */
+    private fun ModelBuilder.imagePageModel(tenantId: TenantKey, catalogs: List<Catalog>) {
+        "pageTitle" to "Images - Epistola"
+        "tenantId" to tenantId.value
+        "tenant" to GetTenant(id = tenantId).query()
+        "catalogs" to catalogs
+        "selectedCatalog" to ""
+        "assets" to listImages(tenantId = tenantId)
+        "activeNavSection" to "images"
     }
 
     fun upload(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-
         val multipartData = request.multipartData()
-        val filePart: Part = multipartData["file"]?.firstOrNull()
-            ?: return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "No file provided"))
 
-        val contentBytes = filePart.inputStream.use { it.readAllBytes() }
-        val originalFilename = filePart.submittedFileName ?: "unnamed"
-        val contentType = filePart.contentType
-            ?: return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "No content type on uploaded file"))
+        // Accumulate field → message (the OOB per-field error track). Two keys:
+        // `catalog`, and `file` — every file-related failure (missing, no content
+        // type, unsupported, too large) folds into the one `file` span.
+        val errors = LinkedHashMap<String, String>()
 
-        val mediaType = try {
-            assetTypeCatalog.require(contentType)
-        } catch (e: UnsupportedAssetTypeException) {
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to e.message))
+        val catalogStr = multipartData["catalog"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim()
+        }?.ifBlank { null }
+        if (catalogStr == null) errors["catalog"] = "Catalog is required"
+        val catalogKey = catalogStr?.let { CatalogKey.of(it) }
+
+        val filePart: Part? = multipartData["file"]?.firstOrNull()
+        var contentBytes: ByteArray? = null
+        var originalFilename: String? = null
+        var mediaType: AssetMediaType? = null
+        if (filePart == null) {
+            errors["file"] = "No file provided"
+        } else {
+            contentBytes = filePart.inputStream.use { it.readAllBytes() }
+            originalFilename = filePart.submittedFileName ?: "unnamed"
+            val contentType = filePart.contentType
+            if (contentType == null) {
+                errors["file"] = "No content type on uploaded file"
+            } else {
+                try {
+                    mediaType = assetTypeCatalog.require(contentType)
+                } catch (e: UnsupportedAssetTypeException) {
+                    errors["file"] = e.message ?: "Unsupported asset media type"
+                }
+            }
         }
 
-        // Extract image dimensions (null for SVG)
-        val dimensions = if (mediaType != AssetMediaType.SVG) {
+        // Extract image dimensions (null for SVG or on failure) — best-effort
+        // metadata, never an error.
+        val dimensions = if (mediaType != null && mediaType != AssetMediaType.SVG && contentBytes != null) {
             try {
                 contentBytes.inputStream().use { stream ->
                     val image = ImageIO.read(stream)
@@ -173,49 +216,78 @@ class AssetHandler(
             null
         }
 
-        val catalogKeyStr = multipartData["catalog"]?.firstOrNull()?.let {
-            String(it.inputStream.readAllBytes()).trim()
-        }?.ifBlank { null }
-            ?: return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "catalog is required"))
-        val catalogKey = CatalogKey.of(catalogKeyStr)
+        var asset: Asset? = null
+        if (errors.isEmpty()) {
+            try {
+                asset = UploadAsset(
+                    tenantId = tenantId,
+                    name = originalFilename!!,
+                    mediaType = mediaType!!,
+                    content = contentBytes!!,
+                    width = dimensions?.first,
+                    height = dimensions?.second,
+                    catalogKey = catalogKey!!,
+                ).execute()
+            } catch (e: AssetTooLargeException) {
+                errors["file"] = e.message ?: "That image is too large."
+            } catch (e: CatalogReadOnlyException) {
+                errors["catalog"] = e.message ?: "Catalog is read-only"
+            }
+        }
 
-        val asset = try {
-            UploadAsset(
-                tenantId = tenantId,
-                name = originalFilename,
-                mediaType = mediaType,
-                content = contentBytes,
-                width = dimensions?.first,
-                height = dimensions?.second,
-                catalogKey = catalogKey,
-            ).execute()
-        } catch (e: AssetTooLargeException) {
+        if (errors.isNotEmpty()) {
+            // Browser dialog (HTMX): OOB-swap the per-field spans only — never
+            // re-render the form body (the chosen file would be lost).
+            if (request.isHtmx) {
+                val authoredCatalogs by lazy {
+                    ListCatalogs(tenantId).query().filter { it.type == CatalogType.AUTHORED }
+                }
+                return request.htmx {
+                    dialogFieldErrorsOob("images/new", "field-errors", errors)
+                    onNonHtmx {
+                        page(422, "images/list") {
+                            imagePageModel(tenantId, ListCatalogs(tenantId).query())
+                            "openDialog" to true
+                            "authoredCatalogs" to authoredCatalogs
+                            "errors" to errors
+                        }
+                    }
+                }
+            }
+            // Editor / non-HTMX JSON contract (unchanged): first error message.
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to e.message))
+                .body(mapOf("error" to errors.values.first()))
         }
 
-        // HTMX form submission — redirect to asset list
+        val created = asset!!
+
+        // Success. Browser dialog: close + OOB-refresh the grid; boosted: redirect.
         if (request.isHtmx) {
-            return ServerResponse.ok()
-                .header("HX-Redirect", "/tenants/${tenantId.value}/images")
-                .build()
+            val assets = listImages(tenantId = tenantId)
+            return request.htmx {
+                dialogSuccess("images/list", "asset-list", "/tenants/${tenantId.value}/images") {
+                    "tenantId" to tenantId.value
+                    "tenant" to GetTenant(id = tenantId).query()
+                    "assets" to assets
+                    "selectedCatalog" to ""
+                }
+                onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
+            }
         }
 
-        // Editor API calls (Accept: application/json) — return JSON
+        // Editor API calls (Accept: application/json) — return JSON (unchanged).
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 mapOf(
-                    "id" to asset.id.value.toString(),
-                    "name" to asset.name,
-                    "mediaType" to asset.mediaType.mimeType,
-                    "sizeBytes" to asset.sizeBytes,
-                    "width" to asset.width,
-                    "height" to asset.height,
-                    "contentUrl" to "/tenants/${tenantId.value}/images/${asset.catalogKey.value}/${asset.id.value}/content",
+                    "id" to created.id.value.toString(),
+                    "name" to created.name,
+                    "mediaType" to created.mediaType.mimeType,
+                    "sizeBytes" to created.sizeBytes,
+                    "width" to created.width,
+                    "height" to created.height,
+                    "contentUrl" to "/tenants/${tenantId.value}/images/${created.catalogKey.value}/${created.id.value}/content",
                 ),
             )
     }

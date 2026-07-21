@@ -235,8 +235,9 @@ only those:
 > the same multipart with `Accept: application/json` and no HTMX headers. The
 > handler branches on `request.isHtmx`: HTMX → the dialog helpers above; non-HTMX
 > → the **unchanged JSON contract** (first error as a `400 {"error": …}`, success
-> as a JSON body). Keep both paths — `FontUploadHandlerTest` covers the JSON one,
-> `FontDialogHandlerHtmxTest` the dialog one.
+> as a JSON body). Keep both paths — `FontUploadHandlerTest` / `AssetRoutesTest`
+> cover the JSON one, `FontDialogHandlerHtmxTest` / `ImageDialogHandlerHtmxTest`
+> the dialog one.
 
 > **Auth deviation (fonts/images).** Unlike the E9 convention above, the
 > font/image handlers currently gate **nothing** (there is no `FONT_EDIT` /
@@ -253,8 +254,9 @@ unit-tested (`DialogSkeletonFragmentTest`, `HtmxDslTest` — including
 `/…/new`, Cancel/ESC `replaceState`-restores the list URL, and Back returns to
 the list with the dialog closed — is proven end-to-end by
 `EnvironmentDialogUiTest` (the first converted form). The **upload per-field OOB
-track** is covered at the handler level by `FontDialogHandlerHtmxTest` (dialog
-branches: GET fragment vs host page, OOB field error, close+refresh) with the
-JSON/editor contract held by `FontUploadHandlerTest`, and end-to-end in the
-browser by `GlobalFormErrorUiTest` (the faces error fills its span while the
-dialog stays open).
+track** is covered at the handler level by `FontDialogHandlerHtmxTest` /
+`ImageDialogHandlerHtmxTest` (dialog branches: GET fragment vs host page, OOB
+field error, close+refresh) with the JSON/editor contract held by
+`FontUploadHandlerTest` / `AssetRoutesTest`, and end-to-end in the browser by
+`GlobalFormErrorUiTest` (the faces error fills its span while the dialog stays
+open).
