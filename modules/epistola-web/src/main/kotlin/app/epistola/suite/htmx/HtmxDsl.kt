@@ -458,6 +458,31 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     }
 
     /**
+     * Success → SOFT-NAVIGATE to a newly created resource (the dialog disappears
+     * because the page body is swapped).
+     *
+     * Like [dialogRedirect], but emits `HX-Location` instead of `HX-Redirect`, so
+     * HTMX performs a **client-side boosted navigation** (AJAX GET → body swap +
+     * pushURL) rather than a full-page reload. This is the same code path a
+     * boosted `<a href>` click already takes, so the destination page's
+     * body-hosted boot scripts/JSON islands re-run exactly as they do on ordinary
+     * in-app navigation. Prefer this for "create → go to the created thing" when
+     * you want to keep the SPA feel; use [dialogRedirect] when the destination
+     * genuinely needs a fresh document (e.g. head assets that boost won't reload).
+     *
+     * No fragment is rendered: `HX-Location` supersedes any swap (HTMX handles the
+     * header before swapping), so the 200 carries headers only.
+     *
+     * Pair with: `onNonHtmx { redirect("/…/created") }` — a full-page (non-HTMX)
+     * submit still 303-redirects to the same resource.
+     */
+    fun dialogLocation(url: String) {
+        redirectUrl = url
+        headers["HX-Location"] = url
+        status(200)
+    }
+
+    /**
      * Field-validation errors → re-render the dialog's `<form>` in place with
      * inline errors, retargeted to the form (NOT the list, and NOT the dialog).
      *
@@ -627,8 +652,9 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
                 ?: throw IllegalStateException("No fragment or nonHtmxHandler defined")
         }
 
-        // Client-side redirect (dialogRedirect): HX-Redirect drives a full-page
-        // navigation, so no fragment/body is rendered — just the headers + status.
+        // Client-side redirect (dialogRedirect → HX-Redirect full-page reload, or
+        // dialogLocation → HX-Location boosted body-swap): HTMX acts on the header
+        // before swapping, so no fragment/body is rendered — just headers + status.
         redirectUrl?.let {
             var response = ServerResponse.status(status)
             headers.forEach { (key, value) -> response = response.header(key, value) }

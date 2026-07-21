@@ -332,6 +332,21 @@ class HtmxDslTest {
         }
 
         @Test
+        fun `dialogLocation emits HX-Location and 200 with no fragment`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogLocation("/x")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            // HX-Location drives a soft, boosted body-swap navigation to the created
+            // resource; no fragment/body is rendered and it is NOT a full reload.
+            assertThat(response.headers().getFirst("HX-Location")).isEqualTo("/x")
+            assertThat(response.headers().getFirst("HX-Redirect")).isNull()
+        }
+
+        @Test
         fun `dialogReveal keeps the dialog open - retargets, outerHTML, no closeDialog`() {
             val request = createHtmxRequest()
 
