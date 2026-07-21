@@ -16,18 +16,29 @@
 import driverCss from 'driver.js/dist/driver.css?inline';
 import type { Driver, DriveStep } from 'driver.js';
 import { firstIncompleteTour, nextTour, tourById, TOURS, type Tour } from './registry.js';
-import { hasSeenIntro, markChapterComplete, markIntroSeen } from './progress.js';
+import { hasSeenIntro, isChapterComplete, markChapterComplete, markIntroSeen } from './progress.js';
+import { getActiveDriver, setActiveDriver } from './session.js';
+import { injectStyleOnce } from './styles.js';
 
 const GUIDE_TRIGGER = '[data-tour="guide-trigger"]';
 
 const STYLE_ID = 'ep-driver-css';
 
 function ensureDriverStyles(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = driverCss;
-  document.head.appendChild(style);
+  injectStyleOnce(STYLE_ID, driverCss);
+}
+
+/**
+ * Resolve a step's target within this editor host (not the whole document), so
+ * spotlights land on the right editor when more than one is mounted. Returns
+ * `null` when absent; driver's `skipMissingElement` then skips the step.
+ */
+function hostTarget(host: HTMLElement, selector: string): () => Element {
+  // driver's resolver type is `() => Element`, but at runtime it tolerates a
+  // missing one (skipMissingElement / centered fallback). The query legitimately
+  // returns null for an absent target, so this narrowing is safe.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  return () => host.querySelector(selector) as Element;
 }
 
 /** Run a single chapter, chaining to the next chapter when the user finishes it. */
@@ -36,44 +47,43 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   ensureDriverStyles();
 
   const upcoming = nextTour(tour.id);
-  let d: Driver;
 
-  const steps: DriveStep[] = tour.steps(host).map((step, i, all) => {
-    const isLast = i === all.length - 1;
-    return {
-      element: step.target,
-      onHighlightStarted: step.before ? () => step.before?.(host) : undefined,
-      popover: {
-        title: step.title,
-        description: step.body,
-        side: step.side,
-        align: 'start',
-        // The last step's Done button both records completion and, if there is a
-        // next chapter, chains straight into it — the "level up" affordance. The
-        // X (onCloseClick, default) just dismisses without marking complete.
-        ...(isLast
-          ? {
-              doneBtnText: upcoming ? `Next: ${upcoming.title} →` : 'Done',
-              onDoneClick: () => {
-                markChapterComplete(tour.id, tour.version);
-                d.destroy();
-                if (upcoming) void runTour(host, upcoming);
-              },
-            }
-          : {}),
-      },
-      skipMissingElement: true,
-    };
-  });
+  const steps: DriveStep[] = tour.steps(host).map((step) => ({
+    element: hostTarget(host, step.target),
+    onHighlightStarted: step.before ? () => step.before?.(host) : undefined,
+    popover: {
+      title: step.title,
+      description: step.body,
+      side: step.side,
+      align: 'start',
+    },
+    skipMissingElement: true,
+  }));
 
   if (steps.length === 0) return;
 
+  let d: Driver;
   d = driver({
     showProgress: true,
     progressText: '{{current}} of {{total}}',
     allowClose: true,
+    // Config-level (not per-step) so it attaches to whichever step is *effectively*
+    // last — a trailing target skipped via skipMissingElement must not orphan
+    // completion. The Done button both records completion and, if there is a next
+    // chapter, chains straight into it (the "level up" affordance). The X just
+    // dismisses without marking complete.
+    doneBtnText: upcoming ? `Next: ${upcoming.title} →` : 'Done',
+    onDoneClick: () => {
+      markChapterComplete(tour.id, tour.version);
+      d.destroy();
+      if (upcoming) void runTour(host, upcoming);
+    },
+    onDestroyed: () => {
+      if (getActiveDriver() === d) setActiveDriver(null);
+    },
     steps,
   });
+  setActiveDriver(d);
   d.drive();
 }
 
@@ -85,7 +95,7 @@ export async function startTour(host: HTMLElement, tourId: string): Promise<void
 
 /** Start at the first unfinished chapter, or replay from the top when all are done. */
 export async function startWalkthrough(host: HTMLElement): Promise<void> {
-  const tour = firstIncompleteTour() ?? TOURS[0];
+  const tour = firstIncompleteTour(isChapterComplete) ?? TOURS[0];
   if (tour) await runTour(host, tour);
 }
 
@@ -106,10 +116,13 @@ export async function startIntro(host: HTMLElement): Promise<void> {
   d = driver({
     allowClose: true,
     // Fires whether the user starts the tour or dismisses — either way, don't nag again.
-    onDestroyed: () => markIntroSeen(),
+    onDestroyed: () => {
+      if (getActiveDriver() === d) setActiveDriver(null);
+      markIntroSeen();
+    },
     steps: [
       {
-        element: GUIDE_TRIGGER,
+        element: hostTarget(host, GUIDE_TRIGGER),
         popover: {
           title: 'Take the tour',
           description:
@@ -127,5 +140,6 @@ export async function startIntro(host: HTMLElement): Promise<void> {
       },
     ],
   });
+  setActiveDriver(d);
   d.drive();
 }
