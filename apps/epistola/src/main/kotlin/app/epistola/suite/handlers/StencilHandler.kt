@@ -271,15 +271,16 @@ class StencilHandler(
             }
         }
 
-        // Success: navigate to the newly created stencil's page. The dialog
-        // disappears with the old page (HX-Redirect), so the list is not refreshed.
-        // onNonHtmx (boosted / history-restore only) redirects to the same page.
+        // Success: soft-navigate to the newly created stencil's page via a boosted
+        // body-swap (HX-Location) — no full-page reload. The dialog goes with the
+        // swapped-out body; the list is not refreshed. onNonHtmx (boosted /
+        // history-restore only) redirects to the same page.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val stencilKey = StencilKey.validateOrNull(form["slug"])!!
         val catalogKey = CatalogKey.of(form["catalog"])
         val destination = "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey"
         return request.htmx {
-            dialogRedirect(destination)
+            dialogLocation(destination)
             onNonHtmx { redirect(destination) }
         }
     }

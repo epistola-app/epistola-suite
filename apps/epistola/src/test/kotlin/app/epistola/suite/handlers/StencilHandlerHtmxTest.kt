@@ -373,7 +373,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     // stencils: the POST endpoint ALSO serves the editor's JSON API, so the UI form
     // is HTMX-only (no no-JS form-POST fallback). Branches: HTMX GET → dialog
     // fragment; HTMX POST invalid → retarget form + 422; HTMX POST valid →
-    // HX-Redirect; plain list route → mount stays empty; and the JSON API (non-HTMX
+    // HX-Location; plain list route → mount stays empty; and the JSON API (non-HTMX
     // POST) still returns 201.
 
     @Test
@@ -445,6 +445,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-stencil-form")
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")
             // No closeDialog / redirect — the dialog stays open showing the error.
+            assertThat(response.headers.getFirst("HX-Location")).isNull()
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             // The re-rendered form: preserved values + an inline error.
             assertThat(response.body).contains("""id="create-stencil-form"""")
@@ -460,7 +461,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST valid returns HX-Redirect to the new stencil page`() = fixture {
+    fun `HTMX POST valid returns HX-Location to the new stencil page`() = fixture {
         lateinit var testTenant: Tenant
 
         given { testTenant = tenant("Stencil Create Valid") }
@@ -481,11 +482,13 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // Success navigates the whole page to the created stencil (the dialog
-            // goes with it) — asserted via the header, not a body.
+            // Success soft-navigates the page to the created stencil via a boosted
+            // body-swap (HX-Location); the dialog goes with the swapped-out body —
+            // asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers.getFirst("HX-Redirect"))
+            assertThat(response.headers.getFirst("HX-Location"))
                 .isEqualTo("/tenants/${testTenant.id}/stencils/default/corporate-header")
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }
 
