@@ -67,6 +67,7 @@ export function createQualityPlugin(options: QualityPluginOptions): EditorPlugin
     sidebarTab: {
       id: 'quality',
       label: 'Quality',
+      keepOpenOnSelection: true,
       render: (context) =>
         html`<epistola-quality-panel
           .service=${service}

@@ -47,6 +47,9 @@ export interface SidebarTabContribution {
   /** Optional icon identifier (Lucide icon name) */
   icon?: string;
 
+  /** Keep this tab active when its content selects a canvas node. */
+  keepOpenOnSelection?: boolean;
+
   /** Renders the tab content. Called reactively when context changes. */
   render: (context: PluginContext) => TemplateResult;
 }

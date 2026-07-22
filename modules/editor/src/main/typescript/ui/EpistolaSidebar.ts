@@ -17,6 +17,7 @@ interface TabDefinition {
   id: string;
   label: string | (() => string);
   icon?: string;
+  keepOpenOnSelection?: boolean;
   render: () => TemplateResult;
 }
 
@@ -39,7 +40,7 @@ export class EpistolaSidebar extends LitElement {
   private _tabResizeObserver?: ResizeObserver;
 
   override willUpdate(changed: Map<string, unknown>) {
-    if (changed.has('selectedNodeId') && this.selectedNodeId != null) {
+    if (changed.has('selectedNodeId') && this.selectedNodeId != null && !this._activeTabKeepsOpen) {
       this._activeTab = 'inspector';
     }
   }
@@ -144,6 +145,10 @@ export class EpistolaSidebar extends LitElement {
     return this.selectedNodeId ? 'Inspector' : 'Document';
   }
 
+  private get _activeTabKeepsOpen(): boolean {
+    return this._allTabs.find((tab) => tab.id === this._activeTab)?.keepOpenOnSelection === true;
+  }
+
   private get _builtinTabs(): TabDefinition[] {
     return [
       {
@@ -181,6 +186,7 @@ export class EpistolaSidebar extends LitElement {
       id: tab.id,
       label: tab.label,
       icon: tab.icon,
+      keepOpenOnSelection: tab.keepOpenOnSelection,
       render: () => {
         if (!this.pluginContext) return html``;
         return tab.render(this.pluginContext);
