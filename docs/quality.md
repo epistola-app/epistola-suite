@@ -371,8 +371,9 @@ invalid draft will not save, so neither editor trigger fires on an unsaveable do
 
 **No autosave or daily sweep yet.** During alpha, checks run only on publish and explicit
 "Check now". That keeps background cost and latency visible rather than hiding it in a scheduler.
-If semi-realtime or periodic reconciliation becomes necessary, add it with a run ledger and source
-tiering so cheap local checks, expensive local checks and remote checks do not share one trigger.
+We do intend to add a periodic reconciliation sweep, but only with a run ledger and source tiering
+so cheap local checks, expensive local checks and remote checks do not share one trigger. The sweep
+should be the backstop, not the first scheduling primitive.
 
 ## Configuration
 
