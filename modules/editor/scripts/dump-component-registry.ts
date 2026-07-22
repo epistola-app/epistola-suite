@@ -15,11 +15,11 @@
  *     inspector: [{ key, label, type, options?, defaultValue?, units? }],
  *     defaultStyles?, defaultProps?, maxInstancesPerDocument?,
  *     examples?: [{ name, description, fragment: { rootNodeId, nodes, slots } }],
- *     parameters?: JsonSchema | null
+ *     parameters?: { kind: 'dynamic' } | { kind: 'static', schema: JsonSchema }
  *   }
  *   - undefined: component has no parameter support
- *   - null: dynamic per-instance (e.g. stencil — use get_stencil_version to fetch)
- *   - JsonSchema literal: static parameter schema (same for every instance)
+ *   - { kind: 'dynamic' }: dynamic per-instance (e.g. stencil — use get_stencil_version to fetch)
+ *   - { kind: 'static', schema }: static parameter schema (same for every instance)
  *
  * Non-serializable hooks (renderCanvas, renderInspector, callbacks) are
  * intentionally dropped — backend consumers don't need them.
@@ -71,14 +71,14 @@ interface SerializedComponent {
   defaultProps?: Record<string, unknown>;
   maxInstancesPerDocument?: number;
   examples?: ComponentDefinition['examples'];
-  /** Parameter schema: null = dynamic per-instance; undefined = no parameter support. */
-  parameters?: JsonSchema | null;
+  /** Parameter metadata: undefined = no parameter support. */
+  parameters?: { kind: 'dynamic' } | { kind: 'static'; schema: JsonSchema };
 }
 
 function serializeParameters(def: ComponentDefinition): SerializedComponent['parameters'] {
   if (def.parameters === undefined) return undefined;
-  if (typeof def.parameters === 'function') return null; // dynamic per-instance
-  return def.parameters; // static JsonSchema literal
+  if (typeof def.parameters === 'function') return { kind: 'dynamic' };
+  return { kind: 'static', schema: def.parameters };
 }
 
 function describe(def: ComponentDefinition): SerializedComponent {

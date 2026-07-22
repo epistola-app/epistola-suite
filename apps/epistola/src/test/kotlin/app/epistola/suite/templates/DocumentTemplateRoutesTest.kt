@@ -660,7 +660,11 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: field errors re-render the form in place (retargeted
+            // to the form, not the list) with a 422.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")
             assertThat(response.body).contains("Name is required")
             assertThat(response.body).contains("form-error")
 
@@ -691,7 +695,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             assertThat(response.body).contains("Name is required")
 
             val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
@@ -721,7 +726,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             assertThat(response.body).contains("Name must be 100 characters or less")
 
             val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
@@ -750,7 +756,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             // The form should contain the submitted value (trimmed but preserved)
             assertThat(response.body).contains("value=\"${"a".repeat(256)}\"")
         }

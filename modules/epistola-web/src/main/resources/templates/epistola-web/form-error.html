@@ -33,5 +33,34 @@
          role="alert"
          hx-swap-oob="outerHTML"
          th:text="${message}"></div>
+
+    <!--
+    Per-FIELD inline error span (the upload family's error track).
+
+    Unlike the global slot above, this is one span per field, addressed by a
+    page-unique id so a handler can OOB-swap JUST the messages while leaving the
+    form body untouched. That is what the multipart uploads (font, image) need:
+    a browser cannot repopulate <input type=file> (and font face-rows have no
+    hydration), so their error path must never re-render the form body. The
+    handler renders every field's span each time (empty where resolved, so a
+    fixed error clears) via the HTMX DSL's `dialogFieldErrorsOob`.
+
+    Used two ways off the SAME id:
+      - inside the form, oob=false → a plain inline span (empty on first render);
+      - in the error response, oob=true → the same span carrying hx-swap-oob, so
+        it replaces the in-form one in place.
+
+    The message itself is styled red by the shared `.form-error` rule (forms.css).
+    Unlike the re-rendering forms, the upload group is never re-rendered, so it
+    carries no `.form-group.error` class and the input keeps its normal border —
+    the inline red message is the error affordance. No `data-form-error` here:
+    that marks the GLOBAL slot the 5xx client safety net writes into; per-field
+    spans must not intercept it.
+    -->
+    <span th:fragment="field-error(id, message, oob)"
+          th:id="${id}"
+          class="form-error"
+          th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null"
+          th:text="${message}"></span>
 </body>
 </html>

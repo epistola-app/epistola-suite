@@ -21,8 +21,13 @@
             </select>
         </div>
 
-        <!-- Upload area is on a dedicated page -->
-
+        <!-- Outer OOB region: a successful upload OOB-refreshes the whole grid
+             via dialogSuccess (id + hx-swap-oob). Search and delete keep
+             targeting the inner #asset-grid-items (search innerHTML-swaps the
+             grid items; delete swaps the same), so only the create refresh needs
+             the outer wrapper — mirrors environments/list :: environment-list. -->
+        <div id="asset-list" th:fragment="asset-list"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div id="asset-grid-items">
             <th:block th:fragment="asset-grid-items">
                 <div th:if="${#lists.isEmpty(assets)}" class="empty-state">
@@ -31,6 +36,13 @@
                     </div>
                     <div class="empty-state-title">No images yet</div>
                     <div class="empty-state-description">Upload images to use in your document templates.</div>
+                    <button type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                            th:hx-get="@{/tenants/{tenantId}/images/new(tenantId=${tenantId})}"
+                            hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                            data-testid="image-create-open">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
+                        Upload Image
+                    </button>
                 </div>
 
                 <div th:if="${!#lists.isEmpty(assets)}" class="ep-auto-grid asset-grid">
@@ -65,15 +77,31 @@
                 </div>
             </th:block>
         </div>
+        </div>
+
+        <!-- Dialog mount: the upload dialog is swapped in here by the trigger
+             (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
+             direct navigation to /new the handler renders THIS page with
+             openDialog=true, embedding the dialog for the same JS to open on
+             load. The openDialog guard MUST wrap the th:replace on an OUTER
+             element (th:replace precedence 100 runs before th:if 300). -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{images/new :: dialog}"></th:block>
+            </th:block>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
     </th:block>
     <th:block th:fragment="asset-list-actions">
-        <a th:href="@{/tenants/{tenantId}/images/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+        <button type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/images/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="image-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
             Upload Image
-        </a>
+        </button>
     </th:block>
 
 </body>

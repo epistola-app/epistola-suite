@@ -69,6 +69,7 @@ function buildAliasedFieldPaths(
     path: itemAlias,
     type: 'string',
     scope: itemAlias,
+    scopeKind: 'iteration',
     description: 'Current iteration item',
   });
 
@@ -80,6 +81,7 @@ function buildAliasedFieldPaths(
         path: `${itemAlias}.${subPath}`,
         type: fp.type,
         scope: itemAlias,
+        scopeKind: 'iteration',
       });
     }
   }
@@ -90,18 +92,21 @@ function buildAliasedFieldPaths(
       path: `${itemAlias}_index`,
       type: 'integer',
       scope: itemAlias,
+      scopeKind: 'iteration',
       description: 'Zero-based iteration index',
     },
     {
       path: `${itemAlias}_first`,
       type: 'boolean',
       scope: itemAlias,
+      scopeKind: 'iteration',
       description: 'True for the first item',
     },
     {
       path: `${itemAlias}_last`,
       type: 'boolean',
       scope: itemAlias,
+      scopeKind: 'iteration',
       description: 'True for the last item',
     },
   );
@@ -111,6 +116,7 @@ function buildAliasedFieldPaths(
       path: indexAlias,
       type: 'integer',
       scope: itemAlias,
+      scopeKind: 'iteration',
       description: 'Iteration index (custom alias)',
     });
   }

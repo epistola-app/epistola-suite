@@ -34,6 +34,7 @@ import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.ModelBuilder
+import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -41,6 +42,8 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.requirePermission
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -62,8 +65,29 @@ class CatalogHandler {
         }
     }
 
+    fun newForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        return request.htmx {
+            // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
+            fragment("catalogs/new", "dialog") {
+                "tenantId" to tenantId.key
+            }
+            // Direct navigation / boost: the host list page with the create
+            // dialog embedded in its mount (openDialog=true), opened on load by JS.
+            onNonHtmx {
+                page("catalogs/list") {
+                    catalogPageModel(request)
+                    "openDialog" to true
+                    "openDialogFragment" to "catalogs/new :: dialog"
+                }
+            }
+        }
+    }
+
     fun createCatalog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
 
         val form = request.form {
             field("slug") {
@@ -71,39 +95,85 @@ class CatalogHandler {
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
                 minLength(3)
                 maxLength(50)
+                asCatalogId()
             }
             field("name") {
                 required()
             }
         }
 
-        if (form.hasErrors()) {
-            return listWithError(request, "Catalog slug and name are required.")
+        // Field validation (incl. slug/CatalogKey) and the command-level failure
+        // (duplicate slug) both land as `errors` on the FormData, so they share one
+        // error path — mirroring the environment/attribute conversions.
+        val result = if (form.hasErrors()) {
+            form
+        } else {
+            form.executeOrFormError {
+                CreateCatalog(
+                    tenantKey = tenantId.key,
+                    id = CatalogKey.of(form["slug"]),
+                    name = form["name"],
+                ).execute()
+            }
         }
 
-        return try {
-            CreateCatalog(
-                tenantKey = tenantId.key,
-                id = CatalogKey.of(form["slug"]),
-                name = form["name"],
-            ).execute()
-
-            request.htmx {
-                fragment("catalogs/list", "catalog-list") {
-                    catalogListModel(request)
+        if (result.hasErrors()) {
+            return request.htmx {
+                // Re-render the form inside the dialog (retargeted to the form, not
+                // the list) with inline errors + preserved values.
+                dialogFieldErrors(
+                    template = "catalogs/new",
+                    fragmentName = "catalog-form",
+                    formTarget = "#create-catalog-form",
+                    formData = result,
+                ) {
+                    "tenantId" to tenantId.key
                 }
                 onNonHtmx {
-                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                    page(422, "catalogs/list") {
+                        catalogPageModel(request)
+                        "openDialog" to true
+                        "openDialogFragment" to "catalogs/new :: dialog"
+                        "formData" to result.formData
+                        "errors" to result.errors
+                    }
                 }
             }
-        } catch (e: Exception) {
-            logger.warn("Failed to create catalog: ${e.message}", e)
-            listWithError(request, "Failed to create catalog. The slug may already be in use.")
+        }
+
+        // Success: close the dialog + OOB-refresh the list (the catalog-list
+        // fragment toggles hx-swap-oob via the `oob` flag dialogSuccess injects).
+        return request.htmx {
+            dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
+                catalogListModel(request)
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+        }
+    }
+
+    fun registerForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        return request.htmx {
+            // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
+            fragment("catalogs/subscribe", "dialog") {
+                "tenantId" to tenantId.key
+            }
+            // Direct navigation / boost: the host list page with the subscribe
+            // dialog embedded in its mount (openDialog=true), opened on load by JS.
+            onNonHtmx {
+                page("catalogs/list") {
+                    catalogPageModel(request)
+                    "openDialog" to true
+                    "openDialogFragment" to "catalogs/subscribe :: dialog"
+                }
+            }
         }
     }
 
     fun register(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
 
         val form = request.form {
             field("sourceUrl") {
@@ -113,7 +183,7 @@ class CatalogHandler {
         }
 
         if (form.hasErrors()) {
-            return listWithError(request, "Catalog URL is required.")
+            return registerError(request, "Catalog URL is required.")
         }
 
         val sourceUrl = form.formData["sourceUrl"]!!
@@ -133,12 +203,40 @@ class CatalogHandler {
                 authCredential = authCredential,
             ).execute()
 
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs?saved=true")
-                .build()
+            // Stay-on-list: close the dialog + OOB-refresh the list with the new catalog.
+            request.htmx {
+                dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
+                    catalogListModel(request)
+                }
+                onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+            }
         } catch (e: Exception) {
             logger.warn("Failed to register catalog: ${e.message}", e)
-            listWithError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
+            registerError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
+        }
+    }
+
+    /**
+     * Register error → OOB-update just the dialog's form-error slot, leaving the
+     * live form (URL, auth type, credential) exactly as the user left it.
+     * dialogFieldErrors would re-render the body and reset the authType <select>
+     * / credential toggle, so we keep the operational failure text-only here.
+     */
+    private fun registerError(request: ServerRequest, message: String): ServerResponse = request.htmx {
+        dialogFormError("subscribe-catalog-error", message)
+        // The subscribe form keeps a real no-JS fallback (method="post" th:action),
+        // so this branch is reachable — re-embed the dialog rather than dropping the
+        // user on a bare list with their URL/auth input gone. The dialog's
+        // form-error slot renders the message from the standardized `error` key
+        // (see epistola-web/form-error), so it shows INSIDE the reopened dialog
+        // instead of only in the list banner behind the modal backdrop.
+        onNonHtmx {
+            page(422, "catalogs/list") {
+                catalogPageModel(request)
+                "openDialog" to true
+                "openDialogFragment" to "catalogs/subscribe :: dialog"
+                "error" to message
+            }
         }
     }
 
@@ -517,8 +615,31 @@ class CatalogHandler {
         }
     }
 
+    /**
+     * The Import-ZIP dialog, mirroring [newForm]/[registerForm]: an in-app
+     * trigger (hx-get → #dialog-mount) gets just the `dialog` fragment; direct
+     * navigation / boost gets the host list page with the dialog embedded in its
+     * mount (openDialog=true), opened on load by JS. Gated on TEMPLATE_EDIT —
+     * the same permission [ImportCatalogZip] enforces.
+     */
+    fun importForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        return request.htmx {
+            fragment("catalogs/import", "dialog") { "tenantId" to tenantId.key }
+            onNonHtmx {
+                page("catalogs/list") {
+                    catalogPageModel(request)
+                    "openDialog" to true
+                    "openDialogFragment" to "catalogs/import :: dialog"
+                }
+            }
+        }
+    }
+
     fun importZip(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
 
         val multipartData = request.multipartData()
         val filePart = multipartData["file"]?.firstOrNull()
@@ -604,7 +725,7 @@ class CatalogHandler {
                 )
             }
             ServerResponse.ok().render(
-                "catalogs/list :: import-conflict-content",
+                "catalogs/import :: import-conflict-content",
                 mapOf(
                     "catalogId" to e.catalogKey.value,
                     "stencilImportConflicts" to conflicts,
@@ -623,7 +744,7 @@ class CatalogHandler {
                 is CatalogSchemaUnknownException -> "Import blocked: unrecognised catalog format"
             }
             ServerResponse.ok().render(
-                "catalogs/list :: import-schema-error",
+                "catalogs/import :: import-schema-error",
                 mapOf(
                     "schemaErrorTitle" to title,
                     "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
@@ -634,7 +755,7 @@ class CatalogHandler {
             // updating mutates the imported content, so prompt before importing. The
             // "Update" button re-submits the same form with confirmMigration=true.
             ServerResponse.ok().render(
-                "catalogs/list :: import-migration-confirm",
+                "catalogs/import :: import-migration-confirm",
                 mapOf(
                     "tenantId" to tenantId.key,
                     "fromSchemaVersion" to e.fromVersion,
@@ -664,12 +785,17 @@ class CatalogHandler {
      */
     private fun importError(request: ServerRequest, error: String): ServerResponse = request.htmx {
         globalFormError("import-catalog-error", error)
-        oob("catalogs/list", "import-error-reset")
+        oob("catalogs/import", "import-error-reset")
+        // Defensive only: unlike the subscribe/create forms, the import form is
+        // HTMX-only (no method/action fallback — a file upload has nothing to
+        // restore on a re-render anyway), so a genuine non-HTMX POST cannot reach
+        // this. Kept consistent with registerError so the branch stays correct if a
+        // fallback is ever added; `error` renders in the dialog's form-error slot.
         onNonHtmx {
             page(422, "catalogs/list") {
-                "pageTitle" to "Catalogs - Epistola"
-                "activeNavSection" to "catalogs"
-                catalogListModel(request)
+                catalogPageModel(request)
+                "openDialog" to true
+                "openDialogFragment" to "catalogs/import :: dialog"
                 "error" to error
             }
         }
@@ -772,6 +898,17 @@ class CatalogHandler {
         val tenantKey = request.tenantId().key
         "tenantId" to tenantKey
         "catalogs" to ListCatalogsForManagement(tenantKey).query()
+    }
+
+    /**
+     * The full-page list model used by the newForm / createCatalog non-HTMX
+     * branches so the list renders behind the embedded create dialog. Adds the
+     * page chrome the host list page needs on top of [catalogListModel].
+     */
+    private fun ModelBuilder.catalogPageModel(request: ServerRequest) {
+        "pageTitle" to "Catalogs - Epistola"
+        "activeNavSection" to "catalogs"
+        catalogListModel(request)
     }
 
     private fun listWithError(request: ServerRequest, error: String): ServerResponse = ServerResponse.ok().page("catalogs/list") {

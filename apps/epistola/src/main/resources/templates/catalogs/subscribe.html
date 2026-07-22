@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    The subscribe-to-catalog dialog. Rendered two ways off CatalogHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `subscribe-form` — the caller-owned form body inside the dialog shell.
+
+    STAY-ON-LIST: on success the handler closes the dialog and OOB-refreshes the
+    #catalog-list region (dialogSuccess), like the create dialog.
+
+    ERRORS DON'T RE-RENDER THE FORM: a failed subscribe (invalid/unreachable
+    manifest) is operational, so the handler OOB-swaps ONLY the #subscribe-catalog-error
+    slot (dialogFormError, HX-Reswap: none). The live form is untouched, so the
+    authType <select> and its JS-driven credential toggle keep the user's state —
+    which re-rendering the body would reset. Hence no th:value prefill is needed.
+
+    Model it needs: `tenantId` (URLs).
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='subscribe-catalog-dialog',
+            title='Subscribe to Catalog',
+            closeUrl=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            content=~{::subscribe-form})}"></div>
+    </th:block>
+
+    <form th:fragment="subscribe-form" id="subscribe-catalog-form"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
+          hx-target="#subscribe-catalog-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='subscribe-catalog-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group">
+                <label class="ep-label" for="sourceUrl">Catalog URL</label>
+                <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
+                       required placeholder="https://example.com/catalog.json"
+                       value="classpath:epistola/catalogs/demo/catalog.json">
+                <span class="form-hint">
+                    URL to the catalog manifest (<code>.json</code>). Supports <code>https://</code>, <code>classpath:</code>, and <code>file:///</code>.
+                </span>
+            </div>
+            <div class="form-group">
+                <label class="ep-label" for="authType">Authentication</label>
+                <select id="authType" name="authType" class="ep-select"
+                        data-auth-credential-toggle="credential-group">
+                    <option value="NONE">None (public catalog)</option>
+                    <option value="BEARER">Bearer Token</option>
+                    <option value="API_KEY">API Key</option>
+                </select>
+            </div>
+            <div class="form-group" id="credential-group" style="display: none;">
+                <label class="ep-label" for="authCredential">Credential</label>
+                <input type="password" id="authCredential" name="authCredential" class="ep-input"
+                       placeholder="Token or API key">
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="subscribe-catalog-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-subscribe-submit">Subscribe</button>
+        </div>
+    </form>
+</body>
+</html>
