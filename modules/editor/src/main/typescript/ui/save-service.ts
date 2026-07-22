@@ -55,6 +55,7 @@ export class SaveService {
   private _disposed = false;
   private _saving = false;
   private _pendingDoc: TemplateDocument | null = null;
+  private _currentSave: Promise<void> | null = null;
 
   readonly _saveFn: SaveFn;
   readonly _onChange: OnSaveStateChange;
@@ -118,7 +119,33 @@ export class SaveService {
       return;
     }
     this._clearDebounce();
-    this._doSave(doc);
+    void this._doSave(doc).catch(() => {
+      // The state has already moved to `error`; callers using the legacy fire-and-forget method
+      // observe failures through OnSaveStateChange.
+    });
+  }
+
+  /**
+   * Save immediately and resolve only after the latest pending document has
+   * reached the host save callback. Used by plugins that must hand work to the
+   * backend after the draft is current.
+   */
+  async saveNow(doc: TemplateDocument): Promise<void> {
+    if (this._disposed) return;
+    // No-op when there's nothing to save
+    if ((this._state.status === 'idle' || this._state.status === 'saved') && !this._pendingDoc) {
+      return;
+    }
+    this._pendingDoc = doc;
+
+    while (!this._disposed && this._pendingDoc) {
+      this._clearDebounce();
+      const nextDoc = this._pendingDoc;
+      await this._doSave(nextDoc);
+      if (this._state.status === 'error') {
+        throw new Error(this._state.message);
+      }
+    }
   }
 
   /**
@@ -167,9 +194,22 @@ export class SaveService {
     // Prevent concurrent saves — queue as pending
     if (this._saving) {
       this._pendingDoc = doc;
+      await this._currentSave;
       return;
     }
 
+    const run = this._doSaveOnce(doc);
+    this._currentSave = run;
+    try {
+      await run;
+    } finally {
+      if (this._currentSave === run) {
+        this._currentSave = null;
+      }
+    }
+  }
+
+  private async _doSaveOnce(doc: TemplateDocument): Promise<void> {
     this._saving = true;
     this._pendingDoc = null;
     this._setState({ status: 'saving' });

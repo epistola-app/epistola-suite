@@ -92,7 +92,12 @@
         "variantId": [[${variantId}]],
         "dataExamples": [[${dataExamples}]],
         "dataModel": [[${dataModel}]],
-        "locale": [[${resolvedLocale}]]
+        "locale": [[${resolvedLocale}]],
+        "quality": {
+            "enabled": [[${qualityEnabled}]],
+            "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
+            "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]
+        }
     }
     </script>
     <script type="module" th:src="@{/js/editor-boot.js}"></script>

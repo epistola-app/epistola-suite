@@ -10,6 +10,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
 import app.epistola.suite.handlers.decorateVariants
@@ -377,6 +379,8 @@ class DocumentTemplateHandler(
         val tenant = GetTenant(tenantId.key).query()
             ?: return ServerResponse.notFound().build()
         val resolvedLocale = localeResolver.resolve(tenant, context.variantAttributes)
+        val featureToggles = ResolveFeatureToggles(tenantId.key).query()
+        val qualityEnabled = featureToggles[KnownFeatures.QUALITY] == true
 
         // Test-only seam (issue #418, Instance C): a `leaderTiming` query
         // param (JSON) lets UI tests shrink the editor's leader-hint TTLs so
@@ -398,6 +402,7 @@ class DocumentTemplateHandler(
                 "dataModel" to context.dataModel,
                 "leaderTiming" to leaderTiming,
                 "resolvedLocale" to resolvedLocale,
+                "qualityEnabled" to qualityEnabled,
             ),
         )
     }

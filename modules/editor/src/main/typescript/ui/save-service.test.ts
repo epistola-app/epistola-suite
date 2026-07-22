@@ -278,6 +278,42 @@ describe('SaveService', () => {
     service.dispose();
   });
 
+  it('saveNow resolves after an in-flight save and pending doc are saved', async () => {
+    const calls: TemplateDocument[] = [];
+    const releases: Array<() => void> = [];
+    const saveFn: SaveFn = async (doc) => {
+      calls.push(doc);
+      await new Promise<void>((resolve) => releases.push(resolve));
+    };
+    const service = new SaveService(saveFn, vi.fn(), 3000);
+
+    service.markDirty();
+    service.forceSave(DOC);
+    expect(calls).toEqual([DOC]);
+
+    service.markDirty();
+    const saveNow = service.saveNow(DOC2);
+    await Promise.resolve();
+    expect(calls).toEqual([DOC]);
+
+    releases.shift()?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls).toEqual([DOC, DOC2]);
+
+    let resolved = false;
+    void saveNow.then(() => {
+      resolved = true;
+    });
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+
+    releases.shift()?.();
+    await saveNow;
+    expect(resolved).toBe(true);
+
+    service.dispose();
+  });
+
   it('markDirty during saving causes re-save after completion', async () => {
     const calls: TemplateDocument[] = [];
     let resolveSave!: () => void;

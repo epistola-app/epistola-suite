@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
@@ -319,6 +320,47 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val editorHref = "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
             "/${subject.templateKey.value}/variants/${subject.variantKey}/editor"
         assertThat(response.body!!).contains(editorHref)
+    }
+
+    @Test
+    fun `the editor quality endpoint returns findings as json`() {
+        val subject = scenario()
+        submit(subject, finding())
+
+        val response = restTemplate.exchange(
+            "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+                "/${subject.templateKey.value}/variants/${subject.variantKey}/quality",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_JSON)
+        val body = response.body!!
+        assertThat(body).contains("\"openCount\":1")
+        assertThat(body).contains("\"message\":\"This text block is empty\"")
+        assertThat(body).contains("\"primaryNodeId\":\"node-1\"")
+        assertThat(body).contains("\"stale\":false")
+    }
+
+    @Test
+    fun `the editor page exposes quality plugin urls when the feature is enabled`() {
+        val subject = scenario()
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+                "/${subject.templateKey.value}/variants/${subject.variantKey}/editor",
+            String::class.java,
+        )
+
+        val body = response.body!!
+        assertThat(body).contains("\"quality\"")
+        assertThat(body).contains("\"enabled\": true")
+        assertThat(body).contains(
+            "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+                "/${subject.templateKey.value}/variants/${subject.variantKey}/quality",
+        )
     }
 
     @Test

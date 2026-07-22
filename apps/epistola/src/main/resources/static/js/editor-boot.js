@@ -11,7 +11,7 @@ async function mount(container) {
   container.dataset.editorMounted = 'true';
   const config = JSON.parse(island.textContent);
 
-  const { mountEditor } = await import(config.editorModuleUrl);
+  const { createQualityPlugin, mountEditor } = await import(config.editorModuleUrl);
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
@@ -29,6 +29,16 @@ async function mount(container) {
     plugins.push(createAiPlugin({ sendMessage: createMockTransport() }));
   } catch (e) {
     console.warn('AI plugin failed to load:', e);
+  }
+
+  if (config.quality?.enabled) {
+    plugins.push(
+      createQualityPlugin({
+        findingsUrl: config.quality.findingsUrl,
+        checkUrl: config.quality.checkUrl,
+        csrfToken: () => window.getCsrfToken(),
+      }),
+    );
   }
 
   mountEditor({

@@ -9,6 +9,7 @@
 
 import './editor.css';
 import './ui/EpistolaEditor.js';
+import './ui/quality-plugin.js';
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
 import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
@@ -43,6 +44,12 @@ export type {
   StencilVersionSummary,
 } from './components/stencil/types.js';
 export { EditorEngine } from './engine/EditorEngine.js';
+export { createQualityPlugin } from './ui/quality-plugin.js';
+export type {
+  QualityFinding,
+  QualityPanelData,
+  QualityPluginOptions,
+} from './ui/quality-plugin.js';
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';
 export type {
   EditorPlugin,

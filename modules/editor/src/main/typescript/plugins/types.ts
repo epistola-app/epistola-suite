@@ -23,6 +23,9 @@ export interface PluginContext {
 
   /** Currently selected node, or null */
   selectedNodeId: NodeId | null;
+
+  /** Persist the latest document before a plugin asks the host for draft-bound work. */
+  saveNow?: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
