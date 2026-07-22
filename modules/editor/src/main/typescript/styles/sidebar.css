@@ -34,8 +34,12 @@
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: thin;
+    scrollbar-width: none;
     scroll-snap-type: x proximity;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   .sidebar-tab-scroll {
@@ -50,11 +54,23 @@
     background: var(--ep-stone-50);
     color: var(--ep-stone-600);
     cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity var(--ep-transition-fast),
+      color var(--ep-transition-fast),
+      background-color var(--ep-transition-fast);
 
     &:hover {
       color: var(--ep-primary-strong);
       background: var(--ep-white);
     }
+  }
+
+  .sidebar-tabs-shell:hover .sidebar-tab-scroll,
+  .sidebar-tabs-shell:focus-within .sidebar-tab-scroll {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .sidebar-tab {
