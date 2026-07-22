@@ -1351,8 +1351,9 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("/editor/template-editor-")
                 // Editor feature flags are threaded into the config island; the
                 // walkthrough is off by default (ALPHA), so it resolves to false.
+                // Assert the value, not just the key, so a default-on regression fails.
                 assertThat(response.body).contains("\"featureFlags\"")
-                assertThat(response.body).contains("editorWalkthrough")
+                assertThat(response.body).containsPattern("\"editorWalkthrough\"\\s*:\\s*false")
             }
         }
 
