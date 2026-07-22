@@ -24,8 +24,12 @@ const GUIDE_TRIGGER = '[data-tour="guide-trigger"]';
 
 const STYLE_ID = 'ep-driver-css';
 
+// driver.js ships a 300px max-width popover, which crowds our step copy. Widen it;
+// appended after driver's CSS so this rule wins at equal specificity.
+const POPOVER_OVERRIDES = '.driver-popover{max-width:450px}';
+
 function ensureDriverStyles(): void {
-  injectStyleOnce(STYLE_ID, driverCss);
+  injectStyleOnce(STYLE_ID, driverCss + POPOVER_OVERRIDES);
 }
 
 /**
