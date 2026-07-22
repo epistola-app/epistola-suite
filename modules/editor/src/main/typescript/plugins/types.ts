@@ -65,6 +65,12 @@ export interface SidebarTabContribution {
   /** Display label shown on the tab button */
   label: string;
 
+  /** Optional maturity/status badge shown next to the tab label. */
+  badge?: {
+    label: string;
+    className: string;
+  };
+
   /** Optional icon identifier (Lucide icon name) */
   icon?: string;
 

@@ -21,14 +21,19 @@ async function mount(container) {
   // Load plugins dynamically
   const plugins = [];
 
-  // AI chat plugin — uses mock transport until backend is wired up.
-  // When enabledPlugins is provided by the backend, the Thymeleaf
-  // conditional (th:if) will control whether this block is rendered.
-  try {
-    const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
-    plugins.push(createAiPlugin({ sendMessage: createMockTransport() }));
-  } catch (e) {
-    console.warn('AI plugin failed to load:', e);
+  if (config.ai?.enabled) {
+    // AI chat plugin — uses mock transport until backend is wired up.
+    try {
+      const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
+      plugins.push(
+        createAiPlugin({
+          sendMessage: createMockTransport(),
+          badge: config.ai.badge,
+        }),
+      );
+    } catch (e) {
+      console.warn('AI plugin failed to load:', e);
+    }
   }
 
   if (config.featureFlags?.quality && config.quality) {

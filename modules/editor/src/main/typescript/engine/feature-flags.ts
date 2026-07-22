@@ -13,6 +13,7 @@
  */
 export interface EditorFeatureFlags {
   quality?: boolean;
+  aiChat?: boolean;
 }
 
 export type EditorFeatureFlag = keyof EditorFeatureFlags;

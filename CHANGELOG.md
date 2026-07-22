@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** feat(editor): **The AI editor tab is now an alpha feature toggle.** The template editor no longer loads or shows the AI chat tab by default; tenant managers can enable the alpha `ai-chat` feature from Settings → Features, and the tab is marked Alpha when it appears.
 - **[dev]** docs(editor): **A draft ADR now records editor plugin selection intents.** The editor plugin contract uses typed host actions for plugin-driven selections that need UI behavior metadata, while existing DOM events remain scoped to shell commands such as save and preview toggles.
 - **[dev]** refactor(quality): **Quality checks no longer run on a daily backend sweep while the feature is alpha.** In-process checks now run only on publish and explicit editor **Check now**, keeping background cost and latency out of the scheduler until the run-lifecycle work for remote/expensive checks exists.
 - **[user]** fix(editor): **Sidebar tabs stay usable when feature panels add more tabs.** The editor sidebar tab strip now uses stable tab widths plus hover-visible left/right controls when tabs overflow, instead of squeezing every label into the fixed sidebar width, so plugin tabs such as Quality remain readable and discoverable without a persistent scrollbar.

@@ -8,10 +8,7 @@
     <th:block th:replace="~{fragments/htmx :: htmx}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
-    <!-- AI plugin CSS — loaded conditionally when AI plugin is enabled -->
-    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins != null and enabledPlugins.contains('ai')}">
-    <!-- TODO: Remove static fallback once backend provides enabledPlugins -->
-    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins == null}">
+    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${featureFlags['aiChat']}">
     <style>
         .editor-page {
             display: flex;
@@ -94,6 +91,13 @@
         "dataModel": [[${dataModel}]],
         "locale": [[${resolvedLocale}]],
         "featureFlags": [[${featureFlags}]],
+        "ai": {
+            "enabled": [[${featureFlags['aiChat']}]],
+            "badge": {
+                "label": [[${aiChatStage.label}]],
+                "className": [[${aiChatStage.badgeClass}]]
+            }
+        },
         "quality": {
             "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
             "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]

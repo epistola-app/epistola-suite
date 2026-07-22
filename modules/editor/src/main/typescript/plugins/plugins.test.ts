@@ -136,6 +136,7 @@ describe('SidebarTabContribution', () => {
     const tab: SidebarTabContribution = {
       id: 'ai-chat',
       label: 'AI Chat',
+      badge: { label: 'Alpha', className: 'badge-alpha' },
       icon: 'bot',
       render: (ctx) => html`<div>AI panel for ${ctx.doc.root}</div>`,
     };
@@ -145,6 +146,7 @@ describe('SidebarTabContribution', () => {
     expect(plugin.sidebarTab).toBeDefined();
     expect(plugin.sidebarTab!.id).toBe('ai-chat');
     expect(plugin.sidebarTab!.label).toBe('AI Chat');
+    expect(plugin.sidebarTab!.badge).toEqual({ label: 'Alpha', className: 'badge-alpha' });
     expect(plugin.sidebarTab!.icon).toBe('bot');
   });
 

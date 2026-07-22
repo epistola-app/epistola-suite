@@ -431,7 +431,7 @@ class QualityHandler(
 
     private companion object {
         /**
-     * The template filter's dropdown. It populates a picker, so a tenant beyond
+         * The template filter's dropdown. It populates a picker, so a tenant beyond
          * this many templates gets a truncated *filter list*, never a truncated report — the report
          * itself pages in SQL over everything.
          */

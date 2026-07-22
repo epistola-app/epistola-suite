@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -1356,6 +1358,40 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("id=\"editor-container\"")
                 assertThat(response.body).contains("/editor/template-editor-")
+                assertThat(response.body).contains("\"ai\": {")
+                assertThat(response.body).contains("\"enabled\": false")
+                assertThat(response.body).doesNotContain("/editor/ai-plugin.css")
+            }
+        }
+
+        @Test
+        fun `GET editor page includes AI assets when ai chat is enabled`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("AI Editor Tenant")
+                template = template(testTenant, "AI Editor Template")
+                variantId = variant(testTenant, template, "Default").id
+                SaveFeatureToggle(testTenant.id, KnownFeatures.AI_CHAT, enabled = true).execute()
+            }
+
+            whenever {
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("/editor/ai-plugin-")
+                assertThat(response.body).contains("\"ai\": {")
+                assertThat(response.body).contains("\"enabled\": true")
+                assertThat(response.body).contains("\"label\": \"Alpha\"")
+                assertThat(response.body).contains("\"className\": \"badge-alpha\"")
             }
         }
 

@@ -144,6 +144,8 @@ epistola:
     # When false, the whole Spring AI MCP server is disabled (see
     # spring.ai.mcp.server.enabled above) and the endpoint returns 404.
     enabled: true
+  features:
+    ai-chat: false
   generation:
     # Whether THIS node performs PDF rendering. When true (default) the node advertises the
     # cluster `pdf-render` capability and claims render jobs; set false to keep the suite as a

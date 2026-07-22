@@ -37,6 +37,12 @@ class KnownFeaturesTest {
         assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.QUALITY)
     }
 
+    @Test
+    fun `ai chat is toggle-only and never hub-gated`() {
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.AI_CHAT)
+        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.AI_CHAT)
+    }
+
     /**
      * Quality is alpha: the ledger's semantics are settled but its surfaces are not, and the
      * badge is how a tenant admin is told that on the Features page before switching it on.
@@ -44,6 +50,11 @@ class KnownFeaturesTest {
     @Test
     fun `quality is marked alpha`() {
         assertThat(KnownFeatures.stageOf(KnownFeatures.QUALITY)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+    }
+
+    @Test
+    fun `ai chat is marked alpha`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.AI_CHAT)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
     }
 
     /**
@@ -55,6 +66,12 @@ class KnownFeaturesTest {
     fun `quality default is off and resolved by its own branch`() {
         assertThat(FeatureDefaults().isEnabled(KnownFeatures.QUALITY)).isFalse()
         assertThat(FeatureDefaults(quality = true).isEnabled(KnownFeatures.QUALITY)).isTrue()
+    }
+
+    @Test
+    fun `ai chat default is off and resolved by its own branch`() {
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.AI_CHAT)).isFalse()
+        assertThat(FeatureDefaults(aiChat = true).isEnabled(KnownFeatures.AI_CHAT)).isTrue()
     }
 
     @Test

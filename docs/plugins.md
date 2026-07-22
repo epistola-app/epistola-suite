@@ -8,7 +8,7 @@ Epistola plugins are optional, self-contained feature modules that extend the ed
 - **Frontend editor UI** — sidebar tabs, toolbar actions, custom panels
 - **Configuration** — per-plugin settings under the `epistola.plugins.<name>` namespace
 
-Plugins are **disabled by default** and explicitly enabled via configuration:
+Backend plugins are **disabled by default** and explicitly enabled via configuration:
 
 ```yaml
 epistola:
@@ -17,7 +17,7 @@ epistola:
       enabled: true
 ```
 
-The AI assistant (see [docs/ai.md](ai.md)) is the first plugin built on this architecture. The design should support future plugins such as version history, collaboration, or analytics.
+The AI assistant (see [docs/ai.md](ai.md)) is the first plugin built on this architecture. Its current editor tab is also hidden behind the per-tenant `ai-chat` feature toggle, which is alpha and off by default, so the browser does not load the AI plugin bundle unless that toggle is enabled.
 
 ---
 
@@ -130,7 +130,7 @@ fun aiPlugin(): EpistolaPlugin = object : EpistolaPlugin {
 This enables:
 
 - A `/plugins` UI handler endpoint that lists active plugins (for the frontend to know which plugins to load)
-- A Thymeleaf model attribute (`enabledPlugins`) injected into editor pages
+- Backend-provided editor config that tells host pages which plugin bundles to load
 - Admin/diagnostic visibility into which plugins are active
 
 ### Configuration Pattern
@@ -356,12 +356,16 @@ disconnectedCallback() {
 
 ### Host Page Wiring
 
-The Thymeleaf host page conditionally constructs plugin instances based on backend-provided data about which plugins are enabled:
+The Thymeleaf host page conditionally constructs plugin instances based on backend-provided data. The current AI chat surface uses the resolved per-tenant `ai-chat` feature toggle in the editor config JSON:
 
 ```html
 <!-- editor.html -->
-<script th:inline="javascript">
-  window.ENABLED_PLUGINS = /*[[${enabledPlugins}]]*/ [];
+<script type="application/json" id="editor-config" th:inline="javascript">
+  {
+    "ai": {
+      "enabled": [[${featureFlags['aiChat']}]]
+    }
+  }
 </script>
 ```
 
@@ -369,13 +373,12 @@ The Thymeleaf host page conditionally constructs plugin instances based on backe
 // Editor mount script — conditional plugin loading
 const plugins = [];
 
-if (window.ENABLED_PLUGINS.includes("ai")) {
-  const { createAiPlugin } = await import("/editor/plugins/ai.js");
+if (config.ai?.enabled) {
+  const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
   plugins.push(
     createAiPlugin({
-      tenantId: window.TENANT_ID,
-      templateId: window.TEMPLATE_ID,
-      getCsrfToken: window.getCsrfToken,
+      sendMessage: createMockTransport(),
+      badge: config.ai.badge,
     }),
   );
 }
@@ -390,8 +393,8 @@ mountEditor({
 
 This pattern:
 
-- Only loads plugin JS when the plugin is enabled (code splitting)
-- Passes host-page concerns (tenant context, CSRF) to the plugin factory
+- Only loads plugin JS when the feature/plugin is enabled (code splitting)
+- Passes host-page concerns to the plugin factory
 - Keeps the editor module unaware of specific plugin implementations
 
 ---
@@ -431,7 +434,7 @@ These constraints keep the plugin surface area small and predictable. They can b
 
 ### 4. Dynamic Import for Plugin Frontend Code
 
-**Decision**: Plugin frontend code is loaded via dynamic `import()` in the host page, conditional on `ENABLED_PLUGINS`.
+**Decision**: Plugin frontend code is loaded via dynamic `import()` in the host page, conditional on backend-provided editor config such as the resolved `ai-chat` feature toggle.
 
 **Rationale**: This keeps the main editor bundle small. Plugin code is only loaded when needed. The alternative (always bundling all plugin code) would increase the initial load even when plugins are disabled.
 

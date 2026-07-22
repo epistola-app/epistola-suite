@@ -403,7 +403,9 @@ class DocumentTemplateHandler(
                 "resolvedLocale" to resolvedLocale,
                 "featureFlags" to mapOf(
                     "quality" to (featureToggles[KnownFeatures.QUALITY] == true),
+                    "aiChat" to (featureToggles[KnownFeatures.AI_CHAT] == true),
                 ),
+                "aiChatStage" to KnownFeatures.stageOf(KnownFeatures.AI_CHAT),
             ),
         )
     }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the design for the AI assistant plugin — the first plugin built on Epistola's [plugin architecture](plugins.md). The AI plugin enables users to build and modify templates through a conversational interface — describing what they want in natural language and having the AI produce structural changes to the template document.
+This document describes the design for the AI assistant plugin — the first plugin built on Epistola's [plugin architecture](plugins.md). The AI plugin enables users to build and modify templates through a conversational interface — describing what they want in natural language and having the AI produce structural changes to the template document. The current editor tab is an alpha surface behind the per-tenant `ai-chat` feature toggle, which is disabled by default.
 
 For the general plugin model (backend auto-configuration, frontend `EditorPlugin` interface, dynamic sidebar), see [docs/plugins.md](plugins.md). This document focuses on the AI-specific design.
 
@@ -441,19 +441,18 @@ export class EpistolaAiPanel extends LitElement {
 
 ### Host Page Wiring
 
-The host page (Thymeleaf) conditionally constructs the AI plugin based on backend-provided `enabledPlugins` data. HTTP concerns (endpoint URLs, CSRF tokens) stay in the host page — the plugin receives them via its factory function:
+The host page (Thymeleaf) conditionally constructs the current AI plugin based on the resolved `ai-chat` feature toggle in the editor config JSON. The alpha tab uses the mock transport until the backend AI module is wired:
 
 ```javascript
 // editor.html — conditional AI plugin loading
 const plugins = [];
 
-if (window.ENABLED_PLUGINS.includes("ai")) {
-  const { createAiPlugin } = await import("/editor/plugins/ai.js");
+if (config.ai?.enabled) {
+  const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
   plugins.push(
     createAiPlugin({
-      tenantId: window.TENANT_ID,
-      templateId: window.TEMPLATE_ID,
-      getCsrfToken: window.getCsrfToken,
+      sendMessage: createMockTransport(),
+      badge: config.ai.badge,
     }),
   );
 }
@@ -642,7 +641,7 @@ Plugin infrastructure (prerequisite — benefits all future plugins):
 - Plugin lifecycle in `EpistolaEditor.ts` (init/dispose)
 - `plugins` array on `EditorOptions`
 - Backend `EpistolaPlugin` marker interface in `epistola-core`
-- `enabledPlugins` Thymeleaf model attribute + conditional loading in `editor.html`
+- Backend-provided editor config + conditional loading in `editor.html`
 
 AI plugin backend:
 - `modules/plugins/ai/` Gradle module with auto-configuration
@@ -780,6 +779,6 @@ The plugin sidebar tab approach means the AI tab only appears when the plugin is
 | `modules/editor/src/main/typescript/engine/commands.ts` | Command types (InsertNode, RemoveNode, MoveNode, etc.) the AI must produce |
 | `modules/editor/src/main/typescript/engine/registry.ts` | Component definitions and types available for the system prompt |
 | `modules/editor/src/main/typescript/ui/preview-service.ts` | Reference pattern for `AiChatService` (state machine, abort, dispose) |
-| `apps/epistola/src/main/resources/templates/templates/editor.html` | Host page — conditional plugin loading, `ENABLED_PLUGINS` |
+| `apps/epistola/src/main/resources/templates/templates/editor.html` | Host page — feature-gated conditional plugin loading |
 | `apps/epistola/src/main/resources/application.yaml` | Where `epistola.plugins.ai.*` configuration goes |
 ````
