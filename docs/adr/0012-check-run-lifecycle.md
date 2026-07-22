@@ -1,14 +1,14 @@
 # ADR 0012: Editor check-run lifecycle — debounce, coalescing, and run-state
 
-- **Status:** Proposed
+- **Status:** Draft — discussion record, not accepted
 - **Date:** 2026-07-18
-- **Deciders:** Epistola team
+- **Discussants:** Epistola team
 - **Tags:** quality, editor, ux, concurrency, cluster, scheduling
 
 ## Context
 
-ADR 0011 decides **how a check gets its input**. This ADR decides the orthogonal question: **how
-check runs are scheduled, de-duplicated, and observed** — specifically for the editor, where a
+ADR 0011 explores **how a check gets its input**. This ADR explores the orthogonal question: **how
+check runs might be scheduled, de-duplicated, and observed** — specifically for the editor, where a
 person is actively editing a draft and expects to see whether it is being checked.
 
 Two concrete requirements drive it:
@@ -27,7 +27,7 @@ draft's `currentInputFingerprint`, so **staleness is already computable**; and A
 **event-driven-primary** model (check on change, sweep as backstop) _needs_ a coordination layer to
 stop overlapping runs — that layer is what this ADR defines.
 
-## Decision drivers
+## Evaluation drivers
 
 - **UX honesty.** The panel must never imply findings are current when the draft has moved on, and
   must show when work is in progress rather than looking frozen.
@@ -112,7 +112,7 @@ Run state (this table) plus staleness (fingerprints, already available) give fou
 The editor reads this via a small status endpoint the panel polls / refreshes (HTMX), the same way
 findings are read — never by computing on the request path.
 
-## Decision (proposed)
+## Candidate direction
 
 - Introduce the **`quality_check_runs`** table as above (dedicated, not derived from findings — a
   derived approach cannot express `QUEUED`/`RUNNING`/`FAILED` nor hold a cluster-wide single-flight
@@ -121,10 +121,12 @@ findings are read — never by computing on the request path.
   (via the lease), **trigger-tiering** (autosave = cheap local only), throttle deferred.
 - Surface the **run-state machine** in the editor panel; reuse existing fingerprint staleness for
   Up-to-date vs Outdated, and the scheduler's lease/expiry pattern for cluster-safety and recovery.
-- This is the coordination layer ADR 0011's event-driven-primary model relies on; 0011 points here.
+- This would be the coordination layer ADR 0011's event-driven-primary model relies on; 0011 points
+  here.
 
-**Scope:** built with the **editor panel (Phase 2)**. It is recorded now because it shapes the
-panel's contract and because the run ledger is a schema commitment worth deciding deliberately.
+**Potential scope:** build with the **editor panel (Phase 2)** if this direction is accepted. It is
+recorded now because it shapes the panel's contract and because the run ledger is a schema
+commitment worth deciding deliberately.
 
 ## Consequences
 

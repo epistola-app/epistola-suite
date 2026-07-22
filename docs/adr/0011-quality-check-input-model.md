@@ -1,8 +1,8 @@
 # ADR 0011: How a quality check receives what it inspects
 
-- **Status:** Proposed
+- **Status:** Draft — discussion record, not accepted
 - **Date:** 2026-07-17
-- **Deciders:** Epistola team
+- **Discussants:** Epistola team
 - **Tags:** quality, architecture, hub, checks, model, serialization, efficiency, async
 
 ## Context
@@ -47,7 +47,7 @@ works but raised the real question this ADR settles: is the input meant to accre
 check, become one canonical model, carry resolver callbacks, be fed from a precomputed store, or
 something else?
 
-## The key insight: this is two decisions, not one
+## The key insight: this is two separate questions
 
 Earlier drafts of this ADR listed the candidate designs as one flat menu. That obscured the
 structure. There are **two independent layers**, and conflating them is what made the space feel
@@ -56,13 +56,13 @@ both crowded and incomplete:
 1. **The contract** — how a check _expresses_ what it needs. This is check-facing and should be
    uniform across every check, local or remote.
 2. **The fulfillment** — how the framework _satisfies_ a need. This is where efficiency, remote,
-   and async are actually decided, and it is chosen **per requirement**, not once for the feature.
+   and async are evaluated **per requirement**, not once for the feature.
 
 A check declaring "I need the fonts resolved" says nothing about whether that is resolved on read,
 served from a precomputed table, or shipped from the hub. Keeping the two layers separate is what
 lets one contract serve cheap-synchronous facts and the asynchronous PDF alike.
 
-## Decision drivers
+## Evaluation drivers
 
 - **Check purity / testability.** A check being a pure function of the data it is handed is the
   SPI's core virtue — a plain fixture, no Spring, no DB, deterministic. Trading it away is a real
@@ -103,8 +103,8 @@ A single serializable `CompiledTemplate` (model + examples + theme + fonts + ass
 later a render reference) that every check consumes. **Pros:** one subject of checking;
 persistable/diffable; matches the "check the whole compiled thing" vision. **Cons:** a large
 up-front schema and a compatibility surface built _before_ any consumer needs it; eager-building it
-per variant per sweep is wasteful; bytes/PDF never really fit "one JSON". Strong as a _destination_
-(see Decision), premature as the _starting contract_.
+per variant per sweep is wasteful; bytes/PDF never really fit "one JSON". Strong as a possible
+destination, premature as the _starting contract_.
 
 ### 1C — Resolver ports (the check pulls)
 
@@ -187,7 +187,7 @@ fulfillment. Its knock-on effects are real and belong on the requirement:
 
 ### 2-push/fetch — Run-scoped input grants (the remote transport)
 
-**This is the chosen remote model.** A remote check declares its requirements; the suite produces an
+**Candidate remote model.** A remote check declares its requirements; the suite produces an
 immutable input manifest for one run and either **pushes small data inline** or grants
 **short-lived, run-bound artifact handles** for large/expensive data such as rendered PDFs. The
 remote check is a pure function of the granted run inputs, symmetric with in-process. It is not a
@@ -242,16 +242,16 @@ unique PDF once) → tiering (publish only) → async submit (off the critical p
 - **Reactive / event-sourced checks (H).** Checks as stream processors that maintain findings from a
   change/render event stream, with no gather step. Async falls out for free and it is naturally
   remote, but it inverts the pull model, makes "run all checks now" awkward, and turns findings into
-  a stream projection. Too large a paradigm shift for the value; noted, not chosen.
+  a stream projection. Too large a paradigm shift for the currently-known value; noted as a tradeoff.
 - **Ship the check to the data / computation locality (I).** Run a remote check where its data
-  already lives rather than pushing data to it. Considered as the primary remote model and **not
-  chosen**: the team preferred push (2-push) for its symmetry — every check, local or remote, is a
-  pure function of provided data. Locality survives only in the narrow, already-true sense that the
-  hub _renders_ where its engine versions live; the check's _input_ still arrives by push.
+  already lives rather than pushing data to it. Considered as a primary remote model, but currently
+  less attractive than run-scoped grants because the latter preserves the symmetry that every check,
+  local or remote, is a pure function of provided data. Locality may still matter in narrow cases,
+  such as the hub rendering where its engine versions live.
 
-## Decision (proposed)
+## Candidate direction
 
-**Contract: Option 1D — declared data requirements.** Every check declares a coarse
+**Contract candidate: Option 1D — declared data requirements.** Every check declares a coarse
 `Set<DataRequirement>`; the framework provides the union; checks stay pure functions of provided
 data. Requirements are capability families, not one enum entry per eventual fact. The first
 implemented family is `RESOLVED_TEMPLATE_DEPENDENCIES`: references discovered in the checked
@@ -259,16 +259,16 @@ template, resolved against current tenant/catalog state. It starts with fonts be
 fonts are the first DB-backed source, and can grow asset/theme/stencil/code-list facts when real
 sources need them.
 
-**Fulfillment: a per-requirement menu (Layer 2), chosen by cost/freshness/locality.** Cheap
+**Fulfillment candidate: a per-requirement menu (Layer 2), chosen by cost/freshness/locality.** Cheap
 sweep-frequency facts resolve on read (2-read); hot or remote-shipped facts may be materialized
 (2-materialized / F); the rendered PDF uses cache-with-async-miss (2-async).
 
-**Remote: run-scoped input grants (2-push/fetch).** The suite produces what a remote check declares
+**Remote candidate: run-scoped input grants (2-push/fetch).** The suite produces what a remote check declares
 as an immutable manifest for one run. Small data is pushed inline; large data is exposed through
 short-lived artifact handles. The remote check is a pure function of that granted input. The catalog
 snapshot is the push-fulfillment of `RAW_CATALOG_MATERIALS`.
 
-**Canonical `CompiledTemplate` (1B) is the sanctioned destination, not the starting point.** If a
+**Canonical `CompiledTemplate` (1B) remains a possible destination, not the starting point.** If a
 consumer later needs the compiled view persisted or diffed (the PDF tier, cross-install comparison),
 it is built then, as the _materialization of the requirement union_, in its own ADR — not
 speculatively now.
@@ -277,8 +277,8 @@ speculatively now.
 
 The failure modes for maintainability, performance, and UX all appear _years out_ — at hundreds of
 checks, millions of findings, a big installation, with the hub in the loop — not at the three checks
-of today. This section records the multi-year reasoning so the decision is judged against where it
-goes, not where it starts.
+of today. This section records the multi-year reasoning so any later decision is judged against
+where it goes, not where it starts.
 
 ### The one maintainability guarantee
 
@@ -288,7 +288,7 @@ and reads a fact value; whether that value came from resolve-on-read, a material
 compiled artifact, or a payload pushed from the hub is invisible to it. So every expensive future
 move — resolve-on-read → materialized → cached-artifact → pushed — is a **fulfillment swap behind a
 requirement, never a contract change**. This is the property that keeps the feature maintainable as
-it grows, and the reason 1D is chosen over 1A (every scaling change edits a central runner) and 1B
+it grows, and the reason 1D currently looks stronger than 1A (every scaling change edits a central runner) and 1B
 (a schema committed before its consumers, hard to walk back). **The only thing expensive to change
 later is the contract, and 1D is the contract we can hold still while everything behind it evolves.**
 
@@ -312,7 +312,7 @@ later is the contract, and 1D is the contract we can hold still while everything
    (missed events, newly-added rules). The machinery can be built incrementally, but the model is
    event-driven from the start; it shapes triggers and subjects. Event-driven checking needs a
    coordination layer to prevent overlapping/redundant runs and to expose run-state to the editor;
-   that is the run ledger, decided in [ADR 0012](0012-check-run-lifecycle.md).
+   that is the run ledger, explored in [ADR 0012](0012-check-run-lifecycle.md).
 
 ### Performance notes that follow
 
@@ -355,8 +355,8 @@ Two things are deliberately left for the team to confirm before build:
 1. **Build 1D's machinery now, or grow bespoke fields (1A) and refactor to 1D at the second
    DB-backed check?** 1D's minimal form is barely more than 1A — a `requirements: Set<DataRequirement>`
    on the SPI and a `when` dispatch in `RunQualityChecks` that resolves the union — and it sets the
-   pattern the feature is explicitly built for, so the recommendation is **1D now, resolve-on-read
-   only**. The async tier (2-async) and the remote transport are **not** built now; they arrive with
+   pattern the feature is explicitly built for, so the current working preference is **1D now,
+   resolve-on-read only**. The async tier (2-async) and the remote transport are **not** built now; they arrive with
    Phase 5 and the deferred remote-check ingest respectively.
 2. **The starting requirement vocabulary:** keep it deliberately small. Ship only
    `RESOLVED_TEMPLATE_DEPENDENCIES` in code now. It is initially populated with discovered font refs
@@ -365,9 +365,7 @@ Two things are deliberately left for the team to confirm before build:
    ADR as future requirement families, but do not make them implementation API before a consumer
    exists.
 
-## Consequences
-
-**If accepted:**
+## Expected consequences if accepted
 
 - The source SPI gains `requirements: Set<DataRequirement>` (default empty — a pure model-only check
   declares nothing, like the example/accessibility checks today).
