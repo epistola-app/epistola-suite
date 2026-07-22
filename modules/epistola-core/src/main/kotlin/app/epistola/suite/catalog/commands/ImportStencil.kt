@@ -11,6 +11,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -47,6 +49,11 @@ data class ImportStencil(
     RequiresPermission {
     override val permission get() = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
+
+    init {
+        // Column ceiling (#692): stencils.name is VARCHAR(255).
+        validate("name", name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
+    }
 }
 
 /**

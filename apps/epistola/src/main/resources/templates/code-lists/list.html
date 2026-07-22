@@ -27,12 +27,14 @@
                 Code lists are reusable collections of code + label entries that attributes can bind to.
                 Use them to constrain variant attribute values to a curated set.
             </div>
-            <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary"
-               style="margin-top: var(--ep-space-4);">
+            <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_SETTINGS')}"
+                    th:hx-get="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}"
+                    hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                    data-testid="code-list-create-open"
+                    style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New Code List
-            </a>
+            </button>
         </div>
 
         <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table">
@@ -76,13 +78,30 @@
                 </tr>
             </tbody>
         </table>
+
+        <!-- Dialog mount: the create dialog is swapped in here by the trigger
+             (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
+             direct navigation to /new the handler renders THIS page with
+             openDialog=true, embedding the dialog as a plain <dialog> that the
+             same JS opens on load.
+             GOTCHA: the openDialog guard MUST wrap the th:replace on an OUTER
+             element — th:replace (precedence 100) runs before th:if (300), so
+             the two on the SAME element would include the dialog unconditionally.
+             See docs/dialog-forms.md. -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{code-lists/new :: dialog}"></th:block>
+            </th:block>
+        </div>
     </th:block>
     <th:block th:fragment="code-list-list-actions">
-        <a th:if="${auth.has('TENANT_SETTINGS')}"
-           th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+        <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_SETTINGS')}"
+                th:hx-get="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="code-list-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Code List
-        </a>
+        </button>
     </th:block>
 
 </body>

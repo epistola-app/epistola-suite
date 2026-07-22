@@ -7,7 +7,14 @@ server:
       enabled: false
   compression:
     enabled: true
-    mime-types: text/html,text/css,application/javascript,application/json,image/svg+xml
+    # `text/javascript` is the content type both Tomcat's DefaultServlet and
+    # Spring's MediaTypeFactory serve `.js`/`.mjs` files as (Tomcat 11 /
+    # spring-web 7 map `js mjs` → text/javascript). Omitting it here left the
+    # whole editor bundle (`/editor/*.js`, hundreds of KB) and every static
+    # behavior script served UNCOMPRESSED — `application/javascript` never
+    # matches an actual response. Keep both so any controller emitting the
+    # legacy type is covered too.
+    mime-types: text/html,text/css,text/javascript,application/javascript,application/json,image/svg+xml
     min-response-size: 1024
 
 spring:
@@ -138,6 +145,13 @@ epistola:
     # spring.ai.mcp.server.enabled above) and the endpoint returns 404.
     enabled: true
   generation:
+    # Whether THIS node performs PDF rendering. When true (default) the node advertises the
+    # cluster `pdf-render` capability and claims render jobs; set false to keep the suite as a
+    # control plane only and offload rendering to dedicated apps/pdfrender workers. The same
+    # property is the pdfrender app's own on/off switch. Toggle per-process via env/CLI
+    # (e.g. --epistola.generation.pdf-render.enabled=false).
+    pdf-render:
+      enabled: true
     polling:
       enabled: true # Enable polling-based job execution
       interval-ms: 5000 # Fallback poll interval (drain loop handles active work)

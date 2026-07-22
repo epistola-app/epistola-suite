@@ -10,57 +10,94 @@
             actions=~{::environment-list-actions}
         )}"></div>
 
-        <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
-            <div class="empty-state-icon">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
+        <!-- Whole list body (empty-state + table) in one OOB-swappable region,
+             mirroring catalogs/list :: catalog-list. Creating the first
+             environment (empty → populated) refreshes it via a single outerHTML
+             OOB swap (dialogSuccess). The #environment-rows tbody + `rows`
+             fragment stay INSIDE it so search/delete keep swapping just the rows.
+             NOTE: this fragment uses `auth`; the OOB render path passes only the
+             fragment model, so the handler relies on HtmxFragmentModelContributor
+             to inject `auth`. -->
+        <div id="environment-list" th:fragment="environment-list"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
+            <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No environments yet</div>
+                <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
+                <button th:if="${auth.has('TENANT_SETTINGS')}" type="button"
+                        class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                        th:hx-get="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                        data-testid="environment-create-open">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Environment
+                </button>
             </div>
-            <div class="empty-state-title">No environments yet</div>
-            <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
-            <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                New Environment
-            </a>
+
+            <!-- The table is always rendered (hidden when empty) so its
+                 #environment-rows tbody — the header search box's hx-target —
+                 always exists; a th:if would remove it and the search box would
+                 fire htmx:targetError on an empty list (CR5). The thead is gated
+                 so an empty list carries no visible header and no stray table row. -->
+            <table th:style="${#lists.isEmpty(environments)} ? 'display:none' : null" class="ep-table">
+                <thead th:if="${!#lists.isEmpty(environments)}">
+                    <tr>
+                        <th>Name</th>
+                        <th>ID</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="environment-rows">
+                    <th:block th:fragment="rows">
+                        <tr th:each="env : ${environments}">
+                            <td style="font-weight: 500;" th:text="${env.name}"></td>
+                            <td><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                            <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
+                                <button type="button"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                        title="Delete environment"
+                                        data-confirm-title="Delete Environment"
+                                        th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
+                                        data-confirm-target="#environment-list" data-confirm-swap="outerHTML">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </td>
+                        </tr>
+                    </th:block>
+                </tbody>
+            </table>
         </div>
 
-        <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>ID</th>
-                    <th>Created</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="environment-rows">
-                <th:block th:fragment="rows">
-                    <tr th:each="env : ${environments}">
-                        <td style="font-weight: 500;" th:text="${env.name}"></td>
-                        <td><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                        <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
-                            <button type="button"
-                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                    title="Delete environment"
-                                    data-confirm-title="Delete Environment"
-                                    th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
-                                    data-confirm-target="#environment-rows">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
-                        </td>
-                    </tr>
-                </th:block>
-            </tbody>
-        </table>
+        <!-- Dialog mount: the create dialog is swapped in here by the trigger
+             (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
+             direct navigation to /new the handler renders THIS page with
+             openDialog=true, embedding the dialog as a plain <dialog> that the
+             same JS opens on load.
+             GOTCHA: the openDialog guard MUST wrap the th:replace on an OUTER
+             element — th:replace (precedence 100) runs before th:if (300), so
+             the two on the SAME element would include the dialog unconditionally.
+             See docs/dialog-forms.md. -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{environments/new :: dialog}"></th:block>
+            </th:block>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+
     <th:block th:fragment="environment-list-actions">
-        <a th:if="${auth.has('TENANT_SETTINGS')}"
-           th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+        <button th:if="${auth.has('TENANT_SETTINGS')}" type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="environment-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Environment
-        </a>
+        </button>
     </th:block>
 
 </body>

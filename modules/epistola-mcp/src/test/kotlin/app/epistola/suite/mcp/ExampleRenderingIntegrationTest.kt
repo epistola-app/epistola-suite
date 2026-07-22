@@ -44,7 +44,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @Value("classpath:META-INF/resources/editor/component-registry.json")
+    @Value("classpath:META-INF/epistola-model/component-registry.json")
     private lateinit var registryResource: Resource
 
     /**

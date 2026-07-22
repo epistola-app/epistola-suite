@@ -13,8 +13,9 @@ const testFieldPaths: FieldPath[] = [
   { path: 'customer.birthDate', type: 'date' },
   { path: 'total', type: 'number' },
   { path: 'items', type: 'array' },
-  { path: 'item.name', type: 'string', scope: 'item' },
-  { path: 'item.date', type: 'date', scope: 'item' },
+  { path: 'item.name', type: 'string', scope: 'item', scopeKind: 'iteration' },
+  { path: 'item.date', type: 'date', scope: 'item', scopeKind: 'iteration' },
+  { path: 'params.recipientName', type: 'string', scope: 'params', scopeKind: 'stencil-parameter' },
   { path: '$pageNumber', type: 'number', system: true },
 ];
 
@@ -341,6 +342,35 @@ describe('EpExpressionDialog builder mode', () => {
     expect(fieldSelect?.value).toBe('invoiceDate');
     fresh.close(null);
     fresh.remove();
+  });
+
+  it('renders builder field options grouped by scoped field kind', async () => {
+    const dialog = component.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    component.show();
+    await component.updateComplete;
+
+    const fieldSelect = component.querySelector<HTMLSelectElement>(
+      '.expression-dialog-field-select',
+    );
+    const groups = Array.from(fieldSelect?.querySelectorAll('optgroup') ?? []).map((group) => ({
+      label: group.label,
+      values: Array.from(group.querySelectorAll('option')).map((option) => option.value),
+    }));
+
+    expect(groups).toContainEqual(
+      expect.objectContaining({
+        label: 'Iteration variables',
+        values: expect.arrayContaining(['item.name']),
+      }),
+    );
+    expect(groups).toContainEqual(
+      expect.objectContaining({
+        label: 'Stencil parameters',
+        values: expect.arrayContaining(['params.recipientName']),
+      }),
+    );
+    component.close(null);
   });
 
   it('shows format dropdown for date fields in builder mode after show', async () => {
@@ -1360,8 +1390,22 @@ describe('EpExpressionDialog field paths', () => {
     expect(list).not.toBeNull();
     expect(list?.textContent).toContain('Template variables');
     expect(list?.textContent).toContain('name');
+    expect(list?.textContent).toContain('Iteration variables');
+    expect(list?.textContent).toContain('item.name');
+    expect(list?.textContent).toContain('Stencil parameters');
+    expect(list?.textContent).toContain('params.recipientName');
     expect(list?.textContent).toContain('System parameters');
     expect(list?.textContent).toContain('$pageNumber');
+  });
+
+  it('treats legacy scoped fields without scopeKind as iteration variables', async () => {
+    component.fieldPaths = [{ path: 'row.name', type: 'string', scope: 'row' }];
+    await component.updateComplete;
+
+    const list = component.querySelector('.expression-dialog-paths-list');
+    expect(list?.textContent).toContain('Iteration variables');
+    expect(list?.textContent).toContain('row.name');
+    expect(list?.textContent).not.toContain('Stencil parameters');
   });
 
   it('shows empty message when no field paths', async () => {

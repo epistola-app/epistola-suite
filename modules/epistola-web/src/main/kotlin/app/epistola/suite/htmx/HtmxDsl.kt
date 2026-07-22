@@ -2,6 +2,8 @@ package app.epistola.suite.htmx
 
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.json.JsonMapper
 import java.net.URI
 
 /**
@@ -14,17 +16,32 @@ annotation class HtmxDsl
 /**
  * A fragment to be rendered in the HTMX response.
  *
+ * The model is built lazily on first access: [HtmxResponseBuilder.build] routes
+ * non-HTMX, boosted, and history-restore requests to the full-page branch, which
+ * discards fragments entirely — a model built eagerly at `fragment()`/`oob()`
+ * call time (often issuing queries) would be paid for and thrown away on those
+ * requests.
+ *
  * @property template The Thymeleaf template path
  * @property fragmentName The fragment name within the template (null for full template)
  * @property model The model attributes for this fragment
  * @property isOob Whether this is an Out-of-Band swap fragment
  */
-data class HtmxFragment(
+class HtmxFragment(
     val template: String,
     val fragmentName: String?,
-    val model: Map<String, Any?>,
+    modelSupplier: () -> Map<String, Any?>,
     val isOob: Boolean = false,
-)
+) {
+    constructor(
+        template: String,
+        fragmentName: String?,
+        model: Map<String, Any?>,
+        isOob: Boolean = false,
+    ) : this(template, fragmentName, { model }, isOob)
+
+    val model: Map<String, Any?> by lazy(LazyThreadSafetyMode.NONE, modelSupplier)
+}
 
 /**
  * Builder for constructing model maps in a DSL-friendly way.
@@ -62,16 +79,28 @@ class ModelBuilder {
         model[this] = value
     }
 
+    /**
+     * Adds every entry of [entries] to the model.
+     *
+     * Use this to spread a prebuilt map — NOT `entries.forEach { (k, v) -> k to v }`,
+     * which only works through the member-extension overload resolution described
+     * in the class KDoc: lift that loop out of the `ModelBuilder` receiver scope
+     * and it silently degrades to constructing and discarding stdlib `Pair`s.
+     */
+    fun putAll(entries: Map<String, Any?>) {
+        model.putAll(entries)
+    }
+
     internal fun build(): Map<String, Any?> = model.toMap()
 }
 
 /**
- * Builder for non-HTMX request handling within the htmx DSL.
- * Allows both page rendering and redirects.
+ * Builder for full-page request handling within the htmx DSL.
+ * Handles plain requests, boosted HTMX navigation, and HTMX history restores.
  *
  * Usage:
  * ```kotlin
- * onNonHtmx {
+ * onFullPage {
  *     page("templates/list") {
  *         "templates" to templates
  *     }
@@ -79,7 +108,7 @@ class ModelBuilder {
  * ```
  */
 @HtmxDsl
-class NonHtmxBuilder {
+class FullPageBuilder {
     private var response: ServerResponse? = null
 
     /**
@@ -119,23 +148,30 @@ class NonHtmxBuilder {
     internal fun build(): ServerResponse? = response
 }
 
+typealias NonHtmxBuilder = FullPageBuilder
+
 /**
  * Main builder for constructing HTMX responses.
  *
  * Supports:
  * - Primary fragments and Out-of-Band (OOB) fragments
  * - HTMX response headers (trigger, pushUrl, reswap, retarget)
- * - Non-HTMX request fallback handling
+ * - Full-page fallback handling for plain, boosted, and history-restore requests
  *
  * @property request The incoming ServerRequest (used to detect HTMX requests)
  */
 @HtmxDsl
 class HtmxResponseBuilder(private val request: ServerRequest) {
     private val fragments = mutableListOf<HtmxFragment>()
+
+    /** The fragments accumulated so far, exposed for assertions in tests. */
+    internal val emittedFragments: List<HtmxFragment> get() = fragments.toList()
+
     private val headers = mutableMapOf<String, String>()
-    private var nonHtmxHandler: (() -> ServerResponse)? = null
+    private var fullPageHandler: (() -> ServerResponse)? = null
     private var fullTemplate: String? = null
     private var status: Int = 200
+    private var redirectUrl: String? = null
 
     /**
      * Adds a primary fragment to the response.
@@ -150,8 +186,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         fragmentName: String? = null,
         model: ModelBuilder.() -> Unit = {},
     ) {
-        val modelMap = ModelBuilder().apply(model).build()
-        fragments.add(HtmxFragment(template, fragmentName, modelMap, isOob = false))
+        fragments.add(HtmxFragment(template, fragmentName, { ModelBuilder().apply(model).build() }, isOob = false))
         if (fullTemplate == null) {
             fullTemplate = template
         }
@@ -172,8 +207,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         fragmentName: String? = null,
         model: ModelBuilder.() -> Unit = {},
     ) {
-        val modelMap = ModelBuilder().apply(model).build()
-        fragments.add(HtmxFragment(template, fragmentName, modelMap, isOob = true))
+        fragments.add(HtmxFragment(template, fragmentName, { ModelBuilder().apply(model).build() }, isOob = true))
     }
 
     /**
@@ -183,13 +217,13 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * Automatically:
      * - Spreads formData and errors into the model
      * - Sets HxSwap to OUTER_HTML (replaces the entire form element)
-     * - Can be further customized with retarget(), onNonHtmx(), etc.
+     * - Can be further customized with retarget(), onFullPage(), etc.
      *
      * Usage:
      * ```kotlin
      * return request.htmx {
      *     formError("tenants/list", "create-form", result)
-     *     onNonHtmx { redirect("/tenants") }
+     *     onFullPage { redirect("/tenants") }
      * }
      * ```
      *
@@ -230,14 +264,14 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      *
      * Sets HX-Reswap to none (no primary swap; the OOB fragment still
      * processes) — app-shell.js recognizes the header and lets the error
-     * response swap. Handlers should still provide onNonHtmx { } re-rendering
+     * response swap. Handlers should still provide onFullPage { } re-rendering
      * the page with the standardized `error` model key.
      *
      * Usage:
      * ```kotlin
      * return request.htmx {
      *     globalFormError("start-load-test-error", errorMessage)
-     *     onNonHtmx { page(422, "loadtest/new") { "error" to errorMessage } }
+     *     onFullPage { page(422, "loadtest/new") { "error" to errorMessage } }
      * }
      * ```
      *
@@ -258,19 +292,57 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         status(statusCode)
     }
 
+    private sealed interface TriggerDetail {
+        fun toJson(objectMapper: ObjectMapper): String
+    }
+
+    private data class RawTriggerDetail(private val json: String) : TriggerDetail {
+        override fun toJson(objectMapper: ObjectMapper): String = json
+    }
+
+    private data class StructuredTriggerDetail(private val value: Any?) : TriggerDetail {
+        override fun toJson(objectMapper: ObjectMapper): String = objectMapper.writeValueAsString(value)
+    }
+
+    private val triggerObjectMapper: ObjectMapper = JsonMapper.builder().build()
+    private val triggers = linkedMapOf<String, TriggerDetail?>()
+
     /**
      * Triggers a client-side event after the response is processed.
      *
+     * May be called more than once — all events accumulate onto the single
+     * `HX-Trigger` header (a later call for the same event replaces its detail,
+     * it does not clobber the other events).
+     *
      * @param event The event name to trigger
-     * @param detail Optional JSON detail to include with the event
+     * @param detail Optional raw JSON detail to include with the event.
+     * Prefer [trigger] with a map detail for structured data so values are
+     * serialized and escaped by Jackson.
      */
     fun trigger(event: String, detail: String? = null) {
-        val value = if (detail != null) {
-            """{"$event": $detail}"""
+        triggers[event] = detail?.let(::RawTriggerDetail)
+        rebuildTriggerHeader()
+    }
+
+    /**
+     * Triggers a client-side event with a structured detail object.
+     *
+     * The detail map is serialized with Jackson instead of hand-built into the
+     * header, so strings and nested values are escaped correctly.
+     */
+    fun trigger(event: String, detail: Map<String, Any?>) {
+        triggers[event] = StructuredTriggerDetail(detail)
+        rebuildTriggerHeader()
+    }
+
+    private fun rebuildTriggerHeader() {
+        headers["HX-Trigger"] = if (triggers.size == 1 && triggers.values.single() == null) {
+            triggers.keys.single()
         } else {
-            event
+            triggers.entries.joinToString(", ", "{", "}") { (name, detail) ->
+                "${triggerObjectMapper.writeValueAsString(name)}: ${detail?.toJson(triggerObjectMapper) ?: "null"}"
+            }
         }
-        headers["HX-Trigger"] = value
     }
 
     /**
@@ -309,64 +381,337 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         headers["HX-Retarget"] = selector
     }
 
+    // ── Dialog-form lifecycle helpers ───────────────────────────────────────
+    //
+    // The four terminal shapes a dialog-form handler returns, so handlers stop
+    // hand-rolling retarget/reswap/trigger. They compose the primitives above;
+    // the global `form-error` slot (epistola-web/form-error, embedded inside the
+    // dialog) keeps working in every case. See docs/dialog-forms.md for the full
+    // route convention and per-shape rationale.
+    //
+    // Convention they assume: the dialog's <form> submits with the LIST as its
+    // hx-target (hx-target="#the-list", hx-swap="outerHTML") — the same shape
+    // catalog/variant already use. That makes the happy path a plain list swap
+    // and forces every error path to be explicit about NOT letting the swap land
+    // in the list (which would destroy the open dialog and the user's input).
+
     /**
-     * Sets a handler for non-HTMX requests using a builder DSL.
-     * Allows rendering pages or redirects.
+     * Success → refresh the list and CLOSE the dialog.
+     *
+     * OOB-swaps the list fragment (updates it by id wherever it sits on the
+     * page), emits `HX-Trigger` with `closeDialog` (the app-shell listener closes
+     * the open dialog) plus a distinct `dialogSuccess` event (this specific
+     * outcome — "the list was just OOB-refreshed unfiltered" — for listeners that
+     * must not fire on the generic close other handlers also emit, e.g. the
+     * app-shell search-box reset), and disables the primary swap
+     * (`HX-Reswap: none`) so the form's own target is left untouched while the
+     * dialog closes. 200.
+     *
+     * The list fragment MUST render as an OOB swap: its root element needs an id
+     * and `hx-swap-oob` (catalog's `catalog-list` fragment is the model — it
+     * toggles `hx-swap-oob` via an `oob` flag in the model). This helper injects
+     * `"oob" to true` after [model] runs, so callers never have to remember it.
+     * Pass whatever else the list fragment needs through [model].
+     *
+     * [listUrl] is the list's own URL — the one the dialog was opened over. The
+     * open pushed the `/…/new` URL via `hx-push-url`, so on success we must put
+     * the address bar back to the list. This emits `HX-Replace-Url: <listUrl>` so
+     * HTMX performs the replace through its OWN history machinery, keeping its
+     * internal current-path in sync — a raw `history.replaceState` (what the
+     * dialog close listener does for Cancel/ESC) does NOT tell HTMX, which would
+     * leave the pre-open (row-less) list snapshot cached under the list URL and
+     * shown stale on Back after a create (CR3). Baked in here rather than left to
+     * each caller so it can't be forgotten and reintroduce the bug.
+     *
+     * Pair with: `onFullPage { redirect("/…/list") }` (a full-page submit just
+     * lands back on the list).
+     */
+    fun dialogSuccess(
+        listTemplate: String,
+        listFragment: String,
+        listUrl: String,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        oob(listTemplate, listFragment) {
+            model()
+            "oob" to true
+        }
+        trigger("closeDialog")
+        trigger("dialogSuccess")
+        reswap(HxSwap.NONE)
+        replaceUrl(listUrl)
+        status(200)
+    }
+
+    /**
+     * Success that STAYS OPEN (the api-key reveal). Swaps new content into the
+     * dialog in place of the form and does NOT close it, so the user can act on
+     * the revealed content (copy the one-time key) before dismissing it.
+     *
+     * Renders [fragmentName] as the primary swap, retargeted to [revealTarget]
+     * (the element the reveal panel replaces — e.g. the form-area id the reveal
+     * fragment reuses) with `outerHTML`, 200, and — deliberately — NO
+     * `closeDialog` trigger. "Success-that-stays-open" falls out of simply
+     * omitting the trigger.
+     *
+     * Pair with: `onFullPage { page("…/created") { … } }` (full-page reveal).
+     */
+    fun dialogReveal(
+        template: String,
+        fragmentName: String,
+        revealTarget: String,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        fragment(template, fragmentName, model)
+        retarget(revealTarget)
+        reswap(HxSwap.OUTER_HTML)
+        status(200)
+    }
+
+    /**
+     * Success → NAVIGATE to a newly created resource (the dialog disappears
+     * because the whole page navigates away).
+     *
+     * Emits `HX-Redirect: <url>` — HTMX performs a client-side, full-page
+     * navigation to [url] — with a 200 status and NO body/fragment. Use this for
+     * the "create → go straight to the created thing" flow, where the list the
+     * dialog sat on is *not* where the user should end up (e.g. creating a
+     * template lands the user on the new template's own page). Contrast
+     * [dialogSuccess], which STAYS on the list (closes the dialog + OOB-refreshes
+     * it in place) for resources that are managed from the list they were created
+     * on.
+     *
+     * No fragment is rendered: `HX-Redirect` supersedes any swap, so there is
+     * nothing to retarget/reswap. The dialog is discarded with the old page.
+     *
+     * Pair with: `onFullPage { redirect("/…/created") }` — a full-page
+     * submit just 303-redirects to the same resource.
+     */
+    fun dialogRedirect(url: String) {
+        redirectUrl = url
+        headers["HX-Redirect"] = url
+        status(200)
+    }
+
+    /**
+     * Success → SOFT-NAVIGATE to a newly created resource (the dialog disappears
+     * because the page body is swapped).
+     *
+     * Like [dialogRedirect], but emits `HX-Location` instead of `HX-Redirect`, so
+     * HTMX performs a **client-side boosted navigation** (AJAX GET → body swap +
+     * pushURL) rather than a full-page reload. This is the same code path a
+     * boosted `<a href>` click already takes, so the destination page's
+     * body-hosted boot scripts/JSON islands re-run exactly as they do on ordinary
+     * in-app navigation. Prefer this for "create → go to the created thing" when
+     * you want to keep the SPA feel; use [dialogRedirect] when the destination
+     * genuinely needs a fresh document (e.g. head assets that boost won't reload).
+     *
+     * No fragment is rendered: `HX-Location` supersedes any swap (HTMX handles the
+     * header before swapping), so the 200 carries headers only.
+     *
+     * Pair with: `onFullPage { redirect("/…/created") }` — a full-page
+     * submit still 303-redirects to the same resource.
+     */
+    fun dialogLocation(url: String) {
+        redirectUrl = url
+        headers["HX-Location"] = url
+        status(200)
+    }
+
+    /**
+     * Field-validation errors → re-render the dialog's `<form>` in place with
+     * inline errors, retargeted to the form (NOT the list, and NOT the dialog).
+     *
+     * Spreads `formData` (typed values, preserved) + `errors` (per-field
+     * messages) into the form fragment, retargets the `outerHTML` swap to
+     * [formTarget] — a stable id on the caller's `<form>` (e.g.
+     * `#create-environment-form`) — and returns [statusCode] (422 by default).
+     * The re-rendered [fragmentName] MUST be that same `<form id="…">…</form>`,
+     * so the swap replaces the form in place.
+     *
+     * Why the form and not the dialog: the form's hx-target is the list, so a
+     * default `outerHTML` re-render would replace the list and destroy the open
+     * dialog — hence the retarget. But retargeting the `<dialog>` element itself
+     * is also wrong: `outerHTML`-swapping an open modal dialog removes it from
+     * the top layer and drops in a fresh, plain (closed) `<dialog>`, and nothing
+     * reopens it (the swap targets the dialog id, not the mount, so neither the
+     * `htmx:afterSwap` mount handler nor `htmx:load` calls `showModal`) — the
+     * dialog would lose its backdrop / close on every validation error. Target
+     * the inner form so the `<dialog>` is never touched and stays open/modal —
+     * consistent with [dialogReveal], which swaps an inner element too.
+     *
+     * Do NOT use this for the file uploads (font/image) — re-rendering the form
+     * body clears the chosen `<input type=file>`; use [dialogFormError] instead.
+     *
+     * Pair with: `onFullPage { page(422, "…/host") { +formData … } }`
+     * (re-render the host page with the dialog embedded and errors shown).
+     *
+     * [model] supplies any prefill the form fragment needs to re-render itself
+     * beyond the field values — e.g. the `tenantId` its `th:hx-post` URL is built
+     * from, or attribute descriptors. `formData` + `errors` are added after it,
+     * so they always win.
+     */
+    fun dialogFieldErrors(
+        template: String,
+        fragmentName: String,
+        formTarget: String,
+        formData: FormData,
+        statusCode: Int = 422,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        fragment(template, fragmentName) {
+            model()
+            "formData" to formData.formData
+            "errors" to formData.errors
+        }
+        retarget(formTarget)
+        reswap(HxSwap.OUTER_HTML)
+        status(statusCode)
+    }
+
+    /**
+     * Operation-level / OOB-only error → OOB-swap just the form-error slot,
+     * disable the primary swap, real error status. Identical to
+     * [globalFormError]; named in the dialog family and documented for the case
+     * that needs it most: the multipart UPLOADS (font, image). A browser cannot
+     * repopulate `<input type=file>` after a round-trip, so the form body must
+     * NOT be re-rendered — the OOB slot updates only the error text and the form
+     * (with the user's file selection) stays exactly as they left it.
+     *
+     * Pair with: `onFullPage { page(422, "…/host") { "error" to message } }`.
+     */
+    fun dialogFormError(
+        errorId: String,
+        message: String,
+        statusCode: Int = 422,
+    ) = globalFormError(errorId, message, statusCode)
+
+    /**
+     * Per-FIELD validation errors for the multipart UPLOADS (font, image),
+     * delivered as an OOB-only swap so the form body is never re-rendered.
+     *
+     * This is the upload-family counterpart to [dialogFieldErrors]: same
+     * field→message error model (with a repeating group folded into ONE
+     * aggregate key, e.g. `faces` — mirroring code-list's `errors.entries`), but
+     * the messages arrive as an out-of-band swap of the per-field
+     * `epistola-web/form-error :: field-error` spans rather than a re-render of
+     * the whole form. A browser cannot repopulate `<input type=file>`, and the
+     * font face-rows have no hydration, so re-rendering the form body would wipe
+     * the user's file selection and any added rows. Swapping just the message
+     * spans (`HX-Reswap: none`, no primary swap) leaves everything the user
+     * typed and picked exactly in place.
+     *
+     * [fragmentName] MUST render every field's `field-error(..., oob=true)`
+     * span (empty where there is no error) so a fixed field's stale message is
+     * cleared — the form body, which would otherwise clear it on a re-render, is
+     * deliberately left untouched here.
+     *
+     * The `<dialog>`'s global `form-error` slot is untouched and keeps working
+     * for the 5xx client safety net. Pair with, for the boosted full-page case:
+     * `onFullPage { page(422, "…/host") { openDialog=true; "errors" to errors } }`.
+     *
+     * @param template The template holding the OOB field-errors fragment.
+     * @param fragmentName The fragment that renders the OOB `field-error` spans.
+     * @param errors field → message map (an aggregate key per repeating group).
+     */
+    fun dialogFieldErrorsOob(
+        template: String,
+        fragmentName: String,
+        errors: Map<String, String>,
+        statusCode: Int = 422,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        oob(template, fragmentName) {
+            model()
+            "errors" to errors
+        }
+        reswap(HxSwap.NONE)
+        status(statusCode)
+    }
+
+    /**
+     * Sets a handler for full-page requests using a builder DSL.
+     * Handles plain requests, boosted HTMX navigation, and HTMX history restores.
      *
      * Usage:
      * ```kotlin
-     * onNonHtmx {
+     * onFullPage {
      *     page("templates/list") {
      *         "templates" to templates
      *     }
      * }
      *
-     * onNonHtmx {
+     * onFullPage {
      *     redirect("/templates")
      * }
      * ```
      *
-     * @param block Lambda to build the non-HTMX response
+     * @param block Lambda to build the full-page response
      */
-    fun onNonHtmx(block: NonHtmxBuilder.() -> Unit) {
-        nonHtmxHandler = {
-            NonHtmxBuilder().apply(block).build()
-                ?: throw IllegalStateException("onNonHtmx block must call either page() or redirect()")
+    fun onFullPage(block: FullPageBuilder.() -> Unit) {
+        fullPageHandler = {
+            FullPageBuilder().apply(block).build()
+                ?: throw IllegalStateException("onFullPage block must call either page() or redirect()")
         }
     }
 
     /**
-     * Sets a handler for non-HTMX requests using a lambda.
-     * Legacy API - prefer onNonHtmx(block) for new code.
+     * Sets a full-page fallback handler.
      *
-     * @param handler Lambda that returns a ServerResponse for non-HTMX requests
+     * Kept for source compatibility with older handlers. In a boosted app this
+     * block is not limited to non-HTMX traffic: boosted requests and history
+     * restores also need a full page, so new code should use [onFullPage].
+     */
+    fun onNonHtmx(block: FullPageBuilder.() -> Unit) {
+        onFullPage(block)
+    }
+
+    /**
+     * Sets a handler for full-page requests using a lambda.
+     * Legacy API - prefer onFullPage(block) for new code.
+     *
+     * @param handler Lambda that returns a ServerResponse for full-page requests
      */
     @Deprecated(
-        "Use onNonHtmx { page(...) } or onNonHtmx { redirect(...) } instead",
-        ReplaceWith("onNonHtmx { redirect(url) }"),
+        "Use onFullPage { page(...) } or onFullPage { redirect(...) } instead",
+        ReplaceWith("onFullPage { redirect(url) }"),
     )
     fun onNonHtmxLegacy(handler: () -> ServerResponse) {
-        nonHtmxHandler = handler
+        fullPageHandler = handler
     }
 
     /**
      * Builds the final ServerResponse.
      *
-     * For HTMX requests: renders fragments with appropriate headers.
-     * For non-HTMX requests: executes the nonHtmxHandler or renders full template.
+     * For non-boosted HTMX requests: renders fragments with appropriate headers.
+     * For full-page requests: executes the fullPageHandler or renders full template.
      */
     internal fun build(): ServerResponse {
-        if (!request.isHtmx || request.htmxBoosted) {
-            return nonHtmxHandler?.invoke()
+        // A history-restore request (HX-History-Restore-Request) is htmx re-fetching
+        // the URL after a local history-cache miss and swapping the response in as the
+        // WHOLE page body — not into a target. It must therefore render the full host
+        // template / onFullPage fallback, never a bare fragment (which would replace the
+        // entire page with, e.g., a lone unopened dialog). Route it through the same
+        // full-page branch as non-HTMX and boosted requests.
+        if (!request.wantsFragmentResponse) {
+            return fullPageHandler?.invoke()
                 ?: fullTemplate?.let { ServerResponse.ok().render(it, mergedModel()) }
-                ?: throw IllegalStateException("No fragment or nonHtmxHandler defined")
+                ?: throw IllegalStateException("No fragment or fullPageHandler defined")
         }
 
-        // For HTMX requests, render fragments
+        // Client-side redirect (dialogRedirect → HX-Redirect full-page reload, or
+        // dialogLocation → HX-Location boosted body-swap): HTMX acts on the header
+        // before swapping, so no fragment/body is rendered — just headers + status.
+        redirectUrl?.let {
+            var response = ServerResponse.status(status)
+            headers.forEach { (key, value) -> response = response.header(key, value) }
+            return response.build()
+        }
+
+        // For non-boosted HTMX requests, render fragments
         val primaryFragments = fragments.filter { !it.isOob }
         val oobFragments = fragments.filter { it.isOob }
 
-        // If we have OOB fragments, we need to use the custom view
         return if (oobFragments.isNotEmpty()) {
             buildMultiFragmentResponse(primaryFragments, oobFragments)
         } else {
@@ -401,15 +746,40 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         return builder.build { request, response ->
             response.contentType = "text/html;charset=UTF-8"
             val application = org.thymeleaf.web.servlet.JakartaServletWebApplication.buildApplication(request.servletContext)
-            val engine = org.springframework.web.context.support.WebApplicationContextUtils
+            val webAppContext = org.springframework.web.context.support.WebApplicationContextUtils
                 .getRequiredWebApplicationContext(request.servletContext)
-                .getBean(org.thymeleaf.spring6.SpringTemplateEngine::class.java)
+            val engine = webAppContext.getBean(org.thymeleaf.spring6.SpringTemplateEngine::class.java)
+            // Global model contributors re-inject what HandlerInterceptors would
+            // add on a normal view render (this engine-direct path skips them):
+            // auth, feature flags, footer chrome, … Contributions are
+            // request-scoped (they cannot differ between fragments of one
+            // response), so they are computed ONCE against the union of all
+            // fragment models — not per fragment, where a contributor that
+            // queries (e.g. GetTenant) would pay per fragment. The fragment's
+            // own model always wins (merged last).
+            val contributors = webAppContext.getBeansOfType(FragmentModelContributor::class.java).values
+            val contributions: Map<String, Any?> = if (contributors.isEmpty()) {
+                emptyMap()
+            } else {
+                val unionModel = LinkedHashMap<String, Any?>()
+                allFragments.forEach { fragment ->
+                    fragment.model.forEach { (key, value) -> if (key !in unionModel) unionModel[key] = value }
+                }
+                val merged = LinkedHashMap<String, Any?>()
+                contributors.forEach { merged.putAll(it.contribute(request, unionModel)) }
+                merged
+            }
 
             for (fragment in allFragments) {
+                val variables: Map<String, Any?> = if (contributions.isEmpty()) {
+                    fragment.model
+                } else {
+                    LinkedHashMap<String, Any?>(contributions).apply { putAll(fragment.model) }
+                }
                 val context = org.thymeleaf.context.WebContext(
                     application.buildExchange(request, response),
                     java.util.Locale.getDefault(),
-                    fragment.model,
+                    variables,
                 )
                 val spec = if (fragment.fragmentName != null) {
                     org.thymeleaf.TemplateSpec(
@@ -433,7 +803,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
 
 /**
  * Convenience function for creating a redirect response.
- * Use within `onNonHtmx { }` block.
+ * Use within `onFullPage { }` block.
  *
  * @param url The URL to redirect to
  * @return A 303 See Other response

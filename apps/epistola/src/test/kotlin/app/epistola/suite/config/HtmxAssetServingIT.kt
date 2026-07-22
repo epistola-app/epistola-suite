@@ -7,6 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.web.server.autoconfigure.ServerProperties
 import org.springframework.http.HttpStatus
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.util.zip.GZIPInputStream
 
 /**
  * Verifies HTMX is self-hosted (no CDN) and served content-hashed, long-cached
@@ -70,9 +75,44 @@ class HtmxAssetServingIT : BaseIntegrationTest() {
     }
 
     @Test
-    fun `response compression is enabled for javascript`() {
+    fun `compression config lists the content type javascript is actually served as`() {
+        // `.js`/`.mjs` are served as `text/javascript` by both Tomcat's
+        // DefaultServlet and Spring's MediaTypeFactory. A config listing only
+        // `application/javascript` (as this project's did) never matches a real
+        // response, so JS ships uncompressed. This is a cheap config guard; the
+        // end-to-end test below is the one that proves the wire behavior.
         val compression = serverProperties.compression
         assertThat(compression.enabled).isTrue()
-        assertThat(compression.mimeTypes).contains("application/javascript")
+        assertThat(compression.mimeTypes).contains("text/javascript")
+    }
+
+    @Test
+    fun `javascript assets are actually served gzip-compressed over the wire`() {
+        // Use the JDK HttpClient rather than TestRestTemplate: it neither adds
+        // `Accept-Encoding` on its own nor transparently decompresses, so the
+        // `Content-Encoding` response header survives for us to assert on.
+        val client = HttpClient.newHttpClient()
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("${restTemplate.rootUri}/js/vendor/htmx.min.js"))
+            .header("Accept-Encoding", "gzip")
+            .GET()
+            .build()
+
+        val response = client.send(request, HttpResponse.BodyHandlers.ofByteArray())
+
+        assertThat(response.statusCode()).isEqualTo(200)
+        // Document the actual served content type — the root cause of the gap:
+        // the compression allow-list must include *this* value, not the legacy
+        // `application/javascript`.
+        assertThat(response.headers().firstValue("Content-Type"))
+            .hasValueSatisfying { assertThat(it).startsWith("text/javascript") }
+        // The payload came back gzip-encoded (htmx.min.js is well over the
+        // 1 KB `min-response-size` threshold).
+        assertThat(response.headers().firstValue("Content-Encoding"))
+            .hasValue("gzip")
+        // And it really is valid gzip that decodes to the script.
+        val decoded = GZIPInputStream(response.body().inputStream()).readBytes()
+        assertThat(decoded.size).isGreaterThan(response.body().size)
+        assertThat(String(decoded)).contains("htmx")
     }
 }

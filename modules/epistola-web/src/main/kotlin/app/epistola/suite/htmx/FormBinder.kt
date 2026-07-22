@@ -1,8 +1,13 @@
 package app.epistola.suite.htmx
 
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.validation.DuplicateIdException
@@ -30,8 +35,13 @@ class FieldSpec(val fieldName: String) {
     private val validators = mutableListOf<Pair<Validator, String>>()
     var required: Boolean = false
     var asInt: Boolean = false
+    var asAttributeId: Boolean = false
+    var asCatalogId: Boolean = false
+    var asCodeListId: Boolean = false
     var asEnvironmentId: Boolean = false
+    var asStencilId: Boolean = false
     var asTemplateId: Boolean = false
+    var asThemeId: Boolean = false
     var asVariantId: Boolean = false
     var asVersionId: Boolean = false
     var asTenantId: Boolean = false
@@ -123,6 +133,13 @@ class FieldSpec(val fieldName: String) {
     }
 
     /**
+     * Mark this field to be validated as an AttributeId.
+     */
+    fun asAttributeId() {
+        this.asAttributeId = true
+    }
+
+    /**
      * Mark this field to be validated as an EnvironmentId.
      */
     fun asEnvironmentId() {
@@ -130,10 +147,38 @@ class FieldSpec(val fieldName: String) {
     }
 
     /**
+     * Mark this field to be validated as a CatalogId.
+     */
+    fun asCatalogId() {
+        this.asCatalogId = true
+    }
+
+    /**
+     * Mark this field to be validated as a CodeListId.
+     */
+    fun asCodeListId() {
+        this.asCodeListId = true
+    }
+
+    /**
+     * Mark this field to be validated as a StencilId.
+     */
+    fun asStencilId() {
+        this.asStencilId = true
+    }
+
+    /**
      * Mark this field to be validated as a TemplateId.
      */
     fun asTemplateId() {
         this.asTemplateId = true
+    }
+
+    /**
+     * Mark this field to be validated as a ThemeId.
+     */
+    fun asThemeId() {
+        this.asThemeId = true
     }
 
     /**
@@ -287,17 +332,54 @@ class FormBuilder {
                 errors[fieldName] = error
             }
 
-            // Domain ID validation
-            if (value.isNotBlank()) {
+            // Domain ID validation.
+            //
+            // Skipped when a field rule already failed. Every key these validators
+            // wrap (EntityKey.kt) restates the same pattern + length rules the field
+            // specs declare — AttributeKey/CatalogKey/TemplateKey/StencilKey 3..50,
+            // ThemeKey 3..20, CodeListKey 3..64, all on the same SLUG_PATTERN — so a
+            // failure here is almost always a second opinion on a failure already
+            // recorded above. Overwriting would replace a specific, actionable
+            // message ("Slug must be at least 3 characters") with a generic one
+            // ("Invalid theme ID format"). What these checks genuinely ADD beyond the
+            // specs is the reserved-word rule on TemplateKey/StencilKey ("new",
+            // "edit", "admin", …), and that only ever fires when the format and
+            // length rules have already passed — i.e. exactly when this block runs.
+            if (value.isNotBlank() && errors[fieldName] == null) {
                 when {
+                    spec.asAttributeId -> {
+                        if (AttributeKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid attribute ID format"
+                        }
+                    }
                     spec.asEnvironmentId -> {
                         if (EnvironmentKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid environment ID format"
                         }
                     }
+                    spec.asCatalogId -> {
+                        if (CatalogKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid catalog ID format"
+                        }
+                    }
+                    spec.asCodeListId -> {
+                        if (CodeListKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid code-list ID format"
+                        }
+                    }
+                    spec.asStencilId -> {
+                        if (StencilKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid stencil ID format"
+                        }
+                    }
                     spec.asTemplateId -> {
                         if (TemplateKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid template ID format"
+                        }
+                    }
+                    spec.asThemeId -> {
+                        if (ThemeKey.validateOrNull(value) == null) {
+                            errors[fieldName] = "Invalid theme ID format"
                         }
                     }
                     spec.asVariantId -> {
@@ -376,10 +458,12 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
 } catch (e: DuplicateIdException) {
     val field = when (e.entityType) {
         "environment" -> "slug"
+        "stencil" -> "slug"
         "template" -> "slug"
         "tenant" -> "slug"
         "theme" -> "slug"
         "attribute" -> "slug"
+        "catalog" -> "slug"
         "code-list" -> "slug"
         else -> "id"
     }

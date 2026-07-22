@@ -113,6 +113,20 @@ document.addEventListener('closeDialog', function () {
   });
 });
 
+// ── Reset list search boxes on HX-Trigger: dialogSuccess ──────
+// A dialogSuccess response just OOB-refreshed the list UNFILTERED — the create
+// request carried no search term, so the server can't re-apply one. Clear any
+// list search box so the visible full list and the box agree; a stale term
+// otherwise sits above rows that no longer match it (CR6). Deliberately keyed
+// on dialogSuccess, NOT the generic closeDialog: other handlers emit closeDialog
+// for closes that don't reset the list (and Cancel/ESC fires neither event), so
+// only this outcome may wipe the user's term.
+document.addEventListener('dialogSuccess', function () {
+  document.querySelectorAll('.search-box input[name="q"]').forEach(function (input) {
+    if (input.value) input.value = '';
+  });
+});
+
 // ── Promise-based confirm (replaces native confirm()) ─────────
 //
 // Returns a Promise<boolean> that resolves true when the user

@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    # Same throwaway local Postgres the suite uses (apps/epistola/application-local.yaml).
+    # Start it with: ./gradlew :apps:epistola:resetLocalDb  (or docker compose up postgres).
+    url: jdbc:postgresql://127.0.0.1:4001/epistola
+    username: epistola
+    password: epistola
+
+epistola:
+  # NodeIdentity derives from the hostname when unset, which would collide with the co-located
+  # suite on the shared cluster_nodes row (both processes on one machine share a hostname). Give
+  # the worker a distinct id so the two register as two nodes.
+  node-id: pdfrender-local
+
+  # The SAME fixed local-dev key the suite uses, so this worker can decrypt anything the suite
+  # encrypted in your local DB. Throwaway, non-secret dev key — NEVER use outside local dev.
+  encryption:
+    primary-key-id: local-dev
+    keys:
+      - id: local-dev
+        material: 3ILCfy3aRk48CuZ3Z/aWaOQS46/dq64jzl7DpG5Qn3o=

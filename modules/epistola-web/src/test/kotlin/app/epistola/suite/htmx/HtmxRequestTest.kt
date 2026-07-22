@@ -78,6 +78,38 @@ class HtmxRequestTest {
     }
 
     @Test
+    fun `htmxRequestMode is PLAIN for regular requests`() {
+        val request = createRequest()
+
+        assertThat(request.htmxRequestMode).isEqualTo(HtmxRequestMode.PLAIN)
+        assertThat(request.wantsFragmentResponse).isFalse()
+    }
+
+    @Test
+    fun `htmxRequestMode is BOOSTED for boosted htmx requests`() {
+        val request = createRequest("HX-Request" to "true", "HX-Boosted" to "true")
+
+        assertThat(request.htmxRequestMode).isEqualTo(HtmxRequestMode.BOOSTED)
+        assertThat(request.wantsFragmentResponse).isFalse()
+    }
+
+    @Test
+    fun `htmxRequestMode is HISTORY_RESTORE for history restore requests`() {
+        val request = createRequest("HX-Request" to "true", "HX-History-Restore-Request" to "true")
+
+        assertThat(request.htmxRequestMode).isEqualTo(HtmxRequestMode.HISTORY_RESTORE)
+        assertThat(request.wantsFragmentResponse).isFalse()
+    }
+
+    @Test
+    fun `htmxRequestMode is FRAGMENT for non-boosted htmx requests`() {
+        val request = createRequest("HX-Request" to "true")
+
+        assertThat(request.htmxRequestMode).isEqualTo(HtmxRequestMode.FRAGMENT)
+        assertThat(request.wantsFragmentResponse).isTrue()
+    }
+
+    @Test
     fun `htmxPrompt returns the user prompt response`() {
         val request = createRequest("HX-Prompt" to "user input")
 

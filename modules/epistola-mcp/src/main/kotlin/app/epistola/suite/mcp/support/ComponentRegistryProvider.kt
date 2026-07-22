@@ -17,18 +17,17 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ArrayNode
 
 /**
- * Loads the component registry JSON dumped by `modules/editor` at build time
- * and exposes typed accessors. The TypeScript registry is the canonical source;
+ * Loads the component registry JSON shipped by `epistola-model` and exposes
+ * typed accessors. The contract registry is the canonical static vocabulary;
  * this class just deserializes the snapshot.
  *
- * The JSON ships in the editor module's resources at
- * `META-INF/resources/editor/component-registry.json` and is on the runtime
- * classpath because `:modules:epistola-mcp` depends on `:modules:editor`.
+ * The JSON ships in the model artifact at
+ * `META-INF/epistola-model/component-registry.json`.
  */
 @Component
 @ConditionalOnProperty(name = ["epistola.mcp.enabled"], havingValue = "true", matchIfMissing = true)
 class ComponentRegistryProvider(
-    @Value("classpath:META-INF/resources/editor/component-registry.json")
+    @Value("classpath:META-INF/epistola-model/component-registry.json")
     private val resource: Resource,
     private val objectMapper: ObjectMapper,
 ) {

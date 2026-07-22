@@ -1,82 +1,123 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
+    <!--
+    The upload-font dialog. Rendered off FontHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `field-errors` — OOB spans re-rendered on validation errors
+        (dialogFieldErrorsOob). The form BODY is deliberately NOT re-rendered:
+        a browser cannot repopulate <input type=file>, and the repeating face
+        rows have no hydration — so errors arrive as an out-of-band swap of the
+        per-field <span> ids only, leaving the chosen files and any added face
+        rows exactly as the user left them. This is the upload family's error
+        track (contrast the standard forms, which re-render the whole form via
+        dialogFieldErrors). Faces share ONE aggregate `faces` key (per-row
+        errors are out of scope), mirroring code-list's `errors.entries`.
 
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Upload Font',
-            backLinkHref=@{/tenants/{tenantId}/fonts(tenantId=${tenantId})},
-            backLinkLabel='Fonts'
-        )}"></div>
+    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select>,
+    AUTHORED only — a distinct key from the list's own `catalogs` filter), and on
+    error `errors` (field → message).
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='upload-font-dialog',
+            title='Upload Font',
+            closeUrl=@{/tenants/{tenantId}/fonts(tenantId=${tenantId})},
+            content=~{::font-upload-form})}"></div>
+    </th:block>
 
-        <div class="card create-form-card">
-            <div class="card-content">
-                <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
-                    <div th:replace="~{epistola-web/form-error :: form-error(id='font-upload-error')}"></div>
-                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select" required>
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="slug">Slug</label>
-                        <input type="text" id="slug" name="slug" class="ep-input"
-                               placeholder="acme-sans" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
-                               minlength="2" maxlength="64" required />
-                        <span class="text-muted text-sm">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="name">Display name</label>
-                        <input type="text" id="name" name="name" class="ep-input"
-                               placeholder="Acme Sans" maxlength="100" required />
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="kind">Kind</label>
-                        <select id="kind" name="kind" class="ep-select" required>
-                            <option value="sans">Sans</option>
-                            <option value="serif">Serif</option>
-                            <option value="mono">Mono</option>
-                            <option value="condensed">Condensed</option>
-                            <option value="display">Display</option>
-                        </select>
-                    </div>
+    <form th:fragment="font-upload-form" id="upload-font-form"
+          th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}"
+          hx-encoding="multipart/form-data"
+          hx-target="#font-grid-items" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='upload-font-error')}"></div>
+        <div class="ep-dialog-body">
+            <div th:if="${authoredCatalogs != null and !authoredCatalogs.isEmpty()}" class="form-group">
+                <label class="ep-label" for="catalog">Catalog</label>
+                <select id="catalog" name="catalog" class="ep-select" required>
+                    <option th:each="cat : ${authoredCatalogs}"
+                            th:value="${cat.id}"
+                            th:text="${cat.name}"></option>
+                </select>
+                <span th:replace="~{epistola-web/form-error :: field-error(id='font-catalog-error', message=${errors?.get('catalog')}, oob=${false})}"></span>
+            </div>
+            <div class="form-group">
+                <label class="ep-label" for="slug">Slug</label>
+                <input type="text" id="slug" name="slug" class="ep-input"
+                       placeholder="acme-sans" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
+                       minlength="2" maxlength="64" required />
+                <span class="form-hint">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
+                <span th:replace="~{epistola-web/form-error :: field-error(id='font-slug-error', message=${errors?.get('slug')}, oob=${false})}"></span>
+            </div>
+            <div class="form-group">
+                <label class="ep-label" for="name">Display name</label>
+                <input type="text" id="name" name="name" class="ep-input"
+                       placeholder="Acme Sans" maxlength="100" required />
+                <span th:replace="~{epistola-web/form-error :: field-error(id='font-name-error', message=${errors?.get('name')}, oob=${false})}"></span>
+            </div>
+            <div class="form-group">
+                <label class="ep-label" for="kind">Kind</label>
+                <select id="kind" name="kind" class="ep-select" required>
+                    <option value="sans">Sans</option>
+                    <option value="serif">Serif</option>
+                    <option value="mono">Mono</option>
+                    <option value="condensed">Condensed</option>
+                    <option value="display">Display</option>
+                </select>
+                <span th:replace="~{epistola-web/form-error :: field-error(id='font-kind-error', message=${errors?.get('kind')}, oob=${false})}"></span>
+            </div>
 
-                    <div class="form-group">
-                        <label class="ep-label">Faces <span class="text-muted text-sm">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
-                        <div id="font-faces" data-font-face-rows>
-                            <div class="font-face-row form-group" style="display:flex; gap: var(--ep-space-2); align-items:flex-end;">
-                                <div style="flex:2;">
-                                    <label class="ep-label">File</label>
-                                    <input type="file" name="file"
-                                           accept="font/ttf,font/otf,.ttf,.otf" />
-                                </div>
-                                <div style="flex:1;">
-                                    <label class="ep-label">Weight</label>
-                                    <input type="number" name="weight" class="ep-input"
-                                           min="1" max="1000" step="1" value="400" />
-                                </div>
-                                <div style="flex:1;">
-                                    <label class="ep-label">Italic</label>
-                                    <select name="italic" class="ep-select">
-                                        <option value="false">No</option>
-                                        <option value="true">Yes</option>
-                                    </select>
-                                </div>
-                            </div>
+            <div class="form-group">
+                <label class="ep-label">Faces <span class="text-muted text-sm">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
+                <div id="font-faces" data-font-face-rows>
+                    <div class="font-face-row form-group" style="display:flex; gap: var(--ep-space-2); align-items:flex-end;">
+                        <div style="flex:2;">
+                            <label class="ep-label">File</label>
+                            <input type="file" name="file"
+                                   accept="font/ttf,font/otf,.ttf,.otf" />
                         </div>
-                        <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm" data-add-font-face>+ Add face</button>
+                        <div style="flex:1;">
+                            <label class="ep-label">Weight</label>
+                            <input type="number" name="weight" class="ep-input"
+                                   min="1" max="1000" step="1" value="400" />
+                        </div>
+                        <div style="flex:1;">
+                            <label class="ep-label">Italic</label>
+                            <select name="italic" class="ep-select">
+                                <option value="false">No</option>
+                                <option value="true">Yes</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Upload</button>
-                        <a th:href="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+                </div>
+                <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm" data-add-font-face>+ Add face</button>
+                <!-- Aggregate faces error (standalone so the .form-group:has()
+                     outline rule does not red-border every file input). -->
+                <span th:replace="~{epistola-web/form-error :: field-error(id='font-faces-error', message=${errors?.get('faces')}, oob=${false})}"></span>
             </div>
         </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="upload-font-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Upload</button>
+        </div>
+    </form>
 
+    <!--
+    OOB field-error spans: the upload error track. Rendered ALONE
+    (dialogFieldErrorsOob, HX-Reswap:none) so the form body — and the user's file
+    selection + added face rows — is left untouched. Ids match the in-form spans
+    above; every span is emitted every time (empty where resolved) so a fixed
+    field's stale message clears.
+    -->
+    <th:block th:fragment="field-errors">
+        <span th:replace="~{epistola-web/form-error :: field-error(id='font-catalog-error', message=${errors?.get('catalog')}, oob=${true})}"></span>
+        <span th:replace="~{epistola-web/form-error :: field-error(id='font-slug-error', message=${errors?.get('slug')}, oob=${true})}"></span>
+        <span th:replace="~{epistola-web/form-error :: field-error(id='font-name-error', message=${errors?.get('name')}, oob=${true})}"></span>
+        <span th:replace="~{epistola-web/form-error :: field-error(id='font-kind-error', message=${errors?.get('kind')}, oob=${true})}"></span>
+        <span th:replace="~{epistola-web/form-error :: field-error(id='font-faces-error', message=${errors?.get('faces')}, oob=${true})}"></span>
     </th:block>
 </body>
 </html>

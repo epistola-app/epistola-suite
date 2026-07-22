@@ -1,103 +1,11 @@
 /**
- * Default style registry — defines all style properties available in the editor.
+ * Default style registry imported from the shared contract model.
  *
- * This is the single source of truth for what style properties exist,
- * how they should be edited, and which ones cascade from document styles.
+ * The font catalog mutates the fontFamily options at runtime, so export a
+ * mutable clone instead of the package JSON object.
  */
 
+import { styleRegistry } from '@epistola.app/epistola-model/registry';
 import type { StyleRegistry } from '@epistola.app/epistola-model/generated/style-registry';
 
-export const defaultStyleRegistry: StyleRegistry = {
-  groups: [
-    {
-      name: 'typography',
-      label: 'Typography',
-      properties: [
-        {
-          key: 'fontFamily',
-          label: 'Font',
-          type: 'select',
-          inheritable: true,
-          // Backend-driven: the host fetches the tenant's font catalog and
-          // `setFontCatalog()` (font-catalog.ts) mutates this array in place.
-          // Empty until the catalog loads.
-          options: [],
-        },
-        {
-          key: 'fontSize',
-          label: 'Size',
-          type: 'unit',
-          inheritable: true,
-          units: ['pt', 'sp'],
-        },
-        {
-          key: 'fontWeight',
-          label: 'Weight',
-          type: 'select',
-          inheritable: true,
-          options: [
-            { label: 'Normal', value: '400' },
-            { label: 'Medium', value: '500' },
-            { label: 'Semi Bold', value: '600' },
-            { label: 'Bold', value: '700' },
-          ],
-        },
-        { key: 'color', label: 'Color', type: 'color', inheritable: true },
-        {
-          key: 'lineHeight',
-          label: 'Line Height',
-          type: 'number',
-          inheritable: true,
-        },
-        {
-          key: 'letterSpacing',
-          label: 'Letter Spacing',
-          type: 'unit',
-          inheritable: true,
-          units: ['pt', 'sp'],
-        },
-        {
-          key: 'textAlign',
-          label: 'Text Align',
-          type: 'select',
-          inheritable: true,
-          options: [
-            { label: 'Left', value: 'left' },
-            { label: 'Center', value: 'center' },
-            { label: 'Right', value: 'right' },
-            { label: 'Justify', value: 'justify' },
-          ],
-        },
-      ],
-    },
-    {
-      name: 'spacing',
-      label: 'Spacing',
-      properties: [
-        { key: 'padding', label: 'Padding', type: 'spacing', units: ['sp', 'pt'] },
-        { key: 'margin', label: 'Margin', type: 'spacing', units: ['sp', 'pt'] },
-      ],
-    },
-    {
-      name: 'background',
-      label: 'Background',
-      properties: [{ key: 'backgroundColor', label: 'Background', type: 'color' }],
-    },
-    {
-      name: 'borders',
-      label: 'Borders',
-      properties: [
-        { key: 'border', label: 'Border', type: 'border', units: ['pt', 'sp'] },
-        { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['pt', 'sp'] },
-      ],
-    },
-    {
-      name: 'pageFlow',
-      label: 'Page Flow',
-      properties: [
-        { key: 'keepTogether', label: 'Keep Together', type: 'boolean' },
-        { key: 'keepWithNext', label: 'Keep With Next', type: 'boolean' },
-      ],
-    },
-  ],
-};
+export const defaultStyleRegistry: StyleRegistry = structuredClone(styleRegistry);
