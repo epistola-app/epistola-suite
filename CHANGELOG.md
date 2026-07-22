@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[dev]** chore(git-hooks): **Pulls that merge frontend build inputs now rebuild automatically.** The Husky `post-merge` hook checks whether package metadata, the pnpm lock/workspace files, or the editor/design-system sources changed and runs `pnpm build` when they did, keeping `modules/editor/dist` current after relevant pulls.
 - **[dev]** feat(editor,mcp): **Editor vocabulary now comes from `epistola-model`.** The static style registry is imported from `@epistola.app/epistola-model` 0.13.0, MCP reads component descriptors from `app.epistola.contract:epistola-model` 0.13.0 at `META-INF/epistola-model/component-registry.json`, and the editor build now compares its runtime registry projection against the contract registry so drift fails in CI.
 - **[dev]** feat(editor,mcp): **Component parameter metadata uses an explicit shape.** The editor registry dump and MCP component tools now expose dynamic component parameters as `{ "kind": "dynamic" }` and future static schemas as `{ "kind": "static", "schema": { ... } }`, matching the hardened `epistola-model` registry contract.
 - **[dev]** fix(htmx): **Structured `HX-Trigger` details are now serialized by Jackson.** `HtmxResponseBuilder.trigger(event, detail)` now has a map overload for structured details, avoiding hand-built JSON for values that need escaping while keeping the existing raw JSON string overload for compatibility. The HTMX tests now also explicitly cover the direct OOB render path receiving common model attributes through `HtmxFragmentModelContributor`.

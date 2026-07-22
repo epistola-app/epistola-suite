@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+scripts/git-hooks/build-after-merge.sh ORIG_HEAD HEAD
