@@ -74,6 +74,9 @@ const ICONS = {
     '<path d="M3 3h8v8H3z"/><path d="M13 3h8v8h-8z"/><path d="M3 13h8v8H3z"/><path d="M5 5h4v4H5z"/><path d="M15 5h4v4h-4z"/><path d="M5 15h4v4H5z"/><path d="M13 13h2v2h-2z"/><path d="M17 13h2v2h-2z"/><path d="M15 15h2v2h-2z"/><path d="M19 15h2v2h-2z"/><path d="M13 17h2v2h-2z"/><path d="M17 17h4v4h-4z"/>',
   compass:
     '<path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/><circle cx="12" cy="12" r="10"/>',
+  circle: '<circle cx="12" cy="12" r="10"/>',
+  'circle-check': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  'circle-dot': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
 } as const satisfies Record<string, string>;
 
 /**

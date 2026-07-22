@@ -9,11 +9,11 @@ function clickTestId(root: ParentNode, id: string): void {
   if (el instanceof HTMLElement) el.click();
 }
 
-function markText(root: ParentNode, chapterId: string): string {
+function markState(root: ParentNode, chapterId: string): string {
   return (
     root
       .querySelector(`[data-testid="walkthrough-chapter-${chapterId}"] .ep-wt-mark`)
-      ?.textContent?.trim() ?? ''
+      ?.getAttribute('data-state') ?? ''
   );
 }
 
@@ -53,14 +53,14 @@ describe('WalkthroughLauncher', () => {
     }
   });
 
-  it('marks completed chapters with a check and the first incomplete as current', async () => {
+  it('marks completed chapters done and the first incomplete as current', async () => {
     markChapterComplete(TOURS[0].id, TOURS[0].version);
     const el = await mount();
     clickTestId(el, 'walkthrough-guide-trigger');
     await el.updateComplete;
 
-    expect(markText(el, TOURS[0].id)).toBe('✓');
-    expect(markText(el, TOURS[1].id)).toBe('▶');
+    expect(markState(el, TOURS[0].id)).toBe('done');
+    expect(markState(el, TOURS[1].id)).toBe('current');
   });
 
   it('toggles the menu closed on a second trigger click', async () => {

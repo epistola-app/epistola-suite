@@ -44,7 +44,11 @@ const CSS = `
 }
 .ep-wt-item:hover, .ep-wt-item:focus-visible { background: var(--ep-surface-hover, rgba(0,0,0,0.06)); }
 .ep-wt-item.is-current { background: var(--ep-accent-subtle, rgba(59,130,246,0.12)); }
-.ep-wt-mark { flex: 0 0 auto; width: 1.25rem; text-align: center; opacity: 0.85; }
+.ep-wt-mark {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.25rem; height: 1.4rem; opacity: 0.75;
+}
+.ep-wt-item.is-current .ep-wt-mark, .ep-wt-item .ep-wt-mark.is-done { opacity: 1; }
 .ep-wt-text { display: flex; flex-direction: column; gap: 2px; }
 .ep-wt-name { font-weight: 500; }
 .ep-wt-summary { font-size: 0.85em; opacity: 0.7; }
@@ -180,8 +184,15 @@ export class WalkthroughLauncher extends LitElement {
                           data-testid=${`walkthrough-chapter-${c.id}`}
                           @click=${() => this._run(c.id)}
                         >
-                          <span class="ep-wt-mark" aria-hidden="true"
-                            >${c.complete ? '✓' : c.current ? '▶' : '•'}</span
+                          <span
+                            class="ep-wt-mark ${c.complete ? 'is-done' : ''}"
+                            data-state=${c.complete ? 'done' : c.current ? 'current' : 'pending'}
+                            aria-hidden="true"
+                            >${c.complete
+                              ? icon('circle-check')
+                              : c.current
+                                ? icon('circle-dot')
+                                : icon('circle')}</span
                           >
                           <span class="ep-wt-text">
                             <span class="ep-wt-name">${c.title}</span>
