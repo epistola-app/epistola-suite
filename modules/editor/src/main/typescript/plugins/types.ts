@@ -25,12 +25,33 @@ export interface PluginContext {
   selectedNodeId: NodeId | null;
 
   /**
+   * Select a canvas node on behalf of a plugin.
+   *
+   * Use options for host-owned UI behavior, such as keeping the current sidebar tab open while a
+   * plugin points the author at a related block.
+   */
+  selectNode: (nodeId: NodeId | null, options?: SelectNodeOptions) => void;
+
+  /**
    * Persist the latest document before a plugin asks the backend to inspect the draft.
    *
    * Quality check-now uses this because the backend reads the persisted draft, not the editor's
    * in-memory document.
    */
   saveDraftNow?: () => Promise<void>;
+}
+
+export interface SelectNodeOptions {
+  /**
+   * Keep the currently active sidebar tab open for this selection change.
+   *
+   * This is one-shot behavior for plugin-driven navigation. Manual editor selections still follow
+   * the editor's default behavior and move to the Inspector.
+   */
+  keepCurrentSidebarTabOpen?: boolean;
+
+  /** Scroll and focus the selected block in the canvas after selection. */
+  revealInCanvas?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,9 +67,6 @@ export interface SidebarTabContribution {
 
   /** Optional icon identifier (Lucide icon name) */
   icon?: string;
-
-  /** Keep this tab active when its content selects a canvas node. */
-  keepOpenOnSelection?: boolean;
 
   /** Renders the tab content. Called reactively when context changes. */
   render: (context: PluginContext) => TemplateResult;

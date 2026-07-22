@@ -17,7 +17,6 @@ interface TabDefinition {
   id: string;
   label: string | (() => string);
   icon?: string;
-  keepOpenOnSelection?: boolean;
   render: () => TemplateResult;
 }
 
@@ -38,9 +37,14 @@ export class EpistolaSidebar extends LitElement {
   @state() private _canScrollTabsForward = false;
 
   private _tabResizeObserver?: ResizeObserver;
+  private _preserveActiveTabForNextSelection = false;
 
   override willUpdate(changed: Map<string, unknown>) {
-    if (changed.has('selectedNodeId') && this.selectedNodeId != null && !this._activeTabKeepsOpen) {
+    if (changed.has('selectedNodeId') && this.selectedNodeId != null) {
+      if (this._preserveActiveTabForNextSelection) {
+        this._preserveActiveTabForNextSelection = false;
+        return;
+      }
       this._activeTab = 'inspector';
     }
   }
@@ -110,6 +114,10 @@ export class EpistolaSidebar extends LitElement {
     );
   }
 
+  preserveActiveTabForNextSelection(): void {
+    this._preserveActiveTabForNextSelection = true;
+  }
+
   private _tabScroller(): HTMLElement | null {
     return this.querySelector<HTMLElement>('.sidebar-tabs');
   }
@@ -143,10 +151,6 @@ export class EpistolaSidebar extends LitElement {
 
   private get _inspectorLabel(): string {
     return this.selectedNodeId ? 'Inspector' : 'Document';
-  }
-
-  private get _activeTabKeepsOpen(): boolean {
-    return this._allTabs.find((tab) => tab.id === this._activeTab)?.keepOpenOnSelection === true;
   }
 
   private get _builtinTabs(): TabDefinition[] {
@@ -186,7 +190,6 @@ export class EpistolaSidebar extends LitElement {
       id: tab.id,
       label: tab.label,
       icon: tab.icon,
-      keepOpenOnSelection: tab.keepOpenOnSelection,
       render: () => {
         if (!this.pluginContext) return html``;
         return tab.render(this.pluginContext);

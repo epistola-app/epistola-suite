@@ -249,6 +249,20 @@ export interface PluginContext {
 
   /** Currently selected node, or null */
   selectedNodeId: NodeId | null;
+
+  /** Select a canvas node on behalf of a plugin, with host-owned UI behavior options. */
+  selectNode: (nodeId: NodeId | null, options?: SelectNodeOptions) => void;
+
+  /** Persist the current draft before a plugin asks the backend to inspect it. */
+  saveDraftNow?: () => Promise<void>;
+}
+
+export interface SelectNodeOptions {
+  /** Keep the currently active sidebar tab open for this plugin-driven selection. */
+  keepCurrentSidebarTabOpen?: boolean;
+
+  /** Scroll and focus the selected block in the canvas after selection. */
+  revealInCanvas?: boolean;
 }
 
 export type PluginDisposeFn = () => void;
@@ -327,6 +341,8 @@ initEngine(doc, registry, options) {
     engine: this._engine,
     doc: this._doc,
     selectedNodeId: this._selectedNodeId,
+    selectNode: (nodeId, options) => this._selectNodeForPlugin(nodeId, options),
+    saveDraftNow: () => this._saveDraftNow(),
   }
   this._pluginDisposers = (this._plugins ?? []).map(p => p.init(context))
 }

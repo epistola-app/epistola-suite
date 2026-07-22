@@ -67,7 +67,6 @@ export function createQualityPlugin(options: QualityPluginOptions): EditorPlugin
     sidebarTab: {
       id: 'quality',
       label: 'Quality',
-      keepOpenOnSelection: true,
       render: (context) =>
         html`<epistola-quality-panel
           .service=${service}
@@ -125,13 +124,9 @@ export class EpistolaQualityPanel extends LitElement {
 
   private _selectNode(finding: QualityFinding): void {
     if (!finding.primaryNodeId) return;
-    this.context?.engine.selectNode(finding.primaryNodeId as NodeId);
-    requestAnimationFrame(() => {
-      const block = this.closest('epistola-editor')?.querySelector<HTMLElement>(
-        `.canvas-block[data-node-id="${finding.primaryNodeId}"]`,
-      );
-      block?.focus({ preventScroll: false });
-      block?.scrollIntoView({ block: 'center', inline: 'nearest' });
+    this.context?.selectNode(finding.primaryNodeId as NodeId, {
+      keepCurrentSidebarTabOpen: true,
+      revealInCanvas: true,
     });
   }
 

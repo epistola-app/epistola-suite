@@ -787,3 +787,41 @@ describe('EpistolaEditor table cell-mode exit', () => {
     expect(editorAny._engine.selectedNodeId).toBeNull();
   });
 });
+
+describe('EpistolaEditor plugin selection intents', () => {
+  it('preserves the current sidebar tab only when plugin selection changes nodes', () => {
+    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const preserveCalls: string[] = [];
+    const sidebar = {
+      preserveActiveTabForNextSelection: () => preserveCalls.push('preserve'),
+    };
+    const editorAny = editor as unknown as {
+      _engine: { selectNode: (nodeId: NodeId | null) => void; selectedNodeId: NodeId | null };
+      _selectedNodeId: NodeId | null;
+      _selectNodeForPlugin: (
+        nodeId: NodeId | null,
+        options: { keepCurrentSidebarTabOpen?: boolean; revealInCanvas?: boolean },
+      ) => void;
+      querySelector: (selector: string) => unknown;
+    };
+    editorAny.querySelector = (selector: string) =>
+      selector === 'epistola-sidebar' ? sidebar : null;
+
+    editorAny._engine.selectNode(textNodeId);
+    editorAny._selectedNodeId = textNodeId;
+
+    editorAny._selectNodeForPlugin(textNodeId, { keepCurrentSidebarTabOpen: true });
+
+    expect(preserveCalls).toEqual([]);
+    expect(editorAny._engine.selectedNodeId).toBe(textNodeId);
+
+    const nextNodeId = doc.root;
+    editorAny._selectNodeForPlugin(nextNodeId, { keepCurrentSidebarTabOpen: true });
+
+    expect(preserveCalls).toEqual(['preserve']);
+    expect(editorAny._engine.selectedNodeId).toBe(nextNodeId);
+  });
+});

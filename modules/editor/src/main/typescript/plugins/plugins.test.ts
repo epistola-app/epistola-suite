@@ -24,6 +24,7 @@ function createContext(overrides?: Partial<PluginContext>): PluginContext {
     engine,
     doc: engine.doc,
     selectedNodeId: null,
+    selectNode: vi.fn(),
     ...overrides,
   };
 }
@@ -68,6 +69,22 @@ describe('EditorPlugin lifecycle', () => {
     expect(receivedCtx!.doc).toBeDefined();
     expect(receivedCtx!.doc.root).toBeDefined();
     expect(receivedCtx!.selectedNodeId).toBeNull();
+    expect(receivedCtx!.selectNode).toEqual(expect.any(Function));
+  });
+
+  it('plugin context can select a node with host UI options', () => {
+    const selectNode = vi.fn();
+    const ctx = createContext({ selectNode });
+
+    ctx.selectNode('node-1' as never, {
+      keepCurrentSidebarTabOpen: true,
+      revealInCanvas: true,
+    });
+
+    expect(selectNode).toHaveBeenCalledWith('node-1', {
+      keepCurrentSidebarTabOpen: true,
+      revealInCanvas: true,
+    });
   });
 
   it('init() returns a dispose function', () => {

@@ -23,6 +23,7 @@ import type {
   EditorPlugin,
   PluginContext,
   PluginDisposeFn,
+  SelectNodeOptions,
   SidebarTabContribution,
   ToolbarAction,
 } from '../plugins/types.js';
@@ -263,6 +264,7 @@ export class EpistolaEditor extends LitElement {
         engine: this._engine,
         doc: this._doc,
         selectedNodeId: this._selectedNodeId,
+        selectNode: (nodeId, options) => this._selectNodeForPlugin(nodeId, options),
         saveDraftNow: () => this._saveDraftNow(),
       };
       this._pluginDisposers = this.plugins.map((p) => p.init(context));
@@ -293,6 +295,7 @@ export class EpistolaEditor extends LitElement {
       engine: this._engine,
       doc: this._doc,
       selectedNodeId: this._selectedNodeId,
+      selectNode: (nodeId, options) => this._selectNodeForPlugin(nodeId, options),
       saveDraftNow: () => this._saveDraftNow(),
     };
   }
@@ -300,6 +303,17 @@ export class EpistolaEditor extends LitElement {
   private async _saveDraftNow(): Promise<void> {
     if (!this._saveService || !this._doc) return;
     await this._saveService.saveNow(this._doc);
+  }
+
+  private _selectNodeForPlugin(nodeId: NodeId | null, options: SelectNodeOptions = {}): void {
+    if (!this._engine) return;
+    if (options.keepCurrentSidebarTabOpen && nodeId !== this._selectedNodeId) {
+      this.querySelector<EpistolaSidebar>('epistola-sidebar')?.preserveActiveTabForNextSelection();
+    }
+    this._engine.selectNode(nodeId);
+    if (options.revealInCanvas) {
+      this._revealCanvasBlock(nodeId);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -580,6 +594,19 @@ export class EpistolaEditor extends LitElement {
     schedule(() => {
       const block = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
       block?.focus({ preventScroll: true });
+    });
+  }
+
+  private _revealCanvasBlock(nodeId: NodeId | null): void {
+    if (!nodeId || typeof this.querySelector !== 'function') return;
+    const schedule =
+      globalThis.requestAnimationFrame ??
+      ((callback: FrameRequestCallback) => setTimeout(callback, 0));
+
+    schedule(() => {
+      const block = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
+      block?.focus({ preventScroll: false });
+      block?.scrollIntoView({ block: 'center', inline: 'nearest' });
     });
   }
 
