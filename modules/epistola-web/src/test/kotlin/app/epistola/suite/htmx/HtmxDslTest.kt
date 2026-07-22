@@ -258,6 +258,25 @@ class HtmxDslTest {
         }
 
         @Test
+        fun `trigger with structured detail is serialized and escaped`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list")
+                trigger(
+                    "itemCreated",
+                    linkedMapOf(
+                        "id" to 123,
+                        "name" to """A "quoted" item""",
+                    ),
+                )
+            }.build()
+
+            assertThat(response.headers().getFirst("HX-Trigger"))
+                .isEqualTo("""{"itemCreated": {"id":123,"name":"A \"quoted\" item"}}""")
+        }
+
+        @Test
         fun `pushUrl header is set correctly`() {
             val request = createHtmxRequest()
 

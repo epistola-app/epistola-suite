@@ -2,6 +2,8 @@ package app.epistola.suite.htmx
 
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.json.JsonMapper
 import java.net.URI
 
 /**
@@ -290,7 +292,20 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         status(statusCode)
     }
 
-    private val triggers = linkedMapOf<String, String?>()
+    private sealed interface TriggerDetail {
+        fun toJson(objectMapper: ObjectMapper): String
+    }
+
+    private data class RawTriggerDetail(private val json: String) : TriggerDetail {
+        override fun toJson(objectMapper: ObjectMapper): String = json
+    }
+
+    private data class StructuredTriggerDetail(private val value: Any?) : TriggerDetail {
+        override fun toJson(objectMapper: ObjectMapper): String = objectMapper.writeValueAsString(value)
+    }
+
+    private val triggerObjectMapper: ObjectMapper = JsonMapper.builder().build()
+    private val triggers = linkedMapOf<String, TriggerDetail?>()
 
     /**
      * Triggers a client-side event after the response is processed.
@@ -300,14 +315,33 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * it does not clobber the other events).
      *
      * @param event The event name to trigger
-     * @param detail Optional JSON detail to include with the event
+     * @param detail Optional raw JSON detail to include with the event.
+     * Prefer [trigger] with a map detail for structured data so values are
+     * serialized and escaped by Jackson.
      */
     fun trigger(event: String, detail: String? = null) {
-        triggers[event] = detail
+        triggers[event] = detail?.let(::RawTriggerDetail)
+        rebuildTriggerHeader()
+    }
+
+    /**
+     * Triggers a client-side event with a structured detail object.
+     *
+     * The detail map is serialized with Jackson instead of hand-built into the
+     * header, so strings and nested values are escaped correctly.
+     */
+    fun trigger(event: String, detail: Map<String, Any?>) {
+        triggers[event] = StructuredTriggerDetail(detail)
+        rebuildTriggerHeader()
+    }
+
+    private fun rebuildTriggerHeader() {
         headers["HX-Trigger"] = if (triggers.size == 1 && triggers.values.single() == null) {
-            event
+            triggers.keys.single()
         } else {
-            triggers.entries.joinToString(", ", "{", "}") { (name, d) -> "\"$name\": ${d ?: "null"}" }
+            triggers.entries.joinToString(", ", "{", "}") { (name, detail) ->
+                "${triggerObjectMapper.writeValueAsString(name)}: ${detail?.toJson(triggerObjectMapper) ?: "null"}"
+            }
         }
     }
 

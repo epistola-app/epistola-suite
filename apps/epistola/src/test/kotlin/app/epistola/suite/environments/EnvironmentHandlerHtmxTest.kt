@@ -165,7 +165,7 @@ class EnvironmentHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST valid closes the dialog and refreshes the list OOB with the new row`() = fixture {
+    fun `HTMX POST valid refreshes the list OOB with common model attributes from the contributor`() = fixture {
         lateinit var testTenant: Tenant
 
         given { testTenant = tenant("Env Create Valid") }
@@ -195,7 +195,9 @@ class EnvironmentHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("hx-swap-oob=\"outerHTML\"")
             assertThat(response.body).contains("Production US")
             assertThat(response.body).contains("prod-us")
-            // The auth-gated delete button rendered → `auth` reached the OOB model.
+            // The auth-gated delete button rendered → HtmxFragmentModelContributor
+            // injected the CommonViewModel `auth` attribute into the direct OOB
+            // render path, which bypasses ShellModelInterceptor.
             assertThat(response.body).contains("Delete environment")
         }
     }
