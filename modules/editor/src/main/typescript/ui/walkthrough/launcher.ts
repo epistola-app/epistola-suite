@@ -140,13 +140,19 @@ export class WalkthroughLauncher extends LitElement {
     this._open = !this._open;
   };
 
-  private async _run(id: string): Promise<void> {
+  private _run(id: string): void {
     this._open = false;
     const host = this._host;
     if (!host) return;
     // Pulls in the runner (and driver.js) only now, when a chapter actually runs.
-    const { startTour } = await import('./walkthrough.js');
-    await startTour(host, id);
+    // The click handler doesn't await this, so swallow failures here: log, and
+    // reopen the menu so the user can retry rather than being left with nothing.
+    void import('./walkthrough.js')
+      .then((m) => m.startTour(host, id))
+      .catch((e) => {
+        console.warn('Walkthrough tour failed to start:', e);
+        this._open = true;
+      });
   }
 
   override render(): unknown {
