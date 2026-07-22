@@ -1,8 +1,9 @@
-import { LitElement, html, type TemplateResult } from 'lit';
+import { LitElement, html, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { TemplateDocument, NodeId } from '../types/index.js';
 import type { EditorEngine } from '../engine/EditorEngine.js';
 import type { SidebarTabContribution, PluginContext } from '../plugins/types.js';
+import { icon } from './icons.js';
 
 import './EpistolaPalette.js';
 import './EpistolaTree.js';
@@ -32,6 +33,10 @@ export class EpistolaSidebar extends LitElement {
   @property({ attribute: false }) pluginContext?: PluginContext;
 
   @state() private _activeTab = 'blocks';
+  @state() private _canScrollTabsBack = false;
+  @state() private _canScrollTabsForward = false;
+
+  private _tabResizeObserver?: ResizeObserver;
 
   override willUpdate(changed: Map<string, unknown>) {
     if (changed.has('selectedNodeId') && this.selectedNodeId != null) {
@@ -46,7 +51,28 @@ export class EpistolaSidebar extends LitElement {
         block: 'nearest',
         inline: 'nearest',
       });
+      this._updateTabOverflow();
     });
+  }
+
+  override firstUpdated(): void {
+    const tabs = this._tabScroller();
+    if (tabs && typeof ResizeObserver !== 'undefined') {
+      this._tabResizeObserver = new ResizeObserver(() => this._scheduleTabOverflowUpdate());
+      this._tabResizeObserver.observe(tabs);
+    }
+    this._scheduleTabOverflowUpdate();
+  }
+
+  override updated(changed: Map<string, unknown>): void {
+    if (changed.has('pluginTabs') || changed.has('selectedNodeId')) {
+      this._scheduleTabOverflowUpdate();
+    }
+  }
+
+  override disconnectedCallback(): void {
+    this._tabResizeObserver?.disconnect();
+    super.disconnectedCallback();
   }
 
   private _focusTab(tabId: string, focusTarget: () => HTMLElement | null) {
@@ -81,6 +107,37 @@ export class EpistolaSidebar extends LitElement {
         '.epistola-inspector input, .epistola-inspector select, .epistola-inspector textarea, .epistola-inspector button, .epistola-inspector [tabindex]',
       ),
     );
+  }
+
+  private _tabScroller(): HTMLElement | null {
+    return this.querySelector<HTMLElement>('.sidebar-tabs');
+  }
+
+  private _scheduleTabOverflowUpdate(): void {
+    void this.updateComplete.then(() => this._updateTabOverflow());
+  }
+
+  private _updateTabOverflow(): void {
+    const tabs = this._tabScroller();
+    if (!tabs) return;
+
+    const maxScroll = tabs.scrollWidth - tabs.clientWidth;
+    const canScrollBack = tabs.scrollLeft > 1;
+    const canScrollForward = tabs.scrollLeft < maxScroll - 1;
+
+    if (this._canScrollTabsBack !== canScrollBack) {
+      this._canScrollTabsBack = canScrollBack;
+    }
+    if (this._canScrollTabsForward !== canScrollForward) {
+      this._canScrollTabsForward = canScrollForward;
+    }
+  }
+
+  private _scrollTabs(direction: -1 | 1): void {
+    const tabs = this._tabScroller();
+    if (!tabs) return;
+    tabs.scrollBy({ left: direction * tabs.clientWidth * 0.75, behavior: 'smooth' });
+    requestAnimationFrame(() => this._updateTabOverflow());
   }
 
   private get _inspectorLabel(): string {
@@ -139,20 +196,48 @@ export class EpistolaSidebar extends LitElement {
 
     return html`
       <div class="epistola-sidebar">
-        <div class="sidebar-tabs">
-          ${tabs.map((tab) => {
-            const label = typeof tab.label === 'function' ? tab.label() : tab.label;
-            const isActive = tab.id === activeTab?.id;
-            return html`
-              <button
-                class="sidebar-tab ${isActive ? 'active' : ''}"
-                data-tab-id=${tab.id}
-                @click=${() => this._setTab(tab.id)}
-              >
-                ${label}
-              </button>
-            `;
-          })}
+        <div class="sidebar-tabs-shell">
+          ${this._canScrollTabsBack
+            ? html`
+                <button
+                  type="button"
+                  class="sidebar-tab-scroll"
+                  title="Previous tabs"
+                  aria-label="Show previous tabs"
+                  @click=${() => this._scrollTabs(-1)}
+                >
+                  ${icon('chevron-left', 14)}
+                </button>
+              `
+            : nothing}
+          <div class="sidebar-tabs" @scroll=${() => this._updateTabOverflow()}>
+            ${tabs.map((tab) => {
+              const label = typeof tab.label === 'function' ? tab.label() : tab.label;
+              const isActive = tab.id === activeTab?.id;
+              return html`
+                <button
+                  class="sidebar-tab ${isActive ? 'active' : ''}"
+                  data-tab-id=${tab.id}
+                  @click=${() => this._setTab(tab.id)}
+                >
+                  ${label}
+                </button>
+              `;
+            })}
+          </div>
+          ${this._canScrollTabsForward
+            ? html`
+                <button
+                  type="button"
+                  class="sidebar-tab-scroll"
+                  title="More tabs"
+                  aria-label="Show more tabs"
+                  @click=${() => this._scrollTabs(1)}
+                >
+                  ${icon('chevron-right', 14)}
+                </button>
+              `
+            : nothing}
         </div>
         <div class="sidebar-content">${activeTab?.render()}</div>
       </div>

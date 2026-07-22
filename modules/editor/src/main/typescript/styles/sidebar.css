@@ -21,14 +21,40 @@
     height: 100%;
   }
 
-  .sidebar-tabs {
+  .sidebar-tabs-shell {
     display: flex;
     flex-shrink: 0;
+    align-items: stretch;
+    border-bottom: 1px solid var(--ep-stone-200);
+  }
+
+  .sidebar-tabs {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
-    border-bottom: 1px solid var(--ep-stone-200);
     scrollbar-width: thin;
     scroll-snap-type: x proximity;
+  }
+
+  .sidebar-tab-scroll {
+    width: 1.75rem;
+    flex: 0 0 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-left: 1px solid var(--ep-stone-200);
+    border-right: 1px solid var(--ep-stone-200);
+    background: var(--ep-stone-50);
+    color: var(--ep-stone-600);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--ep-primary-strong);
+      background: var(--ep-white);
+    }
   }
 
   .sidebar-tab {
