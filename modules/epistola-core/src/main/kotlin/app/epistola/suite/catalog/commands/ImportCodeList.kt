@@ -13,6 +13,8 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.FieldLimits.MAX_DISPLAY_NAME_COLUMN_LENGTH
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -41,6 +43,8 @@ data class ImportCodeList(
     override val tenantKey: TenantKey get() = tenantId.key
 
     init {
+        // Column ceiling (#692): code_lists.display_name is VARCHAR(100).
+        validate("displayName", displayName.length <= MAX_DISPLAY_NAME_COLUMN_LENGTH) { "Display name must be $MAX_DISPLAY_NAME_COLUMN_LENGTH characters or less" }
         validateCodeListEntries(entries)
     }
 }

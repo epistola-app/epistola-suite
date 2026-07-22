@@ -1,55 +1,87 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
+    <!--
+    The upload-image dialog. Rendered off AssetHandler (mirrors fonts/new):
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `field-errors` — OOB spans re-rendered on validation errors
+        (dialogFieldErrorsOob). The form BODY is deliberately NOT re-rendered:
+        a browser cannot repopulate <input type=file>, so errors arrive as an
+        out-of-band swap of the per-field <span> ids only, leaving the chosen
+        file (and the drop zone) exactly as the user left them. Two keys:
+        `catalog` and `file` — every file-related failure (no file, unsupported
+        type, too large) folds into `file`, since the file is the only other
+        input.
 
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Upload Image',
-            backLinkHref=@{/tenants/{tenantId}/images(tenantId=${tenantId})},
-            backLinkLabel='Images'
-        )}"></div>
+    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select>,
+    AUTHORED only — a distinct key from the list's own `catalogs` filter), and on
+    error `errors` (field → message).
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='upload-image-dialog',
+            title='Upload Image',
+            closeUrl=@{/tenants/{tenantId}/images(tenantId=${tenantId})},
+            content=~{::image-upload-form})}"></div>
+    </th:block>
 
-        <div class="card create-form-card">
-            <div class="card-content">
-                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
-                    <div th:replace="~{epistola-web/form-error :: form-error(id='asset-upload-error')}"></div>
-                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select" required>
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"></option>
-                        </select>
+    <form th:fragment="image-upload-form" id="upload-image-form"
+          th:hx-post="@{/tenants/{tenantId}/images(tenantId=${tenantId})}"
+          hx-encoding="multipart/form-data"
+          hx-target="#asset-list" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='upload-image-error')}"></div>
+        <div class="ep-dialog-body">
+            <div th:if="${authoredCatalogs != null and !authoredCatalogs.isEmpty()}" class="form-group">
+                <label class="ep-label" for="catalog">Catalog</label>
+                <select id="catalog" name="catalog" class="ep-select" required>
+                    <option th:each="cat : ${authoredCatalogs}"
+                            th:value="${cat.id}"
+                            th:text="${cat.name}"></option>
+                </select>
+                <span th:replace="~{epistola-web/form-error :: field-error(id='image-catalog-error', message=${errors?.get('catalog')}, oob=${false})}"></span>
+            </div>
+            <div class="form-group">
+                <label class="ep-label">Image file</label>
+                <!-- data-file-drop-zone: drag/drop assigns the file to the zone's
+                     file input; data-file-preview shows the chosen file's name
+                     (pages/asset-forms.js). -->
+                <div id="asset-upload-zone" class="asset-upload-zone" data-file-drop-zone>
+                    <div class="asset-upload-content">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
+                        <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
+                        <p class="text-muted text-sm">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
                     </div>
-                    <div class="form-group">
-                        <label class="ep-label">Image file</label>
-                        <!-- data-file-drop-zone: drag/drop assigns the file to the zone's
-                             file input; data-file-preview shows the chosen file's name
-                             (pages/asset-forms.js). -->
-                        <div id="asset-upload-zone" class="asset-upload-zone" data-file-drop-zone>
-                            <div class="asset-upload-content">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
-                                <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
-                                <p class="text-muted text-sm">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
-                            </div>
-                            <input type="file" id="asset-file-input" name="file"
-                                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                   style="display: none;"
-                                   data-file-preview="file-preview"
-                                   required />
-                        </div>
-                        <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
-                            <span id="file-name" class="text-sm"></span>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
-                        <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+                    <input type="file" id="asset-file-input" name="file"
+                           accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                           style="display: none;"
+                           data-file-preview="file-preview"
+                           required />
+                </div>
+                <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
+                    <span id="file-name" class="text-sm"></span>
+                </div>
+                <span th:replace="~{epistola-web/form-error :: field-error(id='image-file-error', message=${errors?.get('file')}, oob=${false})}"></span>
             </div>
         </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="upload-image-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Upload</button>
+        </div>
+    </form>
 
+    <!--
+    OOB field-error spans: the upload error track. Rendered ALONE
+    (dialogFieldErrorsOob, HX-Reswap:none) so the form body — and the user's file
+    selection — is left untouched. Ids match the in-form spans above; every span
+    is emitted every time (empty where resolved) so a fixed field's stale message
+    clears.
+    -->
+    <th:block th:fragment="field-errors">
+        <span th:replace="~{epistola-web/form-error :: field-error(id='image-catalog-error', message=${errors?.get('catalog')}, oob=${true})}"></span>
+        <span th:replace="~{epistola-web/form-error :: field-error(id='image-file-error', message=${errors?.get('file')}, oob=${true})}"></span>
     </th:block>
 </body>
 </html>

@@ -29,8 +29,15 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `slug auto-fill should work for elements added after page load`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/templates/new")
-        assertThat(page.locator("#slug")).isVisible()
+        // Use the plain list page as the host, NOT /templates/new: the create form
+        // is now a MODAL dialog, and an open <dialog> makes everything outside it
+        // (including <main>) inert — inert inputs don't dispatch `input`, so a
+        // synthetic form injected into <main> could never fire the slug-auto listener.
+        // This test is about the document-level MutationObserver wiring up elements
+        // added after load, which is host-page-independent; the list page keeps
+        // <main> interactive.
+        gotoAndReady("/tenants/${tenant.id}/templates")
+        assertThat(page.locator("main")).isVisible()
 
         page.evaluate(
             """

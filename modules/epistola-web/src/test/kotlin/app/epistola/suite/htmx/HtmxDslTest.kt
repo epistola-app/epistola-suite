@@ -96,11 +96,91 @@ class HtmxDslTest {
 
             val response = HtmxResponseBuilder(request).apply {
                 fragment("templates/list", "rows")
+                onFullPage { redirect("/templates") }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.SEE_OTHER)
+            assertThat(response.headers().getFirst("Location")).isEqualTo("/templates")
+        }
+
+        @Test
+        fun `onNonHtmx aliases the full-page fallback`() {
+            val request = createBoostedHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows")
                 onNonHtmx { redirect("/templates") }
             }.build()
 
             assertThat(response.statusCode()).isEqualTo(HttpStatus.SEE_OTHER)
             assertThat(response.headers().getFirst("Location")).isEqualTo("/templates")
+        }
+
+        @Test
+        fun `fragment model lambdas are not evaluated when the full-page branch discards the fragments`() {
+            val request = createNonHtmxRequest()
+            var evaluations = 0
+
+            HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    evaluations++
+                    "items" to listOf("a")
+                }
+                oob("templates/list", "count") {
+                    evaluations++
+                    "total" to 1
+                }
+                onFullPage { redirect("/templates") }
+            }.build()
+
+            // The plain / boosted / history-restore branch renders the full-page
+            // fallback and throws every fragment away — the (potentially
+            // query-issuing) model lambdas must not run for it.
+            assertThat(evaluations).isZero()
+        }
+
+        @Test
+        fun `boosted HTMX request uses the full-page fallback and discards fragments`() {
+            val request = createBoostedHtmxRequest()
+            var evaluations = 0
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    evaluations++
+                    "items" to listOf("a")
+                }
+                oob("templates/list", "count") {
+                    evaluations++
+                    "total" to 1
+                }
+                onFullPage { redirect("/templates") }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.SEE_OTHER)
+            assertThat(response.headers().getFirst("Location")).isEqualTo("/templates")
+            assertThat(evaluations).isZero()
+        }
+
+        @Test
+        fun `history restore request uses the full-page fallback and discards fragments`() {
+            val request = createHistoryRestoreHtmxRequest()
+            var evaluations = 0
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    evaluations++
+                    "items" to listOf("a")
+                }
+                oob("templates/list", "count") {
+                    evaluations++
+                    "total" to 1
+                }
+                onFullPage { redirect("/templates") }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.SEE_OTHER)
+            assertThat(response.headers().getFirst("Location")).isEqualTo("/templates")
+            assertThat(evaluations).isZero()
         }
 
         @Test
@@ -117,6 +197,28 @@ class HtmxDslTest {
         }
 
         @Test
+        fun `non-boosted HTMX request can emit primary and OOB fragments`() {
+            val request = createHtmxRequest()
+
+            val builder = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    "items" to listOf("a", "b")
+                }
+                oob("templates/sidebar", "summary") {
+                    "total" to 2
+                }
+                onFullPage { redirect("/templates") }
+            }
+            val response = builder.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            assertThat(builder.emittedFragments.map { it.isOob })
+                .containsExactly(false, true)
+            assertThat(builder.emittedFragments.single { it.isOob }.model)
+                .containsEntry("total", 2)
+        }
+
+        @Test
         fun `trigger header is set correctly`() {
             val request = createHtmxRequest()
 
@@ -126,6 +228,20 @@ class HtmxDslTest {
             }.build()
 
             assertThat(response.headers().getFirst("HX-Trigger")).isEqualTo("itemCreated")
+        }
+
+        @Test
+        fun `multiple triggers accumulate onto one header`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list")
+                trigger("closeDialog")
+                trigger("dialogSuccess")
+            }.build()
+
+            assertThat(response.headers().getFirst("HX-Trigger"))
+                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
         }
 
         @Test
@@ -139,6 +255,25 @@ class HtmxDslTest {
 
             assertThat(response.headers().getFirst("HX-Trigger"))
                 .isEqualTo("""{"itemCreated": {"id": 123}}""")
+        }
+
+        @Test
+        fun `trigger with structured detail is serialized and escaped`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list")
+                trigger(
+                    "itemCreated",
+                    linkedMapOf(
+                        "id" to 123,
+                        "name" to """A "quoted" item""",
+                    ),
+                )
+            }.build()
+
+            assertThat(response.headers().getFirst("HX-Trigger"))
+                .isEqualTo("""{"itemCreated": {"id":123,"name":"A \"quoted\" item"}}""")
         }
 
         @Test
@@ -242,6 +377,202 @@ class HtmxDslTest {
     }
 
     @Nested
+    inner class DialogLifecycleHelpersTest {
+        @Test
+        fun `dialogSuccess closes the dialog, refreshes the list OOB, and disables the primary swap`() {
+            val request = createHtmxRequest()
+
+            // Note: the caller does NOT pass `"oob" to true` — dialogSuccess
+            // injects it so the list fragment always renders its OOB swap.
+            val builder = HtmxResponseBuilder(request).apply {
+                dialogSuccess("environments/list", "rows", "/tenants/acme/environments") {
+                    "environments" to listOf("a", "b")
+                }
+            }
+            val response = builder.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            // Both the generic close and the distinct success event ride one
+            // header: closeDialog closes the dialog; dialogSuccess carries the
+            // "list was just OOB-refreshed unfiltered" meaning for listeners
+            // (e.g. the app-shell search-box reset) that must NOT fire on the
+            // non-success closeDialog closes other handlers emit.
+            assertThat(response.headers().getFirst("HX-Trigger"))
+                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
+            // Never swaps the primary target (the list refreshes via the OOB
+            // fragment, and the dialog closes on the trigger).
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+            // No retarget: the list moves out-of-band, nothing is retargeted.
+            assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+            // Puts the address bar back on the list via HTMX's own history machinery
+            // (HX-Replace-Url) — NOT a raw replaceState — so HTMX's cached list
+            // snapshot stays consistent and Back after a create shows the fresh list
+            // (CR3), not the stale pre-open one.
+            assertThat(response.headers().getFirst("HX-Replace-Url")).isEqualTo("/tenants/acme/environments")
+            // dialogSuccess injects the OOB flag itself, so the list fragment's
+            // hx-swap-oob renders even when the caller never sets it.
+            val oobFragment = builder.emittedFragments.single { it.isOob }
+            assertThat(oobFragment.model).containsEntry("oob", true)
+        }
+
+        @Test
+        fun `dialogRedirect emits HX-Redirect and 200 with no fragment`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogRedirect("/x")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            // HX-Redirect drives a full-page client-side navigation to the created
+            // resource; no fragment/body is rendered (the dialog goes with the page).
+            assertThat(response.headers().getFirst("HX-Redirect")).isEqualTo("/x")
+        }
+
+        @Test
+        fun `dialogLocation emits HX-Location and 200 with no fragment`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogLocation("/x")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            // HX-Location drives a soft, boosted body-swap navigation to the created
+            // resource; no fragment/body is rendered and it is NOT a full reload.
+            assertThat(response.headers().getFirst("HX-Location")).isEqualTo("/x")
+            assertThat(response.headers().getFirst("HX-Redirect")).isNull()
+        }
+
+        @Test
+        fun `dialogReveal keeps the dialog open - retargets, outerHTML, no closeDialog`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogReveal("api-keys/created", "created-panel", "#api-key-form-area") {
+                    "plaintextKey" to "ep_secret_123"
+                }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers().getFirst("HX-Retarget")).isEqualTo("#api-key-form-area")
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("outerHTML")
+            // The crux: success that stays open sends NO closeDialog trigger.
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+        }
+
+        @Test
+        fun `dialogFieldErrors retargets the inner form (not the dialog) so the re-render never lands in the list`() {
+            val request = createHtmxRequest()
+            val formData = FormData(
+                formData = mapOf("slug" to "bad slug", "name" to "Env"),
+                errors = mapOf("slug" to "Invalid environment ID format"),
+            )
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFieldErrors(
+                    template = "environments/dialog",
+                    fragmentName = "environment-form",
+                    formTarget = "#create-environment-form",
+                    formData = formData,
+                )
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // Targets the inner <form>, NOT the <dialog>: outerHTML-swapping the
+            // dialog would drop it from the top layer (backdrop lost, no reopen).
+            assertThat(response.headers().getFirst("HX-Retarget")).isEqualTo("#create-environment-form")
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("outerHTML")
+            // No closeDialog — the dialog stays open showing the inline errors.
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+        }
+
+        @Test
+        fun `dialogFieldErrors honours an explicit status`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFieldErrors(
+                    template = "environments/dialog",
+                    fragmentName = "environment-form",
+                    formTarget = "#create-environment-form",
+                    formData = FormData(emptyMap(), mapOf("slug" to "taken")),
+                    statusCode = 409,
+                )
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
+
+        @Test
+        fun `dialogFormError swaps only the OOB error slot and disables the primary swap (uploads)`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFormError("upload-font-error", "That font file is not a valid TTF/OTF.")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // OOB-only: the form body (and its file input) is never re-rendered.
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+        }
+
+        @Test
+        fun `dialogFormError honours an explicit status`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFormError("upload-font-error", "Too large.", statusCode = 409)
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
+
+        @Test
+        fun `dialogFieldErrorsOob swaps only the OOB field spans and never re-renders the form body (uploads)`() {
+            val request = createHtmxRequest()
+
+            val builder = HtmxResponseBuilder(request).apply {
+                dialogFieldErrorsOob(
+                    template = "fonts/new",
+                    fragmentName = "field-errors",
+                    errors = mapOf("slug" to "Slug is required", "faces" to "At least one face file is required"),
+                )
+            }
+            val response = builder.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // OOB-only: the form body (file inputs + added face rows) is never
+            // re-rendered — only the per-field message spans are swapped.
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(response.headers().getFirst("HX-Retarget")).isNull()
+            // No closeDialog — the dialog stays open showing the inline errors.
+            assertThat(response.headers().getFirst("HX-Trigger")).isNull()
+            // The errors map reaches the OOB field-errors fragment model.
+            val oob = builder.emittedFragments.single { it.isOob }
+            assertThat(oob.template).isEqualTo("fonts/new")
+            assertThat(oob.fragmentName).isEqualTo("field-errors")
+            assertThat(oob.model).containsEntry(
+                "errors",
+                mapOf("slug" to "Slug is required", "faces" to "At least one face file is required"),
+            )
+        }
+
+        @Test
+        fun `dialogFieldErrorsOob honours an explicit status`() {
+            val request = createHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                dialogFieldErrorsOob("fonts/new", "field-errors", mapOf("faces" to "bad"), statusCode = 409)
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT)
+        }
+    }
+
+    @Nested
     inner class HxSwapTest {
         @Test
         fun `all swap modes have correct values`() {
@@ -270,6 +601,20 @@ class HtmxDslTest {
     private fun createHtmxRequest(): ServerRequest {
         val mockRequest = MockHttpServletRequest()
         mockRequest.addHeader("HX-Request", "true")
+        return ServerRequest.create(mockRequest, emptyList())
+    }
+
+    private fun createBoostedHtmxRequest(): ServerRequest {
+        val mockRequest = MockHttpServletRequest()
+        mockRequest.addHeader("HX-Request", "true")
+        mockRequest.addHeader("HX-Boosted", "true")
+        return ServerRequest.create(mockRequest, emptyList())
+    }
+
+    private fun createHistoryRestoreHtmxRequest(): ServerRequest {
+        val mockRequest = MockHttpServletRequest()
+        mockRequest.addHeader("HX-Request", "true")
+        mockRequest.addHeader("HX-History-Restore-Request", "true")
         return ServerRequest.create(mockRequest, emptyList())
     }
 

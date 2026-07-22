@@ -63,6 +63,32 @@ val ServerRequest.htmxBoosted: Boolean
     get() = headers().firstHeader("HX-Boosted") == "true"
 
 /**
+ * The response shape expected for this request.
+ *
+ * `FRAGMENT` is the normal, non-boosted HTMX mode used by explicit `hx-get` /
+ * `hx-post` interactions. The other modes must receive full pages: boosted
+ * navigation swaps the document body, history restore re-fetches a whole URL,
+ * and plain requests are the progressive-enhancement fallback.
+ */
+enum class HtmxRequestMode {
+    PLAIN,
+    BOOSTED,
+    HISTORY_RESTORE,
+    FRAGMENT,
+}
+
+val ServerRequest.htmxRequestMode: HtmxRequestMode
+    get() = when {
+        !isHtmx -> HtmxRequestMode.PLAIN
+        htmxHistoryRestoreRequest -> HtmxRequestMode.HISTORY_RESTORE
+        htmxBoosted -> HtmxRequestMode.BOOSTED
+        else -> HtmxRequestMode.FRAGMENT
+    }
+
+val ServerRequest.wantsFragmentResponse: Boolean
+    get() = htmxRequestMode == HtmxRequestMode.FRAGMENT
+
+/**
  * Extract a path variable and parse it with a validator function.
  * Returns null if parsing fails.
  *

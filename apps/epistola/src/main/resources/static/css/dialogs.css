@@ -48,8 +48,13 @@
   color: var(--ep-destructive);
 }
 
-/* ── Dialog (generic reusable dialog) ────────────────────────────────── */
-
+/* ── Dialog (generic reusable dialog) ──────────────────────────────────
+ * Base anatomy shared by EVERY .ep-dialog. Per-kind layout branches below,
+ * keyed off `data-dialog` (set by the dialog-shell skeleton; default "form").
+ * Nested so the whole anatomy reads as one block instead of five prefixed
+ * rules. Consequence: `.ep-dialog .ep-dialog-header` is 0,2,0 (was 0,1,0) —
+ * still under id selectors (#confirm-dialog-footer) and inline styles, so the
+ * hand-tuned per-dialog overrides keep winning. */
 .ep-dialog {
   border: none;
   border-radius: var(--ep-radius-xl);
@@ -57,46 +62,83 @@
   padding: 0;
   max-width: 28rem;
   width: 90%;
-}
 
-.ep-dialog::backdrop {
-  background: rgb(0 0 0 / 0.4);
-  backdrop-filter: blur(4px);
-}
+  &::backdrop {
+    background: rgb(0 0 0 / 0.4);
+    backdrop-filter: blur(4px);
+  }
 
-.ep-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--ep-space-4) var(--ep-space-6);
-  border-bottom: 1px solid var(--ep-border-color);
-}
+  .ep-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--ep-space-4) var(--ep-space-6);
+    border-bottom: 1px solid var(--ep-border-color);
 
-.ep-dialog-header h2,
-.ep-dialog-header h3 {
-  margin: 0;
-  font-size: var(--ep-text-base);
-}
+    h2,
+    h3 {
+      margin: 0;
+      font-size: var(--ep-text-base);
+    }
+  }
 
-.ep-dialog-body {
-  padding: var(--ep-space-6);
-}
+  .ep-dialog-body {
+    padding: var(--ep-space-6);
 
-.ep-dialog-body .form-group:last-child {
-  margin-bottom: 0;
-}
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+  }
 
-.ep-dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--ep-space-3);
-  padding: var(--ep-space-4) var(--ep-space-6);
-  border-top: 1px solid var(--ep-border-color);
+  .ep-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--ep-space-3);
+    padding: var(--ep-space-4) var(--ep-space-6);
+    border-top: 1px solid var(--ep-border-color);
+  }
 }
 
 #confirm-dialog-footer {
   display: flex;
   gap: var(--ep-space-3);
+}
+
+/* ── Kind: form / upload ───────────────────────────────────────────────
+ * The create/upload dialogs (dialog-shell defaults to data-dialog="form").
+ * Sticky header + footer while only the body scrolls, once content exceeds
+ * 90vh. Covers both skeleton shapes: header + <form>(body + footer), and a
+ * formless header + body + footer as direct children. `[open]`-scoped so
+ * `display: flex` never overrides the closed <dialog>'s UA `display: none`;
+ * min-height:0 lets the flex children shrink so the body can actually scroll.
+ * Only dialogs tagged data-dialog="form" get this — hand-tuned viewers
+ * (version-comparison, changelog, …) keep their own layout untouched. */
+.ep-dialog[data-dialog='form'] {
+  &[open] {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+  }
+
+  /* The caller's <form> is the flex child between the header and the
+     body/footer it wraps; grow it into a column so the body scrolls inside. */
+  & > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .ep-dialog-header,
+  .ep-dialog-footer {
+    flex: 0 0 auto;
+  }
+
+  .ep-dialog-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
 }
 
 /* ── Wide dialog variant ──────────────────────────────────────────────── */

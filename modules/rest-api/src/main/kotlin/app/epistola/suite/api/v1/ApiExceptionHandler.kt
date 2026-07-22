@@ -73,6 +73,7 @@ import org.springframework.web.context.request.WebRequest
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 import tools.jackson.databind.DatabindException
+import java.sql.SQLException
 
 /**
  * Global exception handler for REST API controllers.
@@ -394,7 +395,28 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(Exception::class)
     fun handleGenericException(ex: Exception, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        // Safety net (#692, REST sibling of UiExceptionFilter's #608 net): an over-length
+        // value that slipped past command validation and hit a VARCHAR(n) column throws a
+        // PostgreSQL string-truncation (SQLSTATE 22001). Map it to a 400 so it never renders
+        // as an opaque 500 — this is the only backstop on the api surface (excluded from
+        // UiExceptionFilter) and for import/background writes surfaced here. 22001 carries no
+        // column identity, so the message stays form-level rather than a field error, and the
+        // raw driver text is never echoed to the caller.
+        findStringTruncation(ex)?.let { truncation ->
+            logger.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
+            return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "A value in the request is too long.")
+        }
         logger.error("Unexpected error in API controller", ex)
         return problemResponse(request, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred")
+    }
+
+    /** Walks the full cause chain for a PostgreSQL string-truncation (SQLSTATE 22001). */
+    private fun findStringTruncation(ex: Throwable): SQLException? {
+        var c: Throwable? = ex
+        while (c != null) {
+            if (c is SQLException && c.sqlState == "22001") return c
+            c = c.cause
+        }
+        return null
     }
 }

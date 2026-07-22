@@ -18,9 +18,10 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.HxSwap
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.codeListId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -31,6 +32,8 @@ import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.requirePermission
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -62,16 +65,33 @@ class CodeListHandler(
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("code-lists/new") {
-            "pageTitle" to "New Code List - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
+        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        // Fragment models are lazy, so only the branch that renders evaluates —
+        // one ListCatalogs per request, shared by the list filter and the
+        // dialog's authored-only <select>.
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        return request.htmx {
+            // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
+            fragment("code-lists/new", "dialog") {
+                "tenantId" to tenantId.key
+                "authoredCatalogs" to authoredCatalogs
+            }
+            // Direct navigation / boost: the host list page with the dialog
+            // embedded in its mount (openDialog=true), opened on load by the JS.
+            onNonHtmx {
+                page("code-lists/list") {
+                    codeListPageModel(tenantId, allCatalogs)
+                    "openDialog" to true
+                    "authoredCatalogs" to authoredCatalogs
+                }
+            }
         }
     }
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
 
         val form = request.form {
             field("catalog") { required() }
@@ -80,6 +100,11 @@ class CodeListHandler(
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
                 minLength(3)
                 maxLength(64)
+                // Folds the old "invalid CodeListKey" branch into field validation
+                // (same "Invalid code-list ID format" error) so all failure modes
+                // share one error path. Layered ON TOP of the pattern/length rules
+                // above — strictly additive, never loosening them.
+                asCodeListId()
             }
             field("displayName") {
                 required()
@@ -91,18 +116,17 @@ class CodeListHandler(
             field("entriesJson") {}
         }
 
-        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-
         if (form.hasErrors()) {
-            return renderNew(form, catalogs, tenantId.key)
+            return renderCreateError(request, form, tenantId)
         }
 
         val catalogKey = CatalogKey.validateOrNull(form["catalog"])
-            ?: return renderNewWithError(form, catalogs, tenantId.key, "catalog", "Invalid catalog")
-        val slug = CodeListKey.validateOrNull(form["slug"])
-            ?: return renderNewWithError(form, catalogs, tenantId.key, "slug", "Invalid slug format")
+            ?: return renderCreateError(request, FormData(form.formData, mapOf("catalog" to "Invalid catalog")), tenantId)
+        // Safe !!: asCodeListId already rejected an invalid non-blank slug, and
+        // required() rejected a blank one, so a valid key is guaranteed here.
+        val slug = CodeListKey.validateOrNull(form["slug"])!!
         val sourceType = runCatching { CodeListSource.valueOf(form["sourceType"]) }.getOrNull()
-            ?: return renderNewWithError(form, catalogs, tenantId.key, "sourceType", "Unknown source type")
+            ?: return renderCreateError(request, FormData(form.formData, mapOf("sourceType" to "Unknown source type")), tenantId)
 
         val entries = if (sourceType == CodeListSource.INLINE) {
             parseInlineEntries(request.params().getFirst("entriesJson").orEmpty())
@@ -123,12 +147,54 @@ class CodeListHandler(
         }
 
         if (result.hasErrors()) {
-            return renderNew(result, catalogs, tenantId.key)
+            return renderCreateError(request, result, tenantId)
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/code-lists/${catalogKey.value}/${slug.value}")
-            .build()
+        // Success: soft-navigate to the newly created code list's page via a
+        // boosted body-swap (HX-Location) — no full-page reload. The dialog goes
+        // with the swapped-out body; the list is not refreshed.
+        val destination = "/tenants/${tenantId.key}/code-lists/${catalogKey.value}/${slug.value}"
+        return request.htmx {
+            dialogLocation(destination)
+            onNonHtmx { redirect(destination) }
+        }
+    }
+
+    /**
+     * The single error-render path for [create]: re-render the form inside the
+     * dialog (retargeted to the form, not the list) with inline errors + preserved
+     * values for HTMX, or the host list page with the dialog embedded and open for
+     * a non-HTMX submit. `tenantId` and `authoredCatalogs` are the prefill the form
+     * fragment needs to rebuild its action URL and catalog <select>.
+     */
+    private fun renderCreateError(
+        request: ServerRequest,
+        formData: FormData,
+        tenantId: TenantId,
+    ): ServerResponse {
+        // One ListCatalogs whichever branch renders (fragment models are lazy).
+        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
+        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        return request.htmx {
+            dialogFieldErrors(
+                template = "code-lists/new",
+                fragmentName = "code-list-form",
+                formTarget = "#create-code-list-form",
+                formData = formData,
+            ) {
+                "tenantId" to tenantId.key
+                "authoredCatalogs" to authoredCatalogs
+            }
+            onNonHtmx {
+                page(422, "code-lists/list") {
+                    codeListPageModel(tenantId, allCatalogs)
+                    "openDialog" to true
+                    "authoredCatalogs" to authoredCatalogs
+                    "formData" to formData.formData
+                    "errors" to formData.errors
+                }
+            }
+        }
     }
 
     fun detail(request: ServerRequest): ServerResponse {
@@ -230,27 +296,23 @@ class CodeListHandler(
         }
     }
 
-    private fun renderNew(
-        form: FormData,
+    /**
+     * The full-page list model, used by the newForm / create non-HTMX branches so
+     * the list renders behind the embedded create dialog. `authoredCatalogs` (the
+     * dialog's catalog `<select>` source) is threaded separately by the callers —
+     * the list already puts *all* `catalogs` in the model for its filter, so the
+     * dialog uses a distinct key to avoid rendering the wrong (non-authored) options.
+     */
+    private fun ModelBuilder.codeListPageModel(
+        tenantId: TenantId,
         catalogs: List<Catalog>,
-        tenantKey: TenantKey,
-    ): ServerResponse = ServerResponse.ok().page("code-lists/new") {
-        "pageTitle" to "New Code List - Epistola"
-        "tenantId" to tenantKey
+    ) {
+        "pageTitle" to "Code lists - Epistola"
+        "tenant" to GetTenant(tenantId.key).query()
+        "tenantId" to tenantId.key
         "catalogs" to catalogs
-        "formData" to form.formData
-        "errors" to form.errors
-    }
-
-    private fun renderNewWithError(
-        form: FormData,
-        catalogs: List<Catalog>,
-        tenantKey: TenantKey,
-        field: String,
-        message: String,
-    ): ServerResponse {
-        val errors: Map<String, String> = mapOf(field to message)
-        return renderNew(FormData(form.formData, errors), catalogs, tenantKey)
+        "selectedCatalog" to ""
+        "codeLists" to ListCodeLists(tenantId = tenantId).query()
     }
 
     /**

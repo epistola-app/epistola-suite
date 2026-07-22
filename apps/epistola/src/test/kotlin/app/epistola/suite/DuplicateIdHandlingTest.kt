@@ -11,6 +11,8 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -18,6 +20,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
@@ -90,7 +93,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: the environment create form (now a URL-addressable
+            // dialog) re-renders with the error at 422 on a duplicate slug. This is
+            // a non-HTMX submit, so the host list page comes back (dialog embedded,
+            // error shown) — no HX-Retarget header on this path.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("An environment with this ID already exists")
         }
     }
@@ -125,7 +132,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: on the theme create form (now a URL-addressable
+            // dialog) a duplicate slug re-renders with the error at 422. This is a
+            // non-HTMX submit, so the host list page comes back (dialog embedded,
+            // error shown) — no HX-Retarget header on this path.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("A theme with this ID already exists")
         }
     }
@@ -160,8 +171,54 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: the template create form (now a URL-addressable
+            // dialog) re-renders with the error at 422 on a duplicate slug. This is
+            // a non-HTMX submit, so the host list page comes back (dialog embedded,
+            // error shown) — no HX-Retarget header on this path.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("A template with this ID already exists")
+        }
+    }
+
+    @Test
+    fun `POST stencil with duplicate slug returns inline error`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
+            CreateStencil(
+                id = StencilId(StencilKey.of("my-stencil"), CatalogId.default(tenantId)),
+                name = "My Stencil",
+            ).execute()
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            // HTMX-only: a non-HTMX POST to /stencils is the editor's JSON API, so
+            // the create form path is only reachable with HX-Request set.
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "my-stencil")
+            formData.add("name", "My Stencil Again")
+            formData.add("catalog", "default")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity(
+                "/tenants/${tenant.id}/stencils",
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Dialog contract: a duplicate slug re-renders the form retargeted at
+            // #create-stencil-form with the error at 422. The "stencil" entityType
+            // maps to the slug field (see FormBinder.executeOrFormError).
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-stencil-form")
+            assertThat(response.body).contains("A stencil with this ID already exists")
         }
     }
 
@@ -195,7 +252,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: the attribute create form (now a URL-addressable
+            // dialog) re-renders with the error at 422 on a duplicate slug. This is
+            // a non-HTMX submit, so the host list page comes back (dialog embedded,
+            // error shown) — no HX-Retarget header on this path.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("An attribute with this ID already exists")
         }
     }
@@ -235,7 +296,11 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: a duplicate slug re-renders the form retargeted at
+            // #create-code-list-form with the error at 422. The "code-list"
+            // entityType maps to the slug field (see FormBinder.executeOrFormError).
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-code-list-form")
             assertThat(response.body).contains("A code-list with this ID already exists")
         }
     }

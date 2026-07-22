@@ -4,14 +4,19 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.commands.RevokeApiKey
 import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.htmx.FormData
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.security.requirePermission
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -24,26 +29,35 @@ class ApiKeyHandler {
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val apiKeys = ListApiKeys(tenantId = tenantId.key).query().filter { it.enabled }
         return ServerResponse.ok().page("api-keys/list") {
-            "pageTitle" to "API Keys - Epistola"
-            "tenantId" to tenantId.key
-            "apiKeys" to apiKeys
-            "roleLabels" to ROLE_LABELS
+            apiKeyPageModel(tenantId)
         }
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        return ServerResponse.ok().page("api-keys/new") {
-            "pageTitle" to "New API key - Epistola"
-            "tenantId" to tenantId.key
-            "roleOptions" to ROLE_OPTIONS
+        requirePermission(tenantId.key, Permission.TENANT_USERS)
+        return request.htmx {
+            // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
+            fragment("api-keys/new", "dialog") {
+                "tenantId" to tenantId.key
+                "roleOptions" to ROLE_OPTIONS
+            }
+            // Direct navigation / boost: the host list page with the dialog
+            // embedded in its mount (openDialog=true), opened on load by the JS.
+            onNonHtmx {
+                page("api-keys/list") {
+                    apiKeyPageModel(tenantId)
+                    "openDialog" to true
+                    "roleOptions" to ROLE_OPTIONS
+                }
+            }
         }
     }
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TENANT_USERS)
 
         val form = request.form {
             field("name") {
@@ -62,13 +76,28 @@ class ApiKeyHandler {
         if (roles.isEmpty()) errors["roles"] = "Select at least one role"
 
         if (errors.isNotEmpty()) {
-            return ServerResponse.ok().page("api-keys/new") {
-                "pageTitle" to "New API key - Epistola"
-                "tenantId" to tenantId.key
-                "formData" to form.formData
-                "errors" to errors
-                "roleOptions" to ROLE_OPTIONS
-                "selectedRoles" to selectedRoleNames
+            val formData = FormData(form.formData, errors)
+            return request.htmx {
+                dialogFieldErrors(
+                    template = "api-keys/new",
+                    fragmentName = "api-key-form",
+                    formTarget = "#create-api-key-form",
+                    formData = formData,
+                ) {
+                    "tenantId" to tenantId.key
+                    "roleOptions" to ROLE_OPTIONS
+                    "selectedRoles" to selectedRoleNames
+                }
+                onNonHtmx {
+                    page(422, "api-keys/list") {
+                        apiKeyPageModel(tenantId)
+                        "openDialog" to true
+                        "roleOptions" to ROLE_OPTIONS
+                        "selectedRoles" to selectedRoleNames
+                        "formData" to formData.formData
+                        "errors" to errors
+                    }
+                }
             }
         }
 
@@ -83,11 +112,40 @@ class ApiKeyHandler {
             createdBy = principal?.userId,
         ).execute()
 
-        return ServerResponse.ok().page("api-keys/created") {
-            "pageTitle" to "API key created - Epistola"
-            "tenantId" to tenantId.key
-            "plaintextKey" to result.plaintextKey
-            "apiKey" to result.apiKey
+        // Success is a REVEAL, not a redirect: the one-time plaintext key panel is
+        // swapped into the dialog in place of the form and the dialog STAYS OPEN
+        // (dialogReveal omits closeDialog) so the user can copy the key before
+        // dismissing it. "Done" is a link back to the list.
+        val apiKeys = ListApiKeys(tenantId = tenantId.key).query().filter { it.enabled }
+        return request.htmx {
+            dialogReveal(
+                template = "api-keys/created",
+                fragmentName = "created-reveal",
+                revealTarget = "#create-api-key-form",
+            ) {
+                "tenantId" to tenantId.key
+                "plaintextKey" to result.plaintextKey
+                "apiKey" to result.apiKey
+            }
+            // Refresh the list BEHIND the still-open reveal so it reflects the new
+            // key no matter how the reveal is dismissed — ESC, backdrop, or Done.
+            // Without this the list stays stale and dismissing via ESC looks like
+            // the create failed, tempting the user to mint a duplicate (CR8). Also
+            // flips empty → populated when the first key is created.
+            oob("api-keys/list", "api-key-list") {
+                "tenantId" to tenantId.key
+                "apiKeys" to apiKeys
+                "roleLabels" to ROLE_LABELS
+                "oob" to true
+            }
+            onNonHtmx {
+                page("api-keys/created") {
+                    "pageTitle" to "API key created - Epistola"
+                    "tenantId" to tenantId.key
+                    "plaintextKey" to result.plaintextKey
+                    "apiKey" to result.apiKey
+                }
+            }
         }
     }
 
@@ -112,6 +170,17 @@ class ApiKeyHandler {
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
         }
+    }
+
+    /**
+     * The full-page list model, shared by [list] and the newForm / create
+     * non-HTMX branches so the list renders behind the embedded create dialog.
+     */
+    private fun ModelBuilder.apiKeyPageModel(tenantId: TenantId) {
+        "pageTitle" to "API Keys - Epistola"
+        "tenantId" to tenantId.key
+        "apiKeys" to ListApiKeys(tenantId = tenantId.key).query().filter { it.enabled }
+        "roleLabels" to ROLE_LABELS
     }
 
     /** A selectable role on the create form: its enum name plus a human label/description. */
