@@ -24,9 +24,38 @@ const GUIDE_TRIGGER = '[data-tour="guide-trigger"]';
 
 const STYLE_ID = 'ep-driver-css';
 
-// driver.js ships a 300px max-width popover, which crowds our step copy. Widen it;
-// appended after driver's CSS so this rule wins at equal specificity.
-const POPOVER_OVERRIDES = '.driver-popover{max-width:450px}';
+// driver.js ships an unbranded popover (its own font, greys, and pill buttons).
+// Re-skin it with the design-system tokens so the tour matches the editor. Appended
+// after driver's own CSS so these rules win at equal specificity. Fallbacks are kept
+// because this is injected raw into <head>. The arrow is left alone — driver draws it
+// white, which already matches the white card. No dark theme, so the card stays light.
+const POPOVER_OVERRIDES = `
+.driver-popover {
+  max-width: 450px;
+  padding: var(--ep-space-4, 1rem);
+  background: var(--ep-white, #fff);
+  color: var(--ep-stone-800, #46302b);
+  border: 1px solid var(--ep-stone-200, #e9dace);
+  border-radius: var(--ep-radius-lg, 0.75rem);
+  box-shadow: var(--ep-shadow-xl, 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1));
+  font-family: var(--ep-font-sans, inherit);
+}
+.driver-popover-title { font-size: var(--ep-text-lg, 1.125rem); font-weight: 600; color: var(--ep-stone-900, #34221f); }
+.driver-popover-description { font-size: var(--ep-text-sm, 0.875rem); line-height: 1.5; color: var(--ep-stone-700, #573f38); }
+.driver-popover-progress-text { font-size: var(--ep-text-xs, 0.75rem); color: var(--ep-stone-500, #8c7163); }
+.driver-popover-footer-btn {
+  border-radius: var(--ep-radius-md, 0.5rem);
+  padding: var(--ep-space-1-5, 0.375rem) var(--ep-space-3, 0.75rem);
+  font-size: var(--ep-text-sm, 0.875rem); font-weight: 500; font-family: var(--ep-font-sans, inherit);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.driver-popover-prev-btn { background: var(--ep-white, #fff); color: var(--ep-stone-800, #46302b); border: 1px solid var(--ep-stone-300, #d8c2b2); }
+.driver-popover-prev-btn:hover { background: var(--ep-stone-100, #f6ede6); }
+.driver-popover-next-btn { background: var(--ep-primary, #b6684e); color: var(--ep-primary-foreground, #fff); border: 1px solid transparent; }
+.driver-popover-next-btn:hover { background: var(--ep-primary-strong, #9d5741); }
+.driver-popover-close-btn { color: var(--ep-stone-400, #b9a595); }
+.driver-popover-close-btn:hover { color: var(--ep-stone-800, #46302b); }
+`;
 
 function ensureDriverStyles(): void {
   injectStyleOnce(STYLE_ID, driverCss + POPOVER_OVERRIDES);
