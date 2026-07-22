@@ -41,6 +41,12 @@ export class EpistolaSidebar extends LitElement {
 
   private _setTab(tabId: string) {
     this._activeTab = tabId;
+    void this.updateComplete.then(() => {
+      this.querySelector<HTMLElement>(`.sidebar-tab[data-tab-id="${tabId}"]`)?.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+      });
+    });
   }
 
   private _focusTab(tabId: string, focusTarget: () => HTMLElement | null) {
@@ -140,6 +146,7 @@ export class EpistolaSidebar extends LitElement {
             return html`
               <button
                 class="sidebar-tab ${isActive ? 'active' : ''}"
+                data-tab-id=${tab.id}
                 @click=${() => this._setTab(tab.id)}
               >
                 ${label}
