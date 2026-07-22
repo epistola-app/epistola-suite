@@ -375,9 +375,8 @@ app/epistola/suite/htmx/
 │                          # Parameter helpers: pathId(), queryParam(), queryParamInt()
 ├── HtmxRender.kt          # render(), renderTemplate(), page() shortcut, htmx {} entry point
 ├── HtmxDsl.kt             # DSL builders (HtmxResponseBuilder, NonHtmxBuilder, ModelBuilder)
-│                          # formError() helper, onNonHtmx overloads
+│                          # formError() helper, onNonHtmx overloads, multi-fragment/OOB rendering
 ├── HtmxSwap.kt            # HxSwap enum
-├── HtmxFragmentsView.kt   # Multi-fragment view rendering
 └── FormBinder.kt          # Form validation DSL (field specs, validators)
                            # FormData with typed accessors
                            # executeOrFormError() for exception mapping
