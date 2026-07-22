@@ -141,8 +141,14 @@ export class EpExpressionDialog extends LitElement {
     return this.fieldPaths.filter((fp) => !fp.system && !fp.scope);
   }
 
-  private get _scopedFields(): FieldPath[] {
-    return this.fieldPaths.filter((fp) => fp.scope);
+  private get _iterationFields(): FieldPath[] {
+    return this.fieldPaths.filter(
+      (fp) => fp.scope && (fp.scopeKind === 'iteration' || !fp.scopeKind),
+    );
+  }
+
+  private get _stencilParameterFields(): FieldPath[] {
+    return this.fieldPaths.filter((fp) => fp.scope && fp.scopeKind === 'stencil-parameter');
   }
 
   private get _systemFields(): FieldPath[] {
@@ -179,8 +185,12 @@ export class EpExpressionDialog extends LitElement {
     );
   }
 
-  private get _builderScopedFields(): FieldPath[] {
-    return this._scopedFields.filter(this._isPickableForBuilder);
+  private get _builderIterationFields(): FieldPath[] {
+    return this._iterationFields.filter(this._isPickableForBuilder);
+  }
+
+  private get _builderStencilParameterFields(): FieldPath[] {
+    return this._stencilParameterFields.filter(this._isPickableForBuilder);
   }
 
   private get _builderSystemFields(): FieldPath[] {
@@ -757,10 +767,17 @@ export class EpExpressionDialog extends LitElement {
             </optgroup>
           `
         : nothing}
-      ${this._builderScopedFields.length > 0
+      ${this._builderIterationFields.length > 0
         ? html`
             <optgroup label="Iteration variables">
-              ${this._builderScopedFields.map((fp) => this._renderFieldOption(fp))}
+              ${this._builderIterationFields.map((fp) => this._renderFieldOption(fp))}
+            </optgroup>
+          `
+        : nothing}
+      ${this._builderStencilParameterFields.length > 0
+        ? html`
+            <optgroup label="Stencil parameters">
+              ${this._builderStencilParameterFields.map((fp) => this._renderFieldOption(fp))}
             </optgroup>
           `
         : nothing}
@@ -1033,7 +1050,8 @@ export class EpExpressionDialog extends LitElement {
     }
 
     const dataFields = this._dataFields;
-    const scopedFields = this._scopedFields;
+    const iterationFields = this._iterationFields;
+    const stencilParameterFields = this._stencilParameterFields;
     const systemFields = this._systemFields;
 
     return html`
@@ -1056,7 +1074,8 @@ export class EpExpressionDialog extends LitElement {
         </div>
         <ul class="expression-dialog-paths-list">
           ${this._renderFieldPathsSection('Template variables', dataFields)}
-          ${this._renderFieldPathsSection('Iteration variables', scopedFields)}
+          ${this._renderFieldPathsSection('Iteration variables', iterationFields)}
+          ${this._renderFieldPathsSection('Stencil parameters', stencilParameterFields)}
           ${this._renderFieldPathsSection('System parameters', systemFields)}
         </ul>
       </div>

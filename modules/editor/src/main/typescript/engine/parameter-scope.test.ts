@@ -50,6 +50,19 @@ describe('buildParameterScope', () => {
     expect(paths).toEqual(['params.pageCount', 'params.recipientName']);
   });
 
+  it('marks declared parameters as stencil parameter scope', () => {
+    const node = makeStencilNode({
+      type: 'object',
+      properties: {
+        recipientName: { type: 'string', description: 'Recipient' },
+      },
+    });
+    const scope = buildParameterScope(node, { schemaFieldPaths: [] });
+
+    expect(scope!.variables[0]?.scope).toBe('params');
+    expect(scope!.variables[0]?.scopeKind).toBe('stencil-parameter');
+  });
+
   it('uses the configured paramsAlias for scope variable paths', () => {
     const node = makeStencilNode(
       { type: 'object', properties: { title: { type: 'string' } } },
