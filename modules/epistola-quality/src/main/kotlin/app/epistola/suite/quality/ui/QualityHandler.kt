@@ -17,7 +17,9 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.pathId
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.queryParamInt
+import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.EffectiveQualityStatus
@@ -30,8 +32,10 @@ import app.epistola.suite.quality.commands.AddFindingComment
 import app.epistola.suite.quality.commands.IgnoreFinding
 import app.epistola.suite.quality.commands.RecordManualFinding
 import app.epistola.suite.quality.commands.ResolveManualFinding
+import app.epistola.suite.quality.commands.RunQualityChecks
 import app.epistola.suite.quality.commands.UnignoreFindingByFinding
 import app.epistola.suite.quality.queries.GetFindingComments
+import app.epistola.suite.quality.queries.GetFindingsForSubject
 import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.quality.queries.QualityFindingSort
@@ -39,6 +43,7 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.queries.GetTenant
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -58,6 +63,23 @@ import org.springframework.web.servlet.function.ServerResponse
 class QualityHandler(
     private val registry: QualitySourceRegistry,
 ) {
+    fun editorFindings(request: ServerRequest): ServerResponse {
+        val variantId = request.editorVariantId() ?: return ServerResponse.badRequest().build()
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(editorPanel(variantId))
+    }
+
+    fun runEditorChecks(request: ServerRequest): ServerResponse {
+        val variantId = request.editorVariantId() ?: return ServerResponse.badRequest().build()
+
+        RunQualityChecks(variantId).execute()
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(editorPanel(variantId))
+    }
+
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
@@ -169,7 +191,7 @@ class QualityHandler(
     /**
      * Resolve by hand. Only ever offered for a manual finding — a reconciling source's finding
      * closes when the source stops reporting it, and a Resolve button there would be a lie the next
-     * sweep overwrites. The command enforces the same restriction.
+     * source run overwrites. The command enforces the same restriction.
      */
     fun resolve(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -327,6 +349,45 @@ class QualityHandler(
 
     private fun ServerRequest.findingKey(): QualityFindingKey? = pathId("findingId") { runCatching { QualityFindingKey.of(it) }.getOrNull() }
 
+    private fun ServerRequest.editorVariantId(): VariantId? {
+        val tenantId = tenantId()
+        val templateId = templateId(tenantId) ?: return null
+        return variantId(templateId)
+    }
+
+    private fun editorPanel(variantId: VariantId): EditorQualityPanel {
+        val subjectFindings = GetFindingsForSubject(
+            tenantKey = variantId.tenantKey,
+            catalogKey = variantId.catalogKey,
+            templateKey = variantId.templateKey,
+            variantKey = variantId.key.value,
+        ).query()
+        val findings = subjectFindings.findings.map { finding ->
+            EditorQualityFinding(
+                id = finding.key.value.toString(),
+                sourceId = finding.sourceId.value,
+                sourceName = sourceName(finding.sourceId),
+                ruleId = finding.ruleId,
+                severity = finding.severity.name,
+                status = finding.effectiveStatus.name,
+                message = finding.message,
+                nodeIds = finding.nodeIds,
+                primaryNodeId = finding.primaryNodeId,
+                path = finding.path,
+                docsUrl = finding.docsUrl,
+                stale = subjectFindings.isStale(finding),
+                commentCount = finding.commentCount,
+            )
+        }
+
+        return EditorQualityPanel(
+            currentInputFingerprint = subjectFindings.currentInputFingerprint,
+            findings = findings,
+            openCount = findings.count { it.status == EffectiveQualityStatus.OPEN.name },
+            staleCount = findings.count { it.stale },
+        )
+    }
+
     /**
      * Absent means OPEN, empty means all.
      *
@@ -370,7 +431,7 @@ class QualityHandler(
 
     private companion object {
         /**
-         * The template filter's dropdown. Not a sweep: it populates a picker, so a tenant beyond
+     * The template filter's dropdown. It populates a picker, so a tenant beyond
          * this many templates gets a truncated *filter list*, never a truncated report — the report
          * itself pages in SQL over everything.
          */
@@ -422,6 +483,29 @@ class QualityHandler(
     data class SourceOption(
         val id: String,
         val name: String,
+    )
+
+    data class EditorQualityPanel(
+        val currentInputFingerprint: String?,
+        val findings: List<EditorQualityFinding>,
+        val openCount: Int,
+        val staleCount: Int,
+    )
+
+    data class EditorQualityFinding(
+        val id: String,
+        val sourceId: String,
+        val sourceName: String,
+        val ruleId: String,
+        val severity: String,
+        val status: String,
+        val message: String,
+        val nodeIds: List<String>,
+        val primaryNodeId: String?,
+        val path: String?,
+        val docsUrl: String?,
+        val stale: Boolean,
+        val commentCount: Int,
     )
 
     private data class QualityFilters(

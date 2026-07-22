@@ -109,14 +109,13 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
         withMediator { RunQualityChecks(variantId).execute() }
         val second = findingsFor(variantId).findings.single()
 
-        // Same row, still open — a re-run must not churn the ledger. This is what makes the sweep
-        // safe to retry after a lease expiry.
+        // Same row, still open — a re-run must not churn the ledger.
         assertThat(second.key).isEqualTo(first.key)
         assertThat(second.firstSeenAt).isEqualTo(first.firstSeenAt)
         assertThat(second.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
     }
 
-    /** An ignore is a durable decision — a later sweep must not undo it. */
+    /** An ignore is a durable decision — a later source run must not undo it. */
     @Test
     fun `an ignore survives a later check run`() {
         val variantId = newVariant()

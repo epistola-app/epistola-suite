@@ -131,7 +131,7 @@ class RecordManualFindingHandler(
 /**
  * Closes a manual finding. The automated half of the ledger never needs this — a checker's finding
  * closes when the checker stops reporting it — so this is guarded to [QualitySourceId.MANUAL] rather
- * than offering a way to hand-resolve something a source will simply reopen on its next sweep.
+ * than offering a way to hand-resolve something a source will simply reopen on its next run.
  */
 data class ResolveManualFinding(
     override val tenantKey: TenantKey,

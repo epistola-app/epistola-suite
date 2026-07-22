@@ -78,11 +78,11 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
     }
 
     /**
-     * The asymmetry, asserted. An automated sweep of the same subject must not resolve a person's
+     * The asymmetry, asserted. An automated submission for the same subject must not resolve a person's
      * note — reconciliation is scoped by source, and `manual` is never a submitting source.
      */
     @Test
-    fun `an automated sweep never resolves a manual finding`() {
+    fun `an automated submission never resolves a manual finding`() {
         val subject = newSubject()
         withMediator { RecordManualFinding(subject, "Please reword this").execute() }
         withMediator { SubmitQualityFindings(source, subject, listOf(exampleFinding("fp-1"))).execute() }
@@ -106,7 +106,7 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
         assertThat(readBack(subject).findings.single().effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
     }
 
-    /** Guarded to the manual source: an automated finding would simply reopen on the next sweep. */
+    /** Guarded to the manual source: an automated finding would simply reopen on the next source run. */
     @Test
     fun `resolve-manual refuses an automated finding`() {
         val subject = newSubject()

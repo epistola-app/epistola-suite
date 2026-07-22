@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Re-runs the in-process checks when a version is published, so the report reflects a publish
- * without waiting for the nightly sweep.
+ * without waiting for an author to open the editor and click "Check now".
  *
  * ### Why publish and not every draft save
  *
@@ -29,7 +29,7 @@ import org.springframework.stereotype.Component
  *
  * Failure is isolated at this phase, which is what we want: a quality check is an observation about
  * a publish, not a condition of it. A broken source must never be able to roll back an author's
- * publish. The nightly sweep picks up anything missed here.
+ * publish. If this fails, the author can still run checks explicitly from the editor.
  */
 @Component
 class OnVersionPublishedRunChecks : EventHandler<PublishVersion> {
