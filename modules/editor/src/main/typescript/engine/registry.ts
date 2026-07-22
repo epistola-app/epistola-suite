@@ -9,6 +9,7 @@ import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/inde
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
 import type { FieldPath } from './schema-paths.js';
+import { componentRegistry as contractComponentRegistry } from '@epistola.app/epistola-model/registry';
 import { nanoid } from 'nanoid';
 import { createTableDefinition } from '../components/table/table-registration.js';
 import { createColumnsDefinition } from '../components/columns/columns-registration.js';
@@ -343,15 +344,71 @@ export type ParameterSchemaProvider =
   | JsonSchema
   | ((node: Node, document: TemplateDocument) => JsonSchema | null);
 
+const contractDefinitions = new Map(
+  contractComponentRegistry.components.map((component) => [component.type, component]),
+);
+
+function withContractMetadata(def: ComponentDefinition): ComponentDefinition {
+  const contract = contractDefinitions.get(def.type);
+  if (!contract) return def;
+
+  const localSlotsByName = new Map(def.slots.map((slot) => [slot.name, slot]));
+  const slots: SlotTemplate[] = contract.slots.map((slot) => {
+    const local = localSlotsByName.get(slot.name);
+    return {
+      ...slot,
+      locked: local?.locked ?? slot.locked,
+      editable: local?.editable ?? slot.editable,
+    };
+  });
+
+  const localInspectorByKey = new Map(def.inspector.map((field) => [field.key, field]));
+  const inspector: InspectorField[] = contract.inspector.map((field) => {
+    const local = localInspectorByKey.get(field.key);
+    return {
+      ...field,
+      pathDisabled: local?.pathDisabled,
+      visibleWhen: local?.visibleWhen,
+    };
+  });
+
+  return {
+    ...def,
+    label: contract.label,
+    icon: contract.icon,
+    category: contract.category,
+    hidden: contract.hidden,
+    slots,
+    allowedChildren: contract.allowedChildren,
+    applicableStyles: contract.applicableStyles,
+    inspector,
+    defaultStyles: contract.defaultStyles,
+    defaultProps: contract.defaultProps,
+    maxInstancesPerDocument: contract.maxInstancesPerDocument,
+    examples: contract.examples,
+    parameters: def.parameters ?? (contract.parameters === null ? undefined : contract.parameters),
+  } as ComponentDefinition;
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
+export interface ComponentRegistryOptions {
+  useContractMetadata?: boolean;
+}
+
 export class ComponentRegistry {
   private _definitions: Map<string, ComponentDefinition> = new Map();
+  private readonly _options: ComponentRegistryOptions;
+
+  constructor(options: ComponentRegistryOptions = {}) {
+    this._options = options;
+  }
 
   register(def: ComponentDefinition): void {
-    this._definitions.set(def.type, def);
+    const next = this._options.useContractMetadata ? withContractMetadata(def) : def;
+    this._definitions.set(next.type, next);
   }
 
   get(type: string): ComponentDefinition | undefined {
@@ -535,7 +592,7 @@ const LAYOUT_STYLES = [
 ];
 
 export function createDefaultRegistry(): ComponentRegistry {
-  const registry = new ComponentRegistry();
+  const registry = new ComponentRegistry({ useContractMetadata: true });
 
   registry.register({
     type: 'root',

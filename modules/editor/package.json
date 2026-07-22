@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "watch": "vite build --watch",
-    "build": "tsc -b && vite build && pnpm dump-registry",
+    "build": "tsc -b && vite build && pnpm dump-registry && pnpm check-registry",
     "dump-registry": "vite-node scripts/dump-component-registry.ts -- dist/component-registry.json",
+    "check-registry": "node scripts/check-component-registry.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -18,7 +19,7 @@
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^2.0.0",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^2.0.0",
-    "@epistola.app/epistola-model": "0.12.0",
+    "@epistola.app/epistola-model": "0.12.1",
     "@epistola/design-system": "workspace:*",
     "@floating-ui/dom": "^1.7.5",
     "jsonata": "^2.0.5",
