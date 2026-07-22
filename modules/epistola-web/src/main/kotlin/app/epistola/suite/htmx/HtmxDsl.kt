@@ -93,12 +93,12 @@ class ModelBuilder {
 }
 
 /**
- * Builder for non-HTMX request handling within the htmx DSL.
- * Allows both page rendering and redirects.
+ * Builder for full-page request handling within the htmx DSL.
+ * Handles plain requests, boosted HTMX navigation, and HTMX history restores.
  *
  * Usage:
  * ```kotlin
- * onNonHtmx {
+ * onFullPage {
  *     page("templates/list") {
  *         "templates" to templates
  *     }
@@ -106,7 +106,7 @@ class ModelBuilder {
  * ```
  */
 @HtmxDsl
-class NonHtmxBuilder {
+class FullPageBuilder {
     private var response: ServerResponse? = null
 
     /**
@@ -146,13 +146,15 @@ class NonHtmxBuilder {
     internal fun build(): ServerResponse? = response
 }
 
+typealias NonHtmxBuilder = FullPageBuilder
+
 /**
  * Main builder for constructing HTMX responses.
  *
  * Supports:
  * - Primary fragments and Out-of-Band (OOB) fragments
  * - HTMX response headers (trigger, pushUrl, reswap, retarget)
- * - Non-HTMX request fallback handling
+ * - Full-page fallback handling for plain, boosted, and history-restore requests
  *
  * @property request The incoming ServerRequest (used to detect HTMX requests)
  */
@@ -164,7 +166,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     internal val emittedFragments: List<HtmxFragment> get() = fragments.toList()
 
     private val headers = mutableMapOf<String, String>()
-    private var nonHtmxHandler: (() -> ServerResponse)? = null
+    private var fullPageHandler: (() -> ServerResponse)? = null
     private var fullTemplate: String? = null
     private var status: Int = 200
     private var redirectUrl: String? = null
@@ -213,13 +215,13 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * Automatically:
      * - Spreads formData and errors into the model
      * - Sets HxSwap to OUTER_HTML (replaces the entire form element)
-     * - Can be further customized with retarget(), onNonHtmx(), etc.
+     * - Can be further customized with retarget(), onFullPage(), etc.
      *
      * Usage:
      * ```kotlin
      * return request.htmx {
      *     formError("tenants/list", "create-form", result)
-     *     onNonHtmx { redirect("/tenants") }
+     *     onFullPage { redirect("/tenants") }
      * }
      * ```
      *
@@ -260,14 +262,14 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      *
      * Sets HX-Reswap to none (no primary swap; the OOB fragment still
      * processes) — app-shell.js recognizes the header and lets the error
-     * response swap. Handlers should still provide onNonHtmx { } re-rendering
+     * response swap. Handlers should still provide onFullPage { } re-rendering
      * the page with the standardized `error` model key.
      *
      * Usage:
      * ```kotlin
      * return request.htmx {
      *     globalFormError("start-load-test-error", errorMessage)
-     *     onNonHtmx { page(422, "loadtest/new") { "error" to errorMessage } }
+     *     onFullPage { page(422, "loadtest/new") { "error" to errorMessage } }
      * }
      * ```
      *
@@ -387,7 +389,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * shown stale on Back after a create (CR3). Baked in here rather than left to
      * each caller so it can't be forgotten and reintroduce the bug.
      *
-     * Pair with: `onNonHtmx { redirect("/…/list") }` (a full-page submit just
+     * Pair with: `onFullPage { redirect("/…/list") }` (a full-page submit just
      * lands back on the list).
      */
     fun dialogSuccess(
@@ -418,7 +420,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * `closeDialog` trigger. "Success-that-stays-open" falls out of simply
      * omitting the trigger.
      *
-     * Pair with: `onNonHtmx { page("…/created") { … } }` (full-page reveal).
+     * Pair with: `onFullPage { page("…/created") { … } }` (full-page reveal).
      */
     fun dialogReveal(
         template: String,
@@ -448,7 +450,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * No fragment is rendered: `HX-Redirect` supersedes any swap, so there is
      * nothing to retarget/reswap. The dialog is discarded with the old page.
      *
-     * Pair with: `onNonHtmx { redirect("/…/created") }` — a full-page (non-HTMX)
+     * Pair with: `onFullPage { redirect("/…/created") }` — a full-page
      * submit just 303-redirects to the same resource.
      */
     fun dialogRedirect(url: String) {
@@ -473,7 +475,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * No fragment is rendered: `HX-Location` supersedes any swap (HTMX handles the
      * header before swapping), so the 200 carries headers only.
      *
-     * Pair with: `onNonHtmx { redirect("/…/created") }` — a full-page (non-HTMX)
+     * Pair with: `onFullPage { redirect("/…/created") }` — a full-page
      * submit still 303-redirects to the same resource.
      */
     fun dialogLocation(url: String) {
@@ -507,7 +509,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * Do NOT use this for the file uploads (font/image) — re-rendering the form
      * body clears the chosen `<input type=file>`; use [dialogFormError] instead.
      *
-     * Pair with: `onNonHtmx { page(422, "…/host") { +formData … } }`
+     * Pair with: `onFullPage { page(422, "…/host") { +formData … } }`
      * (re-render the host page with the dialog embedded and errors shown).
      *
      * [model] supplies any prefill the form fragment needs to re-render itself
@@ -542,7 +544,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * NOT be re-rendered — the OOB slot updates only the error text and the form
      * (with the user's file selection) stays exactly as they left it.
      *
-     * Pair with: `onNonHtmx { page(422, "…/host") { "error" to message } }`.
+     * Pair with: `onFullPage { page(422, "…/host") { "error" to message } }`.
      */
     fun dialogFormError(
         errorId: String,
@@ -572,7 +574,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      *
      * The `<dialog>`'s global `form-error` slot is untouched and keeps working
      * for the 5xx client safety net. Pair with, for the boosted full-page case:
-     * `onNonHtmx { page(422, "…/host") { openDialog=true; "errors" to errors } }`.
+     * `onFullPage { page(422, "…/host") { openDialog=true; "errors" to errors } }`.
      *
      * @param template The template holding the OOB field-errors fragment.
      * @param fragmentName The fragment that renders the OOB `field-error` spans.
@@ -594,62 +596,73 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     }
 
     /**
-     * Sets a handler for non-HTMX requests using a builder DSL.
-     * Allows rendering pages or redirects.
+     * Sets a handler for full-page requests using a builder DSL.
+     * Handles plain requests, boosted HTMX navigation, and HTMX history restores.
      *
      * Usage:
      * ```kotlin
-     * onNonHtmx {
+     * onFullPage {
      *     page("templates/list") {
      *         "templates" to templates
      *     }
      * }
      *
-     * onNonHtmx {
+     * onFullPage {
      *     redirect("/templates")
      * }
      * ```
      *
-     * @param block Lambda to build the non-HTMX response
+     * @param block Lambda to build the full-page response
      */
-    fun onNonHtmx(block: NonHtmxBuilder.() -> Unit) {
-        nonHtmxHandler = {
-            NonHtmxBuilder().apply(block).build()
-                ?: throw IllegalStateException("onNonHtmx block must call either page() or redirect()")
+    fun onFullPage(block: FullPageBuilder.() -> Unit) {
+        fullPageHandler = {
+            FullPageBuilder().apply(block).build()
+                ?: throw IllegalStateException("onFullPage block must call either page() or redirect()")
         }
     }
 
     /**
-     * Sets a handler for non-HTMX requests using a lambda.
-     * Legacy API - prefer onNonHtmx(block) for new code.
+     * Sets a full-page fallback handler.
      *
-     * @param handler Lambda that returns a ServerResponse for non-HTMX requests
+     * Kept for source compatibility with older handlers. In a boosted app this
+     * block is not limited to non-HTMX traffic: boosted requests and history
+     * restores also need a full page, so new code should use [onFullPage].
+     */
+    fun onNonHtmx(block: FullPageBuilder.() -> Unit) {
+        onFullPage(block)
+    }
+
+    /**
+     * Sets a handler for full-page requests using a lambda.
+     * Legacy API - prefer onFullPage(block) for new code.
+     *
+     * @param handler Lambda that returns a ServerResponse for full-page requests
      */
     @Deprecated(
-        "Use onNonHtmx { page(...) } or onNonHtmx { redirect(...) } instead",
-        ReplaceWith("onNonHtmx { redirect(url) }"),
+        "Use onFullPage { page(...) } or onFullPage { redirect(...) } instead",
+        ReplaceWith("onFullPage { redirect(url) }"),
     )
     fun onNonHtmxLegacy(handler: () -> ServerResponse) {
-        nonHtmxHandler = handler
+        fullPageHandler = handler
     }
 
     /**
      * Builds the final ServerResponse.
      *
-     * For HTMX requests: renders fragments with appropriate headers.
-     * For non-HTMX requests: executes the nonHtmxHandler or renders full template.
+     * For non-boosted HTMX requests: renders fragments with appropriate headers.
+     * For full-page requests: executes the fullPageHandler or renders full template.
      */
     internal fun build(): ServerResponse {
         // A history-restore request (HX-History-Restore-Request) is htmx re-fetching
         // the URL after a local history-cache miss and swapping the response in as the
         // WHOLE page body — not into a target. It must therefore render the full host
-        // template / onNonHtmx page, never a bare fragment (which would replace the
+        // template / onFullPage fallback, never a bare fragment (which would replace the
         // entire page with, e.g., a lone unopened dialog). Route it through the same
         // full-page branch as non-HTMX and boosted requests.
-        if (!request.isHtmx || request.htmxBoosted || request.htmxHistoryRestoreRequest) {
-            return nonHtmxHandler?.invoke()
+        if (!request.wantsFragmentResponse) {
+            return fullPageHandler?.invoke()
                 ?: fullTemplate?.let { ServerResponse.ok().render(it, mergedModel()) }
-                ?: throw IllegalStateException("No fragment or nonHtmxHandler defined")
+                ?: throw IllegalStateException("No fragment or fullPageHandler defined")
         }
 
         // Client-side redirect (dialogRedirect → HX-Redirect full-page reload, or
@@ -661,11 +674,10 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
             return response.build()
         }
 
-        // For HTMX requests, render fragments
+        // For non-boosted HTMX requests, render fragments
         val primaryFragments = fragments.filter { !it.isOob }
         val oobFragments = fragments.filter { it.isOob }
 
-        // If we have OOB fragments, we need to use the custom view
         return if (oobFragments.isNotEmpty()) {
             buildMultiFragmentResponse(primaryFragments, oobFragments)
         } else {
@@ -757,7 +769,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
 
 /**
  * Convenience function for creating a redirect response.
- * Use within `onNonHtmx { }` block.
+ * Use within `onFullPage { }` block.
  *
  * @param url The URL to redirect to
  * @return A 303 See Other response

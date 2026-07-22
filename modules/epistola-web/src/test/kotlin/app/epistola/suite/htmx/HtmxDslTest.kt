@@ -96,6 +96,19 @@ class HtmxDslTest {
 
             val response = HtmxResponseBuilder(request).apply {
                 fragment("templates/list", "rows")
+                onFullPage { redirect("/templates") }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.SEE_OTHER)
+            assertThat(response.headers().getFirst("Location")).isEqualTo("/templates")
+        }
+
+        @Test
+        fun `onNonHtmx aliases the full-page fallback`() {
+            val request = createBoostedHtmxRequest()
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows")
                 onNonHtmx { redirect("/templates") }
             }.build()
 
@@ -104,7 +117,7 @@ class HtmxDslTest {
         }
 
         @Test
-        fun `fragment model lambdas are not evaluated when the non-HTMX branch discards the fragments`() {
+        fun `fragment model lambdas are not evaluated when the full-page branch discards the fragments`() {
             val request = createNonHtmxRequest()
             var evaluations = 0
 
@@ -117,12 +130,56 @@ class HtmxDslTest {
                     evaluations++
                     "total" to 1
                 }
-                onNonHtmx { redirect("/templates") }
+                onFullPage { redirect("/templates") }
             }.build()
 
-            // The non-HTMX / boosted / history-restore branch renders the
-            // onNonHtmx page and throws every fragment away — the (potentially
+            // The plain / boosted / history-restore branch renders the full-page
+            // fallback and throws every fragment away — the (potentially
             // query-issuing) model lambdas must not run for it.
+            assertThat(evaluations).isZero()
+        }
+
+        @Test
+        fun `boosted HTMX request uses the full-page fallback and discards fragments`() {
+            val request = createBoostedHtmxRequest()
+            var evaluations = 0
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    evaluations++
+                    "items" to listOf("a")
+                }
+                oob("templates/list", "count") {
+                    evaluations++
+                    "total" to 1
+                }
+                onFullPage { redirect("/templates") }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.SEE_OTHER)
+            assertThat(response.headers().getFirst("Location")).isEqualTo("/templates")
+            assertThat(evaluations).isZero()
+        }
+
+        @Test
+        fun `history restore request uses the full-page fallback and discards fragments`() {
+            val request = createHistoryRestoreHtmxRequest()
+            var evaluations = 0
+
+            val response = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    evaluations++
+                    "items" to listOf("a")
+                }
+                oob("templates/list", "count") {
+                    evaluations++
+                    "total" to 1
+                }
+                onFullPage { redirect("/templates") }
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.SEE_OTHER)
+            assertThat(response.headers().getFirst("Location")).isEqualTo("/templates")
             assertThat(evaluations).isZero()
         }
 
@@ -137,6 +194,28 @@ class HtmxDslTest {
             }.build()
 
             assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+        }
+
+        @Test
+        fun `non-boosted HTMX request can emit primary and OOB fragments`() {
+            val request = createHtmxRequest()
+
+            val builder = HtmxResponseBuilder(request).apply {
+                fragment("templates/list", "rows") {
+                    "items" to listOf("a", "b")
+                }
+                oob("templates/sidebar", "summary") {
+                    "total" to 2
+                }
+                onFullPage { redirect("/templates") }
+            }
+            val response = builder.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK)
+            assertThat(builder.emittedFragments.map { it.isOob })
+                .containsExactly(false, true)
+            assertThat(builder.emittedFragments.single { it.isOob }.model)
+                .containsEntry("total", 2)
         }
 
         @Test
@@ -503,6 +582,20 @@ class HtmxDslTest {
     private fun createHtmxRequest(): ServerRequest {
         val mockRequest = MockHttpServletRequest()
         mockRequest.addHeader("HX-Request", "true")
+        return ServerRequest.create(mockRequest, emptyList())
+    }
+
+    private fun createBoostedHtmxRequest(): ServerRequest {
+        val mockRequest = MockHttpServletRequest()
+        mockRequest.addHeader("HX-Request", "true")
+        mockRequest.addHeader("HX-Boosted", "true")
+        return ServerRequest.create(mockRequest, emptyList())
+    }
+
+    private fun createHistoryRestoreHtmxRequest(): ServerRequest {
+        val mockRequest = MockHttpServletRequest()
+        mockRequest.addHeader("HX-Request", "true")
+        mockRequest.addHeader("HX-History-Restore-Request", "true")
         return ServerRequest.create(mockRequest, emptyList())
     }
 

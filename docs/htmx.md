@@ -7,31 +7,15 @@ This document describes the custom HTMX utilities built for Epistola Suite. Thes
 The `htmx` package provides:
 
 - **Request extensions** - Detect HTMX requests and read HTMX headers
-- **Simple render helper** - Quick HTMX-aware template rendering
-- **Kotlin DSL** - Advanced response building with multiple fragments, OOB swaps, and response headers
+- **Request mode helpers** - Classify plain, boosted, history-restore, and fragment HTMX requests
+- **Kotlin DSL** - Primary response-building API with full-page fallbacks, fragments, OOB swaps, and response headers
+- **Simple render helper** - Legacy/low-level HTMX-aware template rendering
 
 ## Quick Start
 
-### Simple Case: Single Fragment
-
-For basic HTMX responses where you need to render a fragment for HTMX requests and redirect for regular requests:
-
-```kotlin
-fun create(request: ServerRequest): ServerResponse {
-    // ... business logic ...
-
-    return request.render(
-        template = "templates/list",
-        fragment = "rows",
-        model = mapOf("templates" to templates),
-        redirectOnSuccess = "/templates"
-    )
-}
-```
-
-### Advanced Case: DSL
-
-For complex scenarios with multiple fragments, conditional logic, or response headers:
+Use `request.htmx { ... }` for new handlers. It gives normal, non-boosted HTMX
+requests fragment/OOB responses while routing plain requests, boosted navigation,
+and history restores through a full-page fallback.
 
 ```kotlin
 fun create(request: ServerRequest): ServerResponse {
@@ -42,7 +26,7 @@ fun create(request: ServerRequest): ServerResponse {
             "templates" to templates
         }
         trigger("templateCreated")
-        onNonHtmx { redirect("/templates") }
+        onFullPage { redirect("/templates") }
     }
 }
 ```
@@ -64,6 +48,7 @@ val triggerId = request.htmxTrigger      // HX-Trigger header
 val targetId = request.htmxTarget        // HX-Target header
 val currentUrl = request.htmxCurrentUrl  // HX-Current-URL header
 val isBoosted = request.htmxBoosted      // HX-Boosted header
+val mode = request.htmxRequestMode       // PLAIN, BOOSTED, HISTORY_RESTORE, or FRAGMENT
 ```
 
 | Property                    | Header                       | Description                                    |
@@ -76,6 +61,8 @@ val isBoosted = request.htmxBoosted      // HX-Boosted header
 | `htmxBoosted`               | `HX-Boosted`                 | True if request is via hx-boost                |
 | `htmxHistoryRestoreRequest` | `HX-History-Restore-Request` | True if restoring history                      |
 | `htmxPrompt`                | `HX-Prompt`                  | User response to hx-prompt                     |
+| `htmxRequestMode`           | Composite                    | Request mode used by the DSL                   |
+| `wantsFragmentResponse`     | Composite                    | True for normal, non-boosted HTMX requests     |
 
 ### Parameter Retrieval Helpers
 
@@ -132,11 +119,14 @@ redirect("/tenants/${tenantId}/themes")  // No .value needed
 
 ## Simple Render Helper
 
-For straightforward cases, use `request.render()`:
+For legacy straightforward cases, `request.render()` can still render one fragment
+for non-boosted HTMX requests and a full-page response otherwise. Prefer the DSL
+for new handlers.
 
 ```kotlin
-// HTMX request → renders fragment
-// Non-HTMX request → redirects
+// Non-boosted HTMX request -> renders fragment
+// Plain non-HTMX request -> redirects
+// Boosted/history-restore request -> renders full template
 return request.render(
     template = "templates/list",
     fragment = "rows",
@@ -165,8 +155,8 @@ return request.htmx {
         "key" to value
     }
 
-    // Non-HTMX fallback
-    onNonHtmx { redirect("/url") }
+    // Full-page fallback for plain, boosted, and history-restore requests
+    onFullPage { redirect("/url") }
 }
 ```
 
@@ -195,7 +185,7 @@ The OOB fragments must have corresponding elements with matching IDs in your HTM
 
 ```html
 <!-- Primary target -->
-<tbody id="table-rows" hx-swap-oob="true">
+<tbody id="table-rows">
   ...
 </tbody>
 
@@ -225,7 +215,7 @@ return request.htmx {
         reswap(HxSwap.NONE)  // Don't swap, just show errors
     }
 
-    onNonHtmx { redirect("/items") }
+    onFullPage { redirect("/items") }
 }
 ```
 
@@ -306,7 +296,7 @@ class ItemHandler(
                     reswap(HxSwap.NONE)
                 }
             }
-            onNonHtmx { redirect("/items") }
+            onFullPage { redirect("/items") }
         }
     }
 
@@ -318,7 +308,7 @@ class ItemHandler(
             // Empty fragment to remove the row
             reswap(HxSwap.DELETE)
             trigger("itemDeleted", """{"id": $id}""")
-            onNonHtmx { redirect("/items") }
+            onFullPage { redirect("/items") }
         }
     }
 }
@@ -372,10 +362,10 @@ Define reusable fragments in your Thymeleaf templates:
 ```
 app/epistola/suite/htmx/
 ├── HtmxRequest.kt         # HTMX headers (isHtmx, htmxBoosted, etc.)
-│                          # Parameter helpers: pathId(), queryParam(), queryParamInt()
+│                          # Request mode + parameter helpers
 ├── HtmxRender.kt          # render(), renderTemplate(), page() shortcut, htmx {} entry point
-├── HtmxDsl.kt             # DSL builders (HtmxResponseBuilder, NonHtmxBuilder, ModelBuilder)
-│                          # formError() helper, onNonHtmx overloads, multi-fragment/OOB rendering
+├── HtmxDsl.kt             # DSL builders (HtmxResponseBuilder, FullPageBuilder, ModelBuilder)
+│                          # formError() helper, onFullPage fallback, multi-fragment/OOB rendering
 ├── HtmxSwap.kt            # HxSwap enum
 └── FormBinder.kt          # Form validation DSL (field specs, validators)
                            # FormData with typed accessors
@@ -388,11 +378,11 @@ resources/templates/
 
 ## Best Practices
 
-1. **Use simple `render()` for basic cases** - Don't use the DSL when you just need a single fragment with redirect fallback.
+1. **Use `request.htmx { }` for new handlers** - It makes full-page fallback vs fragment/OOB response mode explicit.
 
 2. **Keep fragments small** - Design fragments as reusable, self-contained pieces of UI.
 
-3. **Always provide `onNonHtmx`** - Ensure your app works without JavaScript (progressive enhancement).
+3. **Always provide `onFullPage`** - Ensure plain requests, boosted navigation, and history restores receive a full page.
 
 4. **Use OOB sparingly** - Out-of-band updates are powerful but can make debugging harder. Use them for notifications, counters, and status updates.
 
@@ -521,9 +511,9 @@ if (result.hasErrors()) {
 
 **Exception mapping:** Automatically converts `ValidationException` and `DuplicateIdException` to field errors.
 
-### Idea B: Unified Page + Fragment DSL
+### Idea B: Unified Full-Page + Fragment DSL
 
-Eliminate `if (!request.isHtmx)` branches by using `onNonHtmx { page(...) }` inside the htmx DSL:
+Eliminate request-mode branches by using `onFullPage { page(...) }` inside the htmx DSL:
 
 **Before (separate conditional):**
 
@@ -531,7 +521,7 @@ Eliminate `if (!request.isHtmx)` branches by using `onNonHtmx { page(...) }` ins
 fun newForm(request: ServerRequest): ServerResponse {
     val tenantId = TenantId.of(request.pathVariable("tenantId"))
 
-    if (!request.isHtmx || request.htmxBoosted) {
+    if (!request.wantsFragmentResponse) {
         val templates = ListDocumentTemplates(tenantId = tenantId).query()
         return ServerResponse.ok().page("loadtest/new") {
             "pageTitle" to "Start Load Test"
@@ -553,7 +543,7 @@ fun newForm(request: ServerRequest): ServerResponse {
     val tenantId = TenantId.of(request.pathVariable("tenantId"))
 
     return request.htmx {
-        onNonHtmx {
+        onFullPage {
             page("loadtest/new") {
                 "pageTitle" to "Start Load Test"
                 "templates" to ListDocumentTemplates(tenantId = tenantId).query()
@@ -564,7 +554,9 @@ fun newForm(request: ServerRequest): ServerResponse {
 }
 ```
 
-The `onNonHtmx { }` block now supports both `page()` and `redirect()` calls, unifying request handling in a single DSL scope.
+The `onFullPage { }` block supports both `page()` and `redirect()` calls and handles plain requests,
+boosted navigation, and history restores. Normal non-boosted HTMX requests continue to render fragments
+and OOB fragments.
 
 ### Idea F: HTMX Form Error Response Helper
 
@@ -589,7 +581,7 @@ return request.htmx {
 return request.htmx {
     formError("tenants/list", "create-form", formData)
     retarget("#create-form")  // Optional customization
-    onNonHtmx { redirect("/tenants") }
+    onFullPage { redirect("/tenants") }
 }
 ```
 
@@ -598,7 +590,7 @@ The `formError()` helper:
 - Automatically spreads `formData.formData` and `formData.errors`
 - Sets `HxSwap.OUTER_HTML` as default
 - Works with any `FormData` object from the form validation DSL
-- Allows further customization with `retarget()`, `trigger()`, `onNonHtmx()`, etc.
+- Allows further customization with `retarget()`, `trigger()`, `onFullPage()`, etc.
 
 ### Global Form Errors (operation-level, non-field)
 
@@ -626,7 +618,7 @@ its next HTMX request (`app-shell.js`):
    ```kotlin
    return request.htmx {
        globalFormError("start-load-test-error", errorMessage) // status defaults to 422
-       onNonHtmx {
+       onFullPage {
            page(422, "loadtest/new") {
                "error" to errorMessage
            }
@@ -664,23 +656,27 @@ not carry a slot — the banner covers them.
 
 ### Serving Full Pages and Fragments from One Endpoint
 
-When `hx-boost="true"` is on `<body>`, all link navigation sends `HX-Request: true` with `HX-Boosted: true`. If your endpoint also handles HTMX fragment requests (e.g., dynamic form updates), you must distinguish boosted navigation from in-page fragment updates:
+When `hx-boost="true"` is on `<body>`, link navigation sends `HX-Request: true` with `HX-Boosted: true`.
+HTMX history restore requests also send `HX-Request: true`, but they need a full page as well. Only normal,
+non-boosted HTMX requests should receive fragments/OOB responses.
 
 ```kotlin
 fun newForm(request: ServerRequest): ServerResponse {
-    if (!request.isHtmx || request.htmxBoosted) {
-        // Full page: navigation or boosted link click
-        return ServerResponse.ok().render("layout/shell", mapOf(...))
-    }
-
-    // HTMX fragment: in-page update (e.g., select changed)
     return request.htmx {
-        fragment("mytemplate", "my-fragment") { ... }
+        onFullPage {
+            page("loadtest/new") {
+                "pageTitle" to "Start Load Test"
+                // Full-page model, evaluated only for plain/boosted/history requests.
+            }
+        }
+
+        // Fragment mode: explicit hx-get/hx-post in-page update.
+        fragment("loadtest/new", "template-options") { ... }
     }
 }
 ```
 
-Without the `htmxBoosted` check, boosted navigation receives a fragment instead of the full page.
+Without this split, boosted navigation or history restore can receive a fragment instead of the full page.
 
 ### Create Forms: Prefer Plain Boosted Forms; Disinherit When You Must Target
 
@@ -807,7 +803,7 @@ fun start(request: ServerRequest): ServerResponse {
             fragment("mytemplate", "form-error") {
                 "error" to (e.message ?: "Something went wrong")
             }
-            onNonHtmx {
+            onFullPage {
                 ServerResponse.badRequest().render("layout/shell", mapOf("error" to e.message))
             }
         }

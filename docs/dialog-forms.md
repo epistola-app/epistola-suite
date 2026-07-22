@@ -39,7 +39,7 @@ fun newForm(request: ServerRequest): ServerResponse {
         // list) with the dialog fragment embedded in its #dialog-mount as a
         // PLAIN <dialog> — behaviors.js opens it on htmx:load. The list is
         // visible behind it.
-        onNonHtmx {
+        onFullPage {
             page("environments/list") {
                 "tenantId" to tenantId.key
                 "environments" to ListEnvironments(tenantId = tenantId).query()
@@ -51,7 +51,7 @@ fun newForm(request: ServerRequest): ServerResponse {
 ```
 
 `HtmxResponseBuilder.build()` already routes boosted requests (`HX-Boosted`)
-through `onNonHtmx`, so the shell-level `hx-boost` navigation lands on the host
+through `onFullPage`, so the shell-level `hx-boost` navigation lands on the host
 page automatically — no extra branching in the handler.
 
 ### Host-page embed: the dialog mount
@@ -170,17 +170,17 @@ the dialog: `~{epistola-web/form-error :: form-error(id='…')}`, and carries a
 **stable id** (e.g. `<form id="create-environment-form" …>`) so field errors can
 retarget it (see below).
 
-| Case                                        | Helper                                                        | Effect                                                                                                                                                                                                 |
-| ------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| success → close + refresh list              | `dialogSuccess(listTemplate, listFragment) { … }`             | OOB-swap the list fragment, `HX-Trigger` with `closeDialog` + `dialogSuccess` (the distinct success event the app-shell search-box reset listens on), `HX-Reswap: none`, 200                           |
-| success → navigate to created resource      | `dialogLocation(url)`                                         | `HX-Location: <url>`, 200, no fragment — a **soft** boosted body-swap navigates to the created thing (the same nav an in-app link click does; no full reload); pair with `onNonHtmx { redirect(url) }` |
-| success → navigate with a **full reload**   | `dialogRedirect(url)`                                         | `HX-Redirect: <url>`, 200, no fragment — a hard full-page reload. Only when the destination genuinely needs a fresh document (head assets boost won't reload); otherwise prefer `dialogLocation`       |
-| success → stay open (api-key reveal)        | `dialogReveal(template, fragment, revealTarget) { … }`        | swap the reveal panel into the dialog (retarget + `outerHTML`), **no** `closeDialog`, 200                                                                                                              |
-| field errors (standard forms)               | `dialogFieldErrors(template, fragment, formTarget, formData)` | re-render the `<form>` with `formData` + `errors`, `HX-Retarget` to the **form inside the dialog** (e.g. `#create-environment-form`) — not the list, not the dialog — `outerHTML`, 422                 |
-| field errors (**uploads** — file inputs)    | `dialogFieldErrorsOob(template, fragment, errors)`            | OOB-swap only the per-field `field-error` **spans**, `HX-Reswap: none`, 422 — the form body (and its `<input type=file>` + added rows) is never re-rendered                                            |
-| operation error / generic 5xx (global slot) | `dialogFormError(errorId, message)`                           | OOB-swap only the single global form-error slot, `HX-Reswap: none`, 422                                                                                                                                |
+| Case                                        | Helper                                                        | Effect                                                                                                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| success → close + refresh list              | `dialogSuccess(listTemplate, listFragment) { … }`             | OOB-swap the list fragment, `HX-Trigger` with `closeDialog` + `dialogSuccess` (the distinct success event the app-shell search-box reset listens on), `HX-Reswap: none`, 200                            |
+| success → navigate to created resource      | `dialogLocation(url)`                                         | `HX-Location: <url>`, 200, no fragment — a **soft** boosted body-swap navigates to the created thing (the same nav an in-app link click does; no full reload); pair with `onFullPage { redirect(url) }` |
+| success → navigate with a **full reload**   | `dialogRedirect(url)`                                         | `HX-Redirect: <url>`, 200, no fragment — a hard full-page reload. Only when the destination genuinely needs a fresh document (head assets boost won't reload); otherwise prefer `dialogLocation`        |
+| success → stay open (api-key reveal)        | `dialogReveal(template, fragment, revealTarget) { … }`        | swap the reveal panel into the dialog (retarget + `outerHTML`), **no** `closeDialog`, 200                                                                                                               |
+| field errors (standard forms)               | `dialogFieldErrors(template, fragment, formTarget, formData)` | re-render the `<form>` with `formData` + `errors`, `HX-Retarget` to the **form inside the dialog** (e.g. `#create-environment-form`) — not the list, not the dialog — `outerHTML`, 422                  |
+| field errors (**uploads** — file inputs)    | `dialogFieldErrorsOob(template, fragment, errors)`            | OOB-swap only the per-field `field-error` **spans**, `HX-Reswap: none`, 422 — the form body (and its `<input type=file>` + added rows) is never re-rendered                                             |
+| operation error / generic 5xx (global slot) | `dialogFormError(errorId, message)`                           | OOB-swap only the single global form-error slot, `HX-Reswap: none`, 422                                                                                                                                 |
 
-Each pairs with an `onNonHtmx { }` fallback (redirect to the list on success;
+Each pairs with an `onFullPage { }` fallback (redirect to the list on success;
 `page(422, …)` re-rendering the host page with the dialog + errors on failure) —
 see the KDoc on each helper.
 
