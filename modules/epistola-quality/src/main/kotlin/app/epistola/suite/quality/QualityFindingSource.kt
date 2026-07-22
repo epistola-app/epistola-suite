@@ -1,5 +1,6 @@
 package app.epistola.suite.quality
 
+import app.epistola.catalog.protocol.FontRef
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
@@ -7,9 +8,44 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 
 /**
+ * Coarse input families a source can ask the runner to prepare.
+ *
+ * Keep these as capability families, not one enum entry per eventual fact. A requirement can grow
+ * new fields inside its facet when a source actually needs them.
+ */
+enum class QualityDataRequirement {
+    /** References discovered in the checked template, resolved against current tenant/catalog state. */
+    RESOLVED_TEMPLATE_DEPENDENCIES,
+}
+
+/**
+ * Resolved facts about resources the checked template references.
+ *
+ * This starts with fonts because the unresolved-font source is the first concrete DB-backed check.
+ * Assets, themes, stencils, code lists, and similar dependencies belong here when a source needs
+ * them; the facet is about dependencies in this one subject, not all tenant resources.
+ */
+data class ResolvedTemplateDependencies(
+    val fonts: Map<FontRef, Boolean> = emptyMap(),
+) {
+    companion object {
+        val EMPTY = ResolvedTemplateDependencies()
+    }
+}
+
+/**
  * Everything an in-process source is handed for one subject. Assembled once by the caller so a
  * source never touches JDBI — a source is a pure function from this to a list of findings, which is
  * what makes it unit-testable with a plain fixture and no Spring context.
+ *
+ * ### Pre-resolved facts
+ *
+ * Some checks need data the ledger keeps in the database (whether referenced resources resolve, an
+ * asset's dimensions, a stencil's latest version). A source cannot read it — it is pure by contract
+ * — so the **caller** resolves the requested facets while assembling this input and hands the answer
+ * in. Add fields to a facet only when a source actually needs them; two of the early sources
+ * ([sources.ExampleQualitySource], the accessibility one) needed nothing but the model, and
+ * speculative widening is what this note exists to discourage.
  */
 data class QualityCheckInput(
     val subject: QualitySubject,
@@ -21,6 +57,8 @@ data class QualityCheckInput(
     val dataExamples: List<DataExample>,
     /** The contract's JSON-Schema data model, when the template has one. */
     val dataModel: ObjectNode?,
+    /** Resolved dependency facts requested through [QualityDataRequirement.RESOLVED_TEMPLATE_DEPENDENCIES]. */
+    val dependencies: ResolvedTemplateDependencies = ResolvedTemplateDependencies.EMPTY,
 )
 
 /**
@@ -56,6 +94,12 @@ interface QualityFindingSource {
 
     /** Shown in the report's and the editor panel's source filter. */
     val displayName: String
+
+    /**
+     * Input families this source needs beyond the template model and example data. The runner
+     * resolves the union for the selected sources before calling [check].
+     */
+    val requirements: Set<QualityDataRequirement> get() = emptySet()
 
     /**
      * Whether this source should run for a tenant at all. Default true; override for a source that

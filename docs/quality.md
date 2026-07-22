@@ -27,12 +27,12 @@ adding a surface, add a read — not a second write path.
 
 Sources vary in where they run, and the ledger deliberately does not care:
 
-| Kind                              | How it arrives                                                                                                                              |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Embedded, synchronous             | `QualityFindingSource` (in-process, ~1ms)                                                                                                   |
-| Suite-initiated call to a service | also `QualityFindingSource` — a source may make an HTTP call inside `check()`; keep it to the sweep/publish triggers, never the editor path |
-| Run elsewhere entirely (e.g. hub) | implements nothing; pushes over the REST ingest                                                                                             |
-| A colleague's review remark       | `RecordManualFinding`                                                                                                                       |
+| Kind                              | How it arrives                                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Embedded, synchronous             | `QualityFindingSource` (in-process, ~1ms)                                                                                   |
+| Suite-initiated remote work       | a run-scoped async request; the remote checker receives/fetches only declared inputs for that run and submits results later |
+| Run elsewhere entirely (e.g. hub) | implements nothing; pushes over the REST ingest                                                                             |
+| A colleague's review remark       | `RecordManualFinding`                                                                                                       |
 
 **Compatibility drift is not on this list, and that is deliberate** — see
 [Compatibility is not a quality source](#compatibility-is-not-a-quality-source).
@@ -278,6 +278,24 @@ than reconciled away on the strength of a bug), but it costs the run.
 
 `QualitySourceId.MANUAL` is reserved and rejected at startup.
 
+### How a source gets extra data
+
+Sources declare coarse data requirements; the runner resolves the union for the selected sources
+and fills `QualityCheckInput` facets before calling them. The first implemented requirement is
+`RESOLVED_TEMPLATE_DEPENDENCIES`, currently populated with font references discovered in the
+checked template. It is intentionally a dependency family rather than a font-specific contract:
+assets, themes, stencils, code lists and similar references belong in the same facet when real
+sources need them.
+
+An absent entry in a resolved facet means **unknown**, not broken. A source must stay silent on
+unknown input so a resolver gap cannot manufacture findings.
+
+Remote checks use the same requirement idea, but not the same call path. A remote run gets an
+immutable manifest for one `run_id` and input fingerprint: small facts can be pushed inline, while
+large artifacts such as rendered PDFs are exposed through short-lived run-bound handles. The remote
+checker submits its full finding set later with the `run_id` / `input_fingerprint`; stale or failed
+runs must not auto-resolve old findings.
+
 Two ship today, and they are worth reading in that order:
 
 - **`ExampleQualitySource`** (`example`) — a reference implementation, deliberately trivial. Its
@@ -292,8 +310,15 @@ Two ship today, and they are worth reading in that order:
 
 ### Remote
 
-Implement nothing. Push your full finding set over the REST ingest and read dispositions
-back with a `since` cursor. A remote checker needs no hub — an HTTP endpoint is enough.
+Implement no `QualityFindingSource`. A remote checker participates through a run/input/result
+protocol: Epistola creates a run for a source, subject and input fingerprint; grants only the
+declared inputs for that run; and later accepts a full finding set or failure for the same
+`run_id` / `input_fingerprint`. Small input facts can ride inline; large artifacts such as rendered
+PDFs use short-lived run-bound handles. Old results must never be stamped current, and a failed or
+timed-out run must not auto-resolve previous findings.
+
+A remote checker then reads dispositions back with a `since` cursor. A remote checker needs no hub
+by definition — an HTTP endpoint is enough — though the hub is the likely first implementation.
 
 > **Status:** the REST surface is not built yet, and is **deliberately deferred until a real
 > remote checker exists to design against** — the wire format is the one part of this that is
