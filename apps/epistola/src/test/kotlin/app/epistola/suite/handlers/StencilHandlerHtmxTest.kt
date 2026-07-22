@@ -35,6 +35,8 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.util.LinkedMultiValueMap
+import org.springframework.util.MultiValueMap
 
 /**
  * Regression cover for the stencil detail HTMX fragment flow.
@@ -362,6 +364,232 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Uses")
         }
+    }
+
+    // ── Create dialog (URL-addressable server-sent dialog) ──────────────────
+    //
+    // The New Stencil create form is a server-sent, URL-addressable dialog
+    // (docs/dialog-forms.md), mirroring the theme conversion. The twist unique to
+    // stencils: the POST endpoint ALSO serves the editor's JSON API, so the UI form
+    // is HTMX-only (no no-JS form-POST fallback). Branches: HTMX GET → dialog
+    // fragment; HTMX POST invalid → retarget form + 422; HTMX POST valid →
+    // HX-Location; plain list route → mount stays empty; and the JSON API (non-HTMX
+    // POST) still returns 201.
+
+    @Test
+    fun `HTMX GET new returns the dialog fragment with the create form and authored catalogs`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Stencil New Dialog")
+            // An extra authored catalog alongside the auto-created "Default" one,
+            // so the <select> demonstrably lists authored catalogs.
+            withMediator {
+                CreateCatalog(tenantKey = testTenant.id, id = CatalogKey.of("marketing"), name = "Marketing").execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/stencils/new",
+                HttpMethod.GET,
+                HttpEntity<Void>(htmxHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The dialog-shell chrome + the caller-owned form.
+            assertThat(response.body).contains("""id="create-stencil-dialog"""")
+            assertThat(response.body).contains("ep-dialog")
+            assertThat(response.body).contains("""id="create-stencil-form"""")
+            // The catalog <select> populated from authored catalogs.
+            assertThat(response.body).contains("""name="catalog"""")
+            assertThat(response.body).contains("Marketing")
+            assertThat(response.body).contains("Default")
+            assertThat(response.body).contains("""name="name"""")
+            assertThat(response.body).contains("""name="slug"""")
+            assertThat(response.body).contains("""name="description"""")
+            assertThat(response.body).contains("""name="tags"""")
+            // It is a fragment, not the whole page (no app shell).
+            assertThat(response.body).doesNotContain("<html")
+        }
+    }
+
+    @Test
+    fun `HTMX POST invalid retargets the form with 422, inline errors, and preserved values incl tags`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Stencil Create Invalid") }
+
+        whenever {
+            val form: MultiValueMap<String, String> = LinkedMultiValueMap()
+            form.add("catalog", "default")
+            form.add("name", "Valid Name")
+            form.add("slug", "INVALID SLUG") // uppercase + space → fails the pattern
+            form.add("tags", "header, corporate")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/stencils",
+                HttpEntity(form, htmxFormHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            // Retargets the FORM (not the dialog, not the list) so the open modal
+            // dialog is never removed from the top layer.
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-stencil-form")
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")
+            // No closeDialog / redirect — the dialog stays open showing the error.
+            assertThat(response.headers.getFirst("HX-Location")).isNull()
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
+            // The re-rendered form: preserved values + an inline error.
+            assertThat(response.body).contains("""id="create-stencil-form"""")
+            assertThat(response.body).contains("form-error")
+            assertThat(response.body).contains("value=\"Valid Name\"")
+            assertThat(response.body).contains("value=\"INVALID SLUG\"")
+            // The tags field is declared, so its value survives the error re-render.
+            assertThat(response.body).contains("value=\"header, corporate\"")
+            // authoredCatalogs prefill survived → the <select> is still populated.
+            assertThat(response.body).contains("""name="catalog"""")
+            assertThat(response.body).contains("Default")
+        }
+    }
+
+    @Test
+    fun `HTMX POST valid returns HX-Location to the new stencil page`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Stencil Create Valid") }
+
+        whenever {
+            val form: MultiValueMap<String, String> = LinkedMultiValueMap()
+            form.add("catalog", "default")
+            form.add("name", "Corporate Header")
+            form.add("slug", "corporate-header")
+            form.add("description", "Our house header")
+            form.add("tags", "header, corporate")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/stencils",
+                HttpEntity(form, htmxFormHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Success soft-navigates the page to the created stencil via a boosted
+            // body-swap (HX-Location); the dialog goes with the swapped-out body —
+            // asserted via the header, not a body. No HX-Redirect (full reload).
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Location"))
+                .isEqualTo("/tenants/${testTenant.id}/stencils/default/corporate-header")
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
+        }
+    }
+
+    @Test
+    fun `boosted POST create does not 500 (stale pre-conversion tab)`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Stencil Boosted Create") }
+
+        whenever {
+            // A tab left open from before this branch converted the stencil form
+            // submits the old plain method=post form as an hx-boosted POST
+            // (HX-Request + HX-Boosted). build() routes boosted requests to the
+            // non-HTMX branch; without an onNonHtmx fallback that branch threw
+            // IllegalStateException → 500 even for a valid create.
+            val form: MultiValueMap<String, String> = LinkedMultiValueMap()
+            form.add("catalog", "default")
+            form.add("name", "Boosted Header")
+            form.add("slug", "boosted-header")
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set("HX-Boosted", "true")
+                contentType = MediaType.APPLICATION_FORM_URLENCODED
+            }
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/stencils",
+                HttpEntity(form, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Pre-fix: 500 (IllegalStateException). The onNonHtmx { redirect(...) }
+            // fallback now keeps a valid boosted create out of the 5xx range.
+            assertThat(response.statusCode.value()).isLessThan(500)
+        }
+    }
+
+    @Test
+    fun `plain list route does not embed the create dialog`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Stencil Plain List") }
+
+        whenever {
+            restTemplate.getForEntity(
+                "/tenants/${testTenant.id}/stencils",
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Full host page, but the mount is empty: no openDialog flag on the
+            // plain list route, so the create dialog must NOT be embedded (the
+            // th:if guard must wrap the th:replace). See docs/dialog-forms.md.
+            assertThat(response.body).contains("""id="dialog-mount"""")
+            assertThat(response.body).doesNotContain("""id="create-stencil-dialog"""")
+            assertThat(response.body).doesNotContain("create-stencil-form")
+        }
+    }
+
+    /**
+     * Landmine guard: the POST endpoint doubles as the editor's JSON API. A
+     * non-HTMX POST with a JSON body must STILL hit createJson and return 201 —
+     * the dialog conversion must not disturb this path.
+     */
+    @Test
+    fun `non-HTMX JSON POST still creates a stencil via the JSON API with 201`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Stencil JSON API") }
+
+        whenever {
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/stencils",
+                HttpEntity(
+                    """{"id":"json-created","name":"JSON Created","catalogKey":"default"}""",
+                    headers,
+                ),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // The JSON API path is untouched by the dialog conversion: 201 + JSON body.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
+            assertThat(response.body).contains("\"stencilId\":\"json-created\"")
+            assertThat(response.body).contains("\"catalogKey\":\"default\"")
+        }
+    }
+
+    private fun htmxHeaders() = HttpHeaders().apply { set("HX-Request", "true") }
+
+    private fun htmxFormHeaders() = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_FORM_URLENCODED
+        set("HX-Request", "true")
     }
 
     private data class Seeded(

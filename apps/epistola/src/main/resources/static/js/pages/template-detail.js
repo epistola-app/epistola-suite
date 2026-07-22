@@ -22,8 +22,9 @@
 //   [data-compare-url]           opens the version-comparison dialog and HTMX-loads the
 //                                comparison UI from that URL
 //   [data-compare-versions]      version-comparison dialog: runs the side-by-side compare
-//   [data-show-dialog-on-swap]   after an HTMX swap targets this element, showModal()
-//                                its enclosing <dialog>
+//   [data-show-dialog-on-swap]   after an HTMX swap targets this element, its
+//                                enclosing <dialog> is opened — handled app-wide
+//                                in behaviors.js (not here)
 //   [data-contract-editor]       data-contract tab: mounts the data-contract editor on
 //                                htmx:load (idempotent via data-editor-mounted)
 //   [data-pdf-preview]           handled by /js/pdf-preview.js
@@ -306,14 +307,9 @@
     }
   }
 
-  // ── Data-contract tab: show a dialog after HTMX swaps into its body ───────
-  document.addEventListener('htmx:afterSwap', function (event) {
-    const target = event.detail.target;
-    if (target && target.matches && target.matches('[data-show-dialog-on-swap]')) {
-      const dialog = target.closest('dialog');
-      if (dialog) dialog.showModal();
-    }
-  });
+  // [data-show-dialog-on-swap] (data-contract "breaking changes" dialog) is
+  // handled by the single app-wide open-on-swap routine in behaviors.js — no
+  // per-page listener here anymore.
 
   // ── Data-contract tab: mount the data-contract editor ─────────────────────
   function parseJsonScript(id, fallback) {

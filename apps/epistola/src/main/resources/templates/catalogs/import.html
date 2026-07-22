@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    The import-catalog-from-ZIP dialog. Rendered two ways off CatalogHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `import-form` — the caller-owned form body inside the dialog shell.
+
+    HTMX-ONLY, REDIRECT-TO-DETAIL: the form has no method/action (it never posts
+    without HTMX). On success the handler emits HX-Redirect to the imported
+    catalog's browse page, so the dialog disappears with the navigation.
+
+    TWO ERROR SURFACES — deliberately, and NEITHER re-renders the form body (a
+    browser cannot repopulate <input type=file> after a round-trip, so the file
+    selection must survive every error):
+      - plain single-message failures → the global form-error slot
+        (`import-catalog-error`), OOB-swapped by CatalogHandler.importError
+        (HX-Reswap: none), which also OOB-resets #import-error. The body is
+        untouched.
+      - the THREE structured responses (import-conflict-content,
+        import-schema-error, import-migration-confirm) render into the in-form
+        `#import-error` div, which sits ABOVE the file input, so the file input
+        is never touched. import-migration-confirm carries an in-form submit
+        button that re-posts the same file with confirmMigration=true.
+
+    Model it needs: `tenantId` (URLs).
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='import-catalog-dialog',
+            title='Import Catalog from ZIP',
+            closeUrl=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            content=~{::import-form})}"></div>
+    </th:block>
+
+    <form th:fragment="import-form" id="import-catalog-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
+          hx-encoding="multipart/form-data"
+          hx-target="#import-error" hx-swap="innerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='import-catalog-error')}"></div>
+        <div class="ep-dialog-body">
+            <!-- Structured-error target — FIRST, ABOVE the file input, so the
+                 conflict/schema/migration fragments never touch <input type=file>. -->
+            <div id="import-error"></div>
+            <div class="form-group">
+                <label class="ep-label" for="import-file">ZIP file</label>
+                <input type="file" id="import-file" name="file" class="ep-input"
+                       accept=".zip,application/zip" required />
+            </div>
+            <div class="form-group">
+                <label class="ep-label">Catalog type</label>
+                <div class="ep-row ep-gap-4" style="margin-top: var(--ep-space-2);">
+                    <label class="ep-row">
+                        <input type="radio" name="catalogType" value="AUTHORED" checked />
+                        Authored
+                    </label>
+                    <label class="ep-row">
+                        <input type="radio" name="catalogType" value="SUBSCRIBED" />
+                        Subscribed (read-only)
+                    </label>
+                </div>
+                <span class="form-hint">Authored catalogs can be edited. Subscribed catalogs are read-only.</span>
+            </div>
+            <div class="form-group">
+                <label class="ep-label">If this catalog already exists (Authored)</label>
+                <div class="ep-row ep-gap-4" style="margin-top: var(--ep-space-2);">
+                    <label class="ep-row">
+                        <input type="radio" name="authoredMode" value="MERGE" checked />
+                        Merge
+                    </label>
+                    <label class="ep-row">
+                        <input type="radio" name="authoredMode" value="REPLACE" />
+                        Replace
+                    </label>
+                </div>
+                <span class="form-hint">Merge: update from the ZIP, keep resources you have locally that the ZIP doesn't. Replace: make the catalog exactly the ZIP (deletes local-only resources). Ignored for new or subscribed catalogs; your release history is never changed.</span>
+            </div>
+            <div class="form-group">
+                <label class="ep-row">
+                    <input type="checkbox" name="onStencilConflict" value="RENUMBER" />
+                    Allow renumber on stencil version conflict
+                </label>
+                <span class="form-hint">Only for Authored Merge. If a stencil version in the ZIP collides with a different existing one, install the new content at the next version number and rewrite this ZIP's template pins to match. Without this, conflicts abort the import.</span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="import-catalog-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-import-submit">Import</button>
+        </div>
+    </form>
+
+    <!-- Inline conflict report for the Import ZIP dialog. Rendered into the
+         in-form `#import-error` div (above the file input) when the ZIP's
+         stencil versions collide with target versions and the import was not
+         opted in to renumber. Reuses the design-system alert-error pattern. -->
+    <th:block th:fragment="import-conflict-content">
+        <div class="alert alert-error">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <div class="alert-title">
+                    Import blocked: stencil version conflicts in catalog '<span th:text="${catalogId}"></span>'.
+                </div>
+                <p style="margin: var(--ep-space-1) 0 0;">
+                    Some stencil versions in the ZIP already exist in the target catalog with different content.
+                    Either fix this at the source (republish the source catalog so the conflicting versions match),
+                    or re-upload here with <strong>Allow renumber on stencil version conflict</strong> enabled —
+                    the new content will install at the next available version number and the ZIP's template pins
+                    will be rewritten to match.
+                </p>
+                <ul style="margin: var(--ep-space-2) 0 0; padding-left: var(--ep-space-5);">
+                    <li th:each="s : ${stencilImportConflicts}">
+                        <strong th:text="${s.name}"></strong>
+                        (<span class="text-muted" th:text="${s.slug}"></span>)
+                        — version <span th:text="${s.version}"></span> exists with different content
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- Inline error for the Import ZIP dialog when the uploaded catalog's wire
+         format is incompatible (too new / too old / unrecognised). Rendered into
+         the same `#import-error` slot as the stencil-conflict report. The detail
+         text is the migrator's actionable remediation message. -->
+    <th:block th:fragment="import-schema-error">
+        <div class="alert alert-error">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <div class="alert-title" th:text="${schemaErrorTitle}">Import blocked: incompatible catalog format</div>
+                <p style="margin: var(--ep-space-1) 0 0;" th:text="${schemaErrorDetail}"></p>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- OOB reset for the structured import result area. Plain single-message
+         import failures go through the global form-error slot (shaped 422 with
+         primary swap `none`), so a stale conflict report / migration prompt in
+         #import-error must be cleared explicitly in the same response
+         (CatalogHandler.importError). -->
+    <div th:fragment="import-error-reset" id="import-error" hx-swap-oob="outerHTML"></div>
+
+    <!-- Inline "update?" prompt for the Import ZIP dialog: an AUTHORED ZIP below
+         the current catalog schema version that the migration chain can upgrade.
+         Importing migrates (mutates) the content, so we confirm first. The button
+         is a submit inside the import form (this renders into the in-form
+         `#import-error` slot), so it re-submits the same file with
+         confirmMigration=true. SUBSCRIBED is never offered this — it is blocked. -->
+    <th:block th:fragment="import-migration-confirm">
+        <div class="alert alert-warning">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <div class="alert-title">Update available</div>
+                <p style="margin: var(--ep-space-1) 0 0;">
+                    This catalog is at schema version <span th:text="${fromSchemaVersion}">2</span>.
+                    Importing will update it to version <span th:text="${toSchemaVersion}">4</span>.
+                </p>
+                <button type="submit" name="confirmMigration" value="true"
+                        class="ep-btn ep-btn-primary ep-btn-sm" style="margin-top: var(--ep-space-2);"
+                        th:text="'Import and update to v' + ${toSchemaVersion}">Import and update</button>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

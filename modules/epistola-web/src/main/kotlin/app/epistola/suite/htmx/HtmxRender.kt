@@ -7,8 +7,9 @@ import java.net.URI
 /**
  * Renders a Thymeleaf template with HTMX-aware response handling.
  *
- * For HTMX requests: renders the specified fragment (if provided).
- * For regular requests: either redirects (if redirectOnSuccess is set) or renders the full template.
+ * For non-boosted HTMX fragment requests: renders the specified fragment (if provided).
+ * For full-page requests: either redirects (if redirectOnSuccess is set for plain requests)
+ * or renders the full template.
  *
  * @param template The Thymeleaf template name (e.g., "templates/list")
  * @param fragment The fragment to render for HTMX requests (e.g., "rows" renders "templates/list :: rows")
@@ -22,7 +23,7 @@ fun ServerRequest.render(
     model: Map<String, Any?> = emptyMap(),
     redirectOnSuccess: String? = null,
 ): ServerResponse = when {
-    isHtmx && !htmxBoosted && fragment != null -> {
+    wantsFragmentResponse && fragment != null -> {
         ServerResponse.ok().render("$template :: $fragment", model)
     }
     !isHtmx && redirectOnSuccess != null -> {
@@ -36,7 +37,7 @@ fun ServerRequest.render(
 /**
  * Renders a Thymeleaf template, always returning the rendered content (no redirect).
  *
- * For HTMX requests with a fragment: renders only the fragment.
+ * For non-boosted HTMX fragment requests with a fragment: renders only the fragment.
  * Otherwise: renders the full template.
  *
  * @param template The Thymeleaf template name
@@ -49,7 +50,7 @@ fun ServerRequest.renderTemplate(
     fragment: String? = null,
     model: Map<String, Any?> = emptyMap(),
 ): ServerResponse {
-    val templatePath = if (isHtmx && !htmxBoosted && fragment != null) {
+    val templatePath = if (wantsFragmentResponse && fragment != null) {
         "$template :: $fragment"
     } else {
         template
@@ -64,7 +65,7 @@ fun ServerRequest.renderTemplate(
  * - Single and multiple fragments (Out-of-Band swaps)
  * - Conditional rendering logic
  * - Response headers (trigger, pushUrl, reswap, retarget)
- * - Non-HTMX fallback handling
+ * - Full-page fallback handling for plain, boosted, and history-restore requests
  *
  * Example usage:
  * ```kotlin
@@ -76,7 +77,7 @@ fun ServerRequest.renderTemplate(
  *         "message" to "Saved!"
  *     }
  *     trigger("itemSaved")
- *     onNonHtmx { redirect("/templates") }
+ *     onFullPage { redirect("/templates") }
  * }
  * ```
  *

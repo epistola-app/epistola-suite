@@ -1,6 +1,7 @@
 package app.epistola.suite.fonts
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
@@ -46,6 +47,14 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
 
     private fun facePart(name: String) = HttpEntity(
         object : ByteArrayResource(ttf()) {
+            override fun getFilename(): String = name
+        },
+        HttpHeaders().apply { contentType = MediaType.parseMediaType("font/ttf") },
+    )
+
+    /** A face whose content type is font/ttf but whose bytes are not a valid font. */
+    private fun badFacePart(name: String) = HttpEntity(
+        object : ByteArrayResource("not-a-real-font".toByteArray()) {
             override fun getFilename(): String = name
         },
         HttpHeaders().apply { contentType = MediaType.parseMediaType("font/ttf") },
@@ -185,6 +194,48 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `a face that fails validation persists nothing - no partial write`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Font Partial Write") }
+
+        whenever {
+            // First face is a valid TTF, second is garbage with a font content
+            // type. Every face is validated BEFORE any asset is persisted, so a
+            // failure on the second must not leave the first one's asset behind.
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("slug", "acme-sans")
+            payload.add("name", "Acme Sans")
+            payload.add("kind", "sans")
+            payload.add("catalog", "default")
+            payload.add("file", facePart("acme-regular.ttf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
+            payload.add("file", badFacePart("acme-bold.ttf"))
+            payload.add("weight", "700")
+            payload.add("italic", "false")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(payload, multipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+
+            val tenantId = TenantId(testTenant.id)
+            // No font family created …
+            val fonts = withMediator { ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query() }
+            assertThat(fonts).isEmpty()
+            // … and — the fix — the first (valid) face's asset was NOT persisted.
+            val assetNames = withMediator { ListAssets(tenantId = testTenant.id).query() }.map { it.name }
+            assertThat(assetNames).doesNotContain("acme-regular.ttf")
         }
     }
 
