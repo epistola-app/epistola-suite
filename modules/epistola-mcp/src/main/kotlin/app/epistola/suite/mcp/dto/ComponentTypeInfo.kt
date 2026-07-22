@@ -4,10 +4,9 @@ import com.fasterxml.jackson.annotation.JsonInclude
 
 /**
  * Description of one editor component type the AI can use when designing or
- * referencing templates. Mirrors the serializable shape of `ComponentDefinition`
- * in `modules/editor/src/main/typescript/engine/registry.ts` — the JSON file
- * at `/META-INF/resources/editor/component-registry.json` (built by
- * `pnpm dump-registry` in the editor module) is the canonical source.
+ * referencing templates. Mirrors the static component registry shipped by
+ * `app.epistola.contract:epistola-model` at
+ * `/META-INF/epistola-model/component-registry.json`.
  */
 data class ComponentTypeInfo(
     /** Component type discriminator used as `node.type` in template documents. */
@@ -34,8 +33,8 @@ data class ComponentTypeInfo(
     /**
      * Optional parameter schema for this component type.
      * - absent from JSON: component has no parameter support
-     * - `null` (JSON null): dynamic per-instance (e.g. stencil — call `get_stencil_version` for the schema)
-     * - JSON Schema object: static parameters (same for every instance)
+     * - `{ "kind": "dynamic" }`: dynamic per-instance (e.g. stencil — call `get_stencil_version` for the schema)
+     * - `{ "kind": "static", "schema": { ... } }`: static parameters (same for every instance)
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     val parameters: tools.jackson.databind.JsonNode? = null,
