@@ -9,6 +9,7 @@
  */
 import { html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { icon } from '../icons.js';
 import { firstIncompleteTour, TOURS } from './registry.js';
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
 import { isTourActive, stopActiveTour } from './session.js';
@@ -148,16 +149,17 @@ export class WalkthroughLauncher extends LitElement {
     return html`
       <div class="ep-wt">
         <button
-          class="ep-btn ep-btn-outline ep-btn-sm"
+          class="ep-btn ep-btn-outline ep-btn-sm ep-btn-icon"
           type="button"
           data-tour="guide-trigger"
           data-testid="walkthrough-guide-trigger"
           title="Guided walkthrough"
+          aria-label="Guided walkthrough"
           aria-haspopup="dialog"
           aria-expanded=${String(this._open)}
           @click=${this._toggle}
         >
-          Guide
+          ${icon('compass')}
         </button>
         ${this._open
           ? html`

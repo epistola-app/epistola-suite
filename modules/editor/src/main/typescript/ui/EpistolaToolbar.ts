@@ -319,10 +319,10 @@ export class EpistolaToolbar extends LitElement {
 
         <div class="toolbar-right">
           ${hasExamples ? this._renderExampleSelector(examples) : nothing}
-          <epistola-json-inspector .engine=${this.engine}></epistola-json-inspector>
           ${this._walkthroughEnabled
             ? html`<epistola-walkthrough-launcher></epistola-walkthrough-launcher>`
             : nothing}
+          <epistola-json-inspector .engine=${this.engine}></epistola-json-inspector>
           ${this._renderShortcuts()}
         </div>
         ${this._renderPluginActions()}
