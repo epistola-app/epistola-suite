@@ -263,7 +263,7 @@ export class EpistolaEditor extends LitElement {
         engine: this._engine,
         doc: this._doc,
         selectedNodeId: this._selectedNodeId,
-        saveNow: () => this._saveNow(),
+        saveDraftNow: () => this._saveDraftNow(),
       };
       this._pluginDisposers = this.plugins.map((p) => p.init(context));
     }
@@ -293,11 +293,11 @@ export class EpistolaEditor extends LitElement {
       engine: this._engine,
       doc: this._doc,
       selectedNodeId: this._selectedNodeId,
-      saveNow: () => this._saveNow(),
+      saveDraftNow: () => this._saveDraftNow(),
     };
   }
 
-  private async _saveNow(): Promise<void> {
+  private async _saveDraftNow(): Promise<void> {
     if (!this._saveService || !this._doc) return;
     await this._saveService.saveNow(this._doc);
   }

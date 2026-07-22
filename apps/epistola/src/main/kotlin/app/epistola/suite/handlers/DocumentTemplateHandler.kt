@@ -380,7 +380,6 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.notFound().build()
         val resolvedLocale = localeResolver.resolve(tenant, context.variantAttributes)
         val featureToggles = ResolveFeatureToggles(tenantId.key).query()
-        val qualityEnabled = featureToggles[KnownFeatures.QUALITY] == true
 
         // Test-only seam (issue #418, Instance C): a `leaderTiming` query
         // param (JSON) lets UI tests shrink the editor's leader-hint TTLs so
@@ -402,7 +401,9 @@ class DocumentTemplateHandler(
                 "dataModel" to context.dataModel,
                 "leaderTiming" to leaderTiming,
                 "resolvedLocale" to resolvedLocale,
-                "qualityEnabled" to qualityEnabled,
+                "featureFlags" to mapOf(
+                    "quality" to (featureToggles[KnownFeatures.QUALITY] == true),
+                ),
             ),
         )
     }

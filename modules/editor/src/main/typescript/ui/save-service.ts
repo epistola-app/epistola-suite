@@ -203,9 +203,7 @@ export class SaveService {
     try {
       await run;
     } finally {
-      if (this._currentSave === run) {
-        this._currentSave = null;
-      }
+      this._currentSave = null;
     }
   }
 

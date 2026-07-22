@@ -24,8 +24,13 @@ export interface PluginContext {
   /** Currently selected node, or null */
   selectedNodeId: NodeId | null;
 
-  /** Persist the latest document before a plugin asks the host for draft-bound work. */
-  saveNow?: () => Promise<void>;
+  /**
+   * Persist the latest document before a plugin asks the backend to inspect the draft.
+   *
+   * Quality check-now uses this because the backend reads the persisted draft, not the editor's
+   * in-memory document.
+   */
+  saveDraftNow?: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

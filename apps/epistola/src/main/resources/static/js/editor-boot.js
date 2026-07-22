@@ -31,7 +31,7 @@ async function mount(container) {
     console.warn('AI plugin failed to load:', e);
   }
 
-  if (config.quality?.enabled) {
+  if (config.featureFlags?.quality && config.quality) {
     plugins.push(
       createQualityPlugin({
         findingsUrl: config.quality.findingsUrl,

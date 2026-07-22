@@ -113,7 +113,7 @@ export class EpistolaQualityPanel extends LitElement {
     this._checking = true;
     this._error = '';
     try {
-      await this.context?.saveNow?.();
+      await this.context?.saveDraftNow?.();
       this._data = await this.service.checkNow();
     } catch (e) {
       this._error = e instanceof Error ? e.message : 'Failed to run quality checks';
