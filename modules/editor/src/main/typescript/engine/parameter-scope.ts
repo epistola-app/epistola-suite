@@ -48,6 +48,7 @@ export function buildParameterScope(
     path: `${alias}.${name}`,
     type: typeFromSchema(propSchema),
     scope: alias,
+    scopeKind: 'stencil-parameter',
     description: propSchema?.description,
   }));
 
