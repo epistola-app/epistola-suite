@@ -26,6 +26,11 @@ const SHORTCUT_ACTIVE_FEEDBACK_MS = 650;
 const SHORTCUTS_TRIGGER_SELECTOR = '.toolbar-shortcuts-trigger';
 const SHORTCUTS_SEARCH_SELECTOR = '.toolbar-shortcuts-search-input';
 const SHORTCUTS_POPOVER_ID = 'epistola-toolbar-shortcuts-popover';
+
+// Lazily register <epistola-walkthrough-launcher> the first time an editor with
+// the walkthrough flag on renders. Flag-off editors never import it (and it never
+// pulls in driver.js — that stays behind the runner's own dynamic import).
+let walkthroughLauncherLoad: Promise<unknown> | null = null;
 const JSON_INSPECTOR_SELECTOR = 'epistola-json-inspector';
 
 @customElement('epistola-toolbar')
@@ -91,6 +96,23 @@ export class EpistolaToolbar extends LitElement {
       this._unsubscribeAll();
       this._subscribeToEngine();
     }
+    this._ensureWalkthroughLauncher();
+  }
+
+  /** Whether the guided walkthrough is enabled for this editor (feature flag). */
+  private get _walkthroughEnabled(): boolean {
+    return this.engine?.isFeatureEnabled('editorWalkthrough') ?? false;
+  }
+
+  /** Register the launcher custom element once, on first render of a flag-on editor. */
+  private _ensureWalkthroughLauncher(): void {
+    if (!this._walkthroughEnabled || walkthroughLauncherLoad) return;
+    walkthroughLauncherLoad = import('./walkthrough/launcher.js').catch((e) => {
+      console.warn('Walkthrough launcher failed to load:', e);
+      // Clear the cache so a later render retries instead of leaving the Guide
+      // button permanently unregistered after one transient failure.
+      walkthroughLauncherLoad = null;
+    });
   }
 
   override disconnectedCallback(): void {
@@ -278,6 +300,7 @@ export class EpistolaToolbar extends LitElement {
               <div class="toolbar-separator"></div>
               <button
                 class="toolbar-btn ${this.previewOpen ? 'active' : ''}"
+                data-tour="preview-toggle"
                 @click=${this._handleTogglePreview}
                 title="${this.previewOpen ? 'Hide preview' : 'Show preview'}"
               >
@@ -296,6 +319,9 @@ export class EpistolaToolbar extends LitElement {
 
         <div class="toolbar-right">
           ${hasExamples ? this._renderExampleSelector(examples) : nothing}
+          ${this._walkthroughEnabled
+            ? html`<epistola-walkthrough-launcher></epistola-walkthrough-launcher>`
+            : nothing}
           <epistola-json-inspector .engine=${this.engine}></epistola-json-inspector>
           ${this._renderShortcuts()}
         </div>
@@ -373,6 +399,7 @@ export class EpistolaToolbar extends LitElement {
       <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
         <button
           class=${cssClass}
+          data-tour="save"
           ?disabled=${disabled}
           @click=${this._handleForceSave}
           title=${title}

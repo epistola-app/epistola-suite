@@ -140,6 +140,7 @@ export class EpistolaSidebar extends LitElement {
             return html`
               <button
                 class="sidebar-tab ${isActive ? 'active' : ''}"
+                data-tour=${`tab-${tab.id}`}
                 @click=${() => this._setTab(tab.id)}
               >
                 ${label}

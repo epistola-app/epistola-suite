@@ -30,7 +30,18 @@ object KnownFeatures {
      */
     val QUALITY = FeatureKey.of("quality")
 
-    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY)
+    /**
+     * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
+     *
+     * A purely client-side onboarding aid: no hub, no server component. Like [QUALITY] it is
+     * deliberately toggle-only and must stay out of [SUPPORT_TIER]/[HUB_ONLY] — the hub wire contract
+     * has no feature to grant for it, so a key in [SUPPORT_TIER] would make it *permanently
+     * unavailable* on every `epistola.support.enabled=true` installation. `KnownFeaturesTest` guards
+     * that. The resolved toggle is threaded into the editor bundle as an `EditorFeatureFlags` flag.
+     */
+    val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
+
+    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY, EDITOR_WALKTHROUGH)
 
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
@@ -88,6 +99,12 @@ object KnownFeatures {
             "Enables quality checks — a ledger of findings about templates, surfaced in a report and " +
                 "in the template editor. Findings are submitted by check sources (in-process or remote) " +
                 "and by reviewers; checks only ever analyse a template's example data.",
+            stage = FeatureStage.ALPHA,
+        ),
+        EDITOR_WALKTHROUGH to FeatureMetadata(
+            "Editor walkthrough",
+            "Enables a guided, in-editor tour of the template editor for people opening it for the " +
+                "first time. Purely a client-side onboarding aid — no data is read or sent.",
             stage = FeatureStage.ALPHA,
         ),
     )

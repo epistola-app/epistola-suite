@@ -1349,6 +1349,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("id=\"editor-container\"")
                 assertThat(response.body).contains("/editor/template-editor-")
+                // Editor feature flags are threaded into the config island; the
+                // walkthrough is off by default (ALPHA), so it resolves to false.
+                assertThat(response.body).contains("\"featureFlags\"")
+                assertThat(response.body).contains("editorWalkthrough")
             }
         }
 

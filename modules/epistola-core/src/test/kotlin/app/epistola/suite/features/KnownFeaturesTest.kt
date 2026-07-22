@@ -57,6 +57,31 @@ class KnownFeaturesTest {
         assertThat(FeatureDefaults(quality = true).isEnabled(KnownFeatures.QUALITY)).isTrue()
     }
 
+    /**
+     * The editor walkthrough is a client-side onboarding aid with no hub component, so — exactly like
+     * [KnownFeatures.QUALITY] — it must never become hub-gated. A key in [KnownFeatures.SUPPORT_TIER]
+     * has no matching wire-contract feature to grant and would be permanently unavailable with the
+     * support tier on; [KnownFeatures.HUB_ONLY] would wrongly default it off whenever the tier is off.
+     */
+    @Test
+    fun `editor walkthrough is toggle-only and never hub-gated`() {
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.EDITOR_WALKTHROUGH)
+        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.EDITOR_WALKTHROUGH)
+    }
+
+    /** Editor walkthrough is alpha: wired but not yet a supported onboarding surface. */
+    @Test
+    fun `editor walkthrough is marked alpha`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.EDITOR_WALKTHROUGH)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+    }
+
+    /** Default off, resolved by its own [FeatureDefaults.isEnabled] branch rather than the `else`. */
+    @Test
+    fun `editor walkthrough default is off and resolved by its own branch`() {
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isFalse()
+        assertThat(FeatureDefaults(editorWalkthrough = true).isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isTrue()
+    }
+
     @Test
     fun `stable stage has no label so the UI renders no badge`() {
         assertThat(KnownFeatures.FeatureStage.STABLE.label).isNull()
