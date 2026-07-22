@@ -20,7 +20,9 @@ The contract registry owns the serializable vocabulary:
 - `applicableStyles`, inspector fields, default styles, and default props
 - `maxInstancesPerDocument`
 - curated example fragments
-- static parameter metadata (`null` still means dynamic per node)
+- parameter metadata:
+  `{ "kind": "dynamic" }` for per-node schemas and
+  `{ "kind": "static", "schema": { ... } }` for shared schemas
 
 The suite still owns runtime behavior that cannot live in JSON:
 

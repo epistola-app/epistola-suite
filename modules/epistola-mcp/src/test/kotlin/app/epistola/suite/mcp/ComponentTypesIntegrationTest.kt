@@ -166,8 +166,8 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
     /**
      * The `parameters` field on ComponentTypeInfo uses a three-state encoding:
      *   - Java null        → field absent in JSON → component has no parameter support
-     *   - NullNode         → "parameters": null   → dynamic per-instance (call get_stencil_version)
-     *   - ObjectNode       → "parameters": {...}  → static schema (same for every instance)
+     *   - ObjectNode(kind=dynamic) → dynamic per-instance (call get_stencil_version)
+     *   - ObjectNode(kind=static)  → static schema (same for every instance)
      */
 
     @Test
@@ -175,10 +175,9 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
         val stencil = componentTools.getComponentType("stencil")
         assertThat(stencil).isNotNull
         // Stencil declares parameters as a function (dynamic per-instance).
-        // The dump serializes this as JSON null, which Jackson parses into a NullNode.
-        // NullNode is NOT Java null — it is a real JsonNode whose isNull() returns true.
+        // The dump serializes this as an explicit dynamic marker.
         assertThat(stencil!!.parameters).isNotNull
-        assertThat(stencil.parameters!!.isNull).isTrue()
+        assertThat(stencil.parameters!!.get("kind").asString()).isEqualTo("dynamic")
     }
 
     @Test
@@ -187,8 +186,7 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
         assertThat(image).isNotNull
         // Image omits the parameters field entirely (undefined in TypeScript).
         // The dump omits the field from JSON, so node.get("parameters") returns Java null.
-        // This is DISTINCT from stencil's NullNode: Java null means "no parameter support",
-        // whereas NullNode means "dynamic per-instance parameters".
+        // This is distinct from stencil's dynamic marker.
         assertThat(image!!.parameters).isNull()
     }
 }

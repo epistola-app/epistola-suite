@@ -385,8 +385,12 @@ function withContractMetadata(def: ComponentDefinition): ComponentDefinition {
     defaultStyles: contract.defaultStyles,
     defaultProps: contract.defaultProps,
     maxInstancesPerDocument: contract.maxInstancesPerDocument,
-    examples: contract.examples,
-    parameters: def.parameters ?? (contract.parameters === null ? undefined : contract.parameters),
+    examples: contract.examples as unknown as ComponentExample[],
+    parameters:
+      def.parameters ??
+      (contract.parameters?.kind === 'static'
+        ? (contract.parameters.schema as unknown as JsonSchema)
+        : undefined),
   } as ComponentDefinition;
 }
 

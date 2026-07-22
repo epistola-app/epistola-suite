@@ -21,8 +21,8 @@ class ComponentMcpTools(
             "Components flagged `hidden=true` are child-only (e.g. datatable-column) and cannot be " +
             "inserted at the top level. " +
             "The `parameters` field carries the component's parameter schema when present: " +
-            "- a JSON Schema object means static parameters (same for every instance); " +
-            "- `null` means dynamic per-instance parameters (e.g. stencil — use `get_stencil_version` " +
+            "- `{ kind: 'static', schema: ... }` means static parameters (same for every instance); " +
+            "- `{ kind: 'dynamic' }` means dynamic per-instance parameters (e.g. stencil — use `get_stencil_version` " +
             "to fetch the schema for a specific version); " +
             "- absent means the component has no parameter support.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),

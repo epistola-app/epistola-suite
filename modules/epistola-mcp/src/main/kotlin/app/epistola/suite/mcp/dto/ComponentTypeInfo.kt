@@ -33,8 +33,8 @@ data class ComponentTypeInfo(
     /**
      * Optional parameter schema for this component type.
      * - absent from JSON: component has no parameter support
-     * - `null` (JSON null): dynamic per-instance (e.g. stencil — call `get_stencil_version` for the schema)
-     * - JSON Schema object: static parameters (same for every instance)
+     * - `{ "kind": "dynamic" }`: dynamic per-instance (e.g. stencil — call `get_stencil_version` for the schema)
+     * - `{ "kind": "static", "schema": { ... } }`: static parameters (same for every instance)
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     val parameters: tools.jackson.databind.JsonNode? = null,
