@@ -63,6 +63,20 @@ describe('WalkthroughLauncher', () => {
     expect(markState(el, TOURS[1].id)).toBe('current');
   });
 
+  it('exposes chapter state to assistive tech via aria-label and aria-current', async () => {
+    markChapterComplete(TOURS[0].id, TOURS[0].version);
+    const el = await mount();
+    clickTestId(el, 'walkthrough-guide-trigger');
+    await el.updateComplete;
+
+    const done = el.querySelector(`[data-testid="walkthrough-chapter-${TOURS[0].id}"]`);
+    const current = el.querySelector(`[data-testid="walkthrough-chapter-${TOURS[1].id}"]`);
+    expect(done?.getAttribute('aria-label')).toContain('completed');
+    expect(done?.getAttribute('aria-current')).toBeNull();
+    expect(current?.getAttribute('aria-label')).toContain('current chapter');
+    expect(current?.getAttribute('aria-current')).toBe('step');
+  });
+
   it('toggles the menu closed on a second trigger click', async () => {
     const el = await mount();
     clickTestId(el, 'walkthrough-guide-trigger');

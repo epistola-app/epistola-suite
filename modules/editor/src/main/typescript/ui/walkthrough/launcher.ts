@@ -188,6 +188,10 @@ export class WalkthroughLauncher extends LitElement {
                           class="ep-wt-item ${c.current ? 'is-current' : ''}"
                           type="button"
                           data-testid=${`walkthrough-chapter-${c.id}`}
+                          aria-current=${c.current ? 'step' : nothing}
+                          aria-label=${`${c.title}: ${
+                            c.complete ? 'completed' : c.current ? 'current chapter' : 'not started'
+                          }. ${c.summary}`}
                           @click=${() => this._run(c.id)}
                         >
                           <span
