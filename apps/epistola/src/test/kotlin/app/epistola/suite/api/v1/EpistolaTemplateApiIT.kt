@@ -316,6 +316,105 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a rejected breaking change includes recent-usage impact in the 409`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "usage-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Usage 409"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val breaking = """{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}}"""
+        val rejected = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity(breaking, baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        // The recent-usage impact rides along on the conflict body (#280). No documents were
+        // generated (polling is disabled here), so nothing regresses, but the check was applicable.
+        assertThat(JsonPath.read<Boolean>(rejected.body!!, "$.recentUsage.applicable")).isTrue
+        assertThat(JsonPath.read<Int>(rejected.body!!, "$.recentUsage.sampledDocuments")).isEqualTo(0)
+        assertThat(JsonPath.read<List<Any>>(rejected.body!!, "$.recentUsage.fields")).isEmpty()
+    }
+
+    @Test
+    fun `check recent usage impact returns 200 with the impact shape`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "impact-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Impact"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // A breaking candidate (taxId now required) — applicable, but no recent usage to replay.
+        val candidate = """{"dataModel":{"type":"object","properties":{"name":{"type":"string"},"taxId":{"type":"string"}},"required":["name","taxId"]}}"""
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/usage-impact",
+            HttpMethod.POST,
+            HttpEntity(candidate, baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Boolean>(response.body!!, "$.applicable")).isTrue
+        assertThat(JsonPath.read<Int>(response.body!!, "$.sampledDocuments")).isEqualTo(0)
+        assertThat(JsonPath.read<Int>(response.body!!, "$.failingDocuments")).isEqualTo(0)
+        assertThat(JsonPath.read<List<Any>>(response.body!!, "$.fields")).isEmpty()
+    }
+
+    @Test
+    fun `check recent usage impact is not applicable for a compatible candidate`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "compat-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Compat"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        // Adding an optional field is backwards compatible → nothing could regress.
+        val candidate = """{"dataModel":{"type":"object","properties":{"name":{"type":"string"},"email":{"type":"string"}},"required":["name"]}}"""
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/usage-impact",
+            HttpMethod.POST,
+            HttpEntity(candidate, baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Boolean>(response.body!!, "$.applicable")).isFalse
+    }
+
+    @Test
     fun `update template with a breaking schema change succeeds with forceUpdate`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "brkf-${randomSuffix()}"

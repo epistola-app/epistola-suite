@@ -104,6 +104,20 @@ PublishContractVersion(confirmed=true):
 
 3. **Per-version compatibility** (`CheckTemplateVersionCompatibility`): cross-references a template version's `referenced_paths` against the new schema. Reports `FIELD_REMOVED` and `TYPE_CHANGED` only for fields the template actually uses.
 
+4. **Recent usage replay** (`CheckRecentUsageCompatibility`, #280): replays the actual input data of recently generated documents against the new schema. This sees what the first three levels cannot — e.g. a newly-**required** field the template never references but real callers must now supply. See below.
+
+### Recent usage replay (#280)
+
+Levels 1–3 answer "could the _template_ break?". `CheckRecentUsageCompatibility` (in `documents/queries/`) answers "did real recent _usage_ break?" by replaying the persisted input payloads (`document_generation_requests.data`) of recent `COMPLETED` generations against the candidate schema.
+
+- **Regressions only.** A payload is reported only when it was valid under the currently-published contract but fails the candidate — pre-existing invalid data is never blamed on the change. The baseline is computed live against the published `data_model`.
+- **Dedup by affected paths.** A valid-under-old payload can only _newly_ fail at a path the schema diff touched, so payloads are projected onto those paths (`RecentUsageShapeProjector`) and deduplicated before a representative of each distinct shape is validated. This keeps validator work bounded and the reporting legible.
+- **Values never leave.** The result (`RecentUsageImpact`) carries field paths and document counts only — never a payload value (the persisted data is raw caller PII).
+- **Bounded window.** The look-back is bounded in practice by generation-request partition retention (~3 months), so usage older than that is not visible; the result flags `capped` when the scan limit is hit.
+- **Candidate vs draft.** With no `candidateSchema` the check uses the current draft contract (the on-demand UI case); callers that detect a breaking change from an unsaved candidate (the REST `updateTemplate` dry-run) pass the candidate directly.
+
+Surfaces: the data-contract tab's **Check recent usage** dialog and the publish breaking-change dialog (web UI); a `POST …/contract/usage-impact` endpoint and a `recentUsage` extension on the `updateTemplate` 409 (REST). It is intentionally **not** exposed on MCP (read-only discovery scope), and, being runtime state rather than a catalog resource, is not represented in the demo catalog.
+
 ### Breaking change rules (schema level)
 
 | Change                                      | Breaking? |

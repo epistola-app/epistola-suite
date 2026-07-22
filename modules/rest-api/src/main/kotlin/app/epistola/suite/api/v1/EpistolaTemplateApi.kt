@@ -4,6 +4,7 @@ import app.epistola.api.TemplatesApi
 import app.epistola.api.VariantsApi
 import app.epistola.api.VersionsApi
 import app.epistola.api.model.ActivationListResponse
+import app.epistola.api.model.CheckRecentUsageRequest
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
 import app.epistola.api.model.PublishVersionRequest
@@ -40,6 +41,8 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
+import app.epistola.suite.documents.queries.CheckRecentUsageCompatibility
+import app.epistola.suite.documents.queries.RecentUsageImpact
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DraftNotFoundException
@@ -88,6 +91,8 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import app.epistola.api.model.RecentUsageFieldImpact as RecentUsageFieldImpactDto
+import app.epistola.api.model.RecentUsageImpact as RecentUsageImpactDto
 
 @RestController
 @RequestMapping("/api")
@@ -208,9 +213,13 @@ class EpistolaTemplateApi(
                 throw DataModelValidationException(preview.exampleValidationErrors)
             }
             // A backwards-incompatible schema change is only published when the caller
-            // confirms it via forceUpdate; otherwise surface a 409.
+            // confirms it via forceUpdate; otherwise surface a 409 — carrying whether the change
+            // would break the input data of recent generations (#280).
             if (!preview.compatible && !confirmBreaking) {
-                throw ContractPublishConflictException(preview.breakingChanges)
+                throw ContractPublishConflictException(
+                    preview.breakingChanges,
+                    recentUsageImpact(templateIdComposite, dataModel),
+                )
             }
 
             // The REST caller is authoritative: stage the change on a draft, then publish it
@@ -226,7 +235,10 @@ class EpistolaTemplateApi(
             val publish = PublishContractVersion(templateId = templateIdComposite, confirmed = confirmBreaking).execute()
             // Backstop for a concurrent change landing between the preview and the publish.
             if (publish != null && !publish.published) {
-                throw ContractPublishConflictException(publish.breakingChanges.map { it.description })
+                throw ContractPublishConflictException(
+                    publish.breakingChanges.map { it.description },
+                    recentUsageImpact(templateIdComposite, dataModel),
+                )
             }
         }
 
@@ -264,6 +276,26 @@ class EpistolaTemplateApi(
                 },
             ),
         )
+    }
+
+    override fun checkRecentUsageImpact(
+        tenantId: String,
+        catalogId: String,
+        templateId: String,
+        checkRecentUsageRequest: CheckRecentUsageRequest,
+    ): ResponseEntity<RecentUsageImpactDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        GetDocumentTemplate(id = templateIdComposite).query()
+            ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+
+        val candidate = objectMapper.valueToTree<ObjectNode>(checkRecentUsageRequest.dataModel)
+        val impact = CheckRecentUsageCompatibility(
+            templateId = templateIdComposite,
+            candidateSchema = candidate,
+        ).query()
+
+        return ResponseEntity.ok(impact.toDto())
     }
 
     override fun deleteTemplate(
@@ -606,6 +638,16 @@ class EpistolaTemplateApi(
 
     // ================== Helper methods ==================
 
+    /**
+     * Replays recent usage against the [candidateSchema] so a publish-conflict (409) can report
+     * whether the breaking change would reject the input data of recent generations (#280). Shared
+     * by both conflict paths — the up-front preview rejection and the concurrent-change backstop —
+     * so either 409 carries the same body. Null when no schema change was requested.
+     */
+    private fun recentUsageImpact(templateId: TemplateId, candidateSchema: ObjectNode?): RecentUsageImpact? = candidateSchema?.let {
+        CheckRecentUsageCompatibility(templateId = templateId, candidateSchema = it).query()
+    }
+
     private fun getVariantSummary(variant: TemplateVariant, tenantId: TenantKey, catalogId: String): VariantVersionInfo {
         val tenantIdComposite = TenantId(tenantId)
         val templateIdComposite = TemplateId(variant.templateKey, CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
@@ -622,3 +664,14 @@ class EpistolaTemplateApi(
         )
     }
 }
+
+private fun RecentUsageImpact.toDto(): RecentUsageImpactDto = RecentUsageImpactDto(
+    applicable = applicable,
+    windowDays = windowDays,
+    sampledDocuments = sampledDocuments,
+    distinctShapes = distinctShapes,
+    failingShapes = failingShapes,
+    failingDocuments = failingDocuments,
+    capped = capped,
+    fields = fields.map { RecentUsageFieldImpactDto(path = it.path, reason = it.reason, failingDocuments = it.failingDocuments) },
+)

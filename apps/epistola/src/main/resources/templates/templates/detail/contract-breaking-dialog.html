@@ -24,6 +24,11 @@
                     </li>
                 </ul>
             </div>
+            <!-- Recent usage impact (#280): the same shared panel the on-demand dialog renders,
+                 so both surfaces present it identically. -->
+            <div th:if="${recentUsage != null && recentUsage.applicable}" class="usage-impact-embed">
+                <th:block th:replace="~{templates/detail/contract-usage-impact :: panel(${recentUsage})}" />
+            </div>
             <div style="display: flex; gap: var(--ep-space-2); justify-content: flex-end; margin-top: var(--ep-space-4);">
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                         data-close-dialog="contract-breaking-dialog">Cancel</button>

@@ -26,6 +26,7 @@ import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
+import app.epistola.suite.documents.queries.RecentUsageImpact
 import app.epistola.suite.environments.EnvironmentInUseException
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.stencils.StencilNotFoundException
@@ -570,7 +571,12 @@ object ApiExceptionMappings {
         builder.register<ContractPublishConflictException>(
             problemType = ApiProblemTypes.CONTRACT_PUBLISH_CONFLICT,
             defaultDetail = "Schema change is backwards-incompatible; retry with forceUpdate=true to confirm",
-            extensions = { mapOf("breakingChanges" to it.breakingChanges) },
+            extensions = {
+                buildMap {
+                    put("breakingChanges", it.breakingChanges)
+                    it.recentUsage?.let { impact -> put("recentUsage", recentUsageExtension(impact)) }
+                }
+            },
             logMessage = { "Contract publish rejected as breaking: ${it.breakingChanges}" },
         )
 
@@ -611,3 +617,20 @@ private class ApiExceptionMappingBuilder {
 
     fun build(): Map<Class<out Throwable>, ApiExceptionMapping> = map.toMap()
 }
+
+/**
+ * Shapes a [RecentUsageImpact] into the `recentUsage` problem-detail extension, matching the
+ * RecentUsageImpact schema in the OpenAPI contract (paths and counts only, never payload values).
+ */
+private fun recentUsageExtension(impact: RecentUsageImpact): Map<String, Any> = mapOf(
+    "applicable" to impact.applicable,
+    "windowDays" to impact.windowDays,
+    "sampledDocuments" to impact.sampledDocuments,
+    "distinctShapes" to impact.distinctShapes,
+    "failingShapes" to impact.failingShapes,
+    "failingDocuments" to impact.failingDocuments,
+    "capped" to impact.capped,
+    "fields" to impact.fields.map {
+        mapOf("path" to it.path, "reason" to it.reason, "failingDocuments" to it.failingDocuments)
+    },
+)
