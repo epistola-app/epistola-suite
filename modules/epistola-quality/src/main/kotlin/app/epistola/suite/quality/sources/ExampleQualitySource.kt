@@ -22,7 +22,7 @@ import java.util.HexFormat
  *
  * ### The round trip it demonstrates
  *
- * 1. An author leaves a text block empty. The sweep runs, this source reports it, the finding opens.
+ * 1. An author leaves a text block empty. A quality run executes, this source reports it, the finding opens.
  * 2. The author fills it in. The next run simply *does not report it* — and the ledger resolves it,
  *    because a submission is a full set. Nothing here calls "resolve"; that is the whole point.
  * 3. Had the author instead decided the emptiness was intentional, they ignore it with a reason, and
@@ -98,8 +98,7 @@ class ExampleQualitySource : QualityFindingSource {
     /**
      * Collects the visible text out of a ProseMirror document, ignoring its structure. Defensive
      * about shape: a source runs over whatever is stored, including documents written by an older
-     * editor, and must return "nothing wrong" rather than throw — a source that throws mid-sweep
-     * would take out the tenant's whole run.
+     * editor, and must return "nothing wrong" rather than throw.
      */
     private fun extractText(content: Any?): String {
         val sb = StringBuilder()

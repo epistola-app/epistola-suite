@@ -191,7 +191,7 @@ class QualityHandler(
     /**
      * Resolve by hand. Only ever offered for a manual finding — a reconciling source's finding
      * closes when the source stops reporting it, and a Resolve button there would be a lie the next
-     * sweep overwrites. The command enforces the same restriction.
+     * source run overwrites. The command enforces the same restriction.
      */
     fun resolve(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -431,7 +431,7 @@ class QualityHandler(
 
     private companion object {
         /**
-         * The template filter's dropdown. Not a sweep: it populates a picker, so a tenant beyond
+     * The template filter's dropdown. It populates a picker, so a tenant beyond
          * this many templates gets a truncated *filter list*, never a truncated report — the report
          * itself pages in SQL over everything.
          */

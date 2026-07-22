@@ -27,8 +27,8 @@ import org.springframework.stereotype.Component
 /**
  * Runs the **in-process** sources against a variant and submits what they find.
  *
- * Drives all three local triggers: the scheduled sweep, the after-publish re-check, and the editor's
- * "Check now". Remote sources are untouched by this — they push on their own schedule.
+ * Drives the local triggers: the after-publish re-check and the editor's "Check now". Remote
+ * sources are untouched by this — they push on their own schedule.
  *
  * Reads the **persisted** draft (falling back to the newest published version), so an editor calling
  * this must flush its save first; checking unsaved state would be stale-in, stale-out.
@@ -86,7 +86,7 @@ class RunQualityChecksHandler(
      * `contract_versions` directly: it already resolves exactly what a check needs (draft first,
      * else newest published) in one round trip, and going through the query means this module
      * depends on core's *contract* rather than its schema — so a core migration can't silently
-     * break the sweep. It is also, literally, the same context the editor renders from, which is
+     * break check execution. It is also, literally, the same context the editor renders from, which is
      * what "a source analyses the document the author is looking at" should mean.
      *
      * Null when the variant has no document at all — nothing to check.
@@ -126,7 +126,7 @@ class RunQualityChecksHandler(
      * weight/style: `ResolveFontFace` picks the nearest available face, so a null result means the
      * family ships **no** face at all, which is exactly "unresolved". A slug that is not even a valid
      * font key resolves to false rather than throwing — a malformed style is still a real problem to
-     * report, not one to crash the sweep over.
+     * report, not one to crash check execution over.
      */
     private fun resolveFonts(
         subject: QualitySubject,

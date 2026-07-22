@@ -64,9 +64,9 @@ data class QualityCheckInput(
 /**
  * SPI for a quality check that runs **in-process**.
  *
- * Implement this and the framework will run you: on the scheduled sweep, after a version is
- * published, and when an author hits "Check now" in the editor. Being a bean *is* the "runs locally"
- * flag — there is deliberately no capability flag to keep in sync.
+ * Implement this and the framework will run you after a version is published and when an author
+ * hits "Check now" in the editor. Being a bean *is* the "runs locally" flag — there is deliberately
+ * no capability flag to keep in sync.
  *
  * A source that executes **remotely** implements nothing. It pushes its finding set to the ledger on
  * its own schedule and reads dispositions back with a `since` cursor. Both paths converge on
