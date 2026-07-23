@@ -3,8 +3,10 @@ package app.epistola.suite.api.v1
 import app.epistola.api.CodeListsApi
 import app.epistola.api.model.CodeListDto
 import app.epistola.api.model.CodeListEntriesResponse
+import app.epistola.api.model.CodeListEntryDto
 import app.epistola.api.model.CodeListListResponse
 import app.epistola.api.model.CreateCodeListRequest
+import app.epistola.api.model.UpdateCodeListEntryHiddenRequest
 import app.epistola.api.model.UpdateCodeListRequest
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
@@ -15,6 +17,7 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.commands.DeleteCodeList
 import app.epistola.suite.attributes.codelists.commands.RefreshCodeList
 import app.epistola.suite.attributes.codelists.commands.UpdateCodeList
+import app.epistola.suite.attributes.codelists.commands.UpdateCodeListEntryHidden
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
@@ -28,6 +31,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
@@ -160,6 +164,28 @@ class EpistolaCodeListApi : CodeListsApi {
         val id = buildId(tenantId, catalogId, codeListSlug)
         val entries = ListCodeListEntries(codeListId = id, includeHidden = includeHidden).query()
         return ResponseEntity.ok(CodeListEntriesResponse(items = entries.map { it.toDto() }))
+    }
+
+    override fun updateCodeListEntryHidden(
+        tenantId: String,
+        catalogId: String,
+        codeListSlug: String,
+        code: String,
+        updateCodeListEntryHiddenRequest: UpdateCodeListEntryHiddenRequest,
+    ): ResponseEntity<CodeListEntryDto> {
+        val id = buildId(tenantId, catalogId, codeListSlug)
+        GetCodeList(id = id).query() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
+        val updated = UpdateCodeListEntryHidden(
+            codeListId = id,
+            code = code,
+            hidden = updateCodeListEntryHiddenRequest.hidden,
+        ).execute()
+        if (!updated) {
+            throw ValidationException(field = "code", message = "Code list entry '$code' not found")
+        }
+        val entry = ListCodeListEntries(codeListId = id, includeHidden = true).query()
+            .first { it.code == code }
+        return ResponseEntity.ok(entry.toDto())
     }
 
     private fun buildId(tenantId: String, catalogId: String, codeListSlug: String) = CodeListId(

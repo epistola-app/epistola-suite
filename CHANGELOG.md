@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** feat(api): **The REST API now implements the remaining `epistola-contract` 0.14.0 endpoints.** Backend contract/model artifacts are bumped to 0.14.0, adding suite-backed contract draft lifecycle endpoints, variant draft create/publish/discard actions, code-list entry hide/show toggles, catalog release/upgrade apply endpoints, stencil upgrade apply, and catalog-scoped asset list/upload/download/delete. The editor npm model package stays on 0.13.0 until `@epistola.app/epistola-model` 0.14.0 is published.
 - **[user]** fix(api): **Static API keys now work through the Authorization header.** REST and MCP API-key authentication accepts `Authorization: ApiKey <key>` per the 0.14 contract while keeping deprecated `X-API-Key` support for existing integrations. If API-key authentication is disabled for the deployment, API-key attempts now return the canonical `api-key-auth-disabled` Problem Details type.
 - **[dev]** docs(readme): **The default version-check behavior is now explicit.** The README now states that the daily version check is enabled by default, sends the running version and stable installation id, and is used to count active installations by version.
 - **[dev]** feat(version-check): **Version checks now identify the installation.** The release metadata request includes the stable `X-Epistola-Installation-Id` header alongside the current version, allowing the release endpoint to count installations by running version without sending tenant data.

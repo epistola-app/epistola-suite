@@ -261,6 +261,56 @@ class CodeListApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `update code list entry hidden toggles list visibility`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "visibility-${UUID.randomUUID().toString().take(8)}"
+        val createBody = """
+            {
+              "slug": "$slug",
+              "displayName": "Visibility",
+              "sourceType": "INLINE",
+              "entries": [
+                { "code": "shown", "label": "Shown", "sortOrder": 1 },
+                { "code": "legacy", "label": "Legacy", "sortOrder": 2 }
+              ]
+            }
+        """.trimIndent()
+        val createResp = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists",
+            HttpMethod.POST,
+            HttpEntity(createBody, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(createResp.statusCode).isEqualTo(HttpStatus.CREATED)
+
+        val hideResp = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries/legacy/hidden",
+            HttpMethod.PATCH,
+            HttpEntity("""{"hidden": true}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(hideResp.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(hideResp.body!!, "$.code")).isEqualTo("legacy")
+        assertThat(JsonPath.read<Boolean>(hideResp.body!!, "$.hidden")).isTrue
+
+        val visibleEntries = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(JsonPath.read<List<String>>(visibleEntries.body!!, "$.items[*].code")).containsExactly("shown")
+
+        val allEntries = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries?includeHidden=true",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(JsonPath.read<List<String>>(allEntries.body!!, "$.items[*].code")).containsExactly("shown", "legacy")
+    }
+
+    @Test
     fun `attribute response carries catalog + readOnly + codeListBinding`() {
         val (tenantKey, key) = seedTenantAndKey()
         // `system.locale` is bound to `system/bcp-47` and lives in the SUBSCRIBED
