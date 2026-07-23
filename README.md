@@ -282,6 +282,12 @@ versions are published separately (website / release metadata), not hardcoded
 in the policy. See also [docs/version-check.md](docs/version-check.md) and
 [docs/migrations.md](docs/migrations.md).
 
+The installation-wide version check is enabled by default. Once per day, one
+node retrieves the public release metadata and sends the running suite version
+plus the stable installation id; Epistola uses that request to understand how
+many active installations run each version. Disable it with
+`epistola.version-check.enabled=false`.
+
 ## License
 
 Epistola Suite is licensed under the [GNU Affero General Public License v3](LICENSE).
