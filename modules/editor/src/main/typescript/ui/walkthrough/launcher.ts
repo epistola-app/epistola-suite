@@ -10,7 +10,7 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { icon } from '../icons.js';
-import { firstIncompleteTour, TOURS } from './registry.js';
+import { firstRunnableTour, isTourAvailable, tourById, TOURS } from './registry.js';
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
 import { isTourActive, stopActiveTour } from './session.js';
 import { injectStyleOnce } from './styles.js';
@@ -21,6 +21,10 @@ interface ChapterView {
   summary: string;
   complete: boolean;
   current: boolean;
+  /** Whether the chapter can run in this editor (D6). */
+  available: boolean;
+  /** Shown in place of the summary when the chapter is locked. */
+  hint?: string;
 }
 
 const STYLE_ID = 'ep-wt-launcher-css';
@@ -51,6 +55,8 @@ const CSS = `
 .ep-wt-item:hover { background: var(--ep-stone-100); }
 .ep-wt-item:focus-visible { outline: none; box-shadow: var(--ep-ring); }
 .ep-wt-item.is-current { background: var(--ep-terracotta-50); }
+.ep-wt-item:disabled { cursor: default; opacity: 0.65; }
+.ep-wt-item:disabled:hover { background: transparent; }
 .ep-wt-mark {
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
   width: 1.25rem; height: 1.4rem; color: var(--ep-stone-400);
@@ -128,17 +134,23 @@ export class WalkthroughLauncher extends LitElement {
     return this.closest('epistola-editor');
   }
 
-  /** Chapters with completion + which one is "current" (first not-yet-complete). */
+  /** Chapters with completion, availability, and which one is "current". */
   private get _chapters(): ChapterView[] {
+    const host = this._host;
     // Single source of truth for "current" — same rule startWalkthrough() drives.
-    const currentId = firstIncompleteTour(isChapterComplete)?.id;
-    return TOURS.map((t) => ({
-      id: t.id,
-      title: t.title,
-      summary: t.summary,
-      complete: isChapterComplete(t.id, t.version),
-      current: t.id === currentId,
-    }));
+    const currentId = host ? firstRunnableTour(isChapterComplete, host)?.id : undefined;
+    return TOURS.map((t) => {
+      const available = host ? isTourAvailable(t, host) : true;
+      return {
+        id: t.id,
+        title: t.title,
+        summary: t.summary,
+        complete: isChapterComplete(t.id, t.version),
+        current: available && t.id === currentId,
+        available,
+        hint: available ? undefined : t.unavailableHint,
+      };
+    });
   }
 
   private readonly _toggle = (): void => {
@@ -152,6 +164,9 @@ export class WalkthroughLauncher extends LitElement {
     this._open = false;
     const host = this._host;
     if (!host) return;
+    // Locked chapters can't run here (belt-and-suspenders — the button is disabled too).
+    const tour = tourById(id);
+    if (tour && !isTourAvailable(tour, host)) return;
     // Pulls in the runner (and driver.js) only now, when a chapter actually runs.
     // The click handler doesn't await this, so swallow failures here: log, and
     // reopen the menu so the user can retry rather than being left with nothing.
@@ -195,26 +210,41 @@ export class WalkthroughLauncher extends LitElement {
                         <button
                           class="ep-wt-item ${c.current ? 'is-current' : ''}"
                           type="button"
+                          ?disabled=${!c.available}
                           data-testid=${`walkthrough-chapter-${c.id}`}
                           aria-current=${c.current ? 'step' : nothing}
                           aria-label=${`${c.title}: ${
-                            c.complete ? 'completed' : c.current ? 'current chapter' : 'not started'
-                          }. ${c.summary}`}
+                            !c.available
+                              ? 'locked'
+                              : c.complete
+                                ? 'completed'
+                                : c.current
+                                  ? 'current chapter'
+                                  : 'not started'
+                          }. ${c.hint ?? c.summary}`}
                           @click=${() => this._run(c.id)}
                         >
                           <span
-                            class="ep-wt-mark ${c.complete ? 'is-done' : ''}"
-                            data-state=${c.complete ? 'done' : c.current ? 'current' : 'pending'}
+                            class="ep-wt-mark ${c.complete && c.available ? 'is-done' : ''}"
+                            data-state=${!c.available
+                              ? 'locked'
+                              : c.complete
+                                ? 'done'
+                                : c.current
+                                  ? 'current'
+                                  : 'pending'}
                             aria-hidden="true"
-                            >${c.complete
-                              ? icon('circle-check')
-                              : c.current
-                                ? icon('circle-dot')
-                                : icon('circle')}</span
+                            >${!c.available
+                              ? icon('lock')
+                              : c.complete
+                                ? icon('circle-check')
+                                : c.current
+                                  ? icon('circle-dot')
+                                  : icon('circle')}</span
                           >
                           <span class="ep-wt-text">
                             <span class="ep-wt-name">${c.title}</span>
-                            <span class="ep-wt-summary">${c.summary}</span>
+                            <span class="ep-wt-summary">${c.hint ?? c.summary}</span>
                           </span>
                         </button>
                       </li>
