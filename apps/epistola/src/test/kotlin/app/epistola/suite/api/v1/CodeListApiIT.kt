@@ -308,6 +308,24 @@ class CodeListApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(JsonPath.read<List<String>>(allEntries.body!!, "$.items[*].code")).containsExactly("shown", "legacy")
+
+        val showResp = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries/legacy/hidden",
+            HttpMethod.PATCH,
+            HttpEntity("""{"hidden": false}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(showResp.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(showResp.body!!, "$.code")).isEqualTo("legacy")
+        assertThat(JsonPath.read<Boolean>(showResp.body!!, "$.hidden")).isFalse
+
+        val visibleAgain = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(JsonPath.read<List<String>>(visibleAgain.body!!, "$.items[*].code")).containsExactly("shown", "legacy")
     }
 
     @Test
