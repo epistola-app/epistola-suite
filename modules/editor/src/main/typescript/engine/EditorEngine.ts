@@ -18,13 +18,7 @@ import { CommandChange } from './command-change.js';
 import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from './registry.js';
-import {
-  featuresToFlags,
-  flagsToFeatures,
-  type EditorFeatures,
-  type EditorFeatureFlag,
-  type EditorFeatureFlags,
-} from './feature-flags.js';
+import type { EditorFeatures, EditorFeatureFlag } from './feature-flags.js';
 import { DEFAULT_LOCALE } from './locale.js';
 import { deepFreeze } from './freeze.js';
 import { defaultStyleRegistry } from './style-registry.js';
@@ -67,9 +61,6 @@ export class EditorEngine {
    */
   readonly features: Readonly<EditorFeatures>;
 
-  /** Derived boolean flags kept for callers that still read the old property. */
-  readonly featureFlags: Readonly<EditorFeatureFlags>;
-
   /**
    * Effective BCP-47 locale for this editing session. Resolved by the host
    * (variant attribute `system.locale`/`locale` → tenant default → app
@@ -99,7 +90,6 @@ export class EditorEngine {
       dataModel?: object;
       dataExamples?: object[];
       features?: EditorFeatures;
-      featureFlags?: EditorFeatureFlags;
       locale?: string;
     },
   ) {
@@ -112,10 +102,7 @@ export class EditorEngine {
     this._inheritableKeys = getInheritableKeys(this.styleRegistry);
     this._dataModel = options?.dataModel;
     this._dataExamples = options?.dataExamples;
-    this.features = Object.freeze({
-      ...(options?.features ?? flagsToFeatures(options?.featureFlags)),
-    });
-    this.featureFlags = Object.freeze(featuresToFlags(this.features));
+    this.features = Object.freeze({ ...options?.features });
     this.locale =
       options?.locale && options.locale.trim().length > 0 ? options.locale : DEFAULT_LOCALE;
     this._recomputeStyles();

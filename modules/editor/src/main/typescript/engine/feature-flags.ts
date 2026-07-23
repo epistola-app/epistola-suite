@@ -29,19 +29,3 @@ export interface EditorFeatures {
 }
 
 export type EditorFeatureFlag = keyof EditorFeatures;
-
-export type EditorFeatureFlags = Partial<Record<EditorFeatureFlag, boolean>>;
-
-export function featuresToFlags(features?: EditorFeatures): EditorFeatureFlags {
-  if (!features) return {};
-  return Object.fromEntries(
-    Object.entries(features).map(([key, feature]) => [key, feature?.enabled === true]),
-  ) as EditorFeatureFlags;
-}
-
-export function flagsToFeatures(flags?: EditorFeatureFlags): EditorFeatures {
-  if (!flags) return {};
-  return Object.fromEntries(
-    Object.entries(flags).map(([key, enabled]) => [key, { enabled: enabled === true }]),
-  ) as EditorFeatures;
-}

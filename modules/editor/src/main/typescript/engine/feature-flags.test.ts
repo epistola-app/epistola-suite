@@ -14,22 +14,5 @@ describe('EditorEngine feature state', () => {
     expect(engine.isFeatureEnabled('quality')).toBe(true);
     expect(engine.isFeatureEnabled('aiChat')).toBe(false);
     expect(engine.features.quality?.badge).toEqual({ label: 'Alpha', className: 'badge-alpha' });
-    expect(engine.featureFlags).toEqual({ quality: true, aiChat: false });
-  });
-
-  it('accepts legacy boolean feature flags', () => {
-    const engine = new EditorEngine(createTestDocument(), testRegistry(), {
-      featureFlags: {
-        quality: true,
-        aiChat: false,
-      },
-    });
-
-    expect(engine.isFeatureEnabled('quality')).toBe(true);
-    expect(engine.isFeatureEnabled('aiChat')).toBe(false);
-    expect(engine.features).toEqual({
-      quality: { enabled: true },
-      aiChat: { enabled: false },
-    });
   });
 });
