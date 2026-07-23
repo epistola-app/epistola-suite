@@ -1,13 +1,39 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter, type EngineEvents } from '../../engine/events.js';
-import { advanceOnClick, advanceOnEvent, getEngine, hasAnyBlock } from './signals.js';
+import type { DocumentIndexes } from '../../engine/indexes.js';
+import type { TemplateDocument } from '../../types/index.js';
+import {
+  advanceOnBlockAdded,
+  advanceOnClick,
+  advanceOnEvent,
+  getEngine,
+  hasAnyBlock,
+} from './signals.js';
 
-/** A host `<div>` with a fake engine exposing a real EventEmitter. */
-function makeHost(): { host: HTMLElement; events: EventEmitter<EngineEvents> } {
+/** Indexes whose only meaningful field is the node count `advanceOnBlockAdded` reads. */
+function indexesOfSize(n: number): DocumentIndexes {
+  const depthByNodeId = new Map<string, number>();
+  for (let i = 0; i < n; i++) depthByNodeId.set(`n${i}`, 0);
+  // Partial mock — the code under test only reads depthByNodeId.size.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  return { depthByNodeId } as unknown as DocumentIndexes;
+}
+
+function emitDocChange(events: EventEmitter<EngineEvents>, nodeCount: number): void {
+  events.emit('doc:change', {
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    doc: {} as unknown as TemplateDocument,
+    indexes: indexesOfSize(nodeCount),
+    structureChanged: true,
+  });
+}
+
+/** A host `<div>` with a fake engine exposing a real EventEmitter and node count. */
+function makeHost(nodeCount = 1): { host: HTMLElement; events: EventEmitter<EngineEvents> } {
   const events = new EventEmitter<EngineEvents>();
   const host = document.createElement('div');
-  Object.assign(host, { engine: { events } });
+  Object.assign(host, { engine: { events, indexes: indexesOfSize(nodeCount) } });
   document.body.appendChild(host);
   return { host, events };
 }
@@ -65,6 +91,26 @@ describe('advanceOnEvent', () => {
   it('is a no-op (never throws) when the host has no engine', () => {
     const advance = vi.fn();
     const cleanup = advanceOnEvent('doc:change')(document.createElement('div'), advance);
+    expect(() => cleanup()).not.toThrow();
+    expect(advance).not.toHaveBeenCalled();
+  });
+});
+
+describe('advanceOnBlockAdded', () => {
+  it('advances only once the node count grows past the baseline', () => {
+    const { host, events } = makeHost(1);
+    const advance = vi.fn();
+    advanceOnBlockAdded()(host, advance);
+
+    emitDocChange(events, 1); // no growth (e.g. a style edit)
+    expect(advance).not.toHaveBeenCalled();
+    emitDocChange(events, 2); // a block was added
+    expect(advance).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a no-op (never throws) when the host has no engine', () => {
+    const advance = vi.fn();
+    const cleanup = advanceOnBlockAdded()(document.createElement('div'), advance);
     expect(() => cleanup()).not.toThrow();
     expect(advance).not.toHaveBeenCalled();
   });

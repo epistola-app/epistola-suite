@@ -9,12 +9,19 @@
  * always-loaded bundle beyond this already-lazy chunk.
  */
 import type { EngineEvents, EventEmitter } from '../../engine/events.js';
+import type { DocumentIndexes } from '../../engine/indexes.js';
 import type { TourStep } from './registry.js';
 
 type Advance = NonNullable<TourStep['advance']>;
 
 interface EngineLike {
   events: EventEmitter<EngineEvents>;
+  indexes: DocumentIndexes;
+}
+
+/** Total node count — every node (root included) appears once in `depthByNodeId`. */
+function nodeCount(indexes: DocumentIndexes): number {
+  return indexes.depthByNodeId.size;
 }
 
 /** The editor engine for a host `<epistola-editor>`, if initialised. */
@@ -41,6 +48,23 @@ export function advanceOnEvent<K extends keyof EngineEvents>(
     if (!engine) return () => {};
     return engine.events.on(event, (data) => {
       if (!when || when(host, data)) advance();
+    });
+  };
+}
+
+/**
+ * Advance once a block is added anywhere in the document. Captures the node count
+ * when the step is shown and advances when it grows — so it fires for the user's
+ * insertion (click or drag), not any earlier one, and reads the engine's own count
+ * rather than racing the canvas re-render.
+ */
+export function advanceOnBlockAdded(): Advance {
+  return (host, advance) => {
+    const engine = getEngine(host);
+    if (!engine) return () => {};
+    const baseline = nodeCount(engine.indexes);
+    return engine.events.on('doc:change', (data) => {
+      if (nodeCount(data.indexes) > baseline) advance();
     });
   };
 }
