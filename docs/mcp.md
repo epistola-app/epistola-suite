@@ -6,7 +6,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 
 - **Read-only for 1.0 (deliberate GA scope).** Tools cover discovery, inspection, and document preview; the server never mutates tenant data. This is a settled decision for the 1.0 release, not a temporary limitation — authoring over MCP (drafts, themes, stencils, contract edits, publishing) is a possible post-1.0 addition, and adding write tools later is additive (no breaking change to the read surface).
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
-- **Auth: X-API-Key.** Reuses the existing per-tenant API-key mechanism — no new credential type.
+- **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type. Legacy `X-API-Key` remains accepted for existing clients.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
 
 ## Connecting an MCP client
@@ -20,7 +20,7 @@ http://<your-epistola-host>:<port>/api/mcp
 with the header
 
 ```
-X-API-Key: epk_<your-key>
+Authorization: ApiKey epk_<your-key>
 ```
 
 The API key must:
@@ -40,7 +40,7 @@ Claude Desktop's MCP configuration uses an HTTP transport entry. In `~/Library/A
     "epistola": {
       "url": "https://your-epistola.example.com/api/mcp",
       "headers": {
-        "X-API-Key": "epk_...",
+        "Authorization": "ApiKey epk_...",
       },
     },
   },
@@ -53,7 +53,7 @@ Claude Desktop's MCP configuration uses an HTTP transport entry. In `~/Library/A
 npx @modelcontextprotocol/inspector
 ```
 
-Then enter the URL and `X-API-Key` header in the Inspector UI.
+Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
 
 ## Available tools
 
@@ -145,7 +145,7 @@ Then enter the URL and `X-API-Key` header in the Inspector UI.
 
 ## Troubleshooting
 
-- **`401 Unauthorized`**: The `X-API-Key` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired.
+- **`401 Unauthorized`**: The `Authorization: ApiKey` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired. Legacy `X-API-Key` is still accepted.
 - **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools) or `DOCUMENT_GENERATE` (for preview).
 - **`MCP request has no tenant scope`**: The principal has no `currentTenantId`. With API-key auth, this should not happen — the key is always tenant-scoped. If you see it, the key may have been provisioned without a tenant binding.
 

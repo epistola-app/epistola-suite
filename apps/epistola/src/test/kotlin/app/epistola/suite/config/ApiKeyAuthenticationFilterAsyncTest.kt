@@ -68,13 +68,12 @@ class ApiKeyAuthenticationFilterAsyncTest {
     }
 
     @Test
-    fun `ignores default X-API-Key header when custom header is configured`() {
+    fun `keeps default X-API-Key header when custom header is configured`() {
         val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key", objectMapper = ObjectMapper())
         val key = sampleApiKey()
         fakeMediator.lookupResponse = key
 
         val request = MockHttpServletRequest("POST", "/api/mcp").apply {
-            // The default header is present but the custom one is not
             addHeader("X-API-Key", "epk_some_key")
         }
         val response = MockHttpServletResponse()
@@ -83,9 +82,9 @@ class ApiKeyAuthenticationFilterAsyncTest {
             customFilter.doFilter(request, response, FilterChain { _, _ -> })
         }
 
-        // Should pass through without validating because the custom header is missing
-        assertThat(fakeMediator.lookupQueries).isEqualTo(0)
-        assertThat(SecurityContextHolder.getContext().authentication).isNull()
+        assertThat(fakeMediator.lookupQueries).isEqualTo(1)
+        assertThat(SecurityContextHolder.getContext().authentication)
+            .isInstanceOf(ApiKeyAuthenticationToken::class.java)
     }
 
     @Test
@@ -94,7 +93,7 @@ class ApiKeyAuthenticationFilterAsyncTest {
         val key = sampleApiKey()
         fakeMediator.lookupResponse = key
 
-        val request = MockHttpServletRequest("POST", "/api/mcp").apply { addHeader("X-API-Key", plaintext) }
+        val request = MockHttpServletRequest("POST", "/api/mcp").apply { addHeader("Authorization", "ApiKey $plaintext") }
         val response = MockHttpServletResponse()
 
         // 1. REQUEST dispatch — filter should validate, cache, set holder, count.

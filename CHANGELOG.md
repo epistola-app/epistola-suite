@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** fix(api): **Static API keys now work through the Authorization header.** REST and MCP API-key authentication accepts `Authorization: ApiKey <key>` per the 0.14 contract while keeping deprecated `X-API-Key` support for existing integrations. If API-key authentication is disabled for the deployment, API-key attempts now return the canonical `api-key-auth-disabled` Problem Details type.
 - **[dev]** docs(readme): **The default version-check behavior is now explicit.** The README now states that the daily version check is enabled by default, sends the running version and stable installation id, and is used to count active installations by version.
 - **[dev]** feat(version-check): **Version checks now identify the installation.** The release metadata request includes the stable `X-Epistola-Installation-Id` header alongside the current version, allowing the release endpoint to count installations by running version without sending tenant data.
 - **[dev]** refactor(editor): **Editor plugin loading is descriptor-driven.** The template editor host page now declares available plugins as descriptors, and a generic loader skips disabled feature plugins before importing their code or stylesheet. AI remains lazy-loaded, while Quality uses the same descriptor path from the main editor bundle.

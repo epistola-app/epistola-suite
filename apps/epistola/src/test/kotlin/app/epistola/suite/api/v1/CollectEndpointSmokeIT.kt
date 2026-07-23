@@ -89,7 +89,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     @Test
     fun `ping with API key returns server info and partition assignment`() {
         val (_, key) = seedTenantAndKey()
-        val headers = baseHeaders().apply { add("X-API-Key", key) }
+        val headers = baseHeaders().apply { add(HttpHeaders.AUTHORIZATION, "ApiKey $key") }
         val response = restTemplate.exchange(
             "/api/ping",
             HttpMethod.POST,
