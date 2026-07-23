@@ -1,7 +1,30 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { firstIncompleteTour, nextTour, tourById, TOURS } from './registry.js';
+import {
+  firstIncompleteTour,
+  firstRunnableTour,
+  isTourAvailable,
+  nextAvailableTour,
+  nextTour,
+  type Tour,
+  tourById,
+  TOURS,
+} from './registry.js';
 import { isChapterComplete, markChapterComplete } from './progress.js';
+
+function fakeTour(id: string, available = true): Tour {
+  return {
+    id,
+    title: id,
+    summary: id,
+    version: 1,
+    steps: () => [],
+    ...(available ? {} : { isAvailable: () => false, unavailableHint: 'locked' }),
+  };
+}
+
+const notComplete = (): boolean => false;
+const allComplete = (): boolean => true;
 
 describe('walkthrough registry', () => {
   beforeEach(() => localStorage.clear());
@@ -29,5 +52,34 @@ describe('walkthrough registry', () => {
     expect(firstIncompleteTour(isChapterComplete)?.id).toBe('building');
     for (const t of TOURS) markChapterComplete(t.id, t.version);
     expect(firstIncompleteTour(isChapterComplete)).toBeUndefined();
+  });
+});
+
+describe('walkthrough availability', () => {
+  const host = document.createElement('div');
+
+  it('isTourAvailable defaults to true and honours the predicate', () => {
+    expect(isTourAvailable(fakeTour('a'), host)).toBe(true);
+    expect(isTourAvailable(fakeTour('a', false), host)).toBe(false);
+  });
+
+  it('nextAvailableTour skips locked chapters', () => {
+    const tours = [fakeTour('a'), fakeTour('b', false), fakeTour('c')];
+    expect(nextAvailableTour('a', host, tours)?.id).toBe('c');
+    expect(nextAvailableTour('c', host, tours)).toBeUndefined();
+    expect(nextAvailableTour('missing', host, tours)).toBeUndefined();
+  });
+
+  it('firstRunnableTour skips locked chapters (incomplete and replay)', () => {
+    const tours = [fakeTour('a', false), fakeTour('b'), fakeTour('c')];
+    // First not-yet-complete AND runnable.
+    expect(firstRunnableTour(notComplete, host, tours)?.id).toBe('b');
+    // All complete → first runnable to replay (still skips the locked one).
+    expect(firstRunnableTour(allComplete, host, tours)?.id).toBe('b');
+  });
+
+  it('firstRunnableTour returns undefined when nothing can run', () => {
+    const tours = [fakeTour('a', false), fakeTour('b', false)];
+    expect(firstRunnableTour(notComplete, host, tours)).toBeUndefined();
   });
 });
