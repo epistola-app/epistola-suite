@@ -15,7 +15,7 @@
  */
 import driverCss from 'driver.js/dist/driver.css?inline';
 import type { Driver, DriveStep } from 'driver.js';
-import { firstIncompleteTour, nextTour, tourById, TOURS, type Tour } from './registry.js';
+import { firstRunnableTour, nextAvailableTour, tourById, TOURS, type Tour } from './registry.js';
 import { hasSeenIntro, isChapterComplete, markChapterComplete, markIntroSeen } from './progress.js';
 import { getActiveDriver, setActiveDriver } from './session.js';
 import { injectStyleOnce } from './styles.js';
@@ -79,11 +79,31 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   const { driver } = await import('driver.js');
   ensureDriverStyles();
 
-  const upcoming = nextTour(tour.id);
+  const upcoming = nextAvailableTour(tour.id, host);
+
+  let d: Driver;
+  // Only one step is highlighted at a time, so a single active-cleanup slot is
+  // enough. An interactive step's advance listener is wired on highlight and torn
+  // down when the step is left — driver fires onDeselected both when moving on and
+  // when the tour is destroyed, so listeners never leak.
+  let activeCleanup: (() => void) | null = null;
+  const teardownAdvance = (): void => {
+    activeCleanup?.();
+    activeCleanup = null;
+  };
 
   const steps: DriveStep[] = tour.steps(host).map((step) => ({
     element: hostTarget(host, step.target),
+    // Passive chapters (D4) make the spotlighted region non-interactive.
+    disableActiveInteraction: tour.passive === true,
     onHighlightStarted: step.before ? () => step.before?.(host) : undefined,
+    onHighlighted: step.advance
+      ? () => {
+          teardownAdvance();
+          activeCleanup = step.advance?.(host, () => d.moveNext()) ?? null;
+        }
+      : undefined,
+    onDeselected: step.advance ? () => teardownAdvance() : undefined,
     popover: {
       title: step.title,
       description: step.body,
@@ -95,11 +115,12 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
 
   if (steps.length === 0) return;
 
-  let d: Driver;
   d = driver({
     showProgress: true,
     progressText: '{{current}} of {{total}}',
     allowClose: true,
+    // Passive chapters advance on a backdrop click rather than closing (D4).
+    ...(tour.passive ? { overlayClickBehavior: 'nextStep' as const } : {}),
     // Config-level (not per-step) so it attaches to whichever step is *effectively*
     // last — a trailing target skipped via skipMissingElement must not orphan
     // completion. The Done button both records completion and, if there is a next
@@ -112,6 +133,7 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
       if (upcoming) void runTour(host, upcoming);
     },
     onDestroyed: () => {
+      teardownAdvance();
       if (getActiveDriver() === d) setActiveDriver(null);
     },
     steps,
@@ -126,9 +148,9 @@ export async function startTour(host: HTMLElement, tourId: string): Promise<void
   if (tour) await runTour(host, tour);
 }
 
-/** Start at the first unfinished chapter, or replay from the top when all are done. */
+/** Start at the first unfinished, runnable chapter, or replay the first when all are done. */
 export async function startWalkthrough(host: HTMLElement): Promise<void> {
-  const tour = firstIncompleteTour(isChapterComplete) ?? TOURS[0];
+  const tour = firstRunnableTour(isChapterComplete, host) ?? TOURS[0];
   if (tour) await runTour(host, tour);
 }
 
