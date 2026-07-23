@@ -18,22 +18,25 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpHeaders
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.filter.OncePerRequestFilter
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Authenticates API requests using the X-API-Key header.
+ * Authenticates API requests using `Authorization: ApiKey <key>`.
  *
  * This filter is NOT a @Component — it is registered explicitly by SecurityConfig
  * into the API security filter chain only (paths under /api).
  *
- * If the header is present, the filter validates the key and sets up the
- * SecurityContext with an [ApiKeyAuthenticationToken]. If the key is invalid
- * or expired, a 401 JSON response is returned immediately.
+ * If an API-key credential is present, the filter validates the key and sets
+ * up the SecurityContext with an [ApiKeyAuthenticationToken]. If the key is
+ * invalid or expired, a 401 JSON response is returned immediately.
  *
- * If no X-API-Key header is present, the request passes through to the
- * next filter (e.g., OAuth2 resource server or form login fallback).
+ * The deprecated `X-API-Key` header remains accepted for existing integrations.
+ * A configured legacy header name is accepted as an additional alias, not as a
+ * replacement for `X-API-Key`. Non-API-key `Authorization` schemes pass through
+ * to the next filter (e.g., OAuth2 resource server).
  *
  * Persistence operations are dispatched via the mediator using `SystemInternal`
  * messages ([LookupApiKeyByHash], [RecordApiKeyUsage]) — `MediatorFilter` runs
@@ -57,6 +60,7 @@ class ApiKeyAuthenticationFilter(
     private val meterRegistry: MeterRegistry,
     private val headerName: String = DEFAULT_HEADER_NAME,
     private val objectMapper: ObjectMapper,
+    private val enabled: Boolean = true,
     // Last with a default so unit tests can omit it; production wires the shared
     // Spring bean explicitly (see SecurityConfig) so revoke-invalidation lands.
     private val apiKeyAuthCache: ApiKeyAuthCache = ApiKeyAuthCache(),
@@ -86,21 +90,32 @@ class ApiKeyAuthenticationFilter(
             return
         }
 
-        val apiKeyHeader = request.getHeader(headerName)
+        val credential = resolveCredential(request)
 
-        if (apiKeyHeader.isNullOrBlank()) {
+        if (credential == null) {
             authCounter("no_header").increment()
             filterChain.doFilter(request, response)
             return
         }
 
-        if (!apiKeyHeader.startsWith(ApiKeyService.KEY_PREFIX)) {
+        if (!enabled) {
+            authCounter("disabled_globally").increment()
+            writeUnauthorized(
+                request,
+                response,
+                "API-key authentication is disabled for this deployment. Use Authorization: Bearer <jwt>.",
+                ApiProblemTypes.API_KEY_AUTH_DISABLED,
+            )
+            return
+        }
+
+        if (!credential.value.startsWith(ApiKeyService.KEY_PREFIX)) {
             authCounter("invalid_format").increment()
             writeUnauthorized(request, response, "Invalid API key format")
             return
         }
 
-        val keyHash = apiKeyService.hashKey(apiKeyHeader)
+        val keyHash = apiKeyService.hashKey(credential.value)
         // Cached lookup on the hot path; negative results are cached too. The
         // loader runs in this filter's mediator scope. isUsable() is re-checked
         // below so a cached-but-expired key still fails.
@@ -162,15 +177,54 @@ class ApiKeyAuthenticationFilter(
         filterChain.doFilter(request, response)
     }
 
-    private fun writeUnauthorized(request: HttpServletRequest, response: HttpServletResponse, message: String) {
+    private fun resolveCredential(request: HttpServletRequest): ApiKeyCredential? {
+        parseAuthorizationHeader(request.getHeader(HttpHeaders.AUTHORIZATION))?.let { return it }
+
+        return legacyHeaderNames()
+            .asSequence()
+            .mapNotNull { header -> request.getHeader(header)?.trim()?.takeIf { it.isNotBlank() } }
+            .firstOrNull()
+            ?.let { ApiKeyCredential(it) }
+    }
+
+    private fun parseAuthorizationHeader(value: String?): ApiKeyCredential? {
+        val trimmed = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val separator = trimmed.indexOfFirst { it.isWhitespace() }
+        if (separator < 0) {
+            return if (trimmed.equals(AUTHORIZATION_SCHEME_API_KEY, ignoreCase = true)) {
+                ApiKeyCredential("")
+            } else {
+                null
+            }
+        }
+
+        val scheme = trimmed.substring(0, separator)
+        if (!scheme.equals(AUTHORIZATION_SCHEME_API_KEY, ignoreCase = true)) return null
+
+        return ApiKeyCredential(trimmed.substring(separator + 1).trim())
+    }
+
+    private fun legacyHeaderNames(): List<String> = listOf(headerName, DEFAULT_HEADER_NAME)
+        .filter { it.isNotBlank() }
+        .distinctBy { it.lowercase() }
+
+    private fun writeUnauthorized(
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+        message: String,
+        type: app.epistola.suite.api.v1.ApiProblemType = ApiProblemTypes.UNAUTHORIZED,
+    ) {
         log.debug("API key authentication failed: {}", message)
-        writeProblemDetail(response, objectMapper, request, ApiProblemTypes.UNAUTHORIZED, message)
+        writeProblemDetail(response, objectMapper, request, type, message)
     }
 
     companion object {
         const val DEFAULT_HEADER_NAME = "X-API-Key"
+        const val AUTHORIZATION_SCHEME_API_KEY = "ApiKey"
 
         /** Request attribute key for the validated principal. */
         const val REQUEST_ATTR_PRINCIPAL = "app.epistola.suite.api.security.ApiKeyAuthenticationFilter.PRINCIPAL"
     }
+
+    private data class ApiKeyCredential(val value: String)
 }

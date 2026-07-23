@@ -2,13 +2,13 @@ package app.epistola.suite.cluster
 
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.slf4j.LoggerFactory
 
 /**
  * Verifies the heartbeat log throttle turns a sustained outage into a single
@@ -17,19 +17,19 @@ import org.slf4j.LoggerFactory
  * [ListAppender] — no Spring context, no database.
  */
 class HeartbeatFailureLogTest {
-    // A uniquely-named logger per test instance keeps each test hermetic. The
-    // ListAppender and the per-logger level live on the process-wide logback
-    // LoggerContext; a logger named after the test *class* is shared global state,
-    // so under JUnit class-level concurrency (mode.classes.default=concurrent) the
-    // level save/restore and event capture could race with another test, producing
-    // flaky counts. A private, unique logger is touched by this instance only.
-    private val logger =
-        LoggerFactory.getLogger("${HeartbeatFailureLogTest::class.java.name}#${instances.incrementAndGet()}") as Logger
+    // Use a standalone context instead of LoggerFactory's JVM-global Logback
+    // context. Spring Boot context tests can reinitialize the global context while
+    // unit tests run concurrently, detaching ListAppender instances mid-assertion.
+    private val loggerContext = LoggerContext()
+    private val logger = loggerContext.getLogger(HeartbeatFailureLogTest::class.java.name) as Logger
     private val appender = ListAppender<ILoggingEvent>()
 
     @BeforeEach
     fun attachAppender() {
+        loggerContext.start()
         logger.level = Level.DEBUG // so DEBUG repeats are captured too
+        logger.isAdditive = false
+        appender.context = loggerContext
         appender.start()
         logger.addAppender(appender)
     }
@@ -38,6 +38,7 @@ class HeartbeatFailureLogTest {
     fun detachAppender() {
         logger.detachAppender(appender)
         appender.stop()
+        loggerContext.stop()
     }
 
     private fun events(level: Level) = appender.list.filter { it.level == level }
@@ -99,10 +100,5 @@ class HeartbeatFailureLogTest {
 
         assertThat(events(Level.WARN)).hasSize(2)
         assertThat(events(Level.INFO)).hasSize(1)
-    }
-
-    private companion object {
-        /** Source of unique logger names so each test instance is fully isolated. */
-        private val instances = java.util.concurrent.atomic.AtomicInteger()
     }
 }

@@ -669,6 +669,108 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             .isEqualTo("Hello #662")
     }
 
+    @Test
+    fun `variant draft lifecycle endpoints create publish and discard drafts`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "draft-life-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Draft Lifecycle"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val publish = restTemplate.exchange(
+            "$draftUrl/publish",
+            HttpMethod.POST,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(publish.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(publish.body!!, "$.status")).isEqualTo("published")
+
+        val createDraft = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.POST,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(createDraft.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(JsonPath.read<String>(createDraft.body!!, "$.status")).isEqualTo("draft")
+
+        val discard = restTemplate.exchange(
+            "$draftUrl/discard",
+            HttpMethod.POST,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(discard.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+
+        val getDraft = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(getDraft.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
+    @Test
+    fun `contract draft lifecycle endpoints update list and publish`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "contract-life-${randomSuffix()}"
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Contract Lifecycle"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        val contractDraftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/draft"
+
+        val createDraft = restTemplate.exchange(
+            contractDraftUrl,
+            HttpMethod.POST,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(createDraft.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(createDraft.body!!, "$.status")).isEqualTo("draft")
+
+        val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
+        val updateDraft = restTemplate.exchange(
+            contractDraftUrl,
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel": $dataModel}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(updateDraft.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Boolean>(updateDraft.body!!, "$.success")).isTrue
+        assertThat(JsonPath.read<String>(updateDraft.body!!, "$.status")).isEqualTo("draft")
+
+        val versions = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/versions",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(versions.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(versions.body!!, "$.items[*].status")).contains("draft")
+
+        val publish = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/publish",
+            HttpMethod.POST,
+            HttpEntity("""{"confirmed": true}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(publish.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Boolean>(publish.body!!, "$.published")).isTrue
+        assertThat(JsonPath.read<Boolean>(publish.body!!, "$.compatible")).isTrue
+    }
+
     /**
      * #631: variant title is required. Contract 0.12.0 makes `CreateVariantRequest.title` a
      * required non-null string, so the two rejection paths differ and both are pinned here:

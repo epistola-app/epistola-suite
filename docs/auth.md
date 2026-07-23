@@ -315,13 +315,16 @@ Keys are created as **non-personal accounts (NPAs)** — the key itself becomes 
 
 ### Using an API Key
 
-Include the key in every REST API request via the `X-API-Key` header:
+Include the key in every REST API request via the `Authorization` header:
 
 ```bash
-curl -H "X-API-Key: epk_abc123..." https://epistola.example.com/api/v1/...
+curl -H "Authorization: ApiKey epk_abc123..." https://epistola.example.com/api/v1/...
 ```
 
-The header name is configurable via `epistola.auth.api-key.header-name` (defaults to `X-API-Key`).
+The legacy `X-API-Key` header is still accepted for existing integrations. The
+compatibility header name is configurable via `epistola.auth.api-key.header-name`
+(defaults to `X-API-Key`) and is treated as an additional alias, not as a
+replacement for the standard `Authorization: ApiKey` scheme.
 
 ### Key Format
 
@@ -341,7 +344,7 @@ The header name is configurable via `epistola.auth.api-key.header-name` (default
 ```
 Client                    ApiKeyAuthenticationFilter            Database
   │                              │                                │
-  │  X-API-Key: epk_...          │                                │
+  │  Authorization: ApiKey epk_...                               │
   │ ─────────────────────────►   │                                │
   │                              │  SHA-256(key)                  │
   │                              │  LookupApiKeyByHash(hash)      │
@@ -435,8 +438,8 @@ This error means code is trying to access `SecurityContext.current()` outside of
 
 ### API Key Requests Return 401
 
-1. Verify the key is correctly included in the `X-API-Key` header (not `Authorization: Bearer`)
+1. Verify the key is correctly included as `Authorization: ApiKey <key>`; legacy `X-API-Key` is still accepted for older clients
 2. Check that the key has not expired
 3. Confirm the key was not revoked (check the API keys list in the UI)
-4. If using a custom header name, verify `epistola.auth.api-key.header-name` matches
+4. If using a custom legacy header name, verify `epistola.auth.api-key.header-name` matches
 5. Ensure the request path starts with `/api` — API key auth only applies to the API security chain

@@ -2,9 +2,15 @@ package app.epistola.suite.api.v1
 
 import app.epistola.api.CatalogsApi
 import app.epistola.api.model.CatalogDto
+import app.epistola.api.model.CatalogInstallResultDto
 import app.epistola.api.model.CatalogListResponse
 import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.ImportCatalogResponse
+import app.epistola.api.model.ReleaseCatalogRequest
+import app.epistola.api.model.ReleaseCatalogResponse
+import app.epistola.api.model.RemovedCatalogResourceDto
+import app.epistola.api.model.UpgradeCatalogRequest
+import app.epistola.api.model.UpgradeCatalogResponse
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.catalog.CatalogKey
@@ -12,6 +18,8 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.UpgradeResourceChange
@@ -80,6 +88,60 @@ class EpistolaCatalogApi : CatalogsApi {
                 conflicts = diff.conflicts,
                 blockedByConflicts = diff.hasConflicts,
                 previousVersion = diff.previousVersion,
+            ),
+        )
+    }
+
+    override fun releaseCatalog(
+        tenantId: String,
+        catalogId: String,
+        releaseCatalogRequest: ReleaseCatalogRequest,
+    ): ResponseEntity<ReleaseCatalogResponse> {
+        val result = ReleaseCatalogVersion(
+            tenantKey = TenantKey.of(tenantId),
+            catalogKey = CatalogKey.of(catalogId),
+            version = releaseCatalogRequest.releaseVersion,
+            notes = releaseCatalogRequest.notes,
+        ).execute()
+
+        return ResponseEntity.ok(
+            ReleaseCatalogResponse(
+                version = result.version,
+                fingerprint = result.fingerprint,
+                releasedAt = result.releasedAt,
+                unchangedContent = result.unchangedContent,
+                previousVersion = result.previousVersion,
+            ),
+        )
+    }
+
+    override fun upgradeCatalog(
+        tenantId: String,
+        catalogId: String,
+        upgradeCatalogRequest: UpgradeCatalogRequest?,
+    ): ResponseEntity<UpgradeCatalogResponse> {
+        val result = UpgradeCatalog(
+            tenantKey = TenantKey.of(tenantId),
+            catalogKey = CatalogKey.of(catalogId),
+            includeNewSlugs = upgradeCatalogRequest?.includeNewSlugs ?: emptyList(),
+        ).execute()
+
+        return ResponseEntity.ok(
+            UpgradeCatalogResponse(
+                newVersion = result.newVersion,
+                installResults = result.installResults.map {
+                    CatalogInstallResultDto(
+                        type = it.type,
+                        slug = it.slug,
+                        status = CatalogInstallResultDto.Status.valueOf(it.status.name),
+                        errorMessage = it.errorMessage,
+                    )
+                },
+                removedResources = result.removedResources.map {
+                    RemovedCatalogResourceDto(type = it.type, slug = it.slug)
+                },
+                aborted = result.aborted,
+                previousVersion = result.previousVersion,
             ),
         )
     }

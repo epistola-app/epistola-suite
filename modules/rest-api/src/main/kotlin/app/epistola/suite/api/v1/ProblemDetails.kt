@@ -41,6 +41,7 @@ object ApiProblemTypes {
     val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_ENTITY, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
     val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
+    val API_KEY_AUTH_DISABLED = problem("API_KEY_AUTH_DISABLED", "API Key Authentication Disabled", HttpStatus.UNAUTHORIZED, "API-key authentication is disabled for this deployment; use Authorization: Bearer <jwt> instead.", emptyList())
     val ACCESS_DENIED = problem("ACCESS_DENIED", "Access Denied", HttpStatus.FORBIDDEN, "The authenticated caller is not allowed to access the requested resource.", listOf("tenantId"))
     val PERMISSION_DENIED = problem("PERMISSION_DENIED", "Permission Denied", HttpStatus.FORBIDDEN, "The caller lacks the required fine-grained permission.", listOf("requiredPermission", "tenantId"))
     val PLATFORM_ACCESS_DENIED = problem("PLATFORM_ACCESS_DENIED", "Platform Access Denied", HttpStatus.FORBIDDEN, "The caller lacks the required platform role.", listOf("requiredRole"))
@@ -108,6 +109,7 @@ object ApiProblemTypes {
         DATA_MODEL_VALIDATION_ERROR,
         BAD_REQUEST,
         UNAUTHORIZED,
+        API_KEY_AUTH_DISABLED,
         ACCESS_DENIED,
         PERMISSION_DENIED,
         PLATFORM_ACCESS_DENIED,

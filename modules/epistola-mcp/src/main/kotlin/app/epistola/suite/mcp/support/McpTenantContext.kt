@@ -7,8 +7,8 @@ import app.epistola.suite.security.SecurityContext
 /**
  * Resolve the tenant the current MCP request is operating in.
  *
- * MCP tools authenticate via per-tenant `X-API-Key`; the API-key filter
- * populates [app.epistola.suite.security.EpistolaPrincipal.currentTenantId].
+ * MCP tools authenticate via per-tenant `Authorization: ApiKey` credentials;
+ * the API-key filter populates [app.epistola.suite.security.EpistolaPrincipal.currentTenantId].
  * Tools therefore never take a `tenantId` parameter — it is implicit in
  * the auth context.
  */

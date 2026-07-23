@@ -1,8 +1,11 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.StencilsApi
+import app.epistola.api.model.ApplyStencilUpgradeRequest
+import app.epistola.api.model.ApplyStencilUpgradeResponse
 import app.epistola.api.model.CreateStencilRequest
 import app.epistola.api.model.CreateStencilVersionRequest
+import app.epistola.api.model.DroppedStencilFillDto
 import app.epistola.api.model.StencilDto
 import app.epistola.api.model.StencilListResponse
 import app.epistola.api.model.StencilUsageListResponse
@@ -21,8 +24,12 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -35,6 +42,7 @@ import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
+import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsage
 import app.epistola.suite.stencils.queries.GetStencilVersion
@@ -325,6 +333,40 @@ class EpistolaStencilApi(
         // Upgrade preview is a Phase 5 feature — return empty for now
         return ResponseEntity.ok(
             UpgradePreviewListResponse(items = emptyList()),
+        )
+    }
+
+    override fun applyStencilUpgrade(
+        tenantId: String,
+        catalogId: String,
+        stencilId: String,
+        applyStencilUpgradeRequest: ApplyStencilUpgradeRequest,
+    ): ResponseEntity<ApplyStencilUpgradeResponse> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(
+            TemplateKey.of(applyStencilUpgradeRequest.templateId),
+            CatalogId(CatalogKey.of(applyStencilUpgradeRequest.catalogKey), tenantIdComposite),
+        )
+        val variantIdComposite = VariantId(VariantKey.of(applyStencilUpgradeRequest.variantId), templateIdComposite)
+
+        val result = UpdateStencilInTemplate(
+            variantId = variantIdComposite,
+            stencilId = stencilIdComposite,
+            newVersion = applyStencilUpgradeRequest.newVersion,
+        ).execute() ?: throw ValidationException(field = "variantId", message = "Template variant not found")
+
+        return ResponseEntity.ok(
+            ApplyStencilUpgradeResponse(
+                upgraded = result.upgradedCount,
+                droppedFills = result.droppedFills.mapValues { (_, fills) ->
+                    fills.map { DroppedStencilFillDto(name = it.name, contentSummary = it.contentSummary) }
+                },
+                droppedBindings = result.droppedBindings.mapValues { (_, bindings) ->
+                    bindings.map { it.name }
+                },
+                unboundRequired = result.unboundRequired,
+            ),
         )
     }
 }
