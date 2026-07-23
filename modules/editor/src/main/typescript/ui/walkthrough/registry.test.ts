@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  firstIncompleteTour,
   firstRunnableTour,
   isTourAvailable,
   nextAvailableTour,
@@ -46,12 +45,14 @@ describe('walkthrough registry', () => {
     expect(tourById('does-not-exist')).toBeUndefined();
   });
 
-  it('firstIncompleteTour advances as chapters are completed', () => {
-    expect(firstIncompleteTour(isChapterComplete)?.id).toBe('orientation');
+  it('firstRunnableTour advances as chapters are completed, then replays the first', () => {
+    const host = document.createElement('div');
+    expect(firstRunnableTour(isChapterComplete, host)?.id).toBe('orientation');
     markChapterComplete('orientation', 1);
-    expect(firstIncompleteTour(isChapterComplete)?.id).toBe('building');
+    expect(firstRunnableTour(isChapterComplete, host)?.id).toBe('building');
     for (const t of TOURS) markChapterComplete(t.id, t.version);
-    expect(firstIncompleteTour(isChapterComplete)).toBeUndefined();
+    // All done → replay from the first chapter.
+    expect(firstRunnableTour(isChapterComplete, host)?.id).toBe('orientation');
   });
 });
 

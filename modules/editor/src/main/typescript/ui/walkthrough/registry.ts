@@ -77,11 +77,6 @@ export function nextTour(id: string): Tour | undefined {
   return i >= 0 ? TOURS[i + 1] : undefined;
 }
 
-/** The first chapter not yet completed per `isComplete`, or undefined when all are done. */
-export function firstIncompleteTour(isComplete: CompletionPredicate): Tour | undefined {
-  return TOURS.find((t) => !isComplete(t.id, t.version));
-}
-
 /** Whether `tour` can run in this editor host (D6). Absent predicate ⇒ available. */
 export function isTourAvailable(tour: Tour, host: HTMLElement): boolean {
   return tour.isAvailable?.(host) ?? true;
