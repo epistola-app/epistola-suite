@@ -10,8 +10,10 @@ surfaces the result as a banner on tenant-home pages.
   08:00–08:59 UTC window (the minute is derived from the installation id, so each install keeps a
   fixed time while load is spread across the hour). Configurable via `daily-window-start-hour` /
   `daily-window-minutes`.
-- **Privacy:** only the current version string is sent (`User-Agent` and `X-Epistola-Suite-Version`
-  headers). No installation id, tenant data, or other identifiers leave the instance.
+- **Request identity:** the current version string is sent via `User-Agent` and
+  `X-Epistola-Suite-Version`; the stable installation UUID is sent via
+  `X-Epistola-Installation-Id` so the release endpoint can count installations per version. No
+  tenant data leaves the instance.
 - **Disable:** `epistola.version-check.enabled=false`.
 - **Independent** of the commercial support-hub discovery (`hub.json`), which is a separate document.
 

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.net.InetSocketAddress
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 class VersionCheckClientTest {
@@ -26,11 +27,13 @@ class VersionCheckClientTest {
     }
 
     @Test
-    fun `fetch sends current version header and parses releases document`() {
+    fun `fetch sends current version and installation id headers and parses releases document`() {
         val seenVersion = AtomicReference<String?>()
+        val seenInstallationId = AtomicReference<String?>()
         val seenUserAgent = AtomicReference<String?>()
         server.createContext("/.well-known/epistola/releases.json") { exchange ->
             seenVersion.set(exchange.requestHeaders.getFirst("X-Epistola-Suite-Version"))
+            seenInstallationId.set(exchange.requestHeaders.getFirst("X-Epistola-Installation-Id"))
             seenUserAgent.set(exchange.requestHeaders.getFirst("User-Agent"))
             val body = """
                 {
@@ -56,9 +59,15 @@ class VersionCheckClientTest {
         }
 
         val client = VersionCheckClient(VersionCheckConfiguration().versionCheckRestClient(VersionCheckProperties()))
-        val document = client.fetch("http://127.0.0.1:$port/.well-known/epistola/releases.json", "1.0.0-RC3")
+        val installationId = UUID.fromString("00000000-0000-4000-8000-000000000123")
+        val document = client.fetch(
+            "http://127.0.0.1:$port/.well-known/epistola/releases.json",
+            "1.0.0-RC3",
+            installationId,
+        )
 
         assertThat(seenVersion.get()).isEqualTo("1.0.0-RC3")
+        assertThat(seenInstallationId.get()).isEqualTo("00000000-0000-4000-8000-000000000123")
         assertThat(seenUserAgent.get()).isEqualTo("epistola-suite/1.0.0-RC3")
         assertThat(document.schemaVersion).isEqualTo(1)
         val product = document.products[VersionCheckService.PRODUCT_KEY]
@@ -77,7 +86,11 @@ class VersionCheckClientTest {
         val client = VersionCheckClient(VersionCheckConfiguration().versionCheckRestClient(VersionCheckProperties()))
 
         assertThatThrownBy {
-            client.fetch("http://127.0.0.1:$port/.well-known/epistola/releases.json", "1.0.0")
+            client.fetch(
+                "http://127.0.0.1:$port/.well-known/epistola/releases.json",
+                "1.0.0",
+                UUID.fromString("00000000-0000-4000-8000-000000000123"),
+            )
         }.isInstanceOf(VersionMetadataUnavailableException::class.java)
             .hasMessageContaining("Release metadata not found")
     }

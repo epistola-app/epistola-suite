@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[dev]** feat(version-check): **Version checks now identify the installation.** The release metadata request includes the stable `X-Epistola-Installation-Id` header alongside the current version, allowing the release endpoint to count installations by running version without sending tenant data.
 - **[dev]** refactor(editor): **Editor plugin loading is descriptor-driven.** The template editor host page now declares available plugins as descriptors, and a generic loader skips disabled feature plugins before importing their code or stylesheet. AI remains lazy-loaded, while Quality uses the same descriptor path from the main editor bundle.
 - **[dev]** refactor(editor): **Editor feature state now carries metadata, not just booleans.** The editor host config now exposes a generic `features` map where each feature has resolved `enabled` state plus optional maturity badge metadata from `KnownFeatures`. The engine keeps `isFeatureEnabled()` as the boolean read API, while plugin setup can use the same feature object for badges such as the AI tab's Alpha marker.
 - **[dev]** chore(ai): **AI assistants now skip irrelevant local and generated files.** Added a root `.aiignore` covering dependency folders, build outputs, IDE/assistant-local state, local secrets, logs, temporary files, and bulky binary artifacts so repository context stays focused on source, docs, tests, and configuration.
