@@ -17,18 +17,19 @@ async function mount(container) {
   const catalogId = config.catalogId;
   const templateId = config.templateId;
   const variantId = config.variantId;
+  const features = config.features ?? {};
 
   // Load plugins dynamically
   const plugins = [];
 
-  if (config.ai?.enabled) {
+  if (features.aiChat?.enabled) {
     // AI chat plugin — uses mock transport until backend is wired up.
     try {
       const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
       plugins.push(
         createAiPlugin({
           sendMessage: createMockTransport(),
-          badge: config.ai.badge,
+          badge: features.aiChat.badge,
         }),
       );
     } catch (e) {
@@ -36,7 +37,7 @@ async function mount(container) {
     }
   }
 
-  if (config.featureFlags?.quality && config.quality) {
+  if (features.quality?.enabled && config.quality) {
     plugins.push(
       createQualityPlugin({
         findingsUrl: config.quality.findingsUrl,
@@ -52,7 +53,7 @@ async function mount(container) {
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
     plugins: plugins,
-    featureFlags: config.featureFlags,
+    features: features,
     locale: config.locale,
     fontOptions: {
       listFonts: async () => {

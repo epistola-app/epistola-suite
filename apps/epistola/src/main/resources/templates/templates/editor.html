@@ -8,7 +8,7 @@
     <th:block th:replace="~{fragments/htmx :: htmx}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
-    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${featureFlags['aiChat']}">
+    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${editorFeatures['aiChat']['enabled']}">
     <style>
         .editor-page {
             display: flex;
@@ -90,14 +90,7 @@
         "dataExamples": [[${dataExamples}]],
         "dataModel": [[${dataModel}]],
         "locale": [[${resolvedLocale}]],
-        "featureFlags": [[${featureFlags}]],
-        "ai": {
-            "enabled": [[${featureFlags['aiChat']}]],
-            "badge": {
-                "label": [[${aiChatStage.label}]],
-                "className": [[${aiChatStage.badgeClass}]]
-            }
-        },
+        "features": [[${editorFeatures}]],
         "quality": {
             "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
             "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]

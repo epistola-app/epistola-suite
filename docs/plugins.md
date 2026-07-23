@@ -362,8 +362,11 @@ The Thymeleaf host page conditionally constructs plugin instances based on backe
 <!-- editor.html -->
 <script type="application/json" id="editor-config" th:inline="javascript">
   {
-    "ai": {
-      "enabled": [[${featureFlags['aiChat']}]]
+    "features": {
+      "aiChat": {
+        "enabled": [[${editorFeatures['aiChat']['enabled']}]],
+        "badge": [[${editorFeatures['aiChat']['badge']}]]
+      }
     }
   }
 </script>
@@ -372,13 +375,14 @@ The Thymeleaf host page conditionally constructs plugin instances based on backe
 ```javascript
 // Editor mount script — conditional plugin loading
 const plugins = [];
+const features = config.features ?? {};
 
-if (config.ai?.enabled) {
+if (features.aiChat?.enabled) {
   const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
   plugins.push(
     createAiPlugin({
       sendMessage: createMockTransport(),
-      badge: config.ai.badge,
+      badge: features.aiChat.badge,
     }),
   );
 }
@@ -386,6 +390,7 @@ if (config.ai?.enabled) {
 mountEditor({
   container: document.getElementById("editor-container"),
   template: window.TEMPLATE_MODEL,
+  features,
   plugins,
   // ... other options
 });

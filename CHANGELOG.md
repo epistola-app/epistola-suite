@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(editor): **Editor feature state now carries metadata, not just booleans.** The editor host config now exposes a generic `features` map where each feature has resolved `enabled` state plus optional maturity badge metadata from `KnownFeatures`. The engine keeps `isFeatureEnabled()` as the boolean read API, while plugin setup can use the same feature object for badges such as the AI tab's Alpha marker.
 - **[user]** feat(editor): **The AI editor tab is now an alpha feature toggle.** The template editor no longer loads or shows the AI chat tab by default; tenant managers can enable the alpha `ai-chat` feature from Settings → Features, and the tab is marked Alpha when it appears.
 - **[dev]** docs(editor): **A draft ADR now records editor plugin selection intents.** The editor plugin contract uses typed host actions for plugin-driven selections that need UI behavior metadata, while existing DOM events remain scoped to shell commands such as save and preview toggles.
 - **[dev]** refactor(quality): **Quality checks no longer run on a daily backend sweep while the feature is alpha.** In-process checks now run only on publish and explicit editor **Check now**, keeping background cost and latency out of the scheduler until the run-lifecycle work for remote/expensive checks exists.

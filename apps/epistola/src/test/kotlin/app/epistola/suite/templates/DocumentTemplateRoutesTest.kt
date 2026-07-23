@@ -1358,8 +1358,9 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("id=\"editor-container\"")
                 assertThat(response.body).contains("/editor/template-editor-")
-                assertThat(response.body).contains("\"ai\": {")
-                assertThat(response.body).contains("\"enabled\": false")
+                assertThat(response.body).contains("\"features\": {")
+                assertThat(response.body).contains("\"aiChat\":{\"enabled\":false")
+                assertThat(response.body).contains("\"badge\":{\"label\":\"Alpha\",\"className\":\"badge-alpha\"}")
                 assertThat(response.body).doesNotContain("/editor/ai-plugin.css")
             }
         }
@@ -1388,10 +1389,9 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("/editor/ai-plugin-")
-                assertThat(response.body).contains("\"ai\": {")
-                assertThat(response.body).contains("\"enabled\": true")
-                assertThat(response.body).contains("\"label\": \"Alpha\"")
-                assertThat(response.body).contains("\"className\": \"badge-alpha\"")
+                assertThat(response.body).contains("\"features\": {")
+                assertThat(response.body).contains("\"aiChat\":{\"enabled\":true")
+                assertThat(response.body).contains("\"badge\":{\"label\":\"Alpha\",\"className\":\"badge-alpha\"}")
             }
         }
 

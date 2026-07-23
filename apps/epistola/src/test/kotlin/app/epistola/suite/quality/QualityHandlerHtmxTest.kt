@@ -355,8 +355,8 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         )
 
         val body = response.body!!
-        assertThat(body).contains("\"featureFlags\"")
-        assertThat(body).contains("\"quality\":true")
+        assertThat(body).contains("\"features\"")
+        assertThat(body).contains("\"quality\":{\"enabled\":true")
         assertThat(body).contains(
             "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
                 "/${subject.templateKey.value}/variants/${subject.variantKey}/quality",
