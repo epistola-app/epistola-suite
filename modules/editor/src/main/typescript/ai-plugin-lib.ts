@@ -12,8 +12,12 @@
 
 import './styles/ai-panel.css';
 
-export { createAiPlugin, type AiPluginOptions } from './plugins/ai/ai-plugin.js';
-export { createMockTransport, type MockTransportOptions } from './plugins/ai/mock-transport.js';
+import type { EditorPluginFactoryContext } from './plugins/plugin-loader.js';
+import { createAiPlugin, type AiPluginOptions } from './plugins/ai/ai-plugin.js';
+import { createMockTransport, type MockTransportOptions } from './plugins/ai/mock-transport.js';
+
+export { createAiPlugin, createMockTransport };
+export type { AiPluginOptions, MockTransportOptions };
 export type {
   SendMessageFn,
   ChatRequest,
@@ -21,3 +25,10 @@ export type {
   ChatAttachment,
   AiProposal,
 } from './plugins/ai/types.js';
+
+export function createEditorPlugin(context: EditorPluginFactoryContext) {
+  return createAiPlugin({
+    sendMessage: createMockTransport(),
+    badge: context.feature.badge ?? undefined,
+  });
+}

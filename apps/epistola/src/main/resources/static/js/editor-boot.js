@@ -11,7 +11,8 @@ async function mount(container) {
   container.dataset.editorMounted = 'true';
   const config = JSON.parse(island.textContent);
 
-  const { createQualityPlugin, mountEditor } = await import(config.editorModuleUrl);
+  const editorModule = await import(config.editorModuleUrl);
+  const { loadEditorPlugins, mountEditor } = editorModule;
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
@@ -19,33 +20,11 @@ async function mount(container) {
   const variantId = config.variantId;
   const features = config.features ?? {};
 
-  // Load plugins dynamically
-  const plugins = [];
-
-  if (features.aiChat?.enabled) {
-    // AI chat plugin — uses mock transport until backend is wired up.
-    try {
-      const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
-      plugins.push(
-        createAiPlugin({
-          sendMessage: createMockTransport(),
-          badge: features.aiChat.badge,
-        }),
-      );
-    } catch (e) {
-      console.warn('AI plugin failed to load:', e);
-    }
-  }
-
-  if (features.quality?.enabled && config.quality) {
-    plugins.push(
-      createQualityPlugin({
-        findingsUrl: config.quality.findingsUrl,
-        checkUrl: config.quality.checkUrl,
-        csrfToken: () => window.getCsrfToken(),
-      }),
-    );
-  }
+  const plugins = await loadEditorPlugins(config.plugins, {
+    features,
+    bundledModule: editorModule,
+    csrfToken: () => window.getCsrfToken(),
+  });
 
   mountEditor({
     container: container,

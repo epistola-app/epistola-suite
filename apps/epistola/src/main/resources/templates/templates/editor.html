@@ -8,7 +8,6 @@
     <th:block th:replace="~{fragments/htmx :: htmx}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
-    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${editorFeatures['aiChat']['enabled']}">
     <style>
         .editor-page {
             display: flex;
@@ -81,7 +80,6 @@
     <script type="application/json" id="editor-config" th:inline="javascript">
     {
         "editorModuleUrl": [[@{/editor/template-editor.js}]],
-        "aiPluginUrl": [[@{/editor/ai-plugin.js}]],
         "templateModel": [[${templateModel}]],
         "templateId": [[${templateId}]],
         "tenantId": [[${tenantId}]],
@@ -91,10 +89,24 @@
         "dataModel": [[${dataModel}]],
         "locale": [[${resolvedLocale}]],
         "features": [[${editorFeatures}]],
-        "quality": {
-            "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
-            "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]
-        }
+        "plugins": [
+            {
+                "id": "ai",
+                "feature": "aiChat",
+                "moduleUrl": [[@{/editor/ai-plugin.js}]],
+                "stylesheetUrl": [[@{/editor/ai-plugin.css}]],
+                "factoryExport": "createEditorPlugin"
+            },
+            {
+                "id": "quality",
+                "feature": "quality",
+                "factoryExport": "createQualityEditorPlugin",
+                "config": {
+                    "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
+                    "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]
+                }
+            }
+        ]
     }
     </script>
     <script type="module" th:src="@{/js/editor-boot.js}"></script>

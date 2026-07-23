@@ -45,11 +45,19 @@ export type {
 } from './components/stencil/types.js';
 export { EditorEngine } from './engine/EditorEngine.js';
 export { createQualityPlugin } from './ui/quality-plugin.js';
+export { createQualityEditorPlugin } from './ui/quality-plugin.js';
 export type {
   QualityFinding,
   QualityPanelData,
   QualityPluginOptions,
 } from './ui/quality-plugin.js';
+export { loadEditorPlugins } from './plugins/plugin-loader.js';
+export type {
+  EditorPluginDescriptor,
+  EditorPluginFactory,
+  EditorPluginFactoryContext,
+  EditorPluginLoadOptions,
+} from './plugins/plugin-loader.js';
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';
 export type {
   EditorPlugin,

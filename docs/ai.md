@@ -441,25 +441,21 @@ export class EpistolaAiPanel extends LitElement {
 
 ### Host Page Wiring
 
-The host page (Thymeleaf) conditionally constructs the current AI plugin based on the resolved `ai-chat` feature toggle in the editor config JSON. The alpha tab uses the mock transport until the backend AI module is wired:
+The host page (Thymeleaf) declares the AI plugin as an editor plugin descriptor. The generic plugin loader checks the resolved `ai-chat` feature state before importing the AI entry point, so disabled tenants do not load the AI plugin JavaScript or stylesheet. The alpha tab uses the mock transport until the backend AI module is wired:
 
 ```javascript
-// editor.html — conditional AI plugin loading
-const plugins = [];
-
-if (config.ai?.enabled) {
-  const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
-  plugins.push(
-    createAiPlugin({
-      sendMessage: createMockTransport(),
-      badge: config.ai.badge,
-    }),
-  );
-}
+const features = config.features ?? {};
+const editorModule = await import(config.editorModuleUrl);
+const plugins = await editorModule.loadEditorPlugins(config.plugins, {
+  features,
+  bundledModule: editorModule,
+  csrfToken: () => window.getCsrfToken(),
+});
 
 mountEditor({
   container: document.getElementById("editor-container"),
   template: window.TEMPLATE_MODEL,
+  features,
   plugins,
   onSave: async (template) => {
     /* ... */

@@ -356,7 +356,7 @@ disconnectedCallback() {
 
 ### Host Page Wiring
 
-The Thymeleaf host page conditionally constructs plugin instances based on backend-provided data. The current AI chat surface uses the resolved per-tenant `ai-chat` feature toggle in the editor config JSON:
+The Thymeleaf host page declares available plugin descriptors and resolved feature state. The generic editor plugin loader skips disabled descriptors before importing plugin code, so lazy plugins such as AI stay out of the page until their feature is enabled.
 
 ```html
 <!-- editor.html -->
@@ -367,25 +367,28 @@ The Thymeleaf host page conditionally constructs plugin instances based on backe
         "enabled": [[${editorFeatures['aiChat']['enabled']}]],
         "badge": [[${editorFeatures['aiChat']['badge']}]]
       }
-    }
+    },
+    "plugins": [
+      {
+        "id": "ai",
+        "feature": "aiChat",
+        "moduleUrl": [[@{/editor/ai-plugin.js}]],
+        "stylesheetUrl": [[@{/editor/ai-plugin.css}]],
+        "factoryExport": "createEditorPlugin"
+      }
+    ]
   }
 </script>
 ```
 
 ```javascript
-// Editor mount script — conditional plugin loading
-const plugins = [];
 const features = config.features ?? {};
-
-if (features.aiChat?.enabled) {
-  const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
-  plugins.push(
-    createAiPlugin({
-      sendMessage: createMockTransport(),
-      badge: features.aiChat.badge,
-    }),
-  );
-}
+const editorModule = await import(config.editorModuleUrl);
+const plugins = await editorModule.loadEditorPlugins(config.plugins, {
+  features,
+  bundledModule: editorModule,
+  csrfToken: () => window.getCsrfToken(),
+});
 
 mountEditor({
   container: document.getElementById("editor-container"),
@@ -399,8 +402,8 @@ mountEditor({
 This pattern:
 
 - Only loads plugin JS when the feature/plugin is enabled (code splitting)
-- Passes host-page concerns to the plugin factory
-- Keeps the editor module unaware of specific plugin implementations
+- Passes host-page concerns through plugin descriptor config
+- Keeps page bootstrap code unaware of specific plugin implementations
 
 ---
 
