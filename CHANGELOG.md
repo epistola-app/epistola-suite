@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** chore(db): **CI now rejects out-of-order runtime Flyway migrations before merge.** The new `checkMigrationVersions` Gradle task compares new runtime migrations with the previously committed migration history, fails stale timestamps that would require Flyway `outOfOrder`, and also rejects modifying, deleting, or renaming already-merged runtime migrations. The build workflow fetches full history and runs the guard before compilation, while `./gradlew check` covers it locally.
+
 ## [1.0.0-RC4] - 2026-07-23
 
 This release completes REST API coverage for `epistola-contract` 0.14.0, adds URL-addressable create and upload dialogs, introduces the Quality report and editor panel, and adds the beta PDF render worker. It also improves API-key authentication, JavaScript compression, import validation, and editor usability. **Breaking before GA:** blob storage was restructured, template variant titles are now required, and the stencil-parameters feature toggle was retired.

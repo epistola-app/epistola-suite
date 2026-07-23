@@ -49,6 +49,12 @@ Rules:
   acceptable because every database is rebuilt from scratch.
 - **Never reuse a timestamp.** If `./gradlew test` fails with a Flyway
   duplicate-version error, bump your file's seconds by one and retry.
+- **Always append after the target branch.** Before opening or updating a PR,
+  run `./gradlew checkMigrationVersions`. The guard rejects any new runtime
+  migration whose timestamp is not greater than the latest runtime migration in
+  the previously committed history (CI uses the PR target branch as that base).
+  This catches the out-of-order case where another PR merged a later timestamp
+  first; generate a fresh timestamp instead of keeping the stale filename.
 - **Cross-module dependency rule.** A migration in a non-core module that
   references a core table (FK, or a core `DOMAIN` type) must have a timestamp
   strictly **after** every core migration it depends on. In practice: ship the

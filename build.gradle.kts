@@ -1,4 +1,5 @@
 plugins {
+    base
     // kotlin-jvm, ktlint, and kover are on the classpath via buildSrc convention plugins
     alias(libs.plugins.kotlin.spring) apply false
     alias(libs.plugins.spring.boot) apply false
@@ -58,4 +59,17 @@ kover {
             }
         }
     }
+}
+
+tasks.register<CheckMigrationVersionsTask>("checkMigrationVersions") {
+    description = "Checks that new runtime Flyway migrations append after the target branch head."
+    group = "verification"
+    repositoryDir.set(layout.projectDirectory)
+    explicitBaseRef.set(providers.gradleProperty("migrationVersionBaseRef"))
+    envBaseRef.set(providers.environmentVariable("MIGRATION_VERSION_BASE_REF"))
+    githubBaseRef.set(providers.environmentVariable("GITHUB_BASE_REF"))
+}
+
+tasks.named("check") {
+    dependsOn("checkMigrationVersions")
 }

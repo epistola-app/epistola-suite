@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Check contract version
         if: github.event_name == 'pull_request'
@@ -69,6 +71,9 @@ jobs:
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+
+      - name: Check migration versions
+        run: gradle checkMigrationVersions
 
       - name: Compile (primes the Gradle build cache for the test jobs)
         run: gradle testClasses
