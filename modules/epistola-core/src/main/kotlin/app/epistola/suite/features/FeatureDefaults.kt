@@ -20,10 +20,17 @@ data class FeatureDefaults(
      * deliberate edit and not a silent change of meaning.
      */
     val quality: Boolean = false,
+    /**
+     * AI chat in the template editor. This is an editor-only alpha surface for now, using the same
+     * toggle-only model as quality: no support-tier entitlement and no hub-only default. Off by
+     * default until the assistant surface is production-ready.
+     */
+    val aiChat: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
         KnownFeatures.QUALITY -> quality
+        KnownFeatures.AI_CHAT -> aiChat
         else -> false
     }
 }

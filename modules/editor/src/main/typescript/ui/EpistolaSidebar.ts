@@ -16,6 +16,10 @@ import './EpistolaInspector.js';
 interface TabDefinition {
   id: string;
   label: string | (() => string);
+  badge?: {
+    label: string;
+    className: string;
+  };
   icon?: string;
   render: () => TemplateResult;
 }
@@ -189,6 +193,7 @@ export class EpistolaSidebar extends LitElement {
     const pluginDefs: TabDefinition[] = (this.pluginTabs ?? []).map((tab) => ({
       id: tab.id,
       label: tab.label,
+      badge: tab.badge,
       icon: tab.icon,
       render: () => {
         if (!this.pluginContext) return html``;
@@ -230,6 +235,11 @@ export class EpistolaSidebar extends LitElement {
                   @click=${() => this._setTab(tab.id)}
                 >
                   ${label}
+                  ${tab.badge
+                    ? html`<span class="sidebar-tab-badge badge ${tab.badge.className}"
+                        >${tab.badge.label}</span
+                      >`
+                    : nothing}
                 </button>
               `;
             })}

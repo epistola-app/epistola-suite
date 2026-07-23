@@ -15,7 +15,7 @@ import {
   bindingErrorsForSaveState,
 } from '../components/stencil/binding-errors.js';
 import type { ComponentRegistry, ComponentDefinition } from '../engine/registry.js';
-import type { EditorFeatureFlags } from '../engine/feature-flags.js';
+import type { EditorFeatures } from '../engine/feature-flags.js';
 import type { FetchPreviewFn } from './preview-service.js';
 import { SaveService, type SaveState, type SaveFn } from './save-service.js';
 import { EpistolaResizeHandle } from './EpistolaResizeHandle.js';
@@ -210,7 +210,7 @@ export class EpistolaEditor extends LitElement {
     options?: {
       dataModel?: object;
       dataExamples?: object[];
-      featureFlags?: EditorFeatureFlags;
+      features?: EditorFeatures;
       locale?: string;
     },
   ): void {
@@ -225,7 +225,7 @@ export class EpistolaEditor extends LitElement {
     this._engine = new EditorEngine(doc, reg, {
       dataModel: options?.dataModel,
       dataExamples: options?.dataExamples,
-      featureFlags: options?.featureFlags,
+      features: options?.features,
       locale: options?.locale,
     });
     this._doc = this._engine.doc;

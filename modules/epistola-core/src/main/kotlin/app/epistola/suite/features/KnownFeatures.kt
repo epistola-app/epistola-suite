@@ -29,8 +29,9 @@ object KnownFeatures {
      * `V20260618204750__core_rename_compatibility_check_feature_key.sql`).
      */
     val QUALITY = FeatureKey.of("quality")
+    val AI_CHAT = FeatureKey.of("ai-chat")
 
-    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY)
+    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY, AI_CHAT)
 
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
@@ -88,6 +89,12 @@ object KnownFeatures {
             "Enables quality checks — a ledger of findings about templates, surfaced in a report and " +
                 "in the template editor. Findings are submitted by check sources (in-process or remote) " +
                 "and by reviewers; checks only ever analyse a template's example data.",
+            stage = FeatureStage.ALPHA,
+        ),
+        AI_CHAT to FeatureMetadata(
+            "AI Chat",
+            "Enables the alpha AI chat panel in the template editor. The current panel is an " +
+                "experimental editor assistant surface and is hidden by default.",
             stage = FeatureStage.ALPHA,
         ),
     )

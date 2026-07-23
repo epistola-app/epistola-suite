@@ -1,12 +1,15 @@
 import { LitElement, html, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { EditorPlugin, PluginContext } from '../plugins/types.js';
+import type { EditorPluginFactoryContext } from '../plugins/plugin-loader.js';
+import type { EditorFeatureBadge } from '../engine/feature-flags.js';
 import type { NodeId } from '../types/index.js';
 
 export interface QualityPluginOptions {
   findingsUrl: string;
   checkUrl: string;
   csrfToken: () => string;
+  badge?: EditorFeatureBadge | null;
 }
 
 export interface QualityPanelData {
@@ -67,6 +70,7 @@ export function createQualityPlugin(options: QualityPluginOptions): EditorPlugin
     sidebarTab: {
       id: 'quality',
       label: 'Quality',
+      badge: options.badge ?? undefined,
       render: (context) =>
         html`<epistola-quality-panel
           .service=${service}
@@ -75,6 +79,17 @@ export function createQualityPlugin(options: QualityPluginOptions): EditorPlugin
     },
     init: () => () => {},
   };
+}
+
+export function createQualityEditorPlugin(
+  context: EditorPluginFactoryContext,
+): EditorPlugin | null {
+  if (!isQualityPluginOptions(context.config)) return null;
+  return createQualityPlugin({
+    ...context.config,
+    csrfToken: context.csrfToken,
+    badge: context.feature.badge,
+  });
 }
 
 @customElement('epistola-quality-panel')
@@ -228,6 +243,16 @@ function severityOrder(severity: string): number {
   if (severity === 'ERROR') return 0;
   if (severity === 'WARNING') return 1;
   return 2;
+}
+
+function isQualityPluginOptions(value: unknown): value is Omit<QualityPluginOptions, 'csrfToken'> {
+  if (!value || typeof value !== 'object') return false;
+  return (
+    'findingsUrl' in value &&
+    typeof value.findingsUrl === 'string' &&
+    'checkUrl' in value &&
+    typeof value.checkUrl === 'string'
+  );
 }
 
 declare global {

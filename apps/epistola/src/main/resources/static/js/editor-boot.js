@@ -11,35 +11,20 @@ async function mount(container) {
   container.dataset.editorMounted = 'true';
   const config = JSON.parse(island.textContent);
 
-  const { createQualityPlugin, mountEditor } = await import(config.editorModuleUrl);
+  const editorModule = await import(config.editorModuleUrl);
+  const { loadEditorPlugins, mountEditor } = editorModule;
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
   const templateId = config.templateId;
   const variantId = config.variantId;
+  const features = config.features ?? {};
 
-  // Load plugins dynamically
-  const plugins = [];
-
-  // AI chat plugin — uses mock transport until backend is wired up.
-  // When enabledPlugins is provided by the backend, the Thymeleaf
-  // conditional (th:if) will control whether this block is rendered.
-  try {
-    const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
-    plugins.push(createAiPlugin({ sendMessage: createMockTransport() }));
-  } catch (e) {
-    console.warn('AI plugin failed to load:', e);
-  }
-
-  if (config.featureFlags?.quality && config.quality) {
-    plugins.push(
-      createQualityPlugin({
-        findingsUrl: config.quality.findingsUrl,
-        checkUrl: config.quality.checkUrl,
-        csrfToken: () => window.getCsrfToken(),
-      }),
-    );
-  }
+  const plugins = await loadEditorPlugins(config.plugins, {
+    features,
+    bundledModule: editorModule,
+    csrfToken: () => window.getCsrfToken(),
+  });
 
   mountEditor({
     container: container,
@@ -47,7 +32,7 @@ async function mount(container) {
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
     plugins: plugins,
-    featureFlags: config.featureFlags,
+    features: features,
     locale: config.locale,
     fontOptions: {
       listFonts: async () => {

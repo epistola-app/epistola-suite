@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
 
 import { describe, expect, it, vi } from 'vitest';
-import { EpistolaQualityPanel, type QualityFinding } from './quality-plugin.js';
+import {
+  createQualityEditorPlugin,
+  EpistolaQualityPanel,
+  type QualityFinding,
+} from './quality-plugin.js';
 import type { PluginContext } from '../plugins/types.js';
 
 function finding(overrides: Partial<QualityFinding> = {}): QualityFinding {
@@ -47,5 +51,28 @@ describe('EpistolaQualityPanel', () => {
     );
 
     expect(selectNode).not.toHaveBeenCalled();
+  });
+});
+
+describe('createQualityEditorPlugin', () => {
+  it('applies the feature badge to the sidebar tab', () => {
+    const plugin = createQualityEditorPlugin({
+      descriptor: {
+        id: 'quality',
+        feature: 'quality',
+        factoryExport: 'createQualityEditorPlugin',
+      },
+      feature: {
+        enabled: true,
+        badge: { label: 'Alpha', className: 'badge-alpha' },
+      },
+      config: {
+        findingsUrl: '/quality',
+        checkUrl: '/quality/check',
+      },
+      csrfToken: () => 'csrf-token',
+    });
+
+    expect(plugin?.sidebarTab?.badge).toEqual({ label: 'Alpha', className: 'badge-alpha' });
   });
 });

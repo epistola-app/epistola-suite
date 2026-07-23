@@ -6,6 +6,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -128,6 +129,11 @@ class DocumentTemplateHandler(
 
     private companion object {
         const val PAGE_SIZE = 10
+
+        val EDITOR_FEATURES: Map<String, FeatureKey> = mapOf(
+            "quality" to KnownFeatures.QUALITY,
+            "aiChat" to KnownFeatures.AI_CHAT,
+        )
     }
 
     fun list(request: ServerRequest): ServerResponse {
@@ -401,10 +407,21 @@ class DocumentTemplateHandler(
                 "dataModel" to context.dataModel,
                 "leaderTiming" to leaderTiming,
                 "resolvedLocale" to resolvedLocale,
-                "featureFlags" to mapOf(
-                    "quality" to (featureToggles[KnownFeatures.QUALITY] == true),
-                ),
+                "editorFeatures" to editorFeatures(featureToggles),
             ),
+        )
+    }
+
+    private fun editorFeatures(featureToggles: Map<FeatureKey, Boolean>): Map<String, Any?> = EDITOR_FEATURES.mapValues { (_, featureKey) ->
+        val stage = KnownFeatures.stageOf(featureKey)
+        mapOf(
+            "enabled" to (featureToggles[featureKey] == true),
+            "badge" to stage.label?.let { label ->
+                mapOf(
+                    "label" to label,
+                    "className" to stage.badgeClass,
+                )
+            },
         )
     }
 

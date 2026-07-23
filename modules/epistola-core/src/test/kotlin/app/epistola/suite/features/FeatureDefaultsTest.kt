@@ -17,6 +17,13 @@ class FeatureDefaultsTest {
     }
 
     @Test
+    fun `alpha editor features default off here`() {
+        val defaults = FeatureDefaults()
+        assertFalse(defaults.isEnabled(KnownFeatures.QUALITY))
+        assertFalse(defaults.isEnabled(KnownFeatures.AI_CHAT))
+    }
+
+    @Test
     fun `hub-only features are not resolved here (their default follows the support tier)`() {
         // FeatureDefaults intentionally does not configure hub-only support features; FeatureToggleService
         // derives their default from epistola.support.enabled. isEnabled treats them as unknown → false.

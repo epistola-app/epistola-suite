@@ -76,6 +76,10 @@
   .sidebar-tab {
     flex: 0 0 auto;
     min-width: 5.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ep-space-1);
     padding: var(--ep-space-2) var(--ep-space-2);
     font-size: 0.6875rem;
     font-weight: 600;
@@ -100,6 +104,12 @@
       color: var(--ep-primary-strong);
       border-bottom-color: var(--ep-primary);
     }
+  }
+
+  .sidebar-tab-badge {
+    font-size: 0.5625rem;
+    line-height: 1;
+    padding: 0.125rem 0.25rem;
   }
 
   .sidebar-content {
