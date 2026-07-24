@@ -28,6 +28,7 @@ path = [
   ".gitignore",
   ".gitleaks.toml",
   ".helmignore",
+  "**/.helmignore",
   ".husky/**",
   "LICENSE",
   "README.md",
