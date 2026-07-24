@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Catalogs & Resource Exchange
 
 Catalogs are first-class entities in Epistola for organizing, sharing, and importing resources. A catalog groups templates, themes, stencils, attributes, and assets under a common identity. Every resource belongs to exactly one catalog.

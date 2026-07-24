@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Epistola Suite Roadmap
 
 This document provides a high-level overview of planned features and development phases.

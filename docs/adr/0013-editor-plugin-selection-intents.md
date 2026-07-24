@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0013: Editor plugin selection intents
 
 - **Status:** Draft — discussion record, not accepted

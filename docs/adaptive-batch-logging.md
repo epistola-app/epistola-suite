@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Adaptive Batch Polling Logs
 
 This document shows example log output from the adaptive batch job polling feature.

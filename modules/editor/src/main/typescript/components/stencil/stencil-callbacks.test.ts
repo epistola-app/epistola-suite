@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Inspector flow tests that simulate the inspector's logic with mocked
  * callbacks. These pre-date the `stencil-actions.ts` extraction; they are

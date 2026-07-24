@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.loadtest.batch
 
 import org.assertj.core.api.Assertions.assertThat

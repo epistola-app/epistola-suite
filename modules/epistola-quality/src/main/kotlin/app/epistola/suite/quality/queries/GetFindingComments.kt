@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.quality.queries
 
 import app.epistola.suite.common.ids.QualityFindingCommentKey

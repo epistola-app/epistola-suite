@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # MCP server (AI assistant integration)
 
 Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so AI assistants (Claude Desktop, Cursor, MCP Inspector, etc.) can talk to a tenant's templates, themes, stencils, and data contracts directly. The intended workflow is **AI-assisted template design**: the assistant discovers existing templates, inspects their structure, and renders previews to verify what they produce.

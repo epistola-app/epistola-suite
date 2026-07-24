@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0007: Catalog Wire-Format Schema Migrations
 
 - **Status:** Accepted

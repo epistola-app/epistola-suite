@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Tenant Backup & Restore
 
 A **tenant backup** is a faithful, full-fidelity, identity-preserving copy of one

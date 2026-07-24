@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: ui-test
 description: Create a Playwright UI test for browser-based testing. Use when testing HTMX interactions, form submissions, page navigation, or JavaScript behavior in the browser.
+
 ---
 
 Create a Playwright-based UI test for the Epistola Suite.

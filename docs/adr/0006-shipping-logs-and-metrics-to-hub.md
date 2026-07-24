@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0006: Shipping logs and metrics to epistola-hub
 
 - **Status:** Accepted — Option A (unified OTLP)

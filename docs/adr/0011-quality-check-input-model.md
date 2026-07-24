@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0011: How a quality check receives what it inspects
 
 - **Status:** Draft — discussion record, not accepted

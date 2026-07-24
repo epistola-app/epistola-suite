@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js';
 import {
   assertValidShortcutRegistry,

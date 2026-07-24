@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Client-side equivalent of the server's `StencilContentReplacer.captureFillsByName`
  * + splice logic. Used by `StencilInspector` to round-trip template overrides

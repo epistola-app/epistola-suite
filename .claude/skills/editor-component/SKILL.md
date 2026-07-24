@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: editor-component
 description: Create a new Lit web component for the editor module. Use when building a new UI component, panel, or interactive element for the template editor.
+
 ---
 
 Create a new Lit web component in the editor module.

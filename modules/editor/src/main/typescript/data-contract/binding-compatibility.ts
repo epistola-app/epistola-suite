@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Predicates that decide whether a contract field path may be bound at a
  * specific consumption surface, plus the display-time helper that maps a

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Single source of truth for the editor's field/data types — their UI names,
  * their JSON Schema mapping, and which surfaces may use them.

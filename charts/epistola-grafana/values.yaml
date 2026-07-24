@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Grafana dashboards + alerts for Epistola Suite, shipped as grafana-operator
 # custom resources (GrafanaDashboard / GrafanaAlertRuleGroup / GrafanaFolder,
 # grafana.integreatly.org/v1beta1).

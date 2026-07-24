@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import type { FieldPath } from '../engine/schema-paths.js';
 
 /** Regex to parse `$formatDate(fieldPath, 'pattern')` or `$formatDate(fieldPath, "pattern")` expressions. */

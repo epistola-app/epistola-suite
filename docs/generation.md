@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Document Generation Architecture
 
 This document describes the architecture for document generation (PDF/HTML) in Epistola Suite.

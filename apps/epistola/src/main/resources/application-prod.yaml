@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Production hardening. OAuth2/OIDC comes from SPRING_SECURITY_OAUTH2_* env vars
 # (emitted by the Helm chart's oidc.* values) — no auth profile is needed.
 #

@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Software Bill of Materials (SBOM)
 
 Epistola Suite generates SBOMs for both backend and frontend dependencies using the [CycloneDX](https://cyclonedx.org/) standard.

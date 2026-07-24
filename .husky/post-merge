@@ -1,2 +1,6 @@
 #!/usr/bin/env sh
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 scripts/git-hooks/build-after-merge.sh ORIG_HEAD HEAD

@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Epistola — Project Overview
 
 Epistola is a multi-tenant document generation platform for creating professional PDF documents from templates with dynamic data binding. It serves two audiences: **developers** who integrate via a REST API to generate documents programmatically, and **business users** who design templates visually in a block-based editor without writing code.

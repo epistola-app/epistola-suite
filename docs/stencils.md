@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Stencils — Reusable Template Components
 
 Stencils are versioned, reusable components that can be inserted into any template. They allow you to maintain common elements (headers, footers, address blocks) in one place and use them across multiple templates.

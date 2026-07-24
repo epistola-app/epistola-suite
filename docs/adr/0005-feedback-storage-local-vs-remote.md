@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0005: Feedback storage — local copy + sync vs. remote-only
 
 - **Status:** Proposed

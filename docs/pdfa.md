@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # PDF/A-2b Compliance
 
 Epistola Suite supports generating PDF/A-2b (ISO 19005-2, Level B) compliant documents for long-term archival. This is a per-template setting, **enabled by default** for new templates (it can be turned off per template). Existing templates keep their stored setting.

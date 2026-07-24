@@ -1,4 +1,8 @@
 #!/usr/bin/env sh
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Block secrets from entering a commit. Scans ONLY staged changes (fast — ~0.4s),
 # using the gitleaks version pinned in .mise.toml. CI re-scans full history as
 # the hard gate (a hook is bypassable with --no-verify). Config: .gitleaks.toml.

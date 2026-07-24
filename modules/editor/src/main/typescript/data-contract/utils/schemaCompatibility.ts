@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Schema Compatibility Checker — determines whether a JSON Schema can be
  * fully represented by the visual editor.

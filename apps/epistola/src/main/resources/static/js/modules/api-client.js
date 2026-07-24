@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Shared API client for making authenticated requests with CSRF protection.
  * Used by theme-editor.js and template-detail.js modules.

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Local auth profile: form-based login with configurable users.
 # Override credentials and roles via env vars for non-local environments.
 #

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.generation.collect.ring
 
 import app.epistola.suite.generation.collect.domain.murmur3x86_32

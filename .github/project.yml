@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # GitHub Project Configuration
 # This file is the source of truth for the project structure.
 # Changes are synced via .github/workflows/project-sync.yml

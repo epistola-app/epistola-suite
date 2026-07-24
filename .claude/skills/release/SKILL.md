@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: release
 description: Create a new release. Use when the user wants to release a new version, cut a release, or publish a version.
+
 ---
 
 Release a new version of epistola-suite (the app image). The app version lives in

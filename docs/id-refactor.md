@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Refactoring Entity IDs: From UUID to Slug Format
 
 This document explains the architecture for entity IDs in Epistola Suite and how to change an entity ID from UUID-based to slug-based format (or vice versa).

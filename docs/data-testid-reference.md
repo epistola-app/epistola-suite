@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # `data-testid` Reference
 
 Canonical list of `data-testid` attributes in the Epistola Suite Thymeleaf templates.

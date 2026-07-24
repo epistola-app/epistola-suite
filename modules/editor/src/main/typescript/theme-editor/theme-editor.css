@@ -1,4 +1,10 @@
 /*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
  * Theme Editor Styles
  *
  * Two-column layout, collapsible sections, preset cards, status bar.
@@ -16,7 +22,7 @@
 /* Reuse inspector input styles */
 @import '../styles/inspector.css';
 
-/* Override shell.css main-content max-width 
+/* Override shell.css main-content max-width
    Reason is to give theme editor more space */
 
 .main-content {

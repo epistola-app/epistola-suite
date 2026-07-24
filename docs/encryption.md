@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Credential encryption at rest
 
 Epistola encrypts the sensitive credentials it stores so that a database dump

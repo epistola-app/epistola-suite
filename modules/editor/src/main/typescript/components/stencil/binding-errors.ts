@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Maps a structured save error from the backend to a per-parameter binding
  * error the stencil UI can render inline.

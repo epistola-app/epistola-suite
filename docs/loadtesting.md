@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Load Testing
 
 Epistola Suite includes an embedded load testing feature that allows you to measure document generation performance without external tools. Load tests stress-test the system with high concurrency to validate installation capacity and identify performance bottlenecks.

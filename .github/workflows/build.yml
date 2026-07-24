@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 name: Build and Publish
 
 on:
@@ -62,6 +66,9 @@ jobs:
 
       - name: Check format
         run: pnpm format:check
+
+      - name: Check license metadata
+        run: pnpm license:check
 
       - name: Build frontend
         run: pnpm build

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getEditorShortcutRegistry } from './editor-runtime.js';
 import { getInsertDialogShortcutRegistry } from './insert-dialog-runtime.js';
 import {

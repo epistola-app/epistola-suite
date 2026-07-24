@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 plugins {
     base
     // kotlin-jvm, ktlint, and kover are on the classpath via buildSrc convention plugins

@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: contract-change
 description: Make changes to REST API contracts and update the implementing controllers. Use when adding, modifying, or removing API endpoints, DTOs, or when the external epistola-contract needs updating.
+
 ---
 
 Guide through making REST API contract changes.

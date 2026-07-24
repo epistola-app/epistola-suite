@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Contributing to Epistola Suite
 
 Thank you for your interest in contributing to Epistola Suite! This document provides guidelines and information for contributors.

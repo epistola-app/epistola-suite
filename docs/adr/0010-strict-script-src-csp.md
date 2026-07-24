@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0010: Strict CSP — removing `'unsafe-inline'` from `script-src`
 
 - **Status:** Accepted — Option A

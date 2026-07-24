@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Multi-instance (3-node) local cluster test for Epistola Suite.
 #
 # Runs three app instances against one shared Postgres with a round-robin

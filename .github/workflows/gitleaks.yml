@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 name: Secret Scan
 
 # Hard gate for committed secrets (the .husky/pre-commit hook is the fast local

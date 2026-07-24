@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { findRefType } from '../ref-types.js';
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
 
