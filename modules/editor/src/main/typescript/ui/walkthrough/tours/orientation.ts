@@ -21,7 +21,7 @@ export const orientationTour: Tour = {
     {
       target: 'epistola-sidebar',
       title: 'The sidebar',
-      body: 'Three tabs: **Blocks** to add content, **Structure** to see your document as a tree, and the **Inspector** to style whatever’s selected.',
+      body: 'Three tabs: <strong>Blocks</strong> to add content, <strong>Structure</strong> to see your document as a tree, and the <strong>Inspector</strong> to style whatever’s selected.',
       side: 'right',
     },
     {

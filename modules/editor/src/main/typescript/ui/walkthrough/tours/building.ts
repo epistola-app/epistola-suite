@@ -1,5 +1,5 @@
 import type { Tour } from '../registry.js';
-import { clickSidebarTab } from './helpers.js';
+import { clickSidebarTab, clickSidebarTabNextFrame } from './helpers.js';
 import { advanceOnBlockAdded } from '../signals.js';
 
 /**
@@ -19,19 +19,21 @@ export const buildingTour: Tour = {
       before: (host) => clickSidebarTab(host, 'blocks'),
       target: '[data-tour="tab-blocks"]',
       title: 'The block palette',
-      body: 'Every piece of content is a block. The palette groups them into **Content**, **Layout**, **Logic**, and **Page**.',
+      body: 'Every piece of content is a block. The palette groups them into <strong>Content</strong>, <strong>Layout</strong>, <strong>Logic</strong>, and <strong>Page</strong>.',
       side: 'right',
     },
     {
       before: (host) => clickSidebarTab(host, 'blocks'),
       target: '[data-testid="palette-item-text"]',
       title: 'Add your first block',
-      body: 'Click **Text** to drop a text block onto the page — you can drag it onto the canvas, too. (Undo anything with Ctrl+Z.)',
+      body: 'Click <strong>Text</strong> to drop a text block onto the page — you can drag it onto the canvas, too. (Undo anything with Ctrl+Z.)',
       side: 'right',
       advance: advanceOnBlockAdded(),
     },
     {
-      before: (host) => clickSidebarTab(host, 'structure'),
+      // Deferred: adding the block auto-selected it (→ Inspector); switch next frame
+      // so that auto-switch settles and Structure sticks (see clickSidebarTabNextFrame).
+      before: (host) => clickSidebarTabNextFrame(host, 'structure'),
       target: '[data-tour="tab-structure"]',
       title: 'The structure',
       body: 'Everything you add shows up here as a tree — the fastest way to reorder blocks or select nested ones.',

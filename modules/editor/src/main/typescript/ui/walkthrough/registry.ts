@@ -7,6 +7,7 @@
  */
 import { orientationTour } from './tours/orientation.js';
 import { buildingTour } from './tours/building.js';
+import { editingTour } from './tours/editing.js';
 
 /** Predicate: has the given chapter version been completed? (Injected, not imported —
  * keeps this catalog pure data and independent of how progress is persisted.) */
@@ -65,7 +66,7 @@ export interface Tour {
 }
 
 /** Ordered chapters. Order defines the "next chapter" chaining and launcher listing. */
-export const TOURS: readonly Tour[] = [orientationTour, buildingTour];
+export const TOURS: readonly Tour[] = [orientationTour, buildingTour, editingTour];
 
 export function tourById(id: string): Tour | undefined {
   return TOURS.find((t) => t.id === id);

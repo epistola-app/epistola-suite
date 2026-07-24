@@ -42,6 +42,7 @@ const POPOVER_OVERRIDES = `
 }
 .driver-popover-title { font-size: var(--ep-text-lg, 1.125rem); font-weight: 600; color: var(--ep-stone-900, #34221f); }
 .driver-popover-description { font-size: var(--ep-text-sm, 0.875rem); line-height: 1.5; color: var(--ep-stone-700, #573f38); }
+.driver-popover-description strong { font-weight: 600; color: var(--ep-stone-900, #34221f); }
 .driver-popover-progress-text { font-size: var(--ep-text-xs, 0.75rem); color: var(--ep-stone-500, #8c7163); }
 .driver-popover-footer-btn {
   border-radius: var(--ep-radius-md, 0.5rem);
@@ -55,6 +56,12 @@ const POPOVER_OVERRIDES = `
 .driver-popover-next-btn:hover { background: var(--ep-primary-strong, #9d5741); }
 .driver-popover-close-btn { color: var(--ep-stone-400, #b9a595); }
 .driver-popover-close-btn:hover { color: var(--ep-stone-800, #46302b); }
+/* The rich-text bubble menu sits at --ep-z-dropdown (10), far below driver's
+   overlay (10000), so it renders *behind* the backdrop when a text editor is
+   spotlighted. While a tour is active, lift it above the backdrop (but below the
+   popover) and keep it interactive so it reads as a real floating toolbar. */
+.driver-active .pm-bubble-menu { z-index: 1000000; }
+.driver-active .pm-bubble-menu, .driver-active .pm-bubble-menu * { pointer-events: auto; }
 `;
 
 function ensureDriverStyles(): void {
@@ -82,12 +89,19 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   const upcoming = nextAvailableTour(tour.id, host);
 
   let d: Driver;
-  // Only one step is highlighted at a time, so a single active-cleanup slot is
-  // enough. An interactive step's advance listener is wired on highlight and torn
-  // down when the step is left — driver fires onDeselected both when moving on and
-  // when the tour is destroyed, so listeners never leak.
+  // One active advance listener at a time. It's wired one frame *after* the step is
+  // shown, not synchronously: advancing into a step often follows a burst of engine
+  // events (inserting a block fires several doc:changes), and a synchronous listener
+  // would catch the tail of that burst and cascade straight through the next steps.
+  // Deferring a frame lets the burst settle so the listener only sees the user's own
+  // next action. Torn down (listener + any pending wire) on step change / close.
   let activeCleanup: (() => void) | null = null;
+  let pendingWire: number | null = null;
   const teardownAdvance = (): void => {
+    if (pendingWire !== null) {
+      cancelAnimationFrame(pendingWire);
+      pendingWire = null;
+    }
     activeCleanup?.();
     activeCleanup = null;
   };
@@ -100,7 +114,10 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
     onHighlighted: step.advance
       ? () => {
           teardownAdvance();
-          activeCleanup = step.advance?.(host, () => d.moveNext()) ?? null;
+          pendingWire = requestAnimationFrame(() => {
+            pendingWire = null;
+            activeCleanup = step.advance?.(host, () => d.moveNext()) ?? null;
+          });
         }
       : undefined,
     onDeselected: step.advance ? () => teardownAdvance() : undefined,
@@ -119,6 +136,12 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
     showProgress: true,
     progressText: '{{current}} of {{total}}',
     allowClose: true,
+    // Interactive steps advance on an engine event (selection/insert), but the DOM
+    // it produces (`.canvas-block.selected`, the Inspector) renders a tick later.
+    // Wait for a step's target to appear (a MutationObserver — shows the instant it
+    // renders) instead of skipMissingElement skipping it and cascading to the end.
+    // Genuinely-absent targets (e.g. a non-text block's editor) skip after this.
+    waitForElement: 400,
     // Passive chapters advance on a backdrop click rather than closing (D4).
     ...(tour.passive ? { overlayClickBehavior: 'nextStep' as const } : {}),
     // Config-level (not per-step) so it attaches to whichever step is *effectively*
