@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Template-editor bootstrap (ADR 0010: no executable inline scripts).
 // Reads the page's #editor-config JSON island and mounts the editor into
 // #editor-container. Runs for the initial page load AND for hx-boost body

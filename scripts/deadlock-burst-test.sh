@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Concurrent-render classloader-deadlock repro for #724.
 #
 # Boots a single app node from the BOOT FAT JAR, fires a burst of concurrent PDF

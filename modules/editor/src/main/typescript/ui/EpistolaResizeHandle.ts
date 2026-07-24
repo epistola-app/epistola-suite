@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { LitElement, html } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js';

@@ -63,6 +63,9 @@ jobs:
       - name: Check format
         run: pnpm format:check
 
+      - name: Check license metadata
+        run: pnpm license:check
+
       - name: Build frontend
         run: pnpm build
 

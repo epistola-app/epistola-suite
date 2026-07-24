@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Navigation behavior: dropdown keyboard support + mobile hamburger menu.
 // Fully delegated (ADR 0010): survives hx-boost body swaps without re-wiring.
 (function () {

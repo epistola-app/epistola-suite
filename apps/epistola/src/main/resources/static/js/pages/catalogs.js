@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Catalog page behaviors (templates/catalogs/list.html, templates/catalogs/browse.html).
 // ADR 0010: no executable inline scripts in templates.
 //

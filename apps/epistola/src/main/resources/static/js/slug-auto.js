@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 (function () {
   var ALLOWED_KEYS = ['Backspace', 'Delete', 'Enter', 'Escape', 'Tab', 'Home', 'End'];
 
