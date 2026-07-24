@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * PDF Preview functionality for template versions.
  * Fetches PDF from preview endpoint and opens in a new browser tab.

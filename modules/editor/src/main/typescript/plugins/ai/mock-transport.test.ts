@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMockTransport } from './mock-transport.js';
 import type { ChatChunk, ChatAttachment } from './types.js';

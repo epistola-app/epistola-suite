@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 FROM paketobuildpacks/run-noble-base:latest
 
 # Pin the container locale to UTF-8. run-noble-base boots with the C/POSIX

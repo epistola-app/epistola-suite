@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { buildParameterScope } from './parameter-scope.js';
 import { clearParameterCache } from './parameter-evaluation-cache.js';

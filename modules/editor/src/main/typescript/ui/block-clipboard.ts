@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { nanoid } from 'nanoid';
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/index.js';
 

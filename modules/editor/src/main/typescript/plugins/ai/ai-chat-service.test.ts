@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AiChatService, type ChatState } from './ai-chat-service.js';
 import type { SendMessageFn, ChatChunk, ChatAttachment, ChatRequest } from './types.js';
