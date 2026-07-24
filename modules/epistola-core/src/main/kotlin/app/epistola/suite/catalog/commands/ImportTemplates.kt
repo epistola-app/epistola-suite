@@ -153,7 +153,7 @@ class ImportTemplatesHandler(
     }
 
     private fun validateTemplateModels(input: ImportTemplateInput) {
-        graphValidator.validate(input.templateModel)
+        graphValidator.validateTemplateDocument(input.templateModel)
         input.variants.mapNotNull { it.templateModel }.forEach(graphValidator::validate)
     }
 

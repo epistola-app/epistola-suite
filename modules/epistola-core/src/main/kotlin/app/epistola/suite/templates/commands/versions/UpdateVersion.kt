@@ -42,7 +42,7 @@ class UpdateVersionHandler(
 ) : CommandHandler<UpdateVersion, TemplateVersion> {
     override fun handle(command: UpdateVersion): TemplateVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
-        graphValidator.validate(command.templateModel)
+        graphValidator.validateTemplateDocument(command.templateModel)
         return jdbi.inTransaction<TemplateVersion, Exception> { handle ->
             val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
 

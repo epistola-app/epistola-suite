@@ -53,7 +53,7 @@ class CreateStencilVersionHandler(
     override fun handle(command: CreateStencilVersion): StencilVersion? {
         requireCatalogEditable(command.stencilId.tenantKey, command.stencilId.catalogKey)
         if (command.content != null) {
-            graphValidator.validate(command.content)
+            graphValidator.validateStencilDocument(command.content)
             placeholderValidator.validateAsStencilDefinition(command.content)
         }
         parameterSchemaValidator.validate(command.parameterSchema)

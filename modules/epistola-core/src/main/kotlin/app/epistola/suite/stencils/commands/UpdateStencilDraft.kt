@@ -48,7 +48,7 @@ class UpdateStencilDraftHandler(
 ) : CommandHandler<UpdateStencilDraft, StencilVersion> {
     override fun handle(command: UpdateStencilDraft): StencilVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
-        graphValidator.validate(command.content)
+        graphValidator.validateStencilDocument(command.content)
         placeholderValidator.validateAsStencilDefinition(command.content)
         parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<StencilVersion, Exception> { handle ->

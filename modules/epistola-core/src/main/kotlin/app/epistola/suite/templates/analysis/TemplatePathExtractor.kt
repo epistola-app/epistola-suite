@@ -47,6 +47,9 @@ class TemplatePathExtractor {
         paths: MutableSet<String>,
         visiting: MutableSet<String>,
     ) {
+        // Path extraction is best-effort: malformed cyclic graphs are rejected
+        // by TemplateDocumentGraphValidator, but this guard prevents an old or
+        // imported invalid document from recursing until StackOverflowError.
         if (!visiting.add(node.id)) return
         val props = node.props ?: emptyMap()
         val updatedScope = when (node.type) {

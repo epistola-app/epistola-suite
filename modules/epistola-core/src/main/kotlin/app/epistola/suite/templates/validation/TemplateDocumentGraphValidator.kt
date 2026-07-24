@@ -13,6 +13,15 @@ import org.springframework.stereotype.Component
  */
 @Component
 class TemplateDocumentGraphValidator {
+    /**
+     * Templates and stencils are both stored as complete TemplateDocuments.
+     * Stencil insertion/replacement treats the stored stencil root as a container
+     * whose children become the embedded content.
+     */
+    fun validateStencilDocument(doc: TemplateDocument) = validate(doc)
+
+    fun validateTemplateDocument(doc: TemplateDocument) = validate(doc)
+
     fun validate(doc: TemplateDocument) {
         validateSize(doc)
         validateRoot(doc)

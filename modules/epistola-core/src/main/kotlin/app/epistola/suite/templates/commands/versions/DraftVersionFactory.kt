@@ -137,7 +137,7 @@ class DraftVersionFactory(
             ?: latestPublishedModelJson?.let { objectMapper.readValue(it, TemplateDocument::class.java) }
             ?: createDefaultTemplateModel(templateName, variantId.key)
         if (modelToSave is TemplateDocument) {
-            graphValidator.validate(modelToSave)
+            graphValidator.validateTemplateDocument(modelToSave)
         }
         val templateModelJson = if (latestPublishedModelJson != null && templateModel == null) {
             latestPublishedModelJson // Reuse the JSON string directly

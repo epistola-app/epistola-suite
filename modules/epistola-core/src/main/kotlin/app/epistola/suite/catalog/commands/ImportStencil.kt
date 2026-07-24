@@ -81,7 +81,7 @@ class ImportStencilHandler(
 ) : CommandHandler<ImportStencil, ImportStencilResult> {
 
     override fun handle(command: ImportStencil): ImportStencilResult {
-        graphValidator.validate(command.content)
+        graphValidator.validateStencilDocument(command.content)
         val stencilKey = StencilKey.of(command.slug)
         val tagsJson = objectMapper.writeValueAsString(command.tags)
         val contentJson = objectMapper.writeValueAsString(command.content)

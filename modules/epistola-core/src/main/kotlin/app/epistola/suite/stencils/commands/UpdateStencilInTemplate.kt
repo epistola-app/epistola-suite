@@ -126,7 +126,7 @@ class UpdateStencilInTemplateHandler(
             )
 
             // 4b. Validate the upgraded document — recursion guard, placeholder scope, etc.
-            graphValidator.validate(upgrade.document)
+            graphValidator.validateTemplateDocument(upgrade.document)
             placeholderValidator.validateAsTemplate(upgrade.document)
             nodeParameterBindingValidator.validate(upgrade.document)
 

@@ -367,6 +367,25 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `CreateStencil rejects initial content without synthetic root node`() = test {
+        val tenant = createTenant("stencil-graph-root")
+        val tenantId = TenantId(tenant.id)
+        val sId = stencilId(tenantId)
+        val invalid = TemplateDocument(
+            modelVersion = 1,
+            root = "text-root",
+            nodes = mapOf("text-root" to Node(id = "text-root", type = "text", slots = emptyList())),
+            slots = emptyMap(),
+            themeRef = ThemeRef.Inherit,
+        )
+
+        assertThatThrownBy {
+            CreateStencil(id = sId, name = "Invalid root", content = invalid).execute()
+        }.isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
+    }
+
+    @Test
     fun `template override in fill slot survives a stencil-edit-and-publish cycle`() = test {
         // Two-slot model: stencil v1 has placeholder with default in `default`
         // slot. Template embeds it and the user puts an override in `fill`.

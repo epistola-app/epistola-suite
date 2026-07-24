@@ -49,7 +49,7 @@ class UpdateDraftHandler(
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
-        graphValidator.validate(command.templateModel)
+        graphValidator.validateTemplateDocument(command.templateModel)
         placeholderValidator.validateAsTemplate(command.templateModel)
         nodeParameterBindingValidator.validate(command.templateModel)
         pageHeaderCardinalityValidator.validate(command.templateModel)
