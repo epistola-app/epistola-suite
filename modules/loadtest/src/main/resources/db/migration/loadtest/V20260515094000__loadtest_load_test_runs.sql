@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Load Test Infrastructure
 --
 -- This migration adds support for embedded load testing of document generation.

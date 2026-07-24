@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Key-value metadata table for application-level settings and internal state.
 --
 -- `value` is JSONB so it can carry structured values: the installation

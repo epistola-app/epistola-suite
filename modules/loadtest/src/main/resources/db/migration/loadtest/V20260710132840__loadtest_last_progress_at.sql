@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Progress heartbeat for load test runs (issue #725).
 --
 -- Stale-run recovery previously keyed off claimed_at age alone, so "stale" meant

@@ -17,6 +17,7 @@ LICENSE_TAG = "SPDX-" + "License-Identifier:"
 COPYRIGHT = f"{COPYRIGHT_TAG} Epistola Nederland B.V."
 LICENSE = f"{LICENSE_TAG} AGPL-3.0-only"
 MARKERS = (COPYRIGHT_TAG, LICENSE_TAG)
+MIGRATION_SQL_FRAGMENT = "/src/main/resources/db/migration/"
 
 LINE_COMMENT_EXTENSIONS = {
     ".kt": "//",
@@ -96,6 +97,7 @@ def is_skipped(path: Path) -> bool:
     return (
         name in SKIP_FILES
         or any(name.startswith(prefix) for prefix in SKIP_PREFIXES)
+        or (MIGRATION_SQL_FRAGMENT in name and path.suffix == ".sql")
         or path.suffix in SKIP_EXTENSIONS
     )
 

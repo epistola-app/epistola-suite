@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Documentation-only: corrects two inverted column comments on contract_versions.
 --
 -- The original comments (V20260515090800) claimed `schema` defined the contract and that

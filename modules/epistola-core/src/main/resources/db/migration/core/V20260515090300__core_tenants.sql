@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Domain type for tenant identifiers (slugs)
 CREATE DOMAIN TENANT_KEY AS VARCHAR(63)
     CHECK (VALUE ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');

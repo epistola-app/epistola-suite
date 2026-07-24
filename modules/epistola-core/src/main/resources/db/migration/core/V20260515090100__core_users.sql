@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Users table for authentication
 -- Created early so that domain tables (V5-V9) can reference users for audit columns.
 --

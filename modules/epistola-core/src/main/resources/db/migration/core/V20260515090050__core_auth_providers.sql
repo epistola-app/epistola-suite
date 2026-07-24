@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Authentication provider reference table.
 --
 -- `users.provider` is a foreign key to this table. Modelled as a lookup table

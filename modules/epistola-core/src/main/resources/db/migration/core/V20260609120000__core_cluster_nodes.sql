@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Cluster node registry for horizontal-scaling coordination.
 --
 -- Phase 1 only records node presence and capabilities. Later clustered timer

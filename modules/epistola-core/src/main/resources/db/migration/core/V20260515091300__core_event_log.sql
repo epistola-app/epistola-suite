@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Event log: append-only record of every command execution (full JSONB payload),
 -- for observability and future replay/recovery.
 --

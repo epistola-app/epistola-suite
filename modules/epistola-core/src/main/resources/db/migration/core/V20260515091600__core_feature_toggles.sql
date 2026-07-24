@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 CREATE DOMAIN FEATURE_KEY AS VARCHAR(50)
     CHECK (VALUE ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
 

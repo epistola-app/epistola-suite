@@ -45,6 +45,7 @@ path = [
   "apps/epistola/docker/keycloak/realm-export.json",
   "charts/*/templates/*.tpl",
   "charts/epistola/values.schema.json",
+  "modules/*/src/main/resources/db/migration/**/*.sql",
   "modules/epistola-core/src/main/resources/epistola/catalogs/**/*.json",
   "modules/epistola-core/src/main/resources/schemas/*.json",
   "modules/epistola-core/src/test/resources/**/*.json",

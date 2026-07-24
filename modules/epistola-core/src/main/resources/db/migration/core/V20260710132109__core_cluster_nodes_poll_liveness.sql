@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Scheduler-liveness signal for cluster nodes (issue #723).
 --
 -- last_seen_at is written by the heartbeat on the dedicated cluster-maintenance

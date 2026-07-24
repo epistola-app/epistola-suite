@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- asset_content: content-addressable, deduplicated, keep-forever blob storage for
 -- assets (logos, images, font files) — issue #738.
 --

@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- Durable cluster timer events.
 --
 -- Timers are leased delayed messages. A local @Scheduled poller only wakes the

@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 -- backup-restore-compatibility: backward=true forward=false
 -- reason: Additive — creates quality_findings / quality_finding_ignores /
 -- quality_finding_comments, which ARE backed up (QualityBackupTables.includedTables —

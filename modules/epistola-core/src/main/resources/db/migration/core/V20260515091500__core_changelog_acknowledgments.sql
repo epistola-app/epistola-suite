@@ -1,7 +1,3 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
-
 CREATE TABLE changelog_acknowledgments (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     version VARCHAR(20) NOT NULL,
