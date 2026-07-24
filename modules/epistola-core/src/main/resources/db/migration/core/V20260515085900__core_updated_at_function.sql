@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Shared trigger function. Stamps `updated_at = now()` on every UPDATE so the
 -- audit timestamp is enforced by the database, not dependent on every DAO
 -- remembering to `SET updated_at = NOW()`. Attached as a BEFORE UPDATE row

@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Contract version history for template data contracts (schema + examples).
 -- Enables a draft/published lifecycle for the data contract, independent of
 -- the template visual content versioned in template_versions.

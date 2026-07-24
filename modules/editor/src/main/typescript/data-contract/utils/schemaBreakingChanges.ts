@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Breaking change detection — compares committed vs draft visual schema
  * to surface changes that affect external systems consuming the data contract.

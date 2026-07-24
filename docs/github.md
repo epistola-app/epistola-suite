@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # GitHub Repository Guide
 
 This document explains how GitHub is configured for the Epistola Suite project, covering CI/CD, issue management, releases, and community features.

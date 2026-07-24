@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Application log table: captures application log output (logger events) for a
 -- bounded, queryable operational view in the UI and a future hub-forwarding leg.
 --

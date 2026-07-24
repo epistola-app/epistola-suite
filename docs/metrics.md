@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Metrics & Observability
 
 How Epistola exposes operational metrics for fleet monitoring, and how to wire

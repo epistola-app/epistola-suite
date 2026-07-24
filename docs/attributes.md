@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Variant Attributes
 
 Variant attributes are structured key-value pairs assigned to template variants. They serve two purposes: describing what a variant represents (e.g. "this is the Dutch version") and enabling automatic variant selection during document generation based on matching criteria.

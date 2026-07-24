@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0009: `event_log` vs. `generation_results` — overlap, redundancy, and convergence
 
 - **Status:** Accepted — **Option A** (keep `event_log`, exclude the generation path)

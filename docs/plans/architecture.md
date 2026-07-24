@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Architecture Analysis: Command Pattern with Event-Driven Extensions
 
 ## Executive Summary

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 /* ── Stencil block canvas styles ──────────────────────────────────────── */
 /* State info (name, version, upgrade) is in the block header via getLabel. */
 /* renderCanvas only adds a locked/content wrapper — these are the only    */

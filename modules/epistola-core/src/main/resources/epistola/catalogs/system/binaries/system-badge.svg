@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-label="Epistola system badge">
   <rect x="2" y="2" width="44" height="44" rx="9" fill="#1f2937" />
   <path d="M15 16h18M15 24h13M15 32h18" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />

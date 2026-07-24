@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: htmx-form
 description: Create a new HTMX form page with Thymeleaf template, UI handler, routes, and search. Use when adding a new create/edit form, list page, or CRUD flow for a domain entity.
+
 ---
 
 Create a new HTMX form flow for a domain entity.

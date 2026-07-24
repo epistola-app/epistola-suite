@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { html } from 'lit';
 import type { ComponentDefinition } from '../../engine/registry.js';
 import './EpistolaQrCodePreview.js';

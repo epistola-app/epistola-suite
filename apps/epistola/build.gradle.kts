@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import com.github.jk1.license.filter.LicenseBundleNormalizer
 import com.github.jk1.license.render.TextReportRenderer
 import org.cyclonedx.model.Component

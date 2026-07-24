@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- API keys for external system authentication
 CREATE TABLE api_keys (
     id           UUID PRIMARY KEY,

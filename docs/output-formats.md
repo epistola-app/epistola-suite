@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Multi-format output and channels — a discussion
 
 > **Status: exploratory. Nothing here is decided, and nothing here is scheduled.**

@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Spring Session JDBC tables for HTTP session storage.
 -- Enables session sharing across multiple application instances.
 --

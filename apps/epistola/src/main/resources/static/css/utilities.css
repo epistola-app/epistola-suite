@@ -1,4 +1,10 @@
 /*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
  * App utilities — the intentional escape hatch for one-off helpers.
  *
  * Layout utilities (.ep-row, .ep-stack, .ep-gap-*, .ep-checkbox) live in the

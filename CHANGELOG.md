@@ -1,9 +1,16 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Epistola Suite Changelog
 
 > **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
 
 ## [Unreleased]
 
+- **[dev]** chore(legal): **First-party files now carry SPDX/REUSE license metadata.** Commentable source, configuration, scripts, templates, and docs now declare `SPDX-FileCopyrightText: Epistola Nederland B.V.` and `SPDX-License-Identifier: AGPL-3.0-only`; non-commentable assets and third-party bundled files are covered through `REUSE.toml` without changing their licenses. The REUSE CLI is pinned via mise (`pipx:reuse` 6.2.0), `pnpm license:check` runs the local header guard plus `reuse lint`, and CI now enforces the check before builds.
 - **[dev]** chore(db): **CI now rejects out-of-order runtime Flyway migrations before merge.** The new `checkMigrationVersions` Gradle task compares new runtime migrations with the previously committed migration history, fails stale timestamps that would require Flyway `outOfOrder`, and also rejects modifying, deleting, or renaming already-merged runtime migrations. The build workflow fetches full history and runs the guard before compilation, while `./gradlew check` covers it locally.
 
 ## [1.0.0-RC4] - 2026-07-23

@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Deployment
 
 How Epistola Suite is deployed with the Helm chart (`charts/epistola`). For the

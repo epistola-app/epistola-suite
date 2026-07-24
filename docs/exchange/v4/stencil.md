@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Stencil — catalog wire v4
 
 > Part of the [catalog **v4** wire format](README.md) ([exchange overview](../README.md)).

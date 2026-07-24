@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 name: Bug Report
 description: Report a bug or unexpected behavior
 title: "[Bug]: "

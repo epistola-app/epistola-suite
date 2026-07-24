@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Plan: Catalog Wire-Format Schema Migrations (EF-style)
 
 > **Whole-catalog axis (implemented).** [ADR 0007](../adr/0007-catalog-wire-format-migrations.md)

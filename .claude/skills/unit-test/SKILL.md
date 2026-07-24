@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: unit-test
 description: Create unit tests or integration tests. Use when writing tests for business logic, commands, queries, handlers, or pure functions.
+
 ---
 
 Create tests for Epistola Suite code.

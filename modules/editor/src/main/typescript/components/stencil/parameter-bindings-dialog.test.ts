@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it } from 'vitest';

@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # ADR 0012: Editor check-run lifecycle — debounce, coalescing, and run-state
 
 - **Status:** Draft — discussion record, not accepted

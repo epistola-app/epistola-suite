@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Refactoring Plan: Readability & Maintainability Improvements
 
 This document tracks the refactoring tasks for improving code readability and maintainability in the Epistola Suite.

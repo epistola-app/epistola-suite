@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- backup-restore-compatibility: backward=true forward=true
 -- reason: Additive — creates audit_log, which is excluded from tenant backup/restore
 -- (AuditBackupTables contributor). No change to any backed-up table, so a backup restores

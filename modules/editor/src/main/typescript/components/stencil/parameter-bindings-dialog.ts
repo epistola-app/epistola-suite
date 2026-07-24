@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Parameter-bindings dialog — modal for binding a stencil instance's
  * declared parameters to JSONata expressions. Used from the StencilInspector

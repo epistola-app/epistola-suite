@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Note: The kotlin-dsl plugin uses Gradle's embedded Kotlin version, which may not yet
 // support the latest JVM target. If you see a warning like "Kotlin does not yet support
 // JDK XX target, falling back to JVM_YY", this only affects buildSrc compilation, not the

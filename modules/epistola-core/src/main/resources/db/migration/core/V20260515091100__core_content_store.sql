@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- content_store: a single key-value table that mirrors S3 semantics, enabling
 -- pluggable storage backends (PostgreSQL, S3, filesystem) via configuration.
 --

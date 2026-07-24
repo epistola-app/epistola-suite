@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Catalog wire format — v4
 
 > Part of [catalog import/export](../README.md). This folder documents the **catalog-wide wire format at `schemaVersion` 4** — one file per part.

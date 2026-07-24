@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- document_content: ephemeral blob storage for generated documents (issue #738).
 --
 -- Split out of the single shared `content_store` so that document blobs have a

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 server:
   # The worker serves NO application HTTP — it has no controllers (rest-api/MCP/UI aren't on its
   # classpath). The embedded server (pulled in transitively by epistola-core's starter-web) exists

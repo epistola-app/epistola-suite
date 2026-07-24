@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * ImportSchemaDialog — Dialog for importing a JSON Schema via paste or file upload.
  *

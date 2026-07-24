@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: release-helm-chart
 description: Release a Helm chart (epistola or epistola-grafana) to a new version. Use when the user wants to release, publish, or cut a new Helm chart version.
+
 ---
 
 Release a Helm chart. The chart's `Chart.yaml` `version:` is the **source of

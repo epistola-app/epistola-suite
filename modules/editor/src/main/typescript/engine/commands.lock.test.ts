@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Verifies that mutation reducers reject commands targeting locked slots,
  * and that `bypassLock: true` skips the check.

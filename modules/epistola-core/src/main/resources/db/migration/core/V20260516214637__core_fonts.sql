@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Font families: a thin, catalog-scoped grouping over font-face binaries.
 --
 -- A font does NOT own its binaries. Each face points at either:

@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Disclaimer of Warranty and Limitation of Liability
 
 Epistola Suite is provided **"as is" and "as available", without warranty of any

@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Keycloak Setup Guide
 
 This document explains how to configure Keycloak for use with Epistola Suite.

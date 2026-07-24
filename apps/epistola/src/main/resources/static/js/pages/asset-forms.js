@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Asset/catalog-resource form behaviors (ADR 0010: no executable inline scripts).
 // Covers: templates/attributes/new.html, templates/attributes/list.html (edit
 // dialog fragment), templates/code-lists/new.html, templates/fonts/new.html,

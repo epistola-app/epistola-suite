@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Parameter-definitions dialog — wraps StencilParameterDefinitionsPanel in a
  * native <dialog> so stencil authors get a roomy modal instead of a cramped

@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- tenant_backups: locally-stored faithful tenant backup artifacts.
 --
 -- A backup is a full-fidelity, identity-preserving "undo" of a tenant's authoring

@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Stencils: reusable, versioned template components
 -- Follows the same patterns as templates/variants/versions:
 --   - Composite PKs for tenant and catalog isolation

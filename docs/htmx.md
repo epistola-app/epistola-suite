@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # HTMX Utilities for WebMvc.fn
 
 This document describes the custom HTMX utilities built for Epistola Suite. These utilities integrate HTMX with Spring WebMvc.fn functional endpoints, providing a type-safe Kotlin DSL for building HTMX responses.

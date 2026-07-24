@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Shortcuts Command Runtime
 
 This document defines runtime behavior for keyboard event normalization, resolution, chords, event policy, and command execution.

@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Document Generation Infrastructure
 --
 -- Supports asynchronous document generation with a flattened structure.

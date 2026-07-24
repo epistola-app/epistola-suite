@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: pr-review
 description: Review a branch/PR against epistola's architecture conventions and recorded preferences. Use when reviewing code changes; complements /code-review (which finds correctness bugs).
+
 ---
 
 Review a set of changes against the epistola-suite project conventions and our

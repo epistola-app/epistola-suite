@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Verifies that every hand-curated `ComponentDefinition.examples` fragment is
  * structurally valid: nodes/slots cross-reference correctly, no cycles, every

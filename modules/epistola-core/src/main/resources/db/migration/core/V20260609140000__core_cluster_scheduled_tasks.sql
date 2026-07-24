@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Durable cluster scheduled tasks.
 --
 -- Scheduled tasks are persistent recurring work definitions. A local

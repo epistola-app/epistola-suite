@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Asset storage for tenant-scoped, catalog-scoped images
 --
 -- Assets are immutable binary objects (images). Metadata lives here; the bytes

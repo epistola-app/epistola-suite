@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Global UI bootstrap: CSRF wiring, confirm dialogs, global HTMX error handling.
 // Loaded once from fragments/htmx.html. Executable inline scripts are banned in
 // templates (ADR 0010); behaviour belongs here or in behaviors.js.

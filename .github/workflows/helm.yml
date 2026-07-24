@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 name: Helm Chart
 
 # Tag-driven release. A chart's Chart.yaml `version:` is the source of truth; a

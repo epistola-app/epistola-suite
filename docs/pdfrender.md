@@ -1,3 +1,9 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # pdfrender — the slim render worker
 
 > **Beta.** pdfrender is functional but **not yet supported for production**. Its deployment shape

@@ -1,5 +1,11 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Ensure not just anybody can make changes and approve those in .github folder (protecting the build)
 .github/ @sdegroot
 
-# License cannot be changed 
+# License cannot be changed
 LICENSE @sdegroot
+LICENSES/ @sdegroot
+REUSE.toml @sdegroot

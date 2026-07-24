@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Login-popup success page: notify the opener that the session was renewed,
 // then close the popup. Loaded only by login-popup-success.html (always a hard
 // load — popup windows are never hx-boosted).

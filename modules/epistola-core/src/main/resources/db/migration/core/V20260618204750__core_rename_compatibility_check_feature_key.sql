@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- backup-restore-compatibility: backward=true forward=true
 -- reason: Data-only re-key of feature_toggles; no structural change to any backed-up table, so a
 -- backup restores cleanly across this migration in either direction.

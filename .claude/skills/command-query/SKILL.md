@@ -1,6 +1,14 @@
+<!--
+  SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 ---
+
 name: command-query
 description: Create a new CQRS command or query with handler. Use when adding new business operations (state changes) or data retrieval logic.
+
 ---
 
 Create a new CQRS command or query in the epistola-core module.

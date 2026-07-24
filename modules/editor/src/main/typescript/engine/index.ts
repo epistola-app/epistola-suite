@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 export { EditorEngine } from './EditorEngine.js';
 export { EventEmitter, type EngineEvents } from './events.js';
 export {

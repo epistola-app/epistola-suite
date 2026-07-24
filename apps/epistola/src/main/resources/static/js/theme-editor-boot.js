@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Theme-editor bootstrap (ADR 0010: no executable inline scripts).
 // Reads the page's #theme-editor-config JSON island and mounts the theme
 // editor into #theme-editor-container. htmx:load-driven with an idempotency
