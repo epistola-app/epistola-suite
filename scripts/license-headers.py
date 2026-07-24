@@ -65,6 +65,7 @@ SPECIAL_BAT_FILES = {"gradlew.bat"}
 
 SKIP_PREFIXES = (
     "LICENSES/",
+    "modules/epistola-core/src/main/resources/epistola/catalogs/",
     "modules/epistola-core/src/main/resources/epistola/fonts/",
     "modules/generation/src/main/resources/fonts/",
     "org/",
