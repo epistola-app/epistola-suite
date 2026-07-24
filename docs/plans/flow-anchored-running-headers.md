@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Flow-Anchored Running Headers — single-pass, dynamic height
 
 ## Context

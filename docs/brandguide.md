@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Epistola Visual Styleguide
 
 A comprehensive visual design system for the Epistola application. This guide documents colors, typography, spacing, components, and UI patterns for consistent design across all features.

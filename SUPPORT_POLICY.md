@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Epistola Release & Support Policy
 
 Epistola follows a **continuous delivery** model.

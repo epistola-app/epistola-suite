@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Authentication
 
 Epistola Suite uses **bean-driven authentication** that adapts to the runtime environment based on which Spring beans are present:

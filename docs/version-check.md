@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Version check
 
 Epistola runs a default-on, installation-wide daily check for newer suite releases and, optionally,

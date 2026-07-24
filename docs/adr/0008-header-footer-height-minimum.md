@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # ADR 0008: Page header/footer `height` is a minimum (auto-grow)
 
 - **Status:** Accepted

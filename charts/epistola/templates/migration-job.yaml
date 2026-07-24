@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Epistola Nederland B.V.
-#
-# SPDX-License-Identifier: AGPL-3.0-only
-
 {{- if eq .Values.migration.mode "job" }}
 {{- /*
   Pre-install / pre-upgrade hook Job: runs DB migrations exactly once per

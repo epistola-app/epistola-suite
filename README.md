@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Epistola Suite
 
 [![Build and Publish](https://github.com/epistola-app/epistola-suite/actions/workflows/build.yml/badge.svg)](https://github.com/epistola-app/epistola-suite/actions/workflows/build.yml)

@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Stencil Parameters — Design
 
 > Status: stable — parameters are an intrinsic property of every stencil (the

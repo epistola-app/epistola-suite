@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # authentik Setup
 
 Epistola's OIDC login is **provider-neutral** — it works with any compliant OpenID Connect

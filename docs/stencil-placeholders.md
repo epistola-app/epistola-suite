@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Stencil Placeholders — Design
 
 > Status: implemented; placeholder model refined post-v1 to use two slots

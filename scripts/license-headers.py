@@ -26,11 +26,6 @@ LINE_COMMENT_EXTENSIONS = {
     ".ts": "//",
     ".js": "//",
     ".mjs": "//",
-    ".yml": "#",
-    ".yaml": "#",
-    ".toml": "#",
-    ".properties": "#",
-    ".factories": "#",
     ".py": "#",
     ".sh": "#",
     ".sql": "--",
@@ -38,32 +33,17 @@ LINE_COMMENT_EXTENSIONS = {
 
 BLOCK_COMMENT_EXTENSIONS = {
     ".css": ("/*", " * ", " */"),
-    ".html": ("<!--", "  ", "-->"),
-    ".md": ("<!--", "  ", "-->"),
     ".svg": ("<!--", "  ", "-->"),
-    ".xml": ("<!--", "  ", "-->"),
 }
 
 SPECIAL_LINE_COMMENT_FILES = {
-    ".github/CODEOWNERS": "#",
-    ".husky/commit-msg": "#",
-    ".husky/post-merge": "#",
-    ".husky/pre-commit": "#",
     "apps/epistola/docker/run-image/Dockerfile": "#",
-    "gradlew": "#",
 }
-
-SPECIAL_LINE_COMMENT_NAMES = {
-    ".aiignore": "#",
-    ".editorconfig": "#",
-    ".gitattributes": "#",
-    ".gitignore": "#",
-    ".helmignore": "#",
-}
-
-SPECIAL_BAT_FILES = {"gradlew.bat"}
 
 SKIP_PREFIXES = (
+    ".claude/skills/",
+    ".github/",
+    ".husky/",
     "LICENSES/",
     "modules/epistola-core/src/main/resources/epistola/catalogs/",
     "modules/epistola-core/src/main/resources/epistola/fonts/",
@@ -73,16 +53,37 @@ SKIP_PREFIXES = (
 
 SKIP_FILES = {
     "LICENSE",
+    "gradlew",
+    "gradlew.bat",
     "pnpm-lock.yaml",
+    "settings.gradle.kts",
     "modules/generation/src/main/resources/color/sRGB.icc",
 }
 
+SKIP_NAMES = {
+    ".aiignore",
+    ".dockerignore",
+    ".editorconfig",
+    ".envrc",
+    ".gitattributes",
+    ".gitignore",
+    ".helmignore",
+}
+
 SKIP_EXTENSIONS = {
+    ".factories",
+    ".html",
+    ".md",
     ".json",
     ".png",
+    ".properties",
     ".ttf",
     ".txt",
+    ".toml",
     ".tpl",
+    ".xml",
+    ".yaml",
+    ".yml",
     ".TestExecutionListener",
     ".LauncherSessionListener",
 }
@@ -97,7 +98,9 @@ def is_skipped(path: Path) -> bool:
     name = path.as_posix()
     return (
         name in SKIP_FILES
+        or path.name in SKIP_NAMES
         or any(name.startswith(prefix) for prefix in SKIP_PREFIXES)
+        or name.endswith(".gradle.kts")
         or (MIGRATION_SQL_FRAGMENT in name and path.suffix == ".sql")
         or path.suffix in SKIP_EXTENSIONS
     )
@@ -115,10 +118,6 @@ def header_for(path: Path) -> str | None:
     name = path.as_posix()
     if name in SPECIAL_LINE_COMMENT_FILES:
         return line_header(SPECIAL_LINE_COMMENT_FILES[name])
-    if path.name in SPECIAL_LINE_COMMENT_NAMES:
-        return line_header(SPECIAL_LINE_COMMENT_NAMES[path.name])
-    if name in SPECIAL_BAT_FILES:
-        return f"rem {COPYRIGHT}\nrem\nrem {LICENSE}\n\n"
     if path.suffix in LINE_COMMENT_EXTENSIONS:
         return line_header(LINE_COMMENT_EXTENSIONS[path.suffix])
     if path.suffix in BLOCK_COMMENT_EXTENSIONS:

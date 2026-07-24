@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Epistola Nederland B.V.
-#
-# SPDX-License-Identifier: AGPL-3.0-only
-
 version = 1
 SPDX-PackageName = "Epistola Suite"
 SPDX-PackageSupplier = "Epistola Nederland B.V."
@@ -9,11 +5,38 @@ SPDX-PackageDownloadLocation = "https://github.com/epistola-app/epistola-suite"
 
 [[annotations]]
 path = [
+  "*.md",
+  "**/*.md",
+  "**/*.html",
+  "**/*.xml",
+  "**/*.yaml",
+  "**/*.yml",
+  "*.gradle.kts",
+  "**/*.gradle.kts",
+  "**/*.factories",
+  "*.properties",
+  "**/*.properties",
+  "*.toml",
+  "**/*.toml",
+  ".aiignore",
+  ".claude/skills/**",
+  ".dockerignore",
+  ".editorconfig",
+  ".envrc",
+  ".gitattributes",
+  ".github/**",
+  ".gitignore",
+  ".gitleaks.toml",
+  ".helmignore",
+  ".husky/**",
   "LICENSE",
   "README.md",
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
   "DISCLAIMER.md",
+  "gradlew",
+  "gradlew.bat",
+  "settings.gradle.kts",
   "SUPPORT_POLICY.md",
 ]
 precedence = "aggregate"

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: Epistola Nederland B.V.
-//
-// SPDX-License-Identifier: AGPL-3.0-only
-
 // Commitlint configuration
 // Enforces Conventional Commits: https://www.conventionalcommits.org/
 module.exports = {

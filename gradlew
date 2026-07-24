@@ -1,8 +1,4 @@
 #!/bin/sh
-# SPDX-FileCopyrightText: Epistola Nederland B.V.
-#
-# SPDX-License-Identifier: AGPL-3.0-only
-
 # Gradle wrapper that uses mise-managed toolchain
 # All tool versions are defined in .mise.toml
 

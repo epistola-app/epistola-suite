@@ -1,9 +1,3 @@
-<!--
-  SPDX-FileCopyrightText: Epistola Nederland B.V.
-
-  SPDX-License-Identifier: AGPL-3.0-only
--->
-
 # Catalog Versioning & Upgrading
 
 How catalogs declare a version, how "is this a new version?" is decided, and
