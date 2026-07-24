@@ -11,6 +11,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.VersionNotDraftException
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
+import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -33,11 +34,28 @@ data class UpdateVersion(
 class UpdateVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<UpdateVersion, TemplateVersion> {
     override fun handle(command: UpdateVersion): TemplateVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+        graphValidator.validate(command.templateModel)
         return jdbi.inTransaction<TemplateVersion, Exception> { handle ->
             val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
+
+            handle.createQuery(
+                """
+                SELECT 1 FROM template_variants
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
+                  AND template_key = :templateId AND id = :variantId
+                FOR UPDATE
+                """,
+            )
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("catalogKey", command.versionId.catalogKey)
+                .bind("templateId", command.versionId.templateKey)
+                .bind("variantId", command.versionId.variantKey)
+                .mapTo(Int::class.java)
+                .findOne()
 
             // Verify version exists and is a draft
             val existing = handle.createQuery(
@@ -45,6 +63,7 @@ class UpdateVersionHandler(
                 SELECT status FROM template_versions
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
                   AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                FOR UPDATE
                 """,
             )
                 .bind("tenantId", command.versionId.tenantKey)
@@ -84,7 +103,10 @@ class UpdateVersionHandler(
                 .bind("versionId", command.versionId.key)
                 .bind("templateModel", templateModelJson)
                 .mapTo<TemplateVersion>()
-                .one()
+                .findOne()
+                .orElseThrow {
+                    VersionNotDraftException(command.versionId.tenantKey, command.versionId.key)
+                }
         }
     }
 }

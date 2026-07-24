@@ -11,6 +11,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -72,9 +73,11 @@ data class ImportStencilResult(
 class ImportStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<ImportStencil, ImportStencilResult> {
 
     override fun handle(command: ImportStencil): ImportStencilResult {
+        graphValidator.validate(command.content)
         val stencilKey = StencilKey.of(command.slug)
         val tagsJson = objectMapper.writeValueAsString(command.tags)
         val contentJson = objectMapper.writeValueAsString(command.content)

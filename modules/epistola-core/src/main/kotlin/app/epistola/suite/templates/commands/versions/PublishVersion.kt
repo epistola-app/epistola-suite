@@ -53,12 +53,28 @@ class PublishVersionHandler(
 ) : CommandHandler<PublishVersion, TemplateVersion?> {
     override fun handle(command: PublishVersion): TemplateVersion? {
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT 1 FROM template_variants
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
+                  AND template_key = :templateId AND id = :variantId
+                FOR UPDATE
+                """,
+            )
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("catalogKey", command.versionId.catalogKey)
+                .bind("templateId", command.versionId.templateKey)
+                .bind("variantId", command.versionId.variantKey)
+                .mapTo(Int::class.java)
+                .findOne()
+
             // 1. Fetch the version
             val version = handle.createQuery(
                 """
                 SELECT *
                 FROM template_versions
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                FOR UPDATE
                 """,
             )
                 .bind("tenantId", command.versionId.tenantKey)

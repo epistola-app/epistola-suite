@@ -12,6 +12,7 @@ import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.stencils.model.StencilContentReplacer
 import app.epistola.suite.templates.commands.versions.DraftVersionFactory
 import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -63,6 +64,7 @@ class UpdateStencilInTemplateHandler(
     private val placeholderValidator: PlaceholderValidator,
     private val nodeParameterBindingValidator: app.epistola.suite.templates.validation.NodeParameterBindingValidator,
     private val draftVersionFactory: DraftVersionFactory,
+    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<UpdateStencilInTemplate, UpdateStencilInTemplateResult?> {
     override fun handle(command: UpdateStencilInTemplate): UpdateStencilInTemplateResult? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
@@ -120,6 +122,7 @@ class UpdateStencilInTemplateHandler(
             )
 
             // 4b. Validate the upgraded document — recursion guard, placeholder scope, etc.
+            graphValidator.validate(upgrade.document)
             placeholderValidator.validateAsTemplate(upgrade.document)
             nodeParameterBindingValidator.validate(upgrade.document)
 

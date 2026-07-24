@@ -720,6 +720,295 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `discarding a never-published draft returns conflict problem`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "discard-fresh-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Fresh Draft"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val discard = restTemplate.exchange(
+            "$draftUrl/discard",
+            HttpMethod.POST,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(discard.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(discard.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        assertThat(JsonPath.read<String>(discard.body!!, "$.type"))
+            .isEqualTo("https://epistola.app/errors/draft-has-no-published-base")
+        assertThat(JsonPath.read<String>(discard.body!!, "$.variantId")).isEqualTo(variantId)
+
+        val getDraft = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(getDraft.statusCode).isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    fun `cyclic draft model is rejected and previous model is retained`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "cycle-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Cycle Guard"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val validModel = """
+            {
+              "modelVersion": 1,
+              "root": "root",
+              "nodes": {
+                "root": {"id": "root", "type": "root", "slots": ["root-slot"]},
+                "body": {"id": "body", "type": "text", "slots": [], "props": {"content": "retained"}}
+              },
+              "slots": {
+                "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["body"]}
+              },
+              "themeRef": {"type": "inherit"}
+            }
+        """.trimIndent()
+        val valid = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": $validModel}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(valid.statusCode).isEqualTo(HttpStatus.OK)
+
+        val cyclicModel = """
+            {
+              "modelVersion": 1,
+              "root": "root",
+              "nodes": {
+                "root": {"id": "root", "type": "root", "slots": ["root-slot"]},
+                "body": {"id": "body", "type": "text", "slots": [], "props": {"content": "bad"}}
+              },
+              "slots": {
+                "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["body", "root"]}
+              },
+              "themeRef": {"type": "inherit"}
+            }
+        """.trimIndent()
+        val rejected = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": $cyclicModel}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
+            .isEqualTo("https://epistola.app/errors/template-graph-invalid")
+
+        val getDraft = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(getDraft.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(getDraft.body!!, "$.templateModel.nodes.body.props.content"))
+            .isEqualTo("retained")
+    }
+
+    @Test
+    fun `non-synthetic root draft model is rejected and previous model is retained`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "root-shape-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Root Shape Guard"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val valid = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": ${validTemplateModel("body", "retained-root")}}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(valid.statusCode).isEqualTo(HttpStatus.OK)
+
+        val containerRootModel = """
+            {
+              "modelVersion": 1,
+              "root": "root",
+              "nodes": {
+                "root": {"id": "root", "type": "container", "slots": ["root-slot"]},
+                "body": {"id": "body", "type": "text", "slots": [], "props": {"content": "bad-root"}}
+              },
+              "slots": {
+                "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["body"]}
+              },
+              "themeRef": {"type": "inherit"}
+            }
+        """.trimIndent()
+        val rejected = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": $containerRootModel}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
+            .isEqualTo("https://epistola.app/errors/template-graph-invalid")
+
+        val getDraft = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(getDraft.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(getDraft.body!!, "$.templateModel.nodes.body.props.content"))
+            .isEqualTo("retained-root")
+    }
+
+    @Test
+    fun `unsupported draft node type is rejected before it can be retained`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "unknown-node-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Unknown Node"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val model = """
+            {
+              "modelVersion": 1,
+              "root": "root",
+              "nodes": {
+                "root": {"id": "root", "type": "root", "slots": ["root-slot"]},
+                "mystery": {"id": "mystery", "type": "unknown-component-69", "slots": []}
+              },
+              "slots": {
+                "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["mystery"]}
+              },
+              "themeRef": {"type": "inherit"}
+            }
+        """.trimIndent()
+
+        val rejected = restTemplate.exchange(
+            draftUrl,
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": $model}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
+            .isEqualTo("https://epistola.app/errors/template-node-type-unsupported")
+    }
+
+    @Test
+    fun `concurrent draft lifecycle operations do not return server errors or duplicate drafts`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "race-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Race Guard"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val executor = java.util.concurrent.Executors.newFixedThreadPool(6)
+        val start = java.util.concurrent.CountDownLatch(1)
+        try {
+            val futures = (0 until 24).map { index ->
+                executor.submit(
+                    java.util.concurrent.Callable {
+                        start.await()
+                        when (index % 4) {
+                            0 -> restTemplate.exchange(
+                                draftUrl,
+                                HttpMethod.PUT,
+                                HttpEntity("""{"templateModel": ${validTemplateModel("body-$index", "text-$index")}}""", baseHeaders(key)),
+                                String::class.java,
+                            )
+                            1 -> restTemplate.exchange(
+                                "$draftUrl/publish",
+                                HttpMethod.POST,
+                                HttpEntity<String>(null, baseHeaders(key)),
+                                String::class.java,
+                            )
+                            2 -> restTemplate.exchange(
+                                "$draftUrl/discard",
+                                HttpMethod.POST,
+                                HttpEntity<String>(null, baseHeaders(key)),
+                                String::class.java,
+                            )
+                            else -> restTemplate.exchange(
+                                draftUrl,
+                                HttpMethod.POST,
+                                HttpEntity<String>(null, baseHeaders(key)),
+                                String::class.java,
+                            )
+                        }
+                    },
+                )
+            }
+            start.countDown()
+            val responses = futures.map { it.get(20, java.util.concurrent.TimeUnit.SECONDS) }
+
+            assertThat(responses.map { it.statusCode }.filter { it.is5xxServerError }).isEmpty()
+            assertThat(responses.map { it.statusCode }).allSatisfy { status ->
+                assertThat(status).isIn(
+                    HttpStatus.OK,
+                    HttpStatus.CREATED,
+                    HttpStatus.NO_CONTENT,
+                    HttpStatus.NOT_FOUND,
+                    HttpStatus.CONFLICT,
+                )
+            }
+        } finally {
+            executor.shutdownNow()
+        }
+
+        val versions = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/versions",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(versions.statusCode).isEqualTo(HttpStatus.OK)
+        val statuses: List<String> = JsonPath.read(versions.body!!, "$.items[*].status")
+        assertThat(statuses.count { it == "draft" }).isLessThanOrEqualTo(1)
+        assertThat(statuses).anySatisfy { assertThat(it).isIn("draft", "published") }
+    }
+
+    @Test
     fun `contract draft lifecycle endpoints update list and publish`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "contract-life-${randomSuffix()}"
@@ -1208,4 +1497,19 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     private fun randomSuffix(): String = UUID.randomUUID().toString().take(8)
+
+    private fun validTemplateModel(nodeId: String, text: String): String = """
+        {
+          "modelVersion": 1,
+          "root": "root",
+          "nodes": {
+            "root": {"id": "root", "type": "root", "slots": ["root-slot"]},
+            "$nodeId": {"id": "$nodeId", "type": "text", "slots": [], "props": {"content": "$text"}}
+          },
+          "slots": {
+            "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["$nodeId"]}
+          },
+          "themeRef": {"type": "inherit"}
+        }
+    """.trimIndent()
 }

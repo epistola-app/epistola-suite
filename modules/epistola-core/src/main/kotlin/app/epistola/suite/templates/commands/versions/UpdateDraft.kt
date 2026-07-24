@@ -14,6 +14,7 @@ import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.validation.NodeParameterBindingValidator
 import app.epistola.suite.templates.validation.PageHeaderCardinalityValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -40,9 +41,11 @@ class UpdateDraftHandler(
     private val placeholderValidator: PlaceholderValidator,
     private val nodeParameterBindingValidator: NodeParameterBindingValidator,
     private val pageHeaderCardinalityValidator: PageHeaderCardinalityValidator,
+    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        graphValidator.validate(command.templateModel)
         placeholderValidator.validateAsTemplate(command.templateModel)
         nodeParameterBindingValidator.validate(command.templateModel)
         pageHeaderCardinalityValidator.validate(command.templateModel)
@@ -50,17 +53,19 @@ class UpdateDraftHandler(
             // Verify the variant belongs to a template owned by the tenant
             val variantExists = handle.createQuery(
                 """
-                SELECT COUNT(*) > 0
+                SELECT 1
                 FROM template_variants
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                FOR UPDATE
                 """,
             )
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("tenantId", command.variantId.tenantKey)
                 .bind("catalogKey", command.variantId.catalogKey)
-                .mapTo<Boolean>()
-                .one()
+                .mapTo(Int::class.java)
+                .findOne()
+                .isPresent
 
             if (!variantExists) {
                 throw TemplateVariantNotFoundException(
@@ -82,6 +87,7 @@ class UpdateDraftHandler(
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                   AND template_key = :templateId
                   AND status = 'draft'
+                RETURNING id
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
@@ -90,9 +96,12 @@ class UpdateDraftHandler(
                 .bind("variantId", command.variantId.key)
                 .bind("templateModel", templateModelJson)
                 .bind("referencedPaths", referencedPathsJson)
-                .execute()
+                .executeAndReturnGeneratedKeys("id")
+                .mapTo(Int::class.java)
+                .findOne()
+                .isPresent
 
-            if (updated > 0) {
+            if (updated) {
                 // Draft existed and was updated - return it
                 return@inTransaction handle.createQuery(
                     """

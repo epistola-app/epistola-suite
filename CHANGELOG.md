@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** fix(api): **Template draft fuzz failures now return structured validation/conflict errors instead of 500s.** The REST API and catalog import paths now reject cyclic, disconnected, oversized, unknown-component, or non-synthetic-root template models before retaining them, so bad editor or catalog payloads cannot later crash path extraction or PDF rendering. Draft publish/discard/update operations are serialized per variant to make concurrent lifecycle calls resolve as normal success, not-found, or conflict responses, and discarding a draft with no published base now returns a `409` Problem Details response instead of an internal error. The bundled demo catalog is bumped to `5.16.1` with corrected graph-safe template/stencil content.
 - **[dev]** chore(db): **CI now rejects out-of-order runtime Flyway migrations before merge.** The new `checkMigrationVersions` Gradle task compares new runtime migrations with the previously committed migration history, fails stale timestamps that would require Flyway `outOfOrder`, and also rejects modifying, deleting, or renaming already-merged runtime migrations. The build workflow fetches full history and runs the guard before compilation, while `./gradlew check` covers it locally.
 
 ## [1.0.0-RC4] - 2026-07-23

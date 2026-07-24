@@ -12,6 +12,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
@@ -43,10 +44,14 @@ class CreateStencilVersionHandler(
     private val objectMapper: ObjectMapper,
     private val placeholderValidator: PlaceholderValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
+    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<CreateStencilVersion, StencilVersion?> {
     override fun handle(command: CreateStencilVersion): StencilVersion? {
         requireCatalogEditable(command.stencilId.tenantKey, command.stencilId.catalogKey)
-        if (command.content != null) placeholderValidator.validateAsStencilDefinition(command.content)
+        if (command.content != null) {
+            graphValidator.validate(command.content)
+            placeholderValidator.validateAsStencilDefinition(command.content)
+        }
         parameterSchemaValidator.validate(command.parameterSchema)
         val auditUser = currentUserIdOrNull()?.value
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->

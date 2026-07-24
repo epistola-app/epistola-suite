@@ -17,6 +17,7 @@ import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
@@ -112,6 +113,7 @@ class ImportTemplatesHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
+    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<ImportTemplates, List<ImportTemplateResult>> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -132,6 +134,7 @@ class ImportTemplatesHandler(
                     },
                 )
             }
+            validateTemplateModels(rewritten)
             importSingleTemplate(command.tenantId, command.catalogKey, rewritten)
         } catch (e: Exception) {
             logger.error("Failed to import template '${input.slug}': ${e.message}", e)
@@ -143,6 +146,11 @@ class ImportTemplatesHandler(
                 errorMessage = e.message ?: "Unknown error",
             )
         }
+    }
+
+    private fun validateTemplateModels(input: ImportTemplateInput) {
+        graphValidator.validate(input.templateModel)
+        input.variants.mapNotNull { it.templateModel }.forEach(graphValidator::validate)
     }
 
     /**

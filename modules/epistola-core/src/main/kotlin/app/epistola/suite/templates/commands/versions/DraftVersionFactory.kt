@@ -7,6 +7,7 @@ import app.epistola.suite.templates.analysis.TemplatePathExtractor
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.createDefaultTemplateModel
+import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -26,6 +27,7 @@ import tools.jackson.databind.ObjectMapper
 class DraftVersionFactory(
     private val objectMapper: ObjectMapper,
     private val pathExtractor: TemplatePathExtractor,
+    private val graphValidator: TemplateDocumentGraphValidator,
 ) {
     /**
      * Ensures [variantId] has a draft, using [handle]'s transaction.
@@ -52,6 +54,7 @@ class DraftVersionFactory(
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
             WHERE tv.tenant_key = :tenantId AND tv.catalog_key = :catalogKey AND tv.id = :variantId
               AND tv.template_key = :templateId
+            FOR UPDATE OF tv
             """,
         )
             .bind("variantId", variantId.key)
@@ -129,6 +132,9 @@ class DraftVersionFactory(
         val modelToSave = templateModel
             ?: latestPublishedModelJson?.let { objectMapper.readValue(it, TemplateDocument::class.java) }
             ?: createDefaultTemplateModel(templateName, variantId.key)
+        if (modelToSave is TemplateDocument) {
+            graphValidator.validate(modelToSave)
+        }
         val templateModelJson = if (latestPublishedModelJson != null && templateModel == null) {
             latestPublishedModelJson // Reuse the JSON string directly
         } else {
