@@ -30,6 +30,7 @@ LINE_COMMENT_EXTENSIONS = {
     ".toml": "#",
     ".properties": "#",
     ".factories": "#",
+    ".py": "#",
     ".sh": "#",
     ".sql": "--",
 }
