@@ -14,7 +14,7 @@ import { createDefaultRegistry } from '../engine/registry.js';
  * step that `skipMissingElement` silently drops, with no warning and no failure.
  *
  * Consumers (the tours, the runner, tour-hooks.ts itself) are excluded from the scan
- * so a `tourHook(TOUR_HOOKS.x)` selector in a tour can never satisfy the check.
+ * so a literal `[data-tour~="…"]` selector in a tour can never satisfy the check.
  */
 
 const UI_DIR = dirname(fileURLToPath(import.meta.url));

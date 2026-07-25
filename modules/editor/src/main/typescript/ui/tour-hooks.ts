@@ -65,15 +65,13 @@ export type EpistolaElementTag = keyof HTMLElementTagNameMap & `epistola-${strin
 
 /**
  * The closed grammar of tour step targets. Everything a step may spotlight is
- * either a {@link TOUR_HOOKS} selector (build it with {@link tourHook}) or a
- * registered epistola element — a component's internal class names, ids, or
- * ad-hoc attribute selectors simply do not typecheck, which is the "never
- * target internals" rule enforced by the compiler instead of by review. Every
- * arm is verified: hooks by the stamping test, elements by the tag-name map.
+ * either a hook selector (written literally — `'[data-tour~="block-styles"]'`;
+ * the template-literal union rejects unknown hook names and wrong syntax, with
+ * autocompletion) or a registered epistola element. A component's internal
+ * class names, ids, or ad-hoc attribute selectors simply do not typecheck,
+ * which is the "never target internals" rule enforced by the compiler instead
+ * of by review. Every arm is verified: hooks by the stamping test, elements by
+ * the tag-name map. There is deliberately no selector-builder helper — the type
+ * alone is the contract, and one mechanism beats two.
  */
 export type TourTarget = `[data-tour~="${TourHook}"]` | EpistolaElementTag;
-
-/** CSS selector for a tour hook (word-list match — see the module doc). */
-export function tourHook(hook: TourHook): `[data-tour~="${TourHook}"]` {
-  return `[data-tour~="${hook}"]`;
-}

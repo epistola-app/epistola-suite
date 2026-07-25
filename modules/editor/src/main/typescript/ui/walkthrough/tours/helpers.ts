@@ -3,14 +3,17 @@
 import type { EditorEngine } from '../../../engine/EditorEngine.js';
 import type { TourContext } from '../registry.js';
 import { PAGE_FOOTER_TYPE } from '../../../engine/registry.js';
-import { tourHook } from '../../tour-hooks.js';
+import type { TourTarget } from '../../tour-hooks.js';
 
 /** Switch the sidebar to a built-in tab. No-op if absent. */
 export function clickSidebarTab(
   { host }: TourContext,
   tabId: 'blocks' | 'structure' | 'inspector',
 ): void {
-  const el = host.querySelector(tourHook(`tab-${tabId}`));
+  // Typed template literal: the tab-id union distributes into valid TourTargets,
+  // so a typo'd prefix or unknown tab id fails to compile.
+  const selector: TourTarget = `[data-tour~="tab-${tabId}"]`;
+  const el = host.querySelector(selector);
   if (el instanceof HTMLElement) el.click();
 }
 

@@ -41,10 +41,10 @@ export interface TourStep {
    * CSS selector for the element to spotlight, resolved at show time by
    * driver.js against the document. The editor mounts in light DOM, so plain
    * selectors find their target. The {@link TourTarget} grammar is closed —
-   * a `tourHook(TOUR_HOOKS.…)` selector, a registered epistola element, or a
-   * `data-testid` — so targeting a component's internal class names or ids
-   * does not typecheck; `tour-hooks.test.ts` additionally proves each hook is
-   * actually stamped.
+   * a literal `[data-tour~="…"]` hook selector or a registered epistola
+   * element — so targeting a component's internal class names or ids does not
+   * typecheck; `tour-hooks.test.ts` additionally proves each hook is actually
+   * stamped.
    *
    * A step whose target is absent when highlighted is skipped
    * (`skipMissingElement`). Driver also probes *following* steps' targets to

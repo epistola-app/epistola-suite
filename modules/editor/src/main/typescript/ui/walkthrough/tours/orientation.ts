@@ -1,5 +1,4 @@
 import type { Tour } from '../registry.js';
-import { TOUR_HOOKS, tourHook } from '../../tour-hooks.js';
 import { openPreview } from './helpers.js';
 
 /**
@@ -25,7 +24,7 @@ export const orientationTour: Tour = {
       side: 'bottom',
     },
     {
-      target: tourHook(TOUR_HOOKS.toolbarTools),
+      target: '[data-tour~="toolbar-tools"]',
       title: 'Help and inspection',
       body: 'Three tools to understand what you’re building: this <strong>Guide</strong>, a <strong>JSON</strong> inspector for the raw document and its data, and a <strong>keyboard-shortcuts</strong> reference.',
       side: 'bottom',
@@ -43,7 +42,7 @@ export const orientationTour: Tour = {
       side: 'left',
     },
     {
-      target: tourHook(TOUR_HOOKS.previewToggle),
+      target: '[data-tour~="preview-toggle"]',
       title: 'Live preview',
       body: 'This button toggles a live PDF preview — exactly what will be generated. We’ve opened it for you.',
       side: 'bottom',
