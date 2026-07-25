@@ -168,6 +168,16 @@ tasks.cyclonedxDirectBom {
     jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
 }
 
+// Realize the SBOM task eagerly. The CycloneDX plugin's lazy creation callback
+// registers the BOM artifact on the like-named consumable configuration, and
+// Gradle locks that configuration as soon as an aggregate graph observes this
+// project's variants — a root `./gradlew build`/`check` (aggregating since the
+// root project gained lifecycle tasks) then dies at graph construction with
+// "Cannot mutate the artifacts of configuration ':apps:epistola:cyclonedxDirectBom'
+// after the configuration was consumed as a variant". Realizing at configuration
+// time runs the callback before anything can observe the configuration.
+tasks.cyclonedxDirectBom.get()
+
 // Third-party license inventory for the backend (JVM/Maven) runtime classpath.
 // apps:epistola pulls every :modules:* in as implementation(project(...)), so its
 // runtimeClasspath carries all transitive external artifacts. Our own first-party
