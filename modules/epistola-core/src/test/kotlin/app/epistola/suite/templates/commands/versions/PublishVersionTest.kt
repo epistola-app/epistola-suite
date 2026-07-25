@@ -40,13 +40,16 @@ import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -54,6 +57,9 @@ private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.j
 
 @Timeout(30)
 class PublishVersionTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     private val objectMapper = ObjectMapper()
     private lateinit var templateId: TemplateId
@@ -126,6 +132,39 @@ class PublishVersionTest : IntegrationTestBase() {
             // Try to publish the archived version
             val result = withMediator { PublishVersion(versionId = versionId).execute() }
             assertThat(result).isNull()
+        }
+
+        @Test
+        fun `rejects an invalid legacy draft at the publish boundary`() {
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+            jdbi.withHandle<Int, Exception> { handle ->
+                handle.createUpdate(
+                    """
+                    UPDATE template_versions
+                    SET template_model = jsonb_set(template_model, '{root}', '"missing-root"'::jsonb)
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND variant_key = :variantKey AND id = :versionId
+                    """,
+                )
+                    .bind("tenantKey", templateId.tenantKey)
+                    .bind("catalogKey", templateId.catalogKey)
+                    .bind("templateKey", templateId.key)
+                    .bind("variantKey", defaultVariantId.key)
+                    .bind("versionId", draft.id)
+                    .execute()
+            }
+
+            assertThatThrownBy {
+                withMediator {
+                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
+                }
+            }
+                .isInstanceOfSatisfying(ValidationException::class.java) {
+                    assertThat(it.field).isEqualTo("templateModel.root")
+                }
+
+            val stillDraft = withMediator { GetDraft(defaultVariantId).query() }
+            assertThat(stillDraft).isNotNull
         }
     }
 

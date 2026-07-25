@@ -15,8 +15,7 @@ import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
-import app.epistola.suite.templates.validation.PlaceholderValidator
-import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -42,14 +41,12 @@ data class UpdateStencilDraft(
 class UpdateStencilDraftHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val placeholderValidator: PlaceholderValidator,
+    private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
-    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<UpdateStencilDraft, StencilVersion> {
     override fun handle(command: UpdateStencilDraft): StencilVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
-        graphValidator.validateStencilDocument(command.content)
-        placeholderValidator.validateAsStencilDefinition(command.content)
+        templateDocumentValidator.validateStencil(command.content)
         parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<StencilVersion, Exception> { handle ->
             val contentJson = objectMapper.writeValueAsString(command.content)

@@ -15,8 +15,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
-import app.epistola.suite.templates.validation.PlaceholderValidator
-import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -63,15 +62,13 @@ data class CreateStencil(
 class CreateStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val placeholderValidator: PlaceholderValidator,
+    private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
-    private val graphValidator: TemplateDocumentGraphValidator,
 ) : CommandHandler<CreateStencil, Stencil> {
     override fun handle(command: CreateStencil): Stencil {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         if (command.content != null) {
-            graphValidator.validateStencilDocument(command.content)
-            placeholderValidator.validateAsStencilDefinition(command.content)
+            templateDocumentValidator.validateStencil(command.content)
         }
         parameterSchemaValidator.validate(command.parameterSchema)
         val auditUser = currentUserIdOrNull()?.value

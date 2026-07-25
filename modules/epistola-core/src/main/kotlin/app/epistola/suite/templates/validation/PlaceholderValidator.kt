@@ -33,23 +33,23 @@ class PlaceholderValidator {
      * Run all checks that apply to a stencil-version document. Throws [ValidationException]
      * on first violation. Use this from `CreateStencilVersion` and `UpdateStencilDraft`.
      */
-    fun validateAsStencilDefinition(doc: TemplateDocument) {
-        validatePlaceholderNamesUnique(doc)
-        validatePlaceholderNameSlug(doc)
-        validateNoNestedPlaceholderDefinition(doc)
-        validateStencilBindingShape(doc)
+    fun validateAsStencilDefinition(doc: TemplateDocument, fieldPrefix: String = "content") {
+        validatePlaceholderNamesUnique(doc, fieldPrefix)
+        validatePlaceholderNameSlug(doc, fieldPrefix)
+        validateNoNestedPlaceholderDefinition(doc, fieldPrefix)
+        validateStencilBindingShape(doc, fieldPrefix)
     }
 
     /**
      * Run all checks that apply to a template document. Throws [ValidationException]
      * on first violation. Use this from `UpdateDraft` and `UpdateStencilInTemplate`.
      */
-    fun validateAsTemplate(doc: TemplateDocument) {
-        validatePlaceholderNamesUniquePerStencil(doc)
-        validatePlaceholderNameSlug(doc)
-        validatePlaceholdersHaveStencilAncestor(doc)
-        validateNoStencilRecursion(doc)
-        validateStencilBindingShape(doc)
+    fun validateAsTemplate(doc: TemplateDocument, fieldPrefix: String = "content") {
+        validatePlaceholderNamesUniquePerStencil(doc, fieldPrefix)
+        validatePlaceholderNameSlug(doc, fieldPrefix)
+        validatePlaceholdersHaveStencilAncestor(doc, fieldPrefix)
+        validateNoStencilRecursion(doc, fieldPrefix)
+        validateStencilBindingShape(doc, fieldPrefix)
     }
 
     /**
@@ -58,7 +58,7 @@ class PlaceholderValidator {
      * by slug check). Use [validatePlaceholderNamesUniquePerStencil] for templates, where
      * each embedded stencil owns its own placeholder namespace.
      */
-    fun validatePlaceholderNamesUnique(doc: TemplateDocument) {
+    fun validatePlaceholderNamesUnique(doc: TemplateDocument, fieldPrefix: String = "content") {
         val seen = mutableSetOf<String>()
         for (node in doc.nodes.values) {
             if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
@@ -66,7 +66,7 @@ class PlaceholderValidator {
             if (name.isEmpty()) continue
             if (!seen.add(name)) {
                 throw ValidationException(
-                    "content.placeholder.name",
+                    "$fieldPrefix.placeholder.name",
                     "placeholder name '$name' is used more than once",
                     ValidationCode.PLACEHOLDER_NAME_DUPLICATE,
                 )
@@ -81,7 +81,7 @@ class PlaceholderValidator {
      * caught separately by [validatePlaceholdersHaveStencilAncestor], so we ignore them
      * here.
      */
-    fun validatePlaceholderNamesUniquePerStencil(doc: TemplateDocument) {
+    fun validatePlaceholderNamesUniquePerStencil(doc: TemplateDocument, fieldPrefix: String = "content") {
         val seenByStencil = mutableMapOf<String, MutableSet<String>>()
         for (node in doc.nodes.values) {
             if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
@@ -91,7 +91,7 @@ class PlaceholderValidator {
             val seen = seenByStencil.getOrPut(scopeStencil.id) { mutableSetOf() }
             if (!seen.add(name)) {
                 throw ValidationException(
-                    "content.placeholder.name",
+                    "$fieldPrefix.placeholder.name",
                     "placeholder name '$name' is used more than once in the same stencil",
                     ValidationCode.PLACEHOLDER_NAME_DUPLICATE,
                 )
@@ -105,13 +105,13 @@ class PlaceholderValidator {
      * `PLACEHOLDER_NAME_INVALID` — placeholder names are kebab-case slugs:
      * `^[a-z][a-z0-9-]{0,63}$`. The name must be present.
      */
-    fun validatePlaceholderNameSlug(doc: TemplateDocument) {
+    fun validatePlaceholderNameSlug(doc: TemplateDocument, fieldPrefix: String = "content") {
         for (node in doc.nodes.values) {
             if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
             val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String
             if (name == null || !slugRegex.matches(name)) {
                 throw ValidationException(
-                    "content.placeholder.name",
+                    "$fieldPrefix.placeholder.name",
                     "placeholder name must be a kebab-case slug " +
                         "(^[a-z][a-z0-9-]{0,63}\$); got '${name ?: "<missing>"}'",
                     ValidationCode.PLACEHOLDER_NAME_INVALID,
@@ -125,7 +125,7 @@ class PlaceholderValidator {
      * may not appear inside another placeholder's `fill` slot. (At the template level
      * the same shape is allowed: a fill containing a stencil that itself has placeholders.)
      */
-    fun validateNoNestedPlaceholderDefinition(doc: TemplateDocument) {
+    fun validateNoNestedPlaceholderDefinition(doc: TemplateDocument, fieldPrefix: String = "content") {
         for (node in doc.nodes.values) {
             if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
             val ancestors = ancestorNodes(doc, node.id)
@@ -134,7 +134,7 @@ class PlaceholderValidator {
                     val outerName = ancestor.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                     val innerName = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                     throw ValidationException(
-                        "content.placeholder",
+                        "$fieldPrefix.placeholder",
                         "placeholder '$innerName' is nested " +
                             "inside placeholder '$outerName' at the stencil-definition level",
                         ValidationCode.PLACEHOLDER_NESTED_DEFINITION,
@@ -149,14 +149,14 @@ class PlaceholderValidator {
      * a `stencil` node somewhere in its slot-graph ancestor chain. Bare placeholders in
      * a template root or an outer container are illegal.
      */
-    fun validatePlaceholdersHaveStencilAncestor(doc: TemplateDocument) {
+    fun validatePlaceholdersHaveStencilAncestor(doc: TemplateDocument, fieldPrefix: String = "content") {
         for (node in doc.nodes.values) {
             if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
             val ancestors = ancestorNodes(doc, node.id)
             if (ancestors.none { it.type == StencilNodeKeys.NODE_TYPE }) {
                 val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                 throw ValidationException(
-                    "content.placeholder",
+                    "$fieldPrefix.placeholder",
                     "placeholder '$name' must be a descendant of a stencil node",
                     ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL,
                 )
@@ -168,11 +168,11 @@ class PlaceholderValidator {
      * `STENCIL_RECURSION` — DFS from the root; no stencil node may appear in its own
      * ancestor chain (matched by `props.stencilId`).
      */
-    fun validateNoStencilRecursion(doc: TemplateDocument) {
-        recurse(doc, doc.root, emptySet())
+    fun validateNoStencilRecursion(doc: TemplateDocument, fieldPrefix: String = "content") {
+        recurse(doc, doc.root, emptySet(), fieldPrefix)
     }
 
-    private fun recurse(doc: TemplateDocument, nodeId: String, ancestorStencilIds: Set<String>) {
+    private fun recurse(doc: TemplateDocument, nodeId: String, ancestorStencilIds: Set<String>, fieldPrefix: String) {
         val node = doc.nodes[nodeId] ?: return
         var ancestors = ancestorStencilIds
         if (node.type == StencilNodeKeys.NODE_TYPE) {
@@ -180,7 +180,7 @@ class PlaceholderValidator {
             if (sid != null) {
                 if (ancestors.contains(sid)) {
                     throw ValidationException(
-                        "content.stencil.stencilId",
+                        "$fieldPrefix.stencil.stencilId",
                         "stencil '$sid' would contain itself transitively",
                         ValidationCode.STENCIL_RECURSION,
                     )
@@ -191,7 +191,7 @@ class PlaceholderValidator {
         for (slotId in node.slots) {
             val slot = doc.slots[slotId] ?: continue
             for (childId in slot.children) {
-                recurse(doc, childId, ancestors)
+                recurse(doc, childId, ancestors, fieldPrefix)
             }
         }
     }
@@ -204,7 +204,7 @@ class PlaceholderValidator {
      * live in [NodeParameterBindingValidator] so that this validator stays
      * standalone and document-only.
      */
-    fun validateStencilBindingShape(doc: TemplateDocument) {
+    fun validateStencilBindingShape(doc: TemplateDocument, fieldPrefix: String = "content") {
         for (node in doc.nodes.values) {
             // Alias check runs whenever the prop is present, even if no bindings are set —
             // a node can carry only `paramsAlias` (e.g. to scope schema defaults under a
@@ -212,14 +212,14 @@ class PlaceholderValidator {
             val alias = node.props?.get(NodeParameterKeys.PROP_PARAMS_ALIAS)
             if (alias != null && alias !is String) {
                 throw ValidationException(
-                    "content.${node.type}.props.paramsAlias",
+                    "$fieldPrefix.${node.type}.props.paramsAlias",
                     "paramsAlias must be a string",
                     ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE,
                 )
             }
             if (alias is String && alias in NodeParameterKeys.RESERVED_ALIASES) {
                 throw ValidationException(
-                    "content.${node.type}.props.paramsAlias",
+                    "$fieldPrefix.${node.type}.props.paramsAlias",
                     "paramsAlias '$alias' collides with a " +
                         "reserved scope name (${NodeParameterKeys.RESERVED_ALIASES.joinToString()})",
                     ValidationCode.NODE_PARAMS_ALIAS_RESERVED,
@@ -229,7 +229,7 @@ class PlaceholderValidator {
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) ?: continue
             if (rawBindings !is Map<*, *>) {
                 throw ValidationException(
-                    "content.${node.type}.props.parameterBindings",
+                    "$fieldPrefix.${node.type}.props.parameterBindings",
                     "parameterBindings must be an object " +
                         "of paramName → expression entries",
                     ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE,
@@ -237,20 +237,20 @@ class PlaceholderValidator {
             }
             for ((rawName, rawExpr) in rawBindings) {
                 val name = rawName as? String ?: throw ValidationException(
-                    "content.${node.type}.props.parameterBindings",
+                    "$fieldPrefix.${node.type}.props.parameterBindings",
                     "parameter binding keys must be strings",
                     ValidationCode.NODE_PARAMETER_BINDING_NAME_INVALID,
                 )
                 if (!parameterNameRegex.matches(name)) {
                     throw ValidationException(
-                        "content.${node.type}.props.parameterBindings.$name",
+                        "$fieldPrefix.${node.type}.props.parameterBindings.$name",
                         "parameter binding name '$name' must match ^[a-z][a-zA-Z0-9_]{0,63}\$",
                         ValidationCode.NODE_PARAMETER_BINDING_NAME_INVALID,
                     )
                 }
                 if (rawExpr !is String || rawExpr.isBlank()) {
                     throw ValidationException(
-                        "content.${node.type}.props.parameterBindings.$name",
+                        "$fieldPrefix.${node.type}.props.parameterBindings.$name",
                         "parameter binding '$name' must be a non-blank JSONata expression",
                         ValidationCode.NODE_PARAMETER_BINDING_EMPTY,
                     )

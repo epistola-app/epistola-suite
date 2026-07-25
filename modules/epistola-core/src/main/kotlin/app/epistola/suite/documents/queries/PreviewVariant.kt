@@ -19,6 +19,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
@@ -65,6 +66,7 @@ class PreviewVariantHandler(
     private val schemaValidator: JsonSchemaValidator,
     private val renderer: DocumentPreviewRenderer,
     private val localeResolver: TenantLocaleResolver,
+    private val templateDocumentValidator: TemplateDocumentValidator,
 ) : QueryHandler<PreviewVariant, ByteArray> {
 
     override fun handle(query: PreviewVariant): ByteArray {
@@ -77,6 +79,9 @@ class PreviewVariantHandler(
         val templateModel = query.templateModel
             ?: fetchDraftOrLatestPublished(query.tenantId, query.catalogKey, query.templateId, query.variantId)
             ?: throw IllegalStateException("No draft or published version found for variant ${query.variantId}")
+        if (query.templateModel != null) {
+            templateDocumentValidator.validateTemplate(templateModel)
+        }
 
         // 2. Fetch template and tenant for theme resolution
         val template = mediator.query(GetDocumentTemplate(templateId))

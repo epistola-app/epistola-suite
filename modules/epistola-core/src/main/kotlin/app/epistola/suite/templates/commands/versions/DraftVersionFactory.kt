@@ -7,11 +7,10 @@ package app.epistola.suite.templates.commands.versions
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.security.currentUserIdOrNull
-import app.epistola.suite.templates.analysis.TemplatePathExtractor
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.createDefaultTemplateModel
-import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -30,8 +29,7 @@ import tools.jackson.databind.ObjectMapper
 @Component
 class DraftVersionFactory(
     private val objectMapper: ObjectMapper,
-    private val pathExtractor: TemplatePathExtractor,
-    private val graphValidator: TemplateDocumentGraphValidator,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) {
     /**
      * Ensures [variantId] has a draft, using [handle]'s transaction.
@@ -50,10 +48,10 @@ class DraftVersionFactory(
     ): TemplateVersion? {
         val auditUser = currentUserIdOrNull()?.value
 
-        // Verify the variant exists and get the template name for the default model.
-        val templateInfo = handle.createQuery(
+        // Verify the variant exists.
+        val variantExists = handle.createQuery(
             """
-            SELECT dt.name as template_name
+            SELECT 1
             FROM template_variants tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
             WHERE tv.tenant_key = :tenantId AND tv.catalog_key = :catalogKey AND tv.id = :variantId
@@ -65,11 +63,10 @@ class DraftVersionFactory(
             .bind("templateId", variantId.templateKey)
             .bind("tenantId", variantId.tenantKey)
             .bind("catalogKey", variantId.catalogKey)
-            .mapToMap()
+            .mapTo(Int::class.java)
             .findOne()
-            .orElse(null) ?: return null
-
-        val templateName = templateInfo["template_name"] as String
+            .isPresent
+        if (!variantExists) return null
 
         // Idempotent: return the existing draft if there is one.
         val existingDraft = handle.createQuery(
@@ -88,7 +85,10 @@ class DraftVersionFactory(
             .findOne()
             .orElse(null)
 
-        if (existingDraft != null) return existingDraft
+        if (existingDraft != null) {
+            templateDocumentPreparation.prepare(existingDraft.templateModel)
+            return existingDraft
+        }
 
         val nextVersionId = handle.createQuery(
             """
@@ -135,19 +135,8 @@ class DraftVersionFactory(
 
         val modelToSave = templateModel
             ?: latestPublishedModelJson?.let { objectMapper.readValue(it, TemplateDocument::class.java) }
-            ?: createDefaultTemplateModel(templateName, variantId.key)
-        if (modelToSave is TemplateDocument) {
-            graphValidator.validateTemplateDocument(modelToSave)
-        }
-        val templateModelJson = if (latestPublishedModelJson != null && templateModel == null) {
-            latestPublishedModelJson // Reuse the JSON string directly
-        } else {
-            objectMapper.writeValueAsString(modelToSave)
-        }
-        // createDefaultTemplateModel returns a plain Map (no contract paths); only a
-        // real TemplateDocument has referenced paths to extract.
-        val referencedPaths = if (modelToSave is TemplateDocument) pathExtractor.extractReferencedPaths(modelToSave) else emptySet()
-        val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
+            ?: createDefaultTemplateModel(variantId.key)
+        val prepared = templateDocumentPreparation.prepare(modelToSave)
 
         // Resolve contract version: prefer draft (user is editing), fall back to published.
         val contractVersionId = handle.createQuery(
@@ -179,9 +168,9 @@ class DraftVersionFactory(
             .bind("catalogKey", variantId.catalogKey)
             .bind("templateId", variantId.templateKey)
             .bind("variantId", variantId.key)
-            .bind("templateModel", templateModelJson)
+            .bind("templateModel", prepared.templateModelJson)
             .bind("contractVersion", contractVersionId)
-            .bind("referencedPaths", referencedPathsJson)
+            .bind("referencedPaths", prepared.referencedPathsJson)
             .bind("createdBy", auditUser)
             .mapTo<TemplateVersion>()
             .one()

@@ -22,6 +22,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
@@ -54,6 +55,7 @@ class PublishVersionHandler(
     private val themeStyleResolver: ThemeStyleResolver,
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
+    private val templateDocumentValidator: TemplateDocumentValidator,
 ) : CommandHandler<PublishVersion, TemplateVersion?> {
     override fun handle(command: PublishVersion): TemplateVersion? {
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
@@ -94,6 +96,7 @@ class PublishVersionHandler(
             if (version.status.name == "ARCHIVED") {
                 return@inTransaction null
             }
+            templateDocumentValidator.validateTemplate(version.templateModel)
 
             // 3. Auto-publish compatible contract drafts, block on breaking changes
             if (version.contractVersion != null) {

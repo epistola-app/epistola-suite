@@ -15,6 +15,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.createDefaultTemplateModel
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -43,6 +44,7 @@ data class CreateVariant(
 class CreateVariantHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) : CommandHandler<CreateVariant, TemplateVariant?> {
     override fun handle(command: CreateVariant): TemplateVariant? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
@@ -54,10 +56,10 @@ class CreateVariantHandler(
 
         return executeOrThrowDuplicate("variant", command.id.key.value) {
             jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-                // Verify the template belongs to the tenant and get its name for the default model
-                val templateName = handle.createQuery(
+                // Verify the template belongs to the tenant.
+                val templateExists = handle.createQuery(
                     """
-                SELECT name
+                SELECT 1
                 FROM document_templates
                 WHERE id = :templateId AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 """,
@@ -65,9 +67,10 @@ class CreateVariantHandler(
                     .bind("templateId", command.id.templateKey)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
-                    .mapTo<String>()
+                    .mapTo(Int::class.java)
                     .findOne()
-                    .orElse(null) ?: return@inTransaction null
+                    .isPresent
+                if (!templateExists) return@inTransaction null
 
                 val attributesJson = objectMapper.writeValueAsString(command.attributes)
 
@@ -106,8 +109,7 @@ class CreateVariantHandler(
 
                 // Create an initial draft version for the new variant with default template model (version ID = 1)
                 val versionId = VersionKey.of(1) // First version is always 1
-                val defaultModel = createDefaultTemplateModel(templateName, variant.id)
-                val templateModelJson = objectMapper.writeValueAsString(defaultModel)
+                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variant.id))
 
                 // Resolve contract version: prefer draft (user may be editing), fall back to published
                 val contractVersionId = handle.createQuery(
@@ -129,8 +131,8 @@ class CreateVariantHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW(), :createdBy)
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
                 """,
                 )
                     .bind("id", versionId)
@@ -138,8 +140,9 @@ class CreateVariantHandler(
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", command.id.templateKey)
                     .bind("variantId", command.id.key)
-                    .bind("templateModel", templateModelJson)
+                    .bind("templateModel", prepared.templateModelJson)
                     .bind("contractVersion", contractVersionId)
+                    .bind("referencedPaths", prepared.referencedPathsJson)
                     .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .execute()
 

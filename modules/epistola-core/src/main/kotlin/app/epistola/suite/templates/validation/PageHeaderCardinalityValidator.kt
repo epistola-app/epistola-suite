@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
 @Component
 class PageHeaderCardinalityValidator {
 
-    fun validate(doc: TemplateDocument) {
+    fun validate(doc: TemplateDocument, fieldPrefix: String = "content") {
         val pageHeaderIds = doc.nodes.values
             .filter { it.type == PAGE_HEADER_TYPE }
             .map { it.id }
@@ -33,7 +33,7 @@ class PageHeaderCardinalityValidator {
 
         if (pageHeaderIds.size > 2) {
             throw ValidationException(
-                "content.pageheader.cardinality",
+                "$fieldPrefix.pageheader.cardinality",
                 "a template may declare at most two 'pageheader' nodes, found ${pageHeaderIds.size}",
                 ValidationCode.PAGEHEADER_TOO_MANY,
             )
@@ -41,7 +41,7 @@ class PageHeaderCardinalityValidator {
 
         val rootNode = doc.nodes[doc.root]
             ?: throw ValidationException(
-                "content.root",
+                "$fieldPrefix.root",
                 "cannot validate pageheader placement without a root node",
                 ValidationCode.PAGEHEADER_ROOT_MISSING,
             )
@@ -54,7 +54,7 @@ class PageHeaderCardinalityValidator {
         for (id in pageHeaderIds) {
             if (id !in rootChildren) {
                 throw ValidationException(
-                    "content.pageheader.placement",
+                    "$fieldPrefix.pageheader.placement",
                     "pageheader node '$id' must be a direct child of the root slot",
                     ValidationCode.PAGEHEADER_NOT_AT_ROOT,
                 )

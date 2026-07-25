@@ -10,6 +10,7 @@ import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
+import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -100,6 +101,42 @@ class TemplateDocumentGraphValidatorTest {
     }
 
     @Test
+    fun `duplicate slot reference on a node is rejected`() {
+        assertThatThrownBy {
+            validator.validate(
+                doc(rootNode = Node("root", "root", listOf("root-slot", "root-slot"))),
+            )
+        }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
+            .hasMessageContaining("more than once")
+    }
+
+    @Test
+    fun `duplicate child reference in a slot is rejected`() {
+        assertThatThrownBy {
+            validator.validate(
+                doc(
+                    children = listOf("body", "body"),
+                    extraNodes = mapOf("body" to leaf("body")),
+                ),
+            )
+        }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
+            .hasMessageContaining("more than once")
+    }
+
+    @Test
+    fun `template graph errors identify the template model request field`() {
+        val exception = org.junit.jupiter.api.assertThrows<ValidationException> {
+            validator.validateTemplateDocument(doc(root = "missing"))
+        }
+
+        assertThat(exception.field).isEqualTo("templateModel.root")
+    }
+
+    @Test
     fun `root as child cycle is rejected`() {
         assertThatThrownBy {
             validator.validate(doc(children = listOf("root")))
@@ -136,6 +173,18 @@ class TemplateDocumentGraphValidatorTest {
         }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
+    }
+
+    @Test
+    fun `oversized child edge list is rejected before traversal`() {
+        assertThatThrownBy {
+            validator.validate(
+                doc(children = List(TemplateDocumentGraphValidator.MAX_NODES + 1) { "body-$it" }),
+            )
+        }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
+            .hasMessageContaining("child references")
     }
 
     private fun doc(

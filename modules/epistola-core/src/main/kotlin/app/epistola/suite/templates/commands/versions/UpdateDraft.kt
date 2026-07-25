@@ -15,14 +15,10 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
-import app.epistola.suite.templates.validation.NodeParameterBindingValidator
-import app.epistola.suite.templates.validation.PageHeaderCardinalityValidator
-import app.epistola.suite.templates.validation.PlaceholderValidator
-import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * Creates or updates the draft version for a variant.
@@ -40,19 +36,11 @@ data class UpdateDraft(
 @Component
 class UpdateDraftHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
-    private val pathExtractor: app.epistola.suite.templates.analysis.TemplatePathExtractor,
-    private val placeholderValidator: PlaceholderValidator,
-    private val nodeParameterBindingValidator: NodeParameterBindingValidator,
-    private val pageHeaderCardinalityValidator: PageHeaderCardinalityValidator,
-    private val graphValidator: TemplateDocumentGraphValidator,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
-        graphValidator.validateTemplateDocument(command.templateModel)
-        placeholderValidator.validateAsTemplate(command.templateModel)
-        nodeParameterBindingValidator.validate(command.templateModel)
-        pageHeaderCardinalityValidator.validate(command.templateModel)
+        val prepared = templateDocumentPreparation.prepare(command.templateModel)
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
             // Verify the variant belongs to a template owned by the tenant
             val variantExists = handle.createQuery(
@@ -79,10 +67,6 @@ class UpdateDraftHandler(
                 )
             }
 
-            val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
-            val referencedPaths = pathExtractor.extractReferencedPaths(command.templateModel)
-            val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
-
             // Try to update existing draft first
             val updated = handle.createUpdate(
                 """
@@ -98,8 +82,8 @@ class UpdateDraftHandler(
                 .bind("catalogKey", command.variantId.catalogKey)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
-                .bind("templateModel", templateModelJson)
-                .bind("referencedPaths", referencedPathsJson)
+                .bind("templateModel", prepared.templateModelJson)
+                .bind("referencedPaths", prepared.referencedPathsJson)
                 .executeAndReturnGeneratedKeys("id")
                 .mapTo(Int::class.java)
                 .findOne()
@@ -182,9 +166,9 @@ class UpdateDraftHandler(
                 .bind("catalogKey", command.variantId.catalogKey)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
-                .bind("templateModel", templateModelJson)
+                .bind("templateModel", prepared.templateModelJson)
                 .bind("contractVersion", contractVersionId)
-                .bind("referencedPaths", referencedPathsJson)
+                .bind("referencedPaths", prepared.referencedPathsJson)
                 .mapTo<TemplateVersion>()
                 .one()
         }

@@ -15,11 +15,10 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.VersionNotDraftException
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
-import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * Updates a draft version's content.
@@ -37,15 +36,12 @@ data class UpdateVersion(
 @Component
 class UpdateVersionHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
-    private val graphValidator: TemplateDocumentGraphValidator,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) : CommandHandler<UpdateVersion, TemplateVersion> {
     override fun handle(command: UpdateVersion): TemplateVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
-        graphValidator.validateTemplateDocument(command.templateModel)
+        val prepared = templateDocumentPreparation.prepare(command.templateModel)
         return jdbi.inTransaction<TemplateVersion, Exception> { handle ->
-            val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
-
             handle.createQuery(
                 """
                 SELECT 1 FROM template_variants
@@ -93,7 +89,8 @@ class UpdateVersionHandler(
             handle.createQuery(
                 """
                 UPDATE template_versions
-                SET template_model = :templateModel::jsonb
+                SET template_model = :templateModel::jsonb,
+                    referenced_paths = :referencedPaths::jsonb
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
                   AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
                   AND status = 'draft'
@@ -105,7 +102,8 @@ class UpdateVersionHandler(
                 .bind("templateId", command.versionId.templateKey)
                 .bind("variantId", command.versionId.variantKey)
                 .bind("versionId", command.versionId.key)
-                .bind("templateModel", templateModelJson)
+                .bind("templateModel", prepared.templateModelJson)
+                .bind("referencedPaths", prepared.referencedPathsJson)
                 .mapTo<TemplateVersion>()
                 .findOne()
                 .orElseThrow {
