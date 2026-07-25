@@ -129,7 +129,14 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
     // instead of skipMissingElement skipping it. Genuinely-absent targets skip after this.
     waitForElement: 400,
     // Click the backdrop to advance rather than close — reads like a gentle slideshow.
-    overlayClickBehavior: 'nextStep',
+    // A custom hook rather than 'nextStep': on the (effectively) last step 'nextStep'
+    // routes to onDoneClick, so a stray backdrop click — the universal "dismiss"
+    // gesture — would mark the chapter complete, run onComplete (which may mutate the
+    // document), and chain into the next chapter. Completion must stay behind the
+    // explicitly labeled Done/Next button, so on the last step the backdrop is inert.
+    overlayClickBehavior: () => {
+      if (!d.isLastStep()) d.moveNext();
+    },
     // Config-level (not per-step) so it attaches to whichever step is *effectively*
     // last — a trailing target skipped via skipMissingElement must not orphan
     // completion. The Done button both records completion and, if there is a next
