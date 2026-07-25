@@ -17,6 +17,7 @@ import {
   TOURS,
   type TourContext,
 } from './registry.js';
+import type { EpistolaEditor } from '../EpistolaEditor.js';
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
 import { stopTour } from './session.js';
 import { injectStyleOnce } from './styles.js';
@@ -36,6 +37,11 @@ interface ChapterView {
 }
 
 const STYLE_ID = 'ep-wt-launcher-css';
+
+// Selectors for the launcher's own light-DOM parts. Private to this component —
+// deliberately not exported; nothing else should query the launcher's internals.
+const TRIGGER_SELECTOR = '[data-testid="walkthrough-guide-trigger"]';
+const MENU_ITEM_SELECTOR = '.ep-wt-item';
 
 // Loaded as a raw string (`?inline`) and injected once - see launcher.css.
 
@@ -106,7 +112,7 @@ export class WalkthroughLauncher extends LitElement {
   }
 
   /** The editor root this launcher belongs to (resolvable even without an engine). */
-  private get _hostEl(): HTMLElement | null {
+  private get _hostEl(): EpistolaEditor | null {
     return this.closest('epistola-editor');
   }
 
@@ -116,7 +122,7 @@ export class WalkthroughLauncher extends LitElement {
    * Null before the editor has initialized its engine (no tour can run then).
    */
   private get _ctx(): TourContext | null {
-    const host = this.closest('epistola-editor');
+    const host = this._hostEl;
     const engine = host?.engine;
     return host && engine ? { host, engine } : null;
   }
@@ -163,12 +169,12 @@ export class WalkthroughLauncher extends LitElement {
     if (!this._open) return;
     this._open = false;
     if (refocusTrigger) {
-      this.querySelector<HTMLButtonElement>('[data-testid="walkthrough-guide-trigger"]')?.focus();
+      this.querySelector<HTMLButtonElement>(TRIGGER_SELECTOR)?.focus();
     }
   }
 
   private _items(): HTMLButtonElement[] {
-    return Array.from(this.querySelectorAll<HTMLButtonElement>('.ep-wt-item'));
+    return Array.from(this.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR));
   }
 
   /** Menu keyboard contract: arrows walk (and wrap), Home/End jump, Tab exits. */
