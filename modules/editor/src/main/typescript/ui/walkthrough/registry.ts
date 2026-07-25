@@ -27,17 +27,12 @@ export interface TourStep {
   title: string;
   body: string;
   side?: TourSide;
-  /** Optional side-effect run just before the step is shown (e.g. switch a sidebar tab). */
-  before?: (host: HTMLElement) => void;
   /**
-   * Interactive advance hook (D1). When set, the step guides the user to *do*
-   * something rather than just narrating it: the runner invokes this once the
-   * step is shown, wiring a listener; call the provided `advance` when the user
-   * completes the action and the tour moves on. Return a cleanup that removes the
-   * listener. Next/Skip stay enabled throughout — this only *auto*-advances, it
-   * never gates. Build these with the helpers in `../signals.ts`.
+   * Optional side-effect run just before the step is shown. Benign setup only —
+   * switch a sidebar tab, open the preview, select a block so the spotlight has a
+   * target. Chapters are passive narration; steps never wait on the user.
    */
-  advance?: (host: HTMLElement, advance: () => void) => () => void;
+  before?: (host: HTMLElement) => void;
 }
 
 export interface Tour {
@@ -51,10 +46,23 @@ export interface Tour {
   /** Built lazily with the editor host so selectors/side-effects can be host-aware. */
   steps: (host: HTMLElement) => TourStep[];
   /**
-   * Passive overview chapter (D4): steps are non-interactive (regions aren't
-   * clickable) and clicking the backdrop advances instead of closing the tour.
+   * Establish the initial UI state the *first* steps need, run once before the tour
+   * drives. This is where a chapter selects a block, opens the document inspector, etc.
+   * It must live here, not in step `before`s: driver checks a step's target BEFORE it
+   * runs that step's `before`, so a step can only ever set up a *later* step's target,
+   * never its own. `waitForElement` bridges the async re-render this may trigger.
    */
-  passive?: boolean;
+  setup?: (host: HTMLElement) => void;
+  /**
+   * Run once when the reader *finishes* the chapter (the Done / "Next: …" button),
+   * before chaining to the next chapter. Unlike {@link setup} it may leave a lasting
+   * edit behind to set the next chapter up — e.g. the building chapter drops a starter
+   * block so the block-centric chapters that follow have something to work with. A
+   * chapter that declares `onComplete` advertises its raw next chapter as the upcoming
+   * one (trusting the hook to make it runnable), rather than only the next currently
+   * available one.
+   */
+  onComplete?: (host: HTMLElement) => void;
   /**
    * When it returns false for the current editor, the chapter can't run here —
    * the launcher shows it locked with {@link unavailableHint} and chaining skips

@@ -16,85 +16,55 @@ function hostWithBlock(): HTMLElement {
   return h;
 }
 
-/** A host whose canvas has one block, already selected. */
-function hostWithSelectedBlock(): HTMLElement {
-  const h = hostWithBlock();
-  h.querySelector('.canvas-block')?.classList.add('selected');
-  return h;
-}
-
 describe('orientation chapter', () => {
-  it('is a passive overview of the four regions', () => {
-    expect(orientationTour.passive).toBe(true);
+  it('is an overview of the regions, ending by opening the preview', () => {
     const targets = orientationTour.steps(host).map((s) => s.target);
     expect(targets).toEqual([
       'epistola-toolbar',
+      '.toolbar-right',
       'epistola-sidebar',
       'epistola-canvas',
       '[data-tour="preview-toggle"]',
+      'epistola-preview',
     ]);
   });
 
-  it('has no interactive steps (passive)', () => {
-    expect(orientationTour.steps(host).some((s) => s.advance)).toBe(false);
+  it('opens the preview in setup so the final "preview pane" step has a target', () => {
+    // In setup (not a step `before`): otherwise driver computes the prior step's button
+    // before the pane renders and mislabels it as the done/"next chapter" button.
+    expect(typeof orientationTour.setup).toBe('function');
   });
 });
 
 describe('building chapter', () => {
-  it('is interactive, not passive', () => {
-    expect(buildingTour.passive).toBeFalsy();
+  it('walks palette → add → structure, switching the tab before each step', () => {
+    const steps = buildingTour.steps(host);
+    expect(steps.map((s) => s.target)).toEqual([
+      '[data-tour="tab-blocks"]',
+      '[data-testid="palette-item-text"]',
+      '[data-tour="tab-structure"]',
+    ]);
+    for (const step of steps) expect(typeof step.before).toBe('function');
   });
 
-  it('guides adding a text block and auto-advances on it', () => {
-    const steps = buildingTour.steps(host);
-    const addStep = steps.find((s) => s.target === '[data-testid="palette-item-text"]');
-    expect(addStep).toBeDefined();
-    // The "add a block" step is the interactive one.
-    expect(typeof addStep?.advance).toBe('function');
-  });
-
-  it('switches the relevant sidebar tab before each step that needs it', () => {
-    const steps = buildingTour.steps(host);
-    // First (Blocks) and last (Structure) steps set up their panel via `before`.
-    expect(typeof steps[0].before).toBe('function');
-    expect(typeof steps[steps.length - 1].before).toBe('function');
+  it('drops a starter block on finish, so the block-centric chapters can chain on', () => {
+    expect(typeof buildingTour.onComplete).toBe('function');
   });
 });
 
 describe('editing chapter', () => {
-  it('is interactive, not passive', () => {
-    expect(editingTour.passive).toBeFalsy();
+  it('is locked until a block exists (no empty-document branching in steps)', () => {
+    expect(editingTour.isAvailable?.(hostWithBlock())).toBe(true);
+    expect(editingTour.isAvailable?.(document.createElement('div'))).toBe(false);
+    expect(typeof editingTour.unavailableHint).toBe('string');
   });
 
-  it('prepends a "select a block" step when blocks exist but none is selected', () => {
-    const steps = editingTour.steps(hostWithBlock());
-    expect(steps[0].target).toBe('[data-testid="canvas-block"]');
-    expect(typeof steps[0].advance).toBe('function');
-  });
-
-  it('skips the select step and goes straight to editing when a block is already selected', () => {
-    const steps = editingTour.steps(hostWithSelectedBlock());
-    // No select/add preamble — first step edits the selected block.
-    expect(steps[0].target).toBe('.canvas-block.selected epistola-text-editor');
-  });
-
-  it('falls back to adding a block first when the document is empty (D8)', () => {
-    const steps = editingTour.steps(document.createElement('div'));
-    expect(steps[0].target).toBe('[data-testid="palette-item-text"]');
-    expect(typeof steps[0].advance).toBe('function');
-  });
-
-  it('has the user type and restyle, then ends on delete', () => {
-    const steps = editingTour.steps(hostWithBlock());
-    const byTarget = new Map(steps.map((s) => [s.target, s]));
-
-    const typeStep = byTarget.get('.canvas-block.selected epistola-text-editor');
-    const styleStep = byTarget.get('.inspector-style-group');
-    expect(typeof typeStep?.advance).toBe('function'); // type → interactive
-    expect(typeof styleStep?.advance).toBe('function'); // restyle → interactive
-    // Delete stays narration (no advance) — forcing a destructive action is bad UX.
-    const deleteStep = byTarget.get('.inspector-delete-section');
-    expect(deleteStep).toBeDefined();
-    expect(deleteStep?.advance).toBeUndefined();
+  it('selects a block in setup and walks content → style → delete', () => {
+    expect(typeof editingTour.setup).toBe('function');
+    expect(editingTour.steps(host).map((s) => s.target)).toEqual([
+      '.canvas-block.selected',
+      '.inspector-style-group',
+      '.inspector-delete-section',
+    ]);
   });
 });

@@ -15,7 +15,14 @@
  */
 import driverCss from 'driver.js/dist/driver.css?inline';
 import type { Driver, DriveStep } from 'driver.js';
-import { firstRunnableTour, nextAvailableTour, tourById, TOURS, type Tour } from './registry.js';
+import {
+  firstRunnableTour,
+  nextAvailableTour,
+  nextTour,
+  tourById,
+  TOURS,
+  type Tour,
+} from './registry.js';
 import { hasSeenIntro, isChapterComplete, markChapterComplete, markIntroSeen } from './progress.js';
 import { getActiveDriver, setActiveDriver } from './session.js';
 import { injectStyleOnce } from './styles.js';
@@ -86,41 +93,22 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   const { driver } = await import('driver.js');
   ensureDriverStyles();
 
-  const upcoming = nextAvailableTour(tour.id, host);
+  // A chapter with an `onComplete` mutates the editor to make its successor runnable
+  // (building drops a starter block so editing/styling unlock), so it advertises its raw
+  // next chapter — computed before the hook runs, availability checks would still see the
+  // old state. Otherwise chain to the next chapter that can actually run here.
+  const upcoming = tour.onComplete ? nextTour(tour.id) : nextAvailableTour(tour.id, host);
 
   let d: Driver;
-  // One active advance listener at a time. It's wired one frame *after* the step is
-  // shown, not synchronously: advancing into a step often follows a burst of engine
-  // events (inserting a block fires several doc:changes), and a synchronous listener
-  // would catch the tail of that burst and cascade straight through the next steps.
-  // Deferring a frame lets the burst settle so the listener only sees the user's own
-  // next action. Torn down (listener + any pending wire) on step change / close.
-  let activeCleanup: (() => void) | null = null;
-  let pendingWire: number | null = null;
-  const teardownAdvance = (): void => {
-    if (pendingWire !== null) {
-      cancelAnimationFrame(pendingWire);
-      pendingWire = null;
-    }
-    activeCleanup?.();
-    activeCleanup = null;
-  };
-
+  // Chapters are passive narration: the user reads each step and advances with Next (or
+  // by clicking the backdrop). No auto-advance on user actions — a step's `before` may do
+  // benign setup (switch a sidebar tab, open the preview, select a block so the spotlight
+  // has something to point at), but the tour never waits on or listens to the user. The
+  // spotlighted element is non-interactive so a stray click reads as "next", not an edit.
   const steps: DriveStep[] = tour.steps(host).map((step) => ({
     element: hostTarget(host, step.target),
-    // Passive chapters (D4) make the spotlighted region non-interactive.
-    disableActiveInteraction: tour.passive === true,
+    disableActiveInteraction: true,
     onHighlightStarted: step.before ? () => step.before?.(host) : undefined,
-    onHighlighted: step.advance
-      ? () => {
-          teardownAdvance();
-          pendingWire = requestAnimationFrame(() => {
-            pendingWire = null;
-            activeCleanup = step.advance?.(host, () => d.moveNext()) ?? null;
-          });
-        }
-      : undefined,
-    onDeselected: step.advance ? () => teardownAdvance() : undefined,
     popover: {
       title: step.title,
       description: step.body,
@@ -136,14 +124,12 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
     showProgress: true,
     progressText: '{{current}} of {{total}}',
     allowClose: true,
-    // Interactive steps advance on an engine event (selection/insert), but the DOM
-    // it produces (`.canvas-block.selected`, the Inspector) renders a tick later.
-    // Wait for a step's target to appear (a MutationObserver — shows the instant it
-    // renders) instead of skipMissingElement skipping it and cascading to the end.
-    // Genuinely-absent targets (e.g. a non-text block's editor) skip after this.
+    // A `before` that switches tabs / opens the preview / selects a block renders its
+    // target a tick later. Wait for it (a MutationObserver — shows the instant it appears)
+    // instead of skipMissingElement skipping it. Genuinely-absent targets skip after this.
     waitForElement: 400,
-    // Passive chapters advance on a backdrop click rather than closing (D4).
-    ...(tour.passive ? { overlayClickBehavior: 'nextStep' as const } : {}),
+    // Click the backdrop to advance rather than close — reads like a gentle slideshow.
+    overlayClickBehavior: 'nextStep',
     // Config-level (not per-step) so it attaches to whichever step is *effectively*
     // last — a trailing target skipped via skipMissingElement must not orphan
     // completion. The Done button both records completion and, if there is a next
@@ -152,16 +138,22 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
     doneBtnText: upcoming ? `Next: ${upcoming.title} →` : 'Done',
     onDoneClick: () => {
       markChapterComplete(tour.id, tour.version);
+      // Run the completion hook (e.g. drop a starter block) before chaining, so the next
+      // chapter's setup finds the state it needs.
+      tour.onComplete?.(host);
       d.destroy();
       if (upcoming) void runTour(host, upcoming);
     },
     onDestroyed: () => {
-      teardownAdvance();
       if (getActiveDriver() === d) setActiveDriver(null);
     },
     steps,
   });
   setActiveDriver(d);
+  // Establish initial state (select a block, open the document inspector, …) BEFORE
+  // driving, so step 0's target exists when driver resolves it. waitForElement bridges
+  // the async re-render this triggers.
+  tour.setup?.(host);
   d.drive();
 }
 

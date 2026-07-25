@@ -16,11 +16,6 @@ export function getActiveDriver(): Driver | null {
   return activeDriver;
 }
 
-/** Whether a walkthrough (chapter or intro) is currently on screen. */
-export function isTourActive(): boolean {
-  return activeDriver !== null;
-}
-
 /** Destroy any live tour. Safe to call when nothing is running. */
 export function stopActiveTour(): void {
   activeDriver?.destroy();

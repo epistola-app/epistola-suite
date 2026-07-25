@@ -1,19 +1,22 @@
 import type { Tour } from '../registry.js';
-import { clickSidebarTab, clickSidebarTabNextFrame } from './helpers.js';
-import { advanceOnBlockAdded } from '../signals.js';
+import { addStarterBlock, clickSidebarTab } from './helpers.js';
 
 /**
- * Chapter 2 — Building your document. Interactive (D1): the user actually adds a
- * block, and the chapter auto-advances once they do (validated on the engine's node
- * count, so a click or a drag both count). Each step switches the relevant sidebar
- * tab in `before` so the highlight never races the panel re-render.
+ * Chapter 2 — Building your document. Narrates how content gets onto the page: the
+ * block palette and its four categories, how to add a block, and the Structure tree.
+ * Each step switches the relevant sidebar tab in `before` so the spotlight lands on it.
+ *
+ * On finish it drops a starter block onto an empty canvas (`onComplete`), so the
+ * block-centric chapters that follow — Editing, Styling — have something to work with
+ * and chain straight on. Idempotent, so replaying it never stacks duplicate blocks.
  */
 export const buildingTour: Tour = {
   id: 'building',
   title: 'Building your document',
   summary: 'Add a block and shape the layout.',
-  // v2: rebuilt from a passive walkthrough into an interactive one.
-  version: 2,
+  // v3: reverted from the interactive rebuild to passive narration.
+  version: 3,
+  onComplete: (host) => addStarterBlock(host),
   steps: () => [
     {
       before: (host) => clickSidebarTab(host, 'blocks'),
@@ -25,15 +28,12 @@ export const buildingTour: Tour = {
     {
       before: (host) => clickSidebarTab(host, 'blocks'),
       target: '[data-testid="palette-item-text"]',
-      title: 'Add your first block',
-      body: 'Click <strong>Text</strong> to drop a text block onto the page — you can drag it onto the canvas, too. (Undo anything with Ctrl+Z.)',
+      title: 'Adding a block',
+      body: 'Click any block — like <strong>Text</strong> — to drop it onto the page, or drag it onto the canvas. Undo anything with Ctrl+Z.',
       side: 'right',
-      advance: advanceOnBlockAdded(),
     },
     {
-      // Deferred: adding the block auto-selected it (→ Inspector); switch next frame
-      // so that auto-switch settles and Structure sticks (see clickSidebarTabNextFrame).
-      before: (host) => clickSidebarTabNextFrame(host, 'structure'),
+      before: (host) => clickSidebarTab(host, 'structure'),
       target: '[data-tour="tab-structure"]',
       title: 'The structure',
       body: 'Everything you add shows up here as a tree — the fastest way to reorder blocks or select nested ones.',

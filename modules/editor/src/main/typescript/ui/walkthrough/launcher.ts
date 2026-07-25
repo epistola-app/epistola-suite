@@ -12,7 +12,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { icon } from '../icons.js';
 import { firstRunnableTour, isTourAvailable, tourById, TOURS } from './registry.js';
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
-import { isTourActive, stopActiveTour } from './session.js';
+import { stopActiveTour } from './session.js';
 import { injectStyleOnce } from './styles.js';
 
 interface ChapterView {
@@ -45,7 +45,7 @@ const CSS = `
   font-size: var(--ep-text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--ep-stone-500); padding: var(--ep-space-1-5) var(--ep-space-2) var(--ep-space-1);
 }
-.ep-wt-list { list-style: none; margin: 0; padding: 0; }
+.ep-wt-list { list-style: none; margin: 0; padding: 0; & > li { margin-top: 4px; } }
 .ep-wt-item {
   display: flex; gap: var(--ep-space-2); align-items: flex-start; width: 100%;
   text-align: left; padding: var(--ep-space-2); border: 0; border-radius: var(--ep-radius-sm);
@@ -154,9 +154,12 @@ export class WalkthroughLauncher extends LitElement {
   }
 
   private readonly _toggle = (): void => {
-    // Ignore while a tour/intro overlay is up: the menu would open as a sibling of
-    // the spotlighted button, land under driver's pointer-events:none, and be dead.
-    if (isTourActive()) return;
+    // Tear down any tracked tour first. If this button is clickable at all, no live
+    // overlay is covering it — so either nothing is running, or `activeDriver` is stale
+    // (a chapter that self-destroyed without firing onDestroyed). Clearing it here keeps
+    // the Guide button from dead-ending; a genuinely-active tour spotlighting this very
+    // button (the intro) is simply dismissed, which is the right outcome.
+    stopActiveTour();
     this._open = !this._open;
   };
 
@@ -167,6 +170,8 @@ export class WalkthroughLauncher extends LitElement {
     // Locked chapters can't run here (belt-and-suspenders — the button is disabled too).
     const tour = tourById(id);
     if (tour && !isTourAvailable(tour, host)) return;
+    // Never stack drivers: tear down anything still tracked before starting.
+    stopActiveTour();
     // Pulls in the runner (and driver.js) only now, when a chapter actually runs.
     // The click handler doesn't await this, so swallow failures here: log, and
     // reopen the menu so the user can retry rather than being left with nothing.
