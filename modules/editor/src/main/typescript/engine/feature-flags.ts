@@ -7,9 +7,13 @@
  * directly rather than threading boolean props through every component.
  *
  * To add a flag: add a field below, register the matching key in the backend's
- * `KnownFeatures`, and surface it on the host (Thymeleaf model → window
- * global → `mountEditor` options). The compile-time union on
- * `isFeatureEnabled` then catches typos at the call site.
+ * `KnownFeatures`, and add the pair to `EDITOR_FEATURE_FLAGS` in the backend's
+ * `DocumentTemplateHandler` (Thymeleaf model → window global → `mountEditor`
+ * options). The compile-time union on `isFeatureEnabled` catches typos at the
+ * call site; across the language boundary nothing can, so the field name MUST
+ * be the lowerCamelCase form of the backend feature key (`editor-walkthrough`
+ * → `editorWalkthrough`) — the Kotlin side pins that convention with
+ * `EditorFeatureFlagsTest`.
  */
 export interface EditorFeatureFlags {
   /**

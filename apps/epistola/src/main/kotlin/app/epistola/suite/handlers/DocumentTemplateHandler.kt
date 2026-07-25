@@ -5,6 +5,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -113,6 +114,20 @@ data class ValidateSchemaResponse(
  * Version lifecycle operations are handled by [VersionRouteHandler].
  * Preview generation is handled by [TemplatePreviewHandler].
  */
+/**
+ * Backend feature toggles forwarded to the editor page, mapped to the field name the
+ * editor bundle reads (`EditorFeatureFlags` in `modules/editor`). The two sides live
+ * in different languages, so nothing can check the pair at compile time — which is
+ * why the mapping is one declared table instead of string literals in the render
+ * body, and why the TS name is by convention the lowerCamelCase form of the feature
+ * key (asserted by `EditorFeatureFlagsTest`, so a typo on either entry fails the
+ * build instead of silently disabling the feature). Add a pair to expose a new
+ * editor-facing flag.
+ */
+internal val EDITOR_FEATURE_FLAGS: Map<FeatureKey, String> = mapOf(
+    KnownFeatures.EDITOR_WALKTHROUGH to "editorWalkthrough",
+)
+
 @Component
 class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
@@ -321,12 +336,11 @@ class DocumentTemplateHandler(
         val leaderTiming = request.queryParam("leaderTiming")?.ifBlank { null }
 
         // Editor-facing feature flags: resolve the tenant's toggles and forward
-        // the editor-scoped ones to `mountEditor` (see EditorFeatureFlags). Keys
-        // are the flag names the editor bundle reads, not the backend keys.
+        // the editor-scoped ones to `mountEditor` (see EDITOR_FEATURE_FLAGS).
         val toggles = ResolveFeatureToggles(tenantId.key).query()
-        val featureFlags = mapOf(
-            "editorWalkthrough" to (toggles[KnownFeatures.EDITOR_WALKTHROUGH] == true),
-        )
+        val featureFlags = EDITOR_FEATURE_FLAGS.entries.associate { (feature, name) ->
+            name to (toggles[feature] == true)
+        }
 
         return ServerResponse.ok().render(
             "templates/editor",
