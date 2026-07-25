@@ -110,7 +110,8 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   // benign setup (switch a sidebar tab, open the preview, select a block so the spotlight
   // has something to point at), but the tour never waits on or listens to the user. The
   // spotlighted element is non-interactive so a stray click reads as "next", not an edit.
-  const steps: DriveStep[] = tour.steps(host).map((step) => ({
+  const tourSteps = tour.steps(host);
+  const steps: DriveStep[] = tourSteps.map((step) => ({
     element: hostTarget(host, step.target),
     disableActiveInteraction: true,
     onHighlightStarted: step.before ? () => step.before?.(host) : undefined,
@@ -148,6 +149,20 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
     // chapter, chains straight into it (the "level up" affordance). The X just
     // dismisses without marking complete.
     doneBtnText: upcoming ? `Next: ${upcoming.title} →` : 'Done',
+    // A pivot step's `before` (select a block, switch tabs) can remove an *earlier*
+    // step's target, and driver checks a step's existence *before* running its
+    // `before` — so plain movePrevious would silently skip those steps (or stall and
+    // do nothing at all). Recreate the state the tour first arrived with instead:
+    // the chapter baseline (`setup`), then the destination step's own `before` so
+    // its target exists when driver looks for it. Both are idempotent by contract
+    // (they re-run on every replay already); waitForElement bridges the async
+    // re-render, same as it does at tour start.
+    onPrevClick: () => {
+      const idx = d.getActiveIndex();
+      tour.setup?.(host);
+      if (idx !== undefined) tourSteps[idx - 1]?.before?.(host);
+      d.movePrevious();
+    },
     onDoneClick: () => {
       markChapterComplete(tour.id, tour.version);
       // Run the completion hook (e.g. drop a starter block) before chaining, so the next
