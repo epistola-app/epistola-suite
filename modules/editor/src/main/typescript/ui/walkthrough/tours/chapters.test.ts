@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { orientationTour } from './orientation.js';
 import { buildingTour } from './building.js';
 import { editingTour } from './editing.js';
+import { stylingTour } from './styling.js';
 
 const host = document.createElement('div');
 
@@ -66,5 +67,26 @@ describe('editing chapter', () => {
       '.inspector-style-group',
       '.inspector-delete-section',
     ]);
+  });
+});
+
+describe('styling chapter', () => {
+  it('is locked until a block exists (no empty-document branching in steps)', () => {
+    expect(stylingTour.isAvailable?.(hostWithBlock())).toBe(true);
+    expect(stylingTour.isAvailable?.(document.createElement('div'))).toBe(false);
+    expect(typeof stylingTour.unavailableHint).toBe('string');
+  });
+
+  it('opens the document inspector in setup and walks the cascade', () => {
+    expect(typeof stylingTour.setup).toBe('function');
+    expect(stylingTour.steps(host).map((s) => s.target)).toEqual([
+      '[data-tour="page-settings"]',
+      '[data-tour="document-styles"]',
+      '[data-testid="canvas-block"]',
+      '#style-preset-select',
+      '.inspector-style-group',
+    ]);
+    // The block step selects the block in `before`, setting up the preset/override targets.
+    expect(typeof stylingTour.steps(host)[2].before).toBe('function');
   });
 });

@@ -162,7 +162,7 @@ export class EpistolaInspector extends LitElement {
     const docStyles = (this.doc?.documentStylesOverride ?? {}) as Record<string, unknown>;
 
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-tour="document-styles">
         <div class="inspector-section-label">Document Styles</div>
         ${groups.map((group) => {
           // Only show inheritable properties for document styles
@@ -193,7 +193,7 @@ export class EpistolaInspector extends LitElement {
     const overrideMargins = this.doc?.pageSettingsOverride?.margins;
 
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-tour="page-settings">
         <div class="inspector-section-label">Page Settings</div>
 
         <div class="inspector-field">
