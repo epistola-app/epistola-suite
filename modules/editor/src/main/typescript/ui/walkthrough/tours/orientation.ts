@@ -15,7 +15,7 @@ export const orientationTour: Tour = {
   // exists from the start. If it were opened in a step `before`, driver would compute the
   // prior step's button before the pane rendered, wrongly treat that step as last, and
   // mislabel its Next button as the "Next: <next chapter>" done button.
-  setup: (host) => openPreview(host),
+  setup: (ctx) => openPreview(ctx),
   steps: () => [
     {
       target: 'epistola-toolbar',

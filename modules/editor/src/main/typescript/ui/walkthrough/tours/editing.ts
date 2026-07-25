@@ -11,11 +11,11 @@ export const editingTour: Tour = {
   title: 'Editing a block',
   summary: 'Edit a block’s content and style.',
   version: 2,
-  isAvailable: (host) => hasAnyBlock(host),
+  isAvailable: (ctx) => hasAnyBlock(ctx),
   unavailableHint: 'Add a block to the canvas first.',
-  setup: (host) => {
-    selectFirstBlock(host); // selecting also opens the Inspector
-    openPreview(host);
+  setup: (ctx) => {
+    selectFirstBlock(ctx); // selecting also opens the Inspector
+    openPreview(ctx);
   },
   steps: () => [
     {

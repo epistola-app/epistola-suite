@@ -17,11 +17,13 @@ import driverCss from 'driver.js/dist/driver.css?inline';
 import type { Driver, DriveStep } from 'driver.js';
 import {
   firstRunnableTour,
+  isTourAvailable,
   nextAvailableTour,
   nextTour,
   tourById,
   TOURS,
   type Tour,
+  type TourContext,
 } from './registry.js';
 import { hasSeenIntro, isChapterComplete, markChapterComplete, markIntroSeen } from './progress.js';
 import { getActiveDriver, setActiveDriver } from './session.js';
@@ -89,7 +91,8 @@ function hostTarget(host: HTMLElement, selector: string): () => Element {
 }
 
 /** Run a single chapter, chaining to the next chapter when the user finishes it. */
-async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
+async function runTour(ctx: TourContext, tour: Tour): Promise<void> {
+  const { host } = ctx;
   const { driver } = await import('driver.js');
   // The host can detach during that await (an hx-boost swap landing mid-click,
   // e.g. while chaining from onDoneClick). The launcher's disconnectedCallback
@@ -100,9 +103,10 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
 
   // A chapter with an `onComplete` mutates the editor to make its successor runnable
   // (building drops a starter block so editing/styling unlock), so it advertises its raw
-  // next chapter — computed before the hook runs, availability checks would still see the
-  // old state. Otherwise chain to the next chapter that can actually run here.
-  const upcoming = tour.onComplete ? nextTour(tour.id) : nextAvailableTour(tour.id, host);
+  // next chapter for the Done label — computed before the hook runs, availability would
+  // still see the old state. Otherwise advertise the next chapter that can run here.
+  // Actual chaining re-checks availability after the hook runs (see onDoneClick).
+  const upcoming = tour.onComplete ? nextTour(tour.id) : nextAvailableTour(tour.id, ctx);
 
   let d: Driver;
   // Chapters are passive narration: the user reads each step and advances with Next (or
@@ -110,11 +114,11 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   // benign setup (switch a sidebar tab, open the preview, select a block so the spotlight
   // has something to point at), but the tour never waits on or listens to the user. The
   // spotlighted element is non-interactive so a stray click reads as "next", not an edit.
-  const tourSteps = tour.steps(host);
+  const tourSteps = tour.steps(ctx);
   const steps: DriveStep[] = tourSteps.map((step) => ({
     element: hostTarget(host, step.target),
     disableActiveInteraction: true,
-    onHighlightStarted: step.before ? () => step.before?.(host) : undefined,
+    onHighlightStarted: step.before ? () => step.before?.(ctx) : undefined,
     popover: {
       title: step.title,
       description: step.body,
@@ -159,17 +163,24 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
     // re-render, same as it does at tour start.
     onPrevClick: () => {
       const idx = d.getActiveIndex();
-      tour.setup?.(host);
-      if (idx !== undefined) tourSteps[idx - 1]?.before?.(host);
+      tour.setup?.(ctx);
+      if (idx !== undefined) tourSteps[idx - 1]?.before?.(ctx);
       d.movePrevious();
     },
     onDoneClick: () => {
       markChapterComplete(tour.id, tour.version);
       // Run the completion hook (e.g. drop a starter block) before chaining, so the next
       // chapter's setup finds the state it needs.
-      tour.onComplete?.(host);
+      tour.onComplete?.(ctx);
       d.destroy();
-      if (upcoming) void runTour(host, upcoming);
+      // Availability reads the engine model, so it is correct here even though the
+      // canvas hasn't repainted. If onComplete failed to establish the advertised
+      // chapter's preconditions (e.g. the insert dispatch was rejected), fall back
+      // to the next chapter that can actually run — or end the chain gracefully,
+      // rather than launching a chapter whose every step would be skipped.
+      const next =
+        upcoming && isTourAvailable(upcoming, ctx) ? upcoming : nextAvailableTour(tour.id, ctx);
+      if (next) void runTour(ctx, next);
     },
     onDestroyed: () => {
       if (getActiveDriver() === d) setActiveDriver(null);
@@ -180,20 +191,20 @@ async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   // Establish initial state (select a block, open the document inspector, …) BEFORE
   // driving, so step 0's target exists when driver resolves it. waitForElement bridges
   // the async re-render this triggers.
-  tour.setup?.(host);
+  tour.setup?.(ctx);
   d.drive();
 }
 
 /** Start a specific chapter by id (used by the Guide launcher). No-op if unknown. */
-export async function startTour(host: HTMLElement, tourId: string): Promise<void> {
+export async function startTour(ctx: TourContext, tourId: string): Promise<void> {
   const tour = tourById(tourId);
-  if (tour) await runTour(host, tour);
+  if (tour) await runTour(ctx, tour);
 }
 
 /** Start at the first unfinished, runnable chapter, or replay the first when all are done. */
-export async function startWalkthrough(host: HTMLElement): Promise<void> {
-  const tour = firstRunnableTour(isChapterComplete, host) ?? TOURS[0];
-  if (tour) await runTour(host, tour);
+export async function startWalkthrough(ctx: TourContext): Promise<void> {
+  const tour = firstRunnableTour(isChapterComplete, ctx) ?? TOURS[0];
+  if (tour) await runTour(ctx, tour);
 }
 
 /**
@@ -202,7 +213,8 @@ export async function startWalkthrough(host: HTMLElement): Promise<void> {
  * tour — just a one-step coach-mark, shown once. No-op if already seen or if the
  * Guide button isn't present.
  */
-export async function startIntro(host: HTMLElement): Promise<void> {
+export async function startIntro(ctx: TourContext): Promise<void> {
+  const { host } = ctx;
   if (hasSeenIntro()) return;
   if (!host.querySelector(GUIDE_TRIGGER)) return;
 
@@ -233,7 +245,7 @@ export async function startIntro(host: HTMLElement): Promise<void> {
           doneBtnText: 'Start the tour',
           onDoneClick: () => {
             d.destroy();
-            void startWalkthrough(host);
+            void startWalkthrough(ctx);
           },
         },
       },

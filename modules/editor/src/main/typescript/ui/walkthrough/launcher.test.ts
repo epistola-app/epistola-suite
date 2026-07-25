@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { EditorEngine } from '../../engine/EditorEngine.js';
+import { createTestDocument, testRegistry } from '../../engine/test-helpers.js';
 import { WalkthroughLauncher } from './launcher.js';
 import { TOURS } from './registry.js';
 import { markChapterComplete } from './progress.js';
@@ -19,6 +21,9 @@ function markState(root: ParentNode, chapterId: string): string {
 
 async function mount(): Promise<WalkthroughLauncher> {
   const root = document.createElement('epistola-editor');
+  // The launcher resolves its TourContext from the editor's public `engine`
+  // property; give the bare element a real engine over an empty document.
+  Object.assign(root, { engine: new EditorEngine(createTestDocument(), testRegistry()) });
   const el = new WalkthroughLauncher();
   root.appendChild(el);
   document.body.appendChild(root);

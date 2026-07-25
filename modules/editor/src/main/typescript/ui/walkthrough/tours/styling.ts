@@ -16,9 +16,9 @@ export const stylingTour: Tour = {
   title: 'Styling',
   summary: 'Page setup, document defaults, and per-block style.',
   version: 1,
-  isAvailable: (host) => hasAnyBlock(host),
+  isAvailable: (ctx) => hasAnyBlock(ctx),
   unavailableHint: 'Add a block to the canvas first.',
-  setup: (host) => showDocumentInspector(host),
+  setup: (ctx) => showDocumentInspector(ctx),
   steps: () => [
     {
       target: '[data-tour="page-settings"]',
@@ -35,7 +35,7 @@ export const stylingTour: Tour = {
     {
       // Target the block itself (present without a selection); selecting it here
       // populates the block Inspector that the preset / override steps point at.
-      before: (host) => selectFirstBlock(host),
+      before: (ctx) => selectFirstBlock(ctx),
       target: '[data-testid="canvas-block"]',
       title: 'Now a single block',
       body: 'Select any block and the Inspector switches to <strong>its</strong> style, layered on top of the document defaults.',

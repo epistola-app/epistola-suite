@@ -1,25 +1,38 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
+import { EditorEngine } from '../../../engine/EditorEngine.js';
+import {
+  createTestDocument,
+  createTestDocumentWithChildren,
+  testRegistry,
+} from '../../../engine/test-helpers.js';
+import type { TourContext } from '../registry.js';
 import { orientationTour } from './orientation.js';
 import { buildingTour } from './building.js';
 import { editingTour } from './editing.js';
 import { stylingTour } from './styling.js';
 
-const host = document.createElement('div');
-
-/** A host whose canvas has one block, nothing selected. */
-function hostWithBlock(): HTMLElement {
-  const h = document.createElement('div');
-  const block = document.createElement('div');
-  block.className = 'canvas-block';
-  block.setAttribute('data-node-id', 'n1');
-  h.appendChild(block);
-  return h;
+/** A context over a real engine with an *empty* document (no blocks). */
+function emptyContext(): TourContext {
+  return {
+    host: document.createElement('div'),
+    engine: new EditorEngine(createTestDocument(), testRegistry()),
+  };
 }
+
+/** A context over a real engine whose document already has blocks. */
+function contextWithBlock(): TourContext {
+  return {
+    host: document.createElement('div'),
+    engine: new EditorEngine(createTestDocumentWithChildren().doc, testRegistry()),
+  };
+}
+
+const ctx = emptyContext();
 
 describe('orientation chapter', () => {
   it('is an overview of the regions, ending by opening the preview', () => {
-    const targets = orientationTour.steps(host).map((s) => s.target);
+    const targets = orientationTour.steps(ctx).map((s) => s.target);
     expect(targets).toEqual([
       'epistola-toolbar',
       '.toolbar-right',
@@ -39,7 +52,7 @@ describe('orientation chapter', () => {
 
 describe('building chapter', () => {
   it('walks palette → add → structure, switching the tab before each step', () => {
-    const steps = buildingTour.steps(host);
+    const steps = buildingTour.steps(ctx);
     expect(steps.map((s) => s.target)).toEqual([
       '[data-tour="tab-blocks"]',
       '[data-testid="palette-item-text"]',
@@ -51,18 +64,38 @@ describe('building chapter', () => {
   it('drops a starter block on finish, so the block-centric chapters can chain on', () => {
     expect(typeof buildingTour.onComplete).toBe('function');
   });
+
+  it('onComplete unlocks the next chapters in the same tick (model, not DOM)', () => {
+    // Chaining re-checks availability right after onComplete, before the canvas
+    // repaints — this only works because availability reads the engine model.
+    const c = emptyContext();
+    expect(editingTour.isAvailable?.(c)).toBe(false);
+    expect(stylingTour.isAvailable?.(c)).toBe(false);
+    buildingTour.onComplete?.(c);
+    expect(editingTour.isAvailable?.(c)).toBe(true);
+    expect(stylingTour.isAvailable?.(c)).toBe(true);
+  });
+
+  it('onComplete is idempotent — replaying never stacks starter blocks', () => {
+    const c = emptyContext();
+    buildingTour.onComplete?.(c);
+    buildingTour.onComplete?.(c);
+    const doc = c.engine.doc;
+    const rootSlot = doc.slots[doc.nodes[doc.root].slots[0]];
+    expect(rootSlot.children).toHaveLength(1);
+  });
 });
 
 describe('editing chapter', () => {
   it('is locked until a block exists (no empty-document branching in steps)', () => {
-    expect(editingTour.isAvailable?.(hostWithBlock())).toBe(true);
-    expect(editingTour.isAvailable?.(document.createElement('div'))).toBe(false);
+    expect(editingTour.isAvailable?.(contextWithBlock())).toBe(true);
+    expect(editingTour.isAvailable?.(emptyContext())).toBe(false);
     expect(typeof editingTour.unavailableHint).toBe('string');
   });
 
   it('selects a block in setup and walks content → style → delete', () => {
     expect(typeof editingTour.setup).toBe('function');
-    expect(editingTour.steps(host).map((s) => s.target)).toEqual([
+    expect(editingTour.steps(ctx).map((s) => s.target)).toEqual([
       '.canvas-block.selected',
       '.inspector-style-group',
       '.inspector-delete-section',
@@ -72,14 +105,14 @@ describe('editing chapter', () => {
 
 describe('styling chapter', () => {
   it('is locked until a block exists (no empty-document branching in steps)', () => {
-    expect(stylingTour.isAvailable?.(hostWithBlock())).toBe(true);
-    expect(stylingTour.isAvailable?.(document.createElement('div'))).toBe(false);
+    expect(stylingTour.isAvailable?.(contextWithBlock())).toBe(true);
+    expect(stylingTour.isAvailable?.(emptyContext())).toBe(false);
     expect(typeof stylingTour.unavailableHint).toBe('string');
   });
 
   it('opens the document inspector in setup and walks the cascade', () => {
     expect(typeof stylingTour.setup).toBe('function');
-    expect(stylingTour.steps(host).map((s) => s.target)).toEqual([
+    expect(stylingTour.steps(ctx).map((s) => s.target)).toEqual([
       '[data-tour="page-settings"]',
       '[data-tour="document-styles"]',
       '[data-testid="canvas-block"]',
@@ -87,6 +120,6 @@ describe('styling chapter', () => {
       '.inspector-style-group',
     ]);
     // The block step selects the block in `before`, setting up the preset/override targets.
-    expect(typeof stylingTour.steps(host)[2].before).toBe('function');
+    expect(typeof stylingTour.steps(ctx)[2].before).toBe('function');
   });
 });

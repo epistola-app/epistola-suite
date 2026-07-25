@@ -1,5 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { EditorEngine } from '../../engine/EditorEngine.js';
+import { createTestDocument, testRegistry } from '../../engine/test-helpers.js';
+import type { TourContext } from './registry.js';
 import { startIntro, startTour } from './walkthrough.js';
 import { markIntroSeen } from './progress.js';
 
@@ -9,7 +12,7 @@ function styleCount(): number {
   return document.querySelectorAll(`#${STYLE_ID}`).length;
 }
 
-function makeHost(opts: { guide?: boolean; chrome?: boolean } = {}): HTMLElement {
+function makeCtx(opts: { guide?: boolean; chrome?: boolean } = {}): TourContext {
   const host = document.createElement('div');
   if (opts.guide) {
     const btn = document.createElement('button');
@@ -22,7 +25,7 @@ function makeHost(opts: { guide?: boolean; chrome?: boolean } = {}): HTMLElement
     host.appendChild(document.createElement('epistola-canvas'));
   }
   document.body.appendChild(host);
-  return host;
+  return { host, engine: new EditorEngine(createTestDocument(), testRegistry()) };
 }
 
 function reset(): void {
@@ -36,21 +39,21 @@ describe('startIntro', () => {
   afterEach(reset);
 
   it('spotlights the Guide button (injecting styles once) on first run', async () => {
-    const host = makeHost({ guide: true });
-    await startIntro(host);
+    const ctx = makeCtx({ guide: true });
+    await startIntro(ctx);
     expect(styleCount()).toBe(1);
   });
 
   it('no-ops once the intro has been seen', async () => {
     markIntroSeen();
-    const host = makeHost({ guide: true });
-    await startIntro(host);
+    const ctx = makeCtx({ guide: true });
+    await startIntro(ctx);
     expect(document.getElementById(STYLE_ID)).toBeNull();
   });
 
   it('no-ops when the Guide button is absent', async () => {
-    const host = makeHost({ guide: false });
-    await startIntro(host);
+    const ctx = makeCtx({ guide: false });
+    await startIntro(ctx);
     expect(document.getElementById(STYLE_ID)).toBeNull();
   });
 });
@@ -60,14 +63,14 @@ describe('startTour', () => {
   afterEach(reset);
 
   it('runs a known chapter, injecting the driver styles once', async () => {
-    const host = makeHost({ chrome: true });
-    await startTour(host, 'orientation');
+    const ctx = makeCtx({ chrome: true });
+    await startTour(ctx, 'orientation');
     expect(styleCount()).toBe(1);
   });
 
   it('does nothing for an unknown chapter id', async () => {
-    const host = makeHost({ chrome: true });
-    await startTour(host, 'does-not-exist');
+    const ctx = makeCtx({ chrome: true });
+    await startTour(ctx, 'does-not-exist');
     expect(document.getElementById(STYLE_ID)).toBeNull();
   });
 });

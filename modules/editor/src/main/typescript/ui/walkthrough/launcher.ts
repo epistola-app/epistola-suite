@@ -10,7 +10,13 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { icon } from '../icons.js';
-import { firstRunnableTour, isTourAvailable, tourById, TOURS } from './registry.js';
+import {
+  firstRunnableTour,
+  isTourAvailable,
+  tourById,
+  TOURS,
+  type TourContext,
+} from './registry.js';
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
 import { stopActiveTour } from './session.js';
 import { injectStyleOnce } from './styles.js';
@@ -113,8 +119,8 @@ export class WalkthroughLauncher extends LitElement {
   /** First-run awareness nudge pointing at this Guide button (shown once). */
   override firstUpdated(): void {
     if (hasSeenIntro()) return;
-    const host = this._host;
-    if (!host) return;
+    const ctx = this._ctx;
+    if (!ctx) return;
     // Defer a frame so the button has laid out before driver.js measures it. Bail
     // if we've since disconnected — otherwise the intro would resolve the Guide
     // button against a detached tree and render as an orphan centered modal over
@@ -123,24 +129,30 @@ export class WalkthroughLauncher extends LitElement {
       if (!this.isConnected) return;
       void import('./walkthrough.js')
         .then((m) => {
-          if (this.isConnected) void m.startIntro(host);
+          if (this.isConnected) void m.startIntro(ctx);
         })
         .catch((e) => console.warn('Walkthrough intro failed to start:', e));
     });
   }
 
-  /** The editor root, used to scope the tour's spotlights. */
-  private get _host(): HTMLElement | null {
-    return this.closest('epistola-editor');
+  /**
+   * The tour context (editor root + engine), resolved once at this boundary —
+   * everything below it (registry, tours, runner) takes a {@link TourContext}.
+   * Null before the editor has initialized its engine (no tour can run then).
+   */
+  private get _ctx(): TourContext | null {
+    const host = this.closest('epistola-editor');
+    const engine = host?.engine;
+    return host && engine ? { host, engine } : null;
   }
 
   /** Chapters with completion, availability, and which one is "current". */
   private get _chapters(): ChapterView[] {
-    const host = this._host;
+    const ctx = this._ctx;
     // Single source of truth for "current" — same rule startWalkthrough() drives.
-    const currentId = host ? firstRunnableTour(isChapterComplete, host)?.id : undefined;
+    const currentId = ctx ? firstRunnableTour(isChapterComplete, ctx)?.id : undefined;
     return TOURS.map((t) => {
-      const available = host ? isTourAvailable(t, host) : true;
+      const available = ctx ? isTourAvailable(t, ctx) : true;
       return {
         id: t.id,
         title: t.title,
@@ -165,18 +177,18 @@ export class WalkthroughLauncher extends LitElement {
 
   private _run(id: string): void {
     this._open = false;
-    const host = this._host;
-    if (!host) return;
+    const ctx = this._ctx;
+    if (!ctx) return;
     // Locked chapters can't run here (belt-and-suspenders — the button is disabled too).
     const tour = tourById(id);
-    if (tour && !isTourAvailable(tour, host)) return;
+    if (tour && !isTourAvailable(tour, ctx)) return;
     // Never stack drivers: tear down anything still tracked before starting.
     stopActiveTour();
     // Pulls in the runner (and driver.js) only now, when a chapter actually runs.
     // The click handler doesn't await this, so swallow failures here: log, and
     // reopen the menu so the user can retry rather than being left with nothing.
     void import('./walkthrough.js')
-      .then((m) => m.startTour(host, id))
+      .then((m) => m.startTour(ctx, id))
       .catch((e) => {
         console.warn('Walkthrough tour failed to start:', e);
         this._open = true;

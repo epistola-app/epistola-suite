@@ -16,24 +16,24 @@ export const buildingTour: Tour = {
   summary: 'Add a block and shape the layout.',
   // v3: reverted from the interactive rebuild to passive narration.
   version: 3,
-  onComplete: (host) => addStarterBlock(host),
+  onComplete: (ctx) => addStarterBlock(ctx),
   steps: () => [
     {
-      before: (host) => clickSidebarTab(host, 'blocks'),
+      before: (ctx) => clickSidebarTab(ctx, 'blocks'),
       target: '[data-tour="tab-blocks"]',
       title: 'The block palette',
       body: 'Every piece of content is a block. The palette groups them into <strong>Content</strong>, <strong>Layout</strong>, <strong>Logic</strong>, and <strong>Page</strong>.',
       side: 'right',
     },
     {
-      before: (host) => clickSidebarTab(host, 'blocks'),
+      before: (ctx) => clickSidebarTab(ctx, 'blocks'),
       target: '[data-testid="palette-item-text"]',
       title: 'Adding a block',
       body: 'Click any block — like <strong>Text</strong> — to drop it onto the page, or drag it onto the canvas. Undo anything with Ctrl+Z.',
       side: 'right',
     },
     {
-      before: (host) => clickSidebarTab(host, 'structure'),
+      before: (ctx) => clickSidebarTab(ctx, 'structure'),
       target: '[data-tour="tab-structure"]',
       title: 'The structure',
       body: 'Everything you add shows up here as a tree — the fastest way to reorder blocks or select nested ones.',
