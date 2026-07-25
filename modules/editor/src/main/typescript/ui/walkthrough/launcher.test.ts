@@ -82,6 +82,46 @@ describe('WalkthroughLauncher', () => {
     expect(current?.getAttribute('aria-current')).toBe('step');
   });
 
+  it('is a menu button: menu role, focus moves in on open, Escape restores it', async () => {
+    const el = await mount();
+    clickTestId(el, 'walkthrough-guide-trigger');
+    await el.updateComplete;
+
+    const menu = el.querySelector('[data-testid="walkthrough-launcher"]');
+    expect(menu?.getAttribute('role')).toBe('menu');
+    expect(
+      el.querySelector('[data-testid="walkthrough-guide-trigger"]')?.getAttribute('aria-haspopup'),
+    ).toBe('menu');
+
+    // Opening moves focus onto a menu item (the current chapter).
+    await el.updateComplete; // focus is queued behind the render
+    expect(document.activeElement?.getAttribute('role')).toBe('menuitem');
+
+    // Escape closes and hands focus back to the trigger.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await el.updateComplete;
+    expect(el.querySelector('[data-testid="walkthrough-launcher"]')).toBeNull();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('walkthrough-guide-trigger');
+  });
+
+  it('locked chapters are focusable no-ops (aria-disabled, not disabled)', async () => {
+    // The mounted editor has an empty document, so the block-gated chapters are locked.
+    const el = await mount();
+    clickTestId(el, 'walkthrough-guide-trigger');
+    await el.updateComplete;
+
+    const locked = el.querySelector<HTMLButtonElement>(
+      `[data-testid="walkthrough-chapter-${TOURS[2].id}"]`,
+    );
+    expect(locked?.getAttribute('aria-disabled')).toBe('true');
+    expect(locked?.disabled).toBe(false);
+
+    // Activating a locked chapter neither runs it nor closes the menu.
+    locked?.click();
+    await el.updateComplete;
+    expect(el.querySelector('[data-testid="walkthrough-launcher"]')).not.toBeNull();
+  });
+
   it('toggles the menu closed on a second trigger click', async () => {
     const el = await mount();
     clickTestId(el, 'walkthrough-guide-trigger');

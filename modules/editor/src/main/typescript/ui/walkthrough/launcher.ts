@@ -61,8 +61,8 @@ const CSS = `
 .ep-wt-item:hover { background: var(--ep-stone-100); }
 .ep-wt-item:focus-visible { outline: none; box-shadow: var(--ep-ring); }
 .ep-wt-item.is-current { background: var(--ep-terracotta-50); }
-.ep-wt-item:disabled { cursor: default; opacity: 0.65; }
-.ep-wt-item:disabled:hover { background: transparent; }
+.ep-wt-item[aria-disabled='true'] { cursor: default; opacity: 0.65; }
+.ep-wt-item[aria-disabled='true']:hover { background: transparent; }
 .ep-wt-mark {
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
   width: 1.25rem; height: 1.4rem; color: var(--ep-stone-400);
@@ -93,7 +93,9 @@ export class WalkthroughLauncher extends LitElement {
   };
 
   private readonly _onKeydown = (e: KeyboardEvent): void => {
-    if (this._open && e.key === 'Escape') this._open = false;
+    // Escape closes and hands focus back to the trigger — without the refocus, a
+    // reader focused on a menu item would be dropped to <body> when it unrenders.
+    if (this._open && e.key === 'Escape') this._close();
   };
 
   override connectedCallback(): void {
@@ -181,15 +183,61 @@ export class WalkthroughLauncher extends LitElement {
     // very button (the intro) is simply dismissed, which is the right outcome.
     stopTour(this._hostEl ?? undefined);
     this._open = !this._open;
+    // Menu-button pattern: opening moves focus into the menu (the current chapter,
+    // or the first item). Items are tabindex="-1"; the arrows walk them.
+    if (this._open) {
+      void this.updateComplete.then(() => {
+        const items = this._items();
+        (items.find((i) => i.classList.contains('is-current')) ?? items[0])?.focus();
+      });
+    }
+  };
+
+  /** Close the menu; hand focus back to the trigger unless told otherwise. */
+  private _close(refocusTrigger = true): void {
+    if (!this._open) return;
+    this._open = false;
+    if (refocusTrigger) {
+      this.querySelector<HTMLButtonElement>('[data-testid="walkthrough-guide-trigger"]')?.focus();
+    }
+  }
+
+  private _items(): HTMLButtonElement[] {
+    return Array.from(this.querySelectorAll<HTMLButtonElement>('.ep-wt-item'));
+  }
+
+  /** Menu keyboard contract: arrows walk (and wrap), Home/End jump, Tab exits. */
+  private readonly _onMenuKeydown = (e: KeyboardEvent): void => {
+    const items = this._items();
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLButtonElement);
+    const move = (next: number): void => {
+      e.preventDefault();
+      items[next]?.focus();
+    };
+    if (e.key === 'ArrowDown') move(idx < 0 ? 0 : (idx + 1) % items.length);
+    else if (e.key === 'ArrowUp')
+      move(idx < 0 ? items.length - 1 : (idx - 1 + items.length) % items.length);
+    else if (e.key === 'Home') move(0);
+    else if (e.key === 'End') move(items.length - 1);
+    else if (e.key === 'Tab') {
+      // Per the menu-button pattern Tab leaves the menu: close, restore the trigger
+      // as the tab stop, and let the user tab onward from there.
+      e.preventDefault();
+      this._close();
+    }
+    // Escape is handled by the document-level listener (closes + refocuses).
   };
 
   private _run(id: string): void {
-    this._open = false;
     const ctx = this._ctx;
     if (!ctx) return;
-    // Locked chapters can't run here (belt-and-suspenders — the button is disabled too).
+    // Locked chapters are focusable on purpose (aria-disabled, not disabled — so
+    // keyboard and screen-reader users can reach them and hear the unlock hint);
+    // activating one is a no-op that keeps the menu open.
     const tour = tourById(id);
     if (tour && !isTourAvailable(tour, ctx)) return;
+    this._close();
     // Never stack drivers: tear down anything still tracked — on ANY editor, since
     // driver.js runs one overlay per page — before starting. (trackSession enforces
     // the same exclusivity, but stopping here clears the old overlay immediately on
@@ -216,7 +264,7 @@ export class WalkthroughLauncher extends LitElement {
           data-testid="walkthrough-guide-trigger"
           title="Guided walkthrough"
           aria-label="Guided walkthrough"
-          aria-haspopup="dialog"
+          aria-haspopup="menu"
           aria-expanded=${String(this._open)}
           @click=${this._toggle}
         >
@@ -226,19 +274,22 @@ export class WalkthroughLauncher extends LitElement {
           ? html`
               <div
                 class="ep-wt-popover"
-                role="dialog"
+                role="menu"
                 aria-label="Guided walkthrough"
                 data-testid="walkthrough-launcher"
+                @keydown=${this._onMenuKeydown}
               >
                 <div class="ep-wt-title">Walkthrough</div>
-                <ul class="ep-wt-list">
+                <ul class="ep-wt-list" role="none">
                   ${this._chapters.map(
                     (c) => html`
-                      <li>
+                      <li role="none">
                         <button
                           class="ep-wt-item ${c.current ? 'is-current' : ''}"
                           type="button"
-                          ?disabled=${!c.available}
+                          role="menuitem"
+                          tabindex="-1"
+                          aria-disabled=${c.available ? nothing : 'true'}
                           data-testid=${`walkthrough-chapter-${c.id}`}
                           aria-current=${c.current ? 'step' : nothing}
                           aria-label=${`${c.title}: ${
