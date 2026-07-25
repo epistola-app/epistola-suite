@@ -6,7 +6,7 @@ import {
   createTestDocumentWithChildren,
   testRegistry,
 } from '../../../engine/test-helpers.js';
-import { TOUR_HOOKS, tourHook } from '../hooks.js';
+import { TOUR_HOOKS, tourHook } from '../../tour-hooks.js';
 import type { TourContext } from '../registry.js';
 import { orientationTour } from './orientation.js';
 import { buildingTour } from './building.js';

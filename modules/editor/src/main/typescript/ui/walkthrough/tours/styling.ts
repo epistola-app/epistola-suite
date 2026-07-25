@@ -1,5 +1,5 @@
 import type { Tour } from '../registry.js';
-import { TOUR_HOOKS, tourHook } from '../hooks.js';
+import { TOUR_HOOKS, tourHook } from '../../tour-hooks.js';
 import { hasAnyBlock, selectFirstBlock, showDocumentInspector } from './helpers.js';
 
 /**

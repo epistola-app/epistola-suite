@@ -8,9 +8,14 @@
  * and `skipMissingElement` turns a renamed target into a silently dropped step with
  * no warning and no failing test.
  *
- * The pairing is enforced by `hooks.test.ts`: every value here must be stamped as a
- * `data-tour` attribute by a component, so renaming either side fails the build
- * instead of quietly degrading a chapter.
+ * Components import this table and stamp `data-tour=${TOUR_HOOKS.x}` bindings, so
+ * a hook rename is atomic and compile-checked across producers and tours. What the
+ * compiler cannot prove is that an attribute is actually *stamped* somewhere —
+ * `tour-hooks.test.ts` covers that: every hook here must appear in a component's
+ * `data-tour` binding, so deleting or forgetting a stamp fails the build instead
+ * of quietly degrading a chapter. (This module is dependency-free on purpose: it
+ * is imported by always-loaded components and must never pull walkthrough code —
+ * which is also why it lives in `ui/`, not `ui/walkthrough/`.)
  */
 export const TOUR_HOOKS = {
   /** The Guide button (the walkthrough launcher itself, in the toolbar). */

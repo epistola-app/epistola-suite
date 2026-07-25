@@ -3,7 +3,7 @@
 import type { EditorEngine } from '../../../engine/EditorEngine.js';
 import type { TourContext } from '../registry.js';
 import { PAGE_FOOTER_TYPE } from '../../../engine/registry.js';
-import { tourHook } from '../hooks.js';
+import { tourHook } from '../../tour-hooks.js';
 
 /** Switch the sidebar to a built-in tab. No-op if absent. */
 export function clickSidebarTab(
