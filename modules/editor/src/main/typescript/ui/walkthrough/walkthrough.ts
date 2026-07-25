@@ -91,6 +91,11 @@ function hostTarget(host: HTMLElement, selector: string): () => Element {
 /** Run a single chapter, chaining to the next chapter when the user finishes it. */
 async function runTour(host: HTMLElement, tour: Tour): Promise<void> {
   const { driver } = await import('driver.js');
+  // The host can detach during that await (an hx-boost swap landing mid-click,
+  // e.g. while chaining from onDoneClick). The launcher's disconnectedCallback
+  // tears down the *tracked* driver, but a driver constructed after that point
+  // would be untracked — a stranded overlay that leaves the page mouse-dead.
+  if (!host.isConnected) return;
   ensureDriverStyles();
 
   // A chapter with an `onComplete` mutates the editor to make its successor runnable
@@ -187,6 +192,8 @@ export async function startIntro(host: HTMLElement): Promise<void> {
   if (!host.querySelector(GUIDE_TRIGGER)) return;
 
   const { driver } = await import('driver.js');
+  // Same detach race as runTour: don't build a driver against a swapped-out host.
+  if (!host.isConnected) return;
   ensureDriverStyles();
 
   let d: Driver;
