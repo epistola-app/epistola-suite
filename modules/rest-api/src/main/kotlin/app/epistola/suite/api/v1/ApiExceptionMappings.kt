@@ -37,6 +37,7 @@ import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotPublishedException
 import app.epistola.suite.templates.ActivationNotFoundException
+import app.epistola.suite.templates.DraftHasNoPublishedBaseException
 import app.epistola.suite.templates.DraftNotFoundException
 import app.epistola.suite.templates.NoActiveVersionException
 import app.epistola.suite.templates.TemplateNotFoundException
@@ -257,6 +258,18 @@ object ApiExceptionMappings {
                 )
             },
             logMessage = { "Draft not found: tenant=${it.tenantId} variant=${it.variantId}" },
+        )
+
+        builder.register<DraftHasNoPublishedBaseException>(
+            problemType = ApiProblemTypes.DRAFT_HAS_NO_PUBLISHED_BASE,
+            defaultDetail = "Draft cannot be discarded because the variant has no published version",
+            extensions = {
+                mapOf(
+                    "tenantId" to it.tenantId.value,
+                    "variantId" to it.variantId.value,
+                )
+            },
+            logMessage = { "Draft has no published base: tenant=${it.tenantId} variant=${it.variantId}" },
         )
 
         builder.register<VersionNotDraftException>(

@@ -99,7 +99,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
         var rendered = 0
 
         eachExample { componentType, exampleName, fragment ->
-            val templateModel = wrapAsTemplateDocument(fragment)
+            val templateModel = wrapAsTemplateDocument(componentType, fragment)
             try {
                 val pdfBytes = withMediator {
                     PreviewVariant(
@@ -149,26 +149,30 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
     }
 
     /**
-     * Wraps an example fragment as a complete TemplateDocument by inserting
-     * a synthetic root node. The synthetic root's children are `rootNodeId`
-     * plus any orphan top-level nodes in the fragment (nodes that aren't
-     * reachable as descendants of `rootNodeId` via slots). This lets an
-     * example express multi-top-level patterns — e.g., the two-pageheader
-     * pattern, where a second pageheader is a document-root sibling rather
-     * than a descendant of the showcased component.
-     * Returns the deserialized TemplateDocument so the renderer can consume it.
+     * Builds a valid TemplateDocument for each component example. Root examples
+     * already provide the document root. Other fragments get a synthetic root,
+     * with any orphan top-level nodes attached as siblings. Placeholder examples
+     * additionally get a synthetic stencil ancestor because placeholders are
+     * only valid inside stencils.
      */
-    private fun wrapAsTemplateDocument(fragment: ObjectNode): TemplateDocument {
+    private fun wrapAsTemplateDocument(componentType: String, fragment: ObjectNode): TemplateDocument {
         val rootNodeId = fragment.get("rootNodeId").asString()
         val fragmentNodes = fragment.get("nodes") as ObjectNode
         val fragmentSlots = fragment.get("slots") as ObjectNode
+
+        if (componentType == "root") {
+            return createTemplateDocument(rootNodeId, fragmentNodes, fragmentSlots)
+        }
 
         val syntheticRootId = "n-render-test-root"
         val syntheticSlotId = "s-render-test-children"
 
         val reachable = reachableNodeIds(rootNodeId, fragmentNodes, fragmentSlots)
         val orphans = fragmentNodes.propertyNames().filter { it !in reachable }
-        val rootChildren = listOf(rootNodeId) + orphans
+        val fragmentRoots = listOf(rootNodeId) + orphans
+        val stencilNodeId = "n-render-test-stencil"
+        val stencilSlotId = "s-render-test-stencil-children"
+        val rootChildren = if (componentType == "placeholder") listOf(stencilNodeId) else fragmentRoots
 
         val syntheticRoot = objectMapper.createObjectNode()
             .put("id", syntheticRootId)
@@ -189,21 +193,47 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
 
         val nodes = objectMapper.createObjectNode()
         nodes.set(syntheticRootId, syntheticRoot)
+        if (componentType == "placeholder") {
+            nodes.set(
+                stencilNodeId,
+                objectMapper.createObjectNode()
+                    .put("id", stencilNodeId)
+                    .put("type", "stencil")
+                    .set("slots", objectMapper.createArrayNode().add(stencilSlotId)),
+            )
+        }
         for (key in fragmentNodes.propertyNames()) {
             nodes.set(key, fragmentNodes.get(key))
         }
 
         val slots = objectMapper.createObjectNode()
         slots.set(syntheticSlotId, syntheticSlot)
+        if (componentType == "placeholder") {
+            slots.set(
+                stencilSlotId,
+                objectMapper.createObjectNode()
+                    .put("id", stencilSlotId)
+                    .put("nodeId", stencilNodeId)
+                    .put("name", "children")
+                    .set(
+                        "children",
+                        objectMapper.createArrayNode().also { array -> fragmentRoots.forEach { array.add(it) } },
+                    ),
+            )
+        }
         for (key in fragmentSlots.propertyNames()) {
             slots.set(key, fragmentSlots.get(key))
         }
 
+        return createTemplateDocument(syntheticRootId, nodes, slots)
+    }
+
+    private fun createTemplateDocument(rootNodeId: String, nodes: ObjectNode, slots: ObjectNode): TemplateDocument {
         val themeRef = objectMapper.createObjectNode().put("type", "inherit")
 
         val docNode = objectMapper.createObjectNode()
             .put("modelVersion", 1)
-            .put("root", syntheticRootId)
+            .put("root", rootNodeId)
         docNode.set("themeRef", themeRef)
         docNode.set("nodes", nodes)
         docNode.set("slots", slots)

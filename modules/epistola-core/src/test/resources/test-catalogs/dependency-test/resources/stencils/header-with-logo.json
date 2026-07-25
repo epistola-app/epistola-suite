@@ -24,10 +24,9 @@
         },
         "n-heading": {
           "id": "n-heading",
-          "type": "heading",
+          "type": "text",
           "slots": [],
           "props": {
-            "level": 1,
             "content": [{ "type": "text", "text": "Company Name" }]
           }
         }

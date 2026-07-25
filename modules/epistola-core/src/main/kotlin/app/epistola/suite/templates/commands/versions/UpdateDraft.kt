@@ -15,13 +15,10 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
-import app.epistola.suite.templates.validation.NodeParameterBindingValidator
-import app.epistola.suite.templates.validation.PageHeaderCardinalityValidator
-import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * Creates or updates the draft version for a variant.
@@ -39,32 +36,28 @@ data class UpdateDraft(
 @Component
 class UpdateDraftHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
-    private val pathExtractor: app.epistola.suite.templates.analysis.TemplatePathExtractor,
-    private val placeholderValidator: PlaceholderValidator,
-    private val nodeParameterBindingValidator: NodeParameterBindingValidator,
-    private val pageHeaderCardinalityValidator: PageHeaderCardinalityValidator,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
-        placeholderValidator.validateAsTemplate(command.templateModel)
-        nodeParameterBindingValidator.validate(command.templateModel)
-        pageHeaderCardinalityValidator.validate(command.templateModel)
+        val prepared = templateDocumentPreparation.prepare(command.templateModel)
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
             // Verify the variant belongs to a template owned by the tenant
             val variantExists = handle.createQuery(
                 """
-                SELECT COUNT(*) > 0
+                SELECT 1
                 FROM template_variants
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                FOR UPDATE
                 """,
             )
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("tenantId", command.variantId.tenantKey)
                 .bind("catalogKey", command.variantId.catalogKey)
-                .mapTo<Boolean>()
-                .one()
+                .mapTo(Int::class.java)
+                .findOne()
+                .isPresent
 
             if (!variantExists) {
                 throw TemplateVariantNotFoundException(
@@ -74,10 +67,6 @@ class UpdateDraftHandler(
                 )
             }
 
-            val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
-            val referencedPaths = pathExtractor.extractReferencedPaths(command.templateModel)
-            val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
-
             // Try to update existing draft first
             val updated = handle.createUpdate(
                 """
@@ -86,17 +75,21 @@ class UpdateDraftHandler(
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                   AND template_key = :templateId
                   AND status = 'draft'
+                RETURNING id
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
                 .bind("catalogKey", command.variantId.catalogKey)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
-                .bind("templateModel", templateModelJson)
-                .bind("referencedPaths", referencedPathsJson)
-                .execute()
+                .bind("templateModel", prepared.templateModelJson)
+                .bind("referencedPaths", prepared.referencedPathsJson)
+                .executeAndReturnGeneratedKeys("id")
+                .mapTo(Int::class.java)
+                .findOne()
+                .isPresent
 
-            if (updated > 0) {
+            if (updated) {
                 // Draft existed and was updated - return it
                 return@inTransaction handle.createQuery(
                     """
@@ -173,9 +166,9 @@ class UpdateDraftHandler(
                 .bind("catalogKey", command.variantId.catalogKey)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
-                .bind("templateModel", templateModelJson)
+                .bind("templateModel", prepared.templateModelJson)
                 .bind("contractVersion", contractVersionId)
-                .bind("referencedPaths", referencedPathsJson)
+                .bind("referencedPaths", prepared.referencedPathsJson)
                 .mapTo<TemplateVersion>()
                 .one()
         }

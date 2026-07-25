@@ -15,7 +15,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
-import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
@@ -45,12 +45,14 @@ data class CreateStencilVersion(
 class CreateStencilVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val placeholderValidator: PlaceholderValidator,
+    private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
 ) : CommandHandler<CreateStencilVersion, StencilVersion?> {
     override fun handle(command: CreateStencilVersion): StencilVersion? {
         requireCatalogEditable(command.stencilId.tenantKey, command.stencilId.catalogKey)
-        if (command.content != null) placeholderValidator.validateAsStencilDefinition(command.content)
+        if (command.content != null) {
+            templateDocumentValidator.validateStencil(command.content)
+        }
         parameterSchemaValidator.validate(command.parameterSchema)
         val auditUser = currentUserIdOrNull()?.value
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
@@ -80,7 +82,11 @@ class CreateStencilVersionHandler(
                 .findOne()
                 .orElse(null)
 
-            if (existingDraft != null) return@inTransaction existingDraft
+            if (existingDraft != null) {
+                templateDocumentValidator.validateStencil(existingDraft.content)
+                parameterSchemaValidator.validate(existingDraft.parameterSchema)
+                return@inTransaction existingDraft
+            }
 
             // Calculate next version ID
             val nextVersionId = handle.createQuery(
@@ -126,11 +132,10 @@ class CreateStencilVersionHandler(
                     ?: throw ValidationException("content", "No content provided and the stencil ${command.stencilId.key} has no version to copy from")
             }
 
-            val contentJson = if (command.content != null) {
-                objectMapper.writeValueAsString(command.content)
-            } else {
-                source!!["content"].toString()
-            }
+            val content = command.content
+                ?: objectMapper.readValue(source!!["content"].toString(), TemplateDocument::class.java)
+            templateDocumentValidator.validateStencil(content)
+            val contentJson = objectMapper.writeValueAsString(content)
 
             // Schema: explicit wins; otherwise carry over the copied version's schema
             // for internal draft-reopen flows unless the caller opts into contract-style
@@ -140,6 +145,7 @@ class CreateStencilVersionHandler(
                 command.content != null || !command.inheritParameterSchemaFromSource -> null
                 else -> source!!["parameter_schema"] as? String
             }
+            parameterSchemaValidator.validate(parameterSchemaJson?.let(objectMapper::readTree))
 
             handle.createQuery(
                 """

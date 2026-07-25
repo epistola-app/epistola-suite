@@ -101,6 +101,7 @@ object ApiProblemTypes {
     val GENERATION_JOB_NOT_CANCELLABLE = problem("GENERATION_JOB_NOT_CANCELLABLE", "Generation Job Not Cancellable", HttpStatus.CONFLICT, "The generation job cannot be cancelled because it is already completed, failed, or cancelled.", listOf("tenantId", "requestId"))
     val DOCUMENT_NOT_FOUND = problem("DOCUMENT_NOT_FOUND", "Document Not Found", HttpStatus.NOT_FOUND, "The requested document does not exist or is not visible to the caller.", listOf("tenantId", "documentId"))
     val DRAFT_NOT_FOUND = problem("DRAFT_NOT_FOUND", "Draft Not Found", HttpStatus.NOT_FOUND, "No draft exists for the requested variant.", listOf("tenantId", "variantId"))
+    val DRAFT_HAS_NO_PUBLISHED_BASE = problem("DRAFT_HAS_NO_PUBLISHED_BASE", "Draft Has No Published Base", HttpStatus.CONFLICT, "The draft cannot be discarded because the variant has no published version to revert to.", listOf("tenantId", "variantId"))
     val VERSION_NOT_DRAFT = problem("VERSION_NOT_DRAFT", "Version Not Draft", HttpStatus.CONFLICT, "The version is not a draft and cannot be modified.", listOf("tenantId", "versionId"))
     val VERSION_NOT_PUBLISHED = problem("VERSION_NOT_PUBLISHED", "Version Not Published", HttpStatus.CONFLICT, "The version is not published and cannot be archived.", listOf("tenantId", "versionId"))
     val VERSION_ARCHIVED = problem("VERSION_ARCHIVED", "Version Archived", HttpStatus.CONFLICT, "The version is archived and cannot be published.", listOf("tenantId", "versionId"))
@@ -168,6 +169,7 @@ object ApiProblemTypes {
         GENERATION_JOB_NOT_CANCELLABLE,
         DOCUMENT_NOT_FOUND,
         DRAFT_NOT_FOUND,
+        DRAFT_HAS_NO_PUBLISHED_BASE,
         VERSION_NOT_DRAFT,
         VERSION_NOT_PUBLISHED,
         VERSION_ARCHIVED,

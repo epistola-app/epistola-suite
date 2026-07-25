@@ -66,7 +66,7 @@ class PlaceholderValidator {
             if (name.isEmpty()) continue
             if (!seen.add(name)) {
                 throw ValidationException(
-                    "content.placeholder.name",
+                    "nodes.${node.id}.props.name",
                     "placeholder name '$name' is used more than once",
                     ValidationCode.PLACEHOLDER_NAME_DUPLICATE,
                 )
@@ -91,7 +91,7 @@ class PlaceholderValidator {
             val seen = seenByStencil.getOrPut(scopeStencil.id) { mutableSetOf() }
             if (!seen.add(name)) {
                 throw ValidationException(
-                    "content.placeholder.name",
+                    "nodes.${node.id}.props.name",
                     "placeholder name '$name' is used more than once in the same stencil",
                     ValidationCode.PLACEHOLDER_NAME_DUPLICATE,
                 )
@@ -111,7 +111,7 @@ class PlaceholderValidator {
             val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String
             if (name == null || !slugRegex.matches(name)) {
                 throw ValidationException(
-                    "content.placeholder.name",
+                    "nodes.${node.id}.props.name",
                     "placeholder name must be a kebab-case slug " +
                         "(^[a-z][a-z0-9-]{0,63}\$); got '${name ?: "<missing>"}'",
                     ValidationCode.PLACEHOLDER_NAME_INVALID,
@@ -134,7 +134,7 @@ class PlaceholderValidator {
                     val outerName = ancestor.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                     val innerName = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                     throw ValidationException(
-                        "content.placeholder",
+                        "nodes.${node.id}",
                         "placeholder '$innerName' is nested " +
                             "inside placeholder '$outerName' at the stencil-definition level",
                         ValidationCode.PLACEHOLDER_NESTED_DEFINITION,
@@ -156,7 +156,7 @@ class PlaceholderValidator {
             if (ancestors.none { it.type == StencilNodeKeys.NODE_TYPE }) {
                 val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                 throw ValidationException(
-                    "content.placeholder",
+                    "nodes.${node.id}",
                     "placeholder '$name' must be a descendant of a stencil node",
                     ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL,
                 )
@@ -180,7 +180,7 @@ class PlaceholderValidator {
             if (sid != null) {
                 if (ancestors.contains(sid)) {
                     throw ValidationException(
-                        "content.stencil.stencilId",
+                        "nodes.${node.id}.props.stencilId",
                         "stencil '$sid' would contain itself transitively",
                         ValidationCode.STENCIL_RECURSION,
                     )
@@ -212,14 +212,14 @@ class PlaceholderValidator {
             val alias = node.props?.get(NodeParameterKeys.PROP_PARAMS_ALIAS)
             if (alias != null && alias !is String) {
                 throw ValidationException(
-                    "content.${node.type}.props.paramsAlias",
+                    "nodes.${node.id}.props.paramsAlias",
                     "paramsAlias must be a string",
                     ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE,
                 )
             }
             if (alias is String && alias in NodeParameterKeys.RESERVED_ALIASES) {
                 throw ValidationException(
-                    "content.${node.type}.props.paramsAlias",
+                    "nodes.${node.id}.props.paramsAlias",
                     "paramsAlias '$alias' collides with a " +
                         "reserved scope name (${NodeParameterKeys.RESERVED_ALIASES.joinToString()})",
                     ValidationCode.NODE_PARAMS_ALIAS_RESERVED,
@@ -229,7 +229,7 @@ class PlaceholderValidator {
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) ?: continue
             if (rawBindings !is Map<*, *>) {
                 throw ValidationException(
-                    "content.${node.type}.props.parameterBindings",
+                    "nodes.${node.id}.props.parameterBindings",
                     "parameterBindings must be an object " +
                         "of paramName → expression entries",
                     ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE,
@@ -237,20 +237,20 @@ class PlaceholderValidator {
             }
             for ((rawName, rawExpr) in rawBindings) {
                 val name = rawName as? String ?: throw ValidationException(
-                    "content.${node.type}.props.parameterBindings",
+                    "nodes.${node.id}.props.parameterBindings",
                     "parameter binding keys must be strings",
                     ValidationCode.NODE_PARAMETER_BINDING_NAME_INVALID,
                 )
                 if (!parameterNameRegex.matches(name)) {
                     throw ValidationException(
-                        "content.${node.type}.props.parameterBindings.$name",
+                        "nodes.${node.id}.props.parameterBindings.$name",
                         "parameter binding name '$name' must match ^[a-z][a-zA-Z0-9_]{0,63}\$",
                         ValidationCode.NODE_PARAMETER_BINDING_NAME_INVALID,
                     )
                 }
                 if (rawExpr !is String || rawExpr.isBlank()) {
                     throw ValidationException(
-                        "content.${node.type}.props.parameterBindings.$name",
+                        "nodes.${node.id}.props.parameterBindings.$name",
                         "parameter binding '$name' must be a non-blank JSONata expression",
                         ValidationCode.NODE_PARAMETER_BINDING_EMPTY,
                     )

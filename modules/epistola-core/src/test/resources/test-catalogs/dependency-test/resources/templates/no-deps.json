@@ -16,7 +16,7 @@
         },
         "n-text": {
           "id": "n-text",
-          "type": "paragraph",
+          "type": "text",
           "slots": [],
           "props": {
             "content": [{ "type": "text", "text": "Simple text" }]

@@ -22,7 +22,7 @@
         },
         "n-body": {
           "id": "n-body",
-          "type": "paragraph",
+          "type": "text",
           "slots": [],
           "props": {
             "content": [{ "type": "text", "text": "Body text" }]

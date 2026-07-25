@@ -1726,7 +1726,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"type\":\"https://epistola.app/errors/node-parameter-binding-syntax-invalid\"")
                 assertThat(response.body).contains("parameter binding 'param1' expression is invalid")
                 // Field path is carried structurally under errors[].
-                assertThat(response.body).contains("content.stencil.props.parameterBindings.param1")
+                assertThat(response.body).contains("templateModel.nodes.stencil-1.props.parameterBindings.param1")
                 // The old SCREAMING_CODE: message prefix is gone.
                 assertThat(response.body).doesNotContain("SYNTAX_INVALID: parameter")
                 assertThat(response.body).doesNotContain("trace")

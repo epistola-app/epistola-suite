@@ -20,7 +20,9 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
@@ -116,6 +118,8 @@ class ImportTemplatesHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
+    private val templateDocumentValidator: TemplateDocumentValidator,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) : CommandHandler<ImportTemplates, List<ImportTemplateResult>> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -136,6 +140,7 @@ class ImportTemplatesHandler(
                     },
                 )
             }
+            validateTemplateModels(rewritten)
             importSingleTemplate(command.tenantId, command.catalogKey, rewritten)
         } catch (e: Exception) {
             logger.error("Failed to import template '${input.slug}': ${e.message}", e)
@@ -147,6 +152,11 @@ class ImportTemplatesHandler(
                 errorMessage = e.message ?: "Unknown error",
             )
         }
+    }
+
+    private fun validateTemplateModels(input: ImportTemplateInput) {
+        templateDocumentValidator.validateTemplate(input.templateModel)
+        input.variants.mapNotNull { it.templateModel }.forEach(templateDocumentValidator::validateTemplate)
     }
 
     /**
@@ -439,7 +449,7 @@ class ImportTemplatesHandler(
             .bind("variantId", variantId)
             .execute()
 
-        val templateModelJson = objectMapper.writeValueAsString(templateModel)
+        val prepared = templateDocumentPreparation.prepare(templateModel)
 
         val nextVersionId = handle.createQuery(
             """
@@ -457,8 +467,8 @@ class ImportTemplatesHandler(
 
         handle.createUpdate(
             """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, published_at, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', :contractVersion, NOW(), NOW(), :createdBy)
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, published_at, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', :contractVersion, :referencedPaths::jsonb, NOW(), NOW(), :createdBy)
                 """,
         )
             .bind("id", VersionKey.of(nextVersionId))
@@ -466,8 +476,9 @@ class ImportTemplatesHandler(
             .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
-            .bind("templateModel", templateModelJson)
+            .bind("templateModel", prepared.templateModelJson)
             .bind("contractVersion", contractVersionId)
+            .bind("referencedPaths", prepared.referencedPathsJson)
             .bind("createdBy", auditUser).bind("updatedBy", auditUser)
             .execute()
     }

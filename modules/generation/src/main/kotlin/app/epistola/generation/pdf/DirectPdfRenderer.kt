@@ -628,29 +628,37 @@ class DirectPdfRenderer(
                 }
             }
             return NodeRendererRegistry(
-                mapOf(
-                    "root" to ContainerNodeRenderer(),
-                    "text" to TextNodeRenderer(),
-                    "richTextVariable" to RichTextVariableRenderer(),
-                    "container" to ContainerNodeRenderer(),
-                    StencilNodeKeys.NODE_TYPE to StencilNodeRenderer(),
-                    PlaceholderNodeKeys.NODE_TYPE to PlaceholderNodeRenderer(),
-                    "columns" to ColumnsNodeRenderer(),
-                    "table" to TableNodeRenderer(),
-                    "conditional" to ConditionalNodeRenderer(),
-                    "loop" to LoopNodeRenderer(),
-                    "datalist" to DataListNodeRenderer(),
-                    "datatable" to DatatableNodeRenderer(),
-                    "datatable-column" to DatatableColumnNodeRenderer(),
-                    "image" to ImageNodeRenderer(svgConverter),
-                    "qrcode" to QrCodeNodeRenderer(),
-                    "separator" to SeparatorNodeRenderer(),
-                    "pagebreak" to PageBreakNodeRenderer(),
-                    "pageheader" to PageHeaderNodeRenderer(),
-                    "pagefooter" to PageFooterNodeRenderer(),
-                    "addressblock" to AddressBlockNodeRenderer(),
-                ),
+                defaultRenderers(svgConverter),
             )
+        }
+
+        private fun defaultRenderers(svgConverter: ImageNodeRenderer.SvgImageConverter): Map<String, NodeRenderer> {
+            val renderers = mapOf(
+                "root" to ContainerNodeRenderer(),
+                "text" to TextNodeRenderer(),
+                "richTextVariable" to RichTextVariableRenderer(),
+                "container" to ContainerNodeRenderer(),
+                StencilNodeKeys.NODE_TYPE to StencilNodeRenderer(),
+                PlaceholderNodeKeys.NODE_TYPE to PlaceholderNodeRenderer(),
+                "columns" to ColumnsNodeRenderer(),
+                "table" to TableNodeRenderer(),
+                "conditional" to ConditionalNodeRenderer(),
+                "loop" to LoopNodeRenderer(),
+                "datalist" to DataListNodeRenderer(),
+                "datatable" to DatatableNodeRenderer(),
+                "datatable-column" to DatatableColumnNodeRenderer(),
+                "image" to ImageNodeRenderer(svgConverter),
+                "qrcode" to QrCodeNodeRenderer(),
+                "separator" to SeparatorNodeRenderer(),
+                "pagebreak" to PageBreakNodeRenderer(),
+                "pageheader" to PageHeaderNodeRenderer(),
+                "pagefooter" to PageFooterNodeRenderer(),
+                "addressblock" to AddressBlockNodeRenderer(),
+            )
+            check(renderers.keys == SupportedNodeTypes.all) {
+                "Renderer registry and supported node type set are out of sync"
+            }
+            return renderers
         }
     }
 
