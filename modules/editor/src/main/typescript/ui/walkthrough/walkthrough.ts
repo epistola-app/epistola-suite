@@ -130,8 +130,11 @@ async function runTour(ctx: TourContext, tour: Tour): Promise<void> {
       // currently resolves — but it probes before a pivot step's `before` has run,
       // so a step whose successors it is about to create would wrongly read "Done".
       // Click routing self-corrects (driver re-probes at click time, after the
-      // re-render); only the label needs pinning.
-      nextBtnText: i < tourSteps.length - 1 ? 'Next' : undefined,
+      // re-render); only the label needs pinning. The key must be OMITTED (not set
+      // to undefined) on the last step: driver spreads this object over its computed
+      // defaults, and a present-but-undefined nextBtnText would clobber the done
+      // label ("Next: <chapter> →") back to plain "Next".
+      ...(i < tourSteps.length - 1 ? { nextBtnText: 'Next' } : {}),
     },
     skipMissingElement: true,
   }));
