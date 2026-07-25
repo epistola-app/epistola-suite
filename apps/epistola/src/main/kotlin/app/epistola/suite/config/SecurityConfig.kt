@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.config
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
@@ -94,7 +98,7 @@ class SecurityConfig(
      * API security filter chain for paths under /api.
      *
      * Stateless, no CSRF, no form login. Supports:
-     * - API key authentication via X-API-Key header
+     * - API key authentication via Authorization: ApiKey, with legacy X-API-Key support
      * - JWT bearer tokens when OAuth2 is configured
      */
     @Bean
@@ -108,6 +112,7 @@ class SecurityConfig(
             meterRegistry = meterRegistry,
             headerName = authProperties.apiKey.headerName,
             objectMapper = objectMapper,
+            enabled = authProperties.apiKey.enabled,
         )
 
         http

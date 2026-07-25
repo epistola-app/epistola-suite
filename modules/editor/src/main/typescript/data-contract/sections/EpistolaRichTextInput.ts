@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * EpistolaRichTextInput — Minimal ProseMirror editor for rich-text parameter values.
  *

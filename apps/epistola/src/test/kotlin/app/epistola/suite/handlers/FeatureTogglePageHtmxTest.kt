@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
@@ -9,7 +13,7 @@ import org.springframework.http.HttpStatus
 
 /**
  * Verifies the admin Features page renders feature display metadata: the human title (not the raw
- * key) and the maturity badge for non-stable features (Backups is Beta).
+ * key) and the maturity badge for non-stable features.
  */
 class FeatureTogglePageHtmxTest : BaseIntegrationTest() {
 
@@ -17,7 +21,7 @@ class FeatureTogglePageHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `features page shows titles and the beta badge for backups`() {
+    fun `features page shows titles and maturity badges`() {
         val tenant = createTenant("Features Page")
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/features", String::class.java)
@@ -30,5 +34,9 @@ class FeatureTogglePageHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains(">Beta<")
         // The toggle checkbox still posts under the raw feature key.
         assertThat(body).contains("name=\"support-backups\"")
+        assertThat(body).contains("AI Chat")
+        assertThat(body).contains("badge badge-alpha")
+        assertThat(body).contains(">Alpha<")
+        assertThat(body).contains("name=\"ai-chat\"")
     }
 }

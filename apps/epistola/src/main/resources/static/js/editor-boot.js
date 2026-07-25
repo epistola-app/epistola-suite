@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Template-editor bootstrap (ADR 0010: no executable inline scripts).
 // Reads the page's #editor-config JSON island and mounts the editor into
 // #editor-container. Runs for the initial page load AND for hx-boost body
@@ -11,25 +15,20 @@ async function mount(container) {
   container.dataset.editorMounted = 'true';
   const config = JSON.parse(island.textContent);
 
-  const { mountEditor } = await import(config.editorModuleUrl);
+  const editorModule = await import(config.editorModuleUrl);
+  const { loadEditorPlugins, mountEditor } = editorModule;
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
   const templateId = config.templateId;
   const variantId = config.variantId;
+  const features = config.features ?? {};
 
-  // Load plugins dynamically
-  const plugins = [];
-
-  // AI chat plugin — uses mock transport until backend is wired up.
-  // When enabledPlugins is provided by the backend, the Thymeleaf
-  // conditional (th:if) will control whether this block is rendered.
-  try {
-    const { createAiPlugin, createMockTransport } = await import(config.aiPluginUrl);
-    plugins.push(createAiPlugin({ sendMessage: createMockTransport() }));
-  } catch (e) {
-    console.warn('AI plugin failed to load:', e);
-  }
+  const plugins = await loadEditorPlugins(config.plugins, {
+    features,
+    bundledModule: editorModule,
+    csrfToken: () => window.getCsrfToken(),
+  });
 
   mountEditor({
     container: container,
@@ -37,7 +36,7 @@ async function mount(container) {
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
     plugins: plugins,
-    featureFlags: config.featureFlags,
+    features: features,
     locale: config.locale,
     fontOptions: {
       listFonts: async () => {
@@ -195,11 +194,22 @@ async function mount(container) {
             '/versions',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/problem+json',
+              'X-XSRF-TOKEN': window.getCsrfToken(),
+            },
             body: '{}',
           },
         );
-        if (!resp.ok) throw new Error('Failed to start editing');
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          const message =
+            err.type === 'https://epistola.app/errors/catalog-read-only'
+              ? `Stencil '${ref.stencilId}' belongs to read-only catalog '${ref.catalogKey}'. Detach it to customize it in this template.`
+              : err.detail || err.message || err.error || 'Failed to start editing';
+          throw new Error(message);
+        }
         const data = await resp.json();
         return { draftVersion: data.version };
       },

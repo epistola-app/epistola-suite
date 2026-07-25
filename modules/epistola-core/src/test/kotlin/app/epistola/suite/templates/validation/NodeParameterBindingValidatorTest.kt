@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.templates.validation
 
 import app.epistola.suite.validation.ValidationCode
@@ -193,7 +197,7 @@ class NodeParameterBindingValidatorTest {
             bindings = mapOf("ghost" to "x"),
         )
         val ex = catchValidationException { validator.validate(doc(node)) }
-        assertThat(ex.field).endsWith(".ghost")
+        assertThat(ex.field).isEqualTo("nodes.s1.props.parameterBindings.ghost")
     }
 
     @Test
@@ -243,7 +247,7 @@ class NodeParameterBindingValidatorTest {
             bindings = mapOf("a" to "broken('"),
         )
         val ex = catchValidationException { validator.validate(doc(node)) }
-        assertThat(ex.field).endsWith(".a")
+        assertThat(ex.field).isEqualTo("nodes.s1.props.parameterBindings.a")
         assertThat(ex.code).isEqualTo(ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID)
     }
 

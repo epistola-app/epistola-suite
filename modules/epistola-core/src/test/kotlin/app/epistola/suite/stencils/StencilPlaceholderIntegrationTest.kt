@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.stencils
 
 import app.epistola.suite.common.ids.CatalogId
@@ -360,6 +364,25 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             CreateStencil(id = sId, name = "Dup", content = duplicate).execute()
         }.isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_DUPLICATE)
+    }
+
+    @Test
+    fun `CreateStencil rejects initial content without synthetic root node`() = test {
+        val tenant = createTenant("stencil-graph-root")
+        val tenantId = TenantId(tenant.id)
+        val sId = stencilId(tenantId)
+        val invalid = TemplateDocument(
+            modelVersion = 1,
+            root = "text-root",
+            nodes = mapOf("text-root" to Node(id = "text-root", type = "text", slots = emptyList())),
+            slots = emptyMap(),
+            themeRef = ThemeRef.Inherit,
+        )
+
+        assertThatThrownBy {
+            CreateStencil(id = sId, name = "Invalid root", content = invalid).execute()
+        }.isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
     }
 
     @Test

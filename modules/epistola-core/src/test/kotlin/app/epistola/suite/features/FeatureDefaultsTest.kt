@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.features
 
 import app.epistola.suite.common.ids.FeatureKey
@@ -14,6 +18,13 @@ class FeatureDefaultsTest {
     @Test
     fun `feedback is freely usable and defaults on here`() {
         assertTrue(FeatureDefaults().isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
+    }
+
+    @Test
+    fun `alpha editor features default off here`() {
+        val defaults = FeatureDefaults()
+        assertFalse(defaults.isEnabled(KnownFeatures.QUALITY))
+        assertFalse(defaults.isEnabled(KnownFeatures.AI_CHAT))
     }
 
     @Test

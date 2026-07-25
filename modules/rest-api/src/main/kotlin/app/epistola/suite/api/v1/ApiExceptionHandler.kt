@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.api.v1
 
 import app.epistola.api.model.ValidationError
@@ -38,6 +42,7 @@ import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotPublishedException
 import app.epistola.suite.templates.ActivationNotFoundException
+import app.epistola.suite.templates.DraftHasNoPublishedBaseException
 import app.epistola.suite.templates.DraftNotFoundException
 import app.epistola.suite.templates.NoActiveVersionException
 import app.epistola.suite.templates.TemplateNotFoundException
@@ -249,6 +254,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         GenerationJobNotCancellableException::class,
         DocumentNotFoundException::class,
         DraftNotFoundException::class,
+        DraftHasNoPublishedBaseException::class,
         VersionNotDraftException::class,
         VersionNotPublishedException::class,
         VersionArchivedException::class,

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * The stable `data-tour` anchor vocabulary, shared between the editor components
  * (which stamp the attributes) and the walkthrough chapters (which spotlight them).

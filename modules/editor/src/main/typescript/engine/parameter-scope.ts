@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Generic parameter-scope provider.
  *
@@ -48,6 +52,7 @@ export function buildParameterScope(
     path: `${alias}.${name}`,
     type: typeFromSchema(propSchema),
     scope: alias,
+    scopeKind: 'stencil-parameter',
     description: propSchema?.description,
   }));
 

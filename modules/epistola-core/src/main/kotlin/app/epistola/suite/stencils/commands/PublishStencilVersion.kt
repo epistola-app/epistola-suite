@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.common.ids.StencilVersionId
@@ -11,7 +15,7 @@ import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
-import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -35,7 +39,7 @@ data class PublishStencilVersion(
 class PublishStencilVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val placeholderValidator: PlaceholderValidator,
+    private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
 ) : CommandHandler<PublishStencilVersion, StencilVersion> {
     override fun handle(command: PublishStencilVersion): StencilVersion = jdbi.inTransaction<StencilVersion, Exception> { handle ->
@@ -72,10 +76,9 @@ class PublishStencilVersionHandler(
         // Validate no nested stencil components
         validateNoNestedStencilRefs(version)
 
-        // Validate placeholder rules — same checks that gate draft writes,
-        // re-applied at publish time as belt-and-suspenders for content that
-        // may have been written before validation was wired in.
-        placeholderValidator.validateAsStencilDefinition(version.content)
+        // Re-validate at the immutable boundary so legacy or imported drafts
+        // cannot bypass the current document policy.
+        templateDocumentValidator.validateStencil(version.content)
         parameterSchemaValidator.validate(version.parameterSchema)
 
         // Publish: freeze the content

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect } from 'vitest';
 import { captureFillsByName, reKeyCapturedFill } from './preserve-fills.js';
 import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';

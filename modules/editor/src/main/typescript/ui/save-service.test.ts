@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SaveService, type SaveState, type SaveFn } from './save-service.js';
 import type { TemplateDocument } from '../types/index.js';
@@ -274,6 +278,42 @@ describe('SaveService', () => {
     // Second save should have been triggered with DOC2
     expect(calls.length).toBe(2);
     expect(calls[1]).toBe(DOC2);
+
+    service.dispose();
+  });
+
+  it('saveNow resolves after an in-flight save and pending doc are saved', async () => {
+    const calls: TemplateDocument[] = [];
+    const releases: Array<() => void> = [];
+    const saveFn: SaveFn = async (doc) => {
+      calls.push(doc);
+      await new Promise<void>((resolve) => releases.push(resolve));
+    };
+    const service = new SaveService(saveFn, vi.fn(), 3000);
+
+    service.markDirty();
+    service.forceSave(DOC);
+    expect(calls).toEqual([DOC]);
+
+    service.markDirty();
+    const saveNow = service.saveNow(DOC2);
+    await Promise.resolve();
+    expect(calls).toEqual([DOC]);
+
+    releases.shift()?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls).toEqual([DOC, DOC2]);
+
+    let resolved = false;
+    void saveNow.then(() => {
+      resolved = true;
+    });
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+
+    releases.shift()?.();
+    await saveNow;
+    expect(resolved).toBe(true);
 
     service.dispose();
   });

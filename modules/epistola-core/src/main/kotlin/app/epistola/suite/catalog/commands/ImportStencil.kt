@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.CatalogKey
@@ -11,6 +15,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -72,9 +77,11 @@ data class ImportStencilResult(
 class ImportStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val templateDocumentValidator: TemplateDocumentValidator,
 ) : CommandHandler<ImportStencil, ImportStencilResult> {
 
     override fun handle(command: ImportStencil): ImportStencilResult {
+        templateDocumentValidator.validateStencil(command.content)
         val stencilKey = StencilKey.of(command.slug)
         val tagsJson = objectMapper.writeValueAsString(command.tags)
         val contentJson = objectMapper.writeValueAsString(command.content)

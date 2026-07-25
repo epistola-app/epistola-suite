@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * AI chat plugin factory.
  *
@@ -18,6 +22,11 @@ export interface AiPluginOptions {
   sendMessage: SendMessageFn;
   /** Optional conversation ID (defaults to auto-generated) */
   conversationId?: string;
+  /** Optional maturity/status badge provided by the host feature metadata. */
+  badge?: {
+    label: string;
+    className: string;
+  };
 }
 
 export function createAiPlugin(options: AiPluginOptions): EditorPlugin {
@@ -29,6 +38,7 @@ export function createAiPlugin(options: AiPluginOptions): EditorPlugin {
     sidebarTab: {
       id: 'ai',
       label: 'AI',
+      badge: options.badge,
       icon: 'sparkles',
       render: (ctx: PluginContext) => {
         return html`

@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Check contract version
         if: github.event_name == 'pull_request'
@@ -38,7 +40,7 @@ jobs:
           fi
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4
+        uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14 # v4
 
       - name: Get pnpm store directory
         shell: bash
@@ -61,6 +63,9 @@ jobs:
       - name: Check format
         run: pnpm format:check
 
+      - name: Check license metadata
+        run: pnpm license:check
+
       - name: Build frontend
         run: pnpm build
 
@@ -69,6 +74,9 @@ jobs:
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+
+      - name: Check migration versions
+        run: gradle checkMigrationVersions
 
       - name: Compile (primes the Gradle build cache for the test jobs)
         run: gradle testClasses
@@ -178,7 +186,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4
+        uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14 # v4
 
       - name: Get pnpm store directory
         shell: bash
@@ -264,7 +272,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4
+        uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14 # v4
 
       - name: Get pnpm store directory
         shell: bash
@@ -482,7 +490,7 @@ jobs:
 
       - name: Setup tools with mise
         if: ${{ matrix.enabled }}
-        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4
+        uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14 # v4
 
       - name: Get pnpm store directory
         if: ${{ matrix.enabled }}
@@ -512,7 +520,7 @@ jobs:
 
       - name: Log in to Container Registry
         if: ${{ matrix.enabled }}
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}

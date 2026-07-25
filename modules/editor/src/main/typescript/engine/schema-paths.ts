@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * JSON Schema → field path extractor.
  *
@@ -28,8 +32,10 @@ export interface FieldPath {
   system?: boolean;
   /** Human-readable description (used for system parameter tooltips). */
   description?: string;
-  /** Loop scope alias (e.g., "item") — marks this as an iteration-scoped variable. */
+  /** Scope alias (e.g., "item" or "params") — marks this as a scoped variable. */
   scope?: string;
+  /** Classifies scoped variables for UI grouping. Missing means legacy iteration scope. */
+  scopeKind?: 'iteration' | 'stencil-parameter';
   /** When true, this parameter is only available inside page headers/footers. */
   pageOnly?: boolean;
 }

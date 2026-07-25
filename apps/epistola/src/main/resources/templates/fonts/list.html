@@ -18,14 +18,25 @@
             </select>
         </div>
 
-        <div id="font-grid-items">
-            <th:block th:fragment="font-grid-items">
+        <!-- Whole grid body (empty-state + grid) in one OOB-swappable region,
+             mirroring environments/list :: environment-list. A successful
+             upload OOB-refreshes it via dialogSuccess (id + hx-swap-oob); the
+             delete confirm swaps it directly (outerHTML). -->
+        <div id="font-grid-items" th:fragment="font-grid-items"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
                 <div th:if="${#lists.isEmpty(fonts)}" class="empty-state">
                     <div class="empty-state-icon">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                     </div>
                     <div class="empty-state-title">No fonts yet</div>
                     <div class="empty-state-description">Upload font families to use in your themes and templates.</div>
+                    <button type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                            th:hx-get="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
+                            hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                            data-testid="font-create-open">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
+                        Upload Font
+                    </button>
                 </div>
 
                 <div th:if="${!#lists.isEmpty(fonts)}" class="ep-auto-grid asset-grid">
@@ -53,13 +64,24 @@
                                         title="Delete font"
                                         data-confirm-title="Delete Font"
                                         th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/fonts/{catalogId}/{slug}/delete(tenantId=${tenantId},catalogId=${font.catalogKey},slug=${font.slug})}"
-                                        data-confirm-target="#font-grid-items">
+                                        data-confirm-target="#font-grid-items" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
                         </div>
                     </div>
                 </div>
+        </div>
+
+        <!-- Dialog mount: the upload dialog is swapped in here by the trigger
+             (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
+             direct navigation to /new the handler renders THIS page with
+             openDialog=true, embedding the dialog for the same JS to open on
+             load. The openDialog guard MUST wrap the th:replace on an OUTER
+             element (th:replace precedence 100 runs before th:if 300). -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{fonts/new :: dialog}"></th:block>
             </th:block>
         </div>
 
@@ -67,10 +89,13 @@
 
     </th:block>
     <th:block th:fragment="font-list-actions">
-        <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+        <button type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="font-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
             Upload Font
-        </a>
+        </button>
     </th:block>
 
 </body>

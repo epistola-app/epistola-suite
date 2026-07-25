@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.CatalogId
@@ -15,10 +19,19 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.template.model.Node
+import app.epistola.template.model.Slot
+import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 
 class ImportTemplatesTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     private val templateModel = TestTemplateBuilder.buildMinimal()
 
@@ -417,4 +430,78 @@ class ImportTemplatesTest : IntegrationTestBase() {
             assertThat(results[0].publishedTo).containsExactly(envKey.value)
         }
     }
+
+    @Test
+    fun `import stores referenced paths for the imported model`() {
+        val tenant = createTenant("Import Paths Test")
+        val tenantId = TenantId(tenant.id)
+        val slug = TestIdHelpers.nextTemplateId().value
+
+        withMediator {
+            val results = ImportTemplates(
+                tenantId = tenantId,
+                templates = listOf(
+                    ImportTemplateInput(
+                        slug = slug,
+                        name = "Import Paths",
+                        version = "1.0.0",
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModelWithPath("invoice.number"),
+                        variants = listOf(
+                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = emptyList(),
+                    ),
+                ),
+            ).execute()
+            assertThat(results.single().status).isEqualTo(ImportStatus.CREATED)
+        }
+
+        val referencedPaths = jdbi.withHandle<String, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT referenced_paths::text
+                FROM template_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = 'default'
+                  AND template_key = :templateKey AND variant_key = 'default'
+                ORDER BY id DESC LIMIT 1
+                """,
+            )
+                .bind("tenantKey", tenant.id)
+                .bind("templateKey", slug)
+                .mapTo(String::class.java)
+                .one()
+        }
+        assertThat(referencedPaths).isEqualTo("""["invoice.number"]""")
+    }
+
+    private fun templateModelWithPath(path: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "text" to Node(
+                id = "text",
+                type = "text",
+                props = mapOf(
+                    "content" to mapOf(
+                        "type" to "doc",
+                        "content" to listOf(
+                            mapOf(
+                                "type" to "paragraph",
+                                "content" to listOf(
+                                    mapOf("type" to "expression", "attrs" to mapOf("expression" to path)),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        slots = mapOf(
+            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("text")),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
 }

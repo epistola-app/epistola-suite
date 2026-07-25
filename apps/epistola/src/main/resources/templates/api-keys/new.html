@@ -1,57 +1,69 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
+    <!--
+    The create-api-key dialog. Rendered two ways off ApiKeyHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `api-key-form` — re-rendered on field errors (dialogFieldErrors retargets
+        #create-api-key-form), so the form swaps in place with inline errors and
+        preserved values, leaving the <dialog> untouched.
 
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='New API key',
-            backLinkHref=@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})},
-            backLinkLabel='API Keys'
-        )}"></div>
+    Model it needs: `tenantId` (URLs), `roleOptions` (the Scope checkboxes), and on
+    error re-render `formData`/`errors`/`selectedRoles`.
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-api-key-dialog',
+            title='New API key',
+            closeUrl=@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})},
+            content=~{::api-key-form})}"></div>
+    </th:block>
 
-        <div id="api-key-form-area" class="card create-form-card">
-            <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}"
-                      method="post">
-                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-api-key-error')}"></div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label class="ep-label" for="name">Name</label>
-                        <input type="text" id="name" name="name" class="ep-input"
-                               required maxlength="100"
-                               placeholder="e.g. CI integration"
-                               th:value="${formData?.name}"
-                               autofocus>
-                        <span class="form-hint">A short label so you can recognise this key later. Max 100 characters.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('roles')} ? 'error' : ''">
-                        <label class="ep-label">Scope</label>
-                        <span class="form-hint">An API key authenticates with exactly these tenant roles. Grant the least it needs — administration is rarely appropriate for an integration key.</span>
-                        <div class="ep-stack api-key-roles" data-testid="api-key-roles">
-                            <label class="role-option" th:each="opt : ${roleOptions}">
-                                <input type="checkbox" class="ep-checkbox" name="roles" th:value="${opt.value}"
-                                       th:checked="${selectedRoles != null ? selectedRoles.contains(opt.value) : opt.defaultChecked}">
-                                <span class="role-option-text">
-                                    <strong th:text="${opt.label}">Viewer</strong>
-                                    <span class="role-option-desc" th:text="${opt.description}">description</span>
-                                </span>
-                            </label>
-                        </div>
-                        <span class="form-error" th:if="${errors?.containsKey('roles')}" th:text="${errors.roles}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('expiresAt')} ? 'error' : ''">
-                        <label class="ep-label" for="expiresAt">Expires (optional)</label>
-                        <input type="date" id="expiresAt" name="expiresAt" class="ep-input"
-                               th:value="${formData?.expiresAt}">
-                        <span class="form-hint">Leave blank for a key that never expires.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('expiresAt')}" th:text="${errors.expiresAt}"></span>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create API key</button>
-                        <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+    <form th:fragment="api-key-form" id="create-api-key-form"
+          method="post" th:action="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}"
+          hx-target="#create-api-key-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-api-key-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                <label class="ep-label" for="name">Name</label>
+                <input type="text" id="name" name="name" class="ep-input"
+                       required maxlength="100"
+                       placeholder="e.g. CI integration"
+                       th:value="${formData?.name}"
+                       autofocus>
+                <span class="form-hint">A short label so you can recognise this key later. Max 100 characters.</span>
+                <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
             </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('roles')} ? 'error' : ''">
+                <label class="ep-label">Scope</label>
+                <span class="form-hint">An API key authenticates with exactly these tenant roles. Grant the least it needs — administration is rarely appropriate for an integration key.</span>
+                <div class="ep-stack api-key-roles" data-testid="api-key-roles">
+                    <label class="role-option" th:each="opt : ${roleOptions}">
+                        <input type="checkbox" class="ep-checkbox" name="roles" th:value="${opt.value}"
+                               th:checked="${selectedRoles != null ? selectedRoles.contains(opt.value) : opt.defaultChecked}">
+                        <span class="role-option-text">
+                            <strong th:text="${opt.label}">Viewer</strong>
+                            <span class="role-option-desc" th:text="${opt.description}">description</span>
+                        </span>
+                    </label>
+                </div>
+                <span class="form-error" th:if="${errors?.containsKey('roles')}" th:text="${errors.roles}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('expiresAt')} ? 'error' : ''">
+                <label class="ep-label" for="expiresAt">Expires (optional)</label>
+                <input type="date" id="expiresAt" name="expiresAt" class="ep-input"
+                       th:value="${formData?.expiresAt}">
+                <span class="form-hint">Leave blank for a key that never expires.</span>
+                <span class="form-error" th:if="${errors?.containsKey('expiresAt')}" th:text="${errors.expiresAt}"></span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="create-api-key-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create API key</button>
         </div>
 
         <style>
@@ -75,6 +87,6 @@
                 font-size: var(--ep-text-xs);
             }
         </style>
-    </th:block>
+    </form>
 </body>
 </html>

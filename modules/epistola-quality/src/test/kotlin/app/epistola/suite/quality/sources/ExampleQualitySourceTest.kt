@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.quality.sources
 
 import app.epistola.suite.common.ids.CatalogKey
@@ -190,7 +194,7 @@ class ExampleQualitySourceTest {
 
     /**
      * A source runs over whatever is stored, including documents from an older editor. Throwing
-     * mid-sweep would take out the whole tenant run, so an unrecognised shape means "nothing wrong".
+     * during a run would skip the source, so an unrecognised shape means "nothing wrong".
      */
     @Test
     fun `a malformed content prop does not throw`() {

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.validation
 
 /**
@@ -47,4 +51,8 @@ enum class ValidationCode(val wire: String) {
     PAGEHEADER_TOO_MANY("PAGEHEADER_TOO_MANY"),
     PAGEHEADER_ROOT_MISSING("PAGEHEADER_ROOT_MISSING"),
     PAGEHEADER_NOT_AT_ROOT("PAGEHEADER_NOT_AT_ROOT"),
+
+    // Template document graph structure.
+    TEMPLATE_GRAPH_INVALID("TEMPLATE_GRAPH_INVALID"),
+    TEMPLATE_NODE_TYPE_UNSUPPORTED("TEMPLATE_NODE_TYPE_UNSUPPORTED"),
 }

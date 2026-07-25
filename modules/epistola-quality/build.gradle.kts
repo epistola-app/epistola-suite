@@ -13,7 +13,7 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 
 dependencies {
     // The quality-checks feature: the findings ledger (model + commands/queries + migrations),
-    // the QualityFindingSource SPI and its in-process sources, the sweep, and (later) the UI.
+    // the QualityFindingSource SPI and its in-process sources, and the report/editor UI.
     //
     // It lives outside epistola-core deliberately. Core must never call quality — the pipeline
     // emits, this module subscribes — and depending on core in this direction makes that a
@@ -21,9 +21,8 @@ dependencies {
     // ledger and its in-process sources work with the support tier off, so it does not depend
     // on epistola-support.
 
-    // Core — mediator, security, IDs, EpistolaClock, cluster schedules, feature toggles, the
-    // backup-table SPI, and the template queries this module reads through (GetEditorContext,
-    // ListDocumentTemplates, ListVariants). `api` so the host app can use the ledger's types.
+    // Core — mediator, security, IDs, EpistolaClock, feature toggles, the backup-table SPI, and the
+    // template queries this module reads through. `api` so the host app can use the ledger's types.
     api(project(":modules:epistola-core"))
 
     // Shared web/UI toolkit — the HTMX DSL + NavContributor SPI for the quality report UI.

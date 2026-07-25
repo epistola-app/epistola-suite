@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Re-export all model types from the shared @epistola.app/epistola-model package.
  * This is the single import point for all type references within the editor.

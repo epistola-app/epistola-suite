@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Dashboard page behaviors (ADR 0010: no executable inline scripts in templates).
 //
 // Covers: cluster/dashboard.html, consumers/dashboard.html, logs/list.html.

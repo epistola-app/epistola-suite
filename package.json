@@ -14,6 +14,9 @@
     "lint": "oxlint --fix",
     "lint:check": "oxlint",
     "lint:css": "stylelint 'modules/**/*.css' 'apps/**/*.css'",
+    "license:headers": "python3 scripts/license-headers.py --fix",
+    "license:headers:check": "python3 scripts/license-headers.py --check",
+    "license:check": "pnpm license:headers:check && mise exec -- reuse --no-multiprocessing lint",
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "dependencies": {

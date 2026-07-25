@@ -1,141 +1,155 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
+    <!--
+    The create-code-list dialog. Rendered two ways off CodeListHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `code-list-form` — re-rendered on field errors (dialogFieldErrors retargets
+        #create-code-list-form), so the form swaps in place with inline errors and
+        preserved values, leaving the <dialog> untouched. The sourceType radio-pane
+        cascade + the inline-entries editor both keep working in the swapped-in form
+        (their listeners are delegated on document — pages/asset-forms.js).
 
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='New code list',
-            backLinkHref=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
-            backLinkLabel='Code lists'
-        )}"></div>
-
-        <div id="code-list-form-area" class="card create-form-card" th:fragment="form-card">
-            <div class="card-content">
-                <!-- data-radio-panes: the sourceType radios toggle the matching
-                     [data-source-pane] visibility (pages/asset-forms.js). -->
-                <form th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
-                      method="post" id="code-list-form"
-                      data-radio-panes="sourceType" data-pane-attr="data-source-pane">
-                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-code-list-error')}"></div>
-                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select" required>
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"
-                                    th:selected="${formData?.catalog == cat.id}"></option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
-                        <label class="ep-label" for="displayName">Display Name</label>
-                        <input type="text" id="displayName" name="displayName" class="ep-input"
-                               required maxlength="100" placeholder="Languages" data-slug-source="slug"
-                               th:value="${formData?.displayName}">
-                        <span class="form-error" th:if="${errors?.containsKey('displayName')}" th:text="${errors.displayName}"></span>
-                    </div>
-
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label class="ep-label" for="slug">Slug</label>
-                        <input type="text" id="slug" name="slug" class="ep-input"
-                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="64"
-                               placeholder="languages"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-64 characters, lowercase letters, numbers, and hyphens.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="ep-label" for="description">Description (optional)</label>
-                        <textarea id="description" name="description" class="ep-textarea" rows="2"
-                                  th:text="${formData?.description}"></textarea>
-                    </div>
-
-                    <fieldset class="form-group" style="border: 0; padding: 0; margin: 0 0 var(--ep-space-4);">
-                        <legend class="ep-label">Source</legend>
-                        <div class="source-radio-group">
-                            <label>
-                                <input type="radio" name="sourceType" value="INLINE"
-                                       th:checked="${formData?.sourceType == null or formData?.sourceType == 'INLINE'}"
-                                       data-source-type="INLINE">
-                                Inline &mdash; enter entries directly
-                            </label>
-                            <label>
-                                <input type="radio" name="sourceType" value="URL"
-                                       th:checked="${formData?.sourceType == 'URL'}"
-                                       data-source-type="URL">
-                                URL &mdash; fetch from https endpoint, refresh on demand
-                            </label>
-                        </div>
-                    </fieldset>
-                    <style>
-                        /* base.css gives all inputs `font: inherit`, which makes radio
-                           glyphs scale with surrounding font-size. Pin them to 1rem. */
-                        .source-radio-group {
-                            display: flex;
-                            flex-direction: column;
-                            gap: var(--ep-space-2);
-                            margin-top: var(--ep-space-2);
-                        }
-                        .source-radio-group label {
-                            display: flex;
-                            align-items: center;
-                            gap: var(--ep-space-2);
-                            font-size: var(--ep-text-sm);
-                            cursor: pointer;
-                        }
-                        .source-radio-group input[type="radio"] {
-                            width: 1rem;
-                            height: 1rem;
-                            flex: 0 0 1rem;
-                            margin: 0;
-                            font-size: 1rem;
-                        }
-                    </style>
-
-                    <div class="form-group source-pane" data-source-pane="URL" hidden
-                         th:classappend="${errors?.containsKey('sourceUrl')} ? 'error' : ''">
-                        <label class="ep-label" for="sourceUrl">Source URL</label>
-                        <input type="url" id="sourceUrl" name="sourceUrl" class="ep-input"
-                               placeholder="https://example.com/regions.json"
-                               th:value="${formData?.sourceUrl}">
-                        <span class="form-hint">Expected payload: JSON array of {code, label, sortOrder?, hidden?} objects.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('sourceUrl')}" th:text="${errors.sourceUrl}"></span>
-                    </div>
-
-                    <!-- data-entries-editor: rows are managed by pages/asset-forms.js and
-                         mirrored into the hidden entriesJson input; hydrated from formData
-                         (validation failure) or started with one empty row on htmx:load. -->
-                    <fieldset class="form-group source-pane" data-source-pane="INLINE" data-entries-editor
-                              th:classappend="${errors?.containsKey('entries')} ? 'error' : ''"
-                              style="border: 0; padding: 0; margin: 0 0 var(--ep-space-4);">
-                        <legend class="ep-label">Entries</legend>
-                        <div th:if="${errors?.containsKey('entries')}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);">
-                            <span th:text="${errors.entries}"></span>
-                        </div>
-                        <table class="ep-table" id="entries-table">
-                            <thead>
-                                <tr><th>Code</th><th>Label</th><th></th></tr>
-                            </thead>
-                            <tbody id="entries-tbody">
-                                <!-- Rows injected by pages/asset-forms.js -->
-                            </tbody>
-                        </table>
-                        <button type="button" class="btn btn-sm btn-outline" id="add-entry-btn" data-add-entry>
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
-                            Add entry
-                        </button>
-                        <input type="hidden" id="entriesJson" name="entriesJson" th:value="${formData?.entriesJson}">
-                    </fieldset>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Create code list</button>
-                        <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
-                    </div>
-                </form>
-            </div>
-        </div>
+    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select> — a
+    distinct key from the list's own `catalogs` filter var), and on error
+    re-render `formData`/`errors`.
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-code-list-dialog',
+            title='New code list',
+            closeUrl=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
+            content=~{::code-list-form})}"></div>
     </th:block>
+
+    <!-- data-radio-panes: the sourceType radios toggle the matching
+         [data-source-pane] visibility (pages/asset-forms.js). -->
+    <form th:fragment="code-list-form" id="create-code-list-form"
+          method="post" th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
+          hx-target="#create-code-list-form" hx-swap="outerHTML"
+          data-radio-panes="sourceType" data-pane-attr="data-source-pane">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-code-list-error')}"></div>
+        <div class="ep-dialog-body">
+            <div th:if="${authoredCatalogs != null && !authoredCatalogs.isEmpty()}" class="form-group">
+                <label class="ep-label" for="catalog">Catalog</label>
+                <select id="catalog" name="catalog" class="ep-select" required>
+                    <option th:each="cat : ${authoredCatalogs}"
+                            th:value="${cat.id}"
+                            th:text="${cat.name}"
+                            th:selected="${#strings.equals(formData?.catalog, cat.id)}"></option>
+                </select>
+            </div>
+
+            <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
+                <label class="ep-label" for="displayName">Display Name</label>
+                <input type="text" id="displayName" name="displayName" class="ep-input"
+                       required maxlength="100" placeholder="Languages" data-slug-source="slug"
+                       th:value="${formData?.displayName}">
+                <span class="form-error" th:if="${errors?.containsKey('displayName')}" th:text="${errors.displayName}"></span>
+            </div>
+
+            <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+                <label class="ep-label" for="slug">Slug</label>
+                <input type="text" id="slug" name="slug" class="ep-input"
+                       required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                       minlength="3" maxlength="64"
+                       placeholder="languages"
+                       th:value="${formData?.slug}">
+                <span class="form-hint">3-64 characters, lowercase letters, numbers, and hyphens.</span>
+                <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="ep-label" for="description">Description (optional)</label>
+                <textarea id="description" name="description" class="ep-textarea" rows="2"
+                          th:text="${formData?.description}"></textarea>
+            </div>
+
+            <fieldset class="form-group" style="border: 0; padding: 0; margin: 0 0 var(--ep-space-4);">
+                <legend class="ep-label">Source</legend>
+                <div class="source-radio-group">
+                    <label>
+                        <input type="radio" name="sourceType" value="INLINE"
+                               th:checked="${formData?.sourceType == null or formData?.sourceType == 'INLINE'}"
+                               data-source-type="INLINE">
+                        Inline &mdash; enter entries directly
+                    </label>
+                    <label>
+                        <input type="radio" name="sourceType" value="URL"
+                               th:checked="${formData?.sourceType == 'URL'}"
+                               data-source-type="URL">
+                        URL &mdash; fetch from https endpoint, refresh on demand
+                    </label>
+                </div>
+            </fieldset>
+            <style>
+                /* base.css gives all inputs `font: inherit`, which makes radio
+                   glyphs scale with surrounding font-size. Pin them to 1rem. */
+                .source-radio-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--ep-space-2);
+                    margin-top: var(--ep-space-2);
+                }
+                .source-radio-group label {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--ep-space-2);
+                    font-size: var(--ep-text-sm);
+                    cursor: pointer;
+                }
+                .source-radio-group input[type="radio"] {
+                    width: 1rem;
+                    height: 1rem;
+                    flex: 0 0 1rem;
+                    margin: 0;
+                    font-size: 1rem;
+                }
+            </style>
+
+            <div class="form-group source-pane" data-source-pane="URL" hidden
+                 th:classappend="${errors?.containsKey('sourceUrl')} ? 'error' : ''">
+                <label class="ep-label" for="sourceUrl">Source URL</label>
+                <input type="url" id="sourceUrl" name="sourceUrl" class="ep-input"
+                       placeholder="https://example.com/regions.json"
+                       th:value="${formData?.sourceUrl}">
+                <span class="form-hint">Expected payload: JSON array of {code, label, sortOrder?, hidden?} objects.</span>
+                <span class="form-error" th:if="${errors?.containsKey('sourceUrl')}" th:text="${errors.sourceUrl}"></span>
+            </div>
+
+            <!-- data-entries-editor: rows are managed by pages/asset-forms.js and
+                 mirrored into the hidden entriesJson input; hydrated from formData
+                 (validation failure) or started with one empty row on htmx:load. -->
+            <fieldset class="form-group source-pane" data-source-pane="INLINE" data-entries-editor
+                      th:classappend="${errors?.containsKey('entries')} ? 'error' : ''"
+                      style="border: 0; padding: 0; margin: 0 0 var(--ep-space-4);">
+                <legend class="ep-label">Entries</legend>
+                <div th:if="${errors?.containsKey('entries')}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);">
+                    <span th:text="${errors.entries}"></span>
+                </div>
+                <table class="ep-table" id="entries-table">
+                    <thead>
+                        <tr><th>Code</th><th>Label</th><th></th></tr>
+                    </thead>
+                    <tbody id="entries-tbody">
+                        <!-- Rows injected by pages/asset-forms.js -->
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-sm btn-outline" id="add-entry-btn" data-add-entry>
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
+                    Add entry
+                </button>
+                <input type="hidden" id="entriesJson" name="entriesJson" th:value="${formData?.entriesJson}">
+            </fieldset>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="create-code-list-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create code list</button>
+        </div>
+    </form>
 </body>
 </html>

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -11,7 +15,8 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.stencils.model.StencilContentReplacer
 import app.epistola.suite.templates.commands.versions.DraftVersionFactory
-import app.epistola.suite.templates.validation.PlaceholderValidator
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -60,9 +65,9 @@ data class UpdateStencilInTemplateResult(
 class UpdateStencilInTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val placeholderValidator: PlaceholderValidator,
-    private val nodeParameterBindingValidator: app.epistola.suite.templates.validation.NodeParameterBindingValidator,
     private val draftVersionFactory: DraftVersionFactory,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
+    private val templateDocumentValidator: TemplateDocumentValidator,
 ) : CommandHandler<UpdateStencilInTemplate, UpdateStencilInTemplateResult?> {
     override fun handle(command: UpdateStencilInTemplate): UpdateStencilInTemplateResult? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
@@ -109,6 +114,7 @@ class UpdateStencilInTemplateHandler(
             )
             val newParameterSchema: tools.jackson.databind.JsonNode? = (newStencilRow["parameter_schema"] as? String)
                 ?.let { objectMapper.readTree(it) }
+            templateDocumentValidator.validateStencil(newContent)
 
             // 4. Upgrade all instances
             val upgrade = StencilContentReplacer.upgradeStencilInstances(
@@ -119,15 +125,13 @@ class UpdateStencilInTemplateHandler(
                 newParameterSchema = newParameterSchema,
             )
 
-            // 4b. Validate the upgraded document — recursion guard, placeholder scope, etc.
-            placeholderValidator.validateAsTemplate(upgrade.document)
-            nodeParameterBindingValidator.validate(upgrade.document)
-
-            // 5. Save the modified draft
-            val upgradedJson = objectMapper.writeValueAsString(upgrade.document)
+            // 5. Validate and save the modified draft with its derived path index.
+            val prepared = templateDocumentPreparation.prepare(upgrade.document)
             handle.createUpdate(
                 """
-            UPDATE template_versions SET template_model = :templateModel::jsonb
+            UPDATE template_versions
+            SET template_model = :templateModel::jsonb,
+                referenced_paths = :referencedPaths::jsonb
             WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
               AND variant_key = :variantId AND id = :versionId AND status = 'draft'
             """,
@@ -137,7 +141,8 @@ class UpdateStencilInTemplateHandler(
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
                 .bind("versionId", draftVersionId)
-                .bind("templateModel", upgradedJson)
+                .bind("templateModel", prepared.templateModelJson)
+                .bind("referencedPaths", prepared.referencedPathsJson)
                 .execute()
 
             UpdateStencilInTemplateResult(

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.quality
 
 import app.epistola.suite.common.ids.CatalogId
@@ -14,6 +18,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRefInherit
 import app.epistola.suite.testing.IntegrationTestBase
@@ -38,6 +43,11 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
     )
 
     private fun documentWithText(text: String): TemplateDocument {
+        val root = Node(
+            id = "root",
+            type = "root",
+            slots = listOf("root-slot"),
+        )
         val node = Node(
             id = "node-1",
             type = "text",
@@ -46,9 +56,9 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
         )
         return TemplateDocument(
             modelVersion = 1,
-            root = node.id,
-            nodes = mapOf(node.id to node),
-            slots = emptyMap(),
+            root = root.id,
+            nodes = mapOf(root.id to root, node.id to node),
+            slots = mapOf("root-slot" to Slot("root-slot", root.id, "children", listOf(node.id))),
             themeRef = ThemeRefInherit(),
         )
     }
@@ -109,14 +119,13 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
         withMediator { RunQualityChecks(variantId).execute() }
         val second = findingsFor(variantId).findings.single()
 
-        // Same row, still open — a re-run must not churn the ledger. This is what makes the sweep
-        // safe to retry after a lease expiry.
+        // Same row, still open — a re-run must not churn the ledger.
         assertThat(second.key).isEqualTo(first.key)
         assertThat(second.firstSeenAt).isEqualTo(first.firstSeenAt)
         assertThat(second.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
     }
 
-    /** An ignore is a durable decision — a later sweep must not undo it. */
+    /** An ignore is a durable decision — a later source run must not undo it. */
     @Test
     fun `an ignore survives a later check run`() {
         val variantId = newVariant()

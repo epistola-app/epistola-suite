@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.security
 
 import app.epistola.suite.BaseIntegrationTest
@@ -57,7 +61,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
     @Nested
     inner class NoApiKeyHeader {
         @Test
-        fun `passes through when no X-API-Key header`() = withMediator {
+        fun `passes through when no API-key credential is present`() = withMediator {
             filter.doFilter(request, response, filterChain)
 
             assertThat(filterChainCalled).isTrue()
@@ -72,13 +76,34 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             assertThat(filterChainCalled).isTrue()
         }
+
+        @Test
+        fun `passes through bearer authorization for JWT handling`(): Unit = withMediator {
+            request.addHeader("Authorization", "Bearer jwt-token")
+
+            filter.doFilter(request, response, filterChain)
+
+            assertThat(filterChainCalled).isTrue()
+            assertThat(SecurityContextHolder.getContext().authentication).isNull()
+        }
     }
 
     @Nested
     inner class InvalidApiKey {
         @Test
         fun `returns 401 for key without epk_ prefix`(): Unit = withMediator {
-            request.addHeader("X-API-Key", "invalid_key_format")
+            request.addHeader("Authorization", "ApiKey invalid_key_format")
+
+            filter.doFilter(request, response, filterChain)
+
+            assertThat(response.status).isEqualTo(401)
+            assertThat(filterChainCalled).isFalse()
+            assertThat(response.contentAsString).contains("Invalid API key format")
+        }
+
+        @Test
+        fun `returns 401 for malformed authorization API-key credential`(): Unit = withMediator {
+            request.addHeader("Authorization", "ApiKey")
 
             filter.doFilter(request, response, filterChain)
 
@@ -89,7 +114,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
         @Test
         fun `returns 401 for unknown key hash`(): Unit = withMediator {
-            request.addHeader("X-API-Key", "epk_unknown_key_that_doesnt_exist")
+            request.addHeader("Authorization", "ApiKey epk_unknown_key_that_doesnt_exist")
 
             filter.doFilter(request, response, filterChain)
 
@@ -111,7 +136,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             whenever {
-                request.addHeader("X-API-Key", plaintextKey)
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
                 filter.doFilter(request, response, filterChain)
             }
 
@@ -138,7 +163,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             whenever {
-                request.addHeader("X-API-Key", plaintextKey)
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
                 filter.doFilter(request, response, filterChain)
             }
 
@@ -153,7 +178,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
     @Nested
     inner class ValidApiKey {
         @Test
-        fun `authenticates and passes through for valid key`() = fixture {
+        fun `authenticates and passes through for authorization API-key`() = fixture {
             lateinit var plaintextKey: String
             lateinit var tenant: Tenant
 
@@ -163,7 +188,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             whenever {
-                request.addHeader("X-API-Key", plaintextKey)
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
                 filter.doFilter(request, response, filterChain)
             }
 
@@ -173,6 +198,72 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
                 assertThat(auth).isNotNull
                 assertThat(auth).isInstanceOf(ApiKeyAuthenticationToken::class.java)
                 assertThat(auth!!.isAuthenticated).isTrue()
+            }
+        }
+
+        @Test
+        fun `authenticates case-insensitive authorization API-key scheme`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
+
+            given {
+                tenant = tenant("Filter Lowercase Authorization")
+                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Lowercase").execute().plaintextKey
+            }
+
+            whenever {
+                request.addHeader("Authorization", "apikey $plaintextKey")
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(filterChainCalled).isTrue()
+                assertThat(SecurityContextHolder.getContext().authentication).isInstanceOf(ApiKeyAuthenticationToken::class.java)
+            }
+        }
+
+        @Test
+        fun `authenticates legacy X-API-Key header`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
+
+            given {
+                tenant = tenant("Filter Legacy")
+                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Legacy").execute().plaintextKey
+            }
+
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(filterChainCalled).isTrue()
+                assertThat(SecurityContextHolder.getContext().authentication).isInstanceOf(ApiKeyAuthenticationToken::class.java)
+            }
+        }
+
+        @Test
+        fun `authorization API-key wins over legacy header when both are present`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
+
+            given {
+                tenant = tenant("Filter Dual Header")
+                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Legacy Would Work").execute().plaintextKey
+            }
+
+            whenever {
+                request.addHeader("Authorization", "ApiKey epk_unknown_key_that_doesnt_exist")
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(response.status).isEqualTo(401)
+                assertThat(filterChainCalled).isFalse()
+                assertThat(response.contentAsString).contains("Invalid API key")
+                assertThat(SecurityContextHolder.getContext().authentication).isNull()
             }
         }
 
@@ -187,7 +278,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             whenever {
-                request.addHeader("X-API-Key", plaintextKey)
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
                 filter.doFilter(request, response, filterChain)
             }
 
@@ -210,7 +301,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             whenever {
-                request.addHeader("X-API-Key", plaintextKey)
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
                 filter.doFilter(request, response, filterChain)
             }
 
@@ -237,7 +328,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             whenever {
-                request.addHeader("X-API-Key", plaintextKey)
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
                 filter.doFilter(request, response, filterChain)
             }
 
@@ -271,13 +362,44 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             whenever {
-                request.addHeader("X-API-Key", plaintextKey)
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
                 filter.doFilter(request, response, filterChain)
             }
 
             then {
                 assertThat(filterChainCalled).isTrue()
                 assertThat(SecurityContextHolder.getContext().authentication).isNotNull
+            }
+        }
+    }
+
+    @Nested
+    inner class DisabledApiKeyAuth {
+        @Test
+        fun `returns canonical problem type when API-key auth is disabled`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
+            val disabledFilter = ApiKeyAuthenticationFilter(
+                apiKeyService,
+                meterRegistry,
+                objectMapper = ObjectMapper(),
+                enabled = false,
+            )
+
+            given {
+                tenant = tenant("Filter Disabled Globally")
+                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Disabled Globally").execute().plaintextKey
+            }
+
+            whenever {
+                request.addHeader("Authorization", "ApiKey $plaintextKey")
+                disabledFilter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(response.status).isEqualTo(401)
+                assertThat(filterChainCalled).isFalse()
+                assertThat(response.contentAsString).contains("https://epistola.app/errors/api-key-auth-disabled")
             }
         }
     }

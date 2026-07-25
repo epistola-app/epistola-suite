@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    Shared dialog skeleton — chrome only (`dialog-shell`).
+
+    The one reusable `ep-dialog` shell for every server-sent create/upload
+    dialog (replaces ~16 hand-rolled copies). It renders ONLY the outer
+    <dialog> + the header; the CALLER owns everything inside via the `content`
+    slot — including their own <form> with ANY attributes they need
+    (hx-post/hx-target/hx-encoding plus form-level data-* like data-radio-panes,
+    data-testid, data-reset-on-success, …). A fixed-param form is intentionally
+    NOT emitted: real forms carry attributes a closed parameter set cannot
+    express.
+
+    Native-dialog correctness: the <dialog> is the OUTER element (so
+    showModal() works and the backdrop is the dialog's own); the caller's <form>
+    lives INSIDE it. Never wrap the dialog in a form.
+
+    Conventions the caller composes inside `content` (kept DRY with the tiny
+    helper fragments below, all optional):
+      - error slot  — `form-error(id='…')`, dropped INSIDE the dialog so the 5xx
+                      client safety net (app-shell.js) writes into it, not behind
+                      the open dialog. Author it directly, above the body.
+      - `ep-dialog-body`   — the body region; use the `dialog-body(~{::…})` helper
+                             or the class directly.
+      - `ep-dialog-footer` — action buttons (Cancel via data-close-dialog, submit);
+                             use the `dialog-footer(~{::…})` helper or the class
+                             directly.
+
+    Three shapes, one shell:
+      (a) plain field form — content = <form hx-post hx-target hx-swap>…</form>.
+      (b) multipart upload — same form plus hx-encoding="multipart/form-data".
+      (c) reveal panel     — content is FORMLESS: an ep-dialog-body + an
+                             ep-dialog-footer with a single Close button, no
+                             <form>, no error slot (e.g. the api-key "copy this
+                             key now" panel). Success-that-stays-open falls out
+                             for free: the handler swaps this formless content in
+                             and simply omits HX-Trigger("closeDialog").
+
+    Open/close are both server-driven (see static/js/behaviors.js):
+      open  — the dialog is swapped into a `[data-dialog-mount]` mount point and
+              auto-opens (use the `dialog-mount` fragment below as the target).
+      close — the handler emits HX-Trigger("closeDialog") (app-shell.js).
+
+    Parameters (signature-less, page-header idiom — pass only what you need):
+      dialogId    (required) id for the <dialog> element.
+      title       (required) header text.
+      content     (required) ~{::…} slot for the caller's <form> (or formless
+                             reveal block).
+      dialogKind  (optional) layout archetype, emitted as data-dialog=… and
+                             branched in css/dialogs.css. Defaults to 'form'
+                             (sticky header/footer, scrolling body). Other kinds
+                             (viewer/reveal/confirm) are reserved for the
+                             hand-rolled dialogs as they migrate.
+      dialogClass (optional) extra classes on the dialog, e.g. 'ep-dialog-wide'.
+      closeUrl    (optional) the list URL this dialog belongs to. For the
+                             URL-addressable form convention (GET /…/new pushed
+                             via hx-push-url): when the dialog closes — Cancel,
+                             ESC, or a handler's closeDialog trigger — behaviors.js
+                             pushes this URL so the address bar / back button
+                             return to the list. See docs/dialog-forms.md.
+    -->
+    <dialog th:fragment="dialog-shell"
+            th:id="${dialogId}"
+            class="ep-dialog"
+            th:classappend="${dialogClass}"
+            th:aria-labelledby="${dialogId} + '-title'"
+            th:attr="data-close-url=${closeUrl},data-dialog=${dialogKind != null ? dialogKind : 'form'}">
+        <div class="ep-dialog-header">
+            <h3 th:id="${dialogId} + '-title'" th:text="${title}"></h3>
+        </div>
+        <th:block th:replace="${content}"></th:block>
+    </dialog>
+
+    <!--
+    Optional helper: body wrapper. Equivalent to authoring
+    `<div class="ep-dialog-body">…</div>` yourself. (Named dialog-body, not
+    "body", so the fragment selector does not collide with the <body> element.)
+        <div th:replace="~{epistola-web/dialog :: dialog-body(~{::my-fields})}"></div>
+    -->
+    <div th:fragment="dialog-body(slot)" class="ep-dialog-body">
+        <th:block th:replace="${slot}"></th:block>
+    </div>
+
+    <!--
+    Optional helper: footer (action buttons) wrapper. Equivalent to authoring
+    `<div class="ep-dialog-footer">…</div>` yourself.
+        <div th:replace="~{epistola-web/dialog :: dialog-footer(~{::my-actions})}"></div>
+    -->
+    <div th:fragment="dialog-footer(slot)" class="ep-dialog-footer">
+        <th:block th:replace="${slot}"></th:block>
+    </div>
+
+    <!--
+    Host-page dialog mount point (Step 5 convention).
+
+    Drop this once on a list/detail page:
+        <div th:replace="~{epistola-web/dialog :: dialog-mount}"></div>
+
+    The trigger fetches the dialog fragment into it
+    (hx-get="/…/new" hx-target="#dialog-mount" hx-swap="innerHTML"); the
+    delegated `[data-dialog-mount]` behavior in static/js/behaviors.js auto-opens
+    whatever <dialog> arrives — no per-dialog id wiring, one mount per page.
+    Replaces catalog's ad-hoc `*-dialog-container` divs.
+    -->
+    <div th:fragment="dialog-mount" id="dialog-mount" data-dialog-mount></div>
+</body>
+</html>

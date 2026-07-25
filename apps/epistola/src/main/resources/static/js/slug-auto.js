@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 (function () {
   var ALLOWED_KEYS = ['Backspace', 'Delete', 'Enter', 'Escape', 'Tab', 'Home', 'End'];
 
@@ -80,4 +84,15 @@
   } else {
     start();
   }
+
+  // History restore (Back/Forward): htmx's snapshot keeps the `data-slug-wired`
+  // marker but NOT the per-element input/keydown listeners (those are not
+  // serialisable), so wireup() would skip re-binding on the guard. Drop the
+  // markers and re-scan so auto-slug works again on a restored page.
+  document.addEventListener('htmx:historyRestore', function () {
+    document.querySelectorAll('[data-slug-source][data-slug-wired]').forEach(function (el) {
+      el.removeAttribute('data-slug-wired');
+    });
+    scan(document.body);
+  });
 })();

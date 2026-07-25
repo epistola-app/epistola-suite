@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * @module @epistola/editor
  *
@@ -9,11 +13,12 @@
 
 import './editor.css';
 import './ui/EpistolaEditor.js';
+import './ui/quality-plugin.js';
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
 import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
 import { createDefaultRegistry } from './engine/registry.js';
-import type { EditorFeatureFlags } from './engine/feature-flags.js';
+import type { EditorFeatures } from './engine/feature-flags.js';
 import { createImageDefinition } from './components/image/image-registration.js';
 import type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dialog.js';
 import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
@@ -43,6 +48,20 @@ export type {
   StencilVersionSummary,
 } from './components/stencil/types.js';
 export { EditorEngine } from './engine/EditorEngine.js';
+export { createQualityPlugin } from './ui/quality-plugin.js';
+export { createQualityEditorPlugin } from './ui/quality-plugin.js';
+export type {
+  QualityFinding,
+  QualityPanelData,
+  QualityPluginOptions,
+} from './ui/quality-plugin.js';
+export { loadEditorPlugins } from './plugins/plugin-loader.js';
+export type {
+  EditorPluginDescriptor,
+  EditorPluginFactory,
+  EditorPluginFactoryContext,
+  EditorPluginLoadOptions,
+} from './plugins/plugin-loader.js';
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';
 export type {
   EditorPlugin,
@@ -98,16 +117,15 @@ export interface EditorOptions {
   /** Optional stencil support with search/get/upgrade callbacks. */
   stencilOptions?: StencilCallbacks;
   /**
-   * Optional feature toggles. The host page reads these from the backend's
-   * feature-toggle service and forwards the resolved booleans here. The
-   * engine exposes them via `engine.isFeatureEnabled(flag)`; components
-   * that need to gate preview/experimental affordances consult the engine
-   * directly rather than receiving flags through their own constructors.
+   * Optional feature state. The host page reads this from the backend's
+   * feature-toggle service and feature metadata registry. The engine exposes
+   * booleans via `engine.isFeatureEnabled(flag)`; host/plugin setup can read
+   * UI metadata such as badges directly from the same feature object.
    *
-   * The shape is governed by `EditorFeatureFlags` so flag names are typed
+   * The shape is governed by `EditorFeatures` so feature names are typed
    * end-to-end and renames/removals fail the compile.
    */
-  featureFlags?: EditorFeatureFlags;
+  features?: EditorFeatures;
   /**
    * Effective BCP-47 locale for this editing session. Resolved server-side
    * via the variant-attribute → tenant default → app default chain
@@ -118,7 +136,12 @@ export interface EditorOptions {
   locale?: string;
 }
 
-export type { EditorFeatureFlags, EditorFeatureFlag } from './engine/feature-flags.js';
+export type {
+  EditorFeatureBadge,
+  EditorFeatureConfig,
+  EditorFeatureFlag,
+  EditorFeatures,
+} from './engine/feature-flags.js';
 
 export interface EditorInstance {
   /** Tear down the editor and clean up */
@@ -231,7 +254,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   editorEl.initEngine(doc, registry, {
     dataModel,
     dataExamples,
-    featureFlags: options.featureFlags,
+    features: options.features,
     locale: options.locale,
   });
 

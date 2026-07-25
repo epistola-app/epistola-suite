@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.users
 
 import app.epistola.suite.common.ids.TenantKey
@@ -46,7 +50,7 @@ enum class AuthProvider {
     /**
      * Non-human service identity backing an API key. Each API key has its own
      * `users` row (`external_id = "apikey:<id>"`) so REST writes authenticated
-     * with `X-API-Key` attribute precisely to that key in the audit columns.
+     * with API-key auth attribute precisely to that key in the audit columns.
      */
     API_KEY,
 }

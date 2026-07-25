@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /** Shared helpers for tour step side-effects (benign setup only — chapters are passive). */
 
 import type { EditorEngine } from '../../../engine/EditorEngine.js';

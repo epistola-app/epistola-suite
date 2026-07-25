@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Registry of "reference types" — JSON Schema `$ref` URLs the editor
  * recognises as logical field types. Today: rich-text inline + block. Adding a

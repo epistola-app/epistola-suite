@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.features
 
 import app.epistola.suite.common.ids.FeatureKey
@@ -21,6 +25,12 @@ data class FeatureDefaults(
      */
     val quality: Boolean = false,
     /**
+     * AI chat in the template editor. This is an editor-only alpha surface for now, using the same
+     * toggle-only model as quality: no support-tier entitlement and no hub-only default. Off by
+     * default until the assistant surface is production-ready.
+     */
+    val aiChat: Boolean = false,
+    /**
      * Editor walkthrough. Not hub-gated (purely client-side onboarding), so its default lives here
      * rather than following `epistola.support.enabled`. Off while the feature is ALPHA; stated
      * explicitly rather than riding the `else` branch below, so enabling it later is a deliberate edit.
@@ -30,6 +40,7 @@ data class FeatureDefaults(
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
         KnownFeatures.QUALITY -> quality
+        KnownFeatures.AI_CHAT -> aiChat
         KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough
         else -> false
     }

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * The one live tour session, kept in a driver-free module so the launcher can
  * tear it down without statically importing the runner (which would pull

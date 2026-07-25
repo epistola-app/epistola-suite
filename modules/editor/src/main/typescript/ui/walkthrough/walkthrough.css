@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 /* Popover re-skin for driver.js. driver ships an unbranded popover (its own font,
    greys, and pill buttons); re-skin it with the design-system tokens so the tour
    matches the editor. Injected AFTER driver's own CSS so these rules win at equal

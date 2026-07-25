@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.catalog.system
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition

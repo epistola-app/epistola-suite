@@ -1,127 +1,145 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
+    <!--
+    The create-attribute dialog. Rendered two ways off AttributeHandler:
+      - `dialog` — swapped into #dialog-mount by the in-app trigger (hx-get), and
+        embedded in the list page's #dialog-mount for direct navigation
+        (openDialog=true); behaviors.js opens it.
+      - `attribute-form` — re-rendered on field errors (dialogFieldErrors retargets
+        #create-attribute-form), so the form swaps in place with inline errors and
+        preserved values, leaving the <dialog> untouched.
 
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='New Attribute',
-            backLinkHref=@{/tenants/{tenantId}/attributes(tenantId=${tenantId})},
-            backLinkLabel='Attributes'
-        )}"></div>
+    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select> — a
+    distinct key from the list's own `catalogs` filter var), `codeLists` (the
+    code-list <select>), and on error re-render `formData`/`errors`.
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-attribute-dialog',
+            title='New Attribute',
+            closeUrl=@{/tenants/{tenantId}/attributes(tenantId=${tenantId})},
+            content=~{::attribute-form})}"></div>
+    </th:block>
 
-        <div class="card create-form-card">
-            <div class="card-content">
-                <!-- data-radio-panes: the constraintKind radios toggle the matching
-                     [data-constraint-pane] visibility (pages/asset-forms.js). -->
-                <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post"
-                      data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane">
-                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-attribute-error')}"></div>
-                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select">
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"
-                                    th:selected="${formData?.catalog == cat.id}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
-                        <label class="ep-label" for="displayName">Display Name</label>
-                        <input type="text" id="displayName" name="displayName" class="ep-input"
-                               required maxlength="100" placeholder="Language" data-slug-source="slug"
-                               th:value="${formData?.displayName}">
-                        <span class="form-error" th:if="${errors?.containsKey('displayName')}" th:text="${errors.displayName}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label class="ep-label" for="slug">Attribute ID (Slug)</label>
-                        <input type="text" id="slug" name="slug" class="ep-input"
-                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="50"
-                               placeholder="language"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label">Value constraint</label>
-                        <div role="radiogroup" class="constraint-radio-group">
-                            <label>
-                                <input type="radio" name="constraintKind" value="free"
-                                       th:checked="${formData?.constraintKind == null or formData?.constraintKind == 'free'}"
-                                       data-constraint-kind="free">
-                                Free format &mdash; any value allowed
-                            </label>
-                            <label>
-                                <input type="radio" name="constraintKind" value="inline"
-                                       th:checked="${formData?.constraintKind == 'inline'}"
-                                       data-constraint-kind="inline">
-                                Inline values &mdash; listed below
-                            </label>
-                            <label>
-                                <input type="radio" name="constraintKind" value="code-list"
-                                       th:checked="${formData?.constraintKind == 'code-list'}"
-                                       data-constraint-kind="code-list">
-                                Bound to code list
-                            </label>
-                        </div>
-                    </div>
-                    <style>
-                        /* Local radio sizing: base.css applies `font: inherit` to all inputs,
-                           which makes browsers scale radio glyphs with the surrounding font-size.
-                           Pin radios to a 1rem square so they look right anywhere in this form. */
-                        .constraint-radio-group {
-                            display: flex;
-                            flex-direction: column;
-                            gap: var(--ep-space-2);
-                            margin-top: var(--ep-space-2);
-                        }
-                        .constraint-radio-group label {
-                            display: flex;
-                            align-items: center;
-                            gap: var(--ep-space-2);
-                            font-size: var(--ep-text-sm);
-                            cursor: pointer;
-                        }
-                        .constraint-radio-group input[type="radio"] {
-                            width: 1rem;
-                            height: 1rem;
-                            flex: 0 0 1rem;
-                            margin: 0;
-                            font-size: 1rem;
-                        }
-                    </style>
+    <!-- data-radio-panes: the constraintKind radios toggle the matching
+         [data-constraint-pane] visibility (pages/asset-forms.js). Progressive
+         enhancement is kept (method+action alongside th:hx-post) — the attribute
+         create has no JSON path, so a non-HTMX submit lands on the same handler. -->
+    <form th:fragment="attribute-form" id="create-attribute-form"
+          method="post" th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}"
+          hx-target="#attribute-list" hx-swap="outerHTML"
+          data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-attribute-error')}"></div>
+        <div class="ep-dialog-body">
+            <div th:if="${authoredCatalogs != null && !authoredCatalogs.isEmpty()}" class="form-group"
+                 th:classappend="${errors?.containsKey('catalog')} ? 'error' : ''">
+                <label class="ep-label" for="catalog">Catalog</label>
+                <select id="catalog" name="catalog" class="ep-select">
+                    <option th:each="cat : ${authoredCatalogs}"
+                            th:value="${cat.id}"
+                            th:text="${cat.name}"
+                            th:selected="${#strings.equals(formData?.catalog, cat.id)}"></option>
+                </select>
+                <span class="form-error" th:if="${errors?.containsKey('catalog')}" th:text="${errors.catalog}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
+                <label class="ep-label" for="displayName">Display Name</label>
+                <input type="text" id="displayName" name="displayName" class="ep-input"
+                       required maxlength="100" placeholder="Language" data-slug-source="slug"
+                       th:value="${formData?.displayName}">
+                <span class="form-error" th:if="${errors?.containsKey('displayName')}" th:text="${errors.displayName}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+                <label class="ep-label" for="slug">Attribute ID (Slug)</label>
+                <input type="text" id="slug" name="slug" class="ep-input"
+                       required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                       minlength="3" maxlength="50"
+                       placeholder="language"
+                       th:value="${formData?.slug}">
+                <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+            </div>
+            <div class="form-group">
+                <label class="ep-label">Value constraint</label>
+                <div role="radiogroup" class="constraint-radio-group">
+                    <label>
+                        <input type="radio" name="constraintKind" value="free"
+                               th:checked="${formData?.constraintKind == null or formData?.constraintKind == 'free'}"
+                               data-constraint-kind="free">
+                        Free format &mdash; any value allowed
+                    </label>
+                    <label>
+                        <input type="radio" name="constraintKind" value="inline"
+                               th:checked="${formData?.constraintKind == 'inline'}"
+                               data-constraint-kind="inline">
+                        Inline values &mdash; listed below
+                    </label>
+                    <label>
+                        <input type="radio" name="constraintKind" value="code-list"
+                               th:checked="${formData?.constraintKind == 'code-list'}"
+                               data-constraint-kind="code-list">
+                        Bound to code list
+                    </label>
+                </div>
+            </div>
+            <style>
+                /* Local radio sizing: base.css applies `font: inherit` to all inputs,
+                   which makes browsers scale radio glyphs with the surrounding font-size.
+                   Pin radios to a 1rem square so they look right anywhere in this form. */
+                .constraint-radio-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--ep-space-2);
+                    margin-top: var(--ep-space-2);
+                }
+                .constraint-radio-group label {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--ep-space-2);
+                    font-size: var(--ep-text-sm);
+                    cursor: pointer;
+                }
+                .constraint-radio-group input[type="radio"] {
+                    width: 1rem;
+                    height: 1rem;
+                    flex: 0 0 1rem;
+                    margin: 0;
+                    font-size: 1rem;
+                }
+            </style>
 
-                    <div class="form-group constraint-pane constraint-pane-inline"
-                         th:classappend="${errors?.containsKey('allowedValues')} ? 'error' : ''"
-                         data-constraint-pane="inline" hidden>
-                        <label class="ep-label" for="allowedValues">Allowed values (one per line)</label>
-                        <textarea id="allowedValues" name="allowedValues" class="ep-textarea" rows="4"
-                                  placeholder="dutch&#10;english&#10;german"
-                                  th:text="${formData?.allowedValues}"></textarea>
-                        <span class="form-hint">Each line becomes one allowed value. Order does not matter.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('allowedValues')}" th:text="${errors.allowedValues}"></span>
-                    </div>
+            <div class="form-group constraint-pane constraint-pane-inline"
+                 th:classappend="${errors?.containsKey('allowedValues')} ? 'error' : ''"
+                 data-constraint-pane="inline" hidden>
+                <label class="ep-label" for="allowedValues">Allowed values (one per line)</label>
+                <textarea id="allowedValues" name="allowedValues" class="ep-textarea" rows="4"
+                          placeholder="dutch&#10;english&#10;german"
+                          th:text="${formData?.allowedValues}"></textarea>
+                <span class="form-hint">Each line becomes one allowed value. Order does not matter.</span>
+                <span class="form-error" th:if="${errors?.containsKey('allowedValues')}" th:text="${errors.allowedValues}"></span>
+            </div>
 
-                    <div class="form-group constraint-pane constraint-pane-code-list"
-                         data-constraint-pane="code-list" hidden>
-                        <label class="ep-label" for="codeList">Code list</label>
-                        <select id="codeList" name="codeList" class="ep-select">
-                            <option value="">&mdash; Select a code list &mdash;</option>
-                            <th:block th:each="cl : ${codeLists}">
-                                <option th:value="${cl.catalogKey + '/' + cl.slug}"
-                                        th:text="${cl.catalogKey + ' / ' + cl.displayName}"
-                                        th:selected="${formData?.codeList == cl.catalogKey + '/' + cl.slug}"></option>
-                            </th:block>
-                        </select>
-                        <span class="form-hint">Variant values must match an entry of this code list. Hidden entries are still accepted.</span>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Attribute</button>
-                        <a th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+            <div class="form-group constraint-pane constraint-pane-code-list"
+                 data-constraint-pane="code-list" hidden>
+                <label class="ep-label" for="codeList">Code list</label>
+                <select id="codeList" name="codeList" class="ep-select">
+                    <option value="">&mdash; Select a code list &mdash;</option>
+                    <th:block th:each="cl : ${codeLists}">
+                        <option th:value="${cl.catalogKey + '/' + cl.slug}"
+                                th:text="${cl.catalogKey + ' / ' + cl.displayName}"
+                                th:selected="${formData?.codeList == cl.catalogKey + '/' + cl.slug}"></option>
+                    </th:block>
+                </select>
+                <span class="form-hint">Variant values must match an entry of this code list. Hidden entries are still accepted.</span>
             </div>
         </div>
-    </th:block>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="create-attribute-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Attribute</button>
+        </div>
+    </form>
 </body>
 </html>

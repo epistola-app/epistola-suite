@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.quality.sources
 
 import app.epistola.suite.common.ids.CatalogKey
@@ -101,7 +105,7 @@ class AccessibilityQualitySourceTest {
     fun `a node with no props does not throw`() {
         val findings = source.check(inputFor(Node(id = "img-1", type = "image", slots = emptyList(), props = null)))
 
-        // No props means nothing to judge — a source that threw here would take out the sweep.
+        // No props means nothing to judge — a source that threw here would be skipped for the run.
         assertThat(findings).isEmpty()
     }
 

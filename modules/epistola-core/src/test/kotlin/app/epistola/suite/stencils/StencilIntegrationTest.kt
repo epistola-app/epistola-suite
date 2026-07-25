@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.stencils
 
 import app.epistola.suite.common.ids.CatalogId
@@ -39,11 +43,16 @@ import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 class StencilIntegrationTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     /** Wrapper that ensures withMediator returns Unit (JUnit requires void test methods). */
     private fun test(block: () -> Unit) = withMediator(block)
@@ -238,6 +247,38 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `create version rejects invalid legacy content copied from storage`() = test {
+        val tenant = createTenant("Invalid Stencil Copy")
+        val tenantId = TenantId(tenant.id)
+        val id = stencilId(tenantId)
+
+        CreateStencil(id = id, name = "Legacy Stencil", content = createTestContent()).execute()
+        val versionId = StencilVersionId(VersionKey.of(1), id)
+        PublishStencilVersion(versionId = versionId).execute()
+        jdbi.withHandle<Int, Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE stencil_versions
+                SET content = jsonb_set(content, '{root}', '"missing-root"'::jsonb)
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                  AND stencil_key = :stencilKey AND id = 1
+                """,
+            )
+                .bind("tenantKey", id.tenantKey)
+                .bind("catalogKey", id.catalogKey)
+                .bind("stencilKey", id.key)
+                .execute()
+        }
+
+        assertThatThrownBy {
+            CreateStencilVersion(stencilId = id).execute()
+        }
+            .isInstanceOfSatisfying(ValidationException::class.java) {
+                assertThat(it.field).isEqualTo("content.root")
+            }
+    }
+
+    @Test
     fun `update draft content`() = test {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
@@ -374,6 +415,42 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `upgrade stencil in template synchronizes referenced paths`() = test {
+        val tenant = createTenant("Stencil Upgrade Paths")
+        val tenantId = TenantId(tenant.id)
+        val stencilId = stencilId(tenantId)
+        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+        CreateStencilVersion(stencilId = stencilId, content = contentWithPath("recipient.name")).execute()
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
+
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
+
+        UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 2).execute()
+
+        val referencedPaths = jdbi.withHandle<String, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT referenced_paths::text
+                FROM template_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                  AND template_key = :templateKey AND variant_key = :variantKey AND status = 'draft'
+                """,
+            )
+                .bind("tenantKey", templateId.tenantKey)
+                .bind("catalogKey", templateId.catalogKey)
+                .bind("templateKey", templateId.key)
+                .bind("variantKey", variantId.key)
+                .mapTo(String::class.java)
+                .one()
+        }
+        assertThat(referencedPaths).isEqualTo("""["recipient.name"]""")
+    }
+
+    @Test
     fun `upgrade stencil in a published template creates a new draft and upgrades there`() = test {
         val tenant = createTenant("Published Upgrade")
         val tenantId = TenantId(tenant.id)
@@ -488,6 +565,35 @@ class StencilIntegrationTest : IntegrationTestBase() {
         slots = mapOf(
             "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-instance")),
             "stencil-children" to Slot(id = "stencil-children", nodeId = "stencil-instance", name = "children", children = emptyList()),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    private fun contentWithPath(path: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
+            "text-path" to Node(
+                id = "text-path",
+                type = "text",
+                props = mapOf(
+                    "content" to mapOf(
+                        "type" to "doc",
+                        "content" to listOf(
+                            mapOf(
+                                "type" to "paragraph",
+                                "content" to listOf(
+                                    mapOf("type" to "expression", "attrs" to mapOf("expression" to path)),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        slots = mapOf(
+            "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text-path")),
         ),
         themeRef = ThemeRef.Inherit,
     )

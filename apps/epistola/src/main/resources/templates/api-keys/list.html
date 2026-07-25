@@ -8,17 +8,32 @@
             actions=~{::api-key-list-actions}
         )}"></div>
 
+        <!-- Whole list body (empty-state + table) in one OOB-swappable region,
+             mirroring environments/list :: environment-list. On a successful
+             create the one-time-key reveal stays open (dialogReveal) and the
+             handler OOB-refreshes THIS region so the list behind the reveal shows
+             the new key regardless of how the reveal is dismissed — ESC, backdrop,
+             or Done (CR8). It also flips empty → populated when the first key is
+             created.
+             NOTE: this fragment uses `auth`, and the OOB render path passes only
+             the fragment model (no global attributes) — so the handler must supply
+             the model this needs; `auth` is re-injected by HtmxFragmentModelContributor. -->
+        <div id="api-key-list" th:fragment="api-key-list"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No API keys</div>
             <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
-            <a th:if="${auth.has('TENANT_USERS')}"
-               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+            <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_USERS')}"
+                    th:hx-get="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
+                    hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                    data-testid="api-key-create-open"
+                    style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New API key
-            </a>
+            </button>
         </div>
 
         <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table">
@@ -79,8 +94,24 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <!-- Dialog mount: the create dialog is swapped in here by the trigger
+             (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
+             direct navigation to /new the handler renders THIS page with
+             openDialog=true, embedding the dialog as a plain <dialog> that the
+             same JS opens on load.
+             GOTCHA: the openDialog guard MUST wrap the th:replace on an OUTER
+             element — th:replace (precedence 100) runs before th:if (300), so
+             the two on the SAME element would include the dialog unconditionally.
+             See docs/dialog-forms.md. -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{api-keys/new :: dialog}"></th:block>
+            </th:block>
+        </div>
 
         <style>
             .api-key-scope {
@@ -91,11 +122,13 @@
         </style>
     </th:block>
     <th:block th:fragment="api-key-list-actions">
-        <a th:if="${auth.has('TENANT_USERS')}"
-           th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+        <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_USERS')}"
+                th:hx-get="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="api-key-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New API key
-        </a>
+        </button>
     </th:block>
 
 </body>

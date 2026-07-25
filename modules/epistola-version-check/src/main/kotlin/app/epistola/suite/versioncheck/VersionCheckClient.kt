@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.versioncheck
 
 import org.springframework.beans.factory.annotation.Qualifier
@@ -6,17 +10,19 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.RestClientResponseException
+import java.util.UUID
 
 @Component
 class VersionCheckClient(
     @Qualifier(VersionCheckConfiguration.VERSION_CHECK_REST_CLIENT)
     private val restClient: RestClient,
 ) {
-    fun fetch(url: String, currentVersion: String): EpistolaReleasesDocument = try {
+    fun fetch(url: String, currentVersion: String, installationId: UUID): EpistolaReleasesDocument = try {
         restClient.get()
             .uri(url)
             .header("User-Agent", "epistola-suite/$currentVersion")
             .header("X-Epistola-Suite-Version", currentVersion)
+            .header("X-Epistola-Installation-Id", installationId.toString())
             .retrieve()
             .body(EpistolaReleasesDocument::class.java)
             ?: throw VersionCheckException("Empty response from $url")

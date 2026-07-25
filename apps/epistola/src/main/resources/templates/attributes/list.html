@@ -18,17 +18,31 @@
             </select>
         </div>
 
+        <!-- Whole list body (empty-state + table) in one OOB-swappable region,
+             mirroring environments/list :: environment-list. Creating the first
+             attribute (empty → populated) refreshes it via a single outerHTML OOB
+             swap (dialogSuccess). The #attribute-rows tbody + `rows` fragment stay
+             INSIDE it so the inline edit keeps swapping just the rows, and delete
+             refreshes the whole region so the last delete flips to the empty state.
+             NOTE: this fragment uses `auth`; the OOB render path passes only the
+             fragment model, so the handler relies on HtmxFragmentModelContributor
+             to inject `auth`. -->
+        <div id="attribute-list" th:fragment="attribute-list"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div th:if="${#lists.isEmpty(attributes)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
-            <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+            <button th:if="${auth.has('TENANT_SETTINGS')}" type="button"
+                    class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                    th:hx-get="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                    hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                    data-testid="attribute-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New Attribute
-            </a>
+            </button>
         </div>
 
         <table th:if="${!#lists.isEmpty(attributes)}" class="ep-table">
@@ -79,7 +93,7 @@
                                         title="Delete attribute"
                                         data-confirm-title="Delete Attribute"
                                         th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/delete(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
-                                        data-confirm-target="#attribute-rows">
+                                        data-confirm-target="#attribute-list" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
@@ -88,6 +102,22 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
+
+        <!-- Dialog mount: the create dialog is swapped in here by the trigger
+             (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
+             direct navigation to /new the handler renders THIS page with
+             openDialog=true, embedding the dialog as a plain <dialog> that the
+             same JS opens on load.
+             GOTCHA: the openDialog guard MUST wrap the th:replace on an OUTER
+             element — th:replace (precedence 100) runs before th:if (300), so the
+             two on the SAME element would include the dialog unconditionally.
+             See docs/dialog-forms.md. -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{attributes/new :: dialog}"></th:block>
+            </th:block>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
@@ -188,11 +218,13 @@
         </form>
     </th:block>
     <th:block th:fragment="attribute-list-actions">
-        <a th:if="${auth.has('TENANT_SETTINGS')}"
-           th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+        <button th:if="${auth.has('TENANT_SETTINGS')}" type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="attribute-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Attribute
-        </a>
+        </button>
     </th:block>
 
 </body>

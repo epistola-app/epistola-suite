@@ -1,54 +1,82 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
+    <!--
+    The one-time key reveal. Rendered two ways off ApiKeyHandler.create success:
+      - `content` — non-HTMX full page (direct/boosted POST): page-header + card
+        with the shared key guts and a "Done" link back to the list.
+      - `created-reveal` — the HTMX reveal (dialogReveal), swapped in place of the
+        <form> (outerHTML retargeted to #create-api-key-form) so the dialog STAYS
+        OPEN. It is FORMLESS (two sibling roots: body + footer) — the outerHTML
+        swap replaces the single form element with both, leaving the dialog as
+        header + body + footer.
+      - `created-guts` — the shared inner content both reuse.
 
+    Model both need: `tenantId` (Done link), `plaintextKey`, `apiKey`.
+    -->
+    <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='API key created',
             backLinkHref=@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})},
             backLinkLabel='API Keys'
         )}"></div>
 
-        <th:block th:replace="~{::created-panel}" />
-    </th:block>
-
-    <div th:fragment="created-panel" id="api-key-form-area" class="card create-form-card">
-        <div class="card-content">
-            <div class="alert alert-warning" style="margin-bottom: var(--ep-space-4);">
-                <strong>Copy this key now.</strong>
-                It will not be shown again, and there is no way to recover it later.
-            </div>
-
-            <div class="form-group">
-                <label class="ep-label" for="api-key-secret">Key</label>
-                <div class="ep-row">
-                    <input type="text" id="api-key-secret" class="ep-input"
-                           th:value="${plaintextKey}"
-                           readonly
-                           style="font-family: var(--ep-font-mono, monospace); flex: 1;">
-                    <button type="button" id="api-key-copy-btn" class="ep-btn ep-btn-outline"
-                            data-copy-source="api-key-secret" data-copy-status="api-key-copy-status">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
-                        Copy
-                    </button>
+        <div class="card create-form-card">
+            <div class="card-content">
+                <div th:replace="~{::created-guts}"></div>
+                <div class="form-actions" style="margin-top: var(--ep-space-4);">
+                    <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
                 </div>
-                <span id="api-key-copy-status" class="form-hint" aria-live="polite"></span>
-            </div>
-
-            <dl class="ep-dl" style="margin-top: var(--ep-space-4);">
-                <dt>Name</dt>
-                <dd th:text="${apiKey.name}" data-testid="api-key-name"></dd>
-                <dt>Created</dt>
-                <dd th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
-                <dt th:if="${apiKey.expiresAt != null}">Expires</dt>
-                <dd th:if="${apiKey.expiresAt != null}"
-                    th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></dd>
-            </dl>
-
-            <div class="form-actions" style="margin-top: var(--ep-space-4);">
-                <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
             </div>
         </div>
-    </div>
+    </th:block>
+
+    <th:block th:fragment="created-reveal">
+        <div class="ep-dialog-body">
+            <div th:replace="~{::created-guts}"></div>
+        </div>
+        <div class="ep-dialog-footer">
+            <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
+        </div>
+    </th:block>
+
+    <th:block th:fragment="created-guts">
+        <!-- hx-history="false" keeps this page (which renders the one-time plaintext
+             key as a value) OUT of htmx's sessionStorage history cache: htmx skips
+             saving any page whose DOM contains [hx-history="false"] when navigating
+             away, so the secret is never snapshotted to disk and cannot be re-shown
+             on Back/Forward (CR8/CR1). Placed on the guts shared by both the reveal
+             and the full-page variant, so both surfaces are covered. -->
+        <div class="alert alert-warning" hx-history="false" style="margin-bottom: var(--ep-space-4);">
+            <strong>Copy this key now.</strong>
+            It will not be shown again, and there is no way to recover it later.
+        </div>
+
+        <div class="form-group">
+            <label class="ep-label" for="api-key-secret">Key</label>
+            <div class="ep-row">
+                <input type="text" id="api-key-secret" class="ep-input"
+                       th:value="${plaintextKey}"
+                       readonly
+                       style="font-family: var(--ep-font-mono, monospace); flex: 1;">
+                <button type="button" id="api-key-copy-btn" class="ep-btn ep-btn-outline"
+                        data-copy-source="api-key-secret" data-copy-status="api-key-copy-status">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
+                    Copy
+                </button>
+            </div>
+            <span id="api-key-copy-status" class="form-hint" aria-live="polite"></span>
+        </div>
+
+        <dl class="ep-dl" style="margin-top: var(--ep-space-4);">
+            <dt>Name</dt>
+            <dd th:text="${apiKey.name}" data-testid="api-key-name"></dd>
+            <dt>Created</dt>
+            <dd th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+            <dt th:if="${apiKey.expiresAt != null}">Expires</dt>
+            <dd th:if="${apiKey.expiresAt != null}"
+                th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></dd>
+        </dl>
+    </th:block>
 </body>
 </html>

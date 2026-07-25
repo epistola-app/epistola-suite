@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.quality
 
 import app.epistola.suite.common.ids.CatalogId
@@ -92,7 +96,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
     /**
      * A source re-reporting the same problem must not churn the row: `first_seen_at` is when the
      * problem appeared and stays put, while `last_seen_at` tracks the newest confirmation. If this
-     * regresses, "how long has this been broken" silently becomes "when did the sweep last run".
+     * regresses, "how long has this been broken" silently becomes "when did the source last run".
      */
     @Test
     fun `an identical resubmit keeps first seen and advances last seen`() {
@@ -199,7 +203,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
 
     /**
      * Reconciliation is scoped by source id. Without that scoping, every source would resolve every
-     * other source's findings on each sweep — and the last one to run would win.
+     * other source's findings on each submission — and the last one to run would win.
      */
     @Test
     fun `a submission never touches another source's findings`() {
@@ -215,7 +219,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         assertThat(byFingerprint["fp-b"]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
     }
 
-    /** Findings for one variant must not be resolved by a sweep of a sibling variant. */
+    /** Findings for one variant must not be resolved by a submission for a sibling variant. */
     @Test
     fun `a submission never touches another subject's findings`() {
         val first = newSubject()

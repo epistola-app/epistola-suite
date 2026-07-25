@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.handlers
 
 import org.springframework.context.annotation.Bean
@@ -12,8 +16,11 @@ class CatalogRoutes(private val handler: CatalogHandler) {
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/catalogs".nest {
             GET("", handler::list)
-            POST("/register", handler::register)
+            GET("/new", handler::newForm)
+            GET("/subscribe", handler::registerForm)
+            POST("/subscribe", handler::register)
             POST("/create", handler::createCatalog)
+            GET("/import", handler::importForm)
             POST("/import", handler::importZip)
             POST("/{catalogId}/delete", handler::unregister)
             GET("/{catalogId}/release", handler::releaseDialog)

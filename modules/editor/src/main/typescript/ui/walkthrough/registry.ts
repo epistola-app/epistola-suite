@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * The walkthrough is a registry of small, self-contained **chapters** (tours),
  * driven one at a time. This keeps each tour short (3–5 steps) and independently

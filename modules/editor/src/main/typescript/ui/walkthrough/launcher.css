@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 /* <epistola-walkthrough-launcher> styles. Imported with Vite's `?inline` suffix and
    injected once as a <style> by the launcher - kept out of the always-loaded
    editor.css so flag-off users never carry them. */

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { html } from 'lit';
 import type {
@@ -24,6 +28,7 @@ function createContext(overrides?: Partial<PluginContext>): PluginContext {
     engine,
     doc: engine.doc,
     selectedNodeId: null,
+    selectNode: vi.fn(),
     ...overrides,
   };
 }
@@ -68,6 +73,22 @@ describe('EditorPlugin lifecycle', () => {
     expect(receivedCtx!.doc).toBeDefined();
     expect(receivedCtx!.doc.root).toBeDefined();
     expect(receivedCtx!.selectedNodeId).toBeNull();
+    expect(receivedCtx!.selectNode).toEqual(expect.any(Function));
+  });
+
+  it('plugin context can select a node with host UI options', () => {
+    const selectNode = vi.fn();
+    const ctx = createContext({ selectNode });
+
+    ctx.selectNode('node-1' as never, {
+      keepCurrentSidebarTabOpen: true,
+      revealInCanvas: true,
+    });
+
+    expect(selectNode).toHaveBeenCalledWith('node-1', {
+      keepCurrentSidebarTabOpen: true,
+      revealInCanvas: true,
+    });
   });
 
   it('init() returns a dispose function', () => {
@@ -119,6 +140,7 @@ describe('SidebarTabContribution', () => {
     const tab: SidebarTabContribution = {
       id: 'ai-chat',
       label: 'AI Chat',
+      badge: { label: 'Alpha', className: 'badge-alpha' },
       icon: 'bot',
       render: (ctx) => html`<div>AI panel for ${ctx.doc.root}</div>`,
     };
@@ -128,6 +150,7 @@ describe('SidebarTabContribution', () => {
     expect(plugin.sidebarTab).toBeDefined();
     expect(plugin.sidebarTab!.id).toBe('ai-chat');
     expect(plugin.sidebarTab!.label).toBe('AI Chat');
+    expect(plugin.sidebarTab!.badge).toEqual({ label: 'Alpha', className: 'badge-alpha' });
     expect(plugin.sidebarTab!.icon).toBe('bot');
   });
 

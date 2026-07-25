@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect } from 'vitest';
 import { createImageDefinition, resolveContentUrl, crossCatalogKey } from './image-registration.js';
 import type { ComponentDefinition } from '../../engine/registry.js';

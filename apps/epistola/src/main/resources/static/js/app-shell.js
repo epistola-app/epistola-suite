@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Global UI bootstrap: CSRF wiring, confirm dialogs, global HTMX error handling.
 // Loaded once from fragments/htmx.html. Executable inline scripts are banned in
 // templates (ADR 0010); behaviour belongs here or in behaviors.js.
@@ -110,6 +114,20 @@ window.closeConfirmDialog = function () {
 document.addEventListener('closeDialog', function () {
   document.querySelectorAll('dialog[open]').forEach(function (d) {
     d.close();
+  });
+});
+
+// ── Reset list search boxes on HX-Trigger: dialogSuccess ──────
+// A dialogSuccess response just OOB-refreshed the list UNFILTERED — the create
+// request carried no search term, so the server can't re-apply one. Clear any
+// list search box so the visible full list and the box agree; a stale term
+// otherwise sits above rows that no longer match it (CR6). Deliberately keyed
+// on dialogSuccess, NOT the generic closeDialog: other handlers emit closeDialog
+// for closes that don't reset the list (and Cancel/ESC fires neither event), so
+// only this outcome may wipe the user's term.
+document.addEventListener('dialogSuccess', function () {
+  document.querySelectorAll('.search-box input[name="q"]').forEach(function (input) {
+    if (input.value) input.value = '';
   });
 });
 

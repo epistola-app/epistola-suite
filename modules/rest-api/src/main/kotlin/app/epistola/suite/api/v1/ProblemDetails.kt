@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.api.v1
 
 import app.epistola.api.model.ValidationError
@@ -41,6 +45,7 @@ object ApiProblemTypes {
     val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_ENTITY, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
     val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
+    val API_KEY_AUTH_DISABLED = problem("API_KEY_AUTH_DISABLED", "API Key Authentication Disabled", HttpStatus.UNAUTHORIZED, "API-key authentication is disabled for this deployment; use Authorization: Bearer <jwt> instead.", emptyList())
     val ACCESS_DENIED = problem("ACCESS_DENIED", "Access Denied", HttpStatus.FORBIDDEN, "The authenticated caller is not allowed to access the requested resource.", listOf("tenantId"))
     val PERMISSION_DENIED = problem("PERMISSION_DENIED", "Permission Denied", HttpStatus.FORBIDDEN, "The caller lacks the required fine-grained permission.", listOf("requiredPermission", "tenantId"))
     val PLATFORM_ACCESS_DENIED = problem("PLATFORM_ACCESS_DENIED", "Platform Access Denied", HttpStatus.FORBIDDEN, "The caller lacks the required platform role.", listOf("requiredRole"))
@@ -96,6 +101,7 @@ object ApiProblemTypes {
     val GENERATION_JOB_NOT_CANCELLABLE = problem("GENERATION_JOB_NOT_CANCELLABLE", "Generation Job Not Cancellable", HttpStatus.CONFLICT, "The generation job cannot be cancelled because it is already completed, failed, or cancelled.", listOf("tenantId", "requestId"))
     val DOCUMENT_NOT_FOUND = problem("DOCUMENT_NOT_FOUND", "Document Not Found", HttpStatus.NOT_FOUND, "The requested document does not exist or is not visible to the caller.", listOf("tenantId", "documentId"))
     val DRAFT_NOT_FOUND = problem("DRAFT_NOT_FOUND", "Draft Not Found", HttpStatus.NOT_FOUND, "No draft exists for the requested variant.", listOf("tenantId", "variantId"))
+    val DRAFT_HAS_NO_PUBLISHED_BASE = problem("DRAFT_HAS_NO_PUBLISHED_BASE", "Draft Has No Published Base", HttpStatus.CONFLICT, "The draft cannot be discarded because the variant has no published version to revert to.", listOf("tenantId", "variantId"))
     val VERSION_NOT_DRAFT = problem("VERSION_NOT_DRAFT", "Version Not Draft", HttpStatus.CONFLICT, "The version is not a draft and cannot be modified.", listOf("tenantId", "versionId"))
     val VERSION_NOT_PUBLISHED = problem("VERSION_NOT_PUBLISHED", "Version Not Published", HttpStatus.CONFLICT, "The version is not published and cannot be archived.", listOf("tenantId", "versionId"))
     val VERSION_ARCHIVED = problem("VERSION_ARCHIVED", "Version Archived", HttpStatus.CONFLICT, "The version is archived and cannot be published.", listOf("tenantId", "versionId"))
@@ -108,6 +114,7 @@ object ApiProblemTypes {
         DATA_MODEL_VALIDATION_ERROR,
         BAD_REQUEST,
         UNAUTHORIZED,
+        API_KEY_AUTH_DISABLED,
         ACCESS_DENIED,
         PERMISSION_DENIED,
         PLATFORM_ACCESS_DENIED,
@@ -162,6 +169,7 @@ object ApiProblemTypes {
         GENERATION_JOB_NOT_CANCELLABLE,
         DOCUMENT_NOT_FOUND,
         DRAFT_NOT_FOUND,
+        DRAFT_HAS_NO_PUBLISHED_BASE,
         VERSION_NOT_DRAFT,
         VERSION_NOT_PUBLISHED,
         VERSION_ARCHIVED,

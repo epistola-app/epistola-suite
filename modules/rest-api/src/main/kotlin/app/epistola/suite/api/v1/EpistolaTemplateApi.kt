@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.api.v1
 
 import app.epistola.api.TemplatesApi
@@ -54,7 +58,10 @@ import app.epistola.suite.templates.commands.variants.DeleteVariant
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
+import app.epistola.suite.templates.commands.versions.CreateVersion
+import app.epistola.suite.templates.commands.versions.DiscardDraft
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
 import app.epistola.suite.templates.contracts.ContractPublishConflictException
@@ -421,6 +428,20 @@ class EpistolaTemplateApi(
         return ResponseEntity.ok(draft.toDto(objectMapper))
     }
 
+    override fun createVariantDraft(
+        tenantId: String,
+        catalogId: String,
+        templateId: String,
+        variantId: String,
+    ): ResponseEntity<VersionDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val draft = CreateVersion(variantId = variantIdComposite).execute()
+            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
+        return ResponseEntity.status(HttpStatus.CREATED).body(draft.toDto(objectMapper))
+    }
+
     override fun upsertVariantDraft(
         tenantId: String,
         catalogId: String,
@@ -439,6 +460,39 @@ class EpistolaTemplateApi(
             templateModel = templateModel,
         ).execute() ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
         return ResponseEntity.ok(draft.toDto(objectMapper))
+    }
+
+    override fun publishVariantDraft(
+        tenantId: String,
+        catalogId: String,
+        templateId: String,
+        variantId: String,
+    ): ResponseEntity<VersionDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        GetVariant(variantId = variantIdComposite).query()
+            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
+        val draft = GetDraft(variantId = variantIdComposite).query()
+            ?: throw DraftNotFoundException(tenantIdComposite.key, variantIdComposite.key)
+        val published = PublishVersion(versionId = VersionId(draft.id, variantIdComposite)).execute()
+            ?: throw VersionNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key, draft.id)
+        return ResponseEntity.ok(published.toDto(objectMapper))
+    }
+
+    override fun discardVariantDraft(
+        tenantId: String,
+        catalogId: String,
+        templateId: String,
+        variantId: String,
+    ): ResponseEntity<Unit> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        GetVariant(variantId = variantIdComposite).query()
+            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
+        DiscardDraft(variantId = variantIdComposite).execute()
+        return ResponseEntity.noContent().build()
     }
 
     // ================== Activation operations ==================

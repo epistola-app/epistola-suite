@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.quality.ui
 
 import app.epistola.suite.features.KnownFeatures
@@ -16,11 +20,10 @@ import org.springframework.stereotype.Component
  * group is declared by the host's `CoreNavContributor`; the aggregator merges this item into it.
  *
  * Gated on the `quality` feature (alpha, off by default) *and* `TEMPLATE_VIEW`, so the item stays
- * hidden until an installation opts in. Resolved through [ResolveAvailableFeatures] — the same
- * query `QualityCheckScheduler` gates its sweep on, so what a user can navigate to and what the
- * sweep populates cannot drift apart. It is auth-bypassing by design: nav renders for any signed-in
- * user, and the permission-gated `GetFeatureToggles` would deny everyone who is not a manager. The
- * per-request cache makes the extra query free.
+ * hidden until an installation opts in. Resolved through [ResolveAvailableFeatures], the same
+ * availability query used by quality's backend triggers. It is auth-bypassing by design: nav renders
+ * for any signed-in user, and the permission-gated `GetFeatureToggles` would deny everyone who is
+ * not a manager. The per-request cache makes the extra query free.
  */
 @Component
 class QualityNavContributor : NavContributor {

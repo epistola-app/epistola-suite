@@ -1,5 +1,10 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.versioncheck
 
+import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.time.EpistolaClock
@@ -11,6 +16,7 @@ import org.springframework.stereotype.Service
 class VersionCheckService(
     private val client: VersionCheckClient,
     private val metadata: AppMetadataService,
+    private val installationService: InstallationService,
     private val properties: VersionCheckProperties,
     private val buildProperties: BuildProperties?,
 ) {
@@ -43,7 +49,7 @@ class VersionCheckService(
         }
 
         val status = try {
-            val document = client.fetch(properties.wellKnownUrl, currentVersion)
+            val document = client.fetch(properties.wellKnownUrl, currentVersion, installationService.get().id)
             VersionCheckEvaluator.evaluate(document, currentVersion, now, properties.deprecationWarningWindow)
         } catch (e: VersionMetadataUnavailableException) {
             // Metadata temporarily absent (404) — keep any previously known update, like the

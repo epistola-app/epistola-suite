@@ -1,32 +1,40 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.templates.model
 
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.template.model.Node
+import app.epistola.template.model.Slot
+import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRef
 
 /**
  * Creates a minimal default template model for a new variant/version.
  * This produces the structure expected by the editor: a root node with a single empty slot.
  */
-fun createDefaultTemplateModel(templateName: String, variantId: VariantKey): Map<String, Any> {
+fun createDefaultTemplateModel(variantId: VariantKey): TemplateDocument {
     val rootId = "root-${variantId.value}"
     val slotId = "slot-${variantId.value}"
-    return mapOf(
-        "modelVersion" to 1,
-        "root" to rootId,
-        "nodes" to mapOf(
-            rootId to mapOf(
-                "id" to rootId,
-                "type" to "root",
-                "slots" to listOf(slotId),
+    return TemplateDocument(
+        modelVersion = 1,
+        root = rootId,
+        nodes = mapOf(
+            rootId to Node(
+                id = rootId,
+                type = "root",
+                slots = listOf(slotId),
             ),
         ),
-        "slots" to mapOf(
-            slotId to mapOf(
-                "id" to slotId,
-                "nodeId" to rootId,
-                "name" to "children",
-                "children" to emptyList<String>(),
+        slots = mapOf(
+            slotId to Slot(
+                id = slotId,
+                nodeId = rootId,
+                name = "children",
+                children = emptyList(),
             ),
         ),
-        "themeRef" to mapOf("type" to "inherit"),
+        themeRef = ThemeRef.Inherit,
     )
 }

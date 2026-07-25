@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.templates.commands.versions
 
 import app.epistola.suite.catalog.AuthType
@@ -18,6 +22,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
@@ -36,20 +41,30 @@ import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.awaitility.Awaitility.await
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.time.Duration
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
 @Timeout(30)
 class PublishVersionTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     private val objectMapper = ObjectMapper()
     private lateinit var templateId: TemplateId
@@ -123,6 +138,39 @@ class PublishVersionTest : IntegrationTestBase() {
             val result = withMediator { PublishVersion(versionId = versionId).execute() }
             assertThat(result).isNull()
         }
+
+        @Test
+        fun `rejects an invalid legacy draft at the publish boundary`() {
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+            jdbi.withHandle<Int, Exception> { handle ->
+                handle.createUpdate(
+                    """
+                    UPDATE template_versions
+                    SET template_model = jsonb_set(template_model, '{root}', '"missing-root"'::jsonb)
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND variant_key = :variantKey AND id = :versionId
+                    """,
+                )
+                    .bind("tenantKey", templateId.tenantKey)
+                    .bind("catalogKey", templateId.catalogKey)
+                    .bind("templateKey", templateId.key)
+                    .bind("variantKey", defaultVariantId.key)
+                    .bind("versionId", draft.id)
+                    .execute()
+            }
+
+            assertThatThrownBy {
+                withMediator {
+                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
+                }
+            }
+                .isInstanceOfSatisfying(ValidationException::class.java) {
+                    assertThat(it.field).isEqualTo("templateModel.root")
+                }
+
+            val stillDraft = withMediator { GetDraft(defaultVariantId).query() }
+            assertThat(stillDraft).isNotNull
+        }
     }
 
     @Nested
@@ -146,6 +194,73 @@ class PublishVersionTest : IntegrationTestBase() {
             }
             assertThat(publishedContract).isNotNull
             assertThat(publishedContract!!.dataModel).isNotNull
+        }
+
+        @Test
+        fun `publishes after a concurrent transaction publishes the linked contract`() {
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+            val versionId = VersionId(draft.id, defaultVariantId)
+            val publishTask = withMediator {
+                MediatorContext.callable(mediator) {
+                    PublishVersion(versionId = versionId).execute()
+                }
+            }
+            val blocker = jdbi.open()
+            val executor = Executors.newSingleThreadExecutor()
+
+            try {
+                blocker.begin()
+                val blockerPid = blocker.createQuery("SELECT pg_backend_pid()")
+                    .mapTo(Int::class.java)
+                    .one()
+                val updated = blocker.createUpdate(
+                    """
+                    UPDATE contract_versions
+                    SET status = 'published', published_at = NOW()
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND id = :contractVersion
+                    """,
+                )
+                    .bind("tenantKey", templateId.tenantKey)
+                    .bind("catalogKey", templateId.catalogKey)
+                    .bind("templateKey", templateId.key)
+                    .bind("contractVersion", draft.contractVersion)
+                    .execute()
+                assertThat(updated).isEqualTo(1)
+
+                val publishFuture = executor.submit(publishTask)
+                await()
+                    .atMost(Duration.ofSeconds(5))
+                    .until {
+                        jdbi.withHandle<Boolean, Exception> { observer ->
+                            observer.createQuery(
+                                """
+                                SELECT EXISTS (
+                                    SELECT 1
+                                    FROM pg_stat_activity
+                                    WHERE datname = current_database()
+                                      AND :blockerPid = ANY(pg_blocking_pids(pid))
+                                )
+                                """,
+                            )
+                                .bind("blockerPid", blockerPid)
+                                .mapTo(Boolean::class.java)
+                                .one()
+                        }
+                    }
+
+                blocker.commit()
+
+                val published = publishFuture.get(5, TimeUnit.SECONDS)
+                assertThat(published).isNotNull
+                assertThat(published!!.status).isEqualTo(VersionStatus.PUBLISHED)
+            } finally {
+                if (blocker.isInTransaction) {
+                    blocker.rollback()
+                }
+                blocker.close()
+                executor.shutdownNow()
+            }
         }
 
         @Test

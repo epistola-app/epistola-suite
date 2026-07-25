@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
@@ -8,6 +12,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -660,7 +666,11 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog contract: field errors re-render the form in place (retargeted
+            // to the form, not the list) with a 422.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
+            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")
             assertThat(response.body).contains("Name is required")
             assertThat(response.body).contains("form-error")
 
@@ -691,7 +701,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             assertThat(response.body).contains("Name is required")
 
             val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
@@ -721,7 +732,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             assertThat(response.body).contains("Name must be 100 characters or less")
 
             val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
@@ -750,7 +762,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             // The form should contain the submitted value (trimmed but preserved)
             assertThat(response.body).contains("value=\"${"a".repeat(256)}\"")
         }
@@ -1349,11 +1362,47 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("id=\"editor-container\"")
                 assertThat(response.body).contains("/editor/template-editor-")
-                // Editor feature flags are threaded into the config island; the
-                // walkthrough is off by default (ALPHA), so it resolves to false.
-                // Assert the value, not just the key, so a default-on regression fails.
-                assertThat(response.body).contains("\"featureFlags\"")
-                assertThat(response.body).containsPattern("\"editorWalkthrough\"\\s*:\\s*false")
+                assertThat(response.body).contains("\"features\": {")
+                assertThat(response.body).contains("\"aiChat\":{\"enabled\":false")
+                assertThat(response.body).contains("\"badge\":{\"label\":\"Alpha\",\"className\":\"badge-alpha\"}")
+                // The walkthrough is off by default (ALPHA). Assert the value, not just
+                // the key, so a default-on regression fails.
+                assertThat(response.body).contains("\"editorWalkthrough\":{\"enabled\":false")
+                assertThat(response.body).contains("\"moduleUrl\": \"/editor/ai-plugin-")
+                assertThat(response.body).contains("\"stylesheetUrl\": \"/editor/ai-plugin-")
+                assertThat(response.body).doesNotContain("<link rel=\"stylesheet\" href=\"/editor/ai-plugin-")
+            }
+        }
+
+        @Test
+        fun `GET editor page includes AI assets when ai chat is enabled`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("AI Editor Tenant")
+                template = template(testTenant, "AI Editor Template")
+                variantId = variant(testTenant, template, "Default").id
+                SaveFeatureToggle(testTenant.id, KnownFeatures.AI_CHAT, enabled = true).execute()
+            }
+
+            whenever {
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("\"moduleUrl\": \"/editor/ai-plugin-")
+                assertThat(response.body).contains("\"stylesheetUrl\": \"/editor/ai-plugin-")
+                assertThat(response.body).doesNotContain("<link rel=\"stylesheet\" href=\"/editor/ai-plugin-")
+                assertThat(response.body).contains("\"features\": {")
+                assertThat(response.body).contains("\"aiChat\":{\"enabled\":true")
+                assertThat(response.body).contains("\"badge\":{\"label\":\"Alpha\",\"className\":\"badge-alpha\"}")
             }
         }
 
@@ -1680,7 +1729,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"type\":\"https://epistola.app/errors/node-parameter-binding-syntax-invalid\"")
                 assertThat(response.body).contains("parameter binding 'param1' expression is invalid")
                 // Field path is carried structurally under errors[].
-                assertThat(response.body).contains("content.stencil.props.parameterBindings.param1")
+                assertThat(response.body).contains("templateModel.nodes.stencil-1.props.parameterBindings.param1")
                 // The old SCREAMING_CODE: message prefix is gone.
                 assertThat(response.body).doesNotContain("SYNTAX_INVALID: parameter")
                 assertThat(response.body).doesNotContain("trace")

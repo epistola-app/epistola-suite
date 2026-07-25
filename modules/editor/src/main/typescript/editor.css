@@ -1,4 +1,10 @@
 /*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
  * Epistola Editor V2 — CSS Entry Point
  *
  * Declares layer order, then imports design system tokens/base/components
@@ -23,6 +29,7 @@
 @import './styles/preview.css';
 @import './styles/palette.css';
 @import './styles/inspector.css';
+@import './styles/quality-panel.css';
 @import './styles/json-inspector.css';
 @import './styles/dnd.css';
 @import './styles/prosemirror.css';

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { buildParameterScope } from './parameter-scope.js';
 import { clearParameterCache } from './parameter-evaluation-cache.js';
@@ -48,6 +52,19 @@ describe('buildParameterScope', () => {
     expect(scope).not.toBeNull();
     const paths = scope!.variables.map((fp) => fp.path).toSorted();
     expect(paths).toEqual(['params.pageCount', 'params.recipientName']);
+  });
+
+  it('marks declared parameters as stencil parameter scope', () => {
+    const node = makeStencilNode({
+      type: 'object',
+      properties: {
+        recipientName: { type: 'string', description: 'Recipient' },
+      },
+    });
+    const scope = buildParameterScope(node, { schemaFieldPaths: [] });
+
+    expect(scope!.variables[0]?.scope).toBe('params');
+    expect(scope!.variables[0]?.scopeKind).toBe('stencil-parameter');
   });
 
   it('uses the configured paramsAlias for scope variable paths', () => {

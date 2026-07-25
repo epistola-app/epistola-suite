@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect } from 'vitest';
 import { buildIterationScope, resolveSimplePath } from './scoped-fields.js';
 import type { FieldPath } from './schema-paths.js';
@@ -80,6 +84,15 @@ describe('buildIterationScope', () => {
 
     for (const fp of scope.variables) {
       expect(fp.scope).toBe('item');
+    }
+  });
+
+  it('marks all variables as iteration scope', () => {
+    const node = makeLoopNode('item', 'items', 'idx');
+    const scope = buildIterationScope(node, { schemaFieldPaths })!;
+
+    for (const fp of scope.variables) {
+      expect(fp.scopeKind).toBe('iteration');
     }
   });
 

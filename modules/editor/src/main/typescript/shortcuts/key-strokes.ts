@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Expands a bare key into all modifier combinations so unmodified key shortcuts
  * also match when accidental modifiers are held (e.g. Shift+Delete still triggers

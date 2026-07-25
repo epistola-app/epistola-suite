@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Catalog page behaviors (templates/catalogs/list.html, templates/catalogs/browse.html).
 // ADR 0010: no executable inline scripts in templates.
 //
@@ -19,18 +23,11 @@ document.addEventListener('htmx:afterRequest', function (event) {
   if (dialog) dialog.close();
 });
 
-// ── Open a dialog when it is swapped into its container ─────────────────────
-// Usage: <div id="…-container" data-open-dialog-on-swap="dialog-id">
 // The release / upgrade-preview / export-conflict dialogs are fetched on demand
-// (hx-get) into always-present containers; after the swap the named <dialog>
-// is opened if it arrived. A successful apply swaps an empty fragment back in
-// (removing the dialog), so the lookup simply finds nothing and does nothing.
-document.addEventListener('htmx:afterSwap', function (event) {
-  const box = event.target.closest && event.target.closest('[data-open-dialog-on-swap]');
-  if (!box) return;
-  const dialog = document.getElementById(box.getAttribute('data-open-dialog-on-swap'));
-  if (dialog && !dialog.open) dialog.showModal();
-});
+// (hx-get) into always-present `data-open-dialog-on-swap` containers and opened
+// after the swap. That open-on-swap behavior is now app-wide (static/js/
+// behaviors.js) — both the legacy `data-open-dialog-on-swap="id"` containers
+// used here and the generic `data-dialog-mount` mount point are handled there.
 
 // ── Subscribe dialog: auth type toggles the credential field ────────────────
 // Usage: <select data-auth-credential-toggle="credential-group">

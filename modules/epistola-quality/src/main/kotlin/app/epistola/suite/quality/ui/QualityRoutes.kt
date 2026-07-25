@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.quality.ui
 
 import org.springframework.context.annotation.Bean
@@ -26,6 +30,10 @@ class QualityRoutes(private val handler: QualityHandler) {
             POST("/{findingId}/unignore", handler::unignore)
             POST("/{findingId}/resolve", handler::resolve)
             POST("/{findingId}/comments", handler::addComment)
+        }
+        "/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality".nest {
+            GET("", handler::editorFindings)
+            POST("/check", handler::runEditorChecks)
         }
     }
 }

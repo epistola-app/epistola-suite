@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -11,17 +15,14 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
-import app.epistola.suite.templates.model.Node
-import app.epistola.suite.templates.model.Slot
-import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.model.createDefaultTemplateModel
+import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
-import app.epistola.template.model.ThemeRef
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * Title given to the default variant a new template is created with. Mirrors the title the
@@ -47,7 +48,7 @@ data class CreateDocumentTemplate(
 @Component
 class CreateDocumentTemplateHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
+    private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
     override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
@@ -112,35 +113,13 @@ class CreateDocumentTemplateHandler(
                     .execute()
 
                 // 4. Create draft version with default TemplateDocument (version ID = 1)
-                val rootId = "root-${variantId.value}"
-                val slotId = "slot-${variantId.value}"
-                val templateModel = TemplateDocument(
-                    modelVersion = 1,
-                    root = rootId,
-                    nodes = mapOf(
-                        rootId to Node(
-                            id = rootId,
-                            type = "root",
-                            slots = listOf(slotId),
-                        ),
-                    ),
-                    slots = mapOf(
-                        slotId to Slot(
-                            id = slotId,
-                            nodeId = rootId,
-                            name = "children",
-                            children = emptyList(),
-                        ),
-                    ),
-                    themeRef = ThemeRef.Inherit,
-                )
-                val templateModelJson = objectMapper.writeValueAsString(templateModel)
+                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variantId))
                 val versionId = VersionKey.of(1) // First version is always 1
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW(), :createdBy)
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
                 """,
                 )
                     .bind("id", versionId)
@@ -148,8 +127,9 @@ class CreateDocumentTemplateHandler(
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", command.id.key)
                     .bind("variantId", variantId)
-                    .bind("templateModel", templateModelJson)
+                    .bind("templateModel", prepared.templateModelJson)
                     .bind("contractVersion", contractVersionId)
+                    .bind("referencedPaths", prepared.referencedPathsJson)
                     .bind("createdBy", auditUser)
                     .execute()
 

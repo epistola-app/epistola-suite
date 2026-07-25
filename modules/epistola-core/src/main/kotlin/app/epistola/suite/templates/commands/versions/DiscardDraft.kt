@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.templates.commands.versions
 
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -40,6 +44,21 @@ class DiscardDraftHandler(
         val variantId = command.variantId
         requireCatalogEditable(variantId.tenantKey, variantId.catalogKey)
         jdbi.useTransaction<Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT 1 FROM template_variants
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
+                  AND template_key = :templateId AND id = :variantId
+                FOR UPDATE
+                """,
+            )
+                .bind("tenantId", variantId.tenantKey)
+                .bind("catalogKey", variantId.catalogKey)
+                .bind("templateId", variantId.templateKey)
+                .bind("variantId", variantId.key)
+                .mapTo(Int::class.java)
+                .findOne()
+
             val hasPublished = handle.createQuery(
                 """
                 SELECT 1 FROM template_versions

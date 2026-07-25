@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.CatalogId
@@ -12,6 +16,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
@@ -188,6 +193,89 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }.then { _, pdfBytes ->
                 assertThat(pdfBytes).isNotEmpty()
                 assertThat(pdfBytes[0]).isEqualTo(0x25.toByte()) // %PDF
+            }
+        }
+
+        @Test
+        fun `preview rejects an invalid live template model before rendering`() = scenario {
+            given {
+                val tenant = tenant("Invalid Live Preview Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "Invalid Live Preview")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+                val templateModel = TestTemplateBuilder.buildMinimal(name = "Stored Model")
+                val version = version(compositeVariantId, templateModel)
+                DocumentSetup(tenant, template, variant, version)
+            }.whenever { setup ->
+                setup
+            }.then { setup, _ ->
+                val invalidLiveModel = TestTemplateBuilder.buildMinimal(name = "Invalid Live Model")
+                    .copy(root = "missing-root")
+
+                assertThatThrownBy {
+                    query(
+                        PreviewVariant(
+                            tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
+                            templateId = setup.template.id,
+                            variantId = setup.variant.id,
+                            data = emptyData(),
+                            templateModel = invalidLiveModel,
+                        ),
+                    )
+                }
+                    .isInstanceOfSatisfying(ValidationException::class.java) {
+                        assertThat(it.field).isEqualTo("templateModel.root")
+                    }
+            }
+        }
+
+        @Test
+        fun `preview rejects an invalid persisted model before rendering`() = scenario {
+            given {
+                val tenant = tenant("Invalid Persisted Preview Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "Invalid Persisted Preview")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+                val templateModel = TestTemplateBuilder.buildMinimal(name = "Persisted Model")
+                val version = version(compositeVariantId, templateModel)
+                DocumentSetup(tenant, template, variant, version)
+            }.whenever { setup ->
+                jdbi.withHandle<Int, Exception> { handle ->
+                    handle.createUpdate(
+                        """
+                        UPDATE template_versions
+                        SET template_model = jsonb_set(template_model, '{root}', '"missing-root"'::jsonb)
+                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                          AND template_key = :templateKey AND variant_key = :variantKey
+                        """,
+                    )
+                        .bind("tenantKey", setup.tenant.id)
+                        .bind("catalogKey", CatalogKey.DEFAULT)
+                        .bind("templateKey", setup.template.id)
+                        .bind("variantKey", setup.variant.id)
+                        .execute()
+                }
+                setup
+            }.then { setup, _ ->
+                assertThatThrownBy {
+                    query(
+                        PreviewVariant(
+                            tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
+                            templateId = setup.template.id,
+                            variantId = setup.variant.id,
+                            data = emptyData(),
+                        ),
+                    )
+                }
+                    .isInstanceOfSatisfying(ValidationException::class.java) {
+                        assertThat(it.field).isEqualTo("templateModel.root")
+                    }
             }
         }
 

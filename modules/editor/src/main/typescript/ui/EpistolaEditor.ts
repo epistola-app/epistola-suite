@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
@@ -15,7 +19,7 @@ import {
   bindingErrorsForSaveState,
 } from '../components/stencil/binding-errors.js';
 import type { ComponentRegistry, ComponentDefinition } from '../engine/registry.js';
-import type { EditorFeatureFlags } from '../engine/feature-flags.js';
+import type { EditorFeatures } from '../engine/feature-flags.js';
 import type { FetchPreviewFn } from './preview-service.js';
 import { SaveService, type SaveState, type SaveFn } from './save-service.js';
 import { EpistolaResizeHandle } from './EpistolaResizeHandle.js';
@@ -23,6 +27,7 @@ import type {
   EditorPlugin,
   PluginContext,
   PluginDisposeFn,
+  SelectNodeOptions,
   SidebarTabContribution,
   ToolbarAction,
 } from '../plugins/types.js';
@@ -209,7 +214,7 @@ export class EpistolaEditor extends LitElement {
     options?: {
       dataModel?: object;
       dataExamples?: object[];
-      featureFlags?: EditorFeatureFlags;
+      features?: EditorFeatures;
       locale?: string;
     },
   ): void {
@@ -224,7 +229,7 @@ export class EpistolaEditor extends LitElement {
     this._engine = new EditorEngine(doc, reg, {
       dataModel: options?.dataModel,
       dataExamples: options?.dataExamples,
-      featureFlags: options?.featureFlags,
+      features: options?.features,
       locale: options?.locale,
     });
     this._doc = this._engine.doc;
@@ -263,6 +268,8 @@ export class EpistolaEditor extends LitElement {
         engine: this._engine,
         doc: this._doc,
         selectedNodeId: this._selectedNodeId,
+        selectNode: (nodeId, options) => this._selectNodeForPlugin(nodeId, options),
+        saveDraftNow: () => this._saveDraftNow(),
       };
       this._pluginDisposers = this.plugins.map((p) => p.init(context));
     }
@@ -292,7 +299,25 @@ export class EpistolaEditor extends LitElement {
       engine: this._engine,
       doc: this._doc,
       selectedNodeId: this._selectedNodeId,
+      selectNode: (nodeId, options) => this._selectNodeForPlugin(nodeId, options),
+      saveDraftNow: () => this._saveDraftNow(),
     };
+  }
+
+  private async _saveDraftNow(): Promise<void> {
+    if (!this._saveService || !this._doc) return;
+    await this._saveService.saveNow(this._doc);
+  }
+
+  private _selectNodeForPlugin(nodeId: NodeId | null, options: SelectNodeOptions = {}): void {
+    if (!this._engine) return;
+    if (options.keepCurrentSidebarTabOpen && nodeId !== this._selectedNodeId) {
+      this.querySelector<EpistolaSidebar>('epistola-sidebar')?.preserveActiveTabForNextSelection();
+    }
+    this._engine.selectNode(nodeId);
+    if (options.revealInCanvas) {
+      this._revealCanvasBlock(nodeId);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -573,6 +598,19 @@ export class EpistolaEditor extends LitElement {
     schedule(() => {
       const block = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
       block?.focus({ preventScroll: true });
+    });
+  }
+
+  private _revealCanvasBlock(nodeId: NodeId | null): void {
+    if (!nodeId || typeof this.querySelector !== 'function') return;
+    const schedule =
+      globalThis.requestAnimationFrame ??
+      ((callback: FrameRequestCallback) => setTimeout(callback, 0));
+
+    schedule(() => {
+      const block = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
+      block?.focus({ preventScroll: false });
+      block?.scrollIntoView({ block: 'center', inline: 'nearest' });
     });
   }
 

@@ -1,0 +1,69 @@
+# Dependency directories
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build outputs and generated artifacts
+build/
+dist/
+out/
+target/
+.gradle/
+.kotlin/
+coverage/
+**/build/
+**/dist/
+**/out/
+**/target/
+
+# IDE, editor, and assistant-local state
+.idea/
+.vscode/
+.run/
+.claude/worktrees/
+.codex/
+.agents/
+
+# Local environment, credentials, and runtime state
+.env
+.env.*
+*.local
+.local/
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+*.crt
+*.cert
+
+# Logs, reports, and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+.DS_Store
+logs/
+tmp/
+temp/
+
+# Large binary artifacts
+*.jar
+*.war
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.7z
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Generated API/client outputs are rebuilt from source specs
+modules/rest-api/build/

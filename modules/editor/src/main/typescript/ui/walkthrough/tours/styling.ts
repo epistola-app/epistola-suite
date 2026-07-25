@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import type { Tour } from '../registry.js';
 import { hasAnyBlock, selectFirstBlock, showDocumentInspector } from './helpers.js';
 
