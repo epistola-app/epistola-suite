@@ -56,7 +56,7 @@ describe('building chapter', () => {
     const steps = buildingTour.steps(ctx);
     expect(steps.map((s) => s.target)).toEqual([
       tourHook(TOUR_HOOKS.tabBlocks),
-      '[data-testid="palette-item-text"]',
+      tourHook(TOUR_HOOKS.paletteItemText),
       tourHook(TOUR_HOOKS.tabStructure),
     ]);
     for (const step of steps) expect(typeof step.before).toBe('function');
@@ -116,7 +116,7 @@ describe('styling chapter', () => {
     expect(stylingTour.steps(ctx).map((s) => s.target)).toEqual([
       tourHook(TOUR_HOOKS.pageSettings),
       tourHook(TOUR_HOOKS.documentStyles),
-      '[data-testid="canvas-block"]',
+      tourHook(TOUR_HOOKS.canvasBlock),
       tourHook(TOUR_HOOKS.stylePreset),
       tourHook(TOUR_HOOKS.blockStyles),
     ]);

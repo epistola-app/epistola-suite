@@ -37,7 +37,7 @@ export const stylingTour: Tour = {
       // Target the block itself (present without a selection); selecting it here
       // populates the block Inspector that the preset / override steps point at.
       before: (ctx) => selectFirstBlock(ctx),
-      target: '[data-testid="canvas-block"]',
+      target: tourHook(TOUR_HOOKS.canvasBlock),
       title: 'Now a single block',
       body: 'Select any block and the Inspector switches to <strong>its</strong> style, layered on top of the document defaults.',
       side: 'left',

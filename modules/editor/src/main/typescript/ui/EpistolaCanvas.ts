@@ -414,7 +414,7 @@ export class EpistolaCanvas extends LitElement {
       <div
         class="canvas-block ${isSelected ? 'selected' : ''} ${collapsed ? 'collapsed' : ''}"
         data-testid="canvas-block"
-        data-tour=${isSelected ? TOUR_HOOKS.selectedBlock : nothing}
+        data-tour="${TOUR_HOOKS.canvasBlock}${isSelected ? ` ${TOUR_HOOKS.selectedBlock}` : ''}"
         data-node-id=${nodeId}
         data-block-label=${label}
         tabindex=${isInLockedSlot ? nothing : '0'}

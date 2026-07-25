@@ -1,8 +1,10 @@
+// @vitest-environment happy-dom
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { TOUR_HOOKS } from './tour-hooks.js';
+import { createDefaultRegistry } from '../engine/registry.js';
 
 /**
  * Stamping guard for the tour-hook vocabulary: components import {@link TOUR_HOOKS}
@@ -39,24 +41,37 @@ const sources = walk(SRC_ROOT)
   })
   .map((p) => ({ path: relative(SRC_ROOT, p), text: readFileSync(p, 'utf8') }));
 
+/**
+ * Dynamic hook families stamped as `data-tour=${`<family>-${…}`}`, where the member
+ * ids are not literal in the producer file. Each family declares how to prove the
+ * id half: the sidebar declares its tab ids literally; the palette's items are the
+ * registered block types, so the id is checked against the real component registry.
+ */
+const FAMILIES: Record<string, (id: string, fileText: string) => boolean> = {
+  tab: (id, fileText) => fileText.includes(`id: '${id}'`),
+  'palette-item': (id) => createDefaultRegistry().get(id) !== undefined,
+};
+
 /** Whether some component stamps `data-tour` with this hook. */
 function stampedBy(key: string, hook: string): string | undefined {
-  // A binding referencing the table (`data-tour=${TOUR_HOOKS.x}`, including inside
-  // a ternary), or a plain literal attribute (`data-tour="x"`).
-  const byKey = new RegExp(`data-tour=\\$\\{[^}]*TOUR_HOOKS\\.${key}\\b`);
-  const literal = `data-tour="${hook}"`;
-  const direct = sources.find((s) => byKey.test(s.text) || s.text.includes(literal));
+  // A binding referencing the table on a `data-tour=` line — covers plain
+  // (`data-tour=${TOUR_HOOKS.x}`), ternary, and composite word-list bindings
+  // (`data-tour="${TOUR_HOOKS.a}${cond ? \` ${TOUR_HOOKS.b}\` : ''}"`).
+  const byKey = new RegExp(`data-tour=[^\\n]*TOUR_HOOKS\\.${key}\\b`);
+  const direct = sources.find((s) => byKey.test(s.text));
   if (direct) return direct.path;
 
-  // Dynamic families, e.g. the sidebar's data-tour=${`tab-${tab.id}`}: accept a
-  // file that builds the family prefix AND declares the id (`id: 'blocks'`).
-  const dash = hook.indexOf('-');
-  if (dash < 0) return undefined;
-  const family = hook.slice(0, dash);
-  const id = hook.slice(dash + 1);
-  const familyProducer = 'data-tour=${`' + family + '-${';
-  const idDeclaration = new RegExp(`id: '${id}'`);
-  return sources.find((s) => s.text.includes(familyProducer) && idDeclaration.test(s.text))?.path;
+  // Dynamic families: the file must build the family's `data-tour` prefix, and
+  // the family's own evidence must vouch for the id.
+  for (const [family, hasId] of Object.entries(FAMILIES)) {
+    const prefix = family + '-';
+    if (!hook.startsWith(prefix)) continue;
+    const id = hook.slice(prefix.length);
+    const producer = 'data-tour=${`' + family + '-${';
+    const file = sources.find((s) => s.text.includes(producer) && hasId(id, s.text));
+    if (file) return file.path;
+  }
+  return undefined;
 }
 
 describe('TOUR_HOOKS', () => {

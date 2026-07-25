@@ -28,7 +28,7 @@ export const buildingTour: Tour = {
     },
     {
       before: (ctx) => clickSidebarTab(ctx, 'blocks'),
-      target: '[data-testid="palette-item-text"]',
+      target: tourHook(TOUR_HOOKS.paletteItemText),
       title: 'Adding a block',
       body: 'Click any block — like <strong>Text</strong> — to drop it onto the page, or drag it onto the canvas. Undo anything with Ctrl+Z.',
       side: 'right',

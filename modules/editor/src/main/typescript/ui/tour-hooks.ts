@@ -2,11 +2,14 @@
  * The stable `data-tour` anchor vocabulary, shared between the editor components
  * (which stamp the attributes) and the walkthrough chapters (which spotlight them).
  *
- * A tour target must be one of: a `data-tour` hook from this table, a custom-element
- * tag (`epistola-canvas`), or a `data-testid` (both are stable vocabularies in their
- * own right) — never a component's internal class names or ids. Those rename freely,
- * and `skipMissingElement` turns a renamed target into a silently dropped step with
- * no warning and no failing test.
+ * A tour target is either a hook from this table or a registered custom element —
+ * see {@link TourTarget}; a component's internal class names or ids do not
+ * typecheck. Those rename freely, and `skipMissingElement` would turn a renamed
+ * target into a silently dropped step with no warning and no failing test.
+ *
+ * `data-tour` holds a **space-separated word list** (like `class`), matched with
+ * `[data-tour~="…"]` — so one element can carry several hooks (the canvas block
+ * is always `canvas-block` and additionally `selected-block` while selected).
  *
  * Components import this table and stamp `data-tour=${TOUR_HOOKS.x}` bindings, so
  * a hook rename is atomic and compile-checked across producers and tours. What the
@@ -42,13 +45,35 @@ export const TOUR_HOOKS = {
   blockStyles: 'block-styles',
   /** Node inspector: the Delete Block section. */
   blockDelete: 'block-delete',
-  /** The currently selected canvas block (stamped only while selected). */
+  /** Any block on the canvas (every block carries this hook). */
+  canvasBlock: 'canvas-block',
+  /** The currently selected canvas block (added alongside `canvas-block`). */
   selectedBlock: 'selected-block',
+  /** The Text item in the block palette (`palette-item-<type>` family). */
+  paletteItemText: 'palette-item-text',
 } as const;
 
 export type TourHook = (typeof TOUR_HOOKS)[keyof typeof TOUR_HOOKS];
 
-/** CSS selector for a tour hook. */
-export function tourHook(hook: TourHook): string {
-  return `[data-tour="${hook}"]`;
+/**
+ * A *registered* epistola custom element, derived from the tag-name map — every
+ * component's `declare global { interface HTMLElementTagNameMap … }` entry feeds
+ * this automatically. A typo'd or unregistered tag is a compile error, and a new
+ * component becomes targetable the moment it registers.
+ */
+export type EpistolaElementTag = keyof HTMLElementTagNameMap & `epistola-${string}`;
+
+/**
+ * The closed grammar of tour step targets. Everything a step may spotlight is
+ * either a {@link TOUR_HOOKS} selector (build it with {@link tourHook}) or a
+ * registered epistola element — a component's internal class names, ids, or
+ * ad-hoc attribute selectors simply do not typecheck, which is the "never
+ * target internals" rule enforced by the compiler instead of by review. Every
+ * arm is verified: hooks by the stamping test, elements by the tag-name map.
+ */
+export type TourTarget = `[data-tour~="${TourHook}"]` | EpistolaElementTag;
+
+/** CSS selector for a tour hook (word-list match — see the module doc). */
+export function tourHook(hook: TourHook): `[data-tour~="${TourHook}"]` {
+  return `[data-tour~="${hook}"]`;
 }
