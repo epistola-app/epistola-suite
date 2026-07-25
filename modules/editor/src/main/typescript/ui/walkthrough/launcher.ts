@@ -20,6 +20,7 @@ import {
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
 import { stopTour } from './session.js';
 import { injectStyleOnce } from './styles.js';
+import launcherCss from './launcher.css?inline';
 import { TOUR_HOOKS } from '../tour-hooks.js';
 
 interface ChapterView {
@@ -36,44 +37,7 @@ interface ChapterView {
 
 const STYLE_ID = 'ep-wt-launcher-css';
 
-const CSS = `
-.ep-wt { position: relative; display: inline-flex; }
-.ep-wt-popover {
-  position: absolute; top: calc(100% + var(--ep-space-2)); right: 0; z-index: 50;
-  width: 18rem; max-width: 80vw; padding: var(--ep-space-1);
-  background: var(--ep-white); color: var(--ep-stone-800);
-  border: 1px solid var(--ep-stone-200); border-radius: var(--ep-radius-md);
-  box-shadow: var(--ep-shadow-lg);
-  font-family: var(--ep-font-sans);
-  animation: ep-wt-in 140ms ease-out;
-}
-@keyframes ep-wt-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-.ep-wt-title {
-  font-size: var(--ep-text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--ep-stone-500); padding: var(--ep-space-1-5) var(--ep-space-2) var(--ep-space-1);
-}
-.ep-wt-list { list-style: none; margin: 0; padding: 0; & > li { margin-top: 4px; } }
-.ep-wt-item {
-  display: flex; gap: var(--ep-space-2); align-items: flex-start; width: 100%;
-  text-align: left; padding: var(--ep-space-2); border: 0; border-radius: var(--ep-radius-sm);
-  background: transparent; color: inherit; cursor: pointer;
-  transition: background-color var(--ep-transition-fast);
-}
-.ep-wt-item:hover { background: var(--ep-stone-100); }
-.ep-wt-item:focus-visible { outline: none; box-shadow: var(--ep-ring); }
-.ep-wt-item.is-current { background: var(--ep-terracotta-50); }
-.ep-wt-item[aria-disabled='true'] { cursor: default; opacity: 0.65; }
-.ep-wt-item[aria-disabled='true']:hover { background: transparent; }
-.ep-wt-mark {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
-  width: 1.25rem; height: 1.4rem; color: var(--ep-stone-400);
-}
-.ep-wt-mark.is-done { color: var(--ep-success); }
-.ep-wt-item.is-current .ep-wt-mark { color: var(--ep-primary-strong); }
-.ep-wt-text { display: flex; flex-direction: column; gap: var(--ep-space-0-5); }
-.ep-wt-name { font-weight: 500; color: var(--ep-stone-800); }
-.ep-wt-summary { font-size: var(--ep-text-xs); color: var(--ep-stone-600); line-height: 1.4; }
-`;
+// Loaded as a raw string (`?inline`) and injected once - see launcher.css.
 
 @customElement('epistola-walkthrough-launcher')
 export class WalkthroughLauncher extends LitElement {
@@ -101,7 +65,7 @@ export class WalkthroughLauncher extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    injectStyleOnce(STYLE_ID, CSS);
+    injectStyleOnce(STYLE_ID, launcherCss);
     document.addEventListener('pointerdown', this._onDocPointerDown);
     document.addEventListener('keydown', this._onKeydown);
     // Refresh the ✓/▶ marks whenever completion changes, even while the menu is open.
