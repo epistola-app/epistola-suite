@@ -101,7 +101,12 @@ class PublishVersionHandler(
             // 3. Auto-publish compatible contract drafts, block on breaking changes
             if (version.contractVersion != null) {
                 val contractStatus = handle.createQuery(
-                    "SELECT status FROM contract_versions WHERE tenant_key = :tk AND catalog_key = :ck AND template_key = :tpk AND id = :cv",
+                    """
+                    SELECT status FROM contract_versions
+                    WHERE tenant_key = :tk AND catalog_key = :ck
+                      AND template_key = :tpk AND id = :cv
+                    FOR UPDATE
+                    """,
                 )
                     .bind("tk", command.versionId.tenantKey)
                     .bind("ck", command.versionId.catalogKey)
