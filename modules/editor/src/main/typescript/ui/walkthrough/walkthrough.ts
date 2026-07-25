@@ -26,7 +26,7 @@ import {
   type TourContext,
 } from './registry.js';
 import { hasSeenIntro, isChapterComplete, markChapterComplete, markIntroSeen } from './progress.js';
-import { getActiveDriver, setActiveDriver } from './session.js';
+import { clearSession, trackSession } from './session.js';
 import { injectStyleOnce } from './styles.js';
 import { TOUR_HOOKS, tourHook } from './hooks.js';
 
@@ -191,11 +191,11 @@ async function runTour(ctx: TourContext, tour: Tour): Promise<void> {
       if (next) void runTour(ctx, next);
     },
     onDestroyed: () => {
-      if (getActiveDriver() === d) setActiveDriver(null);
+      clearSession(d);
     },
     steps,
   });
-  setActiveDriver(d);
+  trackSession(host, d);
   // Establish initial state (select a block, open the document inspector, …) BEFORE
   // driving, so step 0's target exists when driver resolves it. waitForElement bridges
   // the async re-render this triggers.
@@ -236,7 +236,7 @@ export async function startIntro(ctx: TourContext): Promise<void> {
     allowClose: true,
     // Fires whether the user starts the tour or dismisses — either way, don't nag again.
     onDestroyed: () => {
-      if (getActiveDriver() === d) setActiveDriver(null);
+      clearSession(d);
       markIntroSeen();
     },
     steps: [
@@ -259,6 +259,6 @@ export async function startIntro(ctx: TourContext): Promise<void> {
       },
     ],
   });
-  setActiveDriver(d);
+  trackSession(host, d);
   d.drive();
 }

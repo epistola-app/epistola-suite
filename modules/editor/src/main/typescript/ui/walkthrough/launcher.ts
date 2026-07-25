@@ -18,7 +18,7 @@ import {
   type TourContext,
 } from './registry.js';
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
-import { stopActiveTour } from './session.js';
+import { stopTour } from './session.js';
 import { injectStyleOnce } from './styles.js';
 
 interface ChapterView {
@@ -110,9 +110,12 @@ export class WalkthroughLauncher extends LitElement {
     document.removeEventListener('keydown', this._onKeydown);
     this._unsubscribeProgress?.();
     this._unsubscribeProgress = undefined;
-    // Tear down any live tour so a DOM/HTMX swap can't strand the driver overlay
-    // (which leaves the whole page mouse-dead until Escape/reload).
-    stopActiveTour();
+    // Tear down this editor's live tour so a DOM/HTMX swap can't strand the driver
+    // overlay (which leaves the whole page mouse-dead until Escape/reload). Scoped
+    // to our host so unmounting one editor never kills a tour another mounted
+    // editor is running; if the host can't be resolved anymore, stop any tour —
+    // better a dismissed tour elsewhere than a stranded overlay here.
+    stopTour(this._hostEl ?? undefined);
     super.disconnectedCallback();
   }
 
@@ -133,6 +136,11 @@ export class WalkthroughLauncher extends LitElement {
         })
         .catch((e) => console.warn('Walkthrough intro failed to start:', e));
     });
+  }
+
+  /** The editor root this launcher belongs to (resolvable even without an engine). */
+  private get _hostEl(): HTMLElement | null {
+    return this.closest('epistola-editor');
   }
 
   /**
@@ -166,12 +174,12 @@ export class WalkthroughLauncher extends LitElement {
   }
 
   private readonly _toggle = (): void => {
-    // Tear down any tracked tour first. If this button is clickable at all, no live
-    // overlay is covering it — so either nothing is running, or `activeDriver` is stale
-    // (a chapter that self-destroyed without firing onDestroyed). Clearing it here keeps
-    // the Guide button from dead-ending; a genuinely-active tour spotlighting this very
-    // button (the intro) is simply dismissed, which is the right outcome.
-    stopActiveTour();
+    // Tear down this editor's tracked tour first. If this button is clickable at all,
+    // no live overlay is covering it — so either nothing is running, or the session is
+    // stale (a chapter that self-destroyed without firing onDestroyed). Clearing it here
+    // keeps the Guide button from dead-ending; a genuinely-active tour spotlighting this
+    // very button (the intro) is simply dismissed, which is the right outcome.
+    stopTour(this._hostEl ?? undefined);
     this._open = !this._open;
   };
 
@@ -182,8 +190,11 @@ export class WalkthroughLauncher extends LitElement {
     // Locked chapters can't run here (belt-and-suspenders — the button is disabled too).
     const tour = tourById(id);
     if (tour && !isTourAvailable(tour, ctx)) return;
-    // Never stack drivers: tear down anything still tracked before starting.
-    stopActiveTour();
+    // Never stack drivers: tear down anything still tracked — on ANY editor, since
+    // driver.js runs one overlay per page — before starting. (trackSession enforces
+    // the same exclusivity, but stopping here clears the old overlay immediately on
+    // click rather than after the runner chunk loads.)
+    stopTour();
     // Pulls in the runner (and driver.js) only now, when a chapter actually runs.
     // The click handler doesn't await this, so swallow failures here: log, and
     // reopen the menu so the user can retry rather than being left with nothing.
