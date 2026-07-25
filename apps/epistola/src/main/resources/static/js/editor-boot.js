@@ -194,11 +194,22 @@ async function mount(container) {
             '/versions',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/problem+json',
+              'X-XSRF-TOKEN': window.getCsrfToken(),
+            },
             body: '{}',
           },
         );
-        if (!resp.ok) throw new Error('Failed to start editing');
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          const message =
+            err.type === 'https://epistola.app/errors/catalog-read-only'
+              ? `Stencil '${ref.stencilId}' belongs to read-only catalog '${ref.catalogKey}'. Detach it to customize it in this template.`
+              : err.detail || err.message || err.error || 'Failed to start editing';
+          throw new Error(message);
+        }
         const data = await resp.json();
         return { draftVersion: data.version };
       },
