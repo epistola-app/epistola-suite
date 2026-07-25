@@ -7,7 +7,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
@@ -15,7 +15,13 @@ import java.io.ByteArrayOutputStream
 
 @DisableCachingByDefault(because = "The task inspects git history and working-tree state.")
 abstract class CheckMigrationVersionsTask : DefaultTask() {
-    @get:InputDirectory
+    // Internal, not @InputDirectory: the repository root contains every other
+    // task's outputs (build/, buildSrc/build/, ...), so tracking it as an input
+    // makes aggregate graphs (root `build`/`check`) fail Gradle's
+    // implicit-dependency validation against effectively every task in the
+    // build. The task is @DisableCachingByDefault and shells out to git, so
+    // input fingerprinting of the tree buys nothing anyway.
+    @get:Internal
     abstract val repositoryDir: DirectoryProperty
 
     @get:Optional
