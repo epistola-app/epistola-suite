@@ -60,6 +60,27 @@ class TemplatePathExtractorTest {
     }
 
     @Nested
+    inner class MalformedGraph {
+        @Test
+        fun `cycle guard stops traversal without overflowing the stack`() {
+            val document = TemplateDocument(
+                root = "root",
+                nodes = mapOf(
+                    "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                    "container" to Node(id = "container", type = "container", slots = listOf("container-slot")),
+                ),
+                slots = mapOf(
+                    "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("container")),
+                    "container-slot" to Slot(id = "container-slot", nodeId = "container", name = "children", children = listOf("root")),
+                ),
+                themeRef = ThemeRef.Inherit,
+            )
+
+            assertThat(extractor.extractReferencedPaths(document)).isEmpty()
+        }
+    }
+
+    @Nested
     inner class TextExpressions {
         @Test
         fun `extracts inline expression from ProseMirror content`() {

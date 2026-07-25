@@ -45,12 +45,12 @@ class TemplatePathExtractor {
         document: TemplateDocument,
         scopeStack: List<LoopScope>,
         paths: MutableSet<String>,
-        visiting: MutableSet<String>,
+        activePath: MutableSet<String>,
     ) {
         // Path extraction is best-effort: malformed cyclic graphs are rejected
         // by TemplateDocumentGraphValidator, but this guard prevents an old or
         // imported invalid document from recursing until StackOverflowError.
-        if (!visiting.add(node.id)) return
+        if (!activePath.add(node.id)) return
         val props = node.props ?: emptyMap()
         val updatedScope = when (node.type) {
             "loop", "datalist", "datatable" -> {
@@ -84,10 +84,10 @@ class TemplatePathExtractor {
             val slot = document.slots[slotId] ?: continue
             for (childId in slot.children) {
                 val childNode = document.nodes[childId] ?: continue
-                visitNode(childNode, document, updatedScope, paths, visiting)
+                visitNode(childNode, document, updatedScope, paths, activePath)
             }
         }
-        visiting.remove(node.id)
+        activePath.remove(node.id)
     }
 
     /**

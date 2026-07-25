@@ -18,7 +18,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.validation.JsonSchemaValidator
-import app.epistola.suite.templates.validation.TemplateDocumentGraphValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
@@ -47,7 +47,7 @@ class GenerationService(
     private val schemaValidator: JsonSchemaValidator,
     private val themeStyleResolver: ThemeStyleResolver,
     private val pdfRenderer: DirectPdfRenderer,
-    private val graphValidator: TemplateDocumentGraphValidator,
+    private val templateDocumentValidator: TemplateDocumentValidator,
 ) {
     /**
      * Renders a PDF from a template document and data context.
@@ -85,7 +85,7 @@ class GenerationService(
         culture: RenderCulture = RenderCulture.DEFAULT,
         watermarkText: String? = null,
     ) {
-        graphValidator.validateTemplateDocument(templateModel)
+        templateDocumentValidator.validateTemplateGraphForRendering(templateModel)
 
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -142,7 +142,7 @@ class GenerationService(
         culture: RenderCulture = RenderCulture.DEFAULT,
         watermarkText: String? = null,
     ) {
-        graphValidator.validateTemplateDocument(templateModel)
+        templateDocumentValidator.validateTemplateGraphForRendering(templateModel)
 
         pdfRenderer.render(
             document = templateModel,
@@ -179,7 +179,7 @@ class GenerationService(
         outputStream: OutputStream,
         metadata: PdfMetadata = PdfMetadata(),
     ) {
-        graphValidator.validateTemplateDocument(templateModel)
+        templateDocumentValidator.validateTemplateGraphForRendering(templateModel)
         pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream, metadata = metadata, clock = EpistolaClock.current())
     }
 

@@ -128,12 +128,12 @@ class TemplateDocumentGraphValidatorTest {
     }
 
     @Test
-    fun `template graph errors identify the template model request field`() {
+    fun `graph errors use paths relative to the document`() {
         val exception = org.junit.jupiter.api.assertThrows<ValidationException> {
-            validator.validateTemplateDocument(doc(root = "missing"))
+            validator.validate(doc(root = "missing"))
         }
 
-        assertThat(exception.field).isEqualTo("templateModel.root")
+        assertThat(exception.field).isEqualTo("root")
     }
 
     @Test

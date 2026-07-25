@@ -37,7 +37,7 @@ class NodeParameterBindingValidator(
      * snapshot) — those flow through with whatever schema-shaped bindings were present.
      */
     @Suppress("UNCHECKED_CAST")
-    fun validate(doc: TemplateDocument, fieldPrefix: String = "content") {
+    fun validate(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) as? Map<*, *>
 
@@ -57,7 +57,7 @@ class NodeParameterBindingValidator(
                     jsonata(expr)
                 } catch (e: Exception) {
                     throw ValidationException(
-                        "$fieldPrefix.${node.type}.props.parameterBindings.$key",
+                        "nodes.${node.id}.props.parameterBindings.$key",
                         "parameter binding '$key' expression is invalid — ${e.message}",
                         ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID,
                     )
@@ -75,7 +75,7 @@ class NodeParameterBindingValidator(
                 val key = rawKey as? String ?: return@forEach
                 if (key !in declaredNames) {
                     throw ValidationException(
-                        "$fieldPrefix.${node.type}.props.parameterBindings.$key",
+                        "nodes.${node.id}.props.parameterBindings.$key",
                         "parameter '$key' is not declared in the node's schema",
                         ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN,
                     )
@@ -93,7 +93,7 @@ class NodeParameterBindingValidator(
                 val hasDefault = prop?.containsKey("default") == true
                 if (!hasDefault) {
                     throw ValidationException(
-                        "$fieldPrefix.${node.type}.props.parameterBindings.$name",
+                        "nodes.${node.id}.props.parameterBindings.$name",
                         "required parameter '$name' has no binding and no default",
                         ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED,
                     )
