@@ -3,10 +3,14 @@
 import type { EditorEngine } from '../../../engine/EditorEngine.js';
 import type { TourContext } from '../registry.js';
 import { PAGE_FOOTER_TYPE } from '../../../engine/registry.js';
+import { tourHook } from '../hooks.js';
 
-/** Switch the sidebar to a tab by id (`blocks` | `structure` | `inspector`). No-op if absent. */
-export function clickSidebarTab({ host }: TourContext, tabId: string): void {
-  const el = host.querySelector(`[data-tour="tab-${tabId}"]`);
+/** Switch the sidebar to a built-in tab. No-op if absent. */
+export function clickSidebarTab(
+  { host }: TourContext,
+  tabId: 'blocks' | 'structure' | 'inspector',
+): void {
+  const el = host.querySelector(tourHook(`tab-${tabId}`));
   if (el instanceof HTMLElement) el.click();
 }
 

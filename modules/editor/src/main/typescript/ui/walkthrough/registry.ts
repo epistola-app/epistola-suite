@@ -39,8 +39,17 @@ export interface TourStep {
   /**
    * CSS selector for the element to spotlight, resolved at show time by
    * driver.js against the document. The editor mounts in light DOM, so plain
-   * selectors (custom-element tags, `[data-tour="…"]` hooks) find their target.
-   * A step whose target is absent is skipped (`skipMissingElement`).
+   * selectors find their target. Use the {@link TOUR_HOOKS} vocabulary (or a
+   * custom-element tag / `data-testid`) — never a component's internal class
+   * names or ids; `hooks.test.ts` enforces the pairing.
+   *
+   * A step whose target is absent when highlighted is skipped
+   * (`skipMissingElement`). Driver also probes *following* steps' targets to
+   * decide which step is "effectively last": a step whose successors' targets
+   * only appear after its own `before` runs is fine (the runner pins button
+   * labels by index, and click routing re-probes after the re-render), but a
+   * target that never appears silently shortens the chapter — driver then ends
+   * it at the last step that resolves.
    */
   target: string;
   title: string;

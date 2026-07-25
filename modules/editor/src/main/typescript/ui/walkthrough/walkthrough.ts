@@ -28,8 +28,9 @@ import {
 import { hasSeenIntro, isChapterComplete, markChapterComplete, markIntroSeen } from './progress.js';
 import { getActiveDriver, setActiveDriver } from './session.js';
 import { injectStyleOnce } from './styles.js';
+import { TOUR_HOOKS, tourHook } from './hooks.js';
 
-const GUIDE_TRIGGER = '[data-tour="guide-trigger"]';
+const GUIDE_TRIGGER = tourHook(TOUR_HOOKS.guideTrigger);
 
 const STYLE_ID = 'ep-driver-css';
 
@@ -115,7 +116,7 @@ async function runTour(ctx: TourContext, tour: Tour): Promise<void> {
   // has something to point at), but the tour never waits on or listens to the user. The
   // spotlighted element is non-interactive so a stray click reads as "next", not an edit.
   const tourSteps = tour.steps(ctx);
-  const steps: DriveStep[] = tourSteps.map((step) => ({
+  const steps: DriveStep[] = tourSteps.map((step, i) => ({
     element: hostTarget(host, step.target),
     disableActiveInteraction: true,
     onHighlightStarted: step.before ? () => step.before?.(ctx) : undefined,
@@ -124,6 +125,13 @@ async function runTour(ctx: TourContext, tour: Tour): Promise<void> {
       description: step.body,
       side: step.side,
       align: 'start',
+      // Label from OUR step list, not driver's presence probe: driver treats a step
+      // as "effectively last" (and shows the done label) when no *following* target
+      // currently resolves — but it probes before a pivot step's `before` has run,
+      // so a step whose successors it is about to create would wrongly read "Done".
+      // Click routing self-corrects (driver re-probes at click time, after the
+      // re-render); only the label needs pinning.
+      nextBtnText: i < tourSteps.length - 1 ? 'Next' : undefined,
     },
     skipMissingElement: true,
   }));

@@ -123,7 +123,7 @@ export class EpistolaInspector extends LitElement {
         <!-- Delete -->
         ${!presentation?.suppressDeleteSection
           ? html`
-              <div class="inspector-delete-section">
+              <div class="inspector-delete-section" data-tour="block-delete">
                 <button
                   class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-full"
                   @click=${this._handleDelete}
@@ -301,7 +301,7 @@ export class EpistolaInspector extends LitElement {
 
       if (applicablePresets.length > 0) {
         return html`
-          <div class="inspector-section">
+          <div class="inspector-section" data-tour="style-preset">
             <label class="inspector-field-label" for="style-preset-select">Style Preset</label>
             <select
               id="style-preset-select"
@@ -327,7 +327,7 @@ export class EpistolaInspector extends LitElement {
 
     // Fallback: text input for preset name (no theme or no applicable presets)
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-tour="style-preset">
         <label class="inspector-field-label" for="style-preset-input">Style Preset</label>
         <input
           type="text"
@@ -364,7 +364,7 @@ export class EpistolaInspector extends LitElement {
     const inlineStyles = node.styles ?? {};
 
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-tour="block-styles">
         <div class="inspector-section-label">Styles</div>
         ${groups.map((group) => {
           const filteredProps = this._filterProperties(group.properties, applicableStyles);

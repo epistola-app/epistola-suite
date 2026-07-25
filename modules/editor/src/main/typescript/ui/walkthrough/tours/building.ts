@@ -1,4 +1,5 @@
 import type { Tour } from '../registry.js';
+import { TOUR_HOOKS, tourHook } from '../hooks.js';
 import { addStarterBlock, clickSidebarTab } from './helpers.js';
 
 /**
@@ -20,7 +21,7 @@ export const buildingTour: Tour = {
   steps: () => [
     {
       before: (ctx) => clickSidebarTab(ctx, 'blocks'),
-      target: '[data-tour="tab-blocks"]',
+      target: tourHook(TOUR_HOOKS.tabBlocks),
       title: 'The block palette',
       body: 'Every piece of content is a block. The palette groups them into <strong>Content</strong>, <strong>Layout</strong>, <strong>Logic</strong>, and <strong>Page</strong>.',
       side: 'right',
@@ -34,7 +35,7 @@ export const buildingTour: Tour = {
     },
     {
       before: (ctx) => clickSidebarTab(ctx, 'structure'),
-      target: '[data-tour="tab-structure"]',
+      target: tourHook(TOUR_HOOKS.tabStructure),
       title: 'The structure',
       body: 'Everything you add shows up here as a tree — the fastest way to reorder blocks or select nested ones.',
       side: 'right',

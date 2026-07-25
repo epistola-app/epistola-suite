@@ -6,6 +6,7 @@ import {
   createTestDocumentWithChildren,
   testRegistry,
 } from '../../../engine/test-helpers.js';
+import { TOUR_HOOKS, tourHook } from '../hooks.js';
 import type { TourContext } from '../registry.js';
 import { orientationTour } from './orientation.js';
 import { buildingTour } from './building.js';
@@ -35,10 +36,10 @@ describe('orientation chapter', () => {
     const targets = orientationTour.steps(ctx).map((s) => s.target);
     expect(targets).toEqual([
       'epistola-toolbar',
-      '.toolbar-right',
+      tourHook(TOUR_HOOKS.toolbarTools),
       'epistola-sidebar',
       'epistola-canvas',
-      '[data-tour="preview-toggle"]',
+      tourHook(TOUR_HOOKS.previewToggle),
       'epistola-preview',
     ]);
   });
@@ -54,9 +55,9 @@ describe('building chapter', () => {
   it('walks palette → add → structure, switching the tab before each step', () => {
     const steps = buildingTour.steps(ctx);
     expect(steps.map((s) => s.target)).toEqual([
-      '[data-tour="tab-blocks"]',
+      tourHook(TOUR_HOOKS.tabBlocks),
       '[data-testid="palette-item-text"]',
-      '[data-tour="tab-structure"]',
+      tourHook(TOUR_HOOKS.tabStructure),
     ]);
     for (const step of steps) expect(typeof step.before).toBe('function');
   });
@@ -96,9 +97,9 @@ describe('editing chapter', () => {
   it('selects a block in setup and walks content → style → delete', () => {
     expect(typeof editingTour.setup).toBe('function');
     expect(editingTour.steps(ctx).map((s) => s.target)).toEqual([
-      '.canvas-block.selected',
-      '.inspector-style-group',
-      '.inspector-delete-section',
+      tourHook(TOUR_HOOKS.selectedBlock),
+      tourHook(TOUR_HOOKS.blockStyles),
+      tourHook(TOUR_HOOKS.blockDelete),
     ]);
   });
 });
@@ -113,11 +114,11 @@ describe('styling chapter', () => {
   it('opens the document inspector in setup and walks the cascade', () => {
     expect(typeof stylingTour.setup).toBe('function');
     expect(stylingTour.steps(ctx).map((s) => s.target)).toEqual([
-      '[data-tour="page-settings"]',
-      '[data-tour="document-styles"]',
+      tourHook(TOUR_HOOKS.pageSettings),
+      tourHook(TOUR_HOOKS.documentStyles),
       '[data-testid="canvas-block"]',
-      '#style-preset-select',
-      '.inspector-style-group',
+      tourHook(TOUR_HOOKS.stylePreset),
+      tourHook(TOUR_HOOKS.blockStyles),
     ]);
     // The block step selects the block in `before`, setting up the preset/override targets.
     expect(typeof stylingTour.steps(ctx)[2].before).toBe('function');

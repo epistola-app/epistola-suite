@@ -317,7 +317,7 @@ export class EpistolaToolbar extends LitElement {
           ${this.cleanMode ? icon('eye') : icon('sparkles')} Clean
         </button>
 
-        <div class="toolbar-right">
+        <div class="toolbar-right" data-tour="toolbar-tools">
           ${hasExamples ? this._renderExampleSelector(examples) : nothing}
           ${this._walkthroughEnabled
             ? html`<epistola-walkthrough-launcher></epistola-walkthrough-launcher>`

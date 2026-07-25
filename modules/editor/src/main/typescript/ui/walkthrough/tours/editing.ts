@@ -1,4 +1,5 @@
 import type { Tour } from '../registry.js';
+import { TOUR_HOOKS, tourHook } from '../hooks.js';
 import { hasAnyBlock, openPreview, selectFirstBlock } from './helpers.js';
 
 /**
@@ -19,19 +20,19 @@ export const editingTour: Tour = {
   },
   steps: () => [
     {
-      target: '.canvas-block.selected',
+      target: tourHook(TOUR_HOOKS.selectedBlock),
       title: 'Edit its content',
       body: 'A block is selected. <strong>Text</strong> blocks are editable right on the canvas — you click in and type, and it updates live.',
       side: 'bottom',
     },
     {
-      target: '.inspector-style-group',
+      target: tourHook(TOUR_HOOKS.blockStyles),
       title: 'Style it',
       body: 'The Inspector is where a block’s look lives — its <strong>colour</strong>, <strong>font size</strong>, spacing, and more. Changes show on the canvas as you make them.',
       side: 'right',
     },
     {
-      target: '.inspector-delete-section',
+      target: tourHook(TOUR_HOOKS.blockDelete),
       title: 'Remove a block',
       body: 'Done with a block? Remove it here — or select it on the canvas and press Delete.',
       side: 'right',
