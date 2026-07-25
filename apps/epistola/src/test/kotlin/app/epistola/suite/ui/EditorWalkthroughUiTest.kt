@@ -86,7 +86,7 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
     private fun openEditorPage(tenant: Tenant, template: DocumentTemplate, variantId: String) {
         // Suppress the first-run coach-mark so the chapter start is deterministic.
         page.addInitScript(
-            "try { localStorage.setItem('ep:editor-walkthrough:intro-seen', 'true'); } catch (e) {}",
+            "try { localStorage.setItem('ep:walkthrough:template-editor:intro-seen', 'true'); } catch (e) {}",
         )
         val path = "/tenants/${tenant.id}/templates/default/${template.id}/variants/$variantId/editor"
         gotoAndReady(path)

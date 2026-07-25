@@ -10,8 +10,17 @@
  *
  * Writes notify subscribers so any live UI (the launcher's ✓/▶ marks) can refresh
  * instead of relying on an incidental re-render.
+ *
+ * Keys are namespaced `ep:walkthrough:<surface>:<key>`. The surface segment is
+ * there so a future walkthrough on another editor (the theme or data-contract
+ * editor — each mounts its own element and would otherwise share this store)
+ * gets its own progress from day one; stored keys have no migration path, so the
+ * segment must exist before the first release, not be retrofitted. Deliberately
+ * NOT scoped by tenant or user: completion is education about the editor UI
+ * itself — the same UI in every tenant — and the client has no user identity to
+ * scope on; the Guide button always allows a manual (re)play.
  */
-const NS = 'ep:editor-walkthrough:';
+const NS = 'ep:walkthrough:template-editor:';
 const INTRO_KEY = `${NS}intro-seen`;
 
 const listeners = new Set<() => void>();
