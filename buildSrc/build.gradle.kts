@@ -16,3 +16,9 @@ dependencies {
     implementation(libs.ktlint.gradle.plugin)
     implementation(libs.kover.gradle.plugin)
 }
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        allWarningsAsErrors.set(true)
+    }
+}

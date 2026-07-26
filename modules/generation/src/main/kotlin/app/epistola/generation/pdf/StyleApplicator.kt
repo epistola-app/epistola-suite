@@ -253,7 +253,7 @@ object StyleApplicator {
         // Line height: applied as multiplied leading on Paragraph elements.
         // For Div containers, this is a no-op — line height is applied by ProseMirrorConverter
         // on individual paragraphs where it actually takes effect.
-        (styles["lineHeight"] as? Any)?.let { v ->
+        styles["lineHeight"]?.let { v ->
             val value = v.toString().toFloatOrNull()
             if (value != null && element is com.itextpdf.layout.element.Paragraph) {
                 element.setMultipliedLeading(value)
@@ -290,12 +290,11 @@ object StyleApplicator {
         return createBorder(style, width, color)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private val BORDER_SIDE_SETTERS = mapOf<String, (BlockElement<*>, com.itextpdf.layout.borders.Border) -> Unit>(
-        "borderTop" to { el, b -> (el as BlockElement<Any>).setBorderTop(b) },
-        "borderRight" to { el, b -> (el as BlockElement<Any>).setBorderRight(b) },
-        "borderBottom" to { el, b -> (el as BlockElement<Any>).setBorderBottom(b) },
-        "borderLeft" to { el, b -> (el as BlockElement<Any>).setBorderLeft(b) },
+        "borderTop" to { el, b -> el.setBorderTop(b) },
+        "borderRight" to { el, b -> el.setBorderRight(b) },
+        "borderBottom" to { el, b -> el.setBorderBottom(b) },
+        "borderLeft" to { el, b -> el.setBorderLeft(b) },
     )
 
     /**

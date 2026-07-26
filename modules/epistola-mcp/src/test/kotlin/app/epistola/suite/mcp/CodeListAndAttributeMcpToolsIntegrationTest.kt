@@ -118,7 +118,7 @@ class CodeListAndAttributeMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(locale).isNotNull
         assertThat(locale!!.codeListBinding).isNotNull
         assertThat(locale.codeListBinding!!.catalog).isEqualTo("system")
-        assertThat(locale.codeListBinding!!.slug).isEqualTo("bcp-47")
+        assertThat(locale.codeListBinding.slug).isEqualTo("bcp-47")
         assertThat(locale.readOnly).isTrue
     }
 

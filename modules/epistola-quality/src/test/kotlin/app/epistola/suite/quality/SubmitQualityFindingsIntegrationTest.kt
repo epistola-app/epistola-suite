@@ -377,7 +377,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         // Evidence, for the reader.
         assertThat(finding.context.get("length").asInt()).isEqualTo(879)
         // Operational, never shown — and NOT leaked into context.
-        assertThat(finding.metadata.get("checkerVersion").asText()).isEqualTo("2.3")
+        assertThat(finding.metadata.get("checkerVersion").stringValue()).isEqualTo("2.3")
         assertThat(finding.context.has("checkerVersion")).isFalse()
     }
 
@@ -421,7 +421,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
 
         val finding = readBack(subject).findings.single()
         assertThat(finding.messageCode).isEqualTo("quality.new")
-        assertThat(finding.metadata.get("checkerVersion").asText()).isEqualTo("2.0")
+        assertThat(finding.metadata.get("checkerVersion").stringValue()).isEqualTo("2.0")
     }
 
     /** A source that does not localize leaves the code null rather than inventing one. */

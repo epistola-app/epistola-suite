@@ -85,7 +85,7 @@ class StencilVersionMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(v1.version).isEqualTo(1)
         assertThat(v1.status).isEqualTo("draft")
         assertThat(v1.parameterSchema).isNotNull
-        assertThat(v1.parameterSchema!!.get("type").asText()).isEqualTo("object")
+        assertThat(v1.parameterSchema!!.get("type").stringValue()).isEqualTo("object")
         assertThat(v1.parameterSchema.get("properties").has("recipientName")).isTrue
     }
 
@@ -119,7 +119,7 @@ class StencilVersionMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(version!!.version).isEqualTo(1)
         assertThat(version.status).isEqualTo("published")
         assertThat(version.parameterSchema).isNotNull
-        assertThat(version.parameterSchema!!.get("type").asText()).isEqualTo("object")
+        assertThat(version.parameterSchema!!.get("type").stringValue()).isEqualTo("object")
         assertThat(version.content).isNotNull
         assertThat(version.content!!.nodes).isNotEmpty
     }

@@ -113,7 +113,7 @@ class GetLoadTestRequestsHandler(
                     sequenceNumber = rs.getInt("sequence_number"),
                     startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
                     completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
-                    durationMs = rs.getObject("duration_ms", java.lang.Long::class.java)?.toLong(),
+                    durationMs = rs.getObject("duration_ms", Long::class.javaObjectType),
                     success = rs.getBoolean("success"),
                     errorMessage = rs.getString("error_message"),
                     errorType = rs.getString("error_type"),

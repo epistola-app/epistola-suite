@@ -16,8 +16,11 @@ import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePreset
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
+import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+
+private val STYLE_MAP_TYPE = object : TypeReference<Map<String, Any>>() {}
 
 internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
     id = id.value,
@@ -99,7 +102,7 @@ internal fun Map<String, BlockStylePresetDto>?.toDomainPresets(objectMapper: Obj
         it.mapValues { (_, value) ->
             BlockStylePreset(
                 label = value.label,
-                styles = objectMapper.convertValue(value.styles, Map::class.java) as Map<String, Any>,
+                styles = objectMapper.convertValue(value.styles, STYLE_MAP_TYPE),
                 applicableTo = value.applicableTo,
             )
         },

@@ -350,7 +350,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
 
             assertThat(result).isNotNull
-            assertThat(result!!.version.status.name).isEqualTo("PUBLISHED")
+            assertThat(result.version.status.name).isEqualTo("PUBLISHED")
         }
 
         @Test

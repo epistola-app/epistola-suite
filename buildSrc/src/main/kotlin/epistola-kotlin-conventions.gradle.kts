@@ -27,6 +27,7 @@ extra["kotlin.version"] = kotlinVersion
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
+        allWarningsAsErrors.set(true)
         freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
     }
 }

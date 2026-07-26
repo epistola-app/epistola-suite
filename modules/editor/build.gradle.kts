@@ -16,7 +16,7 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 }
 
-val verifyFrontendBuild by tasks.registering {
+val verifyFrontendBuild = tasks.register("verifyFrontendBuild") {
     description = "Verifies that the frontend build output exists"
     group = "verification"
     val distDir = project.file("dist")

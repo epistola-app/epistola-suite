@@ -134,7 +134,7 @@ class GenerateDocumentHandler(
                     .one()
 
                 if (!versionExists) {
-                    throw VersionNotFoundException(command.tenantId, command.templateId, resolvedVariantId, command.versionId!!)
+                    throw VersionNotFoundException(command.tenantId, command.templateId, resolvedVariantId, command.versionId)
                 }
             } else if (command.environmentId != null) {
                 val environmentExists = handle.createQuery(
@@ -153,7 +153,7 @@ class GenerateDocumentHandler(
                     .one()
 
                 if (!environmentExists) {
-                    throw EnvironmentNotFoundException(command.tenantId, command.environmentId!!)
+                    throw EnvironmentNotFoundException(command.tenantId, command.environmentId)
                 }
             }
 

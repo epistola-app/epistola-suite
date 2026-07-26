@@ -5,6 +5,7 @@
 package app.epistola.generation.pdf
 
 import app.epistola.catalog.protocol.FontRef
+import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.properties.Property
 import kotlin.test.Test
@@ -122,6 +123,31 @@ class StyleApplicatorTest {
             inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
+    }
+
+    @Test
+    fun `applyStylesWithPreset applies individual borders to block elements`() {
+        val div = Div()
+
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles =
+            mapOf(
+                "borderTop" to "1pt solid #111111",
+                "borderRight" to "2pt dashed #222222",
+                "borderBottom" to "3pt dotted #333333",
+                "borderLeft" to "4pt solid #444444",
+            ),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            inheritedStyles = emptyMap(),
+            fontCache = fontCache,
+        )
+
+        assertNotNull(div.getProperty<Border>(Property.BORDER_TOP))
+        assertNotNull(div.getProperty<Border>(Property.BORDER_RIGHT))
+        assertNotNull(div.getProperty<Border>(Property.BORDER_BOTTOM))
+        assertNotNull(div.getProperty<Border>(Property.BORDER_LEFT))
     }
 
     // -----------------------------------------------------------------------

@@ -72,7 +72,7 @@ class SchemaCompatibilityTest {
             assertThat(result.migrations[0].issue).isEqualTo(ValidationIssueType.TYPE_MISMATCH)
             assertThat(result.migrations[0].expectedType).isEqualTo("string")
             assertThat(result.migrations[0].autoMigratable).isTrue()
-            assertThat(result.migrations[0].suggestedValue?.asText()).isEqualTo("42")
+            assertThat(result.migrations[0].suggestedValue?.stringValue()).isEqualTo("42")
         }
 
         @Test
@@ -190,7 +190,7 @@ class SchemaCompatibilityTest {
 
             assertThat(result.migrations).hasSize(1)
             assertThat(result.migrations[0].autoMigratable).isTrue()
-            assertThat(result.migrations[0].suggestedValue?.asText()).isEqualTo("true")
+            assertThat(result.migrations[0].suggestedValue?.stringValue()).isEqualTo("true")
         }
 
         @Test

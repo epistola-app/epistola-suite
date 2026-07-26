@@ -266,6 +266,12 @@ pnpm install && pnpm build && ./gradlew build
 pnpm --filter @epistola/editor sbom
 ```
 
+CycloneDX 3.3.0 may print `Unknown keyword meta:enum` and
+`Unknown keyword deprecated` while networknt validates SPDX schema metadata.
+These are upstream schema-vocabulary notices, not Gradle deprecations. Keep the
+generated SBOM validation enabled and remove this note when the upstream
+validator recognizes those annotation keywords.
+
 ### Development Workflow
 
 For live frontend development with hot reload:
@@ -292,6 +298,14 @@ pnpm --filter @epistola/editor watch
 - **Linter**: ktlint (enforced in CI)
 - **Always run `./gradlew ktlintFormat`** after making Kotlin changes to auto-fix formatting
 - **Always run `./gradlew ktlintCheck`** before committing to verify code style
+- Kotlin compiler warnings and Gradle deprecations fail the build by default
+- If an unavoidable Kotlin warning comes from an interop or upstream API,
+  suppress only that diagnostic at the narrowest declaration and include a
+  rationale plus the upstream removal condition
+- Gradle has no selective per-warning suppression. For an unavoidable upstream
+  plugin deprecation, keep the default failure policy and run only the affected
+  command with `--warning-mode=all`; document the upstream issue and the
+  condition for removing the exception
 - EditorConfig is configured for consistent formatting
 
 ### TypeScript (Client Components)
