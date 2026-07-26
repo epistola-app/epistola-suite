@@ -9,7 +9,7 @@ import type { SaveState } from './save-service.js';
 import type { ToolbarAction } from '../plugins/types.js';
 import { parseBindingSaveError } from '../components/stencil/binding-errors.js';
 import { icon } from './icons.js';
-import { TOUR_HOOKS } from './tour-hooks.js';
+import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { buildShortcutGroupsProjection, type ShortcutGroup } from './shortcuts.js';
 import { normalizeShortcutEvent } from '../shortcuts/resolver.js';
 import {
@@ -305,7 +305,7 @@ export class EpistolaToolbar extends LitElement {
               <div class="toolbar-separator"></div>
               <button
                 class="toolbar-btn ${this.previewOpen ? 'active' : ''}"
-                data-tour=${TOUR_HOOKS.previewToggle}
+                data-editor-anchor=${EDITOR_UI_ANCHORS.previewToggle}
                 @click=${this._handleTogglePreview}
                 title="${this.previewOpen ? 'Hide preview' : 'Show preview'}"
               >
@@ -322,7 +322,7 @@ export class EpistolaToolbar extends LitElement {
           ${this.cleanMode ? icon('eye') : icon('sparkles')} Clean
         </button>
 
-        <div class="toolbar-right" data-tour=${TOUR_HOOKS.toolbarTools}>
+        <div class="toolbar-right" data-editor-anchor=${EDITOR_UI_ANCHORS.toolbarTools}>
           ${hasExamples ? this._renderExampleSelector(examples) : nothing}
           ${this._walkthroughEnabled
             ? html`<epistola-walkthrough-launcher></epistola-walkthrough-launcher>`
@@ -404,7 +404,6 @@ export class EpistolaToolbar extends LitElement {
       <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
         <button
           class=${cssClass}
-          data-tour=${TOUR_HOOKS.save}
           ?disabled=${disabled}
           @click=${this._handleForceSave}
           title=${title}

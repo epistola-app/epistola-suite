@@ -20,7 +20,7 @@ function makeCtx(opts: { guide?: boolean; chrome?: boolean } = {}): TourContext 
   const host = document.createElement('div');
   if (opts.guide) {
     const btn = document.createElement('button');
-    btn.setAttribute('data-tour', 'guide-trigger');
+    btn.setAttribute('data-walkthrough-anchor', 'guide-trigger');
     host.appendChild(btn);
   }
   if (opts.chrome) {

@@ -28,7 +28,7 @@ export const orientationTour: Tour = {
       side: 'bottom',
     },
     {
-      target: '[data-tour~="toolbar-tools"]',
+      target: '[data-editor-anchor~="toolbar-tools"]',
       title: 'Help and inspection',
       body: 'Three tools to understand what you’re building: this <strong>Guide</strong>, a <strong>JSON</strong> inspector for the raw document and its data, and a <strong>keyboard-shortcuts</strong> reference.',
       side: 'bottom',
@@ -46,7 +46,7 @@ export const orientationTour: Tour = {
       side: 'left',
     },
     {
-      target: '[data-tour~="preview-toggle"]',
+      target: '[data-editor-anchor~="preview-toggle"]',
       title: 'Live preview',
       body: 'This button toggles a live PDF preview — exactly what will be generated. We’ve opened it for you.',
       side: 'bottom',

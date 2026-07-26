@@ -10,7 +10,7 @@
  * Add a chapter by writing a `tours/<id>.ts` and appending it to {@link TOURS}.
  */
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import type { TourTarget } from '../tour-hooks.js';
+import type { TourTarget } from './targets.js';
 import { orientationTour } from './tours/orientation.js';
 import { buildingTour } from './tours/building.js';
 import { editingTour } from './tours/editing.js';
@@ -44,11 +44,10 @@ export interface TourStep {
   /**
    * CSS selector for the element to spotlight, resolved at show time by
    * driver.js against the document. The editor mounts in light DOM, so plain
-   * selectors find their target. The {@link TourTarget} grammar is closed —
-   * a literal `[data-tour~="…"]` hook selector or a registered epistola
-   * element — so targeting a component's internal class names or ids does not
-   * typecheck; `tour-hooks.test.ts` additionally proves each hook is actually
-   * stamped.
+   * selectors find their target. The {@link TourTarget} grammar is closed to
+   * editor-owned extension anchors, walkthrough-owned anchors, and registered
+   * Epistola elements, so targeting component internals does not typecheck.
+   * `editor-ui-anchors.test.ts` additionally proves each editor anchor is stamped.
    *
    * A step whose target is absent when highlighted is skipped
    * (`skipMissingElement`). Driver also probes *following* steps' targets to

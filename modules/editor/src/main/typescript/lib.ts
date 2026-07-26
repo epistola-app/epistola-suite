@@ -142,6 +142,8 @@ export type {
   EditorFeatureFlag,
   EditorFeatures,
 } from './engine/feature-flags.js';
+export { EDITOR_UI_ANCHORS } from './ui/editor-ui-anchors.js';
+export type { EditorUiAnchor, EditorUiAnchorSelector } from './ui/editor-ui-anchors.js';
 
 export interface EditorInstance {
   /** Tear down the editor and clean up */

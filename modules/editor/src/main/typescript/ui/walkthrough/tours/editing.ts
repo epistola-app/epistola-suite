@@ -23,19 +23,19 @@ export const editingTour: Tour = {
   },
   steps: () => [
     {
-      target: '[data-tour~="selected-block"]',
+      target: '[data-editor-anchor~="selected-block"]',
       title: 'Edit its content',
       body: 'A block is selected. <strong>Text</strong> blocks are editable right on the canvas — you click in and type, and it updates live.',
       side: 'bottom',
     },
     {
-      target: '[data-tour~="block-styles"]',
+      target: '[data-editor-anchor~="block-styles"]',
       title: 'Style it',
       body: 'The Inspector is where a block’s look lives — its <strong>colour</strong>, <strong>font size</strong>, spacing, and more. Changes show on the canvas as you make them.',
       side: 'right',
     },
     {
-      target: '[data-tour~="block-delete"]',
+      target: '[data-editor-anchor~="block-delete"]',
       title: 'Remove a block',
       body: 'Done with a block? Remove it here — or select it on the canvas and press Delete.',
       side: 'right',

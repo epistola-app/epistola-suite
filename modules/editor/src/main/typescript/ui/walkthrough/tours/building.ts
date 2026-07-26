@@ -24,21 +24,21 @@ export const buildingTour: Tour = {
   steps: () => [
     {
       before: (ctx) => clickSidebarTab(ctx, 'blocks'),
-      target: '[data-tour~="tab-blocks"]',
+      target: '[data-editor-anchor~="tab-blocks"]',
       title: 'The block palette',
       body: 'Every piece of content is a block. The palette groups them into <strong>Content</strong>, <strong>Layout</strong>, <strong>Logic</strong>, and <strong>Page</strong>.',
       side: 'right',
     },
     {
       before: (ctx) => clickSidebarTab(ctx, 'blocks'),
-      target: '[data-tour~="palette-item-text"]',
+      target: '[data-editor-anchor~="palette-item-text"]',
       title: 'Adding a block',
       body: 'Click any block — like <strong>Text</strong> — to drop it onto the page, or drag it onto the canvas. Undo anything with Ctrl+Z.',
       side: 'right',
     },
     {
       before: (ctx) => clickSidebarTab(ctx, 'structure'),
-      target: '[data-tour~="tab-structure"]',
+      target: '[data-editor-anchor~="tab-structure"]',
       title: 'The structure',
       body: 'Everything you add shows up here as a tree — the fastest way to reorder blocks or select nested ones.',
       side: 'right',

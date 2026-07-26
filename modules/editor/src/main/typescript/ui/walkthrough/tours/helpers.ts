@@ -7,7 +7,7 @@
 import type { EditorEngine } from '../../../engine/EditorEngine.js';
 import type { TourContext } from '../registry.js';
 import { PAGE_FOOTER_TYPE } from '../../../engine/registry.js';
-import type { TourTarget } from '../../tour-hooks.js';
+import type { TourTarget } from '../targets.js';
 
 /** Switch the sidebar to a built-in tab. No-op if absent. */
 export function clickSidebarTab(
@@ -16,7 +16,7 @@ export function clickSidebarTab(
 ): void {
   // Typed template literal: the tab-id union distributes into valid TourTargets,
   // so a typo'd prefix or unknown tab id fails to compile.
-  const selector: TourTarget = `[data-tour~="tab-${tabId}"]`;
+  const selector: TourTarget = `[data-editor-anchor~="tab-${tabId}"]`;
   const el = host.querySelector(selector);
   if (el instanceof HTMLElement) el.click();
 }
@@ -105,7 +105,7 @@ export function showDocumentInspector(ctx: TourContext): void {
  * render. No-op when there's no preview (the toggle is absent) or it's already open.
  */
 export function openPreview({ host }: TourContext): void {
-  const toggle = host.querySelector('[data-tour="preview-toggle"]');
+  const toggle = host.querySelector('[data-editor-anchor="preview-toggle"]');
   if (toggle instanceof HTMLElement && !toggle.classList.contains('active')) {
     toggle.click();
   }

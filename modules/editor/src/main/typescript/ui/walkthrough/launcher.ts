@@ -26,7 +26,7 @@ import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.j
 import { stopTour } from './session.js';
 import { injectStyleOnce } from './styles.js';
 import launcherCss from './launcher.css?inline';
-import { TOUR_HOOKS } from '../tour-hooks.js';
+import { WALKTHROUGH_ANCHORS } from './targets.js';
 
 interface ChapterView {
   id: string;
@@ -235,7 +235,7 @@ export class WalkthroughLauncher extends LitElement {
         <button
           class="ep-btn ep-btn-outline ep-btn-sm ep-btn-icon"
           type="button"
-          data-tour=${TOUR_HOOKS.guideTrigger}
+          data-walkthrough-anchor=${WALKTHROUGH_ANCHORS.guideTrigger}
           data-testid="walkthrough-guide-trigger"
           title="Guided walkthrough"
           aria-label="Guided walkthrough"

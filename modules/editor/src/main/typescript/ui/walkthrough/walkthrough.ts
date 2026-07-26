@@ -33,9 +33,9 @@ import {
 import { hasSeenIntro, isChapterComplete, markChapterComplete, markIntroSeen } from './progress.js';
 import { clearSession, trackSession } from './session.js';
 import { injectStyleOnce } from './styles.js';
-import type { TourTarget } from '../tour-hooks.js';
+import type { TourTarget } from './targets.js';
 
-const GUIDE_TRIGGER: TourTarget = '[data-tour~="guide-trigger"]';
+const GUIDE_TRIGGER: TourTarget = '[data-walkthrough-anchor~="guide-trigger"]';
 
 const STYLE_ID = 'ep-driver-css';
 

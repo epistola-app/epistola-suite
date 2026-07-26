@@ -20,7 +20,7 @@ import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logi
 import { handleDrop } from '../dnd/drop-handler.js';
 import { isSlotLocked } from '../engine/locks.js';
 import { icon } from './icons.js';
-import { TOUR_HOOKS } from './tour-hooks.js';
+import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { isCollapsible, countChildren } from './collapse.js';
 import { toStyleMap, DEFAULT_SPACING_UNIT_PT } from './style-css.js';
 import '../ui/EpistolaTextEditor.js';
@@ -418,7 +418,9 @@ export class EpistolaCanvas extends LitElement {
       <div
         class="canvas-block ${isSelected ? 'selected' : ''} ${collapsed ? 'collapsed' : ''}"
         data-testid="canvas-block"
-        data-tour="${TOUR_HOOKS.canvasBlock}${isSelected ? ` ${TOUR_HOOKS.selectedBlock}` : ''}"
+        data-editor-anchor="${EDITOR_UI_ANCHORS.canvasBlock}${isSelected
+          ? ` ${EDITOR_UI_ANCHORS.selectedBlock}`
+          : ''}"
         data-node-id=${nodeId}
         data-block-label=${label}
         tabindex=${isInLockedSlot ? nothing : '0'}

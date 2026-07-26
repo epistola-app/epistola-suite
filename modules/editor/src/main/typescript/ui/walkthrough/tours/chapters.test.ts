@@ -39,10 +39,10 @@ describe('orientation chapter', () => {
     const targets = orientationTour.steps(ctx).map((s) => s.target);
     expect(targets).toEqual([
       'epistola-toolbar',
-      '[data-tour~="toolbar-tools"]',
+      '[data-editor-anchor~="toolbar-tools"]',
       'epistola-sidebar',
       'epistola-canvas',
-      '[data-tour~="preview-toggle"]',
+      '[data-editor-anchor~="preview-toggle"]',
       'epistola-preview',
     ]);
   });
@@ -58,9 +58,9 @@ describe('building chapter', () => {
   it('walks palette → add → structure, switching the tab before each step', () => {
     const steps = buildingTour.steps(ctx);
     expect(steps.map((s) => s.target)).toEqual([
-      '[data-tour~="tab-blocks"]',
-      '[data-tour~="palette-item-text"]',
-      '[data-tour~="tab-structure"]',
+      '[data-editor-anchor~="tab-blocks"]',
+      '[data-editor-anchor~="palette-item-text"]',
+      '[data-editor-anchor~="tab-structure"]',
     ]);
     for (const step of steps) expect(typeof step.before).toBe('function');
   });
@@ -100,9 +100,9 @@ describe('editing chapter', () => {
   it('selects a block in setup and walks content → style → delete', () => {
     expect(typeof editingTour.setup).toBe('function');
     expect(editingTour.steps(ctx).map((s) => s.target)).toEqual([
-      '[data-tour~="selected-block"]',
-      '[data-tour~="block-styles"]',
-      '[data-tour~="block-delete"]',
+      '[data-editor-anchor~="selected-block"]',
+      '[data-editor-anchor~="block-styles"]',
+      '[data-editor-anchor~="block-delete"]',
     ]);
   });
 });
@@ -117,11 +117,11 @@ describe('styling chapter', () => {
   it('opens the document inspector in setup and walks the cascade', () => {
     expect(typeof stylingTour.setup).toBe('function');
     expect(stylingTour.steps(ctx).map((s) => s.target)).toEqual([
-      '[data-tour~="page-settings"]',
-      '[data-tour~="document-styles"]',
-      '[data-tour~="canvas-block"]',
-      '[data-tour~="style-preset"]',
-      '[data-tour~="block-styles"]',
+      '[data-editor-anchor~="page-settings"]',
+      '[data-editor-anchor~="document-styles"]',
+      '[data-editor-anchor~="canvas-block"]',
+      '[data-editor-anchor~="style-preset"]',
+      '[data-editor-anchor~="block-styles"]',
     ]);
     // The block step selects the block in `before`, setting up the preset/override targets.
     expect(typeof stylingTour.steps(ctx)[2].before).toBe('function');

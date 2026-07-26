@@ -7,18 +7,18 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { TOUR_HOOKS } from './tour-hooks.js';
+import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { createDefaultRegistry } from '../engine/registry.js';
 
 /**
- * Stamping guard for the tour-hook vocabulary: components import {@link TOUR_HOOKS}
- * and bind `data-tour=${TOUR_HOOKS.x}`, so agreement on the *name* is compile-checked
- * — but only this test proves each hook is actually *stamped* by a component. Without
- * it, deleting a stamped attribute (or adding a hook nobody stamps) leaves a tour
+ * Stamping guard for the editor-anchor vocabulary: components import {@link EDITOR_UI_ANCHORS}
+ * and bind `data-editor-anchor=${EDITOR_UI_ANCHORS.x}`, so agreement on the *name* is compile-checked
+ * — but only this test proves each anchor is actually *stamped* by a component. Without
+ * it, deleting a stamped attribute (or adding an anchor nobody stamps) leaves an extension
  * step that `skipMissingElement` silently drops, with no warning and no failure.
  *
- * Consumers (the tours, the runner, tour-hooks.ts itself) are excluded from the scan
- * so a literal `[data-tour~="…"]` selector in a tour can never satisfy the check.
+ * Consumers (the tours, the runner, editor-ui-anchors.ts itself) are excluded from the scan
+ * so a literal `[data-editor-anchor~="…"]` selector in a tour can never satisfy the check.
  */
 
 const UI_DIR = dirname(fileURLToPath(import.meta.url));
@@ -36,17 +36,16 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const sources = walk(SRC_ROOT)
   .filter((p) => {
-    if (p === join(UI_DIR, 'tour-hooks.ts')) return false;
-    // Inside the walkthrough dir, only the launcher is a producer (it stamps the
-    // Guide button's hook); everything else there consumes hooks.
+    if (p === join(UI_DIR, 'editor-ui-anchors.ts')) return false;
+    // Walkthrough code consumes editor anchors but never produces them.
     const rel = relative(WALKTHROUGH_DIR, p);
     const inWalkthrough = !rel.startsWith('..' + sep);
-    return !inWalkthrough || rel === 'launcher.ts';
+    return !inWalkthrough;
   })
   .map((p) => ({ path: relative(SRC_ROOT, p), text: readFileSync(p, 'utf8') }));
 
 /**
- * Dynamic hook families stamped as `data-tour=${`<family>-${…}`}`, where the member
+ * Dynamic anchor families stamped as `data-editor-anchor=${`<family>-${…}`}`, where the member
  * ids are not literal in the producer file. Each family declares how to prove the
  * id half: the sidebar declares its tab ids literally; the palette's items are the
  * registered block types, so the id is checked against the real component registry.
@@ -56,34 +55,34 @@ const FAMILIES: Record<string, (id: string, fileText: string) => boolean> = {
   'palette-item': (id) => createDefaultRegistry().get(id) !== undefined,
 };
 
-/** Whether some component stamps `data-tour` with this hook. */
-function stampedBy(key: string, hook: string): string | undefined {
-  // A binding referencing the table on a `data-tour=` line — covers plain
-  // (`data-tour=${TOUR_HOOKS.x}`), ternary, and composite word-list bindings
-  // (`data-tour="${TOUR_HOOKS.a}${cond ? \` ${TOUR_HOOKS.b}\` : ''}"`).
-  const byKey = new RegExp(`data-tour=[^\\n]*TOUR_HOOKS\\.${key}\\b`);
+/** Whether some component stamps `data-editor-anchor` with this anchor. */
+function stampedBy(key: string, anchor: string): string | undefined {
+  // A binding referencing the table on a `data-editor-anchor=` line — covers plain
+  // (`data-editor-anchor=${EDITOR_UI_ANCHORS.x}`), ternary, and composite word-list bindings
+  // (`data-editor-anchor="${EDITOR_UI_ANCHORS.a}${cond ? \` ${EDITOR_UI_ANCHORS.b}\` : ''}"`).
+  const byKey = new RegExp(`data-editor-anchor=[^\\n]*EDITOR_UI_ANCHORS\\.${key}\\b`);
   const direct = sources.find((s) => byKey.test(s.text));
   if (direct) return direct.path;
 
-  // Dynamic families: the file must build the family's `data-tour` prefix, and
+  // Dynamic families: the file must build the family's `data-editor-anchor` prefix, and
   // the family's own evidence must vouch for the id.
   for (const [family, hasId] of Object.entries(FAMILIES)) {
     const prefix = family + '-';
-    if (!hook.startsWith(prefix)) continue;
-    const id = hook.slice(prefix.length);
-    const producer = 'data-tour=${`' + family + '-${';
+    if (!anchor.startsWith(prefix)) continue;
+    const id = anchor.slice(prefix.length);
+    const producer = 'data-editor-anchor=${`' + family + '-${';
     const file = sources.find((s) => s.text.includes(producer) && hasId(id, s.text));
     if (file) return file.path;
   }
   return undefined;
 }
 
-describe('TOUR_HOOKS', () => {
-  for (const [key, hook] of Object.entries(TOUR_HOOKS)) {
-    it(`"${hook}" (${key}) is stamped by a component`, () => {
+describe('EDITOR_UI_ANCHORS', () => {
+  for (const [key, anchor] of Object.entries(EDITOR_UI_ANCHORS)) {
+    it(`"${anchor}" (${key}) is stamped by a component`, () => {
       expect(
-        stampedBy(key, hook),
-        `no component stamps data-tour for TOUR_HOOKS.${key} ("${hook}") — either restore the binding or remove the hook (and any tour step targeting it)`,
+        stampedBy(key, anchor),
+        `no component stamps data-editor-anchor for EDITOR_UI_ANCHORS.${key} ("${anchor}") — either restore the binding or remove the anchor`,
       ).toBeDefined();
     });
   }
