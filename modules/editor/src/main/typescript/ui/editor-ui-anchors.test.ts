@@ -23,7 +23,7 @@ import { createDefaultRegistry } from '../engine/registry.js';
 
 const UI_DIR = dirname(fileURLToPath(import.meta.url));
 const SRC_ROOT = join(UI_DIR, '..');
-const WALKTHROUGH_DIR = join(UI_DIR, 'walkthrough');
+const WALKTHROUGH_DIR = join(SRC_ROOT, 'plugins', 'walkthrough');
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

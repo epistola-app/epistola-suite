@@ -5,15 +5,15 @@
 /**
  * <epistola-walkthrough-launcher> — the "Guide" button + chapter menu.
  *
- * Lazy-registered by the toolbar only when the `editorWalkthrough` flag is on
- * (so flag-off users never load it). It statically imports the registry/progress
+ * Registered by the separately loaded walkthrough plugin only when the
+ * `editorWalkthrough` flag is on. It statically imports the registry/progress
  * (both driver-free), and only pulls in the runner — and therefore driver.js —
- * when the user actually launches a chapter. Its own popover styles are injected
- * once as a <style> so nothing lands in the always-loaded editor.css.
+ * when the first-run coach mark or a chapter starts. Its own popover styles are
+ * injected once as a <style> so nothing lands in the core editor stylesheet.
  */
 import { html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { icon } from '../icons.js';
+import { icon } from '../../ui/icons.js';
 import {
   firstRunnableTour,
   isTourAvailable,
@@ -21,7 +21,7 @@ import {
   TOURS,
   type TourContext,
 } from './registry.js';
-import type { EpistolaEditor } from '../EpistolaEditor.js';
+import type { EpistolaEditor } from '../../ui/EpistolaEditor.js';
 import { hasSeenIntro, isChapterComplete, subscribeProgress } from './progress.js';
 import { stopTour } from './session.js';
 import { injectStyleOnce } from './styles.js';

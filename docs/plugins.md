@@ -377,6 +377,12 @@ The Thymeleaf host page declares available plugin descriptors and resolved featu
         "moduleUrl": [[@{/editor/ai-plugin.js}]],
         "stylesheetUrl": [[@{/editor/ai-plugin.css}]],
         "factoryExport": "createEditorPlugin"
+      },
+      {
+        "id": "editor-walkthrough",
+        "feature": "editorWalkthrough",
+        "moduleUrl": [[@{/editor/walkthrough-plugin.js}]],
+        "factoryExport": "createEditorPlugin"
       }
     ]
   }
@@ -406,6 +412,10 @@ This pattern:
 - Only loads plugin JS when the feature/plugin is enabled (code splitting)
 - Passes host-page concerns through plugin descriptor config
 - Keeps page bootstrap code unaware of specific plugin implementations
+
+The guided editor walkthrough is a frontend-only example: it contributes custom
+toolbar UI, ships as its own Vite entry, and uses generic editor-owned DOM
+anchors. It needs no backend plugin module because it reads and sends no data.
 
 ---
 

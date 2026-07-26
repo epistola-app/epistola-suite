@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import type { EditorUiAnchorSelector } from '../editor-ui-anchors.js';
+import type { EditorUiAnchorSelector } from '../../ui/editor-ui-anchors.js';
 
 /** Walkthrough-owned anchors for elements rendered by the plugin itself. */
 export const WALKTHROUGH_ANCHORS = {

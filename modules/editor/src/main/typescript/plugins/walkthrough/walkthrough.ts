@@ -8,10 +8,9 @@
  * The walkthrough is a registry of small chapters (see {@link ./registry}). This
  * module drives one chapter at a time and chains to the next on completion.
  *
- * This whole module is behind a gated dynamic import in {@link EpistolaEditor}:
- * it (and driver.js) only download when the `editorWalkthrough` feature flag is
- * on. driver.js's value is itself `await import`ed here so it stays a separate
- * lazy chunk; its types are erased type-only imports.
+ * The walkthrough plugin itself is loaded through the feature-gated generic
+ * plugin loader. driver.js is additionally `await import`ed here so it stays a
+ * separate lazy chunk; its types are erased type-only imports.
  *
  * driver.css is imported with Vite's `?inline` suffix and injected as a single
  * <style> rather than emitted as a stylesheet — keeps the CSS inside this lazy

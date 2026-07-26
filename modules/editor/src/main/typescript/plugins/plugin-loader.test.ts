@@ -14,12 +14,31 @@ const aiDescriptor: EditorPluginDescriptor = {
   factoryExport: 'createEditorPlugin',
 };
 
+const walkthroughDescriptor: EditorPluginDescriptor = {
+  id: 'editor-walkthrough',
+  feature: 'editorWalkthrough',
+  moduleUrl: '/editor/walkthrough-plugin.js',
+  factoryExport: 'createEditorPlugin',
+};
+
 describe('loadEditorPlugins', () => {
   it('does not import a module for a disabled feature', async () => {
     const importModule = vi.fn();
 
     const plugins = await loadEditorPlugins([aiDescriptor], {
       features: { aiChat: { enabled: false } },
+      importModule,
+    });
+
+    expect(plugins).toEqual([]);
+    expect(importModule).not.toHaveBeenCalled();
+  });
+
+  it('does not import the walkthrough plugin for a disabled feature', async () => {
+    const importModule = vi.fn();
+
+    const plugins = await loadEditorPlugins([walkthroughDescriptor], {
+      features: { editorWalkthrough: { enabled: false } },
       importModule,
     });
 

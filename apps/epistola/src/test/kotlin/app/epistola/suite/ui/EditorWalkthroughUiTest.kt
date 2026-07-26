@@ -31,6 +31,14 @@ import org.junit.jupiter.api.Test
 class EditorWalkthroughUiTest : BasePlaywrightTest() {
 
     @Test
+    fun `disabled feature does not render the Guide launcher`() {
+        val (tenant, template, variantId) = withMediator { createWalkthroughTenant(enabled = false) }
+        openEditorPage(tenant, template, variantId)
+
+        assertThat(page.getByTestId("walkthrough-guide-trigger")).hasCount(0)
+    }
+
+    @Test
     fun `editing chapter narrates content, style and delete across Next clicks`() {
         val (tenant, template, variantId) = withMediator { createWalkthroughTenant() }
         openEditorPage(tenant, template, variantId)
@@ -99,13 +107,15 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
         page.waitForSelector("epistola-toolbar")
     }
 
-    private fun createWalkthroughTenant(): Triple<Tenant, DocumentTemplate, String> {
+    private fun createWalkthroughTenant(enabled: Boolean = true): Triple<Tenant, DocumentTemplate, String> {
         val tenantKey = TenantKey.of("test-editor-walkthrough-${System.nanoTime()}")
         val tenant = CreateTenant(id = tenantKey, name = "Walkthrough UI Test Tenant").execute()
         val tenantId = TenantId(tenant.id)
 
-        // Turn the alpha walkthrough feature on for this tenant (off by default).
-        SaveFeatureToggle(tenantKey, KnownFeatures.EDITOR_WALKTHROUGH, enabled = true).execute()
+        if (enabled) {
+            // Turn the alpha walkthrough feature on for this tenant (off by default).
+            SaveFeatureToggle(tenantKey, KnownFeatures.EDITOR_WALKTHROUGH, enabled = true).execute()
+        }
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Walkthrough Template").execute()
