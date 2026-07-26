@@ -58,7 +58,13 @@ class CatalogSchemaMigrator() {
             version = versionInMessage() ?: CatalogWireSchema.BASELINE_VERSION - 1,
             baseline = CatalogWireSchema.BASELINE_VERSION,
         )
-        else -> CatalogSchemaUnknownException(message)
+        else -> CatalogSchemaUnknownException(
+            if (message.startsWith("resource detail is at schemaVersion")) {
+                "$message; every part of a catalog must carry the same wire version"
+            } else {
+                message
+            },
+        )
     }
 
     private fun CatalogMigrationFinding.versionInMessage(): Int? = Regex("""schemaVersion (-?\d+)""").find(message)?.groupValues?.get(1)?.toIntOrNull()

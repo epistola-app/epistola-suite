@@ -25,7 +25,15 @@
           "type": "text",
           "slots": [],
           "props": {
-            "content": [{ "type": "text", "text": "Body text" }]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "text", "text": "Body text" }]
+                }
+              ]
+            }
           }
         }
       },

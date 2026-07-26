@@ -62,7 +62,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         root = "root",
         nodes = mapOf(
             "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-            "text1" to Node(id = "text1", type = "text", slots = emptyList(), props = mapOf("content" to "Hello")),
+            "text1" to Node(id = "text1", type = "text", slots = emptyList(), props = mapOf("content" to richText("Hello"))),
         ),
         slots = mapOf(
             "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text1")),
@@ -292,7 +292,12 @@ class StencilIntegrationTest : IntegrationTestBase() {
             root = "root",
             nodes = mapOf(
                 "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-                "text-updated" to Node(id = "text-updated", type = "text", slots = emptyList(), props = mapOf("content" to "Updated")),
+                "text-updated" to Node(
+                    id = "text-updated",
+                    type = "text",
+                    slots = emptyList(),
+                    props = mapOf("content" to richText("Updated")),
+                ),
             ),
             slots = mapOf(
                 "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text-updated")),
@@ -602,5 +607,15 @@ class StencilIntegrationTest : IntegrationTestBase() {
             "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text-path")),
         ),
         themeRef = ThemeRef.Inherit,
+    )
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
     )
 }

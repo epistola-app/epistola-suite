@@ -103,7 +103,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
             val draft = withMediator { GetDraft(variantId = seed.variantId).query() }
             assertThat(draft).isNotNull
             val stored = draft!!.templateModel.nodes["text-1"]?.props?.get("content")
-            assertThat(stored).isEqualTo(diacritics)
+            assertThat(stored).isEqualTo(richText(diacritics))
         }
     }
 
@@ -146,17 +146,32 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
         }
     }
 
-    /** Minimal document: root → single text node carrying [content]. */
-    private fun documentWithText(content: String): TemplateDocument = TemplateDocument(
+    /** Minimal document: root → single text node carrying [text]. */
+    private fun documentWithText(text: String): TemplateDocument = TemplateDocument(
         modelVersion = 1,
         root = "root",
         nodes = mapOf(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "text-1" to Node(id = "text-1", type = "text", slots = emptyList(), props = mapOf("content" to content)),
+            "text-1" to Node(
+                id = "text-1",
+                type = "text",
+                slots = emptyList(),
+                props = mapOf("content" to richText(text)),
+            ),
         ),
         slots = mapOf(
             "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("text-1")),
         ),
         themeRef = ThemeRef.Inherit,
+    )
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
     )
 }

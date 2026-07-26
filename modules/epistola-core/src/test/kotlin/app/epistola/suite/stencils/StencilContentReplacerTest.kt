@@ -28,7 +28,7 @@ class StencilContentReplacerTest {
 
     private fun stencilContent(): TemplateDocument = doc(
         "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-        "new-text" to Node(id = "new-text", type = "text", slots = emptyList(), props = mapOf("content" to "New Content")),
+        "new-text" to Node(id = "new-text", type = "text", slots = emptyList(), props = mapOf("content" to richText("New Content"))),
         slots = mapOf(
             "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("new-text")),
         ),
@@ -44,7 +44,7 @@ class StencilContentReplacerTest {
                 slots = listOf("stencil-1-slot"),
                 props = mapOf("stencilId" to "header", "version" to 1),
             ),
-            "old-text" to Node(id = "old-text", type = "text", slots = emptyList(), props = mapOf("content" to "Old")),
+            "old-text" to Node(id = "old-text", type = "text", slots = emptyList(), props = mapOf("content" to richText("Old"))),
             slots = mapOf(
                 "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-1")),
                 "stencil-1-slot" to Slot(id = "stencil-1-slot", nodeId = "stencil-1", name = "children", children = listOf("old-text")),
@@ -64,7 +64,7 @@ class StencilContentReplacerTest {
         assertThat(stencilSlot.children).hasSize(1)
         val newChild = result.document.nodes[stencilSlot.children[0]]!!
         assertThat(newChild.type).isEqualTo("text")
-        assertThat(newChild.props?.get("content")).isEqualTo("New Content")
+        assertThat(newChild.props?.get("content")).isEqualTo(richText("New Content"))
         assertThat(newChild.id).isNotEqualTo("new-text") // re-keyed
     }
 
@@ -92,8 +92,8 @@ class StencilContentReplacerTest {
         assertThat(s1Children[0]).isNotEqualTo(s2Children[0])
 
         // Both have the correct content
-        assertThat(result.document.nodes[s1Children[0]]?.props?.get("content")).isEqualTo("New Content")
-        assertThat(result.document.nodes[s2Children[0]]?.props?.get("content")).isEqualTo("New Content")
+        assertThat(result.document.nodes[s1Children[0]]?.props?.get("content")).isEqualTo(richText("New Content"))
+        assertThat(result.document.nodes[s2Children[0]]?.props?.get("content")).isEqualTo(richText("New Content"))
     }
 
     @Test
@@ -158,9 +158,9 @@ class StencilContentReplacerTest {
     fun `preserves non-stencil nodes in the document`() {
         val template = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "text-before" to Node(id = "text-before", type = "text", slots = emptyList(), props = mapOf("content" to "Before")),
+            "text-before" to Node(id = "text-before", type = "text", slots = emptyList(), props = mapOf("content" to richText("Before"))),
             "stencil-1" to Node(id = "stencil-1", type = "stencil", slots = listOf("s-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
-            "text-after" to Node(id = "text-after", type = "text", slots = emptyList(), props = mapOf("content" to "After")),
+            "text-after" to Node(id = "text-after", type = "text", slots = emptyList(), props = mapOf("content" to richText("After"))),
             "old-child" to Node(id = "old-child", type = "text", slots = emptyList()),
             slots = mapOf(
                 "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("text-before", "stencil-1", "text-after")),
@@ -171,8 +171,8 @@ class StencilContentReplacerTest {
         val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilContent())
 
         // Surrounding nodes preserved
-        assertThat(result.document.nodes["text-before"]?.props?.get("content")).isEqualTo("Before")
-        assertThat(result.document.nodes["text-after"]?.props?.get("content")).isEqualTo("After")
+        assertThat(result.document.nodes["text-before"]?.props?.get("content")).isEqualTo(richText("Before"))
+        assertThat(result.document.nodes["text-after"]?.props?.get("content")).isEqualTo(richText("After"))
         assertThat(result.document.slots["root-slot"]!!.children).containsExactly("text-before", "stencil-1", "text-after")
     }
 
@@ -193,7 +193,7 @@ class StencilContentReplacerTest {
             id = "v2-default-text",
             type = "text",
             slots = emptyList(),
-            props = mapOf("content" to "v2 default text"),
+            props = mapOf("content" to richText("v2 default text")),
         ),
         slots = mapOf(
             "v2-root-slot" to Slot(id = "v2-root-slot", nodeId = "v2-root", name = "children", children = listOf("v2-ph")),
@@ -237,7 +237,7 @@ class StencilContentReplacerTest {
             id = "user-fill",
             type = "text",
             slots = emptyList(),
-            props = mapOf("content" to "User-authored fill"),
+            props = mapOf("content" to richText("User-authored fill")),
         ),
         slots = mapOf(
             "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-1")),
@@ -264,11 +264,11 @@ class StencilContentReplacerTest {
         // The filled child carries the user's content (re-keyed, so different ID)
         val fillChild = result.document.nodes[newPhFill.children[0]]!!
         assertThat(fillChild.type).isEqualTo("text")
-        assertThat(fillChild.props?.get("content")).isEqualTo("User-authored fill")
+        assertThat(fillChild.props?.get("content")).isEqualTo(richText("User-authored fill"))
         assertThat(fillChild.id).isNotEqualTo("user-fill")
 
         // The v2 default text was discarded
-        assertThat(result.document.nodes.values.none { it.props?.get("content") == "v2 default text" }).isTrue()
+        assertThat(result.document.nodes.values.none { it.props?.get("content") == richText("v2 default text") }).isTrue()
         assertThat(result.droppedFills).isEmpty()
     }
 
@@ -291,7 +291,7 @@ class StencilContentReplacerTest {
         assertThat(dropped[0].contentSummary).contains("User-authored fill")
 
         // The user's old text is gone from the doc
-        assertThat(result.document.nodes.values.none { it.props?.get("content") == "User-authored fill" }).isTrue()
+        assertThat(result.document.nodes.values.none { it.props?.get("content") == richText("User-authored fill") }).isTrue()
     }
 
     @Test
@@ -320,13 +320,13 @@ class StencilContentReplacerTest {
                 id = "v1-default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "v1 default"),
+                props = mapOf("content" to richText("v1 default")),
             ),
             "user-override" to Node(
                 id = "user-override",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "user override"),
+                props = mapOf("content" to richText("user override")),
             ),
             slots = mapOf(
                 "root-slot" to Slot("root-slot", "root", "children", listOf("stencil-1")),
@@ -348,7 +348,7 @@ class StencilContentReplacerTest {
                 id = "v2-default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "v2 default"),
+                props = mapOf("content" to richText("v2 default")),
             ),
             slots = mapOf(
                 "v2-root-slot" to Slot("v2-root-slot", "v2-root", "children", listOf("v2-ph")),
@@ -367,14 +367,14 @@ class StencilContentReplacerTest {
 
         // The new default has v2 default (not v1, not the user override).
         assertThat(newDefaultSlot.children).hasSize(1)
-        assertThat(result.document.nodes[newDefaultSlot.children[0]]?.props?.get("content")).isEqualTo("v2 default")
+        assertThat(result.document.nodes[newDefaultSlot.children[0]]?.props?.get("content")).isEqualTo(richText("v2 default"))
 
         // The fill carries the user override.
         assertThat(newFillSlot.children).hasSize(1)
-        assertThat(result.document.nodes[newFillSlot.children[0]]?.props?.get("content")).isEqualTo("user override")
+        assertThat(result.document.nodes[newFillSlot.children[0]]?.props?.get("content")).isEqualTo(richText("user override"))
 
         // The old default text was discarded (v1 default replaced by v2).
-        assertThat(result.document.nodes.values.none { it.props?.get("content") == "v1 default" }).isTrue()
+        assertThat(result.document.nodes.values.none { it.props?.get("content") == richText("v1 default") }).isTrue()
         assertThat(result.droppedFills).isEmpty()
     }
 
@@ -401,7 +401,7 @@ class StencilContentReplacerTest {
                 id = "v1-default",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "v1 default"),
+                props = mapOf("content" to richText("v1 default")),
             ),
             slots = mapOf(
                 "root-slot" to Slot("root-slot", "root", "children", listOf("stencil-1")),
@@ -423,7 +423,7 @@ class StencilContentReplacerTest {
                 id = "v2-default",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "v2 default"),
+                props = mapOf("content" to richText("v2 default")),
             ),
             slots = mapOf(
                 "v2-root-slot" to Slot("v2-root-slot", "v2-root", "children", listOf("v2-ph")),
@@ -439,7 +439,7 @@ class StencilContentReplacerTest {
         val newDefault = result.document.slots[newPh.slots.first { result.document.slots[it]?.name == "default" }]!!
         val newFill = result.document.slots[newPh.slots.first { result.document.slots[it]?.name == "fill" }]!!
 
-        assertThat(result.document.nodes[newDefault.children[0]]?.props?.get("content")).isEqualTo("v2 default")
+        assertThat(result.document.nodes[newDefault.children[0]]?.props?.get("content")).isEqualTo(richText("v2 default"))
         assertThat(newFill.children).isEmpty()
         assertThat(result.droppedFills).isEmpty()
     }
@@ -452,8 +452,8 @@ class StencilContentReplacerTest {
             "s2" to Node(id = "s2", type = "stencil", slots = listOf("s2-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
             "ph1" to Node(id = "ph1", type = "placeholder", slots = listOf("ph1-fill"), props = mapOf("name" to "body")),
             "ph2" to Node(id = "ph2", type = "placeholder", slots = listOf("ph2-fill"), props = mapOf("name" to "body")),
-            "fill1" to Node(id = "fill1", type = "text", slots = emptyList(), props = mapOf("content" to "Fill A")),
-            "fill2" to Node(id = "fill2", type = "text", slots = emptyList(), props = mapOf("content" to "Fill B")),
+            "fill1" to Node(id = "fill1", type = "text", slots = emptyList(), props = mapOf("content" to richText("Fill A"))),
+            "fill2" to Node(id = "fill2", type = "text", slots = emptyList(), props = mapOf("content" to richText("Fill B"))),
             slots = mapOf(
                 "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("s1", "s2")),
                 "s1-slot" to Slot(id = "s1-slot", nodeId = "s1", name = "children", children = listOf("ph1")),
@@ -469,13 +469,13 @@ class StencilContentReplacerTest {
         val s1Slot = result.document.slots["s1-slot"]!!
         val s1NewPh = result.document.nodes[s1Slot.children[0]]!!
         val s1Fill = result.document.slots[s1NewPh.slots[0]]!!
-        assertThat(result.document.nodes[s1Fill.children[0]]?.props?.get("content")).isEqualTo("Fill A")
+        assertThat(result.document.nodes[s1Fill.children[0]]?.props?.get("content")).isEqualTo(richText("Fill A"))
 
         // s2's slot's placeholder fill carries "Fill B" — independent
         val s2Slot = result.document.slots["s2-slot"]!!
         val s2NewPh = result.document.nodes[s2Slot.children[0]]!!
         val s2Fill = result.document.slots[s2NewPh.slots[0]]!!
-        assertThat(result.document.nodes[s2Fill.children[0]]?.props?.get("content")).isEqualTo("Fill B")
+        assertThat(result.document.nodes[s2Fill.children[0]]?.props?.get("content")).isEqualTo(richText("Fill B"))
 
         // The two fills must have distinct IDs (re-keyed independently)
         assertThat(s1Fill.children[0]).isNotEqualTo(s2Fill.children[0])
@@ -664,4 +664,14 @@ class StencilContentReplacerTest {
         // All bindings dropped because nothing in the new schema declares them.
         assertThat(result.document.nodes["stencil-1"]?.props).doesNotContainKey("parameterBindings")
     }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
 }

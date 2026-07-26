@@ -146,7 +146,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
                 id = "default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Default body content"),
+                props = mapOf("content" to richText("Default body content")),
             ),
         ),
         slots = mapOf(
@@ -196,7 +196,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
                 id = "user-fill-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "User-authored body"),
+                props = mapOf("content" to richText("User-authored body")),
             ),
         ),
         slots = mapOf(
@@ -221,4 +221,14 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
         val created = CreateApiKey(tenantId = tenantKey, name = "st-it").execute()
         tenantKey to created.plaintextKey
     }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
 }

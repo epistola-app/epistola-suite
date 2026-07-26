@@ -47,13 +47,13 @@ class StencilPlaceholderRendererTest {
                 id = "default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Default text"),
+                props = mapOf("content" to richText("Default text")),
             ),
             "fill-text" to Node(
                 id = "fill-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Override text"),
+                props = mapOf("content" to richText("Override text")),
             ),
         ),
         slots = mapOf(
@@ -119,4 +119,14 @@ class StencilPlaceholderRendererTest {
         val ex = assertFails { renderToPdf(doc) }
         assertContains(ex.message ?: "", "recursion", ignoreCase = true)
     }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
 }

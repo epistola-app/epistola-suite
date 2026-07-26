@@ -70,7 +70,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Default body content"),
+                props = mapOf("content" to richText("Default body content")),
             ),
         ),
         slots = mapOf(
@@ -126,7 +126,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "user-fill-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "User-authored body"),
+                props = mapOf("content" to richText("User-authored body")),
             ),
         ),
         slots = mapOf(
@@ -208,7 +208,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "v2-default-text",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v2 default"),
+                    props = mapOf("content" to richText("v2 default")),
                 ),
             ),
             slots = mapOf(
@@ -411,7 +411,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "v1-default",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v1 default"),
+                    props = mapOf("content" to richText("v1 default")),
                 ),
             ),
             slots = mapOf(
@@ -452,13 +452,13 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "embedded-default",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v1 default"),
+                    props = mapOf("content" to richText("v1 default")),
                 ),
                 "user-override" to Node(
                     id = "user-override",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "user override"),
+                    props = mapOf("content" to richText("user override")),
                 ),
             ),
             slots = mapOf(
@@ -492,7 +492,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "v2-default",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v2 default"),
+                    props = mapOf("content" to richText("v2 default")),
                 ),
             ),
             slots = mapOf(
@@ -554,4 +554,14 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         }.isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
 }

@@ -765,7 +765,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 id = "default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Default body content"),
+                props = mapOf("content" to richText("Default body content")),
             ),
         ),
         slots = mapOf(
@@ -817,7 +817,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 id = "user-fill-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "User-authored body"),
+                props = mapOf("content" to richText("User-authored body")),
             ),
         ),
         slots = mapOf(
@@ -838,4 +838,14 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
         return restTemplate.postForEntity(url, HttpEntity(body, headers), String::class.java)
     }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
 }
