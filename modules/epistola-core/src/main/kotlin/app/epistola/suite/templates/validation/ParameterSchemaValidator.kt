@@ -4,234 +4,104 @@
 
 package app.epistola.suite.templates.validation
 
+import app.epistola.catalog.validation.TemplateValidationCodes
+import app.epistola.catalog.validation.TemplateValidationContext
+import app.epistola.catalog.validation.TemplateValidationFinding
+import app.epistola.catalog.validation.TemplateValidator
+import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
+import app.epistola.template.model.Node
+import app.epistola.template.model.Slot
+import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.node.ArrayNode
-import tools.jackson.databind.node.ObjectNode
+import tools.jackson.databind.ObjectMapper
 
 /**
- * Validates a JSON Schema declared as a node's parameter schema (today: stencil
- * versions; future: any parametrised component). Component-agnostic by design:
- * it only inspects the schema shape, never where the schema came from.
+ * Suite presentation adapter for portable parameter-schema validation.
  *
- * V1 supports the primitive subset users actually need:
- *   - string (with optional format: "date" | "date-time")
- *   - number / integer
- *   - boolean
- *   - array of one of the above primitives
- *
- * Anything else (nested objects, oneOf/anyOf, enums, ...) is rejected so the v1
- * surface stays small. The storage shape stays canonical JSON Schema, so a
- * future v2 can lift these restrictions without a migration.
+ * Suite accepts Jackson tree input at its command boundary. The tree is reduced
+ * to the portable map representation and validated through [TemplateValidator];
+ * the first deterministic finding is mapped back to Suite's existing exception.
  */
 @Component
 class ParameterSchemaValidator {
+    private val objectMapper = ObjectMapper()
 
-    private val nameRegex = Regex("^[a-z][a-zA-Z0-9_]{0,63}$")
-    private val reservedNames = setOf("params", "item", "sys", "index")
-    private val reservedSuffixes = listOf("_index", "_first", "_last")
-    private val supportedPrimitives = setOf("string", "number", "integer", "boolean")
-    private val supportedStringFormats = setOf("date", "date-time")
-
-    /**
-     * Validates the given schema. NULL is a valid no-op (means "no parameters").
-     * Throws [ValidationException] on the first violation.
-     */
-    fun validate(schema: JsonNode?, fieldPrefix: String = "parameterSchema") {
+    fun validate(
+        schema: JsonNode?,
+        fieldPrefix: String = "parameterSchema",
+    ) {
         if (schema == null || schema.isNull) return
-        if (schema !is ObjectNode) {
+        if (!schema.isObject) {
             throw ValidationException(
                 fieldPrefix,
                 "parameter schema must be a JSON object",
                 ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
             )
         }
-        val type = schema.get("type")?.asString()
-        if (type != "object") {
-            throw ValidationException(
-                "$fieldPrefix.type",
-                "parameter schema 'type' must be 'object'; got '${type ?: "<missing>"}'",
-                ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
-            )
-        }
-        val properties = schema.get("properties")
-        if (properties != null && !properties.isNull && properties !is ObjectNode) {
-            throw ValidationException(
-                "$fieldPrefix.properties",
-                "'properties' must be an object",
-                ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
-            )
-        }
-        val propertiesObj = properties as? ObjectNode
-        val declaredNames = mutableSetOf<String>()
-        propertiesObj?.propertyNames()?.forEach { name -> declaredNames.add(name) }
 
-        propertiesObj?.properties()?.forEach { (name, propSchema) ->
-            validateName(name, fieldPrefix)
-            validateProperty(name, propSchema, "$fieldPrefix.properties.$name")
-        }
-
-        val required = schema.get("required")
-        if (required != null && !required.isNull) {
-            if (required !is ArrayNode) {
-                throw ValidationException(
-                    "$fieldPrefix.required",
-                    "'required' must be an array",
-                    ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
-                )
-            }
-            for (item in required) {
-                val req = item.asString()
-                if (req !in declaredNames) {
-                    throw ValidationException(
-                        "$fieldPrefix.required",
-                        "required parameter '$req' is not declared in 'properties'",
-                        ValidationCode.PARAMETER_REQUIRED_UNKNOWN,
-                    )
-                }
-            }
-        }
+        @Suppress("UNCHECKED_CAST")
+        val portable = objectMapper.convertValue(schema, Map::class.java) as Map<String, Any?>
+        val finding = TemplateValidator.validate(document(portable), TemplateValidationContext.EMPTY)
+            .findings
+            .filter { it.severity == ValidationSeverity.ERROR && it.code in PARAMETER_CODES }
+            .minWithOrNull(compareBy({ PARAMETER_CODE_PRIORITY.indexOf(it.code) }, { it.path }))
+        if (finding != null) throw finding.asSuiteException(fieldPrefix)
     }
 
-    private fun validateName(name: String, fieldPrefix: String) {
-        if (!nameRegex.matches(name)) {
-            throw ValidationException(
-                "$fieldPrefix.properties",
-                "parameter name '$name' must match ^[a-z][a-zA-Z0-9_]{0,63}\$",
-                ValidationCode.PARAMETER_NAME_INVALID,
-            )
-        }
-        if (name in reservedNames || reservedSuffixes.any { name.endsWith(it) }) {
-            throw ValidationException(
-                "$fieldPrefix.properties",
-                "parameter name '$name' collides with a reserved scope name",
-                ValidationCode.PARAMETER_NAME_RESERVED,
-            )
-        }
+    private fun document(schema: Map<String, Any?>): TemplateDocument = TemplateDocument(
+        root = ROOT_ID,
+        nodes = mapOf(
+            ROOT_ID to Node(ROOT_ID, "root", slots = listOf(ROOT_SLOT)),
+            SCHEMA_NODE_ID to Node(
+                SCHEMA_NODE_ID,
+                "stencil",
+                props = mapOf(
+                    "stencilId" to "parameter-schema",
+                    "version" to 1,
+                    "parameterSchemaSnapshot" to schema,
+                ),
+            ),
+        ),
+        slots = mapOf(ROOT_SLOT to Slot(ROOT_SLOT, ROOT_ID, "children", listOf(SCHEMA_NODE_ID))),
+    )
+
+    private fun TemplateValidationFinding.asSuiteException(fieldPrefix: String): ValidationException {
+        val relative = path.removePrefix("$SCHEMA_PATH.")
+        return ValidationException(
+            field = if (relative == path) fieldPrefix else "$fieldPrefix.$relative",
+            message = legacyMessage(relative),
+            code = ValidationCode.entries.firstOrNull { it.wire == code } ?: ValidationCode.GENERIC,
+        )
     }
 
-    private fun validateProperty(name: String, propSchema: JsonNode, fieldPath: String) {
-        if (propSchema !is ObjectNode) {
-            throw ValidationException(
-                fieldPath,
-                "parameter '$name' must be a schema object",
-                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-            )
-        }
-        val type = propSchema.get("type")?.asString()
-            ?: throw ValidationException(
-                "$fieldPath.type",
-                "parameter '$name' is missing 'type'",
-                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-            )
-
-        when (type) {
-            in supportedPrimitives -> validatePrimitive(name, propSchema, type, fieldPath)
-            "array" -> validateArray(name, propSchema, fieldPath)
-            else -> throw ValidationException(
-                "$fieldPath.type",
-                "parameter '$name' has unsupported type '$type' " +
-                    "(v1 supports: string, number, integer, boolean, array of those)",
-                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-            )
-        }
+    private fun TemplateValidationFinding.legacyMessage(relative: String): String = when {
+        code == TemplateValidationCodes.PARAMETER_SCHEMA_INVALID_TYPE && relative == "required" ->
+            "'required' must be an array"
+        code == TemplateValidationCodes.PARAMETER_SCHEMA_INVALID_TYPE && relative == "properties" ->
+            "'properties' must be an object"
+        code == TemplateValidationCodes.PARAMETER_TYPE_UNSUPPORTED && message.contains("must contain primitives") ->
+            "parameter '${relative.substringBefore(".items")}' is missing 'items'"
+        code == TemplateValidationCodes.PARAMETER_TYPE_UNSUPPORTED && message.contains("'<missing>'") ->
+            "parameter '${relative.substringBefore(".type")}' is missing 'type'"
+        else -> message
     }
 
-    private fun validatePrimitive(name: String, propSchema: ObjectNode, type: String, fieldPath: String) {
-        if (type == "string") {
-            val format = propSchema.get("format")?.asString()
-            if (format != null && format !in supportedStringFormats) {
-                throw ValidationException(
-                    "$fieldPath.format",
-                    "parameter '$name' has unsupported string format '$format' " +
-                        "(v1 supports: date, date-time)",
-                    ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-                )
-            }
-        }
-        validateDefaultMatchesPrimitive(name, propSchema, type, fieldPath)
-    }
-
-    private fun validateArray(name: String, propSchema: ObjectNode, fieldPath: String) {
-        val items = propSchema.get("items")
-            ?: throw ValidationException(
-                "$fieldPath.items",
-                "array parameter '$name' is missing 'items'",
-                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-            )
-        if (items !is ObjectNode) {
-            throw ValidationException(
-                "$fieldPath.items",
-                "array parameter '$name' 'items' must be a schema object",
-                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-            )
-        }
-        val itemType = items.get("type")?.asString()
-        if (itemType !in supportedPrimitives) {
-            throw ValidationException(
-                "$fieldPath.items.type",
-                "array parameter '$name' must contain primitives; got '${itemType ?: "<missing>"}'",
-                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-            )
-        }
-        if (itemType == "string") {
-            val format = items.get("format")?.asString()
-            if (format != null && format !in supportedStringFormats) {
-                throw ValidationException(
-                    "$fieldPath.items.format",
-                    "array parameter '$name' items have unsupported string format '$format'",
-                    ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
-                )
-            }
-        }
-        validateDefaultMatchesArray(name, propSchema, itemType, fieldPath)
-    }
-
-    private fun validateDefaultMatchesPrimitive(name: String, propSchema: ObjectNode, type: String, fieldPath: String) {
-        val def = propSchema.get("default") ?: return
-        val ok = when (type) {
-            "string" -> def.isString
-            "number" -> def.isNumber
-            "integer" -> def.isIntegralNumber
-            "boolean" -> def.isBoolean
-            else -> false
-        }
-        if (!ok) {
-            throw ValidationException(
-                "$fieldPath.default",
-                "parameter '$name' default does not match declared type '$type'",
-                ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH,
-            )
-        }
-    }
-
-    private fun validateDefaultMatchesArray(name: String, propSchema: ObjectNode, itemType: String?, fieldPath: String) {
-        val def = propSchema.get("default") ?: return
-        if (def !is ArrayNode) {
-            throw ValidationException(
-                "$fieldPath.default",
-                "parameter '$name' default must be an array",
-                ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH,
-            )
-        }
-        if (itemType == null) return
-        for (item in def) {
-            val ok = when (itemType) {
-                "string" -> item.isString
-                "number" -> item.isNumber
-                "integer" -> item.isIntegralNumber
-                "boolean" -> item.isBoolean
-                else -> false
-            }
-            if (!ok) {
-                throw ValidationException(
-                    "$fieldPath.default",
-                    "parameter '$name' default items must be of type '$itemType'",
-                    ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH,
-                )
-            }
-        }
+    companion object {
+        private const val ROOT_ID = "root"
+        private const val ROOT_SLOT = "root-children"
+        private const val SCHEMA_NODE_ID = "parameter-schema"
+        private const val SCHEMA_PATH = "nodes.$SCHEMA_NODE_ID.props.parameterSchemaSnapshot"
+        private val PARAMETER_CODE_PRIORITY = listOf(
+            TemplateValidationCodes.PARAMETER_SCHEMA_INVALID_TYPE,
+            TemplateValidationCodes.PARAMETER_REQUIRED_UNKNOWN,
+            TemplateValidationCodes.PARAMETER_NAME_INVALID,
+            TemplateValidationCodes.PARAMETER_NAME_RESERVED,
+            TemplateValidationCodes.PARAMETER_TYPE_UNSUPPORTED,
+            TemplateValidationCodes.PARAMETER_DEFAULT_TYPE_MISMATCH,
+        )
+        private val PARAMETER_CODES = PARAMETER_CODE_PRIORITY.toSet()
     }
 }

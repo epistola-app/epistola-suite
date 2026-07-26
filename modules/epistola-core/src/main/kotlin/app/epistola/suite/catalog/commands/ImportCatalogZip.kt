@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.archive.CatalogArchivePolicy
+import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
@@ -45,7 +47,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
-import java.util.zip.ZipInputStream
 
 /**
  * Imports a catalog from a ZIP archive into a catalog of [catalogType].
@@ -156,21 +157,23 @@ class ImportCatalogZipHandler(
                 "(actual: ${command.zipBytes.size / 1024 / 1024} MB)"
         }
 
-        // Extract ZIP contents into memory with decompression limit
-        val entries = mutableMapOf<String, ByteArray>()
-        var totalDecompressed = 0L
-        ZipInputStream(ByteArrayInputStream(command.zipBytes)).use { zip ->
-            var entry = zip.nextEntry
-            while (entry != null) {
-                if (!entry.isDirectory) {
-                    val bytes = zip.readAllBytes()
-                    totalDecompressed += bytes.size
-                    require(totalDecompressed <= maxDecompressedSize) {
-                        "Catalog ZIP decompressed content exceeds maximum size of ${sizeLimits.maxDecompressedSize}"
-                    }
-                    entries[entry.name] = bytes
-                }
-                entry = zip.nextEntry
+        // epistola-catalog owns ZIP safety and path normalization. Suite
+        // materializes the already-checked entries because the persistence
+        // orchestration below consumes them more than once.
+        val read = CatalogArchiveReader.read(
+            ByteArrayInputStream(command.zipBytes),
+            CatalogArchivePolicy(
+                maxCompressedBytes = maxZipSize,
+                maxExpandedBytes = maxDecompressedSize,
+            ),
+        )
+        val archive = read.archive
+            ?: throw IllegalArgumentException(
+                read.findings.joinToString("; ") { "${it.path}: ${it.message}" },
+            )
+        val entries = archive.use { safeArchive ->
+            safeArchive.paths.associateWith { path ->
+                safeArchive.content.open(path).use { it.readAllBytes() }
             }
         }
 

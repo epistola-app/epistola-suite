@@ -15,9 +15,7 @@ import org.junit.jupiter.api.assertThrows
 
 class TemplateDocumentValidatorTest {
     private val validator = TemplateDocumentValidator(
-        placeholderValidator = PlaceholderValidator(),
-        nodeParameterBindingValidator = NodeParameterBindingValidator(NodeParameterSchemaProviderRegistry(emptyList())),
-        pageHeaderCardinalityValidator = PageHeaderCardinalityValidator(),
+        parameterSchemas = NodeParameterSchemaProviderRegistry(emptyList()),
     )
 
     @Test
@@ -63,6 +61,13 @@ class TemplateDocumentValidatorTest {
         assertThatCode { validator.validateTemplateGraphForRendering(document) }.doesNotThrowAnyException()
         val exception = assertThrows<ValidationException> { validator.validateTemplate(document) }
         assertThat(exception.field).isEqualTo("templateModel.nodes.placeholder")
+    }
+
+    @Test
+    fun `portable validation golden fixture is published to consumers`() {
+        assertThat(
+            javaClass.getResource("/META-INF/epistola-catalog/fixtures/v1/template-validation.json"),
+        ).isNotNull()
     }
 
     private fun documentWithMissingRoot() = TemplateDocument(
