@@ -24,6 +24,7 @@ import { createTestDocument, resetCounter, nodeId, slotId } from '../../engine/t
 import { createStencilDefinition } from './stencil-registration.js';
 import { reKeyContent } from './rekey-content.js';
 import { extractSubtree } from './extract-subtree.js';
+import { richText, richTextValue } from './stencil-test-helpers.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -75,7 +76,10 @@ function insertText(
   targetSlotId: SlotId,
   content?: string,
 ): NodeId {
-  const { node, slots } = registry.createNode('text', content ? { content } : undefined);
+  const { node, slots } = registry.createNode(
+    'text',
+    content ? { content: richText(content) } : undefined,
+  );
   const result = engine.dispatch({
     type: 'InsertNode',
     node,
@@ -108,9 +112,14 @@ function createSampleStencilContent(): TemplateDocument {
     root: rootId,
     nodes: {
       [rootId]: { id: rootId, type: 'root', slots: [rootSlot] },
-      [textId]: { id: textId, type: 'text', slots: [], props: { content: 'Hello' } },
+      [textId]: { id: textId, type: 'text', slots: [], props: { content: richText('Hello') } },
       [containerId]: { id: containerId, type: 'container', slots: [containerSlot] },
-      [innerTextId]: { id: innerTextId, type: 'text', slots: [], props: { content: 'Inner' } },
+      [innerTextId]: {
+        id: innerTextId,
+        type: 'text',
+        slots: [],
+        props: { content: richText('Inner') },
+      },
     } as Record<NodeId, Node>,
     slots: {
       [rootSlot]: {
@@ -272,11 +281,13 @@ describe('Insert stencil with content (re-keying)', () => {
 
     // Find the re-keyed text node by type and props
     const allNodes = Object.values(engine.doc.nodes);
-    const textNodes = allNodes.filter((n) => n.type === 'text' && n.props?.content === 'Hello');
+    const textNodes = allNodes.filter(
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Hello',
+    );
     expect(textNodes.length).toBe(1);
 
     const innerTextNodes = allNodes.filter(
-      (n) => n.type === 'text' && n.props?.content === 'Inner',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Inner',
     );
     expect(innerTextNodes.length).toBe(1);
   });
@@ -627,8 +638,8 @@ describe('reKeyContent', () => {
 
     const textNodes = result.nodes.filter((n) => n.type === 'text');
     expect(textNodes.length).toBe(2);
-    expect(textNodes.some((n) => n.props?.content === 'Hello')).toBe(true);
-    expect(textNodes.some((n) => n.props?.content === 'Inner')).toBe(true);
+    expect(textNodes.some((n) => richTextValue(n.props?.content) === 'Hello')).toBe(true);
+    expect(textNodes.some((n) => richTextValue(n.props?.content) === 'Inner')).toBe(true);
   });
 
   it('returns correct childNodeIds (root children)', () => {
@@ -668,7 +679,7 @@ describe('reKeyContent', () => {
     const childNode = result.nodes.find((n) => n.id === childId);
     expect(childNode).toBeDefined();
     expect(childNode!.type).toBe('text');
-    expect(childNode!.props?.content).toBe('Inner');
+    expect(richTextValue(childNode!.props?.content)).toBe('Inner');
   });
 });
 
@@ -693,7 +704,7 @@ describe('extractSubtree', () => {
 
     // Find the text node in the extracted document
     const textNodes = Object.values(extracted.nodes).filter(
-      (n) => n.type === 'text' && n.props?.content === 'Extracted text',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Extracted text',
     );
     expect(textNodes).toHaveLength(1);
   });
@@ -733,7 +744,7 @@ describe('extractSubtree', () => {
     expect(containerNodes).toHaveLength(1);
 
     const nestedTexts = Object.values(extracted.nodes).filter(
-      (n) => n.type === 'text' && n.props?.content === 'Nested text',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Nested text',
     );
     expect(nestedTexts).toHaveLength(1);
   });
@@ -990,7 +1001,7 @@ describe('Multiple instances of the same stencil version', () => {
           id: nodeId('v2-text-dup'),
           type: 'text',
           slots: [],
-          props: { content: 'Version 2' },
+          props: { content: richText('Version 2') },
         },
       } as Record<NodeId, Node>,
       slots: {
