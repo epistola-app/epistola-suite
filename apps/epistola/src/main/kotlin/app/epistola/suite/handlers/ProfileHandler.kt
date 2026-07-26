@@ -39,7 +39,7 @@ class ProfileHandler(
             .sortedBy { it.tenant }
 
         // Reach the raw OidcUser only to read curated id-token claim values. Absent under form login.
-        val oidcUser = SecurityContextHolder.getContext()?.authentication?.principal as? OidcUser
+        val oidcUser = SecurityContextHolder.getContext().authentication?.principal as? OidcUser
         val claimRows = oidcUser
             ?.let { ProfileTokenClaims.extract(it.idToken.claims, authProperties.flatRoles.claimName) }
             ?: emptyList()

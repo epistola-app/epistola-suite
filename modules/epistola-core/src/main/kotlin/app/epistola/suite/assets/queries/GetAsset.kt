@@ -58,8 +58,8 @@ class GetAssetHandler(
                     name = rs.getString("name"),
                     mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     sizeBytes = rs.getLong("size_bytes"),
-                    width = rs.getObject("width", Integer::class.java)?.toInt(),
-                    height = rs.getObject("height", Integer::class.java)?.toInt(),
+                    width = rs.getObject("width", Int::class.javaObjectType),
+                    height = rs.getObject("height", Int::class.javaObjectType),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
                     createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserKey(it) },
                 )

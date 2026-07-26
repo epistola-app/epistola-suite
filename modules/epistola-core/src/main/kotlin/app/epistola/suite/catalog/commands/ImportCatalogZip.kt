@@ -636,7 +636,7 @@ class ImportCatalogZipHandler(
                 name = resource.name,
                 version = resource.version,
                 description = resource.description,
-                tags = resource.tags ?: emptyList(),
+                tags = resource.tags,
                 content = resource.content,
                 parameterSchema = resource.parameterSchema,
                 onConflict = onStencilConflict,
@@ -660,7 +660,7 @@ class ImportCatalogZipHandler(
                 catalogKey = catalogKey,
                 slug = resource.slug,
                 displayName = resource.name,
-                allowedValues = resource.allowedValues ?: emptyList(),
+                allowedValues = resource.allowedValues,
                 codeListCatalogKey = bindingCatalog,
                 codeListSlug = bindingSlug,
             ).execute()

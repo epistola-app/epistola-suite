@@ -25,7 +25,7 @@ import java.net.InetAddress
  */
 @Component
 class NodeIdentity(
-    @param:Value("\${epistola.node-id:#{null}}")
+    @Value("\${epistola.node-id:#{null}}")
     configuredNodeId: String?,
 ) {
     val nodeId: String =

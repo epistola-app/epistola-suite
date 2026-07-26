@@ -37,7 +37,7 @@ class ClientIdentityFilter(
     private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -63,10 +63,10 @@ class ClientIdentityFilter(
         } else {
             // Soft validation on other endpoints — warn but don't break v0.2 clients.
             if (client.nodeId.isNullOrBlank()) {
-                logger.debug("{} called without {} header", sanitizeForLog(path), ClientInfo.HEADER_NODE_ID)
+                log.debug("{} called without {} header", sanitizeForLog(path), ClientInfo.HEADER_NODE_ID)
             }
             if (client.contractVersion.isNullOrBlank()) {
-                logger.debug("{} called without epistola-contract/* User-Agent", sanitizeForLog(path))
+                log.debug("{} called without epistola-contract/* User-Agent", sanitizeForLog(path))
             }
         }
 
@@ -79,7 +79,7 @@ class ClientIdentityFilter(
     }
 
     private fun writeBadRequest(request: HttpServletRequest, response: HttpServletResponse, message: String) {
-        logger.debug("Client identity validation failed: {}", message)
+        log.debug("Client identity validation failed: {}", message)
         writeProblemDetail(response, objectMapper, request, ApiProblemTypes.BAD_REQUEST, message)
     }
 

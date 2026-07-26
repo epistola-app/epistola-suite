@@ -183,7 +183,7 @@ class GenerateDocumentBatchHandler(
                         .one()
 
                     if (!versionExists) {
-                        throw VersionNotFoundException(command.tenantId, item.templateId, resolvedVariantId, item.versionId!!)
+                        throw VersionNotFoundException(command.tenantId, item.templateId, resolvedVariantId, item.versionId)
                     }
                 } else if (item.environmentId != null) {
                     val environmentExists = handle.createQuery(
@@ -202,7 +202,7 @@ class GenerateDocumentBatchHandler(
                         .one()
 
                     if (!environmentExists) {
-                        throw EnvironmentNotFoundException(command.tenantId, item.environmentId!!)
+                        throw EnvironmentNotFoundException(command.tenantId, item.environmentId)
                     }
                 }
             }
