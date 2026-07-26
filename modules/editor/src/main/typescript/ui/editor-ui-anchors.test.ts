@@ -57,10 +57,9 @@ const FAMILIES: Record<string, (id: string, fileText: string) => boolean> = {
 
 /** Whether some component stamps `data-editor-anchor` with this anchor. */
 function stampedBy(key: string, anchor: string): string | undefined {
-  // A binding referencing the table on a `data-editor-anchor=` line — covers plain
-  // (`data-editor-anchor=${EDITOR_UI_ANCHORS.x}`), ternary, and composite word-list bindings
-  // (`data-editor-anchor="${EDITOR_UI_ANCHORS.a}${cond ? \` ${EDITOR_UI_ANCHORS.b}\` : ''}"`).
-  const byKey = new RegExp(`data-editor-anchor=[^\\n]*EDITOR_UI_ANCHORS\\.${key}\\b`);
+  // A binding referencing the table before the element's closing `>` — covers plain,
+  // ternary, composite word-list, and formatter-wrapped multiline bindings.
+  const byKey = new RegExp(`data-editor-anchor=[^>]*EDITOR_UI_ANCHORS\\.${key}\\b`);
   const direct = sources.find((s) => byKey.test(s.text));
   if (direct) return direct.path;
 
