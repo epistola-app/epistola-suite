@@ -9,8 +9,8 @@ import com.fasterxml.jackson.annotation.JsonInclude
 /**
  * Description of one editor component type the AI can use when designing or
  * referencing templates. Mirrors the static component registry shipped by
- * `app.epistola.contract:epistola-model` at
- * `/META-INF/epistola-model/component-registry.json`.
+ * `app.epistola.contract:epistola-catalog` at
+ * `/META-INF/epistola-catalog/component-registry.json`.
  */
 data class ComponentTypeInfo(
     /** Component type discriminator used as `node.type` in template documents. */

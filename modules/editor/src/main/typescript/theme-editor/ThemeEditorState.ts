@@ -9,7 +9,10 @@
  * No Lit dependency — testable with plain unit tests.
  */
 
-import type { BlockStylePreset, PageSettings } from '@epistola.app/epistola-model/generated/theme';
+import type {
+  BlockStylePreset,
+  PageSettings,
+} from '@epistola.app/epistola-catalog/generated/theme';
 import { COMPOUND_STYLE_TYPES } from '../ui/inputs/style-inputs.js';
 
 export interface ThemeData {

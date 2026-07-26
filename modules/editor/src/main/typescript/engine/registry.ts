@@ -13,7 +13,7 @@ import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/inde
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
 import type { FieldPath } from './schema-paths.js';
-import { componentRegistry as contractComponentRegistry } from '@epistola.app/epistola-model/registry';
+import { componentRegistry as contractComponentRegistry } from '@epistola.app/epistola-catalog/registry';
 import { nanoid } from 'nanoid';
 import { createTableDefinition } from '../components/table/table-registration.js';
 import { createColumnsDefinition } from '../components/columns/columns-registration.js';

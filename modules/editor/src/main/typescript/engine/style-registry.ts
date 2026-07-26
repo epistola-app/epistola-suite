@@ -9,7 +9,7 @@
  * mutable clone instead of the package JSON object.
  */
 
-import { styleRegistry } from '@epistola.app/epistola-model/registry';
-import type { StyleRegistry } from '@epistola.app/epistola-model/generated/style-registry';
+import { styleRegistry } from '@epistola.app/epistola-catalog/registry';
+import type { StyleRegistry } from '@epistola.app/epistola-catalog/generated/style-registry';
 
 export const defaultStyleRegistry: StyleRegistry = structuredClone(styleRegistry);
