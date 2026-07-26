@@ -168,16 +168,6 @@ tasks.cyclonedxDirectBom {
     jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
 }
 
-// Realize the SBOM task eagerly. The CycloneDX plugin's lazy creation callback
-// registers the BOM artifact on the like-named consumable configuration, and
-// Gradle locks that configuration as soon as an aggregate graph observes this
-// project's variants — a root `./gradlew build`/`check` (aggregating since the
-// root project gained lifecycle tasks) then dies at graph construction with
-// "Cannot mutate the artifacts of configuration ':apps:epistola:cyclonedxDirectBom'
-// after the configuration was consumed as a variant". Realizing at configuration
-// time runs the callback before anything can observe the configuration.
-tasks.cyclonedxDirectBom.get()
-
 // Third-party license inventory for the backend (JVM/Maven) runtime classpath.
 // apps:epistola pulls every :modules:* in as implementation(project(...)), so its
 // runtimeClasspath carries all transitive external artifacts. Our own first-party
@@ -193,7 +183,7 @@ licenseReport {
 // Merge the backend license report, the frontend (npm) report, and the bundled
 // font (OFL 1.1) notices into a single THIRD-PARTY-NOTICES.md that ships in the
 // image and as a release artifact.
-val generateThirdPartyNotices by tasks.registering {
+val generateThirdPartyNotices = tasks.register("generateThirdPartyNotices") {
     group = "verification"
     description = "Generate a consolidated THIRD-PARTY-NOTICES.md (backend + frontend + fonts)"
     dependsOn("generateLicenseReport")
@@ -283,7 +273,7 @@ val vendoredScripts = mapOf(
     "Inter font" to "node_modules/@fontsource/inter/400.css",
 )
 
-val verifyHtmxVendored by tasks.registering {
+val verifyHtmxVendored = tasks.register("verifyHtmxVendored") {
     description = "Verifies the vendored frontend bundles exist (from pnpm install)"
     group = "verification"
     val bundles = vendoredScripts.mapValues { (_, path) -> rootProject.file(path) }
@@ -374,7 +364,7 @@ tasks.register<Exec>("resetLocalDb") {
 
 // Build a custom run image based on run-noble-base with only fontconfig and DejaVu fonts added.
 // This cuts ~565MB compared to the full run image while still supporting Java AWT font rendering.
-val buildRunImage by tasks.registering(Exec::class) {
+val buildRunImage = tasks.register<Exec>("buildRunImage") {
     group = "docker"
     description = "Build custom CNB run image with fontconfig and fonts"
     commandLine("docker", "build", "-t", "epistola-run:noble", file("docker/run-image").absolutePath)

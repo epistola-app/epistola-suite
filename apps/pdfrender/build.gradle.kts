@@ -65,7 +65,7 @@ tasks.processResources {
 // Docker image. Reuses the exact same fonts run image the suite builds (fontconfig +
 // DejaVu fonts are required for AWT/iText font rendering) — built from the shared
 // apps/epistola/docker/run-image Dockerfile rather than a copy.
-val buildRunImage by tasks.registering(Exec::class) {
+val buildRunImage = tasks.register<Exec>("buildRunImage") {
     group = "docker"
     description = "Build custom CNB run image with fontconfig and fonts"
     commandLine(
