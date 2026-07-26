@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[dev]** build(catalog): **Portable catalog dependency adopted.** Suite now consumes `app.epistola.contract:epistola-catalog` instead of the retired pre-1.0 `epistola-model` coordinate, retaining the existing Kotlin model packages while gaining the shared registries, validation, archive, migration, canonicalization, and fixture boundary.
 - **[dev]** chore(build): **Warnings now fail fast.** Kotlin compiler warnings and Gradle deprecations fail builds by default, with a documented narrow exception policy for unavoidable upstream diagnostics.
 - **[dev]** test(kotlin): **Test compiler warnings removed.** Test fixtures now avoid redundant null assertions and conversions, use typed exception assertions, and follow the current Jackson 3 and AssertJ APIs.
 - **[dev]** refactor(kotlin): **Production compiler warnings removed.** Kotlin sources now use idiomatic nullability, primitive wrappers, Jackson type references, and iText border APIs, with regression coverage for typed theme-style conversion and per-side PDF borders.
