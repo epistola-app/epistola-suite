@@ -184,13 +184,13 @@ class StencilIntegrationTest : IntegrationTestBase() {
         // Publish
         val published = PublishStencilVersion(versionId = versionId).execute()
         assertThat(published).isNotNull
-        assertThat(published!!.status).isEqualTo(StencilVersionStatus.PUBLISHED)
+        assertThat(published.status).isEqualTo(StencilVersionStatus.PUBLISHED)
         assertThat(published.publishedAt).isNotNull()
 
         // Archive
         val archived = ArchiveStencilVersion(versionId = versionId).execute()
         assertThat(archived).isNotNull
-        assertThat(archived!!.status).isEqualTo(StencilVersionStatus.ARCHIVED)
+        assertThat(archived.status).isEqualTo(StencilVersionStatus.ARCHIVED)
         assertThat(archived.archivedAt).isNotNull()
     }
 

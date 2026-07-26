@@ -372,7 +372,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 """.trimIndent(),
                 ObjectNode::class.java,
             )
-            val errors = jsonSchemaValidator.validate(reimportedContract.dataModel!!, sampleData)
+            val errors = jsonSchemaValidator.validate(reimportedContract.dataModel, sampleData)
             assertThat(errors).isEmpty()
         }
     }

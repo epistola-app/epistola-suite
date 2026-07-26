@@ -74,10 +74,10 @@ class HubFeedbackSyncAdapterTest {
         assertThat(result.externalRef).isEqualTo("hub-123")
         assertThat(result.externalUrl).isEqualTo("https://hub/f/hub-123")
         assertThat(captured!!.tenant).isEqualTo("acme")
-        assertThat(captured!!.suiteFeedbackId).isEqualTo(fb.id.value.toString())
-        assertThat(captured!!.title).isEqualTo("Login broken")
-        assertThat(captured!!.category).isEqualTo(app.epistola.hub.proto.v1.FeedbackCategory.FEEDBACK_CATEGORY_BUG)
-        assertThat(captured!!.priority).isEqualTo(app.epistola.hub.proto.v1.FeedbackPriority.FEEDBACK_PRIORITY_HIGH)
+        assertThat(captured.suiteFeedbackId).isEqualTo(fb.id.value.toString())
+        assertThat(captured.title).isEqualTo("Login broken")
+        assertThat(captured.category).isEqualTo(app.epistola.hub.proto.v1.FeedbackCategory.FEEDBACK_CATEGORY_BUG)
+        assertThat(captured.priority).isEqualTo(app.epistola.hub.proto.v1.FeedbackPriority.FEEDBACK_PRIORITY_HIGH)
     }
 
     @Test
@@ -108,8 +108,8 @@ class HubFeedbackSyncAdapterTest {
 
         assertThat(ref.externalCommentId).isEqualTo("c-1")
         assertThat(captured!!.feedbackId).isEqualTo("hub-123")
-        assertThat(captured!!.body).isEqualTo("Any update?")
-        assertThat(captured!!.authorName).isEqualTo("Alice")
+        assertThat(captured.body).isEqualTo("Any update?")
+        assertThat(captured.authorName).isEqualTo("Alice")
     }
 
     @Test
@@ -129,7 +129,7 @@ class HubFeedbackSyncAdapterTest {
         HubFeedbackSyncAdapter(client, noopStore).updateStatus(fb, FeedbackStatus.RESOLVED)
 
         assertThat(captured!!.feedbackId).isEqualTo("hub-123")
-        assertThat(captured!!.status).isEqualTo(ProtoStatus.FEEDBACK_STATUS_RESOLVED)
+        assertThat(captured.status).isEqualTo(ProtoStatus.FEEDBACK_STATUS_RESOLVED)
     }
 
     @Test

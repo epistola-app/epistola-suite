@@ -18,9 +18,9 @@ import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 
 class VariantResolverTest : IntegrationTestBase() {
@@ -330,7 +330,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     ),
                 )!!
 
-                assertThatThrownBy {
+                val exception = assertThrows<AmbiguousVariantResolutionException> {
                     variantResolver.resolve(
                         tenantId = tenant.id,
                         templateId = template.id,
@@ -338,10 +338,8 @@ class VariantResolverTest : IntegrationTestBase() {
                             requiredAttributes = mapOf("lang" to "dutch"),
                         ),
                     )
-                }.isInstanceOf(AmbiguousVariantResolutionException::class.java)
-                    .extracting("tiedVariantIds")
-                    .asList()
-                    .containsExactlyInAnyOrder(variant1.id, variant2.id)
+                }
+                assertThat(exception.tiedVariantIds).containsExactlyInAnyOrder(variant1.id, variant2.id)
             }
         }
     }

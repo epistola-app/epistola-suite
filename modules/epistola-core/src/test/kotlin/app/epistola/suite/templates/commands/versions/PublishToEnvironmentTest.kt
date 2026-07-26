@@ -65,7 +65,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         ).execute()
 
         assertThat(result).isNotNull
-        assertThat(result!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
+        assertThat(result.version.status).isEqualTo(VersionStatus.PUBLISHED)
         assertThat(result.version.publishedAt).isNotNull()
         assertThat(result.activation.environmentKey).isEqualTo(env.id)
         assertThat(result.activation.versionKey).isEqualTo(draft.id)
@@ -112,7 +112,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         ).execute()
 
         assertThat(secondResult).isNotNull
-        assertThat(secondResult!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
+        assertThat(secondResult.version.status).isEqualTo(VersionStatus.PUBLISHED)
         assertThat(secondResult.activation.environmentKey).isEqualTo(production.id)
         // No new draft (on-demand lifecycle)
 
@@ -154,7 +154,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
 
         assertThat(first).isNotNull
         assertThat(second).isNotNull
-        assertThat(second!!.activation.versionKey).isEqualTo(first!!.activation.versionKey)
+        assertThat(second.activation.versionKey).isEqualTo(first.activation.versionKey)
         // Only one activation should exist
         val activations = ListActivations(variantId = variantId).query()
         assertThat(activations).hasSize(1)
@@ -297,7 +297,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         ).execute()
 
         assertThat(result).isNotNull
-        assertThat(result!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
+        assertThat(result.version.status).isEqualTo(VersionStatus.PUBLISHED)
         assertThat(result.activation.environmentKey).isEqualTo(environmentId.key)
         assertThat(result.activation.versionKey).isEqualTo(published.id)
         Unit
@@ -335,7 +335,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         ).execute()
 
         assertThat(archived).isNotNull
-        assertThat(archived!!.status).isEqualTo(VersionStatus.ARCHIVED)
+        assertThat(archived.status).isEqualTo(VersionStatus.ARCHIVED)
         Unit
     }
 }

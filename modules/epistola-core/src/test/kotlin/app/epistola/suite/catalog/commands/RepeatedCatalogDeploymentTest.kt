@@ -211,7 +211,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             assertThat(versions).isNotEmpty
 
             // All versions should link to a contract version
-            val latestVersion = versions.maxBy { it.id.value.toInt() }
+            val latestVersion = versions.maxBy { it.id.value }
             assertThat(latestVersion.contractVersion).isNotNull
         }
     }
@@ -326,7 +326,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             val versions = ListVersions(variantId = variantId).query()
             val latestPublished = versions
                 .filter { it.status == VersionStatus.PUBLISHED }
-                .maxByOrNull { it.id.value.toInt() }
+                .maxByOrNull { it.id.value }
             assertThat(latestPublished).isNotNull
 
             // Publish to environment
@@ -336,7 +336,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
 
             assertThat(result).isNotNull
-            assertThat(result!!.activation.versionKey).isEqualTo(latestPublished.id)
+            assertThat(result.activation.versionKey).isEqualTo(latestPublished.id)
 
             // Contract should still be there
             val contract = GetLatestPublishedContractVersion(templateId).query()
@@ -396,7 +396,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             val variants = ListVariants(templateId = templateId).query()
             val variantId = VariantId(variants.first().id, templateId)
             val versions = ListVersions(variantId = variantId).query()
-            val latest = versions.maxBy { it.id.value.toInt() }
+            val latest = versions.maxBy { it.id.value }
             assertThat(latest.contractVersion).isNotNull
         }
     }

@@ -86,7 +86,7 @@ class TenantCommandsTest : IntegrationTestBase() {
             // Point the tenant at the bundled `system/default` theme first so
             // the clear has something concrete to undo.
             SetTenantDefaultTheme(
-                tenantId = tenant!!.id,
+                tenantId = tenant.id,
                 themeId = ThemeKey.of("default"),
                 catalogKey = SYSTEM_CATALOG_KEY,
             ).execute()
@@ -129,20 +129,20 @@ class TenantCommandsTest : IntegrationTestBase() {
 
         given {
             tenant = tenant("Delete Theme Co")
-            val catalogId = CatalogId.default(TenantId(tenant!!.id))
+            val catalogId = CatalogId.default(TenantId(tenant.id))
             val theme = CreateTheme(
                 id = ThemeId(ThemeKey.of("custom"), catalogId),
                 name = "Custom",
             ).execute()
             themeId = ThemeId(theme.id, catalogId)
             SetTenantDefaultTheme(
-                tenantId = tenant!!.id,
+                tenantId = tenant.id,
                 themeId = theme.id,
                 catalogKey = catalogId.key,
             ).execute()
             // Clearing the default unblocks DeleteTheme — the only remaining
             // guard is ThemeInUseException for the active tenant default.
-            SetTenantDefaultTheme(tenantId = tenant!!.id, themeId = null).execute()
+            SetTenantDefaultTheme(tenantId = tenant.id, themeId = null).execute()
         }
 
         whenever {

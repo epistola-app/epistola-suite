@@ -93,7 +93,7 @@ class DatatableNodeRendererTest {
                 children = bodyChildren,
             )
 
-            val width = columnWidths?.getOrNull(i) ?: Math.round(100f / columnHeaders.size).toInt()
+            val width = columnWidths?.getOrNull(i) ?: Math.round(100f / columnHeaders.size)
             nodes[colNodeId] = Node(
                 id = colNodeId,
                 type = "datatable-column",

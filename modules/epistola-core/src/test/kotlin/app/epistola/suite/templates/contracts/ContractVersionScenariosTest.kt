@@ -101,7 +101,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             }
 
             assertThat(result).isNotNull
-            assertThat(result!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
+            assertThat(result.version.status).isEqualTo(VersionStatus.PUBLISHED)
 
             // Contract was auto-published (empty)
             val publishedContract = withMediator {

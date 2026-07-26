@@ -48,7 +48,7 @@ class VersionScopingTest : IntegrationTestBase() {
         val updated = UpdateVersion(firstVersionId, templateDocument("updated-first")).execute()
         val second = GetVersion(secondVersionId).query()
 
-        assertThat(updated!!.templateModel.root).isEqualTo("root-updated-first")
+        assertThat(updated.templateModel.root).isEqualTo("root-updated-first")
         assertThat(second!!.templateModel.root).isEqualTo("root-original-second")
     }
 
@@ -68,7 +68,7 @@ class VersionScopingTest : IntegrationTestBase() {
         val archived = ArchiveVersion(firstVersionId).execute()
         val stillPublished = GetVersion(secondVersionId).query()
 
-        assertThat(archived!!.status).isEqualTo(VersionStatus.ARCHIVED)
+        assertThat(archived.status).isEqualTo(VersionStatus.ARCHIVED)
         assertThat(stillPublished!!.status).isEqualTo(VersionStatus.PUBLISHED)
     }
 
