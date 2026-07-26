@@ -6,7 +6,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { EditorEngine } from '../engine/EditorEngine.js';
 import type { SaveState } from './save-service.js';
-import type { ToolbarAction } from '../plugins/types.js';
+import type { PluginContext, ToolbarItemContribution } from '../plugins/types.js';
 import { parseBindingSaveError } from '../components/stencil/binding-errors.js';
 import { icon } from './icons.js';
 import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
@@ -50,7 +50,8 @@ export class EpistolaToolbar extends LitElement {
   @property({ type: Boolean }) cleanMode = false;
   @property({ type: Boolean }) hasSave = false;
   @property({ attribute: false }) saveState?: SaveState;
-  @property({ attribute: false }) pluginActions?: ToolbarAction[];
+  @property({ attribute: false }) pluginItems?: ToolbarItemContribution[];
+  @property({ attribute: false }) pluginContext?: PluginContext;
 
   @state() private _currentExampleIndex = 0;
   @state() private _shortcutsOpen = false;
@@ -324,30 +325,34 @@ export class EpistolaToolbar extends LitElement {
 
         <div class="toolbar-right" data-editor-anchor=${EDITOR_UI_ANCHORS.toolbarTools}>
           ${hasExamples ? this._renderExampleSelector(examples) : nothing}
+          ${this._renderPluginItems()}
           ${this._walkthroughEnabled
             ? html`<epistola-walkthrough-launcher></epistola-walkthrough-launcher>`
             : nothing}
           <epistola-json-inspector .engine=${this.engine}></epistola-json-inspector>
           ${this._renderShortcuts()}
         </div>
-        ${this._renderPluginActions()}
       </div>
     `;
   }
 
-  private _renderPluginActions() {
-    if (!this.pluginActions || this.pluginActions.length === 0) return nothing;
+  private _renderPluginItems() {
+    const context = this.pluginContext;
+    if (!context || !this.pluginItems || this.pluginItems.length === 0) return nothing;
 
-    return html`
-      <div class="toolbar-separator"></div>
-      ${this.pluginActions.map(
-        (action) => html`
-          <button class="toolbar-btn" @click=${action.onClick} title=${action.label}>
-            ${icon(action.icon as Parameters<typeof icon>[0])} ${action.label}
-          </button>
-        `,
-      )}
-    `;
+    return this.pluginItems.map((item) => {
+      if (item.kind === 'custom') return item.render(context);
+      return html`
+        <button
+          class="toolbar-btn"
+          @click=${() => item.onClick(context)}
+          title=${item.label}
+          aria-label=${item.label}
+        >
+          ${icon(item.icon as Parameters<typeof icon>[0])} ${item.label}
+        </button>
+      `;
+    });
   }
 
   private _renderSaveButton() {

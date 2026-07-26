@@ -8,7 +8,7 @@ import type {
   EditorPlugin,
   PluginContext,
   SidebarTabContribution,
-  ToolbarAction,
+  ToolbarItemContribution,
 } from './types.js';
 import { EditorEngine } from '../engine/EditorEngine.js';
 import { createTestDocument, testRegistry, resetCounter } from '../engine/test-helpers.js';
@@ -176,51 +176,56 @@ describe('SidebarTabContribution', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Toolbar action contributions
+// Toolbar item contributions
 // ---------------------------------------------------------------------------
 
-describe('ToolbarAction', () => {
-  it('plugin can contribute toolbar actions', () => {
+describe('ToolbarItemContribution', () => {
+  it('plugin can contribute host-rendered toolbar actions', () => {
     const clickSpy = vi.fn();
-    const actions: ToolbarAction[] = [
-      { id: 'ai-generate', label: 'Generate', icon: 'sparkles', onClick: clickSpy },
+    const items: ToolbarItemContribution[] = [
+      {
+        kind: 'action',
+        id: 'ai-generate',
+        label: 'Generate',
+        icon: 'sparkles',
+        onClick: clickSpy,
+      },
     ];
 
-    const plugin = createTestPlugin({ toolbarActions: actions });
+    const plugin = createTestPlugin({ toolbarItems: items });
 
-    expect(plugin.toolbarActions).toHaveLength(1);
-    expect(plugin.toolbarActions![0].id).toBe('ai-generate');
-    expect(plugin.toolbarActions![0].label).toBe('Generate');
+    expect(plugin.toolbarItems).toHaveLength(1);
+    expect(plugin.toolbarItems![0].id).toBe('ai-generate');
   });
 
-  it('toolbar action onClick is callable', () => {
-    const clickSpy = vi.fn();
-    const action: ToolbarAction = {
-      id: 'test-action',
-      label: 'Test',
-      icon: 'test',
-      onClick: clickSpy,
+  it('plugin can contribute custom rendered toolbar content', () => {
+    const render = vi.fn(() => html`<div>Guide</div>`);
+    const item: ToolbarItemContribution = {
+      kind: 'custom',
+      id: 'guide',
+      render,
     };
+    const context = createContext();
 
-    action.onClick();
+    if (item.kind === 'custom') item.render(context);
 
-    expect(clickSpy).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledWith(context);
   });
 
-  it('plugin can contribute multiple toolbar actions', () => {
-    const actions: ToolbarAction[] = [
-      { id: 'action-1', label: 'One', icon: 'one', onClick: vi.fn() },
-      { id: 'action-2', label: 'Two', icon: 'two', onClick: vi.fn() },
+  it('plugin can contribute multiple toolbar items', () => {
+    const items: ToolbarItemContribution[] = [
+      { kind: 'action', id: 'action-1', label: 'One', icon: 'one', onClick: vi.fn() },
+      { kind: 'custom', id: 'custom-1', render: () => html`<div>Custom</div>` },
     ];
 
-    const plugin = createTestPlugin({ toolbarActions: actions });
+    const plugin = createTestPlugin({ toolbarItems: items });
 
-    expect(plugin.toolbarActions).toHaveLength(2);
+    expect(plugin.toolbarItems).toHaveLength(2);
   });
 
-  it('plugin without toolbar actions has undefined toolbarActions', () => {
+  it('plugin without toolbar items has undefined toolbarItems', () => {
     const plugin = createTestPlugin();
-    expect(plugin.toolbarActions).toBeUndefined();
+    expect(plugin.toolbarItems).toBeUndefined();
   });
 });
 
@@ -249,25 +254,25 @@ describe('Plugin contribution aggregation', () => {
     expect(tabs[1].id).toBe('tab-c');
   });
 
-  it('toolbar actions from multiple plugins can be flattened', () => {
+  it('toolbar items from multiple plugins preserve plugin and declaration order', () => {
     const plugins: EditorPlugin[] = [
       createTestPlugin({
         id: 'plugin-a',
-        toolbarActions: [{ id: 'a1', label: 'A1', icon: 'a', onClick: vi.fn() }],
+        toolbarItems: [{ kind: 'action', id: 'a1', label: 'A1', icon: 'a', onClick: vi.fn() }],
       }),
       createTestPlugin({ id: 'plugin-b' }), // no actions
       createTestPlugin({
         id: 'plugin-c',
-        toolbarActions: [
-          { id: 'c1', label: 'C1', icon: 'c', onClick: vi.fn() },
-          { id: 'c2', label: 'C2', icon: 'c', onClick: vi.fn() },
+        toolbarItems: [
+          { kind: 'custom', id: 'c1', render: () => html`<div>C1</div>` },
+          { kind: 'action', id: 'c2', label: 'C2', icon: 'c', onClick: vi.fn() },
         ],
       }),
     ];
 
-    const actions = plugins.flatMap((p) => p.toolbarActions ?? []);
+    const items = plugins.flatMap((p) => p.toolbarItems ?? []);
 
-    expect(actions).toHaveLength(3);
-    expect(actions.map((a) => a.id)).toEqual(['a1', 'c1', 'c2']);
+    expect(items).toHaveLength(3);
+    expect(items.map((item) => item.id)).toEqual(['a1', 'c1', 'c2']);
   });
 });
