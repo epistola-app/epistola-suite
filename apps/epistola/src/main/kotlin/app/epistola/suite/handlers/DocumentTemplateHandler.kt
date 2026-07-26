@@ -122,6 +122,23 @@ data class ValidateSchemaResponse(
  * Version lifecycle operations are handled by [VersionRouteHandler].
  * Preview generation is handled by [TemplatePreviewHandler].
  */
+/**
+ * Backend feature toggles forwarded to the editor page as `editorFeatures`, keyed by
+ * the field name the editor bundle reads (`EditorFeatures` in `modules/editor`) and
+ * carrying resolved enablement plus the feature's maturity badge. The two sides live
+ * in different languages, so nothing can check the pair at compile time — which is
+ * why the mapping is one declared table instead of string literals in the render
+ * body, and why the TS name is by convention the lowerCamelCase form of the feature
+ * key (asserted by `EditorFeatureFlagsTest`, so a typo on either entry fails the
+ * build instead of silently disabling the feature). Add a pair to expose a new
+ * editor-facing feature.
+ */
+internal val EDITOR_FEATURES: Map<String, FeatureKey> = mapOf(
+    "quality" to KnownFeatures.QUALITY,
+    "aiChat" to KnownFeatures.AI_CHAT,
+    "editorWalkthrough" to KnownFeatures.EDITOR_WALKTHROUGH,
+)
+
 @Component
 class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
@@ -133,11 +150,6 @@ class DocumentTemplateHandler(
 
     private companion object {
         const val PAGE_SIZE = 10
-
-        val EDITOR_FEATURES: Map<String, FeatureKey> = mapOf(
-            "quality" to KnownFeatures.QUALITY,
-            "aiChat" to KnownFeatures.AI_CHAT,
-        )
     }
 
     fun list(request: ServerRequest): ServerResponse {

@@ -30,11 +30,18 @@ data class FeatureDefaults(
      * default until the assistant surface is production-ready.
      */
     val aiChat: Boolean = false,
+    /**
+     * Editor walkthrough. Not hub-gated (purely client-side onboarding), so its default lives here
+     * rather than following `epistola.support.enabled`. Off while the feature is ALPHA; stated
+     * explicitly rather than riding the `else` branch below, so enabling it later is a deliberate edit.
+     */
+    val editorWalkthrough: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
         KnownFeatures.QUALITY -> quality
         KnownFeatures.AI_CHAT -> aiChat
+        KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough
         else -> false
     }
 }

@@ -82,19 +82,27 @@ export interface SidebarTabContribution {
   render: (context: PluginContext) => TemplateResult;
 }
 
-export interface ToolbarAction {
-  /** Action identifier */
-  id: string;
-
-  /** Tooltip / aria label */
-  label: string;
-
-  /** Icon identifier (Lucide icon name) */
-  icon: string;
-
-  /** Called when the toolbar button is clicked */
-  onClick: () => void;
-}
+export type ToolbarItemContribution =
+  | {
+      /** Host-rendered standard toolbar action. */
+      kind: 'action';
+      /** Contribution identifier. */
+      id: string;
+      /** Tooltip and accessible label. */
+      label: string;
+      /** Lucide icon identifier. */
+      icon: string;
+      /** Called with the latest reactive editor context. */
+      onClick: (context: PluginContext) => void;
+    }
+  | {
+      /** Plugin-rendered custom toolbar UI. */
+      kind: 'custom';
+      /** Contribution identifier. */
+      id: string;
+      /** Render custom toolbar content with the latest reactive editor context. */
+      render: (context: PluginContext) => TemplateResult;
+    };
 
 // ---------------------------------------------------------------------------
 // Plugin lifecycle
@@ -114,8 +122,8 @@ export interface EditorPlugin {
   /** Sidebar tab contributed by this plugin (optional) */
   sidebarTab?: SidebarTabContribution;
 
-  /** Toolbar actions contributed by this plugin (optional) */
-  toolbarActions?: ToolbarAction[];
+  /** Toolbar items contributed by this plugin (optional). */
+  toolbarItems?: ToolbarItemContribution[];
 
   /**
    * Called when the editor engine is ready. Returns a dispose function

@@ -15,6 +15,7 @@ import type {
 import type { StyleProperty } from '@epistola.app/epistola-model/generated/style-registry';
 import type { BlockStylePreset } from '@epistola.app/epistola-model/generated/theme';
 import { getNestedValue, setNestedValue } from '../engine/props.js';
+import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../engine/font-ref.js';
 import {
   isValidExpression,
@@ -127,7 +128,10 @@ export class EpistolaInspector extends LitElement {
         <!-- Delete -->
         ${!presentation?.suppressDeleteSection
           ? html`
-              <div class="inspector-delete-section">
+              <div
+                class="inspector-delete-section"
+                data-editor-anchor=${EDITOR_UI_ANCHORS.blockDelete}
+              >
                 <button
                   class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-full"
                   @click=${this._handleDelete}
@@ -166,7 +170,7 @@ export class EpistolaInspector extends LitElement {
     const docStyles = (this.doc?.documentStylesOverride ?? {}) as Record<string, unknown>;
 
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-editor-anchor=${EDITOR_UI_ANCHORS.documentStyles}>
         <div class="inspector-section-label">Document Styles</div>
         ${groups.map((group) => {
           // Only show inheritable properties for document styles
@@ -197,7 +201,7 @@ export class EpistolaInspector extends LitElement {
     const overrideMargins = this.doc?.pageSettingsOverride?.margins;
 
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-editor-anchor=${EDITOR_UI_ANCHORS.pageSettings}>
         <div class="inspector-section-label">Page Settings</div>
 
         <div class="inspector-field">
@@ -305,7 +309,7 @@ export class EpistolaInspector extends LitElement {
 
       if (applicablePresets.length > 0) {
         return html`
-          <div class="inspector-section">
+          <div class="inspector-section" data-editor-anchor=${EDITOR_UI_ANCHORS.stylePreset}>
             <label class="inspector-field-label" for="style-preset-select">Style Preset</label>
             <select
               id="style-preset-select"
@@ -331,7 +335,7 @@ export class EpistolaInspector extends LitElement {
 
     // Fallback: text input for preset name (no theme or no applicable presets)
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-editor-anchor=${EDITOR_UI_ANCHORS.stylePreset}>
         <label class="inspector-field-label" for="style-preset-input">Style Preset</label>
         <input
           type="text"
@@ -368,7 +372,7 @@ export class EpistolaInspector extends LitElement {
     const inlineStyles = node.styles ?? {};
 
     return html`
-      <div class="inspector-section">
+      <div class="inspector-section" data-editor-anchor=${EDITOR_UI_ANCHORS.blockStyles}>
         <div class="inspector-section-label">Styles</div>
         ${groups.map((group) => {
           const filteredProps = this._filterProperties(group.properties, applicableStyles);

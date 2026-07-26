@@ -66,7 +66,7 @@ export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';
 export type {
   EditorPlugin,
   SidebarTabContribution,
-  ToolbarAction,
+  ToolbarItemContribution,
   PluginContext,
   PluginDisposeFn,
 } from './plugins/types.js';
@@ -94,7 +94,7 @@ export interface EditorOptions {
   dataExamples?: object[];
   /** Callback to fetch a PDF preview. Host page owns the HTTP call; editor owns debounce/abort. */
   onFetchPreview?: FetchPreviewFn;
-  /** Optional plugins that extend the editor with additional sidebar tabs, toolbar actions, etc. */
+  /** Optional plugins that extend the editor with sidebar tabs, toolbar items, etc. */
   plugins?: EditorPlugin[];
   /** Optional image block support with asset management callbacks. */
   imageOptions?: {
@@ -142,6 +142,8 @@ export type {
   EditorFeatureFlag,
   EditorFeatures,
 } from './engine/feature-flags.js';
+export { EDITOR_UI_ANCHORS } from './ui/editor-ui-anchors.js';
+export type { EditorUiAnchor, EditorUiAnchorSelector } from './ui/editor-ui-anchors.js';
 
 export interface EditorInstance {
   /** Tear down the editor and clean up */

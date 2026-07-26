@@ -29,7 +29,7 @@ import type {
   PluginDisposeFn,
   SelectNodeOptions,
   SidebarTabContribution,
-  ToolbarAction,
+  ToolbarItemContribution,
 } from '../plugins/types.js';
 import type { EpistolaSidebar } from './EpistolaSidebar.js';
 import type { EpistolaToolbar } from './EpistolaToolbar.js';
@@ -286,10 +286,10 @@ export class EpistolaEditor extends LitElement {
     return this.plugins.filter((p) => p.sidebarTab).map((p) => p.sidebarTab!);
   }
 
-  /** Toolbar action contributions from plugins. */
-  private get _pluginToolbarActions(): ToolbarAction[] {
+  /** Toolbar item contributions from plugins. */
+  private get _pluginToolbarItems(): ToolbarItemContribution[] {
     if (!this.plugins) return [];
-    return this.plugins.flatMap((p) => p.toolbarActions ?? []);
+    return this.plugins.flatMap((p) => p.toolbarItems ?? []);
   }
 
   /** Current plugin context for reactive sidebar tab rendering. */
@@ -1591,7 +1591,8 @@ export class EpistolaEditor extends LitElement {
           .hasPreview=${hasPreview}
           .hasSave=${hasSave}
           .saveState=${this._saveState}
-          .pluginActions=${this._pluginToolbarActions}
+          .pluginItems=${this._pluginToolbarItems}
+          .pluginContext=${this._pluginContext}
         ></epistola-toolbar>
 
         <!-- Main layout: sidebar | canvas | [resize-handle | preview] -->

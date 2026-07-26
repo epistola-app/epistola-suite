@@ -236,6 +236,7 @@ export class EpistolaSidebar extends LitElement {
                 <button
                   class="sidebar-tab ${isActive ? 'active' : ''}"
                   data-tab-id=${tab.id}
+                  data-editor-anchor=${`tab-${tab.id}`}
                   @click=${() => this._setTab(tab.id)}
                 >
                   ${label}

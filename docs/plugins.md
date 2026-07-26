@@ -5,7 +5,7 @@
 Epistola plugins are optional, self-contained feature modules that extend the editor and platform with additional capabilities. A plugin can contribute:
 
 - **Backend services and routes** — Spring beans, UI handler endpoints, configuration properties
-- **Frontend editor UI** — sidebar tabs, toolbar actions, custom panels
+- **Frontend editor UI** — sidebar tabs, toolbar items, custom panels
 - **Configuration** — per-plugin settings under the `epistola.plugins.<name>` namespace
 
 Backend plugins are **disabled by default** and explicitly enabled via configuration:
@@ -202,8 +202,8 @@ export interface EditorPlugin {
   /** Sidebar tab contributed by this plugin (optional) */
   sidebarTab?: SidebarTabContribution;
 
-  /** Toolbar actions contributed by this plugin (optional) */
-  toolbarActions?: ToolbarAction[];
+  /** Toolbar items contributed by this plugin (optional) */
+  toolbarItems?: ToolbarItemContribution[];
 
   /**
    * Called when the editor engine is ready. Returns a dispose function
@@ -226,19 +226,21 @@ export interface SidebarTabContribution {
   render: (context: PluginContext) => TemplateResult;
 }
 
-export interface ToolbarAction {
-  /** Action identifier */
-  id: string;
-
-  /** Tooltip / aria label */
-  label: string;
-
-  /** Icon identifier */
-  icon: string;
-
-  /** Called when the toolbar button is clicked */
-  onClick: () => void;
-}
+export type ToolbarItemContribution =
+  | {
+      /** Rendered by the host as a standard toolbar button. */
+      kind: "action";
+      id: string;
+      label: string;
+      icon: string;
+      onClick: (context: PluginContext) => void;
+    }
+  | {
+      /** Rendered by the plugin for menus or other custom toolbar UI. */
+      kind: "custom";
+      id: string;
+      render: (context: PluginContext) => TemplateResult;
+    };
 
 export interface PluginContext {
   /** The editor engine instance — plugins can dispatch commands via engine.dispatch() */
@@ -283,7 +285,7 @@ export interface EditorOptions {
   dataExamples?: object[];
   onFetchPreview?: FetchPreviewFn;
 
-  /** Optional plugins that extend the editor with additional sidebar tabs, toolbar actions, etc. */
+  /** Optional plugins that extend the editor with sidebar tabs, toolbar items, etc. */
   plugins?: EditorPlugin[];
 }
 ```
@@ -375,6 +377,12 @@ The Thymeleaf host page declares available plugin descriptors and resolved featu
         "moduleUrl": [[@{/editor/ai-plugin.js}]],
         "stylesheetUrl": [[@{/editor/ai-plugin.css}]],
         "factoryExport": "createEditorPlugin"
+      },
+      {
+        "id": "editor-walkthrough",
+        "feature": "editorWalkthrough",
+        "moduleUrl": [[@{/editor/walkthrough-plugin.js}]],
+        "factoryExport": "createEditorPlugin"
       }
     ]
   }
@@ -404,6 +412,10 @@ This pattern:
 - Only loads plugin JS when the feature/plugin is enabled (code splitting)
 - Passes host-page concerns through plugin descriptor config
 - Keeps page bootstrap code unaware of specific plugin implementations
+
+The guided editor walkthrough is a frontend-only example: it contributes custom
+toolbar UI, ships as its own Vite entry, and uses generic editor-owned DOM
+anchors. It needs no backend plugin module because it reads and sends no data.
 
 ---
 

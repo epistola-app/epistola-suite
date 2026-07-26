@@ -105,6 +105,12 @@
                     "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
                     "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]
                 }
+            },
+            {
+                "id": "editor-walkthrough",
+                "feature": "editorWalkthrough",
+                "moduleUrl": [[@{/editor/walkthrough-plugin.js}]],
+                "factoryExport": "createEditorPlugin"
             }
         ]
     }

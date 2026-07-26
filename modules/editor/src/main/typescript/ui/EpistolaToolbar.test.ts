@@ -2,7 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { describe, expect, it } from 'vitest';
+// @vitest-environment happy-dom
+
+import { html } from 'lit';
+import { describe, expect, it, vi } from 'vitest';
+import { EditorEngine } from '../engine/EditorEngine.js';
+import { createTestDocument, testRegistry } from '../engine/test-helpers.js';
+import type { PluginContext } from '../plugins/types.js';
 import { EpistolaToolbar } from './EpistolaToolbar.js';
 
 function templateToMarkup(template: unknown): string {
@@ -11,6 +17,16 @@ function templateToMarkup(template: unknown): string {
   }
   const strings = (template as { strings: string[] }).strings;
   return strings.join('');
+}
+
+function pluginContext(): PluginContext {
+  const engine = new EditorEngine(createTestDocument(), testRegistry());
+  return {
+    engine,
+    doc: engine.doc,
+    selectedNodeId: null,
+    selectNode: vi.fn(),
+  };
 }
 
 describe('EpistolaToolbar shortcut popover accessibility', () => {
@@ -57,6 +73,56 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
     const toolbar = new EpistolaToolbar();
     const markup = templateToMarkup(toolbar.render());
     expect(markup).toContain('<epistola-json-inspector');
+  });
+
+  it('renders custom plugin items in declaration order', async () => {
+    const toolbar = new EpistolaToolbar();
+    toolbar.pluginContext = pluginContext();
+    toolbar.pluginItems = [
+      {
+        kind: 'custom',
+        id: 'first',
+        render: () => html`<span data-plugin-item="first"></span>`,
+      },
+      {
+        kind: 'custom',
+        id: 'second',
+        render: () => html`<span data-plugin-item="second"></span>`,
+      },
+    ];
+
+    document.body.append(toolbar);
+    await toolbar.updateComplete;
+
+    expect(
+      Array.from(toolbar.querySelectorAll('[data-plugin-item]')).map((element) =>
+        element.getAttribute('data-plugin-item'),
+      ),
+    ).toEqual(['first', 'second']);
+    toolbar.remove();
+  });
+
+  it('invokes a standard plugin action with the latest context', async () => {
+    const toolbar = new EpistolaToolbar();
+    const context = pluginContext();
+    const onClick = vi.fn();
+    toolbar.pluginContext = context;
+    toolbar.pluginItems = [
+      {
+        kind: 'action',
+        id: 'generate',
+        label: 'Generate',
+        icon: 'sparkles',
+        onClick,
+      },
+    ];
+
+    document.body.append(toolbar);
+    await toolbar.updateComplete;
+    toolbar.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')?.click();
+
+    expect(onClick).toHaveBeenCalledWith(context);
+    toolbar.remove();
   });
 
   it('closes shortcut popover on Escape and prevents default', () => {

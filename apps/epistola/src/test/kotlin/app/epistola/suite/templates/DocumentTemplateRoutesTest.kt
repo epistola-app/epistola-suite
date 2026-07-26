@@ -1365,7 +1365,11 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"features\": {")
                 assertThat(response.body).contains("\"aiChat\":{\"enabled\":false")
                 assertThat(response.body).contains("\"badge\":{\"label\":\"Alpha\",\"className\":\"badge-alpha\"}")
+                // The walkthrough is off by default (ALPHA). Assert the value, not just
+                // the key, so a default-on regression fails.
+                assertThat(response.body).contains("\"editorWalkthrough\":{\"enabled\":false")
                 assertThat(response.body).contains("\"moduleUrl\": \"/editor/ai-plugin-")
+                assertThat(response.body).contains("\"moduleUrl\": \"/editor/walkthrough-plugin-")
                 assertThat(response.body).contains("\"stylesheetUrl\": \"/editor/ai-plugin-")
                 assertThat(response.body).doesNotContain("<link rel=\"stylesheet\" href=\"/editor/ai-plugin-")
             }
@@ -1414,6 +1418,20 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).isNotBlank
                 assertThat(response.body).contains("mountEditor")
+            }
+        }
+
+        @Test
+        fun `GET walkthrough plugin asset is served in test profile`() = fixture {
+            whenever {
+                restTemplate.getForEntity("/editor/walkthrough-plugin.js", String::class.java)
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).isNotBlank
+                assertThat(response.body).contains("createEditorPlugin")
             }
         }
     }

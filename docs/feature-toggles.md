@@ -135,12 +135,13 @@ rule in `components.css`.
 
 ## Current Features
 
-| Key                           | Description                                                          | Stage  | Default |
-| ----------------------------- | -------------------------------------------------------------------- | ------ | ------- |
-| `support-feedback`            | Support → Feedback (local; hub sync gated on the support tier)       | Stable | `true`  |
-| `support-backups`             | Support → Backups (faithful full-fidelity tenant backups + restore)  | Beta   | tier\*  |
-| `support-compatibility-check` | Support → Upgrading (compatibility checks against upcoming releases) | Stable | tier\*  |
-| `quality`                     | Quality checks ledger, report, and template-editor panel             | Alpha  | `false` |
-| `ai-chat`                     | AI chat panel in the template editor                                 | Alpha  | `false` |
+| Key                           | Description                                                           | Stage  | Default |
+| ----------------------------- | --------------------------------------------------------------------- | ------ | ------- |
+| `support-feedback`            | Support → Feedback (local; hub sync gated on the support tier)        | Stable | `true`  |
+| `support-backups`             | Support → Backups (faithful full-fidelity tenant backups + restore)   | Beta   | tier\*  |
+| `support-compatibility-check` | Support → Upgrading (compatibility checks against upcoming releases)  | Stable | tier\*  |
+| `quality`                     | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
+| `ai-chat`                     | AI chat panel in the template editor                                  | Alpha  | `false` |
+| `editor-walkthrough`          | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `false` |
 
 \* Hub-only features (`KnownFeatures.HUB_ONLY`) default to `epistola.support.enabled` — see above.
