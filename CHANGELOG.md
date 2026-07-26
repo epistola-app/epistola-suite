@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[dev]** chore(build): **Warnings now fail fast.** Kotlin compiler warnings and Gradle deprecations fail builds by default, with a documented narrow exception policy for unavoidable upstream diagnostics.
 - **[dev]** test(kotlin): **Test compiler warnings removed.** Test fixtures now avoid redundant null assertions and conversions, use typed exception assertions, and follow the current Jackson 3 and AssertJ APIs.
 - **[dev]** refactor(kotlin): **Production compiler warnings removed.** Kotlin sources now use idiomatic nullability, primitive wrappers, Jackson type references, and iText border APIs, with regression coverage for typed theme-style conversion and per-side PDF borders.
 - **[dev]** chore(build): **Gradle 10 deprecations removed.** Task registrations now use Gradle's explicit lazy APIs, Kover is upgraded to its Gradle 9.6-compatible release, and CycloneDX uses its corrected lazy artifact registration without the previous eager-realization workaround.
