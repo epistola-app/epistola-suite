@@ -323,12 +323,18 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 "nested-stencil" to Node(
                     id = "nested-stencil",
                     type = "stencil",
-                    slots = emptyList(),
+                    slots = listOf("slot-nested-stencil"),
                     props = mapOf("stencilId" to "other", "version" to 1),
                 ),
             ),
             slots = mapOf(
                 "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("nested-stencil")),
+                "slot-nested-stencil" to Slot(
+                    id = "slot-nested-stencil",
+                    nodeId = "nested-stencil",
+                    name = "children",
+                    children = emptyList(),
+                ),
             ),
             themeRef = ThemeRef.Inherit,
         )
