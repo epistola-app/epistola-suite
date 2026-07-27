@@ -92,7 +92,11 @@ Detaching removes the stencil reference (stencilId, version) from the node but k
 
 ### Nesting
 
-Stencils cannot be nested — you cannot place a stencil inside another stencil. This is enforced both in the editor (the stencil component's child denylist) and at publish time (the server validates no nested stencil nodes).
+Templates may contain non-recursive stencil instances up to the portable
+five-level ancestry limit. The contract can also represent a published stencil
+that references another published stencil, but Suite does not yet expose that
+definition-authoring capability: creating, updating, importing, or publishing
+a Suite stencil definition containing a stencil node remains blocked.
 
 ## Architecture
 
@@ -117,7 +121,8 @@ A stencil instance is a node with `type: "stencil"` and a `children` slot. The s
 Props on the stencil node:
 
 - `stencilId` — slug of the source stencil
-- `version` — version number the content was copied from
+- `catalogKey` — optional source catalog when it differs from the current catalog
+- `version` — exact positive version number the content was copied from
 - `isDraft` — whether the user is in draft editing mode
 
 ### Editor integration
@@ -140,8 +145,9 @@ The `UpdateStencilInTemplate` command upgrades all instances of a stencil within
 
 - **Concurrent edits**: If two users upgrade different stencils in the same template draft simultaneously, the last write wins. This is a rare scenario — bulk upgrades are sequential, and editing a draft while a bulk upgrade runs is unlikely.
 - **No preview before upgrade**: The bulk upgrade applies immediately to drafts. A side-by-side before/after preview is planned for a future release.
-- **No structural validation of TemplateDocument content**: The editor is trusted to produce valid documents. Content saved to stencil drafts is not validated for structural integrity (valid root, consistent node/slot references, no orphans, no circular references). Only the no-nesting rule is enforced at publish time. A general-purpose `TemplateDocumentValidator` should be added in the future to catch editor bugs before they corrupt stored data.
-- **No catalogs**: Stencils are browsed directly. Named collections (catalogs) for organizing stencils are a future feature.
+- **Nested stencil definition authoring is not exposed**: the portable contract
+  supports published composition, but Suite retains its capability gate until
+  editor lifecycle and resource-resolution support is implemented.
 
 ## API endpoints
 

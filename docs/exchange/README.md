@@ -3,12 +3,15 @@
 Catalogs are first-class entities in Epistola for organizing, sharing, and importing resources. A catalog groups templates, themes, stencils, attributes, and assets under a common identity. Every resource belongs to exactly one catalog.
 
 > **This page is the root of the exchange docs.** The architecture, data model, protocol, and import/export flows are below. The **wire contract of each part** is documented separately — see the next section.
+>
+> See [Catalog contract upgrade compatibility](../catalog-contract-compatibility.md)
+> for the explicit breaking shapes and their impact on stored editor content.
 
 ## Parts & contract versions
 
 Import/export is a **wire format**: a `catalog.json` [manifest](v4/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract, all documented together under **one folder per catalog wire version** (currently [`v4/`](v4/)).
 
-**There is one catalog-wide wire `schemaVersion`** (currently `4`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. This is the decision recorded in [ADR 0007](../adr/0007-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism is one chain that upgrades a whole catalog (manifest tree and/or any resource-detail tree) from an older version up to the current one.
+**There is one catalog-wide wire `schemaVersion`** (currently `4`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. Portable version gating and future explicit migrations are owned by `epistola-catalog`; the current baseline and current version are both `4`, so no older wire version is accepted.
 
 **Parts, at catalog `schemaVersion` 4** — each documented in [`v4/`](v4/):
 
@@ -37,7 +40,11 @@ These three are the **catalog-level** axes. For the full picture — including t
 
 **Maintaining these docs:** the wire shape lives under [`v4/`](v4/) — one file per part at catalog `schemaVersion` 4. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the whole `v4/` folder to `v5/`, edit the changed part(s) there, and land a migration step in the single chain. Leave the old version folder in place so the whole set diffs against the previous wire version.
 
-> **Implementation status.** The whole-catalog wire-format framework is **implemented** ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)): `CatalogContentBuilder` stamps the manifest **and** every resource detail with the single `CATALOG_SCHEMA_VERSION` (currently `4`), and `CatalogSchemaMigrator` gates the payload's `schemaVersion` once against `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before binding — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). **No migrations exist yet** — the chain is empty (`baseline == current == 4`), so every current-shape payload binds as-is. The first shape change that isn't round-trip-compatible bumps the catalog version and adds one migration step to the chain. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
+> **Implementation status.** `epistola-catalog` owns the portable
+> `CatalogSchemaMigrator`. It gates the manifest and every resource detail
+> before typed binding at both Suite import paths. The current supported window
+> is exactly version `4`; no older migration exists. A future wire version must
+> add an explicit portable migration before its predecessor can be accepted.
 
 ## Concepts
 
@@ -330,34 +337,42 @@ The import runs within `CatalogImportContext.runAsImport {}` to bypass editabili
 
 ### Wire-format version gate
 
-Every part (the manifest and each resource detail) is gated by the **single catalog-wide** `schemaVersion` against the window `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` before it is bound ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)). The manifest is authoritative for the version, and every resource detail **must** carry the same number — a detail whose stamp differs from the manifest's is rejected. `CatalogSchemaMigrator` decides:
+Every part (the manifest and each resource detail) is gated by the **single catalog-wide** `schemaVersion` before it is bound. The manifest is authoritative for the version, and every resource detail **must** carry the same number — a detail whose stamp differs from the manifest's is rejected. The portable `CatalogSchemaMigrator` decides:
 
-| `schemaVersion`                          | Behaviour                                                                                                                                                                                                                                                                                                              |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `== current`                             | Bind directly (fast path).                                                                                                                                                                                                                                                                                             |
-| `v < current`, chain empty               | **Pass through unchanged** and bind — transitional (no chain yet, so nothing to upgrade through). This is today's behaviour (`baseline == current == 4`). The ZIP import path then applies a type-aware decision on top — see [Import action for a below-current payload](#import-action-for-a-below-current-payload). |
-| `baseline ≤ v < current` (chain present) | Run the migration chain `v → … → current`, then bind.                                                                                                                                                                                                                                                                  |
-| `> current`                              | **Reject** — `CatalogSchemaTooNewException` ("exported by a newer Epistola; upgrade this instance").                                                                                                                                                                                                                   |
-| `< baseline` (chain present)             | **Reject** — `CatalogSchemaTooOldException` ("predates the oldest supported version; re-export from a current source").                                                                                                                                                                                                |
-| detail `v` ≠ manifest version            | **Reject** — `CatalogSchemaUnknownException` (a catalog is one bundle at one wire version; a drifted per-detail stamp is malformed).                                                                                                                                                                                   |
-| valid `v` but shape fails to bind        | **Reject** — `CatalogSchemaUnknownException` (a gated, current-shape tree that still won't deserialize is a 400, not a server error).                                                                                                                                                                                  |
-| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException` (not a recognised catalog wire payload).                                                                                                                                                                                                                                  |
+| `schemaVersion`                                       | Behaviour                                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `== 4`                                                | Bind to the current portable model.                                                         |
+| `< 4`                                                 | **Reject** as too old. Re-export from a current producer; there is no migration path today. |
+| `> 4`                                                 | **Reject** as too new. Upgrade this instance.                                               |
+| detail version differs from manifest                  | **Reject** because a catalog has one wire version.                                          |
+| valid version but shape fails to bind                 | **Reject** as an unrecognized current-version payload.                                      |
+| invalid JSON, missing version, or non-integer version | **Reject** as an unrecognized catalog payload.                                              |
 
-The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so browse / preview / upgrade-check see migrated content too. Migration never recomputes `release.fingerprint` — see [catalog-versioning.md](../catalog-versioning.md#fingerprint-algorithm).
+The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so
+browse, preview, and upgrade checks use the same policy. See
+[catalog-versioning.md](../catalog-versioning.md#fingerprint-algorithm) for
+fingerprint compatibility.
 
 ### Import action for a below-current payload
 
-The migrator table above is `CatalogSchemaMigrator`'s low-level binding contract. The **ZIP import path** (`ImportCatalogZipHandler`) layers one more decision on top, because a ZIP is a **source-less, one-shot transport**: it can't be re-fetched, and we store **no** per-catalog wire version — once imported, content is at the current version. So a below-current ZIP can't be left "pending an upgrade"; the import must decide up front. [`CatalogImportSchemaAction.decide`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogImportSchemaAction.kt) — a pure function of `(catalogType, sourceVersion, migratedVersion, current, confirmed)` — runs right after the manifest binds and **before any DB mutation**:
+The Suite ZIP path retains a product-level decision point for future portable
+migrations because a ZIP is a source-less, one-shot transport. Today the
+portable window is exactly version `4`, so any below-current payload is
+rejected before this decision can authorize an import.
+
+If a future contract adds a migration, Suite will apply these product rules
+after portable migration and before database mutation:
 
 | Case (payload `schemaVersion` below current)                   | Action                                                                                                                                                                                                         |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sourceVersion >= current`                                     | `IMPORT` — nothing to decide (a too-new payload was already rejected by the migrator gate).                                                                                                                    |
 | **SUBSCRIBED**, below current                                  | `BLOCK_TOO_OLD` → `CatalogSchemaTooOldException`. A subscribed catalog is a mirror; we never migrate it locally — the **source must republish** at the current version.                                        |
 | **AUTHORED**, below current, **no** migration path             | `BLOCK_TOO_OLD` → `CatalogSchemaTooOldException`. Nothing can bring it to current — re-export from a current source.                                                                                           |
 | **AUTHORED**, below current, **migratable**, not yet confirmed | `CONFIRM_MIGRATION` → `CatalogMigrationConfirmationRequiredException`. Migrating **mutates** the imported content, so the operator confirms first. Not a `CatalogSchemaException` — a prompt, not a rejection. |
 | **AUTHORED**, below current, **migratable**, confirmed         | `IMPORT` — the `ImportCatalogZip` command was re-issued with `confirmMigration = true`.                                                                                                                        |
 
-This only affects ZIP imports. URL subscriptions (`CatalogClient` / `UpgradeCatalog` / `CheckCatalogUpgrade`) re-fetch the source live, so they surface the out-of-sync **sync state** below instead of a one-shot decision. No migration chain exists yet (`baseline == current == 4`), so `CONFIRM_MIGRATION` is unreachable until the first real migration lands; the `decide` branches are unit-covered now.
+This decision applies only to ZIP imports. URL subscriptions re-fetch their
+source and surface the schema sync state below instead. `CONFIRM_MIGRATION`
+remains unreachable until the contract publishes its first real migration.
 
 ### Subscribed source schema sync
 
