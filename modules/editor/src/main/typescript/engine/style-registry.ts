@@ -10,6 +10,6 @@
  */
 
 import { styleRegistry } from '@epistola.app/epistola-catalog/registry';
-import type { StyleRegistry } from '@epistola.app/epistola-catalog/generated/style-registry';
+import type { StyleRegistry } from '@epistola.app/epistola-catalog';
 
 export const defaultStyleRegistry: StyleRegistry = structuredClone(styleRegistry);

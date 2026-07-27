@@ -11,8 +11,8 @@
 
 import type {
   BlockStylePreset,
-  PageSettings,
-} from '@epistola.app/epistola-catalog/generated/theme';
+  Theme,
+} from '@epistola.app/epistola-catalog';
 import { COMPOUND_STYLE_TYPES } from '../ui/inputs/style-inputs.js';
 
 export interface ThemeData {
@@ -20,7 +20,7 @@ export interface ThemeData {
   name: string;
   description?: string;
   documentStyles: Record<string, unknown>;
-  pageSettings?: PageSettings;
+  pageSettings?: Theme['pageSettings'];
   blockStylePresets: Record<string, BlockStylePreset>;
   spacingUnit?: number | null;
 }

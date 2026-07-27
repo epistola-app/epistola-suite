@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** build(editor): **Catalog types use the stable npm entry point.** Editor theme and
+  style types now come from the `@epistola.app/epistola-catalog` package root instead of exposing
+  the catalog generator's internal directory structure.
 - Delegated standalone parameter-schema and whole-catalog ZIP validation to
   `epistola-catalog` before Suite performs any import mutation; subscribed catalog registration
   now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state,

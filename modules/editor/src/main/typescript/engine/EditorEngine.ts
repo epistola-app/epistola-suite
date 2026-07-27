@@ -12,8 +12,7 @@
 import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js';
 import { type FieldPath, extractFieldPaths } from './schema-paths.js';
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
-import type { Theme } from '@epistola.app/epistola-catalog/generated/theme';
-import type { StyleRegistry } from '@epistola.app/epistola-catalog/generated/style-registry';
+import type { StyleRegistry, Theme } from '@epistola.app/epistola-catalog';
 import { type DocumentIndexes, buildIndexes } from './indexes.js';
 import { type AnyCommand, type CommandResult, applyCommand } from './commands.js';
 import { UndoStack } from './undo.js';
