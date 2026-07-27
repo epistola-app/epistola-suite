@@ -6,7 +6,8 @@
 
 - Delegated standalone parameter-schema and whole-catalog ZIP validation to
   `epistola-catalog` before Suite performs any import mutation; subscribed catalog registration
-  now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state.
+  now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state,
+  while portable document-version findings retain Suite's established import error presentation.
 - Consumed the rich-text JSON Schema references from `epistola-catalog` instead of maintaining
   Suite-owned copies.
 - **[dev]** build(catalog): **Portable catalog dependency adopted.** Suite now consumes `app.epistola.contract:epistola-catalog` instead of the retired pre-1.0 `epistola-model` coordinate, retaining the existing Kotlin model packages while gaining the shared registries, validation, archive, migration, canonicalization, and fixture boundary.

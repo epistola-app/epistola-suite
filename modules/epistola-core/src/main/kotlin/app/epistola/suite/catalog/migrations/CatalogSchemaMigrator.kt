@@ -41,13 +41,18 @@ class CatalogSchemaMigrator {
         return result.value ?: throw result.findings.first().asSuiteException()
     }
 
-    private fun CatalogMigrationFinding.asSuiteException(): CatalogSchemaException = when (code) {
+    private fun CatalogMigrationFinding.asSuiteException(): CatalogSchemaException = asSuiteException(code, message)
+
+    internal fun asSuiteException(
+        code: String,
+        message: String,
+    ): CatalogSchemaException = when (code) {
         CatalogMigrationCodes.SCHEMA_TOO_NEW -> CatalogSchemaTooNewException(
-            version = versionInMessage() ?: CatalogWireSchema.CURRENT_VERSION + 1,
+            version = message.versionInMessage() ?: CatalogWireSchema.CURRENT_VERSION + 1,
             current = CatalogWireSchema.CURRENT_VERSION,
         )
         CatalogMigrationCodes.SCHEMA_TOO_OLD -> CatalogSchemaTooOldException(
-            version = versionInMessage() ?: CatalogWireSchema.BASELINE_VERSION - 1,
+            version = message.versionInMessage() ?: CatalogWireSchema.BASELINE_VERSION - 1,
             baseline = CatalogWireSchema.BASELINE_VERSION,
         )
         else -> CatalogSchemaUnknownException(
@@ -59,7 +64,7 @@ class CatalogSchemaMigrator {
         )
     }
 
-    private fun CatalogMigrationFinding.versionInMessage(): Int? = Regex("""schemaVersion (-?\d+)""").find(message)?.groupValues?.get(1)?.toIntOrNull()
+    private fun String.versionInMessage(): Int? = Regex("""schemaVersion (-?\d+)""").find(this)?.groupValues?.get(1)?.toIntOrNull()
 }
 
 data class CatalogMigrationContext(

@@ -31,7 +31,6 @@ import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
-import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
@@ -171,36 +170,33 @@ class ImportCatalogZipHandler(
                 maxExpandedBytes = maxDecompressedSize,
             ),
         )
-        val archive = read.archive ?: run {
-            val versionFinding = read.findings.firstOrNull {
+        val migrationFinding = read.findings.firstOrNull {
+            it.code == CatalogMigrationCodes.SCHEMA_UNKNOWN ||
                 it.code == CatalogMigrationCodes.SCHEMA_TOO_OLD ||
-                    it.code == CatalogMigrationCodes.SCHEMA_TOO_NEW
-            }
-            val version = versionFinding?.message
-                ?.let { Regex("""schemaVersion (-?\d+)""").find(it) }
-                ?.groupValues
-                ?.get(1)
-                ?.toIntOrNull()
-            when (versionFinding?.code) {
-                CatalogMigrationCodes.SCHEMA_TOO_OLD ->
-                    throw CatalogSchemaTooOldException(version ?: CATALOG_SCHEMA_VERSION - 1, CATALOG_SCHEMA_VERSION)
-                CatalogMigrationCodes.SCHEMA_TOO_NEW ->
-                    throw CatalogSchemaTooNewException(version ?: CATALOG_SCHEMA_VERSION + 1, CATALOG_SCHEMA_VERSION)
-                else -> throw IllegalArgumentException(
-                    read.findings.joinToString("; ") { "${it.path}: ${it.message}" },
-                )
-            }
+                it.code == CatalogMigrationCodes.SCHEMA_TOO_NEW ||
+                it.code == CatalogMigrationCodes.SCHEMA_VERSION_MISMATCH ||
+                it.code == CatalogMigrationCodes.RESOURCE_TYPE_MISMATCH
+        }
+        if (migrationFinding != null) {
+            throw schemaMigrator.asSuiteException(migrationFinding.code, migrationFinding.message)
+        }
+        val archive = read.archive ?: run {
+            throw IllegalArgumentException(
+                read.findings.joinToString("; ") { "${it.path}: ${it.message}" },
+            )
         }
         val entries = archive.use { safeArchive ->
             val validation = CatalogValidator.validate(
                 safeArchive,
                 CatalogValidationPolicy(verifyFingerprint = true),
             )
-            require(validation.valid) {
-                validation.findings.joinToString(
+            val validationMessages = read.findings.map { "${it.code} at ${it.path}: ${it.message}" } +
+                validation.findings.map { "${it.code} at ${it.path}: ${it.message}" }
+            require(validationMessages.isEmpty()) {
+                validationMessages.joinToString(
                     prefix = "Catalog validation failed: ",
                     separator = "; ",
-                ) { "${it.code} at ${it.path}: ${it.message}" }
+                )
             }
             safeArchive.paths.associateWith { path ->
                 safeArchive.content.open(path).use { it.readAllBytes() }
