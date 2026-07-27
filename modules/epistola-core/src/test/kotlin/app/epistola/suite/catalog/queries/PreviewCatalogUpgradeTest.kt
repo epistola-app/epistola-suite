@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -202,19 +203,15 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `subscribed source on an older schema is reported out of sync`(@TempDir tmp: Path) {
+    fun `registration rejects a source on an older schema`(@TempDir tmp: Path) {
         val sourceUrl = copyFixture(tmp)
         rewriteJson(tmp.resolve("catalog.json")) { it.put("schemaVersion", 2) } // publisher on an older Epistola
         val tenant = createTenant("Schema Behind")
 
         withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-
-            val status = CheckCatalogUpgrade(tenant.id, depKey).query()
-
-            assertThat(status.sourceSchemaVersion).isEqualTo(2)
-            assertThat(status.currentSchemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
-            assertThat(status.schemaSyncState).isEqualTo(CatalogSchemaSyncState.SOURCE_BEHIND)
+            assertThrows<CatalogSchemaTooOldException> {
+                RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+            }
         }
     }
 
