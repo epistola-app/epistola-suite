@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -70,9 +71,68 @@ class TemplateDocumentValidatorTest {
         ).isNotNull()
     }
 
+    @Test
+    fun `template validation allows distinct nested stencil instances`() {
+        assertThatCode {
+            validator.validateTemplate(nestedStencils("address", "contact", "signature"))
+        }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `template validation rejects a transitive recursive stencil instance`() {
+        val exception = assertThrows<ValidationException> {
+            validator.validateTemplate(nestedStencils("address", "contact", "address"))
+        }
+
+        assertThat(exception.code).isEqualTo(ValidationCode.STENCIL_RECURSION)
+        assertThat(exception.field).isEqualTo("templateModel.nodes.stencil-2.props.stencilId")
+    }
+
+    @Test
+    fun `stencil definition validation rejects embedded stencil references`() {
+        val exception = assertThrows<ValidationException> {
+            validator.validateStencil(nestedStencils("address", "contact"))
+        }
+
+        assertThat(exception.code).isEqualTo(ValidationCode.STENCIL_RECURSION)
+        assertThat(exception.field).isEqualTo("content.nodes.stencil-0.props.stencilId")
+    }
+
     private fun documentWithMissingRoot() = TemplateDocument(
         root = "missing",
         nodes = mapOf("root" to Node(id = "root", type = "root")),
         slots = emptyMap(),
     )
+
+    private fun nestedStencils(vararg slugs: String): TemplateDocument {
+        val stencils = slugs.mapIndexed { index, slug ->
+            Node(
+                id = "stencil-$index",
+                type = "stencil",
+                slots = listOf("stencil-$index-children"),
+                props = mapOf("stencilId" to slug, "version" to 1, "isDraft" to false),
+            )
+        }
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf("root" to Node("root", "root", listOf("root-children"))) +
+                stencils.associateBy(Node::id),
+            slots = mapOf(
+                "root-children" to Slot(
+                    "root-children",
+                    "root",
+                    "children",
+                    listOf(stencils.first().id),
+                ),
+            ) + stencils.mapIndexed { index, stencil ->
+                val child = stencils.getOrNull(index + 1)
+                "stencil-$index-children" to Slot(
+                    "stencil-$index-children",
+                    stencil.id,
+                    "children",
+                    child?.let { listOf(it.id) }.orEmpty(),
+                )
+            },
+        )
+    }
 }

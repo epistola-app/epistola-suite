@@ -10,7 +10,7 @@
  * - Inserting empty stencils
  * - Inserting stencils with existing content (re-keying)
  * - Multiple stencils on one page
- * - Stencil nesting prevention
+ * - Non-recursive stencil nesting
  * - Props and state management (stencilId, version, isDraft)
  * - extractSubtree utility
  * - reKeyContent utility
@@ -165,11 +165,11 @@ describe('Stencil component registration', () => {
     expect(typeof def!.slots[0]?.locked).toBe('function');
   });
 
-  it('prevents nesting stencils via denylist', () => {
+  it('allows stencil children so distinct instances can nest', () => {
     const { registry } = setupEngine();
     expect(registry.canContain('stencil', 'text')).toBe(true);
     expect(registry.canContain('stencil', 'container')).toBe(true);
-    expect(registry.canContain('stencil', 'stencil')).toBe(false);
+    expect(registry.canContain('stencil', 'stencil')).toBe(true);
   });
 
   it('has default props with null stencilId, version, isDraft=false', () => {
@@ -533,17 +533,25 @@ describe('Multiple stencils on one page', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Nesting prevention
+// Non-recursive nesting
 // ---------------------------------------------------------------------------
 
-describe('Stencil nesting prevention', () => {
-  it('rejects inserting a stencil into another stencil', () => {
+describe('Stencil nesting', () => {
+  it('allows inserting a different stencil into a draft stencil', () => {
     const { engine, registry, rootSlotId } = setupEngine();
 
-    const outerStencil = insertStencil(engine, registry, rootSlotId);
+    const outerStencil = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'letter',
+      version: 1,
+      isDraft: true,
+    });
     const outerSlot = getStencilSlot(engine, outerStencil);
 
-    const { node, slots } = registry.createNode('stencil');
+    const { node, slots } = registry.createNode('stencil', {
+      stencilId: 'address',
+      version: 1,
+      isDraft: true,
+    });
     const result = engine.dispatch({
       type: 'InsertNode',
       node,
@@ -552,7 +560,8 @@ describe('Stencil nesting prevention', () => {
       index: -1,
     });
 
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
+    expect(engine.doc.slots[outerSlot]?.children).toEqual([node.id]);
   });
 });
 

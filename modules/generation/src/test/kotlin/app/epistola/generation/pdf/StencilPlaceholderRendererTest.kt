@@ -120,6 +120,44 @@ class StencilPlaceholderRendererTest {
         assertContains(ex.message ?: "", "recursion", ignoreCase = true)
     }
 
+    @Test
+    fun `renders different nested stencils`() {
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "outer" to Node(
+                    id = "outer",
+                    type = "stencil",
+                    slots = listOf("outer-slot"),
+                    props = mapOf("stencilId" to "letter", "version" to 1),
+                ),
+                "inner" to Node(
+                    id = "inner",
+                    type = "stencil",
+                    slots = listOf("inner-slot"),
+                    props = mapOf("stencilId" to "address", "version" to 1),
+                ),
+                "text" to Node(
+                    id = "text",
+                    type = "text",
+                    slots = emptyList(),
+                    props = mapOf("content" to richText("Nested stencil content")),
+                ),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("outer")),
+                "outer-slot" to Slot("outer-slot", "outer", "children", listOf("inner")),
+                "inner-slot" to Slot("inner-slot", "inner", "children", listOf("text")),
+            ),
+        )
+
+        val pdf = renderToPdf(doc)
+
+        assertTrue(pdf.isNotEmpty())
+        assertTrue(pdf.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
     private fun richText(text: String): Map<String, Any?> = mapOf(
         "type" to "doc",
         "content" to listOf(

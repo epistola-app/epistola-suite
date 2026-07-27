@@ -10,6 +10,10 @@
 - **[dev]** fix(catalog): **Invalid ZIP imports retain structured diagnostics.** Portable archive
   and catalog findings now surface through `CatalogImportValidationException` with stable codes,
   paths, messages, and deterministic ordering instead of a generic `IllegalArgumentException`.
+- **[dev]** test(stencils): **Non-recursive nested stencil support is pinned across layers.**
+  Contract-adapter, editor ancestry/drop, and PDF renderer tests allow distinct nested stencil
+  instances while rejecting direct or transitive recursion and stencil references in reusable
+  stencil definitions.
 - Delegated standalone parameter-schema and whole-catalog ZIP validation to
   `epistola-catalog` before Suite performs any import mutation; subscribed catalog registration
   now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state,

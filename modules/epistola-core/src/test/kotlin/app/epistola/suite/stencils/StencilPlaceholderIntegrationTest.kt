@@ -250,6 +250,22 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     // ---------------------------------------------------------------------------
 
     @Test
+    fun `UpdateDraft accepts distinct nested stencil instances`() = test {
+        val tenant = createTenant("placeholder-non-recursive-nesting")
+        val tenantId = TenantId(tenant.id)
+
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Nested stencils").execute()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+
+        UpdateDraft(
+            variantId = variantId,
+            templateModel = nestedStencilTemplate("header", "address", "signature"),
+        ).execute()
+    }
+
+    @Test
     fun `UpdateDraft rejects a recursive stencil document`() = test {
         val tenant = createTenant("placeholder-recursion")
         val tenantId = TenantId(tenant.id)
@@ -259,32 +275,8 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         CreateDocumentTemplate(id = templateId, name = "Recursive").execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
 
-        // root → stencil('header') → children → stencil('header') — recursion.
-        val recursive = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "outer" to Node(
-                    id = "outer",
-                    type = "stencil",
-                    slots = listOf("outer-slot"),
-                    props = mapOf("stencilId" to "header", "version" to 1),
-                ),
-                "inner" to Node(
-                    id = "inner",
-                    type = "stencil",
-                    slots = listOf("inner-slot"),
-                    props = mapOf("stencilId" to "header", "version" to 1),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("outer")),
-                "outer-slot" to Slot(id = "outer-slot", nodeId = "outer", name = "children", children = listOf("inner")),
-                "inner-slot" to Slot(id = "inner-slot", nodeId = "inner", name = "children", children = emptyList()),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
+        // header → address → header repeats an ancestor stencil id.
+        val recursive = nestedStencilTemplate("header", "address", "header")
 
         assertThatThrownBy {
             UpdateDraft(variantId = variantId, templateModel = recursive).execute()
@@ -566,4 +558,32 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             ),
         ),
     )
+
+    private fun nestedStencilTemplate(vararg stencilIds: String): TemplateDocument {
+        val stencils = stencilIds.mapIndexed { index, stencilId ->
+            Node(
+                id = "stencil-$index",
+                type = "stencil",
+                slots = listOf("stencil-$index-children"),
+                props = mapOf("stencilId" to stencilId, "version" to 1),
+            )
+        }
+        return TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf("root" to Node("root", "root", listOf("root-slot"))) +
+                stencils.associateBy(Node::id),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf(stencils.first().id)),
+            ) + stencils.mapIndexed { index, stencil ->
+                "stencil-$index-children" to Slot(
+                    "stencil-$index-children",
+                    stencil.id,
+                    "children",
+                    stencils.getOrNull(index + 1)?.let { listOf(it.id) }.orEmpty(),
+                )
+            },
+            themeRef = ThemeRef.Inherit,
+        )
+    }
 }
