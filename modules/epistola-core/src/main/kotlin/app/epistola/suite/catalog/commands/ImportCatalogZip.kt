@@ -17,6 +17,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.validation.CatalogValidationPolicy
 import app.epistola.catalog.validation.CatalogValidator
+import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
@@ -180,23 +181,23 @@ class ImportCatalogZipHandler(
         if (migrationFinding != null) {
             throw schemaMigrator.asSuiteException(migrationFinding.code, migrationFinding.message)
         }
-        val archive = read.archive ?: run {
-            throw IllegalArgumentException(
-                read.findings.joinToString("; ") { "${it.path}: ${it.message}" },
-            )
-        }
+        val archive = read.archive ?: throw CatalogImportValidationException(
+            read.findings.map {
+                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
+            },
+        )
         val entries = archive.use { safeArchive ->
             val validation = CatalogValidator.validate(
                 safeArchive,
                 CatalogValidationPolicy(verifyFingerprint = true),
             )
-            val validationMessages = read.findings.map { "${it.code} at ${it.path}: ${it.message}" } +
-                validation.findings.map { "${it.code} at ${it.path}: ${it.message}" }
-            require(validationMessages.isEmpty()) {
-                validationMessages.joinToString(
-                    prefix = "Catalog validation failed: ",
-                    separator = "; ",
-                )
+            val validationFindings = read.findings.map {
+                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
+            } + validation.findings.map {
+                CatalogImportValidationFinding(it.code, it.severity, it.path, it.message)
+            }
+            if (read.findings.isNotEmpty() || !validation.valid) {
+                throw CatalogImportValidationException(validationFindings)
             }
             safeArchive.paths.associateWith { path ->
                 safeArchive.content.open(path).use { it.readAllBytes() }

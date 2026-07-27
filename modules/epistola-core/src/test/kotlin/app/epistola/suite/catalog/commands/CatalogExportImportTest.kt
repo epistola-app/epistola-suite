@@ -61,6 +61,7 @@ import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -247,14 +248,16 @@ class CatalogExportImportTest : IntegrationTestBase() {
             // Create a ZIP with no catalog.json
             val zipBytes = createZipWithoutManifest()
 
-            assertThatThrownBy {
+            val exception = assertThrows<CatalogImportValidationException> {
                 ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = zipBytes,
                     catalogType = CatalogType.AUTHORED,
                 ).execute()
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("catalog.json")
+            }
+            val finding = exception.findings.single()
+            assertThat(finding.code).isEqualTo("CATALOG_ARCHIVE_REQUIRED_FILE_MISSING")
+            assertThat(finding.path).isEqualTo("catalog.json")
         }
     }
 
@@ -305,14 +308,15 @@ class CatalogExportImportTest : IntegrationTestBase() {
         }.toByteArray()
 
         withMediator {
-            assertThatThrownBy {
+            val exception = assertThrows<CatalogImportValidationException> {
                 ImportCatalogZip(
                     tenantKey = tenant.id,
                     zipBytes = zipBytes,
                     catalogType = CatalogType.AUTHORED,
                 ).execute()
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("TEMPLATE_GRAPH_INVALID")
+            }
+            val finding = exception.findings.first { it.code == "TEMPLATE_GRAPH_INVALID" }
+            assertThat(finding.path).startsWith("resources/template/invoice.json.resource.templateModel.")
 
             assertThat(GetCatalog(tenant.id, catalogKey).query()).isNull()
         }
