@@ -33,7 +33,7 @@ class BundledCatalogFingerprintTest {
     private val catalogClient = CatalogClient(
         catalogRestClient = RestClient.create(),
         resourceLoader = DefaultResourceLoader(),
-        schemaMigrator = CatalogSchemaMigrator(objectMapper, emptyList()),
+        schemaMigrator = CatalogSchemaMigrator(),
     )
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 

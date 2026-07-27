@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.archive.CatalogArchivePolicy
 import app.epistola.catalog.archive.CatalogArchiveReader
+import app.epistola.catalog.migration.CatalogMigrationCodes
 import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
@@ -14,6 +15,8 @@ import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.catalog.validation.CatalogValidationPolicy
+import app.epistola.catalog.validation.CatalogValidator
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
@@ -28,6 +31,7 @@ import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
@@ -167,11 +171,37 @@ class ImportCatalogZipHandler(
                 maxExpandedBytes = maxDecompressedSize,
             ),
         )
-        val archive = read.archive
-            ?: throw IllegalArgumentException(
-                read.findings.joinToString("; ") { "${it.path}: ${it.message}" },
-            )
+        val archive = read.archive ?: run {
+            val versionFinding = read.findings.firstOrNull {
+                it.code == CatalogMigrationCodes.SCHEMA_TOO_OLD ||
+                    it.code == CatalogMigrationCodes.SCHEMA_TOO_NEW
+            }
+            val version = versionFinding?.message
+                ?.let { Regex("""schemaVersion (-?\d+)""").find(it) }
+                ?.groupValues
+                ?.get(1)
+                ?.toIntOrNull()
+            when (versionFinding?.code) {
+                CatalogMigrationCodes.SCHEMA_TOO_OLD ->
+                    throw CatalogSchemaTooOldException(version ?: CATALOG_SCHEMA_VERSION - 1, CATALOG_SCHEMA_VERSION)
+                CatalogMigrationCodes.SCHEMA_TOO_NEW ->
+                    throw CatalogSchemaTooNewException(version ?: CATALOG_SCHEMA_VERSION + 1, CATALOG_SCHEMA_VERSION)
+                else -> throw IllegalArgumentException(
+                    read.findings.joinToString("; ") { "${it.path}: ${it.message}" },
+                )
+            }
+        }
         val entries = archive.use { safeArchive ->
+            val validation = CatalogValidator.validate(
+                safeArchive,
+                CatalogValidationPolicy(verifyFingerprint = true),
+            )
+            require(validation.valid) {
+                validation.findings.joinToString(
+                    prefix = "Catalog validation failed: ",
+                    separator = "; ",
+                ) { "${it.code} at ${it.path}: ${it.message}" }
+            }
             safeArchive.paths.associateWith { path ->
                 safeArchive.content.open(path).use { it.readAllBytes() }
             }

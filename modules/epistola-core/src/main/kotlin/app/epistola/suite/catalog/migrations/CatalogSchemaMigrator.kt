@@ -7,24 +7,16 @@ package app.epistola.suite.catalog.migrations
 import app.epistola.catalog.migration.CatalogMigrationCodes
 import app.epistola.catalog.migration.CatalogMigrationFinding
 import app.epistola.catalog.migration.CatalogWireSchema
-import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
-import app.epistola.catalog.protocol.PublisherInfo
-import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import app.epistola.catalog.migration.CatalogMigrationContext as PortableMigrationContext
 import app.epistola.catalog.migration.CatalogSchemaMigrator as PortableSchemaMigrator
 
 /** Suite exception adapter for epistola-catalog's portable schema migrator. */
 @Component
-class CatalogSchemaMigrator() {
-    @Suppress("UNUSED_PARAMETER")
-    constructor(objectMapper: ObjectMapper, migrations: List<Any>) : this()
-
+class CatalogSchemaMigrator {
     fun migrateAndBindManifest(rawManifest: ByteArray): MigratedManifest {
         val result = PortableSchemaMigrator.migrateManifest(ByteArrayInputStream(rawManifest))
         val manifest = result.value ?: throw result.findings.first().asSuiteException()
@@ -73,20 +65,7 @@ class CatalogSchemaMigrator() {
 data class CatalogMigrationContext(
     val sourceVersion: Int,
     val manifest: CatalogManifest,
-) {
-    @Suppress("UNUSED_PARAMETER")
-    constructor(sourceVersion: Int, migratedManifest: ObjectNode) : this(sourceVersion, PLACEHOLDER_MANIFEST)
-
-    companion object {
-        private val PLACEHOLDER_MANIFEST = CatalogManifest(
-            schemaVersion = CatalogWireSchema.CURRENT_VERSION,
-            catalog = CatalogInfo("migration", "Migration"),
-            publisher = PublisherInfo("Epistola Suite"),
-            release = ReleaseInfo("0.0.0"),
-            resources = emptyList(),
-        )
-    }
-}
+)
 
 data class MigratedManifest(
     val manifest: CatalogManifest,

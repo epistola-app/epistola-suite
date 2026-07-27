@@ -197,14 +197,14 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun manifestJson(slug: String): String = """
         {
-          "schemaVersion": 3,
+          "schemaVersion": 4,
           "catalog": {
             "slug": "$slug",
             "name": "HTTP Served",
             "description": "Cross-catalog binding test catalog served over real HTTP"
           },
           "publisher": { "name": "Epistola tests" },
-          "release": { "version": "1", "releasedAt": "2026-05-11T00:00:00Z" },
+          "release": { "version": "1.0.0", "releasedAt": "2026-05-11T00:00:00Z" },
           "resources": [
             {
               "type": "attribute",
@@ -221,7 +221,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun attributeDetailJson(): String = """
         {
-          "schemaVersion": 3,
+          "schemaVersion": 4,
           "resource": {
             "type": "attribute",
             "slug": "lang",

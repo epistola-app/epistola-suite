@@ -259,6 +259,66 @@ class CatalogExportImportTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `portable catalog validation rejects invalid templates before creating the catalog`() {
+        val tenant = createTenant("Portable Validation")
+        val catalogKey = CatalogKey.of("invalid-portable-catalog")
+        val zipBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("catalog.json"))
+                zip.write(
+                    """
+                    {
+                      "schemaVersion": 4,
+                      "catalog": {"slug": "${catalogKey.value}", "name": "Invalid portable catalog"},
+                      "publisher": {"name": "Epistola tests"},
+                      "release": {"version": "1.0.0"},
+                      "resources": [
+                        {
+                          "type": "template",
+                          "slug": "invoice",
+                          "name": "Invoice",
+                          "detailUrl": "./resources/template/invoice.json"
+                        }
+                      ]
+                    }
+                    """.trimIndent().toByteArray(),
+                )
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("resources/template/invoice.json"))
+                zip.write(
+                    """
+                    {
+                      "schemaVersion": 4,
+                      "resource": {
+                        "type": "template",
+                        "slug": "invoice",
+                        "name": "Invoice",
+                        "templateModel": {"root": "missing", "nodes": {}, "slots": {}},
+                        "variants": []
+                      }
+                    }
+                    """.trimIndent().toByteArray(),
+                )
+                zip.closeEntry()
+            }
+        }.toByteArray()
+
+        withMediator {
+            assertThatThrownBy {
+                ImportCatalogZip(
+                    tenantKey = tenant.id,
+                    zipBytes = zipBytes,
+                    catalogType = CatalogType.AUTHORED,
+                ).execute()
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("TEMPLATE_GRAPH_INVALID")
+
+            assertThat(GetCatalog(tenant.id, catalogKey).query()).isNull()
+        }
+    }
+
+    @Test
     fun `export and import preserves rich-text ref properties verbatim`() {
         val tenant = createTenant("Rich-Text Ref Round-Trip")
         val tenantKey = tenant.id
@@ -613,7 +673,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     "description": "Declares a cross-catalog code-list dep that the tenant does not have."
                   },
                   "publisher": { "name": "Epistola tests" },
-                  "release": { "version": "1", "releasedAt": "2026-05-11T00:00:00Z" },
+                  "release": { "version": "1.0.0", "releasedAt": "2026-05-11T00:00:00Z" },
                   "resources": [],
                   "dependencies": [
                     { "type": "codeList", "catalogKey": "no-such-catalog", "slug": "no-such-list" }

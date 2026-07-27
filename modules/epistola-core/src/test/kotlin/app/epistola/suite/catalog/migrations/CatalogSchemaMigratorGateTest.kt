@@ -27,6 +27,13 @@ class CatalogSchemaMigratorGateTest {
     }
 
     @Test
+    fun `older manifest is rejected by the single portable wire model`() {
+        assertThatThrownBy { migrator.migrateAndBindManifest(manifest(3)) }
+            .isInstanceOf(CatalogSchemaTooOldException::class.java)
+            .hasMessageContaining("predates the oldest supported")
+    }
+
+    @Test
     fun `malformed manifest retains Suite bad-input presentation`() {
         assertThatThrownBy { migrator.migrateAndBindManifest("not-json".toByteArray()) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
