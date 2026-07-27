@@ -39,6 +39,30 @@
     padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
   }
 
+  .canvas-placeholder-fill-add {
+    appearance: none;
+    border: 0;
+    background: none;
+    color: var(--ep-primary, #b6684e);
+    cursor: pointer;
+    font: inherit;
+    font-style: inherit;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .canvas-placeholder-fill-add:hover,
+  .canvas-placeholder-fill-add:focus-visible {
+    color: var(--ep-primary-strong, #8f4e39);
+  }
+
+  .canvas-placeholder-fill-add:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid var(--ep-primary, #b6684e);
+    outline-offset: 2px;
+  }
+
   /* Stencil-author / draft mode: a thin amber left-stripe accent so the
    author can tell at a glance that they are editing the stencil's default
    content, without the full-frame wash that competes with the block's

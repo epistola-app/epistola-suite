@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(editor): **Empty stencil placeholders expose a working add-block action.**
+  The action targets the editable fill slot, runs component pre-insert hooks (including the stencil
+  picker with ancestor recursion and depth context), and no longer offers locked stencil slots.
 - **[dev]** fix(stencils): **Stencil nesting is limited to five levels.** Suite delegates the
   authoritative save/import rule to `epistola-catalog`, uses the catalog's npm limit in editor
   insertion guards, and retains a renderer safety check for stored documents.
