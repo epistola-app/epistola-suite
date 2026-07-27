@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(stencils): **Stencil nesting is limited to five levels.** Suite delegates the
+  authoritative save/import rule to `epistola-catalog`, uses the catalog's npm limit in editor
+  insertion guards, and retains a renderer safety check for stored documents.
 - **[dev]** build(editor): **Catalog types use the stable npm entry point.** Editor theme and
   style types now come from the `@epistola.app/epistola-catalog` package root instead of exposing
   the catalog generator's internal directory structure.

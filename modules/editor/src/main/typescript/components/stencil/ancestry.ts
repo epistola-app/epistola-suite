@@ -20,6 +20,8 @@ import { isStencil, isPublishedStencil } from './node-types.js';
 export interface AncestorScope {
   /** Stencil IDs of every stencil ancestor (used for the recursion guard). */
   stencilIds: Set<string>;
+  /** Number of stencil nodes in the ancestor chain. */
+  stencilDepth: number;
   /** True if any stencil node is in the ancestor chain. */
   hasStencilAncestor: boolean;
   /** True if any placeholder node is in the ancestor chain. */
@@ -36,12 +38,13 @@ export function computeAncestorScope(
   indexes: DocumentIndexes,
 ): AncestorScope {
   const stencilIds = new Set<string>();
+  let stencilDepth = 0;
   let hasStencilAncestor = false;
   let hasPlaceholderAncestor = false;
 
   const slot = doc.slots[targetSlotId];
   if (!slot) {
-    return { stencilIds, hasStencilAncestor, hasPlaceholderAncestor };
+    return { stencilIds, stencilDepth, hasStencilAncestor, hasPlaceholderAncestor };
   }
 
   const visited = new Set<NodeId>();
@@ -53,6 +56,7 @@ export function computeAncestorScope(
     const node = doc.nodes[current];
     if (!node) break;
     if (isStencil(node)) {
+      stencilDepth += 1;
       hasStencilAncestor = true;
       if (node.props.stencilId) stencilIds.add(node.props.stencilId);
     }
@@ -62,7 +66,7 @@ export function computeAncestorScope(
     current = indexes.parentNodeByNodeId.get(current);
   }
 
-  return { stencilIds, hasStencilAncestor, hasPlaceholderAncestor };
+  return { stencilIds, stencilDepth, hasStencilAncestor, hasPlaceholderAncestor };
 }
 
 /**

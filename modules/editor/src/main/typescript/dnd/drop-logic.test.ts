@@ -425,6 +425,69 @@ describe('canDropHere — placeholder/stencil rules', () => {
     return { doc, rootSlotId, stencilNodeId, stencilSlotId };
   }
 
+  function docWithStencilDepth(depth: number): {
+    doc: TemplateDocument;
+    targetFillSlotId: SlotId;
+  } {
+    const rootId = nodeId('root');
+    const rootSlotId = slotId('root-slot');
+    const targetPlaceholderId = nodeId('target-placeholder');
+    const targetFillSlotId = slotId('target-fill');
+    const nodes: Record<NodeId, Node> = {
+      [rootId]: { id: rootId, type: 'root', slots: [rootSlotId] },
+      [targetPlaceholderId]: {
+        id: targetPlaceholderId,
+        type: 'placeholder',
+        slots: [targetFillSlotId],
+        props: { name: 'body' },
+      },
+    };
+    const slots: Record<SlotId, Slot> = {
+      [rootSlotId]: {
+        id: rootSlotId,
+        nodeId: rootId,
+        name: 'children',
+        children: [nodeId('stencil-0')],
+      },
+      [targetFillSlotId]: {
+        id: targetFillSlotId,
+        nodeId: targetPlaceholderId,
+        name: 'fill',
+        children: [],
+      },
+    };
+
+    for (let index = 0; index < depth; index += 1) {
+      const stencilNodeId = nodeId(`stencil-${index}`);
+      const stencilSlotId = slotId(`stencil-${index}-slot`);
+      const nextChild =
+        index === depth - 1 ? targetPlaceholderId : nodeId(`stencil-${index + 1}`);
+      nodes[stencilNodeId] = {
+        id: stencilNodeId,
+        type: 'stencil',
+        slots: [stencilSlotId],
+        props: { stencilId: `stencil-${index}`, version: 1, isDraft: true },
+      };
+      slots[stencilSlotId] = {
+        id: stencilSlotId,
+        nodeId: stencilNodeId,
+        name: 'children',
+        children: [nextChild],
+      };
+    }
+
+    return {
+      doc: {
+        modelVersion: 1,
+        root: rootId,
+        nodes,
+        slots,
+        themeRef: { type: 'inherit' },
+      },
+      targetFillSlotId,
+    };
+  }
+
   it('rejects dropping a placeholder into a bare template root (no stencil ancestor)', () => {
     const { doc, rootSlotId } = createTestDocumentWithChildren();
     const indexes = buildIndexes(doc);
@@ -689,5 +752,56 @@ describe('canDropHere — placeholder/stencil rules', () => {
 
     const dragData: DragData = { source: 'block', nodeId: sB, blockType: 'stencil' };
     expect(canDropHere(dragData, phFillId, doc, indexes, registry)).toBe(true);
+  });
+
+  it('allows inserting the fifth stencil level', () => {
+    const { doc, targetFillSlotId } = docWithStencilDepth(4);
+    const dragData: DragData = { source: 'palette', blockType: 'stencil' };
+
+    expect(canDropHere(dragData, targetFillSlotId, doc, buildIndexes(doc), registry)).toBe(true);
+  });
+
+  it('rejects inserting a sixth stencil level', () => {
+    const { doc, targetFillSlotId } = docWithStencilDepth(5);
+    const dragData: DragData = { source: 'palette', blockType: 'stencil' };
+
+    expect(canDropHere(dragData, targetFillSlotId, doc, buildIndexes(doc), registry)).toBe(false);
+  });
+
+  it('rejects moving a two-level stencil subtree below four stencil ancestors', () => {
+    const { doc, targetFillSlotId } = docWithStencilDepth(4);
+    const rootSlotId = doc.nodes[doc.root].slots[0];
+    const outerId = nodeId('moving-outer');
+    const outerSlotId = slotId('moving-outer-slot');
+    const innerId = nodeId('moving-inner');
+    const innerSlotId = slotId('moving-inner-slot');
+    doc.nodes[outerId] = {
+      id: outerId,
+      type: 'stencil',
+      slots: [outerSlotId],
+      props: { stencilId: 'moving-outer', version: 1, isDraft: true },
+    };
+    doc.nodes[innerId] = {
+      id: innerId,
+      type: 'stencil',
+      slots: [innerSlotId],
+      props: { stencilId: 'moving-inner', version: 1, isDraft: true },
+    };
+    doc.slots[outerSlotId] = {
+      id: outerSlotId,
+      nodeId: outerId,
+      name: 'children',
+      children: [innerId],
+    };
+    doc.slots[innerSlotId] = {
+      id: innerSlotId,
+      nodeId: innerId,
+      name: 'children',
+      children: [],
+    };
+    doc.slots[rootSlotId].children.push(outerId);
+    const dragData: DragData = { source: 'block', nodeId: outerId, blockType: 'stencil' };
+
+    expect(canDropHere(dragData, targetFillSlotId, doc, buildIndexes(doc), registry)).toBe(false);
   });
 });

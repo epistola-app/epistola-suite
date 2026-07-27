@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.validation
 
+import app.epistola.catalog.validation.TemplateValidationLimits
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
@@ -72,10 +73,24 @@ class TemplateDocumentValidatorTest {
     }
 
     @Test
-    fun `template validation allows distinct nested stencil instances`() {
+    fun `template validation allows five nested stencil instances`() {
+        val slugs = Array(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH) { "stencil-$it" }
+
         assertThatCode {
-            validator.validateTemplate(nestedStencils("address", "contact", "signature"))
+            validator.validateTemplate(nestedStencils(*slugs))
         }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `template validation rejects the sixth nested stencil instance`() {
+        val slugs = Array(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH + 1) { "stencil-$it" }
+
+        val exception = assertThrows<ValidationException> {
+            validator.validateTemplate(nestedStencils(*slugs))
+        }
+
+        assertThat(exception.code).isEqualTo(ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED)
+        assertThat(exception.field).isEqualTo("templateModel.nodes.stencil-5.props.stencilId")
     }
 
     @Test

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.catalog.validation.TemplateValidationLimits
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilVersionId
@@ -311,6 +312,23 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             UpdateDraft(variantId = variantId, templateModel = recursive).execute()
         }.isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+    }
+
+    @Test
+    fun `UpdateDraft rejects the sixth nested stencil level`() = test {
+        val tenant = createTenant("placeholder-depth")
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Too deeply nested").execute()
+        val slugs = Array(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH + 1) { "stencil-$it" }
+
+        assertThatThrownBy {
+            UpdateDraft(
+                variantId = VariantId(VariantKey.INITIAL, templateId),
+                templateModel = nestedStencilTemplate(*slugs),
+            ).execute()
+        }.isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED)
     }
 
     @Test

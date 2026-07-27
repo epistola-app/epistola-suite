@@ -92,6 +92,7 @@ class TemplateDocumentValidator(
             TemplateValidationCodes.PLACEHOLDER_NAME_INVALID,
             TemplateValidationCodes.PLACEHOLDER_NESTED_DEFINITION,
             TemplateValidationCodes.PLACEHOLDER_OUTSIDE_STENCIL,
+            TemplateValidationCodes.STENCIL_NESTING_DEPTH_EXCEEDED,
             TemplateValidationCodes.STENCIL_RECURSION,
             TemplateValidationCodes.NODE_PARAMETER_BINDINGS_INVALID_SHAPE,
             TemplateValidationCodes.NODE_PARAMETER_BINDING_NAME_INVALID,

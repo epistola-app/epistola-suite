@@ -4,6 +4,7 @@
 
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.validation.TemplateValidationLimits
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -158,6 +159,54 @@ class StencilPlaceholderRendererTest {
         assertTrue(pdf.isNotEmpty())
         assertTrue(pdf.decodeToString(0, 5).startsWith("%PDF"))
         assertContains(text, "Nested stencil content")
+    }
+
+    @Test
+    fun `renders five nested stencil levels`() {
+        val pdf = renderToPdf(nestedStencilDocument(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH))
+
+        assertContains(PdfContentExtractor.extract(pdf), "Deeply nested content")
+    }
+
+    @Test
+    fun `rejects the sixth nested stencil level`() {
+        val exception = assertFails {
+            renderToPdf(nestedStencilDocument(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH + 1))
+        }
+
+        assertContains(exception.message ?: "", "nesting depth 6 exceeds maximum 5")
+    }
+
+    private fun nestedStencilDocument(depth: Int): TemplateDocument {
+        val stencils = (0 until depth).map { index ->
+            Node(
+                id = "stencil-$index",
+                type = "stencil",
+                slots = listOf("stencil-$index-children"),
+                props = mapOf("stencilId" to "stencil-$index", "version" to 1),
+            )
+        }
+        val text = Node(
+            id = "nested-text",
+            type = "text",
+            props = mapOf("content" to richText("Deeply nested content")),
+        )
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf("root" to Node("root", "root", listOf("root-children"))) +
+                stencils.associateBy(Node::id) +
+                (text.id to text),
+            slots = mapOf(
+                "root-children" to Slot("root-children", "root", "children", listOf(stencils.first().id)),
+            ) + stencils.mapIndexed { index, stencil ->
+                "stencil-$index-children" to Slot(
+                    "stencil-$index-children",
+                    stencil.id,
+                    "children",
+                    listOf(stencils.getOrNull(index + 1)?.id ?: text.id),
+                )
+            },
+        )
     }
 
     private fun richText(text: String): Map<String, Any?> = mapOf(

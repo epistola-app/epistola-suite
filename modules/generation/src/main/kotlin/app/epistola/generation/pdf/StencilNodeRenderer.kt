@@ -4,6 +4,7 @@
 
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.validation.TemplateValidationLimits
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.layout.element.IElement
@@ -18,6 +19,8 @@ import com.itextpdf.layout.element.IElement
  *      id is already in the set we abort with a clear diagnostic. The editor
  *      and the server-side `PlaceholderValidator` reject recursive documents
  *      long before rendering, so this should never fire in practice.
+ *      The same safety net rejects a stencil chain deeper than the portable
+ *      catalog limit.
  *
  *   2. **Parameter scope.** Resolves the node's parameter schema via
  *      [RenderContext.parameterSchemaProvider], evaluates each binding
@@ -40,14 +43,21 @@ class StencilNodeRenderer(
         context: RenderContext,
         registry: NodeRendererRegistry,
     ): List<IElement> {
+        check(context.stencilNestingDepth < TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH) {
+            "Stencil nesting depth ${context.stencilNestingDepth + 1} exceeds maximum " +
+                TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH
+        }
         val stencilId = node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String
         val afterRecursionGuard = if (stencilId != null) {
             check(stencilId !in context.ancestorStencilIds) {
                 "Stencil recursion detected: '$stencilId' would contain itself transitively"
             }
-            context.copy(ancestorStencilIds = context.ancestorStencilIds + stencilId)
+            context.copy(
+                ancestorStencilIds = context.ancestorStencilIds + stencilId,
+                stencilNestingDepth = context.stencilNestingDepth + 1,
+            )
         } else {
-            context
+            context.copy(stencilNestingDepth = context.stencilNestingDepth + 1)
         }
 
         val schema = afterRecursionGuard.parameterSchemaProvider(node, document)
