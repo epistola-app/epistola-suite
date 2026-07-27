@@ -139,6 +139,57 @@ function createSampleStencilContent(): TemplateDocument {
   };
 }
 
+/** Published outer stencil content with an editable template-level fill slot. */
+function createPlaceholderStencilContent(): TemplateDocument {
+  const rootId = nodeId('outer-root');
+  const rootSlot = slotId('outer-root-slot');
+  const placeholderId = nodeId('outer-placeholder');
+  const defaultSlot = slotId('outer-default');
+  const fillSlot = slotId('outer-fill');
+  const defaultText = nodeId('outer-default-text');
+
+  return {
+    modelVersion: 1,
+    root: rootId,
+    nodes: {
+      [rootId]: { id: rootId, type: 'root', slots: [rootSlot] },
+      [placeholderId]: {
+        id: placeholderId,
+        type: 'placeholder',
+        slots: [defaultSlot, fillSlot],
+        props: { name: 'body', kind: 'block' },
+      },
+      [defaultText]: {
+        id: defaultText,
+        type: 'text',
+        slots: [],
+        props: { content: richText('Outer default') },
+      },
+    } as Record<NodeId, Node>,
+    slots: {
+      [rootSlot]: {
+        id: rootSlot,
+        nodeId: rootId,
+        name: 'children',
+        children: [placeholderId],
+      },
+      [defaultSlot]: {
+        id: defaultSlot,
+        nodeId: placeholderId,
+        name: 'default',
+        children: [defaultText],
+      },
+      [fillSlot]: {
+        id: fillSlot,
+        nodeId: placeholderId,
+        name: 'fill',
+        children: [],
+      },
+    } as Record<SlotId, Slot>,
+    themeRef: { type: 'inherit' },
+  };
+}
+
 beforeEach(() => {
   resetCounter();
 });
@@ -537,31 +588,39 @@ describe('Multiple stencils on one page', () => {
 // ---------------------------------------------------------------------------
 
 describe('Stencil nesting', () => {
-  it('allows inserting a different stencil into a draft stencil', () => {
+  it('inserts a published stencil with content into another published stencils fill', () => {
     const { engine, registry, rootSlotId } = setupEngine();
 
     const outerStencil = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'letter',
       version: 1,
-      isDraft: true,
+      isDraft: false,
+      _content: createPlaceholderStencilContent(),
     });
-    const outerSlot = getStencilSlot(engine, outerStencil);
+    const outerPlaceholder = Object.values(engine.doc.nodes).find(
+      (node) => node.type === 'placeholder' && node.props?.name === 'body',
+    );
+    expect(outerPlaceholder).toBeDefined();
+    const fillSlot = outerPlaceholder!.slots
+      .map((id) => engine.doc.slots[id])
+      .find((slot) => slot.name === 'fill');
+    expect(fillSlot).toBeDefined();
 
-    const { node, slots } = registry.createNode('stencil', {
+    const innerStencil = insertStencil(engine, registry, fillSlot!.id, {
       stencilId: 'address',
       version: 1,
-      isDraft: true,
-    });
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node,
-      slots,
-      targetSlotId: outerSlot,
-      index: -1,
+      isDraft: false,
+      _content: createSampleStencilContent(),
     });
 
-    expect(result.ok).toBe(true);
-    expect(engine.doc.slots[outerSlot]?.children).toEqual([node.id]);
+    expect(engine.doc.slots[fillSlot!.id].children).toEqual([innerStencil]);
+    expect(engine.doc.nodes[outerStencil].props?.stencilId).toBe('letter');
+    expect(engine.doc.nodes[innerStencil].props?.stencilId).toBe('address');
+    expect(
+      Object.values(engine.doc.nodes).some(
+        (node) => node.type === 'text' && richTextValue(node.props?.content) === 'Hello',
+      ),
+    ).toBe(true);
   });
 });
 

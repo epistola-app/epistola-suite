@@ -11,12 +11,14 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
@@ -250,19 +252,46 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     // ---------------------------------------------------------------------------
 
     @Test
-    fun `UpdateDraft accepts distinct nested stencil instances`() = test {
+    fun `published template retains distinct nested stencil content`() = test {
         val tenant = createTenant("placeholder-non-recursive-nesting")
         val tenantId = TenantId(tenant.id)
+        val outerStencilId = stencilId(tenantId)
+        val innerStencilId = stencilId(tenantId)
+
+        CreateStencil(
+            id = outerStencilId,
+            name = "Outer letter",
+            content = stencilV1WithBodyPlaceholder(),
+        ).execute()
+        PublishStencilVersion(StencilVersionId(VersionKey.of(1), outerStencilId)).execute()
+        CreateStencil(
+            id = innerStencilId,
+            name = "Inner address",
+            content = textStencil("Nested address content"),
+        ).execute()
+        PublishStencilVersion(StencilVersionId(VersionKey.of(1), innerStencilId)).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Nested stencils").execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val nested = templateWithNestedStencilFill(
+            outerStencilId.key.value,
+            innerStencilId.key.value,
+        )
 
-        UpdateDraft(
+        val draft = UpdateDraft(
             variantId = variantId,
-            templateModel = nestedStencilTemplate("header", "address", "signature"),
-        ).execute()
+            templateModel = nested,
+        ).execute()!!
+        val published = PublishVersion(VersionId(draft.id, variantId)).execute()!!
+
+        assertThat(published.templateModel.slots["outer-fill"]!!.children)
+            .containsExactly("inner-stencil")
+        assertThat(published.templateModel.nodes["inner-stencil"]!!.props!!["stencilId"])
+            .isEqualTo(innerStencilId.key.value)
+        assertThat(published.templateModel.nodes["nested-text"]!!.props!!["content"])
+            .isEqualTo(richText("Nested address content"))
     }
 
     @Test
@@ -586,4 +615,68 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             themeRef = ThemeRef.Inherit,
         )
     }
+
+    private fun textStencil(text: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node("root", "root", listOf("root-children")),
+            "text" to Node(
+                id = "text",
+                type = "text",
+                props = mapOf("content" to richText(text)),
+            ),
+        ),
+        slots = mapOf(
+            "root-children" to Slot("root-children", "root", "children", listOf("text")),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    private fun templateWithNestedStencilFill(
+        outerStencilId: String,
+        innerStencilId: String,
+    ): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node("root", "root", listOf("root-children")),
+            "outer-stencil" to Node(
+                id = "outer-stencil",
+                type = "stencil",
+                slots = listOf("outer-children"),
+                props = mapOf("stencilId" to outerStencilId, "version" to 1),
+            ),
+            "outer-placeholder" to Node(
+                id = "outer-placeholder",
+                type = "placeholder",
+                slots = listOf("outer-default", "outer-fill"),
+                props = mapOf("name" to "body", "kind" to "block"),
+            ),
+            "inner-stencil" to Node(
+                id = "inner-stencil",
+                type = "stencil",
+                slots = listOf("inner-children"),
+                props = mapOf("stencilId" to innerStencilId, "version" to 1),
+            ),
+            "nested-text" to Node(
+                id = "nested-text",
+                type = "text",
+                props = mapOf("content" to richText("Nested address content")),
+            ),
+        ),
+        slots = mapOf(
+            "root-children" to Slot("root-children", "root", "children", listOf("outer-stencil")),
+            "outer-children" to Slot(
+                "outer-children",
+                "outer-stencil",
+                "children",
+                listOf("outer-placeholder"),
+            ),
+            "outer-default" to Slot("outer-default", "outer-placeholder", "default"),
+            "outer-fill" to Slot("outer-fill", "outer-placeholder", "fill", listOf("inner-stencil")),
+            "inner-children" to Slot("inner-children", "inner-stencil", "children", listOf("nested-text")),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
 }

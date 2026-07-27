@@ -121,7 +121,7 @@ class StencilPlaceholderRendererTest {
     }
 
     @Test
-    fun `renders different nested stencils`() {
+    fun `renders visible content from different nested stencils`() {
         val doc = TemplateDocument(
             root = "root",
             nodes = mapOf(
@@ -153,9 +153,11 @@ class StencilPlaceholderRendererTest {
         )
 
         val pdf = renderToPdf(doc)
+        val text = PdfContentExtractor.extract(pdf)
 
         assertTrue(pdf.isNotEmpty())
         assertTrue(pdf.decodeToString(0, 5).startsWith("%PDF"))
+        assertContains(text, "Nested stencil content")
     }
 
     private fun richText(text: String): Map<String, Any?> = mapOf(
