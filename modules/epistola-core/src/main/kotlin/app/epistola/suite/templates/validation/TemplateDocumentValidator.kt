@@ -24,6 +24,8 @@ import org.springframework.stereotype.Component
  * the first portable error is mapped to [ValidationException], prefixed with the
  * request field that contains the document. Catalog resource resolution remains
  * unknown here because persistence/tenant lookup belongs to Suite call sites.
+ * Suite also retains its product-capability gate for nested stencil authoring;
+ * the portable catalog contract supports that composition for future consumers.
  */
 @Component
 class TemplateDocumentValidator(
@@ -34,7 +36,22 @@ class TemplateDocumentValidator(
     }
 
     fun validateStencil(doc: TemplateDocument) {
+        rejectUnsupportedNestedStencilAuthoring(doc)
         validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL)
+    }
+
+    private fun rejectUnsupportedNestedStencilAuthoring(document: TemplateDocument) {
+        val stencilNodeIds = document.nodes.values
+            .filter { it.type == "stencil" }
+            .map(Node::id)
+            .sorted()
+        if (stencilNodeIds.isNotEmpty()) {
+            throw ValidationException(
+                field = STENCIL_FIELD,
+                message = "Stencil content cannot contain nested stencil components. " +
+                    "Stencil nodes found: ${stencilNodeIds.joinToString(", ")}",
+            )
+        }
     }
 
     /**

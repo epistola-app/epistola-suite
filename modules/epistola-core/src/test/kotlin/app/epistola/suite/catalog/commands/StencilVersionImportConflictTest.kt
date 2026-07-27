@@ -471,7 +471,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 id = "s",
                 type = "stencil",
                 slots = listOf("s-children"),
-                props = mapOf("stencilId" to stencilKey.value, "version" to stencilVersion),
+                props = mapOf("stencilId" to stencilKey.value, "version" to stencilVersion, "isDraft" to false),
             ),
         ),
         slots = mapOf(
@@ -500,6 +500,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 props = mapOf(
                     StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
                     StencilNodeKeys.PROP_VERSION to 1,
+                    StencilNodeKeys.PROP_IS_DRAFT to false,
                 ),
             ),
             "cross-ref" to Node(
@@ -509,6 +510,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 props = mapOf(
                     StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
                     StencilNodeKeys.PROP_VERSION to 1,
+                    StencilNodeKeys.PROP_IS_DRAFT to false,
                     StencilNodeKeys.PROP_CATALOG_KEY to "some-other-catalog",
                 ),
             ),

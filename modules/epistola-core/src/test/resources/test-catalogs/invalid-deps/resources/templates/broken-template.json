@@ -18,7 +18,7 @@
           "id": "n-stencil",
           "type": "stencil",
           "slots": [],
-          "props": { "stencilId": "nonexistent-stencil", "version": 1 }
+          "props": { "stencilId": "nonexistent-stencil", "version": 1, "isDraft": false }
         },
         "n-img": {
           "id": "n-img",

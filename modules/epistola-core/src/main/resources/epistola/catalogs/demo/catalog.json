@@ -10,9 +10,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.16.2",
-    "releasedAt": "2026-07-24T00:00:00Z",
-    "fingerprint": "0b261b129d317833d4b356b7656e6dd7612c7d9fb2639e7aeea429b31d97b10c"
+    "version": "5.16.3",
+    "releasedAt": "2026-07-27T00:00:00Z",
+    "fingerprint": "c8df103232fa21f1e90f01e6c75835578b20227ef1e30084db8ce343fcb3539c"
   },
   "resources": [
     {
@@ -60,7 +60,7 @@
       "slug": "hello-world",
       "name": "Hello World",
       "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
-      "updatedAt": "2026-06-25T00:00:00Z",
+      "updatedAt": "2026-07-27T00:00:00Z",
       "detailUrl": "./resources/templates/hello-world.json"
     },
     {

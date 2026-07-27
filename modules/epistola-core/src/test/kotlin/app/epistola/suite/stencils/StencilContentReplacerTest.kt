@@ -42,7 +42,7 @@ class StencilContentReplacerTest {
                 id = "stencil-1",
                 type = "stencil",
                 slots = listOf("stencil-1-slot"),
-                props = mapOf("stencilId" to "header", "version" to 1),
+                props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false),
             ),
             "old-text" to Node(id = "old-text", type = "text", slots = emptyList(), props = mapOf("content" to richText("Old"))),
             slots = mapOf(
@@ -72,8 +72,8 @@ class StencilContentReplacerTest {
     fun `multiple instances get independent re-keyed IDs`() {
         val template = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "s1" to Node(id = "s1", type = "stencil", slots = listOf("s1-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
-            "s2" to Node(id = "s2", type = "stencil", slots = listOf("s2-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
+            "s1" to Node(id = "s1", type = "stencil", slots = listOf("s1-slot"), props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false)),
+            "s2" to Node(id = "s2", type = "stencil", slots = listOf("s2-slot"), props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false)),
             slots = mapOf(
                 "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("s1", "s2")),
                 "s1-slot" to Slot(id = "s1-slot", nodeId = "s1", name = "children", children = emptyList()),
@@ -100,7 +100,7 @@ class StencilContentReplacerTest {
     fun `stencil with no slots is skipped`() {
         val template = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "broken" to Node(id = "broken", type = "stencil", slots = emptyList(), props = mapOf("stencilId" to "header", "version" to 1)),
+            "broken" to Node(id = "broken", type = "stencil", slots = emptyList(), props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false)),
             slots = mapOf(
                 "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("broken")),
             ),
@@ -116,8 +116,8 @@ class StencilContentReplacerTest {
     fun `non-matching stencilId nodes are untouched`() {
         val template = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "header" to Node(id = "header", type = "stencil", slots = listOf("h-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
-            "footer" to Node(id = "footer", type = "stencil", slots = listOf("f-slot"), props = mapOf("stencilId" to "footer", "version" to 1)),
+            "header" to Node(id = "header", type = "stencil", slots = listOf("h-slot"), props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false)),
+            "footer" to Node(id = "footer", type = "stencil", slots = listOf("f-slot"), props = mapOf("stencilId" to "footer", "version" to 1, "isDraft" to false)),
             "h-text" to Node(id = "h-text", type = "text", slots = emptyList()),
             "f-text" to Node(id = "f-text", type = "text", slots = emptyList()),
             slots = mapOf(
@@ -159,7 +159,7 @@ class StencilContentReplacerTest {
         val template = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
             "text-before" to Node(id = "text-before", type = "text", slots = emptyList(), props = mapOf("content" to richText("Before"))),
-            "stencil-1" to Node(id = "stencil-1", type = "stencil", slots = listOf("s-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
+            "stencil-1" to Node(id = "stencil-1", type = "stencil", slots = listOf("s-slot"), props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false)),
             "text-after" to Node(id = "text-after", type = "text", slots = emptyList(), props = mapOf("content" to richText("After"))),
             "old-child" to Node(id = "old-child", type = "text", slots = emptyList()),
             slots = mapOf(
@@ -225,7 +225,7 @@ class StencilContentReplacerTest {
             id = "stencil-1",
             type = "stencil",
             slots = listOf("stencil-1-slot"),
-            props = mapOf("stencilId" to "header", "version" to 1),
+            props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false),
         ),
         "old-ph" to Node(
             id = "old-ph",
@@ -308,7 +308,7 @@ class StencilContentReplacerTest {
                 id = "stencil-1",
                 type = "stencil",
                 slots = listOf("stencil-1-slot"),
-                props = mapOf("stencilId" to "header", "version" to 1),
+                props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false),
             ),
             "ph" to Node(
                 id = "ph",
@@ -389,7 +389,7 @@ class StencilContentReplacerTest {
                 id = "stencil-1",
                 type = "stencil",
                 slots = listOf("stencil-1-slot"),
-                props = mapOf("stencilId" to "header", "version" to 1),
+                props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false),
             ),
             "ph" to Node(
                 id = "ph",
@@ -448,8 +448,8 @@ class StencilContentReplacerTest {
     fun `preserves fills independently across multiple stencil instances`() {
         val template = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "s1" to Node(id = "s1", type = "stencil", slots = listOf("s1-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
-            "s2" to Node(id = "s2", type = "stencil", slots = listOf("s2-slot"), props = mapOf("stencilId" to "header", "version" to 1)),
+            "s1" to Node(id = "s1", type = "stencil", slots = listOf("s1-slot"), props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false)),
+            "s2" to Node(id = "s2", type = "stencil", slots = listOf("s2-slot"), props = mapOf("stencilId" to "header", "version" to 1, "isDraft" to false)),
             "ph1" to Node(id = "ph1", type = "placeholder", slots = listOf("ph1-fill"), props = mapOf("name" to "body")),
             "ph2" to Node(id = "ph2", type = "placeholder", slots = listOf("ph2-fill"), props = mapOf("name" to "body")),
             "fill1" to Node(id = "fill1", type = "text", slots = emptyList(), props = mapOf("content" to richText("Fill A"))),

@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(stencils): **Nested stencil authoring remains explicitly gated in Suite.**
+  `epistola-catalog` now specifies and validates portable nested-stencil composition, while the
+  Suite adapter preserves the existing create, update, import, and publish rejection until the
+  editor, lifecycle, and resource-resolution work is implemented separately. Kotlin and bundled
+  catalog fixtures now use the canonical explicit stencil `version` and `isDraft` fields.
 - **[user]** fix(editor): **Empty stencil placeholders expose a working add-block action.**
   The action targets the editable fill slot, runs component pre-insert hooks (including the stencil
   picker with ancestor recursion and depth context), and no longer offers locked stencil slots.
@@ -16,17 +21,17 @@
 - **[dev]** fix(catalog): **Invalid ZIP imports retain structured diagnostics.** Portable archive
   and catalog findings now surface through `CatalogImportValidationException` with stable codes,
   paths, messages, and deterministic ordering instead of a generic `IllegalArgumentException`.
-- **[dev]** test(stencils): **Non-recursive nested stencil support is pinned across layers.**
+- **[dev]** test(stencils): **Nested stencil use in templates is pinned across layers.**
   Contract-adapter, editor ancestry/drop, and PDF renderer tests allow distinct nested stencil
-  instances, including realistic placeholder-fill insertion, persistence, publication, and visible
-  PDF content, while rejecting direct or transitive recursion and stencil references in reusable
-  stencil definitions.
+  instances in templates, including realistic placeholder-fill insertion, persistence,
+  publication, and visible PDF content, while rejecting direct or transitive recursion. Reusable
+  stencil definition authoring remains gated in Suite.
 - Delegated standalone parameter-schema and whole-catalog ZIP validation to
   `epistola-catalog` before Suite performs any import mutation; subscribed catalog registration
   now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state,
   while portable document-version findings retain Suite's established import error presentation.
-- Removed Suite's final standalone stencil-nesting rule; stencil documents now delegate that
-  invariant to `epistola-catalog` at create, update, import, and publish boundaries.
+- Portable stencil semantics delegate to `epistola-catalog`; Suite retains only its temporary
+  product-capability gate against authoring nested stencil definitions.
 - Consumed the rich-text JSON Schema references from `epistola-catalog` instead of maintaining
   Suite-owned copies.
 - Updated active catalog, Exchange, stencil, and registry documentation to the

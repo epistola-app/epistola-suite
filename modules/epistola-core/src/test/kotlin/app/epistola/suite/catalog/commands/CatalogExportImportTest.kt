@@ -1017,6 +1017,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     props = mapOf(
                         "stencilId" to stencilSlug,
                         "version" to 1,
+                        "isDraft" to false,
                         "parameterSchemaSnapshot" to schemaSnapshot,
                         "parameterBindings" to mapOf("recipientName" to "'Alice'"),
                         "paramsAlias" to "params",

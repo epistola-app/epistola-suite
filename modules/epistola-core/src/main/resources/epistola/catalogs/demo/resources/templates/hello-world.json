@@ -52,6 +52,7 @@
             "stencilId": "company-header",
             "catalogKey": "epistola-demo",
             "version": 2,
+            "isDraft": false,
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"

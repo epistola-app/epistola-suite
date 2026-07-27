@@ -104,13 +104,17 @@ class TemplateDocumentValidatorTest {
     }
 
     @Test
-    fun `stencil definition validation rejects embedded stencil references`() {
+    fun `Suite capability policy rejects embedded stencil references`() {
         val exception = assertThrows<ValidationException> {
             validator.validateStencil(nestedStencils("address", "contact"))
         }
 
-        assertThat(exception.code).isEqualTo(ValidationCode.STENCIL_RECURSION)
-        assertThat(exception.field).isEqualTo("content.nodes.stencil-0.props.stencilId")
+        assertThat(exception.code).isEqualTo(ValidationCode.GENERIC)
+        assertThat(exception.field).isEqualTo("content")
+        assertThat(exception.message).isEqualTo(
+            "Stencil content cannot contain nested stencil components. " +
+                "Stencil nodes found: stencil-0, stencil-1",
+        )
     }
 
     private fun documentWithMissingRoot() = TemplateDocument(

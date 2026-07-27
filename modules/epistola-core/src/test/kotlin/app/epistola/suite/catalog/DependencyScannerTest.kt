@@ -53,7 +53,7 @@ class DependencyScannerTest {
                     id = "n-stencil",
                     type = "stencil",
                     slots = emptyList(),
-                    props = mapOf("stencilId" to "company-header", "version" to 1),
+                    props = mapOf("stencilId" to "company-header", "version" to 1, "isDraft" to false),
                 ),
             ),
             slots = mapOf("s-children" to Slot(id = "s-children", nodeId = "n-root", name = "children", children = listOf("n-stencil"))),

@@ -18,7 +18,7 @@
           "id": "n-stencil",
           "type": "stencil",
           "slots": [],
-          "props": { "stencilId": "header-with-logo", "version": 1 }
+          "props": { "stencilId": "header-with-logo", "version": 1, "isDraft": false }
         },
         "n-body": {
           "id": "n-body",

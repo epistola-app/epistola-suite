@@ -117,7 +117,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilId" to stencilKey, "version" to 1, "isDraft" to false),
             ),
             "embedded-ph" to Node(
                 id = "embedded-ph",
@@ -479,7 +479,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "stencil-instance",
                     type = "stencil",
                     slots = listOf("stencil-children"),
-                    props = mapOf("stencilId" to sId.key.value, "version" to 1),
+                    props = mapOf("stencilId" to sId.key.value, "version" to 1, "isDraft" to false),
                 ),
                 "embedded-ph" to Node(
                     id = "embedded-ph",
@@ -612,7 +612,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "stencil-$index",
                 type = "stencil",
                 slots = listOf("stencil-$index-children"),
-                props = mapOf("stencilId" to stencilId, "version" to 1),
+                props = mapOf("stencilId" to stencilId, "version" to 1, "isDraft" to false),
             )
         }
         return TemplateDocument(
@@ -663,7 +663,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "outer-stencil",
                 type = "stencil",
                 slots = listOf("outer-children"),
-                props = mapOf("stencilId" to outerStencilId, "version" to 1),
+                props = mapOf("stencilId" to outerStencilId, "version" to 1, "isDraft" to false),
             ),
             "outer-placeholder" to Node(
                 id = "outer-placeholder",
@@ -675,7 +675,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "inner-stencil",
                 type = "stencil",
                 slots = listOf("inner-children"),
-                props = mapOf("stencilId" to innerStencilId, "version" to 1),
+                props = mapOf("stencilId" to innerStencilId, "version" to 1, "isDraft" to false),
             ),
             "nested-text" to Node(
                 id = "nested-text",

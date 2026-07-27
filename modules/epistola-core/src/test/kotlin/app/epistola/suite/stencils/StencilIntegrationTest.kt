@@ -329,7 +329,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
                     id = "nested-stencil",
                     type = "stencil",
                     slots = listOf("slot-nested-stencil"),
-                    props = mapOf("stencilId" to "other", "version" to 1),
+                    props = mapOf("stencilId" to "other", "version" to 1, "isDraft" to false),
                 ),
             ),
             slots = mapOf(
@@ -567,7 +567,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilId" to stencilKey, "version" to 1, "isDraft" to false),
             ),
         ),
         slots = mapOf(
