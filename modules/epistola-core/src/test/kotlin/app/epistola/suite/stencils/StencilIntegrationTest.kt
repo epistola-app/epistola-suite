@@ -315,7 +315,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
     // ── Publish validation ──
 
     @Test
-    fun `publish rejects stencil with nested stencil nodes`() = test {
+    fun `create rejects stencil with nested stencil nodes`() = test {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val id = stencilId(tenantId)
@@ -344,11 +344,8 @@ class StencilIntegrationTest : IntegrationTestBase() {
             themeRef = ThemeRef.Inherit,
         )
 
-        CreateStencil(id = id, name = "Nested Test", content = contentWithNestedStencil).execute()
-        val versionId = StencilVersionId(VersionKey.of(1), id)
-
         assertThatThrownBy {
-            PublishStencilVersion(versionId = versionId).execute()
+            CreateStencil(id = id, name = "Nested Test", content = contentWithNestedStencil).execute()
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("stencil")
     }

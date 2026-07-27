@@ -521,10 +521,12 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `CreateStencil rejects malformed parameterBindings prop`() = test {
+    fun `UpdateDraft rejects malformed parameterBindings prop`() = test {
         val tenant = createTenant("placeholder-binding-shape")
         val tenantId = TenantId(tenant.id)
-        val sId = stencilId(tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Malformed binding").execute()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
 
         // parameterBindings as a non-map → caught by NODE_PARAMETER_BINDINGS_INVALID_SHAPE.
         val malformed = TemplateDocument(
@@ -550,7 +552,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         )
 
         assertThatThrownBy {
-            CreateStencil(id = sId, name = "Malformed", content = malformed).execute()
+            UpdateDraft(variantId = variantId, templateModel = malformed).execute()
         }.isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }

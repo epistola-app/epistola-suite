@@ -8,6 +8,8 @@
   `epistola-catalog` before Suite performs any import mutation; subscribed catalog registration
   now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state,
   while portable document-version findings retain Suite's established import error presentation.
+- Removed Suite's final standalone stencil-nesting rule; stencil documents now delegate that
+  invariant to `epistola-catalog` at create, update, import, and publish boundaries.
 - Consumed the rich-text JSON Schema references from `epistola-catalog` instead of maintaining
   Suite-owned copies.
 - Updated active catalog, Exchange, stencil, and registry documentation to the
