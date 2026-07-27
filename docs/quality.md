@@ -239,7 +239,7 @@ That makes "an unchanged fingerprint retains its ignore" true by construction, w
 dual-write to diverge.
 
 Ignores live here rather than in `TemplateDocument` for two independent reasons: the model
-is a generated type from the external `epistola-model` contract, and published versions are
+is a generated type from the external `epistola-catalog` contract, and published versions are
 frozen — an ignore there could never be applied to a published version, which is exactly
 where an author most needs one.
 

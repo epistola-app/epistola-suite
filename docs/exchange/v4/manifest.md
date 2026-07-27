@@ -4,7 +4,7 @@
 
 **Role:** the top-level `catalog.json` — the entry point of every catalog. It carries the catalog identity, the release stamp (version + fingerprint), and a flat index of the resources, each pointing at its own [resource detail file](../README.md#parts--contract-versions). The manifest carries the **authoritative catalog-wide `schemaVersion`** — the single wire version for the whole bundle. Every resource detail echoes the same number, but there is no independent per-resource version; the whole catalog moves together (see [ADR 0007](../../adr/0007-catalog-wire-format-migrations.md)).
 
-**DTO:** `app.epistola.catalog.protocol.CatalogManifest` (external `epistola-model`).
+**DTO:** `app.epistola.catalog.protocol.CatalogManifest` (external `epistola-catalog`).
 **Produced by:** [`CatalogContentBuilder.toManifest()`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt) — stamps `schemaVersion = CATALOG_SCHEMA_VERSION`.
 **Consumed by:** [`CatalogClient.fetchManifest()`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogClient.kt) → [`CatalogSchemaMigrator`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/migrations/CatalogSchemaMigrator.kt) (version gate + migration chain).
 **Wire location:** `catalog.json` at the ZIP/URL root.

@@ -10,6 +10,9 @@
   while portable document-version findings retain Suite's established import error presentation.
 - Consumed the rich-text JSON Schema references from `epistola-catalog` instead of maintaining
   Suite-owned copies.
+- Updated active catalog, Exchange, stencil, and registry documentation to the
+  `epistola-catalog` npm, Maven, and classpath names; historical ADR and migration references retain
+  the retired artifact name for accuracy.
 - **[dev]** build(catalog): **Portable catalog dependency adopted.** Suite now consumes `app.epistola.contract:epistola-catalog` instead of the retired pre-1.0 `epistola-model` coordinate, retaining the existing Kotlin model packages while gaining the shared registries, validation, archive, migration, canonicalization, and fixture boundary.
 - **[dev]** refactor(catalog): **Template validation delegates to the portable contract.** Suite's command-facing document and parameter-schema validators now adapt deterministic `epistola-catalog` findings into the existing field-prefixed `ValidationException` presentation, including graph-only rendering safety, while dynamic node parameter schemas continue to resolve through the Suite-owned Spring provider registry.
 - **[dev]** fix(catalog): **Fixtures use one rich-text model.** Catalog, API, renderer, stencil,

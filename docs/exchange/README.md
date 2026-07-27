@@ -430,7 +430,7 @@ Templates reference stencils through a stencil node whose
 `props.version: Int` pins the consumer to a specific published version of
 that stencil. To preserve those pins across an export/import round-trip, the
 wire format carries the published version number alongside the content
-(`StencilResource.version`, required since `epistola-model 0.6.0`). The
+(`StencilResource.version`, originally required in `epistola-model 0.6.0`). The
 exporter ships the **latest** published version of each stencil and stamps
 its number; the importer installs the stencil at that exact number in
 target. The architecture and rationale are recorded in
