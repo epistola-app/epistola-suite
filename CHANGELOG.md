@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(themes): **Theme detail and updates respect catalog identity.**
+  Theme lookups and updates now use the complete tenant, catalog, and slug key, so two catalogs can
+  safely contain themes with the same slug without opening or modifying the wrong resource.
 - **[dev]** refactor(api,catalog): **Suite's REST boundary now uses catalog models directly.**
   Generated HTTP envelope DTOs retain Suite-specific identifiers and lifecycle metadata, while
   template documents, page settings, theme styles, and block style presets are the

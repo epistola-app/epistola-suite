@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes
 
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -13,6 +14,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.ListThemes
 import org.assertj.core.api.Assertions.assertThat
@@ -53,6 +55,43 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val crossTenant = GetTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId.default(TenantId(other.id)))).query()
 
         assertThat(crossTenant).isNull()
+    }
+
+    @Test
+    fun `GetTheme distinguishes the same slug across catalogs`(): Unit = withMediator {
+        val tenant = createTenant("Theme Get Catalog Scope")
+        val tenantId = TenantId(tenant.id)
+        val firstCatalog = CatalogKey.of("first")
+        val secondCatalog = CatalogKey.of("second")
+        CreateCatalog(tenantKey = tenant.id, id = firstCatalog, name = "First").execute()
+        CreateCatalog(tenantKey = tenant.id, id = secondCatalog, name = "Second").execute()
+        val firstTheme = ThemeId(ThemeKey.of("shared"), CatalogId(firstCatalog, tenantId))
+        val secondTheme = ThemeId(ThemeKey.of("shared"), CatalogId(secondCatalog, tenantId))
+        CreateTheme(id = firstTheme, name = "First Theme").execute()
+        CreateTheme(id = secondTheme, name = "Second Theme").execute()
+
+        assertThat(GetTheme(id = firstTheme).query()?.name).isEqualTo("First Theme")
+        assertThat(GetTheme(id = secondTheme).query()?.name).isEqualTo("Second Theme")
+    }
+
+    @Test
+    fun `UpdateTheme changes only the requested catalog when slugs match`(): Unit = withMediator {
+        val tenant = createTenant("Theme Update Catalog Scope")
+        val tenantId = TenantId(tenant.id)
+        val firstCatalog = CatalogKey.of("first")
+        val secondCatalog = CatalogKey.of("second")
+        CreateCatalog(tenantKey = tenant.id, id = firstCatalog, name = "First").execute()
+        CreateCatalog(tenantKey = tenant.id, id = secondCatalog, name = "Second").execute()
+        val firstTheme = ThemeId(ThemeKey.of("shared"), CatalogId(firstCatalog, tenantId))
+        val secondTheme = ThemeId(ThemeKey.of("shared"), CatalogId(secondCatalog, tenantId))
+        CreateTheme(id = firstTheme, name = "First Theme").execute()
+        CreateTheme(id = secondTheme, name = "Second Theme").execute()
+
+        val updated = UpdateTheme(id = firstTheme, name = "Updated First Theme").execute()
+
+        assertThat(updated?.name).isEqualTo("Updated First Theme")
+        assertThat(GetTheme(id = firstTheme).query()?.name).isEqualTo("Updated First Theme")
+        assertThat(GetTheme(id = secondTheme).query()?.name).isEqualTo("Second Theme")
     }
 
     @Test
