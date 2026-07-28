@@ -100,6 +100,10 @@ oidc:
 ```
 
 `autoProvision` defaults to `true`, so a user's local record is created on first login.
+Epistola uses the OIDC `name` claim as the signed-in user's display label and
+refreshes it together with `email` on every login. The stable account link remains
+the `sub` claim. `userNameAttribute` only controls Spring Security's technical
+principal name; it does not control the label shown in Epistola's navigation.
 
 ### Plain environment variables (non-Helm)
 

@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component
 
 /**
  * The one source of truth for the common tenant-view model attributes that every
- * tenant-scoped UI render needs — `tenantName`, `auth`, `isManager`, and footer
- * chrome.
+ * tenant-scoped UI render needs — `tenantName`, `currentUserDisplayName`,
+ * `auth`, `isManager`, and footer chrome.
  *
  * Two render paths consume it, so they can't drift:
  * - [ShellModelInterceptor] — normal MVC view renders (interceptor `postHandle`).
@@ -34,6 +34,8 @@ class CommonViewModel(
     /**
      * The attributes to add for a tenant view, computed from [model]:
      * - `tenantName` — resolved from `tenantId` (only if not already in [model]).
+     * - `currentUserDisplayName` — read from the already-bound principal; no user
+     *   lookup is performed.
      * - `auth` — resolved from the current principal + `tenantId` (only if not
      *   already in [model], so a handler that set its own `auth` keeps it).
      * - `isManager` — derived from the effective `auth`.
@@ -46,15 +48,19 @@ class CommonViewModel(
     fun attributes(model: Map<String, Any?>): Map<String, Any?> {
         val result = LinkedHashMap<String, Any?>()
         val tenantId = model["tenantId"]?.toString()
+        val principal = SecurityContext.currentOrNull()
 
         if (tenantId != null && model["tenantName"] == null) {
             val tenant = GetTenant(TenantKey.of(tenantId)).query()
             result["tenantName"] = tenant?.name ?: tenantId
         }
 
+        if (model["currentUserDisplayName"] == null) {
+            result["currentUserDisplayName"] = principal?.displayLabel()
+        }
+
         // Resolve auth context — always present so templates never need null checks.
         val auth = model["auth"] as? AuthContext ?: run {
-            val principal = SecurityContext.currentOrNull()
             when {
                 principal != null && tenantId != null -> AuthContext.from(principal, TenantKey.of(tenantId))
                 principal != null -> AuthContext.platformOnly(principal)

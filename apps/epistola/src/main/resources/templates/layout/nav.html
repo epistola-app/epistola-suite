@@ -48,7 +48,7 @@
                 </a>
 
                 <div class="app-nav-user" sec:authorize="isAuthenticated()">
-                    <a th:href="@{/profile}" class="app-nav-username" sec:authentication="name" title="Your profile">user</a>
+                    <a th:href="@{/profile}" class="app-nav-username" th:text="${currentUserDisplayName}" title="Your profile">user</a>
                     <span class="app-nav-separator">|</span>
                     <a th:href="@{/api-docs}" class="app-nav-link-sm" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
                     <span class="app-nav-separator">|</span>
