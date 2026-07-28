@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(api,catalog): **Suite's REST boundary now uses catalog models directly.**
+  Generated HTTP envelope DTOs retain Suite-specific identifiers and lifecycle metadata, while
+  template documents, page settings, theme styles, and block style presets are the
+  `epistola-catalog` Kotlin data classes themselves. This removes Jackson tree conversions and the
+  duplicate portable JVM model without changing their JSON wire representation.
 - **[dev]** fix(stencils): **Existing editor stencil references retain their established
   meaning.** Portable validation treats a missing `isDraft` property as non-draft, matching the
   editor's historical behavior without rewriting stored template or stencil content. Newly

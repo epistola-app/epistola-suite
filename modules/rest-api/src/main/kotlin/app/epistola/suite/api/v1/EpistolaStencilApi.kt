@@ -57,13 +57,10 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import tools.jackson.databind.ObjectMapper
 
 @RestController
 @RequestMapping("/api")
-class EpistolaStencilApi(
-    private val objectMapper: ObjectMapper,
-) : StencilsApi {
+class EpistolaStencilApi : StencilsApi {
 
     // ==================== Stencil CRUD ====================
 
@@ -103,16 +100,13 @@ class EpistolaStencilApi(
     ): ResponseEntity<StencilDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilId = StencilId(StencilKey.of(createStencilRequest.id), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val content = createStencilRequest.content?.let {
-            objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.template.model.TemplateDocument::class.java)
-        }
 
         val stencil = CreateStencil(
             id = stencilId,
             name = createStencilRequest.name,
             description = createStencilRequest.description,
             tags = createStencilRequest.tags ?: emptyList(),
-            content = content,
+            content = createStencilRequest.content,
             parameterSchema = createStencilRequest.parameterSchema,
         ).execute()
 
@@ -212,20 +206,17 @@ class EpistolaStencilApi(
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val content = createStencilVersionRequest?.content?.let {
-            objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.template.model.TemplateDocument::class.java)
-        }
 
         val version = CreateStencilVersion(
             stencilId = stencilIdComposite,
-            content = content,
+            content = createStencilVersionRequest?.content,
             parameterSchema = createStencilVersionRequest?.parameterSchema,
             inheritParameterSchemaFromSource = false,
         ).execute() ?: throw StencilNotFoundException(tenantIdComposite.key, stencilIdComposite.key)
 
         return ResponseEntity
             .status(HttpStatus.CREATED)
-            .body(version.toDto(objectMapper))
+            .body(version.toDto())
     }
 
     override fun getStencilVersion(
@@ -241,7 +232,7 @@ class EpistolaStencilApi(
         val version = GetStencilVersion(versionId = versionIdComposite).query()
             ?: throw StencilVersionNotFoundException(tenantIdComposite.key, stencilIdComposite.key, CatalogKey.of(catalogId), versionIdComposite.key)
 
-        return ResponseEntity.ok(version.toDto(objectMapper))
+        return ResponseEntity.ok(version.toDto())
     }
 
     override fun updateStencilDraft(
@@ -254,9 +245,8 @@ class EpistolaStencilApi(
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
-        val content = updateStencilDraftRequest.content?.let {
-            objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.template.model.TemplateDocument::class.java)
-        } ?: throw ValidationException(field = "content", message = "Stencil draft content is required")
+        val content = updateStencilDraftRequest.content
+            ?: throw ValidationException(field = "content", message = "Stencil draft content is required")
 
         val version = UpdateStencilDraft(
             versionId = versionIdComposite,
@@ -264,7 +254,7 @@ class EpistolaStencilApi(
             parameterSchema = updateStencilDraftRequest.parameterSchema,
         ).execute()
 
-        return ResponseEntity.ok(version.toDto(objectMapper))
+        return ResponseEntity.ok(version.toDto())
     }
 
     // ==================== Stencil Version Lifecycle ====================
@@ -281,7 +271,7 @@ class EpistolaStencilApi(
 
         val version = PublishStencilVersion(versionId = versionIdComposite).execute()
 
-        return ResponseEntity.ok(version.toDto(objectMapper))
+        return ResponseEntity.ok(version.toDto())
     }
 
     override fun archiveStencilVersion(
@@ -296,7 +286,7 @@ class EpistolaStencilApi(
 
         val version = ArchiveStencilVersion(versionId = versionIdComposite).execute()
 
-        return ResponseEntity.ok(version.toDto(objectMapper))
+        return ResponseEntity.ok(version.toDto())
     }
 
     // ==================== Usage & Upgrade ====================
