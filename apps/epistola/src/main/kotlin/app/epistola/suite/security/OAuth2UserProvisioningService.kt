@@ -9,8 +9,8 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import app.epistola.suite.users.commands.CreateUser
+import app.epistola.suite.users.commands.RecordUserLogin
 import app.epistola.suite.users.commands.SyncTenantMemberships
-import app.epistola.suite.users.commands.UpdateLastLogin
 import app.epistola.suite.users.queries.GetUserByExternalId
 import org.slf4j.LoggerFactory
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest
@@ -99,8 +99,12 @@ class OAuth2UserProvisioningService(
         )
     }
 
-    private fun updateLastLogin(userId: app.epistola.suite.common.ids.UserKey) {
-        mediator.send(UpdateLastLogin(userId))
+    private fun recordLogin(
+        userId: app.epistola.suite.common.ids.UserKey,
+        email: String,
+        displayName: String,
+    ) {
+        mediator.send(RecordUserLogin(userId, email, displayName))
     }
 
     /**
@@ -142,9 +146,11 @@ class OAuth2UserProvisioningService(
                 OAuth2Error("missing_email_claim"),
                 "Missing 'email' claim in OAuth2 user info",
             )
-        val displayName = oauth2User.getAttribute<String>("name") ?: email
+        val displayName = oauth2User.getAttribute<String>("name")
+            ?.takeIf { it.isNotBlank() }
+            ?: email
 
-        val user = try {
+        val storedUser = try {
             getOrCreateUser(externalId, email, displayName, provider)
         } catch (e: Exception) {
             logger.error("Failed to provision user: $email", e)
@@ -155,7 +161,8 @@ class OAuth2UserProvisioningService(
             )
         }
 
-        updateLastLogin(user.id)
+        recordLogin(storedUser.id, email, displayName)
+        val user = storedUser.copy(email = email, displayName = displayName)
 
         val groups = extractGroupsList(oauth2User)
         val flatRoles = extractFlatRolesList(oauth2User)

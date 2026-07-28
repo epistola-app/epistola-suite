@@ -12,10 +12,11 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import app.epistola.suite.users.commands.CreateUser
+import app.epistola.suite.users.commands.RecordUserLogin
 import app.epistola.suite.users.commands.SyncTenantMemberships
-import app.epistola.suite.users.commands.UpdateLastLogin
 import app.epistola.suite.users.queries.GetUserByExternalId
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User
@@ -25,8 +26,16 @@ import java.time.OffsetDateTime
 @Tag("unit")
 class OAuth2UserProvisioningServiceTest {
 
-    private fun oauth2User(attributes: Map<String, Any>): OAuth2User {
-        val attrs = mapOf("sub" to "test-subject", "email" to "user@example.com", "name" to "Test User") + attributes
+    private fun oauth2User(
+        attributes: Map<String, Any>,
+        name: String? = "Test User",
+    ): OAuth2User {
+        val attrs = buildMap<String, Any> {
+            put("sub", "test-subject")
+            put("email", "user@example.com")
+            if (name != null) put("name", name)
+            putAll(attributes)
+        }
         return DefaultOAuth2User(emptyList(), attrs, "sub")
     }
 
@@ -47,11 +56,15 @@ class OAuth2UserProvisioningServiceTest {
         authProperties: AuthProperties = AuthProperties(),
         membershipResolver: LoginMembershipResolver? = null,
         syncCalls: MutableList<Map<TenantKey, Set<TenantRole>>> = mutableListOf(),
+        loginCalls: MutableList<RecordUserLogin> = mutableListOf(),
     ): OAuth2UserProvisioningService {
         val mediator = object : Mediator {
             @Suppress("UNCHECKED_CAST")
             override fun <R> send(command: Command<R>): R = when (command) {
-                is UpdateLastLogin -> Unit as R
+                is RecordUserLogin -> {
+                    loginCalls.add(command)
+                    Unit as R
+                }
                 is SyncTenantMemberships -> {
                     syncCalls.add(command.memberships)
                     Unit as R
@@ -199,6 +212,67 @@ class OAuth2UserProvisioningServiceTest {
         assertThat(syncCalls.single()[TenantKey.of("beta-org")]).containsExactly(TenantRole.CONTENT_AUTHOR)
     }
 
+    @Test
+    fun `refreshes mutable profile claims and returns them in the principal`() {
+        val loginCalls = mutableListOf<RecordUserLogin>()
+        val staleUser = existingUser().copy(email = "old@example.com", displayName = "Old Name")
+
+        val principal = service(staleUser, loginCalls = loginCalls).provision(
+            oauth2User(
+                mapOf(
+                    "email" to "current@example.com",
+                    "name" to "Current Name",
+                ),
+            ),
+            "keycloak",
+        )
+
+        assertThat(loginCalls).containsExactly(
+            RecordUserLogin(
+                userId = staleUser.id,
+                email = "current@example.com",
+                displayName = "Current Name",
+            ),
+        )
+        assertThat(principal.userId).isEqualTo(staleUser.id)
+        assertThat(principal.email).isEqualTo("current@example.com")
+        assertThat(principal.displayName).isEqualTo("Current Name")
+    }
+
+    @Test
+    fun `falls back to email when the name claim is absent or blank`() {
+        val absentNameCalls = mutableListOf<RecordUserLogin>()
+        val blankNameCalls = mutableListOf<RecordUserLogin>()
+
+        val absentNamePrincipal = service(existingUser(), loginCalls = absentNameCalls).provision(
+            oauth2User(emptyMap(), name = null),
+            "keycloak",
+        )
+        val blankNamePrincipal = service(existingUser(), loginCalls = blankNameCalls).provision(
+            oauth2User(mapOf("name" to "  ")),
+            "keycloak",
+        )
+
+        assertThat(absentNamePrincipal.displayName).isEqualTo("user@example.com")
+        assertThat(absentNameCalls.single().displayName).isEqualTo("user@example.com")
+        assertThat(blankNamePrincipal.displayName).isEqualTo("user@example.com")
+        assertThat(blankNameCalls.single().displayName).isEqualTo("user@example.com")
+    }
+
+    @Test
+    fun `does not refresh profile claims for a disabled user`() {
+        val loginCalls = mutableListOf<RecordUserLogin>()
+
+        assertThatThrownBy {
+            service(existingUser().copy(enabled = false), loginCalls = loginCalls).provision(
+                oauth2User(mapOf("name" to "New Name")),
+                "keycloak",
+            )
+        }.hasMessageContaining("Failed to provision user")
+
+        assertThat(loginCalls).isEmpty()
+    }
+
     // --- Provider derivation (provider-neutral: any non-Keycloak registration is GENERIC_OIDC) ---
 
     @Test
@@ -222,7 +296,7 @@ class OAuth2UserProvisioningServiceTest {
         val mediator = object : Mediator {
             @Suppress("UNCHECKED_CAST")
             override fun <R> send(command: Command<R>): R = when (command) {
-                is UpdateLastLogin -> Unit as R
+                is RecordUserLogin -> Unit as R
                 is CreateUser -> {
                     created.add(command)
                     newUser as R
