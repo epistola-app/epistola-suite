@@ -14,28 +14,37 @@ import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 
 /**
- * Command to update the last login timestamp for a user.
+ * Records a successful identity-provider login.
+ *
+ * The external subject remains the stable account key; email and display name
+ * are mutable profile attributes and are refreshed from the latest login.
  */
-data class UpdateLastLogin(
+data class RecordUserLogin(
     val userId: UserKey,
+    val email: String,
+    val displayName: String,
 ) : Command<Unit>,
     SystemInternal,
     NotAudited
 
 @Component
-class UpdateLastLoginHandler(
+class RecordUserLoginHandler(
     private val jdbi: Jdbi,
-) : CommandHandler<UpdateLastLogin, Unit> {
-    override fun handle(command: UpdateLastLogin) {
+) : CommandHandler<RecordUserLogin, Unit> {
+    override fun handle(command: RecordUserLogin) {
         jdbi.withHandleUnchecked { handle ->
             handle.createUpdate(
                 """
                 UPDATE users
-                SET last_login_at = NOW()
+                SET email = :email,
+                    display_name = :displayName,
+                    last_login_at = NOW()
                 WHERE id = :userId
                 """,
             )
                 .bind("userId", command.userId.value)
+                .bind("email", command.email)
+                .bind("displayName", command.displayName)
                 .execute()
         }
     }

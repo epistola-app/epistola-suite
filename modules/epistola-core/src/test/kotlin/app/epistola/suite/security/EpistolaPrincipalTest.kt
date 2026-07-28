@@ -102,6 +102,15 @@ class EpistolaPrincipalTest {
         assertThat(principal(platformRoles = setOf(PlatformRole.TENANT_MANAGER)).isTenantManager()).isTrue()
     }
 
+    @Test
+    fun `display label prefers display name then email then external id`() {
+        val principal = principal()
+
+        assertThat(principal.displayLabel()).isEqualTo("Test User")
+        assertThat(principal.copy(displayName = " ").displayLabel()).isEqualTo("test@example.com")
+        assertThat(principal.copy(displayName = "", email = " ").displayLabel()).isEqualTo("test-user")
+    }
+
     // --- Global roles ---
 
     @Test

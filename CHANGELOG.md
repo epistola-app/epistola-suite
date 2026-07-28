@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** fix(auth): **OIDC users now show their display name consistently.** The top navigation and footer render the identity provider's human-readable `name` claim from the signed-in Epistola principal instead of Spring's provider-dependent principal name, which defaulted to the opaque `sub` UUID on some installations. Email and display name are refreshed at login while `sub` remains the stable account key; rendering uses the existing session principal and adds no per-request user lookup.
 - **[dev]** chore(build): **Warnings now fail fast.** Kotlin compiler warnings and Gradle deprecations fail builds by default, with a documented narrow exception policy for unavoidable upstream diagnostics.
 - **[dev]** test(kotlin): **Test compiler warnings removed.** Test fixtures now avoid redundant null assertions and conversions, use typed exception assertions, and follow the current Jackson 3 and AssertJ APIs.
 - **[dev]** refactor(kotlin): **Production compiler warnings removed.** Kotlin sources now use idiomatic nullability, primitive wrappers, Jackson type references, and iText border APIs, with regression coverage for typed theme-style conversion and per-side PDF borders.

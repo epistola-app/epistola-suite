@@ -21,7 +21,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.commands.SetTenantDefaultLocale
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.users.commands.UpdateLastLogin
+import app.epistola.suite.users.commands.RecordUserLogin
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -187,14 +187,18 @@ class AuditRecorderIT : IntegrationTestBase() {
 
     @Test
     fun `SystemInternal and NotAudited commands are not recorded`() {
-        val before = countAction("UpdateLastLogin")
+        val before = countAction("RecordUserLogin")
 
         withMediator {
-            // UpdateLastLogin is SystemInternal + NotAudited.
-            UpdateLastLogin(userId = testUser.userId).execute()
+            // RecordUserLogin is SystemInternal + NotAudited.
+            RecordUserLogin(
+                userId = testUser.userId,
+                email = testUser.email,
+                displayName = testUser.displayName,
+            ).execute()
         }
 
-        assertThat(countAction("UpdateLastLogin")).isEqualTo(before)
+        assertThat(countAction("RecordUserLogin")).isEqualTo(before)
     }
 
     // -- helpers --------------------------------------------------------------

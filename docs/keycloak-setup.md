@@ -21,6 +21,11 @@ see [Recommended: client roles (step by step)](#recommended-client-roles-step-by
 The realm-role, group, and client-role mappers are configured in Keycloak (realm import or by
 hand); Epistola only reads the resulting claims.
 
+For user identity, Epistola links the account by the stable `sub` claim and shows the
+human-readable `name` claim in its navigation. The `email` and display name stored in
+Epistola are refreshed on every successful login, so profile changes do not create a
+new user or require a per-request identity lookup.
+
 > **Recommendation — prefer flat roles (client roles) over hierarchical groups.** The flat
 > `roles` claim keeps the Epistola authorization model scoped to its own client, is portable
 > across every IdP (Keycloak, authentik, Auth0, Cognito, …), and is simpler to reason about.
