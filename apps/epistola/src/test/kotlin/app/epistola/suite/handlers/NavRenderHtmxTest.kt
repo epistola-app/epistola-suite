@@ -8,6 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.TestPrincipalUser
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,6 +41,18 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         // (Thymeleaf classappend can emit extra whitespace, so normalise before matching.)
         assertThat(body).contains("nav-item-templates")
         assertThat(body.replace(Regex("\\s+"), " ")).contains("app-nav-dropdown-item active")
+    }
+
+    @Test
+    fun `shared chrome renders the application display name`() {
+        val tenant = createTenant("Nav Display Name")
+
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val navUser = body.substringAfter("""class="app-nav-username"""").substringBefore("</a>")
+        val footerUser = body.substringAfter("""class="user-info"""").substringBefore("</footer>")
+
+        assertThat(navUser).contains(">${TestPrincipalUser.DISPLAY_NAME}")
+        assertThat(footerUser).contains(">${TestPrincipalUser.DISPLAY_NAME}</a>")
     }
 
     @Test

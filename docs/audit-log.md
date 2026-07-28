@@ -101,7 +101,7 @@ Commands and queries have **opposite default polarity**:
 - **Commands → opt-out** (`operation = WRITE`). Every command is recorded _except_
   `SystemInternal` ones (background/system work) and those marked `NotAudited`
   (the high-frequency opt-out). `NotAudited` covers `RecordApiKeyUsage` /
-  `UpdateLastLogin` (housekeeping) and `GenerateDocument` /
+  `RecordUserLogin` (housekeeping) and `GenerateDocument` /
   `GenerateDocumentBatch` (high-volume, and already tracked in full by the
   generation subsystem — they would bury the trail without adding much).
 - **Queries → opt-in** (`operation = READ`). Queries are recorded _only_ when

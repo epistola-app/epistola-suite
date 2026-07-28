@@ -43,6 +43,16 @@ data class EpistolaPrincipal(
     }
 
     /**
+     * Human-readable label for signed-in UI chrome.
+     *
+     * Identity-provider display names are preferred. Email and the immutable
+     * external subject keep the label useful for incomplete provider profiles.
+     */
+    fun displayLabel(): String = displayName.takeIf { it.isNotBlank() }
+        ?: email.takeIf { it.isNotBlank() }
+        ?: externalId
+
+    /**
      * Check if the user has access to the specified tenant.
      * Returns true if the user has per-tenant membership OR has any global roles
      * (global roles grant access to all tenants).
