@@ -158,9 +158,7 @@ export function canDropHere(
 
     if (dragData.blockType === STENCIL_TYPE) {
       const draggedDepth =
-        dragData.source === 'block'
-          ? Math.max(1, stencilSubtreeDepth(doc, dragData.nodeId))
-          : 1;
+        dragData.source === 'block' ? Math.max(1, stencilSubtreeDepth(doc, dragData.nodeId)) : 1;
       if (scope.stencilDepth + draggedDepth > MAX_STENCIL_NESTING_DEPTH) {
         return false;
       }

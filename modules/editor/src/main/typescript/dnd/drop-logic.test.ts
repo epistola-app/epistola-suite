@@ -460,8 +460,7 @@ describe('canDropHere — placeholder/stencil rules', () => {
     for (let index = 0; index < depth; index += 1) {
       const stencilNodeId = nodeId(`stencil-${index}`);
       const stencilSlotId = slotId(`stencil-${index}-slot`);
-      const nextChild =
-        index === depth - 1 ? targetPlaceholderId : nodeId(`stencil-${index + 1}`);
+      const nextChild = index === depth - 1 ? targetPlaceholderId : nodeId(`stencil-${index + 1}`);
       nodes[stencilNodeId] = {
         id: stencilNodeId,
         type: 'stencil',
