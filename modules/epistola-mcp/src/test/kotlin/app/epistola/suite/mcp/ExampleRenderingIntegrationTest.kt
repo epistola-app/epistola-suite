@@ -202,7 +202,10 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
                     .set("slots", objectMapper.createArrayNode().add(stencilSlotId))
                     .set(
                         "props",
-                        objectMapper.createObjectNode().put("stencilId", "render-test"),
+                        objectMapper.createObjectNode()
+                            .put("stencilId", "render-test")
+                            .put("version", 1)
+                            .put("isDraft", false),
                     ),
             )
         }

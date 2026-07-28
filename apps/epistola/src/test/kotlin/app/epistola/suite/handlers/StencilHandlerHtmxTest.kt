@@ -805,7 +805,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilId" to stencilKey, "version" to 1, "isDraft" to false),
             ),
             "embedded-ph" to Node(
                 id = "embedded-ph",

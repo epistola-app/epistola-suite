@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(stencils): **Existing editor stencil references retain their established
+  meaning.** Portable validation treats a missing `isDraft` property as non-draft, matching the
+  editor's historical behavior without rewriting stored template or stencil content. Newly
+  maintained test fixtures use the explicit canonical shape.
 - **[dev]** docs(catalog): **Catalog contract breaking changes are explicit.**
   The compatibility guide now distinguishes stored editor documents from portable exports,
   records the canonical rich-text and stencil-reference requirements, explains strict
