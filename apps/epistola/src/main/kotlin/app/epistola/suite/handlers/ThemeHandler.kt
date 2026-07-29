@@ -255,7 +255,6 @@ class ThemeHandler(
         )
 
         val editable = theme.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
-        val usagePage = GetThemeUsagePage(themeId, limit = THEME_USAGE_PAGE_SIZE).query()
 
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"
@@ -264,7 +263,6 @@ class ThemeHandler(
             "theme" to theme
             "themeJson" to themeJson
             "editable" to editable
-            themeUsageModel(usagePage, page = 1)
         }
     }
 
@@ -275,7 +273,8 @@ class ThemeHandler(
         val theme = GetTheme(id = themeId).query()
             ?: return ServerResponse.notFound().build()
 
-        val page = request.param("page").orElse("1").toIntOrNull()?.coerceAtLeast(1) ?: 1
+        val pageParam = request.param("page").orElse(null)
+        val page = pageParam?.toIntOrNull()?.coerceAtLeast(1) ?: 1
         val usagePage = GetThemeUsagePage(
             themeId = themeId,
             limit = THEME_USAGE_PAGE_SIZE,
@@ -283,7 +282,7 @@ class ThemeHandler(
         ).query()
 
         return request.htmx {
-            fragment("themes/detail", "usage") {
+            fragment("themes/usage", if (pageParam == null) "dialog" else "usage") {
                 "tenantId" to tenantId.key
                 "catalogId" to themeId.catalogKey.value
                 "theme" to theme

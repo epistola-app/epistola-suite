@@ -185,7 +185,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `theme detail renders effective template usage and no preview placeholder`() = fixture {
+    fun `theme detail defers effective template usage until requested`() = fixture {
         lateinit var testTenant: Tenant
         lateinit var templateId: TemplateId
 
@@ -215,16 +215,59 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Templates using this theme")
-            assertThat(response.body).contains("Invoice")
-            assertThat(response.body).contains("Template default")
-            assertThat(response.body).contains("/templates/default/${templateId.key}")
+            assertThat(response.body).contains("Theme configuration")
+            assertThat(response.body).contains("View usage")
+            assertThat(response.body).contains("""hx-target="#dialog-mount"""")
+            assertThat(response.body).contains("""id="dialog-mount"""")
+            assertThat(response.body).doesNotContain("Invoice")
+            assertThat(response.body).doesNotContain("Template default")
             assertThat(response.body).doesNotContain("Preview panel coming soon")
         }
     }
 
     @Test
-    fun `HTMX theme usage returns an empty-state fragment`() = fixture {
+    fun `HTMX theme usage lazily returns a dialog with effective usage`() = fixture {
+        lateinit var testTenant: Tenant
+        lateinit var templateId: TemplateId
+
+        given {
+            testTenant = tenant("Theme Usage Dialog")
+            withMediator {
+                val tenantId = TenantId(testTenant.id)
+                val themeId = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenantId))
+                CreateTheme(themeId, "Brand Theme").execute()
+                templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+                CreateDocumentTemplate(templateId, "Invoice").execute()
+                UpdateDocumentTemplate(
+                    id = templateId,
+                    themeId = themeId.key,
+                    themeCatalogKey = themeId.catalogKey,
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/themes/default/brand/usage",
+                HttpMethod.GET,
+                HttpEntity<Void>(htmxHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("""id="theme-usage-dialog"""")
+            assertThat(response.body).contains("Invoice")
+            assertThat(response.body).contains("Template default")
+            assertThat(response.body).contains("/templates/default/${templateId.key}")
+            assertThat(response.body).doesNotContain("<html")
+        }
+    }
+
+    @Test
+    fun `HTMX paged theme usage returns an empty-state body fragment`() = fixture {
         lateinit var testTenant: Tenant
 
         given {
@@ -252,7 +295,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("This theme is not in use")
             assertThat(response.body).doesNotContain("<html")
-            assertThat(response.body).doesNotContain("theme-detail-grid")
+            assertThat(response.body).doesNotContain("theme-usage-dialog")
         }
     }
 

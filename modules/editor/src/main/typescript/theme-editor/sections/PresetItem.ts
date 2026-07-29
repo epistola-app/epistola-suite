@@ -43,7 +43,7 @@ export function renderPresetItem(
   readOnly = false,
 ): unknown {
   return html`
-    <details class="theme-preset-card">
+    <details class="theme-preset-card" data-preset-key=${name}>
       <summary class="theme-preset-header" aria-label="${preset.label || name}">
         <span class="theme-preset-toggle" aria-hidden="true">
           <svg
@@ -73,7 +73,7 @@ export function renderPresetItem(
             onRemove();
           }}
         >
-          &times;
+          Remove
         </button>
       </summary>
       ${renderPresetBody(state, name, preset, readOnly)}
@@ -92,36 +92,38 @@ function renderPresetBody(
 
   return html`
     <div class="theme-preset-body">
-      <!-- Name (key) -->
-      <div class="inspector-field">
-        <label class="inspector-field-label" for="preset-key-${name}">Key (ID)</label>
-        <input
-          type="text"
-          id="preset-key-${name}"
-          class="ep-input mono"
-          .value=${name}
-          ?disabled=${readOnly}
-          @change=${(e: Event) => {
-            const newName = (e.target as HTMLInputElement).value.trim();
-            if (newName && newName !== name) {
-              state.renamePreset(name, newName);
-            }
-          }}
-        />
-      </div>
+      <div class="theme-preset-meta-grid">
+        <!-- Name (key) -->
+        <div class="inspector-field">
+          <label class="inspector-field-label" for="preset-key-${name}">Key (ID)</label>
+          <input
+            type="text"
+            id="preset-key-${name}"
+            class="ep-input mono"
+            .value=${name}
+            ?disabled=${readOnly}
+            @change=${(e: Event) => {
+              const newName = (e.target as HTMLInputElement).value.trim();
+              if (newName && newName !== name) {
+                state.renamePreset(name, newName);
+              }
+            }}
+          />
+        </div>
 
-      <!-- Label -->
-      <div class="inspector-field">
-        <label class="inspector-field-label" for="preset-label-${name}">Label</label>
-        <input
-          type="text"
-          id="preset-label-${name}"
-          class="ep-input"
-          .value=${preset.label}
-          ?disabled=${readOnly}
-          @change=${(e: Event) =>
-            state.updatePresetLabel(name, (e.target as HTMLInputElement).value)}
-        />
+        <!-- Label -->
+        <div class="inspector-field">
+          <label class="inspector-field-label" for="preset-label-${name}">Label</label>
+          <input
+            type="text"
+            id="preset-label-${name}"
+            class="ep-input theme-preset-label-input"
+            .value=${preset.label}
+            ?disabled=${readOnly}
+            @change=${(e: Event) =>
+              state.updatePresetLabel(name, (e.target as HTMLInputElement).value)}
+          />
+        </div>
       </div>
 
       <!-- Applicable To -->
@@ -154,24 +156,26 @@ function renderPresetBody(
       </div>
 
       <!-- Style properties -->
-      ${defaultStyleRegistry.groups.map(
-        (group) => html`
-          <div class="inspector-style-group">
-            <div class="inspector-style-group-label">${group.label}</div>
-            ${group.properties.map((prop) => {
-              const compound = COMPOUND_STYLE_TYPES[prop.type];
-              const value = compound ? compound.read(prop.key, styles) : styles[prop.key];
-              return renderPresetStyleProperty(
-                prop,
-                value,
-                (v) => state.updatePresetStyle(name, prop.key, v, prop.type),
-                `preset-${name}-style-${prop.key}`,
-                readOnly,
-              );
-            })}
-          </div>
-        `,
-      )}
+      <div class="theme-preset-style-grid">
+        ${defaultStyleRegistry.groups.map(
+          (group) => html`
+            <div class="inspector-style-group theme-preset-style-group">
+              <div class="inspector-style-group-label">${group.label}</div>
+              ${group.properties.map((prop) => {
+                const compound = COMPOUND_STYLE_TYPES[prop.type];
+                const value = compound ? compound.read(prop.key, styles) : styles[prop.key];
+                return renderPresetStyleProperty(
+                  prop,
+                  value,
+                  (v) => state.updatePresetStyle(name, prop.key, v, prop.type),
+                  `preset-${name}-style-${prop.key}`,
+                  readOnly,
+                );
+              })}
+            </div>
+          `,
+        )}
+      </div>
     </div>
   `;
 }

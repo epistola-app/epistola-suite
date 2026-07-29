@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-- **[user]** feat(themes): **Theme editing now shows where each theme is used.** The redesigned theme page replaces its empty preview placeholder with a responsive overview of draft and published template versions using the theme through a variant override, template default, or tenant default. Published versions with frozen theme snapshots are identified clearly, usage is catalog-safe and paginated, and the editor now follows the shared panel, form, badge, table, spacing, and responsive-layout patterns.
+- **[user]** feat(themes): **Theme configuration is now a focused, full-width workspace.** Basic information, document styles, page settings, and block presets are arranged as responsive cards; presets are quicker to add, open, edit, and remove. The old preview placeholder is gone, and a lazily loaded usage dialog shows draft and published template versions using the theme through a variant override, template default, or tenant default. Published versions with frozen theme snapshots are identified clearly, and usage remains catalog-safe and paginated without slowing the configuration page.
 - **[user]** fix(themes): **Theme detail and updates respect catalog identity.**
   Theme lookups and updates now use the complete tenant, catalog, and slug key, so two catalogs can
   safely contain themes with the same slug without opening or modifying the wrong resource.

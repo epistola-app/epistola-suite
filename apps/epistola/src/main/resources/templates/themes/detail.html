@@ -15,105 +15,22 @@
             <span class="badge badge-muted">Read-only</span> This theme belongs to a subscribed catalog.
         </p>
 
-        <div class="theme-detail-grid">
-            <div class="ep-panel detail-section theme-settings-panel">
-                <div class="detail-section-header">
-                    <div>
-                        <h2>Theme settings</h2>
-                        <span class="theme-panel-subtitle">
-                            Last modified <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                        </span>
-                    </div>
-                    <span class="badge badge-default" th:text="${theme.catalogKey}"></span>
+        <div class="ep-panel detail-section theme-settings-panel">
+            <div class="detail-section-header">
+                <div>
+                    <h2>Theme configuration</h2>
+                    <span class="theme-panel-subtitle">
+                        Last modified <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                    </span>
                 </div>
-                <div class="detail-section-body theme-editor-panel-body">
-                    <div id="theme-editor-container"></div>
-                </div>
+                <span class="badge badge-default" th:text="${theme.catalogKey}"></span>
             </div>
-
-            <div class="ep-panel detail-section theme-usage-panel">
-                <div class="detail-section-header">
-                    <div>
-                        <h2>Templates using this theme</h2>
-                        <span class="theme-panel-subtitle">Draft and published versions using the effective theme cascade</span>
-                    </div>
-                    <span class="badge badge-default" th:text="${usageTotal} + ' versions'"></span>
-                </div>
-                <div class="detail-section-body no-padding" id="theme-usage">
-                    <th:block th:fragment="usage">
-                        <div th:if="${#lists.isEmpty(usage)}" class="empty-state theme-usage-empty">
-                            <div class="empty-state-icon">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
-                            </div>
-                            <div class="empty-state-title">This theme is not in use</div>
-                            <div class="empty-state-description">
-                                Assign it as a tenant, template, or variant theme to see usage here.
-                            </div>
-                        </div>
-
-                        <div th:unless="${#lists.isEmpty(usage)}">
-                            <div class="theme-usage-note">
-                                Published versions marked <span class="badge badge-muted">Frozen</span>
-                                keep their saved theme snapshot when this theme changes.
-                            </div>
-                            <div class="theme-usage-table-wrap">
-                                <table class="ep-table ep-table-compact theme-usage-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Template</th>
-                                            <th>Variant</th>
-                                            <th>Version</th>
-                                            <th>Status</th>
-                                            <th>Applied via</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr th:each="item : ${usage}">
-                                            <td>
-                                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${item.templateCatalogKey},templateId=${item.templateKey})}"
-                                                   th:text="${item.templateName}" class="theme-usage-link"></a>
-                                                <span class="theme-usage-resource-meta">
-                                                    <span class="badge badge-default" th:text="${item.templateCatalogKey}"></span>
-                                                    <code th:text="${item.templateKey}"></code>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span th:text="${item.variantTitle}"></span>
-                                                <code class="theme-usage-variant-key" th:text="${item.variantKey}"></code>
-                                            </td>
-                                            <td><strong th:text="'v' + ${item.versionKey}"></strong></td>
-                                            <td>
-                                                <span class="badge"
-                                                      th:classappend="${item.versionStatus.name() == 'DRAFT'} ? 'badge-warning' : 'badge-success'"
-                                                      th:text="${item.versionStatus.name().toLowerCase()}"></span>
-                                                <span th:if="${item.frozenSnapshot}" class="badge badge-muted">Frozen</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge badge-outline"
-                                                      th:text="${item.source.name() == 'VARIANT_OVERRIDE'} ? 'Variant override' :
-                                                               (${item.source.name() == 'TEMPLATE_DEFAULT'} ? 'Template default' : 'Tenant default')"></span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div th:if="${usageTotalPages > 1}" class="theme-usage-pagination">
-                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                        th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id},page=${usagePage - 1})}"
-                                        hx-target="#theme-usage" hx-swap="innerHTML"
-                                        th:disabled="${usagePage le 1}">Previous</button>
-                                <span class="text-muted" th:text="'Page ' + ${usagePage} + ' of ' + ${usageTotalPages}"></span>
-                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                        th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id},page=${usagePage + 1})}"
-                                        hx-target="#theme-usage" hx-swap="innerHTML"
-                                        th:disabled="${usagePage >= usageTotalPages}">Next</button>
-                            </div>
-                        </div>
-                    </th:block>
-                </div>
+            <div class="detail-section-body theme-editor-panel-body">
+                <div id="theme-editor-container"></div>
             </div>
         </div>
+
+        <div th:replace="~{epistola-web/dialog :: dialog-mount}"></div>
 
         <script type="application/json" id="theme-editor-config" th:inline="javascript">
         {
@@ -130,6 +47,12 @@
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
     <th:block th:fragment="theme-detail-actions">
+        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                data-testid="theme-usage-open-action"
+                th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML">
+            View usage
+        </button>
         <form th:if="${editable}" id="delete-theme-form"
               th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
               method="post">

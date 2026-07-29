@@ -13,7 +13,7 @@ export function renderBasicInfoSection(state: ThemeEditorState, readOnly = false
   const theme = state.theme;
 
   return html`
-    <div class="theme-section">
+    <div class="theme-section theme-section-basic">
       <h3 class="theme-section-label">Basic Information</h3>
       <div class="inspector-field">
         <label class="inspector-field-label" for="theme-name">Name</label>
