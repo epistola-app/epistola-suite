@@ -100,9 +100,15 @@ class NodeParameterBindingValidator(
                 val prop = properties[name] as? Map<String, Any?>
                 val hasDefault = prop?.containsKey("default") == true
                 if (!hasDefault) {
+                    val stencilId = node.props?.get("stencilId") as? String
+                    val component = if (stencilId.isNullOrBlank()) {
+                        "Component '${node.id}' (${node.type})"
+                    } else {
+                        "Stencil '$stencilId' (component '${node.id}')"
+                    }
                     throw ValidationException(
                         "nodes.${node.id}.props.parameterBindings.$name",
-                        "required parameter '$name' has no binding and no default",
+                        "$component requires parameter '$name', but it has no binding or default",
                         ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED,
                     )
                 }

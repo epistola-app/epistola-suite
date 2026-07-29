@@ -13,6 +13,7 @@ import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
+import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -90,6 +91,20 @@ class TemplatePreviewHandler(
                     templateModel = liveTemplateModel,
                 ).query()
             }
+        } catch (e: ValidationException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "errors" to listOf(
+                            mapOf(
+                                "path" to e.field,
+                                "message" to e.message,
+                                "code" to e.code.wire,
+                            ),
+                        ),
+                    ),
+                )
         } catch (e: IllegalArgumentException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
