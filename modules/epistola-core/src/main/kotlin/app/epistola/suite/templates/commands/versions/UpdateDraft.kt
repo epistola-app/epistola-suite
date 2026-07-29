@@ -40,7 +40,7 @@ class UpdateDraftHandler(
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
-        val prepared = templateDocumentPreparation.prepare(command.templateModel)
+        val prepared = templateDocumentPreparation.prepareDraft(command.templateModel)
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
             // Verify the variant belongs to a template owned by the tenant
             val variantExists = handle.createQuery(

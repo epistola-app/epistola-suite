@@ -50,6 +50,7 @@ export type {
 export { EditorEngine } from './engine/EditorEngine.js';
 export { createQualityPlugin } from './ui/quality-plugin.js';
 export { createQualityEditorPlugin } from './ui/quality-plugin.js';
+export { formatPreviewErrorResponse } from './ui/preview-error.js';
 export type {
   QualityFinding,
   QualityPanelData,

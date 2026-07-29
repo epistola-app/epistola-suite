@@ -83,13 +83,25 @@ describe('openStencilPickerDialog parameter binding step', () => {
   // Parameters are intrinsic to a stencil (no feature toggle): inserting a version that
   // declares any always routes through the binding step so the consumer can bind them.
   it('advances to the binding step when the picked version declares parameters', async () => {
-    openStencilPickerDialog(callbacks(versionInfo(PARAM_SCHEMA)));
+    void openStencilPickerDialog(callbacks(versionInfo(PARAM_SCHEMA)));
     const dialog = await selectStencilAndInsert();
 
     const bindingStep = dialog.querySelector<HTMLElement>('#stencil-step-bindings')!;
     expect(bindingStep.style.display).not.toBe('none');
     expect(dialog.querySelector('#stencil-binding-title')!.textContent).toContain('Greeting');
     expect(dialog.querySelector('#stencil-binding-rows')!.children.length).toBeGreaterThan(0);
+  });
+
+  it('allows a required parameter with a default to remain unbound', async () => {
+    const schemaWithDefault = {
+      type: 'object',
+      properties: { recipient: { type: 'string', default: 'Customer' } },
+      required: ['recipient'],
+    } as JsonSchema;
+    void openStencilPickerDialog(callbacks(versionInfo(schemaWithDefault)));
+    const dialog = await selectStencilAndInsert();
+
+    expect(dialog.querySelector<HTMLButtonElement>('button.insert')!.disabled).toBe(false);
   });
 
   // The empty parameter set (the common case) skips binding and inserts straight away.

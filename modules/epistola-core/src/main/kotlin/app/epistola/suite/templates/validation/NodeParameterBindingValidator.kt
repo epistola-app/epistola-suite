@@ -37,7 +37,10 @@ class NodeParameterBindingValidator(
      * snapshot) — those flow through with whatever schema-shaped bindings were present.
      */
     @Suppress("UNCHECKED_CAST")
-    fun validate(doc: TemplateDocument) {
+    fun validate(
+        doc: TemplateDocument,
+        requireCompleteBindings: Boolean = true,
+    ) {
         for (node in doc.nodes.values) {
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) as? Map<*, *>
 
@@ -82,6 +85,11 @@ class NodeParameterBindingValidator(
                 }
             }
 
+            // Incomplete bindings are a valid intermediate state while editing a
+            // draft. The immutable publication boundary calls this validator with
+            // requireCompleteBindings=true and enforces the required parameters.
+            if (!requireCompleteBindings) continue
+
             // Required parameters with neither a binding nor a default.
             val required = (schema["required"] as? List<Any?>)?.filterIsInstance<String>().orEmpty()
             for (name in required) {
@@ -92,9 +100,15 @@ class NodeParameterBindingValidator(
                 val prop = properties[name] as? Map<String, Any?>
                 val hasDefault = prop?.containsKey("default") == true
                 if (!hasDefault) {
+                    val stencilId = node.props?.get("stencilId") as? String
+                    val component = if (stencilId.isNullOrBlank()) {
+                        "Component '${node.id}' (${node.type})"
+                    } else {
+                        "Stencil '$stencilId' (component '${node.id}')"
+                    }
                     throw ValidationException(
                         "nodes.${node.id}.props.parameterBindings.$name",
-                        "required parameter '$name' has no binding and no default",
+                        "$component requires parameter '$name', but it has no binding or default",
                         ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED,
                     )
                 }

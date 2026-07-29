@@ -29,6 +29,16 @@ class TemplateDocumentPreparation(
 ) {
     fun prepare(document: TemplateDocument): PreparedTemplateDocument {
         validator.validateTemplate(document)
+        return prepareValidated(document)
+    }
+
+    /** Prepare an editable draft, allowing required parameter bindings to be incomplete. */
+    fun prepareDraft(document: TemplateDocument): PreparedTemplateDocument {
+        validator.validateTemplateDraft(document)
+        return prepareValidated(document)
+    }
+
+    private fun prepareValidated(document: TemplateDocument): PreparedTemplateDocument {
         val referencedPaths = pathExtractor.extractReferencedPaths(document)
         return PreparedTemplateDocument(
             templateModelJson = objectMapper.writeValueAsString(document),

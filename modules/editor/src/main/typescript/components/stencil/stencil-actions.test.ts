@@ -15,17 +15,23 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { resetCounter, nodeId, slotId } from '../../engine/test-helpers.js';
+import { createTestDocument, resetCounter, nodeId, slotId } from '../../engine/test-helpers.js';
 import * as actions from './stencil-actions.js';
 import { setupEngine, insertStencil, createMockCallbacks } from './stencil-test-helpers.js';
 import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
+import type { JsonSchema } from '../../data-contract/types.js';
 
 beforeEach(() => {
   resetCounter();
 });
 
 describe('stencil-actions module', () => {
+  const RECIPIENT_SCHEMA: JsonSchema = {
+    type: 'object',
+    properties: { recipientName: { type: 'string' } },
+  };
+
   function setupCtx(stencilProps: Record<string, unknown>, callbacks: StencilCallbacks) {
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, stencilProps);
@@ -132,6 +138,63 @@ describe('stencil-actions module', () => {
     expect(publishDraft).toHaveBeenCalledWith({ stencilId: 'header', catalogKey: 'cat' }, 5);
     expect(engine.doc.nodes[stencilId].props?.version).toBe(5);
     expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+  });
+
+  it('publishDraft rejects missing required bindings before changing backend state', async () => {
+    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
+    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
+    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
+    const requiredSchema: JsonSchema = {
+      ...RECIPIENT_SCHEMA,
+      required: ['recipientName'],
+    };
+    const { engine, stencilId, ctx } = setupCtx(
+      {
+        stencilId: 'header',
+        catalogKey: 'cat',
+        version: 4,
+        isDraft: true,
+        parameterSchemaSnapshot: requiredSchema,
+      },
+      callbacks,
+    );
+
+    await expect(actions.publishDraft(ctx, 5)).rejects.toThrow(
+      'Configure required parameter before publishing: recipientName',
+    );
+
+    expect(updateStencil).not.toHaveBeenCalled();
+    expect(publishDraft).not.toHaveBeenCalled();
+    expect(engine.doc.nodes[stencilId].props?.version).toBe(4);
+    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+  });
+
+  it('publishDraft accepts a required parameter supplied by a schema default', async () => {
+    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
+    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
+    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
+    const requiredSchema: JsonSchema = {
+      type: 'object',
+      properties: {
+        recipientName: { type: 'string', default: 'Anonymous' },
+      },
+      required: ['recipientName'],
+    };
+    const { ctx } = setupCtx(
+      {
+        stencilId: 'header',
+        catalogKey: 'cat',
+        version: 4,
+        isDraft: true,
+        parameterSchemaSnapshot: requiredSchema,
+      },
+      callbacks,
+    );
+
+    await actions.publishDraft(ctx, 5);
+
+    expect(updateStencil).toHaveBeenCalledOnce();
+    expect(publishDraft).toHaveBeenCalledOnce();
   });
 
   it('publishDraft does NOT swap local content — fills survive', async () => {
@@ -282,6 +345,150 @@ describe('stencil-actions module', () => {
     );
     // Stencil exits draft mode.
     expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+  });
+
+  it('discard restores the published parameter schema and prunes draft-only bindings', async () => {
+    const callbacks = createMockCallbacks({
+      getStencilVersion: vi.fn().mockResolvedValue({
+        ref: { stencilId: 'header', catalogKey: 'cat' },
+        stencilName: 'Header',
+        version: 1,
+        content: createTestDocument(),
+        parameterSchema: RECIPIENT_SCHEMA,
+      }),
+    });
+    const { engine, stencilId, ctx } = setupCtx(
+      {
+        stencilId: 'header',
+        catalogKey: 'cat',
+        version: 1,
+        isDraft: true,
+        parameterSchemaSnapshot: {
+          type: 'object',
+          properties: {
+            recipientName: { type: 'string' },
+            draftOnly: { type: 'string' },
+          },
+        },
+        parameterBindings: {
+          recipientName: 'customer.name',
+          draftOnly: 'customer.reference',
+        },
+      },
+      callbacks,
+    );
+
+    await actions.discard(ctx, 1);
+
+    expect(engine.doc.nodes[stencilId].props).toMatchObject({
+      version: 1,
+      isDraft: false,
+    });
+    expect(engine.doc.nodes[stencilId].props?.parameterSchemaSnapshot).toEqual(RECIPIENT_SCHEMA);
+    expect(engine.doc.nodes[stencilId].props?.parameterBindings).toEqual({
+      recipientName: 'customer.name',
+    });
+  });
+
+  it('upgrade adds a parameter schema to a previously parameterless instance', async () => {
+    const callbacks = createMockCallbacks({
+      getStencilVersion: vi.fn().mockResolvedValue({
+        ref: { stencilId: 'header', catalogKey: 'cat' },
+        stencilName: 'Header',
+        version: 2,
+        content: createTestDocument(),
+        parameterSchema: RECIPIENT_SCHEMA,
+      }),
+    });
+    const { engine, stencilId, ctx } = setupCtx(
+      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: false },
+      callbacks,
+    );
+
+    await actions.upgrade(ctx, 2);
+
+    expect(engine.doc.nodes[stencilId].props).toMatchObject({
+      version: 2,
+      parameterSchemaSnapshot: RECIPIENT_SCHEMA,
+    });
+  });
+
+  it('upgrade refreshes the schema and preserves only bindings declared by the new version', async () => {
+    const newSchema: JsonSchema = {
+      type: 'object',
+      properties: {
+        retained: { type: 'string' },
+        added: { type: 'integer' },
+      },
+    };
+    const callbacks = createMockCallbacks({
+      getStencilVersion: vi.fn().mockResolvedValue({
+        ref: { stencilId: 'header', catalogKey: 'cat' },
+        stencilName: 'Header',
+        version: 2,
+        content: createTestDocument(),
+        parameterSchema: newSchema,
+      }),
+    });
+    const { engine, stencilId, ctx } = setupCtx(
+      {
+        stencilId: 'header',
+        catalogKey: 'cat',
+        version: 1,
+        isDraft: false,
+        parameterSchemaSnapshot: {
+          type: 'object',
+          properties: {
+            retained: { type: 'string' },
+            removed: { type: 'string' },
+          },
+        },
+        parameterBindings: {
+          retained: 'customer.name',
+          removed: 'customer.reference',
+        },
+        paramsAlias: 'stencilParams',
+      },
+      callbacks,
+    );
+
+    await actions.upgrade(ctx, 2);
+
+    expect(engine.doc.nodes[stencilId].props).toMatchObject({
+      version: 2,
+      paramsAlias: 'stencilParams',
+    });
+    expect(engine.doc.nodes[stencilId].props?.parameterSchemaSnapshot).toEqual(newSchema);
+    expect(engine.doc.nodes[stencilId].props?.parameterBindings).toEqual({
+      retained: 'customer.name',
+    });
+  });
+
+  it('upgrade removes the parameter snapshot and bindings when the new version has no schema', async () => {
+    const callbacks = createMockCallbacks({
+      getStencilVersion: vi.fn().mockResolvedValue({
+        ref: { stencilId: 'header', catalogKey: 'cat' },
+        stencilName: 'Header',
+        version: 2,
+        content: createTestDocument(),
+      }),
+    });
+    const { engine, stencilId, ctx } = setupCtx(
+      {
+        stencilId: 'header',
+        catalogKey: 'cat',
+        version: 1,
+        isDraft: false,
+        parameterSchemaSnapshot: RECIPIENT_SCHEMA,
+        parameterBindings: { recipientName: 'customer.name' },
+      },
+      callbacks,
+    );
+
+    await actions.upgrade(ctx, 2);
+
+    expect(engine.doc.nodes[stencilId].props).not.toHaveProperty('parameterSchemaSnapshot');
+    expect(engine.doc.nodes[stencilId].props).not.toHaveProperty('parameterBindings');
   });
 
   it('detach replaces the stencil node type with container', () => {

@@ -153,6 +153,7 @@ export interface JsonSchemaProperty {
   minimum?: number;
   maximum?: number;
   minItems?: number;
+  default?: JsonValue;
 }
 
 /** JSON Schema (subset supported by the visual editor) */

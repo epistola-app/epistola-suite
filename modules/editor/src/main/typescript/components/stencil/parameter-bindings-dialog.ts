@@ -16,6 +16,7 @@ import type { FieldPath } from '../../engine/schema-paths.js';
 import { isValidExpression } from '../../engine/resolve-expression.js';
 import { renderBindingRow } from './binding-row.js';
 import { RESERVED_ALIASES } from '../../engine/node-parameter-keys.js';
+import { missingRequiredParameters } from './parameter-requirements.js';
 
 export interface BindingsDialogResult {
   bindings: Record<string, string>;
@@ -116,9 +117,7 @@ export function openParameterBindingsDialog(
       } else {
         aliasError.style.display = 'none';
       }
-      const allBound = Array.from(required).every(
-        (name) => (bindings[name] ?? '').trim().length > 0,
-      );
+      const allBound = missingRequiredParameters(options.schema, bindings).length === 0;
       const allValid = Object.values(bindings).every((expr) => {
         const trimmed = expr.trim();
         return trimmed.length === 0 || isValidExpression(trimmed);

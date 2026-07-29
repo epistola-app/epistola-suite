@@ -36,6 +36,7 @@ import { captureFillsByName, reKeyCapturedFill, type CapturedFill } from './pres
 import { PLACEHOLDER_SLOT_FILL } from '../placeholder/constants.js';
 import { isPlaceholder, placeholderName } from '../placeholder/node-types.js';
 import { isStencil } from './node-types.js';
+import { bindingsDeclaredBySchema, missingRequiredParameters } from './parameter-requirements.js';
 
 export interface StencilActionContext {
   engine: EditorEngine;
@@ -102,6 +103,18 @@ export async function publishDraft(
   if (!ctx.callbacks.publishDraft) {
     throw new Error('publishDraft callback is not configured');
   }
+  const node = stencilNode(ctx);
+  if (isStencil(node) && node.props.parameterSchemaSnapshot) {
+    const missing = missingRequiredParameters(
+      node.props.parameterSchemaSnapshot,
+      node.props.parameterBindings ?? {},
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        `Configure required ${missing.length === 1 ? 'parameter' : 'parameters'} before publishing: ${missing.join(', ')}`,
+      );
+    }
+  }
   if (ctx.callbacks.updateStencil) {
     const content = extractSubtree(ctx.engine.doc, ctx.stencilNodeId);
     const schema = stencilParameterSchema(ctx);
@@ -143,7 +156,7 @@ export async function discard(ctx: StencilActionContext, publishedVersion: numbe
   ctx.engine.dispatch({
     type: 'UpdateNodeProps',
     nodeId: ctx.stencilNodeId,
-    props: { ...stencilNode(ctx).props, isDraft: false },
+    props: versionProps(ctx, versionInfo, { isDraft: false }),
   });
 }
 
@@ -173,7 +186,7 @@ export async function upgrade(
   ctx.engine.dispatch({
     type: 'UpdateNodeProps',
     nodeId: ctx.stencilNodeId,
-    props: { ...stencilNode(ctx).props, version: toVersion },
+    props: versionProps(ctx, versionInfo),
   });
   return { version: versionInfo.version };
 }
@@ -267,6 +280,41 @@ function requireRef(ctx: StencilActionContext): StencilRef {
   const ref = stencilRef(ctx);
   if (!ref) throw new Error('Stencil is not linked to a published definition');
   return ref;
+}
+
+/**
+ * Apply the version-owned props when moving a local stencil instance to a
+ * fetched published version. Parameter bindings are instance-owned, but only
+ * bindings still declared by the target schema remain valid.
+ */
+function versionProps(
+  ctx: StencilActionContext,
+  versionInfo: StencilVersionInfo,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const node = stencilNode(ctx);
+  const props: Record<string, unknown> = {
+    ...node.props,
+    version: versionInfo.version,
+    ...overrides,
+  };
+
+  const schema = versionInfo.parameterSchema;
+  if (schema) {
+    props.parameterSchemaSnapshot = schema;
+  } else {
+    delete props.parameterSchemaSnapshot;
+  }
+
+  const bindings = isStencil(node) ? node.props.parameterBindings : undefined;
+  const preservedBindings = bindingsDeclaredBySchema(schema, bindings ?? {});
+  if (Object.keys(preservedBindings).length > 0) {
+    props.parameterBindings = preservedBindings;
+  } else {
+    delete props.parameterBindings;
+  }
+
+  return props;
 }
 
 /**
