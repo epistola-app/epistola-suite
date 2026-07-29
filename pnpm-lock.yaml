@@ -64,8 +64,8 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
       '@epistola.app/epistola-catalog':
-        specifier: 0.15.1
-        version: 0.15.1
+        specifier: 0.16.0
+        version: 0.16.0
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -405,8 +405,8 @@ packages:
   '@emnapi/wasi-threads@1.2.2':
     resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
 
-  '@epistola.app/epistola-catalog@0.15.1':
-    resolution: {integrity: sha512-KMgwBiCdwRYrc5KjpUVhN1HQ21XaB2Tv4ZkdP6hKMO9kcuf9F3nYiKUD5U05+dyZrOrqrh2uT5trJluA5ocb2g==}
+  '@epistola.app/epistola-catalog@0.16.0':
+    resolution: {integrity: sha512-HvDJ29pxkkZaXcIhB3Oqj9n9giUB6v7qFzT3UFXyimxP5TjGQ2DRJRak53zMMptRIs7gkDwPBswFMvcdGrw8ug==}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -3673,7 +3673,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@epistola.app/epistola-catalog@0.15.1': {}
+  '@epistola.app/epistola-catalog@0.16.0': {}
 
   '@floating-ui/core@1.8.0':
     dependencies:

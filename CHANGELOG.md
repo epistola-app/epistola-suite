@@ -12,7 +12,7 @@
   published elsewhere, and preserves embedded content with recover, discard, and detach choices
   when a draft is missing, archived, or unavailable.
 - **[dev]** feat(catalog)!: **Catalog v5 is produced and v4 remains importable.**
-  Suite consumes `epistola-catalog` 0.15.1, uses semantic v3 fingerprints with legacy matching,
+  Suite consumes `epistola-catalog` 0.16.0, uses semantic v3 fingerprints with legacy matching,
   reports migration notices during confirmed authored imports, publishes only validated content,
   and ships independently versioned portable and Flyway migrations plus v4/v5 exchange docs.
 - **[user]** fix(themes): **Numeric theme settings remain readable.** Margin, spacing, unit, and border-width controls now reserve enough space for their value and browser stepper buttons, using two-column groups where compact four-value rows previously squeezed the numbers out of view.
