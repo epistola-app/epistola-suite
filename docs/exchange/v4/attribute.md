@@ -4,7 +4,7 @@
 
 **Role:** a variant-attribute definition (e.g. _Country_, _Language_) used to drive template variants. Its allowed values come from a bound [code list](code-list.md).
 
-**DTO:** `AttributeResource` (`CatalogResource` subtype, `epistola-model`).
+**DTO:** `AttributeResource` (`CatalogResource` subtype, `epistola-catalog`).
 **Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt).
 **Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 3 (after the code list it binds to).

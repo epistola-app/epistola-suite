@@ -32,6 +32,7 @@ import { isPublishedStencil, isStencil } from './node-types.js';
 import './StencilInspector.js';
 import { nanoid } from 'nanoid';
 import { html } from 'lit';
+import { MAX_STENCIL_NESTING_DEPTH } from '@epistola.app/epistola-catalog';
 
 export interface StencilOptions {
   /** Null when stencil operations aren't wired — component still renders but browse is disabled. */
@@ -256,6 +257,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       const engine = engineUnknown as EditorEngine;
       if (targetSlotId) {
         const scope = computeAncestorScope(engine.doc, targetSlotId, engine.indexes);
+        if (scope.stencilDepth >= MAX_STENCIL_NESTING_DEPTH) return null;
         if (scope.stencilIds.size > 0) disabledStencilIds = scope.stencilIds;
         const slot = engine.doc.slots[targetSlotId];
         const parentNodeId = slot?.nodeId;

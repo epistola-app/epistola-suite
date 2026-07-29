@@ -29,6 +29,7 @@ import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.GetThemeUsagePage
 import app.epistola.suite.themes.queries.ListThemes
@@ -73,24 +74,40 @@ class ThemeQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetTheme scopes duplicate slugs by catalog`(): Unit = withMediator {
+    fun `GetTheme distinguishes the same slug across catalogs`(): Unit = withMediator {
         val tenant = createTenant("Theme Get Catalog Scope")
         val tenantId = TenantId(tenant.id)
-        val otherCatalog = CatalogKey.of("marketing")
-        CreateCatalog(tenantKey = tenant.id, id = otherCatalog, name = "Marketing").execute()
-        CreateTheme(
-            id = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenantId)),
-            name = "Default Brand",
-        ).execute()
-        CreateTheme(
-            id = ThemeId(ThemeKey.of("brand"), CatalogId(otherCatalog, tenantId)),
-            name = "Marketing Brand",
-        ).execute()
+        val firstCatalog = CatalogKey.of("first")
+        val secondCatalog = CatalogKey.of("second")
+        CreateCatalog(tenantKey = tenant.id, id = firstCatalog, name = "First").execute()
+        CreateCatalog(tenantKey = tenant.id, id = secondCatalog, name = "Second").execute()
+        val firstTheme = ThemeId(ThemeKey.of("shared"), CatalogId(firstCatalog, tenantId))
+        val secondTheme = ThemeId(ThemeKey.of("shared"), CatalogId(secondCatalog, tenantId))
+        CreateTheme(id = firstTheme, name = "First Theme").execute()
+        CreateTheme(id = secondTheme, name = "Second Theme").execute()
 
-        val found = GetTheme(ThemeId(ThemeKey.of("brand"), CatalogId(otherCatalog, tenantId))).query()
+        assertThat(GetTheme(id = firstTheme).query()?.name).isEqualTo("First Theme")
+        assertThat(GetTheme(id = secondTheme).query()?.name).isEqualTo("Second Theme")
+    }
 
-        assertThat(found?.name).isEqualTo("Marketing Brand")
-        assertThat(found?.catalogKey).isEqualTo(otherCatalog)
+    @Test
+    fun `UpdateTheme changes only the requested catalog when slugs match`(): Unit = withMediator {
+        val tenant = createTenant("Theme Update Catalog Scope")
+        val tenantId = TenantId(tenant.id)
+        val firstCatalog = CatalogKey.of("first")
+        val secondCatalog = CatalogKey.of("second")
+        CreateCatalog(tenantKey = tenant.id, id = firstCatalog, name = "First").execute()
+        CreateCatalog(tenantKey = tenant.id, id = secondCatalog, name = "Second").execute()
+        val firstTheme = ThemeId(ThemeKey.of("shared"), CatalogId(firstCatalog, tenantId))
+        val secondTheme = ThemeId(ThemeKey.of("shared"), CatalogId(secondCatalog, tenantId))
+        CreateTheme(id = firstTheme, name = "First Theme").execute()
+        CreateTheme(id = secondTheme, name = "Second Theme").execute()
+
+        val updated = UpdateTheme(id = firstTheme, name = "Updated First Theme").execute()
+
+        assertThat(updated?.name).isEqualTo("Updated First Theme")
+        assertThat(GetTheme(id = firstTheme).query()?.name).isEqualTo("Updated First Theme")
+        assertThat(GetTheme(id = secondTheme).query()?.name).isEqualTo("Second Theme")
     }
 
     @Test

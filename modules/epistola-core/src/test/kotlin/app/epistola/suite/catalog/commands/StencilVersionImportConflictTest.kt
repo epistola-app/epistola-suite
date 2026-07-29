@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
@@ -42,9 +43,11 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCanonicalizer
 
 /**
  * Verifies the wire-format `version` field on stencils round-trips correctly
@@ -468,7 +471,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 id = "s",
                 type = "stencil",
                 slots = listOf("s-children"),
-                props = mapOf("stencilId" to stencilKey.value, "version" to stencilVersion),
+                props = mapOf("stencilId" to stencilKey.value, "version" to stencilVersion, "isDraft" to false),
             ),
         ),
         slots = mapOf(
@@ -497,6 +500,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 props = mapOf(
                     StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
                     StencilNodeKeys.PROP_VERSION to 1,
+                    StencilNodeKeys.PROP_IS_DRAFT to false,
                 ),
             ),
             "cross-ref" to Node(
@@ -506,6 +510,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 props = mapOf(
                     StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
                     StencilNodeKeys.PROP_VERSION to 1,
+                    StencilNodeKeys.PROP_IS_DRAFT to false,
                     StencilNodeKeys.PROP_CATALOG_KEY to "some-other-catalog",
                 ),
             ),
@@ -541,26 +546,43 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
      * back. Used to import into a fresh slug without re-exporting from scratch.
      */
     private fun renameInManifest(zip: ByteArray, newSlug: String): ByteArray {
-        val baos = ByteArrayOutputStream()
-        ZipOutputStream(baos).use { zos ->
-            java.util.zip.ZipInputStream(zip.inputStream()).use { zis ->
-                var entry = zis.nextEntry
-                while (entry != null) {
-                    val bytes = zis.readAllBytes()
-                    val out = if (entry.name == "catalog.json") {
-                        val m = objectMapper.readValue(bytes, CatalogManifest::class.java)
-                        objectMapper.writeValueAsBytes(m.copy(catalog = m.catalog.copy(slug = newSlug)))
-                    } else {
-                        bytes
-                    }
-                    zos.putNextEntry(ZipEntry(entry.name))
-                    zos.write(out)
-                    zos.closeEntry()
-                    entry = zis.nextEntry
-                }
+        val entries = linkedMapOf<String, ByteArray>()
+        java.util.zip.ZipInputStream(zip.inputStream()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                entries[entry.name] = zis.readAllBytes()
+                entry = zis.nextEntry
             }
         }
-        return baos.toByteArray()
+        val manifest = objectMapper.readValue(entries.getValue("catalog.json"), CatalogManifest::class.java)
+            .let {
+                it.copy(
+                    catalog = it.catalog.copy(slug = newSlug),
+                    release = it.release.copy(fingerprint = null),
+                )
+            }
+        entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+        val unsigned = rawZip(entries)
+        val fingerprint = CatalogArchiveReader.read(ByteArrayInputStream(unsigned)).archive.use { archive ->
+            PortableCatalogCanonicalizer.fingerprint(requireNotNull(archive)).value
+        }
+        entries["catalog.json"] = objectMapper.writeValueAsBytes(
+            manifest.copy(release = manifest.release.copy(fingerprint = fingerprint)),
+        )
+        return rawZip(entries)
+    }
+
+    private fun rawZip(entries: Map<String, ByteArray>): ByteArray {
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zip ->
+            entries.forEach { (path, bytes) ->
+                zip.putNextEntry(ZipEntry(path))
+                zip.write(bytes)
+                zip.closeEntry()
+            }
+        }
+        return output.toByteArray()
     }
 
     private fun buildManualZip(

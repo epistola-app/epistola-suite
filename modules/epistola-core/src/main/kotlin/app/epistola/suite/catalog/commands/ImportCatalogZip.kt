@@ -4,6 +4,9 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.archive.CatalogArchivePolicy
+import app.epistola.catalog.archive.CatalogArchiveReader
+import app.epistola.catalog.migration.CatalogMigrationCodes
 import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
@@ -12,6 +15,9 @@ import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.catalog.validation.CatalogValidationPolicy
+import app.epistola.catalog.validation.CatalogValidator
+import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
@@ -45,7 +51,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
-import java.util.zip.ZipInputStream
 
 /**
  * Imports a catalog from a ZIP archive into a catalog of [catalogType].
@@ -156,21 +161,46 @@ class ImportCatalogZipHandler(
                 "(actual: ${command.zipBytes.size / 1024 / 1024} MB)"
         }
 
-        // Extract ZIP contents into memory with decompression limit
-        val entries = mutableMapOf<String, ByteArray>()
-        var totalDecompressed = 0L
-        ZipInputStream(ByteArrayInputStream(command.zipBytes)).use { zip ->
-            var entry = zip.nextEntry
-            while (entry != null) {
-                if (!entry.isDirectory) {
-                    val bytes = zip.readAllBytes()
-                    totalDecompressed += bytes.size
-                    require(totalDecompressed <= maxDecompressedSize) {
-                        "Catalog ZIP decompressed content exceeds maximum size of ${sizeLimits.maxDecompressedSize}"
-                    }
-                    entries[entry.name] = bytes
-                }
-                entry = zip.nextEntry
+        // epistola-catalog owns ZIP safety and path normalization. Suite
+        // materializes the already-checked entries because the persistence
+        // orchestration below consumes them more than once.
+        val read = CatalogArchiveReader.read(
+            ByteArrayInputStream(command.zipBytes),
+            CatalogArchivePolicy(
+                maxCompressedBytes = maxZipSize,
+                maxExpandedBytes = maxDecompressedSize,
+            ),
+        )
+        val migrationFinding = read.findings.firstOrNull {
+            it.code == CatalogMigrationCodes.SCHEMA_UNKNOWN ||
+                it.code == CatalogMigrationCodes.SCHEMA_TOO_OLD ||
+                it.code == CatalogMigrationCodes.SCHEMA_TOO_NEW ||
+                it.code == CatalogMigrationCodes.SCHEMA_VERSION_MISMATCH ||
+                it.code == CatalogMigrationCodes.RESOURCE_TYPE_MISMATCH
+        }
+        if (migrationFinding != null) {
+            throw schemaMigrator.asSuiteException(migrationFinding.code, migrationFinding.message)
+        }
+        val archive = read.archive ?: throw CatalogImportValidationException(
+            read.findings.map {
+                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
+            },
+        )
+        val entries = archive.use { safeArchive ->
+            val validation = CatalogValidator.validate(
+                safeArchive,
+                CatalogValidationPolicy(verifyFingerprint = true),
+            )
+            val validationFindings = read.findings.map {
+                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
+            } + validation.findings.map {
+                CatalogImportValidationFinding(it.code, it.severity, it.path, it.message)
+            }
+            if (read.findings.isNotEmpty() || !validation.valid) {
+                throw CatalogImportValidationException(validationFindings)
+            }
+            safeArchive.paths.associateWith { path ->
+                safeArchive.content.open(path).use { it.readAllBytes() }
             }
         }
 

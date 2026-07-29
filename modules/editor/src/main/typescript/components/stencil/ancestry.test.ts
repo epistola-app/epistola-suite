@@ -27,6 +27,7 @@ describe('computeAncestorScope', () => {
     };
     const scope = computeAncestorScope(doc, 'root-slot' as SlotId, buildIndexes(doc));
     expect(scope.stencilIds.size).toBe(0);
+    expect(scope.stencilDepth).toBe(0);
     expect(scope.hasStencilAncestor).toBe(false);
     expect(scope.hasPlaceholderAncestor).toBe(false);
   });
@@ -62,6 +63,7 @@ describe('computeAncestorScope', () => {
     };
     const scope = computeAncestorScope(doc, 's1-slot' as SlotId, buildIndexes(doc));
     expect(scope.stencilIds.has('header')).toBe(true);
+    expect(scope.stencilDepth).toBe(1);
     expect(scope.hasStencilAncestor).toBe(true);
     expect(scope.hasPlaceholderAncestor).toBe(false);
   });
@@ -158,6 +160,7 @@ describe('computeAncestorScope', () => {
     expect(scope.stencilIds.has('A')).toBe(true);
     expect(scope.stencilIds.has('B')).toBe(true);
     expect(scope.stencilIds.size).toBe(2);
+    expect(scope.stencilDepth).toBe(2);
   });
 });
 

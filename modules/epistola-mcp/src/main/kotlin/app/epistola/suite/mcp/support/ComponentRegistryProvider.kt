@@ -21,17 +21,17 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ArrayNode
 
 /**
- * Loads the component registry JSON shipped by `epistola-model` and exposes
+ * Loads the component registry JSON shipped by `epistola-catalog` and exposes
  * typed accessors. The contract registry is the canonical static vocabulary;
  * this class just deserializes the snapshot.
  *
  * The JSON ships in the model artifact at
- * `META-INF/epistola-model/component-registry.json`.
+ * `META-INF/epistola-catalog/component-registry.json`.
  */
 @Component
 @ConditionalOnProperty(name = ["epistola.mcp.enabled"], havingValue = "true", matchIfMissing = true)
 class ComponentRegistryProvider(
-    @Value("classpath:META-INF/epistola-model/component-registry.json")
+    @Value("classpath:META-INF/epistola-catalog/component-registry.json")
     private val resource: Resource,
     private val objectMapper: ObjectMapper,
 ) {

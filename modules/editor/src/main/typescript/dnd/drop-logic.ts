@@ -9,6 +9,7 @@
  */
 
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
+import { MAX_STENCIL_NESTING_DEPTH } from '@epistola.app/epistola-catalog';
 import type { DocumentIndexes } from '../engine/indexes.js';
 import {
   type ComponentRegistry,
@@ -155,6 +156,14 @@ export function canDropHere(
   if (dragData.blockType === STENCIL_TYPE || dragData.blockType === PLACEHOLDER_TYPE) {
     const scope = computeAncestorScope(doc, targetSlotId, indexes);
 
+    if (dragData.blockType === STENCIL_TYPE) {
+      const draggedDepth =
+        dragData.source === 'block' ? Math.max(1, stencilSubtreeDepth(doc, dragData.nodeId)) : 1;
+      if (scope.stencilDepth + draggedDepth > MAX_STENCIL_NESTING_DEPTH) {
+        return false;
+      }
+    }
+
     // Rule 2: a placeholder may only be dropped where a stencil is in the
     // ancestor chain, and never inside another placeholder's fill slot
     // (rule 3 — at the stencil-definition level, which is the only level
@@ -193,4 +202,27 @@ function isDescendant(nodeId: NodeId, ancestorId: NodeId, indexes: DocumentIndex
   }
 
   return false;
+}
+
+function stencilSubtreeDepth(
+  doc: TemplateDocument,
+  nodeId: NodeId,
+  visiting: Set<NodeId> = new Set(),
+): number {
+  if (!visiting.add(nodeId)) return 0;
+  const node = doc.nodes[nodeId];
+  if (!node) {
+    visiting.delete(nodeId);
+    return 0;
+  }
+  const childDepth = Math.max(
+    0,
+    ...node.slots
+      .map((slotId) => doc.slots[slotId])
+      .filter((slot) => slot !== undefined)
+      .flatMap((slot) => slot.children)
+      .map((childId) => stencilSubtreeDepth(doc, childId, visiting)),
+  );
+  visiting.delete(nodeId);
+  return (node.type === STENCIL_TYPE ? 1 : 0) + childDepth;
 }

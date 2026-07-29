@@ -10,7 +10,7 @@
  * - Inserting empty stencils
  * - Inserting stencils with existing content (re-keying)
  * - Multiple stencils on one page
- * - Stencil nesting prevention
+ * - Non-recursive stencil nesting
  * - Props and state management (stencilId, version, isDraft)
  * - extractSubtree utility
  * - reKeyContent utility
@@ -24,6 +24,7 @@ import { createTestDocument, resetCounter, nodeId, slotId } from '../../engine/t
 import { createStencilDefinition } from './stencil-registration.js';
 import { reKeyContent } from './rekey-content.js';
 import { extractSubtree } from './extract-subtree.js';
+import { richText, richTextValue } from './stencil-test-helpers.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -75,7 +76,10 @@ function insertText(
   targetSlotId: SlotId,
   content?: string,
 ): NodeId {
-  const { node, slots } = registry.createNode('text', content ? { content } : undefined);
+  const { node, slots } = registry.createNode(
+    'text',
+    content ? { content: richText(content) } : undefined,
+  );
   const result = engine.dispatch({
     type: 'InsertNode',
     node,
@@ -108,9 +112,14 @@ function createSampleStencilContent(): TemplateDocument {
     root: rootId,
     nodes: {
       [rootId]: { id: rootId, type: 'root', slots: [rootSlot] },
-      [textId]: { id: textId, type: 'text', slots: [], props: { content: 'Hello' } },
+      [textId]: { id: textId, type: 'text', slots: [], props: { content: richText('Hello') } },
       [containerId]: { id: containerId, type: 'container', slots: [containerSlot] },
-      [innerTextId]: { id: innerTextId, type: 'text', slots: [], props: { content: 'Inner' } },
+      [innerTextId]: {
+        id: innerTextId,
+        type: 'text',
+        slots: [],
+        props: { content: richText('Inner') },
+      },
     } as Record<NodeId, Node>,
     slots: {
       [rootSlot]: {
@@ -124,6 +133,57 @@ function createSampleStencilContent(): TemplateDocument {
         nodeId: containerId,
         name: 'children',
         children: [innerTextId],
+      },
+    } as Record<SlotId, Slot>,
+    themeRef: { type: 'inherit' },
+  };
+}
+
+/** Published outer stencil content with an editable template-level fill slot. */
+function createPlaceholderStencilContent(): TemplateDocument {
+  const rootId = nodeId('outer-root');
+  const rootSlot = slotId('outer-root-slot');
+  const placeholderId = nodeId('outer-placeholder');
+  const defaultSlot = slotId('outer-default');
+  const fillSlot = slotId('outer-fill');
+  const defaultText = nodeId('outer-default-text');
+
+  return {
+    modelVersion: 1,
+    root: rootId,
+    nodes: {
+      [rootId]: { id: rootId, type: 'root', slots: [rootSlot] },
+      [placeholderId]: {
+        id: placeholderId,
+        type: 'placeholder',
+        slots: [defaultSlot, fillSlot],
+        props: { name: 'body', kind: 'block' },
+      },
+      [defaultText]: {
+        id: defaultText,
+        type: 'text',
+        slots: [],
+        props: { content: richText('Outer default') },
+      },
+    } as Record<NodeId, Node>,
+    slots: {
+      [rootSlot]: {
+        id: rootSlot,
+        nodeId: rootId,
+        name: 'children',
+        children: [placeholderId],
+      },
+      [defaultSlot]: {
+        id: defaultSlot,
+        nodeId: placeholderId,
+        name: 'default',
+        children: [defaultText],
+      },
+      [fillSlot]: {
+        id: fillSlot,
+        nodeId: placeholderId,
+        name: 'fill',
+        children: [],
       },
     } as Record<SlotId, Slot>,
     themeRef: { type: 'inherit' },
@@ -156,11 +216,11 @@ describe('Stencil component registration', () => {
     expect(typeof def!.slots[0]?.locked).toBe('function');
   });
 
-  it('prevents nesting stencils via denylist', () => {
+  it('allows stencil children so distinct instances can nest', () => {
     const { registry } = setupEngine();
     expect(registry.canContain('stencil', 'text')).toBe(true);
     expect(registry.canContain('stencil', 'container')).toBe(true);
-    expect(registry.canContain('stencil', 'stencil')).toBe(false);
+    expect(registry.canContain('stencil', 'stencil')).toBe(true);
   });
 
   it('has default props with null stencilId, version, isDraft=false', () => {
@@ -272,11 +332,13 @@ describe('Insert stencil with content (re-keying)', () => {
 
     // Find the re-keyed text node by type and props
     const allNodes = Object.values(engine.doc.nodes);
-    const textNodes = allNodes.filter((n) => n.type === 'text' && n.props?.content === 'Hello');
+    const textNodes = allNodes.filter(
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Hello',
+    );
     expect(textNodes.length).toBe(1);
 
     const innerTextNodes = allNodes.filter(
-      (n) => n.type === 'text' && n.props?.content === 'Inner',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Inner',
     );
     expect(innerTextNodes.length).toBe(1);
   });
@@ -522,26 +584,43 @@ describe('Multiple stencils on one page', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Nesting prevention
+// Non-recursive nesting
 // ---------------------------------------------------------------------------
 
-describe('Stencil nesting prevention', () => {
-  it('rejects inserting a stencil into another stencil', () => {
+describe('Stencil nesting', () => {
+  it('inserts a published stencil with content into another published stencils fill', () => {
     const { engine, registry, rootSlotId } = setupEngine();
 
-    const outerStencil = insertStencil(engine, registry, rootSlotId);
-    const outerSlot = getStencilSlot(engine, outerStencil);
+    const outerStencil = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'letter',
+      version: 1,
+      isDraft: false,
+      _content: createPlaceholderStencilContent(),
+    });
+    const outerPlaceholder = Object.values(engine.doc.nodes).find(
+      (node) => node.type === 'placeholder' && node.props?.name === 'body',
+    );
+    expect(outerPlaceholder).toBeDefined();
+    const fillSlot = outerPlaceholder!.slots
+      .map((id) => engine.doc.slots[id])
+      .find((slot) => slot.name === 'fill');
+    expect(fillSlot).toBeDefined();
 
-    const { node, slots } = registry.createNode('stencil');
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node,
-      slots,
-      targetSlotId: outerSlot,
-      index: -1,
+    const innerStencil = insertStencil(engine, registry, fillSlot!.id, {
+      stencilId: 'address',
+      version: 1,
+      isDraft: false,
+      _content: createSampleStencilContent(),
     });
 
-    expect(result.ok).toBe(false);
+    expect(engine.doc.slots[fillSlot!.id].children).toEqual([innerStencil]);
+    expect(engine.doc.nodes[outerStencil].props?.stencilId).toBe('letter');
+    expect(engine.doc.nodes[innerStencil].props?.stencilId).toBe('address');
+    expect(
+      Object.values(engine.doc.nodes).some(
+        (node) => node.type === 'text' && richTextValue(node.props?.content) === 'Hello',
+      ),
+    ).toBe(true);
   });
 });
 
@@ -627,8 +706,8 @@ describe('reKeyContent', () => {
 
     const textNodes = result.nodes.filter((n) => n.type === 'text');
     expect(textNodes.length).toBe(2);
-    expect(textNodes.some((n) => n.props?.content === 'Hello')).toBe(true);
-    expect(textNodes.some((n) => n.props?.content === 'Inner')).toBe(true);
+    expect(textNodes.some((n) => richTextValue(n.props?.content) === 'Hello')).toBe(true);
+    expect(textNodes.some((n) => richTextValue(n.props?.content) === 'Inner')).toBe(true);
   });
 
   it('returns correct childNodeIds (root children)', () => {
@@ -668,7 +747,7 @@ describe('reKeyContent', () => {
     const childNode = result.nodes.find((n) => n.id === childId);
     expect(childNode).toBeDefined();
     expect(childNode!.type).toBe('text');
-    expect(childNode!.props?.content).toBe('Inner');
+    expect(richTextValue(childNode!.props?.content)).toBe('Inner');
   });
 });
 
@@ -693,7 +772,7 @@ describe('extractSubtree', () => {
 
     // Find the text node in the extracted document
     const textNodes = Object.values(extracted.nodes).filter(
-      (n) => n.type === 'text' && n.props?.content === 'Extracted text',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Extracted text',
     );
     expect(textNodes).toHaveLength(1);
   });
@@ -733,7 +812,7 @@ describe('extractSubtree', () => {
     expect(containerNodes).toHaveLength(1);
 
     const nestedTexts = Object.values(extracted.nodes).filter(
-      (n) => n.type === 'text' && n.props?.content === 'Nested text',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'Nested text',
     );
     expect(nestedTexts).toHaveLength(1);
   });
@@ -990,7 +1069,7 @@ describe('Multiple instances of the same stencil version', () => {
           id: nodeId('v2-text-dup'),
           type: 'text',
           slots: [],
-          props: { content: 'Version 2' },
+          props: { content: richText('Version 2') },
         },
       } as Record<NodeId, Node>,
       slots: {

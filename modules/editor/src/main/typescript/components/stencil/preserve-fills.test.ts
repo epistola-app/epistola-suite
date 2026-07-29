@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { captureFillsByName, reKeyCapturedFill } from './preserve-fills.js';
+import { richText, richTextValue } from './stencil-test-helpers.js';
 import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';
 
 describe('preserve-fills', () => {
@@ -30,7 +31,7 @@ describe('preserve-fills', () => {
         id: 'fill-text',
         type: 'text',
         slots: [],
-        props: { content: opts.fillTextContent },
+        props: { content: richText(opts.fillTextContent) },
       };
     }
     return {
@@ -54,7 +55,7 @@ describe('preserve-fills', () => {
     const cap = captured.get('body')!;
     expect(cap.rootChildIds).toEqual(['fill-text']);
     expect(cap.nodes.size).toBe(1);
-    expect(cap.nodes.get('fill-text')?.props?.content).toBe('override');
+    expect(richTextValue(cap.nodes.get('fill-text')?.props?.content)).toBe('override');
   });
 
   it('skips placeholders with empty fill', () => {
@@ -82,7 +83,7 @@ describe('preserve-fills', () => {
     expect(reKeyed.rootChildIds[0]).not.toBe('fill-text');
     expect(reKeyed.nodes[0].id).toBe(reKeyed.rootChildIds[0]);
     // Content preserved.
-    expect(reKeyed.nodes[0].props?.content).toBe('override');
+    expect(richTextValue(reKeyed.nodes[0].props?.content)).toBe('override');
   });
 
   it('reKeyCapturedFill assigns different IDs each call', () => {
@@ -112,8 +113,8 @@ describe('preserve-fills', () => {
           slots: ['ph2-d', 'ph2-f'],
           props: { name: 'footer' },
         },
-        t1: { id: 't1', type: 'text', slots: [], props: { content: 'h-override' } },
-        t2: { id: 't2', type: 'text', slots: [], props: { content: 'f-override' } },
+        t1: { id: 't1', type: 'text', slots: [], props: { content: richText('h-override') } },
+        t2: { id: 't2', type: 'text', slots: [], props: { content: richText('f-override') } },
       } as unknown as TemplateDocument['nodes'],
       slots: {
         rs: { id: 'rs', nodeId: 'root', name: 'children', children: ['ph1', 'ph2'] },
@@ -126,7 +127,11 @@ describe('preserve-fills', () => {
     };
     const captured = captureFillsByName(doc);
     expect(captured.size).toBe(2);
-    expect(captured.get('header')?.nodes.get('t1')?.props?.content).toBe('h-override');
-    expect(captured.get('footer')?.nodes.get('t2')?.props?.content).toBe('f-override');
+    expect(richTextValue(captured.get('header')?.nodes.get('t1')?.props?.content)).toBe(
+      'h-override',
+    );
+    expect(richTextValue(captured.get('footer')?.nodes.get('t2')?.props?.content)).toBe(
+      'f-override',
+    );
   });
 });

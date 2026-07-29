@@ -16,14 +16,9 @@ import tools.jackson.module.kotlin.kotlinModule
  *
  * Every committed catalog wire file we ship or test with — the bundled
  * demo/system catalogs and the `test-catalogs` fixtures, manifest and resource
- * details alike — must carry a `schemaVersion` **inside the catalog-wide
- * `[CATALOG_BASELINE_SCHEMA_VERSION, CATALOG_SCHEMA_VERSION]` window**. A stamp
- * *below* baseline imports today only because of the empty-chain leniency in
- * [app.epistola.suite.catalog.migrations.CatalogSchemaMigrator] (sub-current +
- * empty chain → pass through); the moment a migration chain exists the same
- * fixture would be rejected as `TooOld`. This test makes that latent trap a build
- * failure: our own committed content never relies on the leniency crutch — only
- * genuinely-old *external* payloads do.
+ * details alike — must carry the one currently supported `schemaVersion`.
+ * Older versions are accepted only after the portable contract gains an
+ * explicit migration.
  */
 class CommittedCatalogSchemaWindowTest {
 
@@ -62,11 +57,8 @@ class CommittedCatalogSchemaWindowTest {
 
         assertThat(violations)
             .describedAs(
-                "Committed catalog files must sit within the catalog [baseline, current] window — " +
-                    "a sub-baseline stamp only imports via the transitional empty-chain leniency and " +
-                    "would break once a migration chain exists. Normalise the file to the current " +
-                    "version (its content is already current-shape), or widen the window in " +
-                    "CatalogConstants with a real migration.",
+                "Committed catalog files must use the current catalog wire version. " +
+                    "Add an explicit portable migration before widening the supported window.",
             )
             .isEmpty()
     }

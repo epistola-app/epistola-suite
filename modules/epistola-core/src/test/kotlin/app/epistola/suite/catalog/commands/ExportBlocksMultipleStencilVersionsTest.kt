@@ -188,7 +188,7 @@ class ExportBlocksMultipleStencilVersionsTest : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey.value, "version" to version),
+                props = mapOf("stencilId" to stencilKey.value, "version" to version, "isDraft" to false),
             ),
         ),
         slots = mapOf(

@@ -1546,7 +1546,7 @@
         "s-notes-cond-children": {
           "id": "s-notes-cond-children",
           "nodeId": "n-notes-conditional",
-          "name": "children",
+          "name": "body",
           "children": [
             "n-notes-section"
           ]

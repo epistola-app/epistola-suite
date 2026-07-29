@@ -35,7 +35,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     // Template model (transitively from epistola-core, but explicit for generated code)
-    implementation(libs.epistola.model)
+    implementation(libs.epistola.catalog)
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")

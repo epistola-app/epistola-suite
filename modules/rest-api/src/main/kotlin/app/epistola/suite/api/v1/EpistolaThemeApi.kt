@@ -11,8 +11,6 @@ import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
-import app.epistola.suite.api.v1.shared.toDomain
-import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.CatalogId
@@ -33,13 +31,10 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import tools.jackson.databind.ObjectMapper
 
 @RestController
 @RequestMapping("/api")
-class EpistolaThemeApi(
-    private val objectMapper: ObjectMapper,
-) : ThemesApi {
+class EpistolaThemeApi : ThemesApi {
 
     override fun listThemes(
         tenantId: String,
@@ -62,7 +57,7 @@ class EpistolaThemeApi(
 
         return ResponseEntity.ok(
             ThemeListResponse(
-                items = slice.items.map { it.toDto(objectMapper) },
+                items = slice.items.map { it.toDto() },
                 page = slice.page,
             ),
         )
@@ -79,15 +74,15 @@ class EpistolaThemeApi(
             id = themeIdComposite,
             name = createThemeRequest.name,
             description = createThemeRequest.description,
-            documentStyles = createThemeRequest.documentStyles.toDomainDocumentStyles(objectMapper),
-            pageSettings = createThemeRequest.pageSettings?.toDomain(),
-            blockStylePresets = createThemeRequest.blockStylePresets?.toDomainPresets(objectMapper),
+            documentStyles = createThemeRequest.documentStyles ?: emptyMap(),
+            pageSettings = createThemeRequest.pageSettings,
+            blockStylePresets = createThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = createThemeRequest.spacingUnit?.toFloat(),
         ).execute()
 
         return ResponseEntity
             .status(HttpStatus.CREATED)
-            .body(theme.toDto(objectMapper))
+            .body(theme.toDto())
     }
 
     override fun getTheme(
@@ -101,7 +96,7 @@ class EpistolaThemeApi(
             id = themeIdComposite,
         ).query() ?: throw ThemeNotFoundException(ThemeKey.of(themeId))
 
-        return ResponseEntity.ok(theme.toDto(objectMapper))
+        return ResponseEntity.ok(theme.toDto())
     }
 
     override fun updateTheme(
@@ -116,13 +111,13 @@ class EpistolaThemeApi(
             id = themeIdComposite,
             name = updateThemeRequest.name,
             description = updateThemeRequest.description,
-            documentStyles = updateThemeRequest.documentStyles?.toDomainDocumentStyles(objectMapper),
-            pageSettings = updateThemeRequest.pageSettings?.toDomain(),
-            blockStylePresets = updateThemeRequest.blockStylePresets?.toDomainPresets(objectMapper),
+            documentStyles = updateThemeRequest.documentStyles,
+            pageSettings = updateThemeRequest.pageSettings,
+            blockStylePresets = updateThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = updateThemeRequest.spacingUnit?.toFloat(),
         ).execute() ?: throw ThemeNotFoundException(ThemeKey.of(themeId))
 
-        return ResponseEntity.ok(theme.toDto(objectMapper))
+        return ResponseEntity.ok(theme.toDto())
     }
 
     override fun deleteTheme(

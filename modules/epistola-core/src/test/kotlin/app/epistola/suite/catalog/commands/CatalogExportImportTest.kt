@@ -61,6 +61,7 @@ import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -247,14 +248,77 @@ class CatalogExportImportTest : IntegrationTestBase() {
             // Create a ZIP with no catalog.json
             val zipBytes = createZipWithoutManifest()
 
-            assertThatThrownBy {
+            val exception = assertThrows<CatalogImportValidationException> {
                 ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = zipBytes,
                     catalogType = CatalogType.AUTHORED,
                 ).execute()
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("catalog.json")
+            }
+            val finding = exception.findings.single()
+            assertThat(finding.code).isEqualTo("CATALOG_ARCHIVE_REQUIRED_FILE_MISSING")
+            assertThat(finding.path).isEqualTo("catalog.json")
+        }
+    }
+
+    @Test
+    fun `portable catalog validation rejects invalid templates before creating the catalog`() {
+        val tenant = createTenant("Portable Validation")
+        val catalogKey = CatalogKey.of("invalid-portable-catalog")
+        val zipBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("catalog.json"))
+                zip.write(
+                    """
+                    {
+                      "schemaVersion": 4,
+                      "catalog": {"slug": "${catalogKey.value}", "name": "Invalid portable catalog"},
+                      "publisher": {"name": "Epistola tests"},
+                      "release": {"version": "1.0.0"},
+                      "resources": [
+                        {
+                          "type": "template",
+                          "slug": "invoice",
+                          "name": "Invoice",
+                          "detailUrl": "./resources/template/invoice.json"
+                        }
+                      ]
+                    }
+                    """.trimIndent().toByteArray(),
+                )
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("resources/template/invoice.json"))
+                zip.write(
+                    """
+                    {
+                      "schemaVersion": 4,
+                      "resource": {
+                        "type": "template",
+                        "slug": "invoice",
+                        "name": "Invoice",
+                        "templateModel": {"root": "missing", "nodes": {}, "slots": {}},
+                        "variants": []
+                      }
+                    }
+                    """.trimIndent().toByteArray(),
+                )
+                zip.closeEntry()
+            }
+        }.toByteArray()
+
+        withMediator {
+            val exception = assertThrows<CatalogImportValidationException> {
+                ImportCatalogZip(
+                    tenantKey = tenant.id,
+                    zipBytes = zipBytes,
+                    catalogType = CatalogType.AUTHORED,
+                ).execute()
+            }
+            val finding = exception.findings.first { it.code == "TEMPLATE_GRAPH_INVALID" }
+            assertThat(finding.path).startsWith("resources/template/invoice.json.resource.templateModel.")
+
+            assertThat(GetCatalog(tenant.id, catalogKey).query()).isNull()
         }
     }
 
@@ -613,7 +677,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     "description": "Declares a cross-catalog code-list dep that the tenant does not have."
                   },
                   "publisher": { "name": "Epistola tests" },
-                  "release": { "version": "1", "releasedAt": "2026-05-11T00:00:00Z" },
+                  "release": { "version": "1.0.0", "releasedAt": "2026-05-11T00:00:00Z" },
                   "resources": [],
                   "dependencies": [
                     { "type": "codeList", "catalogKey": "no-such-catalog", "slug": "no-such-list" }
@@ -953,6 +1017,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     props = mapOf(
                         "stencilId" to stencilSlug,
                         "version" to 1,
+                        "isDraft" to false,
                         "parameterSchemaSnapshot" to schemaSnapshot,
                         "parameterBindings" to mapOf("recipientName" to "'Alice'"),
                         "paramsAlias" to "params",

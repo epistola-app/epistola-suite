@@ -16,7 +16,6 @@ import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
-import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -24,7 +23,7 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Publishes a draft stencil version, making it available for insertion into templates.
- * Validates that the content does not contain nested stencil references.
+ * Re-validates portable stencil content before making it immutable.
  * Throws if the version doesn't exist or is not a draft.
  */
 data class PublishStencilVersion(
@@ -73,9 +72,6 @@ class PublishStencilVersionHandler(
             )
         }
 
-        // Validate no nested stencil components
-        validateNoNestedStencilRefs(version)
-
         // Re-validate at the immutable boundary so legacy or imported drafts
         // cannot bypass the current document policy.
         templateDocumentValidator.validateStencil(version.content)
@@ -96,20 +92,5 @@ class PublishStencilVersionHandler(
             .bind("versionId", command.versionId.key)
             .mapTo<StencilVersion>()
             .one()
-    }
-
-    /**
-     * Validates that no node in the content is a stencil component, preventing nesting.
-     */
-    private fun validateNoNestedStencilRefs(content: StencilVersion) {
-        val stencilNodes = content.content.nodes.values.filter { it.type == "stencil" }
-        if (stencilNodes.isNotEmpty()) {
-            val nodeIds = stencilNodes.map { it.id }
-            throw ValidationException(
-                "content",
-                "Stencil content cannot contain nested stencil components. " +
-                    "Stencil nodes found: ${nodeIds.joinToString(", ")}",
-            )
-        }
     }
 }

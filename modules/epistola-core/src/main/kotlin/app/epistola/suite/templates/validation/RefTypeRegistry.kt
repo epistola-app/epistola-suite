@@ -34,13 +34,13 @@ object RefTypeRegistry {
             id = "richTextInline",
             url = "https://epistola.app/schemas/richtext-inline-v1.json",
             label = "Rich text (inline)",
-            schemaResourcePath = "/schemas/richtext-inline-v1.json",
+            schemaResourcePath = "/META-INF/epistola-catalog/schemas/richtext-inline-v1.json",
         ),
         RefType(
             id = "richTextBlock",
             url = "https://epistola.app/schemas/richtext-block-v1.json",
             label = "Rich text (block)",
-            schemaResourcePath = "/schemas/richtext-block-v1.json",
+            schemaResourcePath = "/META-INF/epistola-catalog/schemas/richtext-block-v1.json",
         ),
     )
 

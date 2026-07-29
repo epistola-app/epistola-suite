@@ -4,7 +4,7 @@
 
 **Role:** a reusable enumeration (e.g. BCP-47 languages, ISO-3166 countries) that [attributes](attribute.md) (and data-contract bindings) draw their allowed values from.
 
-**DTO:** `CodeListResource` (`CatalogResource` subtype, `epistola-model`).
+**DTO:** `CodeListResource` (`CatalogResource` subtype, `epistola-catalog`).
 **Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) (`ExportCodeLists`).
 **Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 1 (early — attributes bind to it).

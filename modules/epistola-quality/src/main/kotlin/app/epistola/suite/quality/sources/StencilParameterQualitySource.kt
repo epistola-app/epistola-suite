@@ -21,7 +21,7 @@ import java.util.HexFormat
 /**
  * Reports stencil instances that cannot supply every required parameter.
  *
- * This deliberately mirrors [app.epistola.suite.templates.validation.NodeParameterBindingValidator]:
+ * This deliberately mirrors [app.epistola.catalog.validation.TemplateValidator]:
  * a required parameter is satisfied by either a non-blank binding or a schema default. Validation
  * protects writes, while this source makes persisted problems from bulk upgrades, imports, or
  * legacy documents visible in the quality report and on the affected editor node.

@@ -27,7 +27,15 @@
           "type": "text",
           "slots": [],
           "props": {
-            "content": [{ "type": "text", "text": "Company Name" }]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "text", "text": "Company Name" }]
+                }
+              ]
+            }
           }
         }
       },

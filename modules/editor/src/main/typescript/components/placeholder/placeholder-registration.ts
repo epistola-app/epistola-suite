@@ -228,7 +228,31 @@ export function createPlaceholderDefinition(): ComponentDefinition {
                 <div class="canvas-placeholder-fill canvas-placeholder-fill--empty">
                   ${fillSlotId ? renderSlot(fillSlotId) : nothing}
                   <div class="canvas-placeholder-fill-hint">
-                    Drop content here to override the default.
+                    <span>Drop content here to override the default, or</span>
+                    ${fillSlotId
+                      ? html`
+                          <button
+                            type="button"
+                            class="canvas-placeholder-fill-add"
+                            data-testid="placeholder-fill-add"
+                            @click=${(event: Event) => {
+                              event.stopPropagation();
+                              const target = event.currentTarget;
+                              if (!(target instanceof HTMLElement)) return;
+                              target.dispatchEvent(
+                                new CustomEvent('epistola-insert-block-at-slot', {
+                                  detail: { slotId: fillSlotId },
+                                  bubbles: true,
+                                  composed: true,
+                                }),
+                              );
+                            }}
+                          >
+                            add a block
+                          </button>
+                        `
+                      : nothing}
+                    <span>.</span>
                   </div>
                 </div>
               `}

@@ -96,7 +96,7 @@ class AccessibilityQualitySourceTest {
 
     @Test
     fun `non-image nodes are ignored`() {
-        val text = Node(id = "t-1", type = "text", slots = emptyList(), props = mapOf("content" to "hi"))
+        val text = Node(id = "t-1", type = "text", slots = emptyList(), props = mapOf("content" to richText("hi")))
 
         assertThat(source.check(inputFor(text))).isEmpty()
     }
@@ -137,4 +137,14 @@ class AccessibilityQualitySourceTest {
     fun `the source does not claim the reserved manual id`() {
         assertThat(source.sourceId).isNotEqualTo(QualitySourceId.MANUAL)
     }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
 }

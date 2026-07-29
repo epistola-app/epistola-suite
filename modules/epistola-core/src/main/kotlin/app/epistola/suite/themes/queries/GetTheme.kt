@@ -32,7 +32,9 @@ class GetThemeHandler(
             SELECT t.*, c.type AS catalog_type
             FROM themes t
             JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key
-            WHERE t.id = :id AND t.tenant_key = :tenantId AND t.catalog_key = :catalogKey
+            WHERE t.id = :id
+              AND t.tenant_key = :tenantId
+              AND t.catalog_key = :catalogKey
             """,
         )
             .bind("id", query.id.key)

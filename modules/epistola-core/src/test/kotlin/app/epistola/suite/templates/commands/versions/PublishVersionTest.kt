@@ -321,7 +321,7 @@ class PublishVersionTest : IntegrationTestBase() {
                 CreateStencil(id = stencilId, name = "Draft-Only Stencil").execute()
                 UpdateDraft(
                     variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(stencilKey),
+                    templateModel = templateModelReferencingStencil(stencilKey, isDraft = true),
                 ).execute()
             }
 
@@ -346,7 +346,7 @@ class PublishVersionTest : IntegrationTestBase() {
                 CreateStencilVersion(stencilId = stencilId).execute()
                 UpdateDraft(
                     variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(stencilKey, version = 2),
+                    templateModel = templateModelReferencingStencil(stencilKey, version = 2, isDraft = true),
                 ).execute()
             }
 
@@ -414,14 +414,18 @@ class PublishVersionTest : IntegrationTestBase() {
 
     private fun templateModelReferencingStencil(
         stencilKey: StencilKey,
-        version: Int? = null,
+        version: Int = 1,
+        isDraft: Boolean = false,
         requiredParameter: String? = null,
     ): TemplateDocument {
         val rootId = "root-1"
         val slotId = "slot-1"
         val stencilNodeId = "stencil-1"
-        val props = mutableMapOf<String, Any?>("stencilId" to stencilKey.value)
-        if (version != null) props["version"] = version
+        val props = mutableMapOf<String, Any?>(
+            "stencilId" to stencilKey.value,
+            "version" to version,
+            "isDraft" to isDraft,
+        )
         if (requiredParameter != null) {
             props["parameterSchemaSnapshot"] = mapOf(
                 "type" to "object",

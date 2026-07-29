@@ -42,7 +42,7 @@ not faint praise:
 
 - `TemplateDocument` is a normalized node/slot graph (`{root, nodes, slots}`) with
   **no geometry** — no positions, no page list. It is defined by JSON Schema in the
-  external `epistola-model` package and shared by Kotlin and TypeScript.
+  external `epistola-catalog` package and shared by Kotlin and TypeScript.
 - Rich text is ProseMirror JSON — already HTML-shaped.
 - Styles are CSS-derived (`fontFamily`, `fontSize`, `color`, `padding`, `margin`,
   `border`…), and the theme cascade (theme docStyles → template docStyles → preset →

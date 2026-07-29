@@ -5,6 +5,64 @@
 ## [Unreleased]
 
 - **[user]** feat(themes): **Theme editing now shows where each theme is used.** The redesigned theme page replaces its empty preview placeholder with a responsive overview of draft and published template versions using the theme through a variant override, template default, or tenant default. Published versions with frozen theme snapshots are identified clearly, usage is catalog-safe and paginated, and the editor now follows the shared panel, form, badge, table, spacing, and responsive-layout patterns.
+- **[user]** fix(themes): **Theme detail and updates respect catalog identity.**
+  Theme lookups and updates now use the complete tenant, catalog, and slug key, so two catalogs can
+  safely contain themes with the same slug without opening or modifying the wrong resource.
+- **[dev]** refactor(api,catalog): **Suite's REST boundary now uses catalog models directly.**
+  Generated HTTP envelope DTOs retain Suite-specific identifiers and lifecycle metadata, while
+  template documents, page settings, theme styles, and block style presets are the
+  `epistola-catalog` Kotlin data classes themselves. This removes Jackson tree conversions and the
+  duplicate portable JVM model without changing their JSON wire representation.
+- **[dev]** fix(stencils): **Existing editor stencil references retain their established
+  meaning.** Portable validation treats a missing `isDraft` property as non-draft, matching the
+  editor's historical behavior without rewriting stored template or stencil content. Newly
+  maintained test fixtures use the explicit canonical shape.
+- **[dev]** docs(catalog): **Catalog contract breaking changes are explicit.**
+  The compatibility guide now distinguishes stored editor documents from portable exports,
+  records the canonical rich-text and stencil-reference requirements, explains strict
+  revalidation boundaries, documents the Contract/Suite ownership split and the catalog-v5
+  follow-up for RC3 draft markers, and gives production snapshot checks.
+- **[dev]** fix(stencils): **Nested stencil authoring remains explicitly gated in Suite.**
+  `epistola-catalog` now specifies and validates portable nested-stencil composition, while the
+  Suite adapter preserves the existing create, update, import, and publish rejection until the
+  editor, lifecycle, and resource-resolution work is implemented separately. Kotlin and bundled
+  catalog fixtures now use the canonical explicit stencil `version` and `isDraft` fields.
+- **[user]** fix(editor): **Empty stencil placeholders expose a working add-block action.**
+  The action targets the editable fill slot, runs component pre-insert hooks (including the stencil
+  picker with ancestor recursion and depth context), and no longer offers locked stencil slots.
+- **[dev]** fix(stencils): **Stencil nesting is limited to five levels.** Suite delegates the
+  authoritative save/import rule to `epistola-catalog`, uses the catalog's npm limit in editor
+  insertion guards, and retains a renderer safety check for stored documents.
+- **[dev]** build(editor): **Catalog types use the stable npm entry point.** Editor theme and
+  style types now come from the `@epistola.app/epistola-catalog` package root instead of exposing
+  the catalog generator's internal directory structure.
+- **[dev]** fix(catalog): **Invalid ZIP imports retain structured diagnostics.** Portable archive
+  and catalog findings now surface through `CatalogImportValidationException` with stable codes,
+  paths, messages, and deterministic ordering instead of a generic `IllegalArgumentException`.
+- **[dev]** test(stencils): **Nested stencil use in templates is pinned across layers.**
+  Contract-adapter, editor ancestry/drop, and PDF renderer tests allow distinct nested stencil
+  instances in templates, including realistic placeholder-fill insertion, persistence,
+  publication, and visible PDF content, while rejecting direct or transitive recursion. Reusable
+  stencil definition authoring remains gated in Suite.
+- Delegated standalone parameter-schema and whole-catalog ZIP validation to
+  `epistola-catalog` before Suite performs any import mutation; subscribed catalog registration
+  now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state,
+  while portable document-version findings retain Suite's established import error presentation.
+- Portable stencil semantics delegate to `epistola-catalog`; Suite retains only its temporary
+  product-capability gate against authoring nested stencil definitions.
+- Consumed the rich-text JSON Schema references from `epistola-catalog` instead of maintaining
+  Suite-owned copies.
+- Updated active catalog, Exchange, stencil, and registry documentation to the
+  `epistola-catalog` npm, Maven, and classpath names; historical ADR and migration references retain
+  the retired artifact name for accuracy.
+- **[dev]** build(catalog): **Portable catalog dependency adopted.** Suite now consumes `app.epistola.contract:epistola-catalog` instead of the retired pre-1.0 `epistola-model` coordinate, retaining the existing Kotlin model packages while gaining the shared registries, validation, archive, migration, canonicalization, and fixture boundary.
+- **[dev]** refactor(catalog): **Template validation delegates to the portable contract.** Suite's command-facing document and parameter-schema validators now adapt deterministic `epistola-catalog` findings into the existing field-prefixed `ValidationException` presentation, including graph-only rendering safety, while dynamic node parameter schemas continue to resolve through the Suite-owned Spring provider registry.
+- **[dev]** fix(catalog): **Fixtures use one rich-text model.** Catalog, API, renderer, stencil,
+  MCP, quality, and editor fixtures now use the same canonical ProseMirror document object as
+  production; historical string and bare-array text content is intentionally unsupported.
+- **[dev]** fix(catalog): **Portable service adapters preserve Suite semantics.** Catalog migration errors keep the established operator guidance, and archive assertions compare parsed JSON instead of depending on writer whitespace.
+- **[dev]** refactor(catalog): **Portable archive and content integrity services replace Suite copies.** Catalog ZIP safety and deterministic writing, wire-schema binding, canonical fingerprints, and per-resource fingerprints now delegate to `epistola-catalog`; Suite retains tenant authorization, persistence, dependency installation, upgrade conflicts, and its existing error presentation.
+- **[dev]** build(editor,mcp): **Catalog registries follow the clean artifact rename.** The editor consumes `@epistola.app/epistola-catalog`, and MCP loads component metadata from `META-INF/epistola-catalog`, removing live dependencies on the retired npm and resource names.
 - **[user]** fix(stencils): **Upgraded stencils now use the new version's parameters.** Moving a stencil instance to another published version refreshes its parameter schema, preserves bindings that remain valid, and removes bindings for parameters that no longer exist; editing parameter definitions now removes obsolete bindings as well. Reverting draft changes restores the published parameter schema. Required parameters without either a binding or default appear as quality errors, while required parameters with defaults are accepted by the editor. Incomplete bindings can be saved safely in template drafts, but stencil and template publication remain blocked until every required parameter is configured. Preview errors identify the affected stencil and component and display their readable message and validation code instead of raw JSON.
 - **[user]** fix(auth): **OIDC users now show their display name consistently.** The top navigation and footer render the identity provider's human-readable `name` claim from the signed-in Epistola principal instead of Spring's provider-dependent principal name, which defaulted to the opaque `sub` UUID on some installations. Email and display name are refreshed at login while `sub` remains the stable account key; rendering uses the existing session principal and adds no per-request user lookup.
 - **[dev]** chore(build): **Warnings now fail fast.** Kotlin compiler warnings and Gradle deprecations fail builds by default, with a documented narrow exception policy for unavoidable upstream diagnostics.

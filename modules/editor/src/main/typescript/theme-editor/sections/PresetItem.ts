@@ -11,8 +11,7 @@
  */
 
 import { html } from 'lit';
-import type { StyleProperty } from '@epistola.app/epistola-model/generated/style-registry';
-import type { BlockStylePreset } from '@epistola.app/epistola-model/generated/theme';
+import type { BlockStylePreset, StyleProperty } from '@epistola.app/epistola-catalog';
 import { defaultStyleRegistry } from '../../engine/style-registry.js';
 import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../../engine/font-ref.js';
 import {

@@ -171,10 +171,10 @@ The new `placeholder` node type is just a new value of that field.
 
 ### 4.2 JSON Schema and contract
 
-- **`@epistola.app/epistola-model/schemas/template-document.schema.json`:**
+- **`@epistola.app/epistola-catalog/schemas/template-document.schema.json`:**
   add a `Placeholder` definition extending `Node` with a constrained
   `props` shape; add a `oneOf` so `Node` validates as
-  `Placeholder | OtherNode`. Bump `epistola-model` minor version.
+  `Placeholder | OtherNode`. Bump `epistola-catalog` minor version.
 - **`epistola-contract/spec/components/schemas/`:** add a
   `PlaceholderNodeDto` definition; reference it from the `NodeDto`
   `oneOf`. Bump contract version.
@@ -273,7 +273,7 @@ labelled "Default".
 ## 8. Migration
 
 Existing stencils have no placeholder nodes — nothing to migrate. JSON
-Schema and contract additions are additive. `epistola-model` and
+Schema and contract additions are additive. `epistola-catalog` and
 `epistola-contract` bump minor versions. No Flyway migration.
 
 ## 9. Forward compatibility — stencil parameters

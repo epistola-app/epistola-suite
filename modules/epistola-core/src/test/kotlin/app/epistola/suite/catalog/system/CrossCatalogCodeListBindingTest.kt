@@ -27,6 +27,7 @@ import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.test.context.TestPropertySource
+import tools.jackson.databind.json.JsonMapper
 import java.net.InetSocketAddress
 
 /**
@@ -95,15 +96,16 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         // dependency should be declared on the manifest, with the explicit
         // cross-catalog key carried through. The codeListBinding itself
         // lives on the resource detail inside the zip, not the manifest.
-        val manifestJson = readZipEntry(zip.zipBytes, "catalog.json")
-        assertThat(manifestJson).contains("\"schemaVersion\" : 4")
-        assertThat(manifestJson).contains("\"type\" : \"codeList\"")
-        assertThat(manifestJson).contains("\"catalogKey\" : \"system\"")
-        assertThat(manifestJson).contains("\"slug\" : \"bcp-47\"")
+        val mapper = JsonMapper.builder().build()
+        val manifest = mapper.readTree(readZipEntry(zip.zipBytes, "catalog.json"))
+        assertThat(manifest["schemaVersion"].asInt()).isEqualTo(4)
+        val dependency = manifest["dependencies"].single()
+        assertThat(dependency["type"].asString()).isEqualTo("codeList")
+        assertThat(dependency["catalogKey"].asString()).isEqualTo("system")
+        assertThat(dependency["slug"].asString()).isEqualTo("bcp-47")
 
-        val attributeDetail = readZipEntry(zip.zipBytes, "resources/attribute/locale-pref.json")
-        assertThat(attributeDetail).contains("\"codeListBinding\"")
-        assertThat(attributeDetail).contains("\"catalogKey\" : \"system\"")
+        val attributeDetail = mapper.readTree(readZipEntry(zip.zipBytes, "resources/attribute/locale-pref.json"))
+        assertThat(attributeDetail["resource"]["codeListBinding"]["catalogKey"].asString()).isEqualTo("system")
 
         // Re-import into a second tenant — system catalog is already there
         // (auto-installed on `createTenant`), so the cross-catalog FK lands
@@ -195,14 +197,14 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun manifestJson(slug: String): String = """
         {
-          "schemaVersion": 3,
+          "schemaVersion": 4,
           "catalog": {
             "slug": "$slug",
             "name": "HTTP Served",
             "description": "Cross-catalog binding test catalog served over real HTTP"
           },
           "publisher": { "name": "Epistola tests" },
-          "release": { "version": "1", "releasedAt": "2026-05-11T00:00:00Z" },
+          "release": { "version": "1.0.0", "releasedAt": "2026-05-11T00:00:00Z" },
           "resources": [
             {
               "type": "attribute",
@@ -219,7 +221,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun attributeDetailJson(): String = """
         {
-          "schemaVersion": 3,
+          "schemaVersion": 4,
           "resource": {
             "type": "attribute",
             "slug": "lang",

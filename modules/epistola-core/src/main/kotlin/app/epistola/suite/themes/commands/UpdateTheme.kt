@@ -112,7 +112,9 @@ class UpdateThemeHandler(
         val sql = """
             UPDATE themes
             SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_key = :tenantId
+            WHERE id = :id
+              AND tenant_key = :tenantId
+              AND catalog_key = :catalogKey
             RETURNING *
         """
 
@@ -120,6 +122,7 @@ class UpdateThemeHandler(
             val query = handle.createQuery(sql)
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
 
             bindings.forEach { (key, value) -> query.bind(key, value) }
 
@@ -132,11 +135,16 @@ class UpdateThemeHandler(
     private fun getExisting(id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
+            SELECT *
+            FROM themes
+            WHERE id = :id
+              AND tenant_key = :tenantId
+              AND catalog_key = :catalogKey
             """,
         )
             .bind("id", id.key)
             .bind("tenantId", id.tenantKey)
+            .bind("catalogKey", id.catalogKey)
             .mapTo<Theme>()
             .findOne()
             .orElse(null)
