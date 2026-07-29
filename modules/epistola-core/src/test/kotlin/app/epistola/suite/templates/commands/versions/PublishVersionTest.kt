@@ -39,8 +39,10 @@ import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
@@ -380,21 +382,57 @@ class PublishVersionTest : IntegrationTestBase() {
             assertThat(result).isNotNull
             assertThat(result!!.status).isEqualTo(VersionStatus.PUBLISHED)
         }
+
+        @Test
+        fun `allows incomplete required bindings in draft but blocks publication`() {
+            val stencilKey = TestIdHelpers.nextStencilId()
+            val stencilId = StencilId(stencilKey, templateId.catalogId)
+            withMediator {
+                CreateStencil(id = stencilId, name = "Parameterized Stencil").execute()
+                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+                UpdateDraft(
+                    variantId = defaultVariantId,
+                    templateModel = templateModelReferencingStencil(
+                        stencilKey = stencilKey,
+                        requiredParameter = "recipientName",
+                    ),
+                ).execute()
+            }
+
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+            assertThat(draft.status).isEqualTo(VersionStatus.DRAFT)
+
+            assertThatThrownBy {
+                withMediator {
+                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
+                }
+            }.isInstanceOf(ValidationException::class.java)
+                .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED)
+                .hasMessageContaining("recipientName")
+        }
     }
 
     private fun templateModelReferencingStencil(
         stencilKey: StencilKey,
         version: Int = 1,
         isDraft: Boolean = false,
+        requiredParameter: String? = null,
     ): TemplateDocument {
         val rootId = "root-1"
         val slotId = "slot-1"
         val stencilNodeId = "stencil-1"
-        val props = mapOf<String, Any?>(
+        val props = mutableMapOf<String, Any?>(
             "stencilId" to stencilKey.value,
             "version" to version,
             "isDraft" to isDraft,
         )
+        if (requiredParameter != null) {
+            props["parameterSchemaSnapshot"] = mapOf(
+                "type" to "object",
+                "properties" to mapOf(requiredParameter to mapOf("type" to "string")),
+                "required" to listOf(requiredParameter),
+            )
+        }
         return TemplateDocument(
             modelVersion = 1,
             root = rootId,

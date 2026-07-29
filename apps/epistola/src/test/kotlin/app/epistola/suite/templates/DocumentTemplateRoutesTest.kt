@@ -1522,6 +1522,90 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         @Test
+        fun `POST preview identifies the component and preserves the validation code`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            whenever {
+                val templateModel = mapOf(
+                    "modelVersion" to 1,
+                    "root" to "root",
+                    "nodes" to mapOf(
+                        "root" to mapOf(
+                            "id" to "root",
+                            "type" to "root",
+                            "slots" to listOf("root-slot"),
+                        ),
+                        "stencil-component" to mapOf(
+                            "id" to "stencil-component",
+                            "type" to "stencil",
+                            "slots" to emptyList<String>(),
+                            "props" to mapOf(
+                                "stencilId" to "address-block",
+                                "version" to 2,
+                                "isDraft" to true,
+                                "parameterSchemaSnapshot" to mapOf(
+                                    "type" to "object",
+                                    "properties" to mapOf(
+                                        "param1" to mapOf("type" to "string"),
+                                    ),
+                                    "required" to listOf("param1"),
+                                ),
+                            ),
+                        ),
+                    ),
+                    "slots" to mapOf(
+                        "root-slot" to mapOf(
+                            "id" to "root-slot",
+                            "nodeId" to "root",
+                            "name" to "children",
+                            "children" to listOf("stencil-component"),
+                        ),
+                    ),
+                )
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val request = HttpEntity(
+                    objectMapper.writeValueAsString(
+                        mapOf(
+                            "templateModel" to templateModel,
+                            "data" to emptyMap<String, Any?>(),
+                        ),
+                    ),
+                    headers,
+                )
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                val error = objectMapper.readTree(response.body).path("errors").path(0)
+                assertThat(error.get("path").stringValue())
+                    .isEqualTo(
+                        "templateModel.nodes.stencil-component.props.parameterBindings.param1",
+                    )
+                assertThat(error.get("message").stringValue())
+                    .contains("Stencil 'address-block'")
+                    .contains("component 'stencil-component'")
+                    .contains("parameter 'param1'")
+                assertThat(error.get("code").stringValue())
+                    .isEqualTo("NODE_PARAMETER_BINDING_MISSING_REQUIRED")
+            }
+        }
+
+        @Test
         fun `POST preview returns 404 for non-existent variant`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate

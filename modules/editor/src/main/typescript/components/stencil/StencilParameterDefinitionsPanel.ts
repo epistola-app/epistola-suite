@@ -26,7 +26,7 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { JsonSchema, JsonSchemaProperty } from '../../data-contract/types.js';
+import type { JsonSchema, JsonSchemaProperty, JsonValue } from '../../data-contract/types.js';
 import {
   fieldTypeLabel,
   scalarFromJsonSchema,
@@ -455,7 +455,7 @@ function rowToProperty(row: ParamRow): JsonSchemaProperty {
   const base: JsonSchemaProperty = row.isList ? { type: 'array', items: inner } : inner;
   if (row.description) base.description = row.description;
   const def = parseDefault(row);
-  if (def !== undefined) (base as JsonSchemaProperty & { default?: unknown }).default = def;
+  if (def !== undefined) base.default = def;
   return base;
 }
 
@@ -463,7 +463,7 @@ function innerProp(row: ParamRow): JsonSchemaProperty {
   return scalarToJsonSchema(row.type);
 }
 
-function parseDefault(row: ParamRow): unknown {
+function parseDefault(row: ParamRow): JsonValue | undefined {
   const raw = row.defaultText.trim();
   if (!raw) return undefined;
   if (row.isList) {
@@ -472,7 +472,7 @@ function parseDefault(row: ParamRow): unknown {
   return parseScalar(raw, row.type);
 }
 
-function parseScalar(raw: string, type: ParamRow['type']): unknown {
+function parseScalar(raw: string, type: ParamRow['type']): string | number | boolean {
   switch (type) {
     case 'number': {
       const n = Number(raw);

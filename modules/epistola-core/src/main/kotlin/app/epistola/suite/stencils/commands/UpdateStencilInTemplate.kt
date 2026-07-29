@@ -126,7 +126,7 @@ class UpdateStencilInTemplateHandler(
             )
 
             // 5. Validate and save the modified draft with its derived path index.
-            val prepared = templateDocumentPreparation.prepare(upgrade.document)
+            val prepared = templateDocumentPreparation.prepareDraft(upgrade.document)
             handle.createUpdate(
                 """
             UPDATE template_versions

@@ -16,7 +16,7 @@ async function mount(container) {
   const config = JSON.parse(island.textContent);
 
   const editorModule = await import(config.editorModuleUrl);
-  const { loadEditorPlugins, mountEditor } = editorModule;
+  const { formatPreviewErrorResponse, loadEditorPlugins, mountEditor } = editorModule;
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
@@ -317,8 +317,8 @@ async function mount(container) {
       );
 
       if (!response.ok) {
-        const text = await response.text().catch(() => response.statusText);
-        throw new Error('Preview failed: ' + text);
+        const text = await response.text().catch(() => '');
+        throw new Error(formatPreviewErrorResponse(text, response.statusText || 'Preview failed'));
       }
 
       return await response.blob();

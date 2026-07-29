@@ -21,6 +21,7 @@ import type {
 } from './types.js';
 import type { FieldPath } from '../../engine/schema-paths.js';
 import { renderBindingRow } from './binding-row.js';
+import { missingRequiredParameters } from './parameter-requirements.js';
 
 export type StencilPickerResult =
   | { action: 'create-new'; ref: StencilRef; version: number }
@@ -368,10 +369,9 @@ export async function openStencilPickerDialog(
         insertBtn.disabled = true;
         return;
       }
-      const required = pendingBindingVersionInfo.parameterSchema?.required ?? [];
-      const allRequiredBound = required.every(
-        (name) => (bindingValues[name] ?? '').trim().length > 0,
-      );
+      const schema = pendingBindingVersionInfo.parameterSchema;
+      const allRequiredBound =
+        schema === undefined || missingRequiredParameters(schema, bindingValues).length === 0;
       insertBtn.disabled = !allRequiredBound;
     }
 

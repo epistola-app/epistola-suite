@@ -35,6 +35,20 @@ class TemplateDocumentValidator(
         validateAt(TEMPLATE_FIELD, doc, TemplateDocumentKind.TEMPLATE)
     }
 
+    /**
+     * Drafts may be persisted with required parameters still unbound. All other
+     * document and binding validation remains active so a draft cannot retain
+     * malformed expressions or bindings to parameters that do not exist.
+     */
+    fun validateTemplateDraft(doc: TemplateDocument) {
+        validateAt(
+            TEMPLATE_FIELD,
+            doc,
+            TemplateDocumentKind.TEMPLATE,
+            ignoredCodes = setOf(TemplateValidationCodes.NODE_PARAMETER_BINDING_MISSING_REQUIRED),
+        )
+    }
+
     fun validateStencil(doc: TemplateDocument) {
         rejectUnsupportedNestedStencilAuthoring(doc)
         validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL)
@@ -65,17 +79,19 @@ class TemplateDocumentValidator(
                 it.code == TemplateValidationCodes.TEMPLATE_GRAPH_INVALID ||
                     it.code == TemplateValidationCodes.TEMPLATE_NODE_TYPE_UNSUPPORTED
             }
-        if (finding != null) throw finding.asSuiteException(TEMPLATE_FIELD)
+        if (finding != null) throw finding.asSuiteException(TEMPLATE_FIELD, doc)
     }
 
     private fun validateAt(
         requestField: String,
         document: TemplateDocument,
         kind: TemplateDocumentKind,
+        ignoredCodes: Set<String> = emptySet(),
     ) {
         validate(document, kind)
+            .filterNot { it.code in ignoredCodes }
             .minWithOrNull(compareBy({ LEGACY_CODE_PRIORITY.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }, { it.path }))
-            ?.let { throw it.asSuiteException(requestField) }
+            ?.let { throw it.asSuiteException(requestField, document) }
     }
 
     private fun validate(
@@ -93,11 +109,30 @@ class TemplateDocumentValidator(
         },
     ).findings.filter { it.severity == ValidationSeverity.ERROR }
 
-    private fun TemplateValidationFinding.asSuiteException(requestField: String): ValidationException = ValidationException(
-        field = "$requestField.$path",
-        message = message,
-        code = ValidationCode.entries.firstOrNull { it.wire == code } ?: ValidationCode.GENERIC,
-    )
+    private fun TemplateValidationFinding.asSuiteException(
+        requestField: String,
+        document: TemplateDocument,
+    ): ValidationException {
+        val presentationMessage = if (code == TemplateValidationCodes.NODE_PARAMETER_BINDING_MISSING_REQUIRED) {
+            val nodeId = path.substringAfter("nodes.").substringBefore(".props.parameterBindings.")
+            val parameter = path.substringAfterLast('.')
+            val node = document.nodes[nodeId]
+            val stencilId = node?.props?.get("stencilId") as? String
+            val component = if (stencilId.isNullOrBlank()) {
+                "Component '$nodeId' (${node?.type ?: "unknown"})"
+            } else {
+                "Stencil '$stencilId' (component '$nodeId')"
+            }
+            "$component requires parameter '$parameter', but it has no binding or default"
+        } else {
+            message
+        }
+        return ValidationException(
+            field = "$requestField.$path",
+            message = presentationMessage,
+            code = ValidationCode.entries.firstOrNull { it.wire == code } ?: ValidationCode.GENERIC,
+        )
+    }
 
     companion object {
         private const val TEMPLATE_FIELD = "templateModel"

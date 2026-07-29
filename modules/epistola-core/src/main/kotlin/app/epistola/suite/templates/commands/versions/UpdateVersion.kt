@@ -40,7 +40,7 @@ class UpdateVersionHandler(
 ) : CommandHandler<UpdateVersion, TemplateVersion> {
     override fun handle(command: UpdateVersion): TemplateVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
-        val prepared = templateDocumentPreparation.prepare(command.templateModel)
+        val prepared = templateDocumentPreparation.prepareDraft(command.templateModel)
         return jdbi.inTransaction<TemplateVersion, Exception> { handle ->
             handle.createQuery(
                 """
