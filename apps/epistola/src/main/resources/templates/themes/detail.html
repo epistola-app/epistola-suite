@@ -4,7 +4,6 @@
     <th:block th:fragment="content">
         <link rel="stylesheet" th:href="@{/editor/theme-editor.css}">
 
-
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${theme.name},
             backLinkHref=@{/tenants/{tenantId}/themes(tenantId=${tenantId})},
@@ -16,17 +15,22 @@
             <span class="badge badge-muted">Read-only</span> This theme belongs to a subscribed catalog.
         </p>
 
-        <div class="ep-panel detail-section">
+        <div class="ep-panel detail-section theme-settings-panel">
             <div class="detail-section-header">
-                <h2>Theme Editor</h2>
-                <span class="text-muted" style="font-size: var(--ep-text-sm);">
-                    Last modified: <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                </span>
+                <div>
+                    <h2>Theme configuration</h2>
+                    <span class="theme-panel-subtitle">
+                        Last modified <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                    </span>
+                </div>
+                <span class="badge badge-default" th:text="${theme.catalogKey}"></span>
             </div>
-            <div class="detail-section-body">
+            <div class="detail-section-body theme-editor-panel-body">
                 <div id="theme-editor-container"></div>
             </div>
         </div>
+
+        <div th:replace="~{epistola-web/dialog :: dialog-mount}"></div>
 
         <script type="application/json" id="theme-editor-config" th:inline="javascript">
         {
@@ -43,6 +47,12 @@
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
     <th:block th:fragment="theme-detail-actions">
+        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                data-testid="theme-usage-open-action"
+                th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML">
+            View usage
+        </button>
         <form th:if="${editable}" id="delete-theme-form"
               th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
               method="post">

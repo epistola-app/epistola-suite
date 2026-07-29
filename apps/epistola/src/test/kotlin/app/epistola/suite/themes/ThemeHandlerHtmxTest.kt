@@ -6,9 +6,18 @@ package app.epistola.suite.themes
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -172,6 +181,121 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("""id="dialog-mount"""")
             assertThat(response.body).doesNotContain("""id="create-theme-dialog"""")
             assertThat(response.body).doesNotContain("create-theme-form")
+        }
+    }
+
+    @Test
+    fun `theme detail defers effective template usage until requested`() = fixture {
+        lateinit var testTenant: Tenant
+        lateinit var templateId: TemplateId
+
+        given {
+            testTenant = tenant("Theme Usage Detail")
+            withMediator {
+                val tenantId = TenantId(testTenant.id)
+                val themeId = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenantId))
+                CreateTheme(themeId, "Brand Theme").execute()
+                templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+                CreateDocumentTemplate(templateId, "Invoice").execute()
+                UpdateDocumentTemplate(
+                    id = templateId,
+                    themeId = themeId.key,
+                    themeCatalogKey = themeId.catalogKey,
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity(
+                "/tenants/${testTenant.id}/themes/default/brand",
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Theme configuration")
+            assertThat(response.body).contains("View usage")
+            assertThat(response.body).contains("""hx-target="#dialog-mount"""")
+            assertThat(response.body).contains("""id="dialog-mount"""")
+            assertThat(response.body).doesNotContain("Invoice")
+            assertThat(response.body).doesNotContain("Template default")
+            assertThat(response.body).doesNotContain("Preview panel coming soon")
+        }
+    }
+
+    @Test
+    fun `HTMX theme usage lazily returns a dialog with effective usage`() = fixture {
+        lateinit var testTenant: Tenant
+        lateinit var templateId: TemplateId
+
+        given {
+            testTenant = tenant("Theme Usage Dialog")
+            withMediator {
+                val tenantId = TenantId(testTenant.id)
+                val themeId = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenantId))
+                CreateTheme(themeId, "Brand Theme").execute()
+                templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+                CreateDocumentTemplate(templateId, "Invoice").execute()
+                UpdateDocumentTemplate(
+                    id = templateId,
+                    themeId = themeId.key,
+                    themeCatalogKey = themeId.catalogKey,
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/themes/default/brand/usage",
+                HttpMethod.GET,
+                HttpEntity<Void>(htmxHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("""id="theme-usage-dialog"""")
+            assertThat(response.body).contains("Invoice")
+            assertThat(response.body).contains("Template default")
+            assertThat(response.body).contains("/templates/default/${templateId.key}")
+            assertThat(response.body).doesNotContain("<html")
+        }
+    }
+
+    @Test
+    fun `HTMX paged theme usage returns an empty-state body fragment`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Theme Usage Empty")
+            withMediator {
+                val tenantId = TenantId(testTenant.id)
+                CreateTheme(
+                    ThemeId(ThemeKey.of("unused"), CatalogId.default(tenantId)),
+                    "Unused Theme",
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/themes/default/unused/usage?page=1",
+                HttpMethod.GET,
+                HttpEntity<Void>(htmxHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("This theme is not in use")
+            assertThat(response.body).doesNotContain("<html")
+            assertThat(response.body).doesNotContain("theme-usage-dialog")
         }
     }
 

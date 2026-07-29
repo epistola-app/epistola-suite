@@ -89,5 +89,28 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         // …and the theme editor booted on htmx:load after the swap (proving the
         // editor survives the boosted navigation the soft redirect performs).
         assertThat(page.locator("#theme-editor-container[data-editor-mounted='true']")).isVisible()
+        // Configuration gets the full page width; usage is available on demand
+        // and is not rendered until its action is pressed.
+        assertThat(page.locator(".theme-settings-panel")).isVisible()
+        assertThat(page.locator("[data-testid='theme-usage-open-action']")).isVisible()
+        assertThat(page.locator("#theme-usage-dialog")).hasCount(0)
+        assertThat(page.locator(".theme-editor-preview-placeholder")).hasCount(0)
+        assertThat(page.locator("#theme-page-margin-top")).hasCSS("min-width", "80px")
+
+        // Presets can be added directly from the card header. A new preset opens
+        // immediately for editing and exposes a clearly labelled remove action.
+        page.locator(".theme-preset-add-btn").click()
+        assertThat(page.locator(".theme-preset-card[open]")).isVisible()
+        assertThat(page.locator(".theme-preset-label-input")).isFocused()
+        page.locator(".theme-preset-remove").click()
+        assertThat(page.locator(".theme-preset-card")).hasCount(0)
+
+        page.openDialogByTrigger(
+            page.locator("[data-testid='theme-usage-open-action']"),
+            "#theme-usage-dialog",
+        )
+
+        assertThat(page.locator("dialog[open]#theme-usage-dialog")).isVisible()
+        assertThat(page.locator("#theme-usage-dialog")).containsText("This theme is not in use")
     }
 }

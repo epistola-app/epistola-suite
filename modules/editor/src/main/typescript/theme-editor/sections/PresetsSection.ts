@@ -18,37 +18,59 @@ export function renderPresetsSection(state: ThemeEditorState, readOnly = false):
   const entries = Object.entries(presets);
 
   return html`
-    <section class="theme-section">
-      <h3 class="theme-section-label">Block Style Presets</h3>
-      <p class="theme-section-hint">
-        Named style collections that blocks can reference. Similar to CSS classes.
-      </p>
+    <div class="theme-section theme-section-presets">
+      <div class="theme-section-heading">
+        <div>
+          <h3 class="theme-section-label">Block Style Presets</h3>
+          <p class="theme-section-hint">
+            Reusable style collections that blocks can apply like CSS classes.
+          </p>
+        </div>
+        <button
+          class="ep-btn ep-btn-outline ep-btn-sm theme-preset-add-btn"
+          ?disabled=${readOnly}
+          @click=${(event: Event) => addAndOpenPreset(state, presets, event)}
+        >
+          Add preset
+        </button>
+      </div>
 
       <div class="theme-preset-list">
         ${entries.length === 0
           ? html`
               <div class="empty-state">
                 <div class="empty-state-title">No presets defined</div>
-                <div class="empty-state-description">Click "Add Preset" to create one.</div>
+                <div class="empty-state-description">
+                  Add a preset to reuse the same styling across blocks.
+                </div>
               </div>
             `
           : entries.map(([name, preset]) =>
               renderPresetItem(state, name, preset, () => state.removePreset(name), readOnly),
             )}
       </div>
-
-      <button
-        class="theme-preset-add-btn"
-        ?disabled=${readOnly}
-        @click=${() => {
-          const name = generatePresetName(presets);
-          state.addPreset(name);
-        }}
-      >
-        + Add Preset
-      </button>
-    </section>
+    </div>
   `;
+}
+
+function addAndOpenPreset(
+  state: ThemeEditorState,
+  presets: Record<string, unknown>,
+  event: Event,
+): void {
+  const name = generatePresetName(presets);
+  const editor = (event.currentTarget as HTMLElement).closest('epistola-theme-editor');
+  state.addPreset(name);
+
+  requestAnimationFrame(() => {
+    const card = Array.from(
+      editor?.querySelectorAll<HTMLDetailsElement>('.theme-preset-card') ?? [],
+    ).find((item) => item.dataset.presetKey === name);
+    if (!card) return;
+
+    card.open = true;
+    card.querySelector<HTMLInputElement>('.theme-preset-label-input')?.focus();
+  });
 }
 
 function generatePresetName(presets: Record<string, unknown>): string {

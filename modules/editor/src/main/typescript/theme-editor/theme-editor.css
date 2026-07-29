@@ -7,12 +7,12 @@
 /*
  * Theme Editor Styles
  *
- * Two-column layout, collapsible sections, preset cards, status bar.
+ * Responsive detail layout, collapsible preset cards, and save status.
  * Uses design-system tokens from @design/tokens.css.
  * Reuses @design/components.css for buttons, inputs, badges, etc.
  */
 
-@layer base, layout, components, states;
+@layer base, layout, components, app, app-utilities, theme-editor, states;
 
 /* Design system (shared with main app) */
 @import '@design/tokens.css';
@@ -22,46 +22,149 @@
 /* Reuse inspector input styles */
 @import '../styles/inspector.css';
 
-/* Override shell.css main-content max-width
-   Reason is to give theme editor more space */
+@layer theme-editor {
+  /* Give the configuration workspace room without becoming full-bleed. */
+  .main-content {
+    max-width: var(--ep-max-width-xl);
+  }
 
-.main-content {
-  max-width: var(--ep-max-width-xl);
-}
+  .theme-settings-panel {
+    width: 100%;
+  }
 
-.detail-section-body {
-  padding: var(--ep-space-1);
-}
+  .theme-panel-subtitle {
+    display: block;
+    margin-top: var(--ep-space-1);
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-xs);
+    font-weight: 400;
+  }
 
-/* ============================================================================
- * Layout
- * ========================================================================== */
-
-@layer layout {
-  .theme-editor-layout {
-    display: grid;
-    grid-template-columns: 33.3% 1fr;
-    gap: var(--ep-space-2);
-    min-height: 400px;
+  .theme-editor-panel-body {
+    padding: 0;
   }
 
   .theme-editor-panel {
-    overflow-y: auto;
-    max-height: calc(100vh - 280px);
-    padding: var(--ep-space-1);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--ep-space-4);
+    padding: var(--ep-space-4);
+    background: var(--ep-muted);
   }
 
-  .theme-editor-preview {
-    border: 1px solid var(--ep-border-color);
-    border-radius: var(--ep-radius-md);
+  .theme-editor-panel .ep-input,
+  .theme-editor-panel .ep-select,
+  .theme-editor-panel .ep-textarea {
+    width: 100%;
+  }
+
+  /*
+   * The shared inspector keeps numeric controls compact for its narrow
+   * sidebar. Theme cards have more room, so give numbers enough width for
+   * their value as well as the browser's stepper controls.
+   */
+  .theme-editor-panel .style-unit-input {
+    display: grid;
+    grid-template-columns: minmax(5rem, 1fr) auto;
+  }
+
+  .theme-editor-panel .style-spacing-input,
+  .theme-editor-panel .inspector-margins-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(5rem, 1fr));
+  }
+
+  .theme-editor-panel .style-unit-number,
+  .theme-editor-panel .style-spacing-number,
+  .theme-editor-panel .style-border-width {
+    min-width: 5rem;
+  }
+
+  .theme-editor-panel .style-border-width {
+    width: 5rem;
+  }
+
+  .theme-editor-panel .style-spacing-unit {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .theme-usage-dialog {
+    width: min(72rem, calc(100vw - 2rem));
+  }
+
+  .theme-usage-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ep-space-4);
+    padding: var(--ep-space-4);
+    border-bottom: 1px solid var(--ep-border-color);
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-sm);
+  }
+
+  .theme-usage-summary strong {
+    color: var(--ep-foreground);
+  }
+
+  .theme-usage-note {
+    padding: var(--ep-space-3) var(--ep-space-4);
+    border-bottom: 1px solid var(--ep-border-color);
+    background: var(--ep-muted);
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-xs);
+  }
+
+  .theme-usage-table-wrap {
+    overflow-x: auto;
+  }
+
+  .theme-usage-table {
+    min-width: 46rem;
+  }
+
+  .theme-usage-link {
+    display: block;
+    color: var(--ep-foreground);
+    font-weight: 500;
+  }
+
+  .theme-usage-resource-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ep-space-1);
+    margin-top: var(--ep-space-1);
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-xs);
+  }
+
+  .theme-usage-resource-meta code,
+  .theme-usage-variant-key {
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-xs);
+  }
+
+  .theme-usage-variant-key {
+    display: block;
+    margin-top: var(--ep-space-1);
+  }
+
+  .theme-usage-empty {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding: var(--ep-space-10) var(--ep-space-6);
+  }
+
+  .theme-usage-pagination {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 300px;
-  }
-
-  .theme-editor-preview-placeholder {
-    color: var(--ep-muted-foreground);
+    gap: var(--ep-space-3);
+    padding: var(--ep-space-3) var(--ep-space-4);
+    border-top: 1px solid var(--ep-border-color);
     font-size: var(--ep-text-sm);
   }
 
@@ -70,34 +173,58 @@
     padding: var(--ep-space-8);
     text-align: center;
   }
-}
 
-/* ============================================================================
- * Sections
- * ========================================================================== */
-
-@layer components {
   .theme-section {
-    margin-bottom: var(--ep-space-6);
-    padding-bottom: var(--ep-space-4);
-    border-bottom: 1px solid var(--ep-stone-100);
+    min-width: 0;
+    margin: 0;
+    padding: var(--ep-space-5);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    background: var(--ep-card);
+    box-shadow: var(--ep-shadow-xs);
   }
 
-  .theme-section:last-child {
-    border-bottom: none;
+  .theme-section-presets {
+    grid-column: 1 / -1;
+  }
+
+  .theme-section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--ep-space-4);
+    margin-bottom: var(--ep-space-4);
   }
 
   .theme-section-label {
-    font-size: var(--ep-text-sm);
+    font-size: var(--ep-text-base);
     font-weight: 600;
-    color: var(--ep-foreground);
-    margin: 0 0 var(--ep-space-2) 0;
+    color: var(--ep-stone-800);
+    margin: 0 0 var(--ep-space-2);
   }
 
   .theme-section-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-muted-foreground);
-    margin: 0 0 var(--ep-space-3) 0;
+    color: var(--ep-stone-600);
+    margin: 0 0 var(--ep-space-3);
+  }
+
+  .theme-section-heading .theme-section-hint {
+    margin-bottom: 0;
+  }
+
+  .theme-editor-panel .inspector-field {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .theme-editor-panel .inspector-field:last-child {
+    margin-bottom: 0;
+  }
+
+  .theme-editor-panel .inspector-field-label {
+    color: var(--ep-stone-600);
+    font-weight: 500;
+    margin-bottom: var(--ep-space-1);
   }
 
   /* Mono inputs */
@@ -113,7 +240,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--ep-space-2);
-    margin-bottom: var(--ep-space-3);
   }
 
   .theme-preset-card {
@@ -201,15 +327,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--ep-h-8);
     height: var(--ep-h-8);
-    padding: 0;
+    padding: 0 var(--ep-space-2);
     color: var(--ep-muted-foreground);
     background-color: transparent;
     border: 1px solid transparent;
     border-radius: var(--ep-radius-sm);
     cursor: pointer;
-    font-size: 18px;
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
     line-height: 1;
     flex-shrink: 0;
     transition: var(--ep-transition-colors);
@@ -227,8 +353,32 @@
   }
 
   .theme-preset-body {
-    padding: var(--ep-space-3);
+    padding: var(--ep-space-4);
     border-top: 1px solid var(--ep-border-color);
+  }
+
+  .theme-preset-meta-grid,
+  .theme-preset-style-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--ep-space-4);
+  }
+
+  .theme-preset-meta-grid {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  .theme-preset-style-grid {
+    align-items: start;
+    margin-top: var(--ep-space-5);
+  }
+
+  .theme-preset-style-group {
+    margin: 0;
+    padding: var(--ep-space-4);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-md);
+    background: var(--ep-muted);
   }
 
   /* ApplicableTo checkboxes */
@@ -260,31 +410,7 @@
 
   /* Add preset button */
   .theme-preset-add-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--ep-space-1-5);
-    height: var(--ep-h-9);
-    padding: 0 var(--ep-space-4);
-    font-size: var(--ep-text-sm);
-    font-weight: 500;
-    color: var(--ep-terracotta-700);
-    background-color: var(--ep-terracotta-50);
-    border: 1px dashed var(--ep-terracotta-300);
-    border-radius: var(--ep-radius-md);
-    cursor: pointer;
-    transition: var(--ep-transition-colors);
-    align-self: flex-start;
-
-    &:hover {
-      background-color: var(--ep-terracotta-100);
-      border-color: var(--ep-terracotta-400);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--ep-ring);
-    }
+    flex-shrink: 0;
   }
 
   /* --------------------------------------------------------------------------
@@ -297,10 +423,8 @@
     justify-content: flex-end;
     gap: var(--ep-space-3);
     padding: var(--ep-space-2) var(--ep-space-3);
-    border: 1px solid var(--ep-border-color);
+    border-bottom: 1px solid var(--ep-border-color);
     background-color: var(--ep-muted);
-    margin-bottom: var(--ep-space-1);
-    border-radius: var(--ep-radius-md);
   }
 
   .theme-status-indicator {
@@ -343,5 +467,33 @@
     margin-bottom: var(--ep-space-2);
     text-transform: uppercase;
     letter-spacing: var(--ep-tracking-wider);
+  }
+
+  @media (max-width: 72rem) {
+    .theme-editor-panel {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .theme-section-document {
+      grid-row: span 2;
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .theme-editor-panel,
+    .theme-preset-meta-grid,
+    .theme-preset-style-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .theme-section-document {
+      grid-row: auto;
+    }
+
+    .theme-section-heading,
+    .theme-usage-summary {
+      align-items: stretch;
+      flex-direction: column;
+    }
   }
 }

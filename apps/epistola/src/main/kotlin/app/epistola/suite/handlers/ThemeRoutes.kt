@@ -24,6 +24,7 @@ class ThemeRoutes(private val handler: ThemeHandler) {
                 POST("", handler::create)
 
                 GET("/{catalogId}/{themeId}", handler::detail)
+                GET("/{catalogId}/{themeId}/usage", handler::usage)
                 PATCH("/{catalogId}/{themeId}", handler::update)
                 POST("/{catalogId}/{themeId}/delete", handler::delete)
             }
