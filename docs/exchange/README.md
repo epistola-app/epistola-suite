@@ -81,7 +81,17 @@ During catalog import, the `CatalogImportContext` ScopedValue bypasses editabili
 
 ## Architecture
 
-All catalog logic lives in `modules/epistola-core` under `app.epistola.suite.catalog`:
+Portable catalog structure and behavior live in the external
+`app.epistola.contract:epistola-catalog` artifact. It owns the wire models,
+registries, validation, archive codec, migration, canonicalization, hashes, and
+fingerprints. The matching npm package supplies the editor's portable models
+and registry projections.
+
+Suite integration remains in `modules/epistola-core` under
+`app.epistola.suite.catalog`. It owns tenant authorization, persistence,
+import/upsert orchestration, authored/subscribed lifecycle, dependency
+installation, and conflict handling. Its validators and archive services are
+adapters around `epistola-catalog`, not an independent portable specification:
 
 ```
 catalog/
@@ -108,15 +118,16 @@ catalog/
     FindStencilVersionExportConflicts.kt  # Export precheck
     GetCatalog.kt, ListCatalogs.kt
     PreviewInstall.kt                 # Dependency resolution preview
-  protocol/
-    CatalogManifest.kt                # Wire format
-    ResourceDetail.kt                 # Resource detail wire format
 ```
 
 UI handlers and routes are in `apps/epistola`:
 
 - `CatalogHandler.kt` — list, create, register, unregister, browse, install, export
 - `CatalogRoutes.kt` — route bindings under `/tenants/{tenantId}/catalogs`
+
+See [Catalog contract upgrade compatibility](../catalog-contract-compatibility.md)
+for the exact ownership boundary, production implications, and the catalog-v5
+follow-up for RC3 stencil draft markers.
 
 ## Data Model
 

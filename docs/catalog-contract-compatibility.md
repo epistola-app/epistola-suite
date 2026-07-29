@@ -21,16 +21,40 @@ state model landed in April 2026, and the ProseMirror object model predates the
 current production period. Therefore content created only through the editor
 during the last month is expected to remain compatible.
 
+For stored editor documents, a missing `isDraft` has the same meaning as
+`isDraft: false`. The shared validator accepts that historical shape so opening
+or rendering a published stencil reference does not depend on a bulk JSONB
+rewrite. The current editor still writes the property explicitly.
+
 This is not an unconditional backward-compatibility guarantee. The following
 historical or malformed shapes are intentionally rejected when they cross a
 strict boundary:
 
 - string or bare-array text content;
-- stencil nodes missing `stencilId`, positive `version`, or boolean `isDraft`;
+- stencil nodes missing `stencilId` or a positive `version`, or carrying a
+  non-boolean `isDraft`;
 - cycles, unreachable nodes, inconsistent node/slot ownership, unsupported
   components, or invalid property shapes;
 - stencil-instance ancestry deeper than five levels;
 - draft stencil references in a published catalog.
+
+## Ownership after this integration
+
+The dependency move does not move Suite product behavior into the portable
+library:
+
+| Portable `epistola-catalog` responsibility                 | Suite responsibility                                |
+| ---------------------------------------------------------- | --------------------------------------------------- |
+| Template, theme, manifest, and resource models             | Tenant and catalog authorization                    |
+| Component and style registries                             | Database persistence and transactions               |
+| Template and whole-catalog validation                      | Import/upsert orchestration and conflict policy     |
+| Safe deterministic archive reading and writing             | Authored/subscribed lifecycle and release state     |
+| Wire migration, canonicalization, hashes, and fingerprints | Editor, rendering, and operator-facing presentation |
+
+Suite adapters supply catalog-scoped resource resolution to the portable
+validator and translate stable findings into existing Suite exceptions and UI
+messages. They must not reimplement portable graph, schema, registry, archive,
+or fingerprint rules.
 
 ## What happens when an instance upgrades
 
@@ -59,6 +83,20 @@ referencing another, including recursion and five-level depth checks. Suite
 does not yet expose nested-stencil definition authoring: its adapter preserves
 the existing create, update, import, and publish capability gate. Templates
 may continue to contain ordinary stencil instances and placeholder fills.
+
+## Known v4 archive limitation and catalog v5
+
+Catalog v4 uses `version` plus `isDraft` for stencil references. A portable
+published catalog must not contain `isDraft: true`, so this integration rejects
+such an archive with `STENCIL_REFERENCE_INVALID`.
+
+Some RC3 exports can nevertheless contain `isDraft: true` as a stale authoring
+marker even though the archive embeds a complete, usable stencil copy. The
+intentional compatibility fix is tracked in
+[epistola-contract#52](https://github.com/epistola-app/epistola-contract/issues/52):
+catalog v5 replaces `isDraft` with exact `draftVersion` provenance and adds a
+v4-to-v5 migration that preserves the embedded subtree and published version
+for this RC3 case. This Suite PR does not implement or close that follow-up.
 
 ## Deployment check
 

@@ -19,7 +19,8 @@
 - **[dev]** docs(catalog): **Catalog contract breaking changes are explicit.**
   The compatibility guide now distinguishes stored editor documents from portable exports,
   records the canonical rich-text and stencil-reference requirements, explains strict
-  revalidation boundaries, and gives production snapshot checks.
+  revalidation boundaries, documents the Contract/Suite ownership split and the catalog-v5
+  follow-up for RC3 draft markers, and gives production snapshot checks.
 - **[dev]** fix(stencils): **Nested stencil authoring remains explicitly gated in Suite.**
   `epistola-catalog` now specifies and validates portable nested-stencil composition, while the
   Suite adapter preserves the existing create, update, import, and publish rejection until the
