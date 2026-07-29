@@ -58,18 +58,68 @@ export interface StencilActionContext {
  * not via a content swap. Fills are restored automatically when the
  * stencil exits draft mode (Publish / Discard).
  */
-export async function startEditing(ctx: StencilActionContext): Promise<{ draftVersion: number }> {
+export async function startEditing(ctx: StencilActionContext): Promise<StencilVersionInfo> {
   const ref = requireRef(ctx);
   if (!ctx.callbacks.startEditing) {
     throw new Error('startEditing callback is not configured');
   }
   const result = await ctx.callbacks.startEditing(ref);
+  const existing = stencilNode(ctx);
+  const publishedBase = isStencil(existing) ? existing.props.version : undefined;
+  const captured = captureFillsByName(
+    extractSubtree(ctx.engine.doc, ctx.stencilNodeId, { keepFills: true }),
+  );
+  replaceContent(ctx, result.content);
+  applyCapturedFills(ctx, captured);
+  const props = versionProps(ctx, result);
+  if (publishedBase == null) delete props.version;
+  else props.version = publishedBase;
+  props.draftVersion = result.version;
   ctx.engine.dispatch({
     type: 'UpdateNodeProps',
     nodeId: ctx.stencilNodeId,
-    props: { ...stencilNode(ctx).props, isDraft: true },
+    props,
   });
   return result;
+}
+
+/** Apply an exact backend version while preserving template-owned fills. */
+export function hydrateVersion(ctx: StencilActionContext, versionInfo: StencilVersionInfo): void {
+  if (versionInfo.status === 'archived') {
+    throw new Error(`Draft v${versionInfo.version} is archived`);
+  }
+  const existing = stencilNode(ctx);
+  const publishedBase = isStencil(existing) ? existing.props.version : undefined;
+  const captured = captureFillsByName(
+    extractSubtree(ctx.engine.doc, ctx.stencilNodeId, { keepFills: true }),
+  );
+  replaceContent(ctx, versionInfo.content);
+  applyCapturedFills(ctx, captured);
+  const props = versionProps(ctx, versionInfo);
+  if (versionInfo.status === 'published') {
+    props.version = versionInfo.version;
+    delete props.draftVersion;
+  } else {
+    if (publishedBase == null) delete props.version;
+    else props.version = publishedBase;
+    props.draftVersion = versionInfo.version;
+  }
+  ctx.engine.dispatch({ type: 'UpdateNodeProps', nodeId: ctx.stencilNodeId, props });
+}
+
+/** Recreate a missing draft from the preserved embedded definition copy. */
+export async function recoverDraft(ctx: StencilActionContext): Promise<{ version: number }> {
+  const ref = requireRef(ctx);
+  if (!ctx.callbacks.startEditing || !ctx.callbacks.updateStencil) {
+    throw new Error('Draft recovery callbacks are not configured');
+  }
+  const embeddedDefinition = extractSubtree(ctx.engine.doc, ctx.stencilNodeId);
+  const schema = stencilParameterSchema(ctx);
+  const draft = await ctx.callbacks.startEditing(ref);
+  await ctx.callbacks.updateStencil(ref, draft.version, embeddedDefinition, schema);
+  const props = { ...stencilNode(ctx).props, draftVersion: draft.version };
+  ctx.engine.dispatch({ type: 'UpdateNodeProps', nodeId: ctx.stencilNodeId, props });
+  return { version: draft.version };
 }
 
 /**
@@ -84,9 +134,10 @@ export async function saveDraft(ctx: StencilActionContext): Promise<{ version: n
   if (!ctx.callbacks.updateStencil) {
     throw new Error('updateStencil callback is not configured');
   }
+  const draftVersion = requireDraftVersion(ctx);
   const content = extractSubtree(ctx.engine.doc, ctx.stencilNodeId);
   const schema = stencilParameterSchema(ctx);
-  return ctx.callbacks.updateStencil(ref, content, schema);
+  return ctx.callbacks.updateStencil(ref, draftVersion, content, schema);
 }
 
 /**
@@ -95,14 +146,12 @@ export async function saveDraft(ctx: StencilActionContext): Promise<{ version: n
  * — the local fill content is untouched, so the canvas re-renders in
  * template-fill mode and shows the user's existing override.
  */
-export async function publishDraft(
-  ctx: StencilActionContext,
-  draftVersion: number,
-): Promise<{ version: number }> {
+export async function publishDraft(ctx: StencilActionContext): Promise<{ version: number }> {
   const ref = requireRef(ctx);
   if (!ctx.callbacks.publishDraft) {
     throw new Error('publishDraft callback is not configured');
   }
+  const draftVersion = requireDraftVersion(ctx);
   const node = stencilNode(ctx);
   if (isStencil(node) && node.props.parameterSchemaSnapshot) {
     const missing = missingRequiredParameters(
@@ -118,17 +167,22 @@ export async function publishDraft(
   if (ctx.callbacks.updateStencil) {
     const content = extractSubtree(ctx.engine.doc, ctx.stencilNodeId);
     const schema = stencilParameterSchema(ctx);
-    await ctx.callbacks.updateStencil(ref, content, schema);
+    await ctx.callbacks.updateStencil(ref, draftVersion, content, schema);
   }
   const result = await ctx.callbacks.publishDraft(ref, draftVersion);
+  const props = versionProps(ctx, {
+    ref,
+    stencilName: ref.stencilId,
+    version: result.version,
+    status: 'published',
+    content: extractSubtree(ctx.engine.doc, ctx.stencilNodeId),
+    parameterSchema: stencilParameterSchema(ctx),
+  });
+  delete props.draftVersion;
   ctx.engine.dispatch({
     type: 'UpdateNodeProps',
     nodeId: ctx.stencilNodeId,
-    props: {
-      ...stencilNode(ctx).props,
-      version: result.version,
-      isDraft: false,
-    },
+    props,
   });
   return result;
 }
@@ -153,10 +207,12 @@ export async function discard(ctx: StencilActionContext, publishedVersion: numbe
   );
   replaceContent(ctx, versionInfo.content);
   applyCapturedFills(ctx, captured);
+  const props = versionProps(ctx, versionInfo);
+  delete props.draftVersion;
   ctx.engine.dispatch({
     type: 'UpdateNodeProps',
     nodeId: ctx.stencilNodeId,
-    props: versionProps(ctx, versionInfo, { isDraft: false }),
+    props,
   });
 }
 
@@ -183,10 +239,12 @@ export async function upgrade(
   );
   replaceContent(ctx, versionInfo.content);
   applyCapturedFills(ctx, captured);
+  const props = versionProps(ctx, versionInfo);
+  delete props.draftVersion;
   ctx.engine.dispatch({
     type: 'UpdateNodeProps',
     nodeId: ctx.stencilNodeId,
-    props: versionProps(ctx, versionInfo),
+    props,
   });
   return { version: versionInfo.version };
 }
@@ -214,17 +272,6 @@ export function detach(ctx: StencilActionContext): void {
  * reloaded mid-edit, or selected the stencil after a previous Start
  * Editing in another inspector instance).
  */
-export async function loadDraftVersion(ctx: StencilActionContext): Promise<number | null> {
-  const ref = stencilRef(ctx);
-  if (!ref || !ctx.callbacks.listVersions) return null;
-  try {
-    const versions = await ctx.callbacks.listVersions(ref);
-    return versions.find((v) => v.status === 'draft')?.version ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Latest published version available for this stencil's `stencilId`,
  * or null when none / unable to resolve. Used to detect upgrades.
@@ -280,6 +327,14 @@ function requireRef(ctx: StencilActionContext): StencilRef {
   const ref = stencilRef(ctx);
   if (!ref) throw new Error('Stencil is not linked to a published definition');
   return ref;
+}
+
+function requireDraftVersion(ctx: StencilActionContext): number {
+  const node = stencilNode(ctx);
+  if (!isStencil(node) || node.props.draftVersion == null) {
+    throw new Error('Stencil is not linked to an exact draft version');
+  }
+  return node.props.draftVersion;
 }
 
 /**

@@ -184,7 +184,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1, "isDraft" to false),
+                props = mapOf("stencilId" to stencilKey, "version" to 1),
             ),
             "embedded-ph" to Node(
                 id = "embedded-ph",

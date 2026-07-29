@@ -1550,7 +1550,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                             "props" to mapOf(
                                 "stencilId" to "address-block",
                                 "version" to 2,
-                                "isDraft" to true,
+                                "draftVersion" to 2,
                                 "parameterSchemaSnapshot" to mapOf(
                                     "type" to "object",
                                     "properties" to mapOf(

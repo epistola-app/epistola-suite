@@ -49,23 +49,31 @@ describe('stencil-actions module', () => {
     return { engine, registry, rootSlotId, stencilId, ctx };
   }
 
-  it('startEditing calls the callback and flips isDraft=true on the local stencil', async () => {
+  it('startEditing loads the exact backend draft and records its version', async () => {
+    const content = createTestDocument();
+    const draft = {
+      ref: { stencilId: 'header', catalogKey: 'cat' },
+      stencilName: 'Header',
+      version: 7,
+      status: 'draft' as const,
+      content,
+    };
     const callbacks = createMockCallbacks({
-      startEditing: vi.fn().mockResolvedValue({ draftVersion: 7 }),
+      startEditing: vi.fn().mockResolvedValue(draft),
     });
     const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: false },
+      { stencilId: 'header', catalogKey: 'cat', version: 1 },
       callbacks,
     );
 
     const result = await actions.startEditing(ctx);
 
-    expect(result).toEqual({ draftVersion: 7 });
+    expect(result).toEqual(draft);
     expect(callbacks.startEditing).toHaveBeenCalledWith({
       stencilId: 'header',
       catalogKey: 'cat',
     });
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(7);
   });
 
   it('startEditing throws when the stencil is unlinked', async () => {
@@ -78,7 +86,7 @@ describe('stencil-actions module', () => {
     const updateStencil = vi.fn().mockResolvedValue({ version: 3 });
     const callbacks = createMockCallbacks({ updateStencil });
     const { ctx, stencilId, engine } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 2, isDraft: true },
+      { stencilId: 'header', catalogKey: 'cat', version: 2, draftVersion: 2 },
       callbacks,
     );
     // Place a placeholder with both default + fill content under the stencil.
@@ -121,7 +129,13 @@ describe('stencil-actions module', () => {
     const result = await actions.saveDraft(ctx);
     expect(result).toEqual({ version: 3 });
     expect(updateStencil).toHaveBeenCalledOnce();
-    const sentContent = updateStencil.mock.calls[0][1] as TemplateDocument;
+    expect(updateStencil).toHaveBeenCalledWith(
+      { stencilId: 'header', catalogKey: 'cat' },
+      2,
+      expect.anything(),
+      undefined,
+    );
+    const sentContent = updateStencil.mock.calls[0][2] as TemplateDocument;
     // Fill slot exists in the sent content but is empty.
     const fillSlotInSent = Object.values(sentContent.slots).find((s) => s.name === 'fill');
     expect(fillSlotInSent).toBeDefined();
@@ -143,17 +157,17 @@ describe('stencil-actions module', () => {
     const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
     const callbacks = createMockCallbacks({ updateStencil, publishDraft });
     const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 4, isDraft: true },
+      { stencilId: 'header', catalogKey: 'cat', version: 4, draftVersion: 2 },
       callbacks,
     );
 
-    const result = await actions.publishDraft(ctx, 5);
+    const result = await actions.publishDraft(ctx);
 
     expect(result).toEqual({ version: 5 });
     expect(updateStencil).toHaveBeenCalledOnce();
-    expect(publishDraft).toHaveBeenCalledWith({ stencilId: 'header', catalogKey: 'cat' }, 5);
+    expect(publishDraft).toHaveBeenCalledWith({ stencilId: 'header', catalogKey: 'cat' }, 2);
     expect(engine.doc.nodes[stencilId].props?.version).toBe(5);
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
   });
 
   it('publishDraft rejects missing required bindings before changing backend state', async () => {
@@ -169,20 +183,20 @@ describe('stencil-actions module', () => {
         stencilId: 'header',
         catalogKey: 'cat',
         version: 4,
-        isDraft: true,
+        draftVersion: 2,
         parameterSchemaSnapshot: requiredSchema,
       },
       callbacks,
     );
 
-    await expect(actions.publishDraft(ctx, 5)).rejects.toThrow(
+    await expect(actions.publishDraft(ctx)).rejects.toThrow(
       'Configure required parameter before publishing: recipientName',
     );
 
     expect(updateStencil).not.toHaveBeenCalled();
     expect(publishDraft).not.toHaveBeenCalled();
     expect(engine.doc.nodes[stencilId].props?.version).toBe(4);
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(2);
   });
 
   it('publishDraft accepts a required parameter supplied by a schema default', async () => {
@@ -201,13 +215,13 @@ describe('stencil-actions module', () => {
         stencilId: 'header',
         catalogKey: 'cat',
         version: 4,
-        isDraft: true,
+        draftVersion: 2,
         parameterSchemaSnapshot: requiredSchema,
       },
       callbacks,
     );
 
-    await actions.publishDraft(ctx, 5);
+    await actions.publishDraft(ctx);
 
     expect(updateStencil).toHaveBeenCalledOnce();
     expect(publishDraft).toHaveBeenCalledOnce();
@@ -218,7 +232,7 @@ describe('stencil-actions module', () => {
     const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
     const callbacks = createMockCallbacks({ updateStencil, publishDraft });
     const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 4, isDraft: true },
+      { stencilId: 'header', catalogKey: 'cat', version: 4, draftVersion: 2 },
       callbacks,
     );
     // Stencil has a placeholder with override.
@@ -251,7 +265,7 @@ describe('stencil-actions module', () => {
       ],
     });
 
-    await actions.publishDraft(ctx, 5);
+    await actions.publishDraft(ctx);
 
     expect(engine.doc.slots[fillSlot].children).toEqual([fillText]);
     expect(richTextValue(engine.doc.nodes[fillText]?.props?.content)).toBe('override');
@@ -312,7 +326,7 @@ describe('stencil-actions module', () => {
       }),
     });
     const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: true },
+      { stencilId: 'header', catalogKey: 'cat', version: 1, draftVersion: 2 },
       callbacks,
     );
     // Seed the local stencil with a placeholder + edited default + filled override.
@@ -374,7 +388,7 @@ describe('stencil-actions module', () => {
       richTextValue(engine.doc.nodes[engine.doc.slots[newFillSlotId].children[0]]?.props?.content),
     ).toBe('user override');
     // Stencil exits draft mode.
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
   });
 
   it('discard restores the published parameter schema and prunes draft-only bindings', async () => {
@@ -392,7 +406,7 @@ describe('stencil-actions module', () => {
         stencilId: 'header',
         catalogKey: 'cat',
         version: 1,
-        isDraft: true,
+        draftVersion: 2,
         parameterSchemaSnapshot: {
           type: 'object',
           properties: {
@@ -412,7 +426,6 @@ describe('stencil-actions module', () => {
 
     expect(engine.doc.nodes[stencilId].props).toMatchObject({
       version: 1,
-      isDraft: false,
     });
     expect(engine.doc.nodes[stencilId].props?.parameterSchemaSnapshot).toEqual(RECIPIENT_SCHEMA);
     expect(engine.doc.nodes[stencilId].props?.parameterBindings).toEqual({
@@ -431,7 +444,7 @@ describe('stencil-actions module', () => {
       }),
     });
     const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: false },
+      { stencilId: 'header', catalogKey: 'cat', version: 1 },
       callbacks,
     );
 
@@ -465,7 +478,7 @@ describe('stencil-actions module', () => {
         stencilId: 'header',
         catalogKey: 'cat',
         version: 1,
-        isDraft: false,
+
         parameterSchemaSnapshot: {
           type: 'object',
           properties: {
@@ -508,7 +521,7 @@ describe('stencil-actions module', () => {
         stencilId: 'header',
         catalogKey: 'cat',
         version: 1,
-        isDraft: false,
+
         parameterSchemaSnapshot: RECIPIENT_SCHEMA,
         parameterBindings: { recipientName: 'customer.name' },
       },
@@ -524,34 +537,11 @@ describe('stencil-actions module', () => {
   it('detach replaces the stencil node type with container', () => {
     const callbacks = createMockCallbacks();
     const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: false },
+      { stencilId: 'header', catalogKey: 'cat', version: 1 },
       callbacks,
     );
     actions.detach(ctx);
     expect(engine.doc.nodes[stencilId].type).toBe('container');
-  });
-
-  it('loadDraftVersion returns the draft version when one exists', async () => {
-    const listVersions = vi.fn().mockResolvedValue([
-      { version: 1, status: 'published' },
-      { version: 2, status: 'draft' },
-    ]);
-    const callbacks = createMockCallbacks({ listVersions });
-    const { ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: true },
-      callbacks,
-    );
-    expect(await actions.loadDraftVersion(ctx)).toBe(2);
-  });
-
-  it('loadDraftVersion returns null when there is no draft', async () => {
-    const listVersions = vi.fn().mockResolvedValue([{ version: 1, status: 'published' }]);
-    const callbacks = createMockCallbacks({ listVersions });
-    const { ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: false },
-      callbacks,
-    );
-    expect(await actions.loadDraftVersion(ctx)).toBeNull();
   });
 
   it('findLatestPublishedVersion picks the highest published version', async () => {
@@ -561,10 +551,7 @@ describe('stencil-actions module', () => {
       { version: 3, status: 'draft' },
     ]);
     const callbacks = createMockCallbacks({ listVersions });
-    const { ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, isDraft: false },
-      callbacks,
-    );
+    const { ctx } = setupCtx({ stencilId: 'header', catalogKey: 'cat', version: 1 }, callbacks);
     expect(await actions.findLatestPublishedVersion(ctx)).toBe(2);
   });
 });

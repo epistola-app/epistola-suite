@@ -33,6 +33,7 @@ export interface StencilVersionInfo {
   ref: StencilRef;
   stencilName: string;
   version: number;
+  status: 'draft' | 'published' | 'archived';
   /** The template document fragment (nodes + slots) to embed. */
   content: import('../../types/index.js').TemplateDocument;
   /**
@@ -78,12 +79,13 @@ export type CreateStencilFn = (
 /** Push updated content back to a stencil as a new draft version. */
 export type UpdateStencilFn = (
   ref: StencilRef,
+  draftVersion: number,
   content: import('../../types/index.js').TemplateDocument,
   parameterSchema?: import('../../data-contract/types.js').JsonSchema,
 ) => Promise<{ version: number }>;
 
 /** Ensure a draft exists for a stencil (creates one if needed). */
-export type StartEditingFn = (ref: StencilRef) => Promise<{ draftVersion: number }>;
+export type StartEditingFn = (ref: StencilRef) => Promise<StencilVersionInfo>;
 
 /** Publish a specific version. */
 export type PublishDraftFn = (ref: StencilRef, version: number) => Promise<{ version: number }>;

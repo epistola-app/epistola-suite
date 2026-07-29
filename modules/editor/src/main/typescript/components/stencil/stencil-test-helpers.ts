@@ -18,7 +18,7 @@ import { EditorEngine } from '../../engine/EditorEngine.js';
 import { createDefaultRegistry, type ComponentRegistry } from '../../engine/registry.js';
 import { createTestDocument, nodeId, slotId } from '../../engine/test-helpers.js';
 import { createStencilDefinition } from './stencil-registration.js';
-import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../../types/index.js';
+import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
 
 export function richText(text: string) {
@@ -46,7 +46,13 @@ export function createMockCallbacks(overrides?: Partial<StencilCallbacks>): Sten
     listVersions: vi.fn().mockResolvedValue([]),
     getStencilVersion: vi.fn().mockResolvedValue(null),
     updateStencil: vi.fn().mockResolvedValue({ version: 2 }),
-    startEditing: vi.fn().mockResolvedValue({ draftVersion: 2 }),
+    startEditing: vi.fn().mockResolvedValue({
+      ref: { stencilId: 'header', catalogKey: 'default' },
+      stencilName: 'Header',
+      version: 2,
+      status: 'draft',
+      content: createSampleContent(),
+    }),
     publishDraft: vi.fn().mockResolvedValue({ version: 2 }),
     ...overrides,
   };
@@ -114,10 +120,10 @@ export function createSampleContent(): TemplateDocument {
     nodes: {
       [rootId]: { id: rootId, type: 'root', slots: [rootSlot] },
       [textId]: { id: textId, type: 'text', slots: [], props: { content: richText('Sample') } },
-    } as Record<NodeId, Node>,
+    },
     slots: {
       [rootSlot]: { id: rootSlot, nodeId: rootId, name: 'children', children: [textId] },
-    } as Record<SlotId, Slot>,
+    },
     themeRef: { type: 'inherit' },
   };
 }

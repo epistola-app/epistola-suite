@@ -567,7 +567,7 @@ class StencilHandler(
 
     /**
      * Create a version. Idempotent — returns existing draft if one exists.
-     * HTMX → version list fragment; JSON → { version, status }.
+     * HTMX → version list fragment; JSON → the exact draft and its content.
      * Optional JSON payload: { content?, publish? }
      */
     fun createVersion(request: ServerRequest): ServerResponse {
@@ -581,7 +581,14 @@ class StencilHandler(
         if (!request.isHtmx()) {
             return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("version" to draft.id.value, "status" to draft.status.name.lowercase()))
+                .body(
+                    mapOf(
+                        "version" to draft.id.value,
+                        "status" to draft.status.name.lowercase(),
+                        "content" to draft.content,
+                        "parameterSchema" to draft.parameterSchema,
+                    ),
+                )
         }
 
         return versionListFragment(request, tenantId, stencilId)
@@ -629,10 +636,12 @@ class StencilHandler(
 
     // ── Draft content ──────────────────────────────────────────────────────
 
-    /** Save content to the current draft version (editor auto-save). */
+    /** Save content to one exact draft version (editor auto-save). */
     fun updateDraft(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val versionId = request.pathVariable("versionId").toIntOrNull()
             ?: return ServerResponse.badRequest().build()
 
         data class DraftRequest(
@@ -643,27 +652,15 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, DraftRequest::class.java)
 
-        // Ensure a draft exists (idempotent). Pass content so it works even
-        // for brand-new stencils with no published versions to copy from.
-        val draft = CreateStencilVersion(
-            stencilId = stencilId,
-            content = req.content,
-            parameterSchema = req.parameterSchema,
-        ).execute()
-            ?: return ServerResponse.status(404)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "Stencil '${stencilId.key}' not found. Create it first using the stencil picker."))
-
-        // Always update — CreateStencilVersion returns existing draft without updating content
-        UpdateStencilDraft(
-            versionId = StencilVersionId(draft.id, stencilId),
+        val updated = UpdateStencilDraft(
+            versionId = StencilVersionId(VersionKey.of(versionId), stencilId),
             content = req.content,
             parameterSchema = req.parameterSchema,
         ).execute()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("version" to draft.id.value))
+            .body(mapOf("version" to updated.id.value))
     }
 
     // ── Shared ─────────────────────────────────────────────────────────────

@@ -77,7 +77,7 @@ describe('extractSubtree for inspector actions', () => {
           id: 'stencil',
           type: 'stencil',
           slots: ['stencil-slot'],
-          props: { stencilId: 'A', version: 1, isDraft: true },
+          props: { stencilId: 'A', version: 1, draftVersion: 2 },
         },
         ph: {
           id: 'ph',

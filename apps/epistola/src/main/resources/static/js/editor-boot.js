@@ -98,7 +98,7 @@ async function mount(container) {
           const versions = data.items ?? data;
           const latestPublished = versions
             .filter((v) => v.status === 'published')
-            .sort((a, b) => b.version - a.version)[0];
+            .toSorted((a, b) => b.version - a.version)[0];
           if (latestPublished) {
             const currentVersions = refs.filter((r) => r.stencilId === sid && r.catalogKey === cat);
             for (const ref of currentVersions) {
@@ -161,6 +161,7 @@ async function mount(container) {
           ref,
           stencilName: ref.stencilId,
           version: v.id ?? version,
+          status: v.status,
           content: v.content,
           parameterSchema: v.parameterSchema ?? undefined,
         };
@@ -211,7 +212,14 @@ async function mount(container) {
           throw new Error(message);
         }
         const data = await resp.json();
-        return { draftVersion: data.version };
+        return {
+          ref,
+          stencilName: ref.stencilId,
+          version: data.version,
+          status: data.status,
+          content: data.content,
+          parameterSchema: data.parameterSchema ?? undefined,
+        };
       },
       publishDraft: async (ref, version) => {
         const resp = await fetch(
@@ -232,10 +240,17 @@ async function mount(container) {
         if (!resp.ok) throw new Error('Failed to publish draft');
         return await resp.json();
       },
-      updateStencil: async (ref, content, parameterSchema) => {
+      updateStencil: async (ref, draftVersion, content, parameterSchema) => {
         const body = parameterSchema !== undefined ? { content, parameterSchema } : { content };
         const resp = await fetch(
-          '/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId + '/draft',
+          '/tenants/' +
+            tenantId +
+            '/stencils/' +
+            ref.catalogKey +
+            '/' +
+            ref.stencilId +
+            '/versions/' +
+            draftVersion,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },

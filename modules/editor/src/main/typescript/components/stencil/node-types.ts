@@ -9,13 +9,13 @@
  *
  *   if (isStencil(node)) {
  *     // node.props.stencilId is typed as string | null
- *     // node.props.isDraft is typed as boolean
+ *     // node.props.draftVersion is typed as number | undefined
  *   }
  *
  *   const sid = stencilId(node);     // string | null | undefined
  *   const isPub = isPublishedStencil(node);  // narrows to a stencil whose
  *                                            // stencilId is non-null and
- *                                            // isDraft is false
+ *                                            // draftVersion is absent
  *
  * The runtime layout is enforced by the server-side `PlaceholderValidator`
  * and by the JSON Schema; these types are a TypeScript contract over that.
@@ -35,8 +35,8 @@ import { STENCIL_TYPE } from './constants.js';
 export interface StencilProps {
   stencilId: string | null;
   catalogKey: string | null;
-  version: number | null;
-  isDraft: boolean;
+  version?: number | null;
+  draftVersion?: number | null;
   /**
    * Map of `paramName → JSONata expression`. Each entry binds one parameter
    * declared in `parameterSchemaSnapshot` to an expression evaluated at
@@ -66,9 +66,9 @@ export type StencilNode = Node & {
   readonly props: StencilProps;
 };
 
-/** Branded view of a *published* stencil — `stencilId` non-null AND `isDraft === false`. */
+/** Branded view of a published stencil with no mutable draft provenance. */
 export type PublishedStencilNode = StencilNode & {
-  readonly props: StencilProps & { stencilId: string; isDraft: false };
+  readonly props: StencilProps & { stencilId: string; version: number; draftVersion?: null };
 };
 
 /** Type guard: narrows `Node` to `StencilNode` when `node.type === 'stencil'`. */
@@ -82,7 +82,9 @@ export function isStencil(node: Node | undefined): node is StencilNode {
  */
 export function isPublishedStencil(node: Node | undefined): node is PublishedStencilNode {
   if (!isStencil(node)) return false;
-  return node.props.stencilId != null && !node.props.isDraft;
+  return (
+    node.props.stencilId != null && node.props.version != null && node.props.draftVersion == null
+  );
 }
 
 /** Read the stencil's ID. Returns undefined when not a stencil. */
@@ -103,8 +105,8 @@ export function stencilVersion(node: Node | undefined): number | null | undefine
   return node.props.version;
 }
 
-/** Read the stencil's draft flag. Returns undefined when not a stencil. */
-export function stencilIsDraft(node: Node | undefined): boolean | undefined {
+/** Read the stencil's exact draft version. Returns undefined when not a stencil. */
+export function stencilDraftVersion(node: Node | undefined): number | null | undefined {
   if (!isStencil(node)) return undefined;
-  return node.props.isDraft;
+  return node.props.draftVersion;
 }

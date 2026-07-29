@@ -101,7 +101,7 @@ canvas dispatches on context (stencil-author vs template-fill, computed by
 
 ## 3. Editor
 
-### 3.1 Stencil author view (incl. in-template `isDraft` mode)
+### 3.1 Stencil author view (incl. in-template `draftVersion` mode)
 
 - New file: `placeholder-registration.ts` registers a `placeholder`
   component (palette entry "Placeholder", inspector with `name` and
@@ -113,7 +113,7 @@ canvas dispatches on context (stencil-author vs template-fill, computed by
 - Inspector validation: live-check name uniqueness within the stencil;
   red border + message on conflict.
 
-In `isDraft` mode (a stencil being authored in place inside a template),
+In `draftVersion` mode (a stencil being authored in place inside a template),
 placeholder authoring works identically to the dedicated stencil editor.
 The user can add placeholders, reorder them, and edit their default
 content. Filling placeholders is meaningless in this mode (there is no
@@ -255,9 +255,9 @@ embedding stencil node. It gains a fill-preservation step:
 The command's return type grows a `droppedFills: List<{ name, contentSummary }>`
 field for the UI.
 
-## 7. Authoring-in-template (`isDraft`) interaction
+## 7. Authoring-in-template (`draftVersion`) interaction
 
-When a stencil sits in `isDraft` mode inside a template, the user is
+When a stencil sits in `draftVersion` mode inside a template, the user is
 editing the stencil definition. They can:
 
 - Add a placeholder node (defines a new placeholder).
@@ -266,7 +266,7 @@ editing the stencil definition. They can:
 
 They _cannot_ "fill" placeholders in this mode — there is no embedding
 template above this stencil yet. The "fill" UX only makes sense once the
-stencil is published and another template embeds it. In `isDraft` mode
+stencil is published and another template embeds it. In `draftVersion` mode
 the placeholder's `fill` slot is rendered as a normal editable area
 labelled "Default".
 

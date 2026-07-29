@@ -208,17 +208,17 @@ describe('placeholderContext', () => {
   }
 
   it('reports stencil-author when the nearest stencil is a draft', () => {
-    const { doc } = docWithPlaceholderInStencil({ stencilId: 'A', version: 1, isDraft: true });
+    const { doc } = docWithPlaceholderInStencil({ stencilId: 'A', version: 1, draftVersion: 2 });
     expect(placeholderContext(doc, 'ph' as NodeId, buildIndexes(doc))).toBe('stencil-author');
   });
 
   it('reports stencil-author when the nearest stencil is unlinked', () => {
-    const { doc } = docWithPlaceholderInStencil({ stencilId: null, isDraft: false });
+    const { doc } = docWithPlaceholderInStencil({ stencilId: null });
     expect(placeholderContext(doc, 'ph' as NodeId, buildIndexes(doc))).toBe('stencil-author');
   });
 
   it('reports template-fill when the nearest stencil is a published locked stencil', () => {
-    const { doc } = docWithPlaceholderInStencil({ stencilId: 'A', version: 1, isDraft: false });
+    const { doc } = docWithPlaceholderInStencil({ stencilId: 'A', version: 1 });
     expect(placeholderContext(doc, 'ph' as NodeId, buildIndexes(doc))).toBe('template-fill');
   });
 

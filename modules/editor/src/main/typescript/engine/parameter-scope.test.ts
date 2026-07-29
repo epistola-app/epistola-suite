@@ -22,7 +22,7 @@ function makeStencilNode(
       stencilId: 'test',
       catalogKey: 'default',
       version: 1,
-      isDraft: false,
+
       parameterSchemaSnapshot: schema,
       ...(Object.keys(bindings).length > 0 ? { parameterBindings: bindings } : {}),
       ...(alias ? { paramsAlias: alias } : {}),

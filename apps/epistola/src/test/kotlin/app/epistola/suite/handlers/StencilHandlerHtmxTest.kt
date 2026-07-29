@@ -89,6 +89,63 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `JSON POST createVersion returns the exact draft content and status`() = fixture {
+        lateinit var seeded: Seeded
+
+        given {
+            seeded = seedStencilWithoutDraft("Exact Draft Create")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                accept = listOf(MediaType.APPLICATION_JSON)
+            }
+            restTemplate.postForEntity(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/versions",
+                HttpEntity("{}", headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("\"version\":1")
+            assertThat(response.body).contains("\"status\":\"draft\"")
+            assertThat(response.body).contains("\"content\"")
+        }
+    }
+
+    @Test
+    fun `JSON PUT updates only the exact draft version in the URL`() = fixture {
+        lateinit var seeded: Seeded
+
+        given {
+            seeded = seedStencilWithDraft("Exact Draft Update")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                accept = listOf(MediaType.APPLICATION_JSON)
+            }
+            restTemplate.exchange(
+                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/versions/1",
+                HttpMethod.PUT,
+                HttpEntity(mapOf("content" to stencilV1()), headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("\"version\":1")
+        }
+    }
+
+    @Test
     fun `HTMX POST publishVersion renders versions fragment with stencil model attribute`() = fixture {
         lateinit var seeded: Seeded
 
@@ -805,7 +862,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1, "isDraft" to false),
+                props = mapOf("stencilId" to stencilKey, "version" to 1),
             ),
             "embedded-ph" to Node(
                 id = "embedded-ph",

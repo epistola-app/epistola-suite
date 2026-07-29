@@ -56,7 +56,7 @@ Stencil instances in a template have three states:
 | State             | Block header shows | Content            | Actions                                       |
 | ----------------- | ------------------ | ------------------ | --------------------------------------------- |
 | **Locked**        | `header v1`        | Read-only (dimmed) | Start Editing, Detach                         |
-| **Editing draft** | `header`           | Fully editable     | Save to Draft, Publish Draft, Discard, Detach |
+| **Editing draft** | `header draft v2`  | Fully editable     | Save to Draft, Publish Draft, Discard, Detach |
 
 **To edit a published stencil's content:**
 
@@ -122,8 +122,15 @@ Props on the stencil node:
 
 - `stencilId` — slug of the source stencil
 - `catalogKey` — optional source catalog when it differs from the current catalog
-- `version` — exact positive version number the content was copied from
-- `isDraft` — whether the user is in draft editing mode
+- `version` — exact positive published base version; absent for a never-published stencil
+- `draftVersion` — exact positive draft version being edited; absent for published-only references
+
+Draft provenance is resolved eagerly when a document opens. The editor fetches
+that exact version, caches duplicate references, and hydrates outer stencils
+before nested ones. If the version was published in the meantime, the node is
+promoted to its published version. Missing, archived, or unavailable drafts
+keep their embedded copy and expose explicit recover, discard, and detach
+actions instead of silently selecting another draft.
 
 ### Editor integration
 
@@ -161,7 +168,7 @@ All stencil endpoints are under `/tenants/{tenantId}/stencils` and use content n
 | GET    | `/{id}`                      | Stencil detail                                                |
 | PATCH  | `/{id}`                      | Update metadata                                               |
 | DELETE | `/{id}/delete`               | Delete stencil                                                |
-| PUT    | `/{id}/draft`                | Save content to draft                                         |
+| PUT    | `/{id}/versions/{v}`         | Save content to an exact draft version                        |
 | GET    | `/{id}/usage`                | Usage details (which templates use this stencil)              |
 | POST   | `/{id}/upgrade`              | Upgrade stencil in a specific template draft                  |
 | GET    | `/{id}/versions`             | List versions                                                 |

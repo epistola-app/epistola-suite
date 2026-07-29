@@ -33,10 +33,10 @@ function buildRegistry(): ComponentRegistry {
 
 /**
  * Build a doc with one stencil holding one placeholder. The stencil's
- * `isDraft` and `stencilId` props determine whether its children are locked.
+ * `draftVersion` and `stencilId` props determine whether its children are locked.
  * The placeholder has both `default` and `fill` slots; the fill is `editable`.
  */
-function buildDoc(opts: { isDraft: boolean }): TemplateDocument {
+function buildDoc(opts: { draftVersion?: number }): TemplateDocument {
   return {
     modelVersion: 1,
     root: 'root' as NodeId,
@@ -46,7 +46,7 @@ function buildDoc(opts: { isDraft: boolean }): TemplateDocument {
         id: 'stencil' as NodeId,
         type: 'stencil',
         slots: ['stencil-children' as SlotId],
-        props: { stencilId: 'A', version: 1, isDraft: opts.isDraft },
+        props: { stencilId: 'A', version: 1, draftVersion: opts.draftVersion },
       },
       ph: {
         id: 'ph' as NodeId,
@@ -107,7 +107,7 @@ describe('commands — slot lock enforcement', () => {
   // ---- Locked stencil (published) ----
 
   it('UpdateNodeProps on a placeholder inside a locked stencil is rejected', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -118,7 +118,7 @@ describe('commands — slot lock enforcement', () => {
   });
 
   it('UpdateNodeProps on a node inside a placeholder fill (editable break) is allowed', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -133,7 +133,7 @@ describe('commands — slot lock enforcement', () => {
   });
 
   it('UpdateNodeProps on a node inside a placeholder default (inherited lock) is rejected', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -148,7 +148,7 @@ describe('commands — slot lock enforcement', () => {
   });
 
   it('RemoveNode on a child of a locked stencil children slot is rejected', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -159,7 +159,7 @@ describe('commands — slot lock enforcement', () => {
   });
 
   it('RemoveNode on a child of a placeholder fill is allowed', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -170,7 +170,7 @@ describe('commands — slot lock enforcement', () => {
   });
 
   it('MoveNode out of a locked slot is rejected', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -186,7 +186,7 @@ describe('commands — slot lock enforcement', () => {
   });
 
   it('MoveNode into a locked slot is rejected', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     // Try to move the existing fillText (in editable fill) into the locked
     // stencil-children slot. Should be rejected by the target lock check.
     const result = applyCommand(
@@ -206,7 +206,7 @@ describe('commands — slot lock enforcement', () => {
   // ---- Draft stencil (mutable) ----
 
   it('all mutations succeed when the stencil is in draft mode', () => {
-    const doc = buildDoc({ isDraft: true });
+    const doc = buildDoc({ draftVersion: 2 });
     const indexes = buildIndexes(doc);
     expect(
       applyCommand(
@@ -236,7 +236,7 @@ describe('commands — slot lock enforcement', () => {
   // ---- Bypass ----
 
   it('bypassLock skips the check on an otherwise-rejected mutation', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -248,7 +248,7 @@ describe('commands — slot lock enforcement', () => {
   });
 
   it('bypassLock allows MoveNode into an otherwise-locked slot', () => {
-    const doc = buildDoc({ isDraft: false });
+    const doc = buildDoc({});
     const result = applyCommand(
       doc,
       buildIndexes(doc),
@@ -271,7 +271,7 @@ describe('commands — undo/redo bypasses the lock', () => {
   // (We test the engine reducer directly with bypassLock: true; the
   // EditorEngine wires this up automatically for undo/redo.)
   it('replaying an inverse on a now-locked slot succeeds with bypassLock', () => {
-    const draftDoc = buildDoc({ isDraft: true });
+    const draftDoc = buildDoc({ draftVersion: 2 });
     // Forward op: remove the placeholder while in draft mode.
     const forward = applyCommand(
       draftDoc,
@@ -289,7 +289,7 @@ describe('commands — undo/redo bypasses the lock', () => {
         ...forward.doc.nodes,
         stencil: {
           ...forward.doc.nodes['stencil' as NodeId],
-          props: { stencilId: 'A', version: 1, isDraft: false },
+          props: { stencilId: 'A', version: 1 },
         },
       },
     } as TemplateDocument;

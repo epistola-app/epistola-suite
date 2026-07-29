@@ -94,7 +94,6 @@ function createPublishedStencilWithEmptyFill(): {
             stencilId: 'outer',
             catalogKey: 'local',
             version: 1,
-            isDraft: false,
           },
         },
         [placeholderNodeId]: {
@@ -157,7 +156,6 @@ describe('EpistolaEditor contextual block insertion', () => {
           stencilId: 'inner',
           catalogKey: 'local',
           version: 1,
-          isDraft: false,
         };
       },
     });

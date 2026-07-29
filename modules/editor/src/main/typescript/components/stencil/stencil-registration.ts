@@ -45,11 +45,11 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     label: 'Stencil',
     getLabel: (node, _eng) => {
       if (!isStencil(node)) return 'Stencil';
-      const { stencilId, version, isDraft } = node.props;
+      const { stencilId, version, draftVersion } = node.props;
 
       if (!stencilId) return 'Stencil';
 
-      if (isDraft) return stencilId;
+      if (draftVersion != null) return `${stencilId} draft v${draftVersion}`;
       return `${stencilId} v${version}`;
     },
     icon: 'puzzle',
@@ -69,8 +69,6 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     defaultProps: {
       stencilId: null,
       catalogKey: null,
-      version: null,
-      isDraft: false,
     },
 
     examples: [
@@ -89,7 +87,6 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
                 stencilId: 'letter-shell',
                 catalogKey: 'epistola-demo',
                 version: 1,
-                isDraft: false,
               },
             },
             'n-stencil-letter-ph': {
@@ -152,7 +149,6 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
                 stencilId: 'letter-shell',
                 catalogKey: 'epistola-demo',
                 version: 1,
-                isDraft: false,
               },
             },
             'n-stencil-letter-ov-ph': {
@@ -280,8 +276,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         return {
           stencilId: result.ref.stencilId,
           catalogKey: result.ref.catalogKey,
-          version: result.version,
-          isDraft: true,
+          draftVersion: result.version,
         };
       }
 
