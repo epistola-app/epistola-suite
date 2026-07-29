@@ -17,7 +17,7 @@ const schema: JsonSchema = {
 };
 
 function openDialog(): HTMLDialogElement {
-  openParameterBindingsDialog({ schema });
+  void openParameterBindingsDialog({ schema });
   const dialog = document.querySelector('dialog');
   if (!dialog) throw new Error('dialog not opened');
   return dialog;
@@ -61,5 +61,20 @@ describe('openParameterBindingsDialog', () => {
     setBindingValue(dialog, 'hello there');
 
     expect(saveButton(dialog).disabled).toBe(true);
+  });
+
+  it('allows a required parameter to rely on its schema default', () => {
+    const defaultedSchema = {
+      type: 'object',
+      properties: {
+        param1: { type: 'string', default: 'fallback' },
+      },
+      required: ['param1'],
+    } as JsonSchema;
+
+    void openParameterBindingsDialog({ schema: defaultedSchema });
+    const dialog = document.querySelector<HTMLDialogElement>('dialog')!;
+
+    expect(saveButton(dialog).disabled).toBe(false);
   });
 });

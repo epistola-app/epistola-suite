@@ -28,6 +28,7 @@ import { isStencil } from './node-types.js';
 import { openParameterDefinitionsDialog } from './parameter-definitions-dialog.js';
 import { openParameterBindingsDialog } from './parameter-bindings-dialog.js';
 import { STENCIL_BINDING_ERRORS_KEY, type BindingErrors } from './binding-errors.js';
+import { missingRequiredParameters } from './parameter-requirements.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -188,11 +189,8 @@ export class StencilInspector extends LitElement {
 
     const bindings = props.parameterBindings ?? {};
     const declared = Object.keys(schema.properties);
-    const required = new Set(schema.required ?? []);
     const boundCount = declared.filter((name) => (bindings[name] ?? '').trim().length > 0).length;
-    const missingRequired = Array.from(required).some(
-      (name) => (bindings[name] ?? '').trim().length === 0,
-    );
+    const missingRequired = missingRequiredParameters(schema, bindings).length > 0;
 
     return html`
       <div class="inspector-section">
