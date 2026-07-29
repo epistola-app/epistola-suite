@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** fix(themes): **Numeric theme settings remain readable.** Margin, spacing, unit, and border-width controls now reserve enough space for their value and browser stepper buttons, using two-column groups where compact four-value rows previously squeezed the numbers out of view.
 - **[user]** feat(themes): **Theme configuration is now a focused, full-width workspace.** Basic information, document styles, page settings, and block presets are arranged as responsive cards; presets are quicker to add, open, edit, and remove. The old preview placeholder is gone, and a lazily loaded usage dialog shows draft and published template versions using the theme through a variant override, template default, or tenant default. Published versions with frozen theme snapshots are identified clearly, and usage remains catalog-safe and paginated without slowing the configuration page.
 - **[user]** fix(themes): **Theme detail and updates respect catalog identity.**
   Theme lookups and updates now use the complete tenant, catalog, and slug key, so two catalogs can

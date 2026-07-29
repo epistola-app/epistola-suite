@@ -58,6 +58,37 @@
     width: 100%;
   }
 
+  /*
+   * The shared inspector keeps numeric controls compact for its narrow
+   * sidebar. Theme cards have more room, so give numbers enough width for
+   * their value as well as the browser's stepper controls.
+   */
+  .theme-editor-panel .style-unit-input {
+    display: grid;
+    grid-template-columns: minmax(5rem, 1fr) auto;
+  }
+
+  .theme-editor-panel .style-spacing-input,
+  .theme-editor-panel .inspector-margins-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(5rem, 1fr));
+  }
+
+  .theme-editor-panel .style-unit-number,
+  .theme-editor-panel .style-spacing-number,
+  .theme-editor-panel .style-border-width {
+    min-width: 5rem;
+  }
+
+  .theme-editor-panel .style-border-width {
+    width: 5rem;
+  }
+
+  .theme-editor-panel .style-spacing-unit {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
   .theme-usage-dialog {
     width: min(72rem, calc(100vw - 2rem));
   }

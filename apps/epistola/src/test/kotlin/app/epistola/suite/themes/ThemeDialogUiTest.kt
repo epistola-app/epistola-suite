@@ -95,6 +95,7 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         assertThat(page.locator("[data-testid='theme-usage-open-action']")).isVisible()
         assertThat(page.locator("#theme-usage-dialog")).hasCount(0)
         assertThat(page.locator(".theme-editor-preview-placeholder")).hasCount(0)
+        assertThat(page.locator("#theme-page-margin-top")).hasCSS("min-width", "80px")
 
         // Presets can be added directly from the card header. A new preset opens
         // immediately for editing and exposes a clearly labelled remove action.
