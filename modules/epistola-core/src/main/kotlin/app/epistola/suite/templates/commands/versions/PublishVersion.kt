@@ -96,7 +96,7 @@ class PublishVersionHandler(
             if (version.status.name == "ARCHIVED") {
                 return@inTransaction null
             }
-            templateDocumentValidator.validateTemplate(version.templateModel)
+            templateDocumentValidator.validateTemplatePublishable(version.templateModel)
 
             // 3. Auto-publish compatible contract drafts, block on breaking changes
             if (version.contractVersion != null) {

@@ -45,7 +45,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.name).isEqualTo("Epistola Demo Catalog")
             assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
-            assertThat(catalog.installedReleaseVersion).isEqualTo("5.16.3")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("5.16.4")
         }
     }
 
@@ -277,7 +277,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     private fun writeCatalogWithName(dir: Path, name: String): String {
         val manifest = """
             {
-              "schemaVersion": 4,
+              "schemaVersion": 5,
               "catalog": { "slug": "overlong-name", "name": ${escapeJson(name)} },
               "publisher": { "name": "Test" },
               "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
@@ -291,14 +291,14 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     private fun escapeJson(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
     /**
-     * Writes a minimal `file:` catalog under [dir]: a current-version (4) manifest
+     * Writes a minimal `file:` catalog under [dir]: a current-version (5) manifest
      * declaring one `codeList`, whose detail is deliberately stamped at version 3.
      * Returns the `file:` URL of the manifest.
      */
     private fun writeDriftedCatalog(dir: Path): String {
         val manifest = """
             {
-              "schemaVersion": 4,
+              "schemaVersion": 5,
               "catalog": { "slug": "drift-test", "name": "Drift Test Catalog" },
               "publisher": { "name": "Test" },
               "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },

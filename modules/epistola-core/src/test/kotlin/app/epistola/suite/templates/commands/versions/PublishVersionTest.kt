@@ -321,7 +321,7 @@ class PublishVersionTest : IntegrationTestBase() {
                 CreateStencil(id = stencilId, name = "Draft-Only Stencil").execute()
                 UpdateDraft(
                     variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(stencilKey, isDraft = true),
+                    templateModel = templateModelReferencingStencil(stencilKey, draftVersion = 1),
                 ).execute()
             }
 
@@ -332,8 +332,7 @@ class PublishVersionTest : IntegrationTestBase() {
                     PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
                 }
             }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("not published")
-                .hasMessageContaining(stencilKey.value)
+                .hasMessageContaining("cannot reference draft stencil versions")
         }
 
         @Test
@@ -346,7 +345,7 @@ class PublishVersionTest : IntegrationTestBase() {
                 CreateStencilVersion(stencilId = stencilId).execute()
                 UpdateDraft(
                     variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(stencilKey, version = 2, isDraft = true),
+                    templateModel = templateModelReferencingStencil(stencilKey, version = 2, draftVersion = 2),
                 ).execute()
             }
 
@@ -357,8 +356,7 @@ class PublishVersionTest : IntegrationTestBase() {
                     PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
                 }
             }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("not published")
-                .hasMessageContaining("${stencilKey.value} v2")
+                .hasMessageContaining("cannot reference draft stencil versions")
         }
 
         @Test
@@ -415,7 +413,7 @@ class PublishVersionTest : IntegrationTestBase() {
     private fun templateModelReferencingStencil(
         stencilKey: StencilKey,
         version: Int = 1,
-        isDraft: Boolean = false,
+        draftVersion: Int? = null,
         requiredParameter: String? = null,
     ): TemplateDocument {
         val rootId = "root-1"
@@ -424,8 +422,8 @@ class PublishVersionTest : IntegrationTestBase() {
         val props = mutableMapOf<String, Any?>(
             "stencilId" to stencilKey.value,
             "version" to version,
-            "isDraft" to isDraft,
         )
+        draftVersion?.let { props["draftVersion"] = it }
         if (requiredParameter != null) {
             props["parameterSchemaSnapshot"] = mapOf(
                 "type" to "object",

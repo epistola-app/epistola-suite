@@ -471,7 +471,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 id = "s",
                 type = "stencil",
                 slots = listOf("s-children"),
-                props = mapOf("stencilId" to stencilKey.value, "version" to stencilVersion, "isDraft" to false),
+                props = mapOf("stencilId" to stencilKey.value, "version" to stencilVersion),
             ),
         ),
         slots = mapOf(
@@ -500,7 +500,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 props = mapOf(
                     StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
                     StencilNodeKeys.PROP_VERSION to 1,
-                    StencilNodeKeys.PROP_IS_DRAFT to false,
+
                 ),
             ),
             "cross-ref" to Node(
@@ -510,7 +510,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 props = mapOf(
                     StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
                     StencilNodeKeys.PROP_VERSION to 1,
-                    StencilNodeKeys.PROP_IS_DRAFT to false,
+
                     StencilNodeKeys.PROP_CATALOG_KEY to "some-other-catalog",
                 ),
             ),
@@ -590,7 +590,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         stencil: StencilResource,
         template: TemplateDocument? = null,
         /** Wire version stamped on the *template* detail — used to exercise the version gate. */
-        templateDetailSchemaVersion: Int = 4,
+        templateDetailSchemaVersion: Int = 5,
     ): ByteArray {
         val resources = mutableListOf<app.epistola.catalog.protocol.ResourceEntry>()
         resources.add(
@@ -616,7 +616,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         }
 
         val manifest = CatalogManifest(
-            schemaVersion = 4,
+            schemaVersion = 5,
             catalog = app.epistola.catalog.protocol.CatalogInfo(catalogSlug, "Manual", null),
             publisher = app.epistola.catalog.protocol.PublisherInfo("Test"),
             release = app.epistola.catalog.protocol.ReleaseInfo("0.0.0-dev", null, null),
@@ -630,7 +630,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             zos.write(objectMapper.writeValueAsBytes(manifest))
             zos.closeEntry()
             zos.putNextEntry(ZipEntry("resources/stencil/${stencil.slug}.json"))
-            zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 4, resource = stencil)))
+            zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 5, resource = stencil)))
             zos.closeEntry()
             if (template != null) {
                 val variantKey = "${templateKey!!.value}-default"

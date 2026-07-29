@@ -64,6 +64,7 @@ class ExportCatalogZipHandler(
         }
 
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
+        fingerprintService.requirePublishable(content)
 
         // The emitted fingerprint always describes the actual exported bytes.
         // The version label encodes release state: a clean released version
@@ -79,7 +80,7 @@ class ExportCatalogZipHandler(
                 logger.warn("Exporting never-released catalog '{}' as 0.0.0-dev", command.catalogKey.value)
                 "0.0.0-dev"
             }
-            release.latestFingerprint != fingerprint -> {
+            release.latestFingerprint != null && !fingerprintService.matchesFingerprint(content, release.latestFingerprint) -> {
                 logger.warn(
                     "Exporting catalog '{}' with unreleased changes — labelling {}-dev",
                     command.catalogKey.value,

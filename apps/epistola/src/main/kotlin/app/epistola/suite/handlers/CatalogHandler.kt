@@ -764,6 +764,7 @@ class CatalogHandler {
                     "tenantId" to tenantId.key,
                     "fromSchemaVersion" to e.fromVersion,
                     "toSchemaVersion" to e.toVersion,
+                    "migrationNotices" to e.notices,
                 ),
             )
         } catch (e: Exception) {

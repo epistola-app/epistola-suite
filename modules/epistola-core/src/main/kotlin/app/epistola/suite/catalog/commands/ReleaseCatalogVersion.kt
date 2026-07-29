@@ -85,6 +85,7 @@ class ReleaseCatalogVersionHandler(
         }
 
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
+        fingerprintService.requirePublishable(content)
         val fingerprint = fingerprintService.fingerprint(content)
         val unchanged = existing.any { it.fingerprint == fingerprint }
         if (unchanged) {

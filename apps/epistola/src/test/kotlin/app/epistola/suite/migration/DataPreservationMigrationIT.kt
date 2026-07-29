@@ -86,6 +86,15 @@ class DataPreservationMigrationIT {
                 INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_catalog_key, theme_key)
                 VALUES ('invoice', '$TENANT', 'default', 'Invoice Template', 'default', 'brand');
 
+                INSERT INTO stencils (id, tenant_key, catalog_key, name)
+                VALUES ('header', '$TENANT', 'default', 'Header'),
+                       ('draft-only', '$TENANT', 'default', 'Draft only');
+
+                INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at)
+                VALUES (1, '$TENANT', 'default', 'header', '$STENCIL_CONTENT'::jsonb, 'published', NOW()),
+                       (2, '$TENANT', 'default', 'header', '$STENCIL_CONTENT'::jsonb, 'draft', NULL),
+                       (1, '$TENANT', 'default', 'draft-only', '$STENCIL_CONTENT'::jsonb, 'draft', NULL);
+
                 -- 'legacy' (NULL) and 'blanktitle' (whitespace) were both allowed pre-#631;
                 -- the migration must backfill each with its own slug.
                 INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, is_default)
@@ -96,7 +105,9 @@ class DataPreservationMigrationIT {
                 INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key,
                                                template_model, status, published_at, referenced_paths)
                 VALUES (1, '$TENANT', 'default', 'invoice', 'main',
-                        '$TEMPLATE_MODEL'::jsonb, 'published', NOW(), '["customer.name","total"]'::jsonb);
+                        '$TEMPLATE_MODEL'::jsonb, 'published', NOW(), '["customer.name","total"]'::jsonb),
+                       (2, '$TENANT', 'default', 'invoice', 'main',
+                        '$DRAFT_TEMPLATE_MODEL'::jsonb, 'draft', NULL, '["customer.name","total"]'::jsonb);
 
                 -- An orphaned toggle row for the retired 'stencil-parameters' feature (deleted by
                 -- V20260708110402) plus a control row for a still-live feature that must survive.
@@ -139,6 +150,9 @@ class DataPreservationMigrationIT {
                 .isEqualTo("published")
             assertThat(one("SELECT referenced_paths::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
                 .isEqualTo(one("""SELECT '["customer.name","total"]'::jsonb::text"""))
+            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 2"))
+                .describedAs("draft stencil references must retain their published base and gain exact draft provenance")
+                .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
 
             // Intentional scoped cleanup (V20260708110402, issue #668): the retired
             // stencil-parameters toggle's orphaned rows are gone, unrelated toggles survive.
@@ -173,5 +187,11 @@ class DataPreservationMigrationIT {
         private const val THEME_STYLES = """{"fontFamily": "serif", "fontSize": 11}"""
         private const val TEMPLATE_MODEL =
             """{"rootNodeId": "root-1", "nodes": {"root-1": {"type": "page"}}, "marker": "rc1-preservation"}"""
+        private const val STENCIL_CONTENT =
+            """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}}, "slots": {}}"""
+        private const val DRAFT_TEMPLATE_MODEL =
+            """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}, "linked": {"id": "linked", "type": "stencil", "slots": [], "props": {"stencilId": "header", "version": 1, "isDraft": true}}, "new": {"id": "new", "type": "stencil", "slots": [], "props": {"stencilId": "draft-only", "version": 1, "isDraft": true}}}, "slots": {}, "marker": "catalog-v5"}"""
+        private const val MIGRATED_DRAFT_TEMPLATE_MODEL =
+            """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}, "linked": {"id": "linked", "type": "stencil", "slots": [], "props": {"stencilId": "header", "version": 1, "draftVersion": 2}}, "new": {"id": "new", "type": "stencil", "slots": [], "props": {"stencilId": "draft-only", "draftVersion": 1}}}, "slots": {}, "marker": "catalog-v5"}"""
     }
 }

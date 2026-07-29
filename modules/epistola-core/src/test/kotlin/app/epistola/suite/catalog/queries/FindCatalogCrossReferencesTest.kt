@@ -279,7 +279,6 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
                         "stencilId" to stencilKey.value,
                         "catalogKey" to catalogKey.value,
                         "version" to 1,
-                        "isDraft" to false,
                     ),
                 ),
             ),

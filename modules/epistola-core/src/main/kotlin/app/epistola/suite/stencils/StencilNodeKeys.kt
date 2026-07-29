@@ -22,7 +22,7 @@ object StencilNodeKeys {
     const val PROP_STENCIL_ID = "stencilId"
     const val PROP_CATALOG_KEY = "catalogKey"
     const val PROP_VERSION = "version"
-    const val PROP_IS_DRAFT = "isDraft"
+    const val PROP_DRAFT_VERSION = "draftVersion"
 
     /**
      * Snapshot of the stencil version's parameter schema, copied onto the

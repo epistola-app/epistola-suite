@@ -36,7 +36,7 @@ class StencilPlaceholderRendererTest {
                 id = "stencil",
                 type = "stencil",
                 slots = listOf("stencil-slot"),
-                props = mapOf("stencilId" to "letter", "version" to 1, "isDraft" to false),
+                props = mapOf("stencilId" to "letter", "version" to 1),
             ),
             "ph" to Node(
                 id = "ph",
@@ -101,13 +101,13 @@ class StencilPlaceholderRendererTest {
                     id = "outer",
                     type = "stencil",
                     slots = listOf("outer-slot"),
-                    props = mapOf("stencilId" to "self", "version" to 1, "isDraft" to false),
+                    props = mapOf("stencilId" to "self", "version" to 1),
                 ),
                 "inner" to Node(
                     id = "inner",
                     type = "stencil",
                     slots = listOf("inner-slot"),
-                    props = mapOf("stencilId" to "self", "version" to 1, "isDraft" to false),
+                    props = mapOf("stencilId" to "self", "version" to 1),
                 ),
             ),
             slots = mapOf(
@@ -131,13 +131,13 @@ class StencilPlaceholderRendererTest {
                     id = "outer",
                     type = "stencil",
                     slots = listOf("outer-slot"),
-                    props = mapOf("stencilId" to "letter", "version" to 1, "isDraft" to false),
+                    props = mapOf("stencilId" to "letter", "version" to 1),
                 ),
                 "inner" to Node(
                     id = "inner",
                     type = "stencil",
                     slots = listOf("inner-slot"),
-                    props = mapOf("stencilId" to "address", "version" to 1, "isDraft" to false),
+                    props = mapOf("stencilId" to "address", "version" to 1),
                 ),
                 "text" to Node(
                     id = "text",
@@ -183,7 +183,7 @@ class StencilPlaceholderRendererTest {
                 id = "stencil-$index",
                 type = "stencil",
                 slots = listOf("stencil-$index-children"),
-                props = mapOf("stencilId" to "stencil-$index", "version" to 1, "isDraft" to false),
+                props = mapOf("stencilId" to "stencil-$index", "version" to 1),
             )
         }
         val text = Node(

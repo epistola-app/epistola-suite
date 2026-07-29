@@ -98,7 +98,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         // lives on the resource detail inside the zip, not the manifest.
         val mapper = JsonMapper.builder().build()
         val manifest = mapper.readTree(readZipEntry(zip.zipBytes, "catalog.json"))
-        assertThat(manifest["schemaVersion"].asInt()).isEqualTo(4)
+        assertThat(manifest["schemaVersion"].asInt()).isEqualTo(5)
         val dependency = manifest["dependencies"].single()
         assertThat(dependency["type"].asString()).isEqualTo("codeList")
         assertThat(dependency["catalogKey"].asString()).isEqualTo("system")
@@ -197,7 +197,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun manifestJson(slug: String): String = """
         {
-          "schemaVersion": 4,
+          "schemaVersion": 5,
           "catalog": {
             "slug": "$slug",
             "name": "HTTP Served",
@@ -221,7 +221,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun attributeDetailJson(): String = """
         {
-          "schemaVersion": 4,
+          "schemaVersion": 5,
           "resource": {
             "type": "attribute",
             "slug": "lang",

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "resource": {
     "type": "template",
     "slug": "full-deps",
@@ -18,7 +18,7 @@
           "id": "n-stencil",
           "type": "stencil",
           "slots": [],
-          "props": { "stencilId": "header-with-logo", "version": 1, "isDraft": false }
+          "props": { "stencilId": "header-with-logo", "version": 1 }
         },
         "n-body": {
           "id": "n-body",

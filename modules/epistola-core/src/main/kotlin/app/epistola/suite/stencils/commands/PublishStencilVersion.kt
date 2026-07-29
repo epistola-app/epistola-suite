@@ -74,7 +74,7 @@ class PublishStencilVersionHandler(
 
         // Re-validate at the immutable boundary so legacy or imported drafts
         // cannot bypass the current document policy.
-        templateDocumentValidator.validateStencil(version.content)
+        templateDocumentValidator.validateStencilPublishable(version.content)
         parameterSchemaValidator.validate(version.parameterSchema)
 
         // Publish: freeze the content
