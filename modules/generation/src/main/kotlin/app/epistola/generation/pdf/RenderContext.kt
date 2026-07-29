@@ -81,6 +81,8 @@ data class RenderContext(
      * in normal flow.
      */
     val ancestorStencilIds: Set<String> = emptySet(),
+    /** Number of stencil nodes currently in the ancestor chain. */
+    val stencilNestingDepth: Int = 0,
     /**
      * Inherited styles from the parent node, used for CSS-like style inheritance.
      * Initialized from document styles (inheritable keys only) and updated as we

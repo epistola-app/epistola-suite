@@ -159,6 +159,33 @@ describe('EpistolaCanvas — read-only blocks are not user-focusable', () => {
     expect(tabindexFor(container, 'text-default')).toBeNull();
   });
 
+  it('offers an add-block action for an empty editable fill slot', async () => {
+    const engine = setupEngine(false);
+    await renderCanvas(container, engine);
+
+    const canvas = container.querySelector('epistola-canvas');
+    const received: string[] = [];
+    canvas?.addEventListener('epistola-insert-block-at-slot', (event) => {
+      received.push((event as CustomEvent<{ slotId: string }>).detail.slotId);
+    });
+
+    const addButton = container.querySelector<HTMLButtonElement>(
+      '[data-testid="placeholder-fill-add"]',
+    );
+    expect(addButton).not.toBeNull();
+    addButton!.click();
+
+    expect(received).toEqual(['ph-fill']);
+    expect(engine.selectedNodeId).toBeNull();
+  });
+
+  it('does not offer the empty-fill action once the fill has content', async () => {
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    expect(container.querySelector('[data-testid="placeholder-fill-add"]')).toBeNull();
+  });
+
   it('clicking a read-only block bubbles up — selection lands on the nearest unlocked ancestor', async () => {
     // Click on the placeholder canvas-block (which is locked). Since we removed
     // its @click handler and propagation isn't stopped, the click bubbles up to

@@ -17,6 +17,13 @@ import { buildIndexes } from './indexes.js';
 import { createStencilDefinition } from '../components/stencil/stencil-registration.js';
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
 
+function richText(text: string) {
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  };
+}
+
 function buildRegistry(): ComponentRegistry {
   const registry = createDefaultRegistry();
   // Stencil is normally added by lib.ts at runtime.
@@ -51,13 +58,13 @@ function buildDoc(opts: { isDraft: boolean }): TemplateDocument {
         id: 'defaultText' as NodeId,
         type: 'text',
         slots: [],
-        props: { content: 'default' },
+        props: { content: richText('default') },
       },
       fillText: {
         id: 'fillText' as NodeId,
         type: 'text',
         slots: [],
-        props: { content: 'override' },
+        props: { content: richText('override') },
       },
     },
     slots: {
@@ -115,7 +122,11 @@ describe('commands — slot lock enforcement', () => {
     const result = applyCommand(
       doc,
       buildIndexes(doc),
-      { type: 'UpdateNodeProps', nodeId: 'fillText' as NodeId, props: { content: 'new' } },
+      {
+        type: 'UpdateNodeProps',
+        nodeId: 'fillText' as NodeId,
+        props: { content: richText('new') },
+      },
       registry,
     );
     expect(result.ok).toBe(true);
@@ -126,7 +137,11 @@ describe('commands — slot lock enforcement', () => {
     const result = applyCommand(
       doc,
       buildIndexes(doc),
-      { type: 'UpdateNodeProps', nodeId: 'defaultText' as NodeId, props: { content: 'new' } },
+      {
+        type: 'UpdateNodeProps',
+        nodeId: 'defaultText' as NodeId,
+        props: { content: richText('new') },
+      },
       registry,
     );
     expect(result.ok).toBe(false);
@@ -205,7 +220,11 @@ describe('commands — slot lock enforcement', () => {
       applyCommand(
         doc,
         indexes,
-        { type: 'UpdateNodeProps', nodeId: 'defaultText' as NodeId, props: { content: 'new' } },
+        {
+          type: 'UpdateNodeProps',
+          nodeId: 'defaultText' as NodeId,
+          props: { content: richText('new') },
+        },
         registry,
       ).ok,
     ).toBe(true);

@@ -45,7 +45,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
 
     // Template model types (TemplateDocument/Node) — a source inspects the node graph.
-    implementation(libs.epistola.model)
+    implementation(libs.epistola.catalog)
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")

@@ -1,12 +1,12 @@
 # Component Registry Pipeline
 
 The static editor component vocabulary is owned by `epistola-contract` and
-published in `epistola-model`:
+published in `epistola-catalog`:
 
-- npm: `@epistola.app/epistola-model/registry/component-registry.json`
-- npm: `@epistola.app/epistola-model/registry/style-registry.json`
-- Maven: `META-INF/epistola-model/component-registry.json`
-- Maven: `META-INF/epistola-model/style-registry.json`
+- npm: `@epistola.app/epistola-catalog/registry/component-registry.json`
+- npm: `@epistola.app/epistola-catalog/registry/style-registry.json`
+- Maven: `META-INF/epistola-catalog/component-registry.json`
+- Maven: `META-INF/epistola-catalog/style-registry.json`
 
 The suite consumes those files. It does not maintain an independent canonical
 registry for MCP or documentation.
@@ -36,7 +36,7 @@ The suite still owns runtime behavior that cannot live in JSON:
 ## Editor Use
 
 The editor imports the static style registry from the typed
-`@epistola.app/epistola-model/registry` facade and exports a mutable clone as
+`@epistola.app/epistola-catalog/registry` facade and exports a mutable clone as
 `defaultStyleRegistry`. The mutable clone is deliberate: the host's font catalog
 replaces the `fontFamily` select options at runtime.
 
@@ -51,11 +51,11 @@ That layer attaches the suite-owned behavior hooks to the static vocabulary.
 reads the contract-published classpath resource:
 
 ```kotlin
-@Value("classpath:META-INF/epistola-model/component-registry.json")
+@Value("classpath:META-INF/epistola-catalog/component-registry.json")
 private lateinit var resource: Resource
 ```
 
-`epistola-mcp` depends on `libs.epistola.model` for this data. It does not depend
+`epistola-mcp` depends on `libs.epistola.catalog` for this data. It does not depend
 on `:modules:editor` merely to get a generated JSON file onto the classpath.
 
 ## Test Coverage
@@ -72,10 +72,10 @@ on `:modules:editor` merely to get a generated JSON file onto the classpath.
 ## Updating the Vocabulary
 
 Change the static vocabulary in `epistola-contract`, release or locally publish
-`epistola-model`, then bump both suite dependencies:
+`epistola-catalog`, then bump both suite dependencies:
 
-- `gradle/libs.versions.toml` `epistola-model`
-- `modules/editor/package.json` `@epistola.app/epistola-model`
+- `gradle/libs.versions.toml` `epistola-catalog`
+- `modules/editor/package.json` `@epistola.app/epistola-catalog`
 
 If the change also needs suite runtime behavior, update the editor registration
 hooks and renderer/validator code in the same suite change. The static JSON and

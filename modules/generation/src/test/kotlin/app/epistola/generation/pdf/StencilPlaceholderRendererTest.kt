@@ -4,6 +4,7 @@
 
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.validation.TemplateValidationLimits
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -35,7 +36,7 @@ class StencilPlaceholderRendererTest {
                 id = "stencil",
                 type = "stencil",
                 slots = listOf("stencil-slot"),
-                props = mapOf("stencilId" to "letter", "version" to 1),
+                props = mapOf("stencilId" to "letter", "version" to 1, "isDraft" to false),
             ),
             "ph" to Node(
                 id = "ph",
@@ -47,13 +48,13 @@ class StencilPlaceholderRendererTest {
                 id = "default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Default text"),
+                props = mapOf("content" to richText("Default text")),
             ),
             "fill-text" to Node(
                 id = "fill-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Override text"),
+                props = mapOf("content" to richText("Override text")),
             ),
         ),
         slots = mapOf(
@@ -100,13 +101,13 @@ class StencilPlaceholderRendererTest {
                     id = "outer",
                     type = "stencil",
                     slots = listOf("outer-slot"),
-                    props = mapOf("stencilId" to "self", "version" to 1),
+                    props = mapOf("stencilId" to "self", "version" to 1, "isDraft" to false),
                 ),
                 "inner" to Node(
                     id = "inner",
                     type = "stencil",
                     slots = listOf("inner-slot"),
-                    props = mapOf("stencilId" to "self", "version" to 1),
+                    props = mapOf("stencilId" to "self", "version" to 1, "isDraft" to false),
                 ),
             ),
             slots = mapOf(
@@ -119,4 +120,102 @@ class StencilPlaceholderRendererTest {
         val ex = assertFails { renderToPdf(doc) }
         assertContains(ex.message ?: "", "recursion", ignoreCase = true)
     }
+
+    @Test
+    fun `renders visible content from different nested stencils`() {
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "outer" to Node(
+                    id = "outer",
+                    type = "stencil",
+                    slots = listOf("outer-slot"),
+                    props = mapOf("stencilId" to "letter", "version" to 1, "isDraft" to false),
+                ),
+                "inner" to Node(
+                    id = "inner",
+                    type = "stencil",
+                    slots = listOf("inner-slot"),
+                    props = mapOf("stencilId" to "address", "version" to 1, "isDraft" to false),
+                ),
+                "text" to Node(
+                    id = "text",
+                    type = "text",
+                    slots = emptyList(),
+                    props = mapOf("content" to richText("Nested stencil content")),
+                ),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("outer")),
+                "outer-slot" to Slot("outer-slot", "outer", "children", listOf("inner")),
+                "inner-slot" to Slot("inner-slot", "inner", "children", listOf("text")),
+            ),
+        )
+
+        val pdf = renderToPdf(doc)
+        val text = PdfContentExtractor.extract(pdf)
+
+        assertTrue(pdf.isNotEmpty())
+        assertTrue(pdf.decodeToString(0, 5).startsWith("%PDF"))
+        assertContains(text, "Nested stencil content")
+    }
+
+    @Test
+    fun `renders five nested stencil levels`() {
+        val pdf = renderToPdf(nestedStencilDocument(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH))
+
+        assertContains(PdfContentExtractor.extract(pdf), "Deeply nested content")
+    }
+
+    @Test
+    fun `rejects the sixth nested stencil level`() {
+        val exception = assertFails {
+            renderToPdf(nestedStencilDocument(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH + 1))
+        }
+
+        assertContains(exception.message ?: "", "nesting depth 6 exceeds maximum 5")
+    }
+
+    private fun nestedStencilDocument(depth: Int): TemplateDocument {
+        val stencils = (0 until depth).map { index ->
+            Node(
+                id = "stencil-$index",
+                type = "stencil",
+                slots = listOf("stencil-$index-children"),
+                props = mapOf("stencilId" to "stencil-$index", "version" to 1, "isDraft" to false),
+            )
+        }
+        val text = Node(
+            id = "nested-text",
+            type = "text",
+            props = mapOf("content" to richText("Deeply nested content")),
+        )
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf("root" to Node("root", "root", listOf("root-children"))) +
+                stencils.associateBy(Node::id) +
+                (text.id to text),
+            slots = mapOf(
+                "root-children" to Slot("root-children", "root", "children", listOf(stencils.first().id)),
+            ) + stencils.mapIndexed { index, stencil ->
+                "stencil-$index-children" to Slot(
+                    "stencil-$index-children",
+                    stencil.id,
+                    "children",
+                    listOf(stencils.getOrNull(index + 1)?.id ?: text.id),
+                )
+            },
+        )
+    }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
 }

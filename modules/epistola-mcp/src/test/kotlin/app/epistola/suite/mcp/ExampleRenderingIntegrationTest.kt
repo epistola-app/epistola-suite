@@ -48,7 +48,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @Value("classpath:META-INF/epistola-model/component-registry.json")
+    @Value("classpath:META-INF/epistola-catalog/component-registry.json")
     private lateinit var registryResource: Resource
 
     /**
@@ -199,7 +199,14 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
                 objectMapper.createObjectNode()
                     .put("id", stencilNodeId)
                     .put("type", "stencil")
-                    .set("slots", objectMapper.createArrayNode().add(stencilSlotId)),
+                    .set("slots", objectMapper.createArrayNode().add(stencilSlotId))
+                    .set(
+                        "props",
+                        objectMapper.createObjectNode()
+                            .put("stencilId", "render-test")
+                            .put("version", 1)
+                            .put("isDraft", false),
+                    ),
             )
         }
         for (key in fragmentNodes.propertyNames()) {

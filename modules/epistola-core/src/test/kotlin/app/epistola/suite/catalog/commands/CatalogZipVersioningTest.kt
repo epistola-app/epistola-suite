@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
@@ -43,6 +44,7 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCanonicalizer
 
 /**
  * Versioning semantics of catalog **ZIP exchange** — distinct from
@@ -85,6 +87,21 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     }
 
     private fun rezip(entries: Map<String, ByteArray>): ByteArray {
+        val refreshed = LinkedHashMap(entries)
+        val manifest = objectMapper.readTree(refreshed["catalog.json"]!!) as ObjectNode
+        (manifest.get("release") as ObjectNode).remove("fingerprint")
+        refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+        val unsigned = rawZip(refreshed)
+        val read = CatalogArchiveReader.read(ByteArrayInputStream(unsigned))
+        val archive = read.archive ?: return unsigned
+        val fingerprint = archive.use { PortableCatalogCanonicalizer.fingerprint(it).value }
+        (manifest.get("release") as ObjectNode).put("fingerprint", fingerprint)
+        refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+        return rawZip(refreshed)
+    }
+
+    private fun rawZip(entries: Map<String, ByteArray>): ByteArray {
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zip ->
             entries.forEach { (name, data) ->
@@ -124,7 +141,10 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
             val kept = objectMapper.createArrayNode()
             (manifest.get("resources") as ArrayNode).forEach { r ->
-                if (r.get("slug").asString() != "drop") kept.add(r)
+                if (r.get("slug").asString() != "drop") {
+                    if (r.get("slug").asString() == "keep") (r as ObjectNode).put("name", "Keep V2")
+                    kept.add(r)
+                }
             }
             manifest.set("resources", kept)
             entries.remove("resources/theme/drop.json")
@@ -458,11 +478,17 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             entries.remove("resources/theme/keep.json") // referenced by manifest → install FAILS
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
 
-            val result = ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries), catalogType = CatalogType.SUBSCRIBED).execute()
+            assertThatThrownBy {
+                ImportCatalogZip(
+                    tenantKey = sub.id,
+                    zipBytes = rezip(entries),
+                    catalogType = CatalogType.SUBSCRIBED,
+                ).execute()
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("CATALOG_MANIFEST_DETAIL_MISSING")
 
-            assertThat(result.aborted).isTrue()
-            assertThat(result.results).anyMatch { it.status == InstallStatus.FAILED }
-            // Aborted: version not advanced, stale `drop` NOT pruned (retry-able).
+            // Whole-catalog validation fails before mutation: version is not
+            // advanced and stale `drop` is not pruned.
             assertThat(GetCatalog(sub.id, catalogKey).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(themeName(sub.id, catalogKey, "drop")).isEqualTo("Drop")
         }

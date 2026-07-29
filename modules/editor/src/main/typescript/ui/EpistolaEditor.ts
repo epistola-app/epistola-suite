@@ -64,6 +64,7 @@ import {
   writeBlockClipboardData,
   type BlockSubtree,
 } from './block-clipboard.js';
+import { isSlotLocked } from '../engine/locks.js';
 
 import './EpistolaSidebar.js';
 import './EpistolaCanvas.js';
@@ -73,6 +74,7 @@ import './EpistolaResizeHandle.js';
 
 type InsertMode = 'after' | 'before' | 'inside' | 'start' | 'end';
 type PasteDialogMode = 'placement' | 'slot';
+type InsertNodeResult = 'inserted' | 'cancelled' | 'failed';
 type ClosestCapableTarget = {
   closest(selector: string): Element | null;
 };
@@ -929,7 +931,7 @@ export class EpistolaEditor extends LitElement {
         this._insertDialogHighlight = index;
       },
       selectOption: (index) => {
-        this._selectInsertDialogOption(index);
+        void this._selectInsertDialogOption(index);
       },
       setOptionOutOfRange: () => {
         this._insertDialogError = 'Option out of range';
@@ -937,7 +939,7 @@ export class EpistolaEditor extends LitElement {
     };
   }
 
-  private _selectInsertDialogOption(selectedIndex: number): void {
+  private async _selectInsertDialogOption(selectedIndex: number): Promise<void> {
     this._insertDialogHighlight = selectedIndex;
 
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
@@ -965,14 +967,14 @@ export class EpistolaEditor extends LitElement {
       return;
     }
 
-    const ok = this._insertNodeAtTarget(
+    const result = await this._insertNodeAtTarget(
       definition.type,
       this._insertTarget.slotId,
       this._insertTarget.index,
     );
-    if (ok) {
+    if (result === 'inserted') {
       this._closeInsertDialog();
-    } else {
+    } else if (result === 'failed') {
       this._insertDialogError = 'Failed to insert block';
     }
   }
@@ -1099,10 +1101,26 @@ export class EpistolaEditor extends LitElement {
     });
   }
 
-  private _insertNodeAtTarget(type: string, slotId: SlotId, index: number): boolean {
-    if (!this._engine || !this._doc) return false;
+  private async _insertNodeAtTarget(
+    type: string,
+    slotId: SlotId,
+    index: number,
+  ): Promise<InsertNodeResult> {
+    if (!this._engine || !this._doc) return 'failed';
 
-    const { node, slots, extraNodes } = this._engine.registry.createNode(type);
+    const definition = this._engine.registry.get(type);
+    let overrideProps: Record<string, unknown> | undefined;
+    if (definition?.onBeforeInsert) {
+      try {
+        const prepared = await definition.onBeforeInsert(this._engine, { targetSlotId: slotId });
+        if (!prepared) return 'cancelled';
+        overrideProps = prepared;
+      } catch {
+        return 'failed';
+      }
+    }
+
+    const { node, slots, extraNodes } = this._engine.registry.createNode(type, overrideProps);
     const result = this._engine.dispatch({
       type: 'InsertNode',
       node,
@@ -1115,9 +1133,9 @@ export class EpistolaEditor extends LitElement {
     if (result.ok) {
       this._engine.selectNode(node.id);
       this._focusCanvasBlock(node.id);
-      return true;
+      return 'inserted';
     }
-    return false;
+    return 'failed';
   }
 
   private _buildInsertableOptions(parentType: string): ComponentDefinition[] {
@@ -1228,9 +1246,11 @@ export class EpistolaEditor extends LitElement {
 
   private _getInsertSlotOptionsForInside(): InsertSlotOption[] {
     if (!this._engine || !this._doc) return [];
+    const engine = this._engine;
+    const doc = this._doc;
 
-    const selectedNodeId = this._selectedNodeId ?? this._doc.root;
-    const selectedNode = this._doc.nodes[selectedNodeId];
+    const selectedNodeId = this._selectedNodeId ?? doc.root;
+    const selectedNode = doc.nodes[selectedNodeId];
     if (!selectedNode) return [];
 
     const insertable = this._buildInsertableOptions(selectedNode.type);
@@ -1238,8 +1258,11 @@ export class EpistolaEditor extends LitElement {
 
     return selectedNode.slots
       .map((slotId, index) => {
-        const slot = this._doc?.slots[slotId];
+        const slot = doc.slots[slotId];
         if (!slot) return null;
+        if (isSlotLocked(doc, slotId, engine.indexes, engine.registry)) {
+          return null;
+        }
         const slotName = slot.name && slot.name.trim().length > 0 ? slot.name : `slot-${index + 1}`;
         return { slotId, label: `${slotName} (${slot.children.length} items)` };
       })
@@ -1250,9 +1273,26 @@ export class EpistolaEditor extends LitElement {
     if (!this._engine || !this._doc) return null;
     const slot = this._doc.slots[slotId];
     if (!slot) return null;
+    if (isSlotLocked(this._doc, slotId, this._engine.indexes, this._engine.registry)) {
+      return null;
+    }
     const ownerNode = this._doc.nodes[slot.nodeId];
     if (!ownerNode) return null;
     return { slotId, index: slot.children.length, parentType: ownerNode.type };
+  }
+
+  private _handleInsertBlockAtSlot(event: CustomEvent<{ slotId?: SlotId }>): void {
+    const slotId = event.detail?.slotId;
+    if (!slotId) return;
+
+    const target = this._buildInsideTargetFromSlot(slotId);
+    if (!target) return;
+
+    event.stopPropagation();
+    this._insertDialogOpen = true;
+    this._resetInsertDialogToPlacement();
+    this._insertDialogMode = 'inside';
+    this._setInsertDialogTarget(target);
   }
 
   private _insertDialogKeyLabel(key: string): string {
@@ -1613,6 +1653,8 @@ export class EpistolaEditor extends LitElement {
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
             .cleanMode=${this._cleanMode}
+            @epistola-insert-block-at-slot=${(event: CustomEvent<{ slotId?: SlotId }>) =>
+              this._handleInsertBlockAtSlot(event)}
           ></epistola-canvas>
 
           ${showPreview

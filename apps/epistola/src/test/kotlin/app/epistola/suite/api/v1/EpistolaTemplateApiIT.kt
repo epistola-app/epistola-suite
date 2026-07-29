@@ -638,7 +638,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
               "root": "root",
               "nodes": {
                 "root": {"id": "root", "type": "root", "slots": ["slot-root"]},
-                "text1": {"id": "text1", "type": "text", "slots": [], "props": {"content": "Hello #662"}}
+                "text1": {
+                  "id": "text1",
+                  "type": "text",
+                  "slots": [],
+                  "props": {
+                    "content": {
+                      "type": "doc",
+                      "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Hello #662"}]}]
+                    }
+                  }
+                }
               },
               "slots": {
                 "slot-root": {"id": "slot-root", "nodeId": "root", "name": "children", "children": ["text1"]}
@@ -657,7 +667,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(upsert.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(upsert.body!!, "$.templateModel.root")).isEqualTo("root")
-        assertThat(JsonPath.read<String>(upsert.body!!, "$.templateModel.nodes.text1.props.content"))
+        assertThat(
+            JsonPath.read<String>(
+                upsert.body!!,
+                "$.templateModel.nodes.text1.props.content.content[0].content[0].text",
+            ),
+        )
             .isEqualTo("Hello #662")
 
         val get = restTemplate.exchange(
@@ -669,7 +684,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(get.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<Int>(get.body!!, "$.templateModel.modelVersion")).isEqualTo(1)
         assertThat(JsonPath.read<String>(get.body!!, "$.templateModel.root")).isEqualTo("root")
-        assertThat(JsonPath.read<String>(get.body!!, "$.templateModel.nodes.text1.props.content"))
+        assertThat(
+            JsonPath.read<String>(
+                get.body!!,
+                "$.templateModel.nodes.text1.props.content.content[0].content[0].text",
+            ),
+        )
             .isEqualTo("Hello #662")
     }
 
@@ -781,7 +801,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
               "root": "root",
               "nodes": {
                 "root": {"id": "root", "type": "root", "slots": ["root-slot"]},
-                "body": {"id": "body", "type": "text", "slots": [], "props": {"content": "retained"}}
+                "body": {
+                  "id": "body",
+                  "type": "text",
+                  "slots": [],
+                  "props": {
+                    "content": {
+                      "type": "doc",
+                      "content": [{"type": "paragraph", "content": [{"type": "text", "text": "retained"}]}]
+                    }
+                  }
+                }
               },
               "slots": {
                 "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["body"]}
@@ -803,7 +833,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
               "root": "root",
               "nodes": {
                 "root": {"id": "root", "type": "root", "slots": ["root-slot"]},
-                "body": {"id": "body", "type": "text", "slots": [], "props": {"content": "bad"}}
+                "body": {
+                  "id": "body",
+                  "type": "text",
+                  "slots": [],
+                  "props": {
+                    "content": {
+                      "type": "doc",
+                      "content": [{"type": "paragraph", "content": [{"type": "text", "text": "bad"}]}]
+                    }
+                  }
+                }
               },
               "slots": {
                 "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["body", "root"]}
@@ -828,7 +868,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(getDraft.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(getDraft.body!!, "$.templateModel.nodes.body.props.content"))
+        assertThat(
+            JsonPath.read<String>(
+                getDraft.body!!,
+                "$.templateModel.nodes.body.props.content.content[0].content[0].text",
+            ),
+        )
             .isEqualTo("retained")
     }
 
@@ -861,7 +906,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
               "root": "root",
               "nodes": {
                 "root": {"id": "root", "type": "container", "slots": ["root-slot"]},
-                "body": {"id": "body", "type": "text", "slots": [], "props": {"content": "bad-root"}}
+                "body": {
+                  "id": "body",
+                  "type": "text",
+                  "slots": [],
+                  "props": {
+                    "content": {
+                      "type": "doc",
+                      "content": [{"type": "paragraph", "content": [{"type": "text", "text": "bad-root"}]}]
+                    }
+                  }
+                }
               },
               "slots": {
                 "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["body"]}
@@ -886,7 +941,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(getDraft.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(getDraft.body!!, "$.templateModel.nodes.body.props.content"))
+        assertThat(
+            JsonPath.read<String>(
+                getDraft.body!!,
+                "$.templateModel.nodes.body.props.content.content[0].content[0].text",
+            ),
+        )
             .isEqualTo("retained-root")
     }
 
@@ -1508,7 +1568,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
           "root": "root",
           "nodes": {
             "root": {"id": "root", "type": "root", "slots": ["root-slot"]},
-            "$nodeId": {"id": "$nodeId", "type": "text", "slots": [], "props": {"content": "$text"}}
+            "$nodeId": {
+              "id": "$nodeId",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [{"type": "paragraph", "content": [{"type": "text", "text": "$text"}]}]
+                }
+              }
+            }
           },
           "slots": {
             "root-slot": {"id": "root-slot", "nodeId": "root", "name": "children", "children": ["$nodeId"]}

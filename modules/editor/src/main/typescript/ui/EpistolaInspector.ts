@@ -12,8 +12,7 @@ import type {
   InspectorPresentation,
   ScopeDeclaration,
 } from '../engine/registry.js';
-import type { StyleProperty } from '@epistola.app/epistola-model/generated/style-registry';
-import type { BlockStylePreset } from '@epistola.app/epistola-model/generated/theme';
+import type { BlockStylePreset, StyleProperty } from '@epistola.app/epistola-catalog';
 import { getNestedValue, setNestedValue } from '../engine/props.js';
 import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../engine/font-ref.js';

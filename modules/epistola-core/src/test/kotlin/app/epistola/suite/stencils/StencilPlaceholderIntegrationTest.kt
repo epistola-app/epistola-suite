@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.catalog.validation.TemplateValidationLimits
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilVersionId
@@ -11,12 +12,14 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
@@ -70,7 +73,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "default-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "Default body content"),
+                props = mapOf("content" to richText("Default body content")),
             ),
         ),
         slots = mapOf(
@@ -114,7 +117,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilId" to stencilKey, "version" to 1, "isDraft" to false),
             ),
             "embedded-ph" to Node(
                 id = "embedded-ph",
@@ -126,7 +129,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 id = "user-fill-text",
                 type = "text",
                 slots = emptyList(),
-                props = mapOf("content" to "User-authored body"),
+                props = mapOf("content" to richText("User-authored body")),
             ),
         ),
         slots = mapOf(
@@ -208,7 +211,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "v2-default-text",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v2 default"),
+                    props = mapOf("content" to richText("v2 default")),
                 ),
             ),
             slots = mapOf(
@@ -250,6 +253,49 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     // ---------------------------------------------------------------------------
 
     @Test
+    fun `published template retains distinct nested stencil content`() = test {
+        val tenant = createTenant("placeholder-non-recursive-nesting")
+        val tenantId = TenantId(tenant.id)
+        val outerStencilId = stencilId(tenantId)
+        val innerStencilId = stencilId(tenantId)
+
+        CreateStencil(
+            id = outerStencilId,
+            name = "Outer letter",
+            content = stencilV1WithBodyPlaceholder(),
+        ).execute()
+        PublishStencilVersion(StencilVersionId(VersionKey.of(1), outerStencilId)).execute()
+        CreateStencil(
+            id = innerStencilId,
+            name = "Inner address",
+            content = textStencil("Nested address content"),
+        ).execute()
+        PublishStencilVersion(StencilVersionId(VersionKey.of(1), innerStencilId)).execute()
+
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Nested stencils").execute()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val nested = templateWithNestedStencilFill(
+            outerStencilId.key.value,
+            innerStencilId.key.value,
+        )
+
+        val draft = UpdateDraft(
+            variantId = variantId,
+            templateModel = nested,
+        ).execute()!!
+        val published = PublishVersion(VersionId(draft.id, variantId)).execute()!!
+
+        assertThat(published.templateModel.slots["outer-fill"]!!.children)
+            .containsExactly("inner-stencil")
+        assertThat(published.templateModel.nodes["inner-stencil"]!!.props!!["stencilId"])
+            .isEqualTo(innerStencilId.key.value)
+        assertThat(published.templateModel.nodes["nested-text"]!!.props!!["content"])
+            .isEqualTo(richText("Nested address content"))
+    }
+
+    @Test
     fun `UpdateDraft rejects a recursive stencil document`() = test {
         val tenant = createTenant("placeholder-recursion")
         val tenantId = TenantId(tenant.id)
@@ -259,37 +305,30 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         CreateDocumentTemplate(id = templateId, name = "Recursive").execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
 
-        // root → stencil('header') → children → stencil('header') — recursion.
-        val recursive = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "outer" to Node(
-                    id = "outer",
-                    type = "stencil",
-                    slots = listOf("outer-slot"),
-                    props = mapOf("stencilId" to "header", "version" to 1),
-                ),
-                "inner" to Node(
-                    id = "inner",
-                    type = "stencil",
-                    slots = listOf("inner-slot"),
-                    props = mapOf("stencilId" to "header", "version" to 1),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("outer")),
-                "outer-slot" to Slot(id = "outer-slot", nodeId = "outer", name = "children", children = listOf("inner")),
-                "inner-slot" to Slot(id = "inner-slot", nodeId = "inner", name = "children", children = emptyList()),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
+        // header → address → header repeats an ancestor stencil id.
+        val recursive = nestedStencilTemplate("header", "address", "header")
 
         assertThatThrownBy {
             UpdateDraft(variantId = variantId, templateModel = recursive).execute()
         }.isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+    }
+
+    @Test
+    fun `UpdateDraft rejects the sixth nested stencil level`() = test {
+        val tenant = createTenant("placeholder-depth")
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Too deeply nested").execute()
+        val slugs = Array(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH + 1) { "stencil-$it" }
+
+        assertThatThrownBy {
+            UpdateDraft(
+                variantId = VariantId(VariantKey.INITIAL, templateId),
+                templateModel = nestedStencilTemplate(*slugs),
+            ).execute()
+        }.isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED)
     }
 
     @Test
@@ -411,7 +450,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "v1-default",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v1 default"),
+                    props = mapOf("content" to richText("v1 default")),
                 ),
             ),
             slots = mapOf(
@@ -440,7 +479,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "stencil-instance",
                     type = "stencil",
                     slots = listOf("stencil-children"),
-                    props = mapOf("stencilId" to sId.key.value, "version" to 1),
+                    props = mapOf("stencilId" to sId.key.value, "version" to 1, "isDraft" to false),
                 ),
                 "embedded-ph" to Node(
                     id = "embedded-ph",
@@ -452,13 +491,13 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "embedded-default",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v1 default"),
+                    props = mapOf("content" to richText("v1 default")),
                 ),
                 "user-override" to Node(
                     id = "user-override",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "user override"),
+                    props = mapOf("content" to richText("user override")),
                 ),
             ),
             slots = mapOf(
@@ -492,7 +531,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     id = "v2-default",
                     type = "text",
                     slots = emptyList(),
-                    props = mapOf("content" to "v2 default"),
+                    props = mapOf("content" to richText("v2 default")),
                 ),
             ),
             slots = mapOf(
@@ -521,10 +560,12 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `CreateStencil rejects malformed parameterBindings prop`() = test {
+    fun `UpdateDraft rejects malformed parameterBindings prop`() = test {
         val tenant = createTenant("placeholder-binding-shape")
         val tenantId = TenantId(tenant.id)
-        val sId = stencilId(tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Malformed binding").execute()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
 
         // parameterBindings as a non-map → caught by NODE_PARAMETER_BINDINGS_INVALID_SHAPE.
         val malformed = TemplateDocument(
@@ -550,8 +591,110 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         )
 
         assertThatThrownBy {
-            CreateStencil(id = sId, name = "Malformed", content = malformed).execute()
+            UpdateDraft(variantId = variantId, templateModel = malformed).execute()
         }.isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
+    )
+
+    private fun nestedStencilTemplate(vararg stencilIds: String): TemplateDocument {
+        val stencils = stencilIds.mapIndexed { index, stencilId ->
+            Node(
+                id = "stencil-$index",
+                type = "stencil",
+                slots = listOf("stencil-$index-children"),
+                props = mapOf("stencilId" to stencilId, "version" to 1, "isDraft" to false),
+            )
+        }
+        return TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf("root" to Node("root", "root", listOf("root-slot"))) +
+                stencils.associateBy(Node::id),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf(stencils.first().id)),
+            ) + stencils.mapIndexed { index, stencil ->
+                "stencil-$index-children" to Slot(
+                    "stencil-$index-children",
+                    stencil.id,
+                    "children",
+                    stencils.getOrNull(index + 1)?.let { listOf(it.id) }.orEmpty(),
+                )
+            },
+            themeRef = ThemeRef.Inherit,
+        )
+    }
+
+    private fun textStencil(text: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node("root", "root", listOf("root-children")),
+            "text" to Node(
+                id = "text",
+                type = "text",
+                props = mapOf("content" to richText(text)),
+            ),
+        ),
+        slots = mapOf(
+            "root-children" to Slot("root-children", "root", "children", listOf("text")),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    private fun templateWithNestedStencilFill(
+        outerStencilId: String,
+        innerStencilId: String,
+    ): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node("root", "root", listOf("root-children")),
+            "outer-stencil" to Node(
+                id = "outer-stencil",
+                type = "stencil",
+                slots = listOf("outer-children"),
+                props = mapOf("stencilId" to outerStencilId, "version" to 1, "isDraft" to false),
+            ),
+            "outer-placeholder" to Node(
+                id = "outer-placeholder",
+                type = "placeholder",
+                slots = listOf("outer-default", "outer-fill"),
+                props = mapOf("name" to "body", "kind" to "block"),
+            ),
+            "inner-stencil" to Node(
+                id = "inner-stencil",
+                type = "stencil",
+                slots = listOf("inner-children"),
+                props = mapOf("stencilId" to innerStencilId, "version" to 1, "isDraft" to false),
+            ),
+            "nested-text" to Node(
+                id = "nested-text",
+                type = "text",
+                props = mapOf("content" to richText("Nested address content")),
+            ),
+        ),
+        slots = mapOf(
+            "root-children" to Slot("root-children", "root", "children", listOf("outer-stencil")),
+            "outer-children" to Slot(
+                "outer-children",
+                "outer-stencil",
+                "children",
+                listOf("outer-placeholder"),
+            ),
+            "outer-default" to Slot("outer-default", "outer-placeholder", "default"),
+            "outer-fill" to Slot("outer-fill", "outer-placeholder", "fill", listOf("inner-stencil")),
+            "inner-children" to Slot("inner-children", "inner-stencil", "children", listOf("nested-text")),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
 }

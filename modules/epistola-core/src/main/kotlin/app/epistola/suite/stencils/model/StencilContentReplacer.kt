@@ -393,15 +393,32 @@ object StencilContentReplacer {
             .map { capture.nodes[it] ?: currentNodes[it] }
             .firstOrNull { it != null }
         if (firstNode != null) {
-            val content = firstNode.props?.get("content")
-            if (content is String && content.isNotBlank()) {
-                return content.take(80)
-            }
+            canonicalText(firstNode.props?.get("content"))
+                ?.takeIf(String::isNotBlank)
+                ?.let { return it.take(80) }
         }
         val types = capture.rootChildIds
             .map { capture.nodes[it]?.type ?: currentNodes[it]?.type ?: "?" }
             .distinct()
         return "[" + types.joinToString(", ") + "]"
+    }
+
+    private fun canonicalText(value: Any?): String? = when (value) {
+        is Map<*, *> -> {
+            if (value["type"] == "text") {
+                value["text"] as? String
+            } else {
+                (value["content"] as? List<*>)?.firstNotNullOfOrNull(::canonicalText)
+            }
+        }
+        is JsonNode -> {
+            if (value["type"]?.asString() == "text") {
+                value["text"]?.asString()
+            } else {
+                value["content"]?.takeIf(JsonNode::isArray)?.firstNotNullOfOrNull(::canonicalText)
+            }
+        }
+        else -> null
     }
 
     private data class ReKeyResult(

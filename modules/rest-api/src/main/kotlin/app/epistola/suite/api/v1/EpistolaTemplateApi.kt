@@ -425,7 +425,7 @@ class EpistolaTemplateApi(
             ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
         val draft = GetDraft(variantId = variantIdComposite).query()
             ?: throw DraftNotFoundException(tenantIdComposite.key, variantIdComposite.key)
-        return ResponseEntity.ok(draft.toDto(objectMapper))
+        return ResponseEntity.ok(draft.toDto())
     }
 
     override fun createVariantDraft(
@@ -439,7 +439,7 @@ class EpistolaTemplateApi(
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val draft = CreateVersion(variantId = variantIdComposite).execute()
             ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        return ResponseEntity.status(HttpStatus.CREATED).body(draft.toDto(objectMapper))
+        return ResponseEntity.status(HttpStatus.CREATED).body(draft.toDto())
     }
 
     override fun upsertVariantDraft(
@@ -449,9 +449,8 @@ class EpistolaTemplateApi(
         variantId: String,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
-        val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
-        } ?: throw ValidationException(field = "templateModel", message = "Template model is required")
+        val templateModel = updateDraftRequest.templateModel
+            ?: throw ValidationException(field = "templateModel", message = "Template model is required")
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
@@ -459,7 +458,7 @@ class EpistolaTemplateApi(
             variantId = variantIdComposite,
             templateModel = templateModel,
         ).execute() ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        return ResponseEntity.ok(draft.toDto(objectMapper))
+        return ResponseEntity.ok(draft.toDto())
     }
 
     override fun publishVariantDraft(
@@ -477,7 +476,7 @@ class EpistolaTemplateApi(
             ?: throw DraftNotFoundException(tenantIdComposite.key, variantIdComposite.key)
         val published = PublishVersion(versionId = VersionId(draft.id, variantIdComposite)).execute()
             ?: throw VersionNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key, draft.id)
-        return ResponseEntity.ok(published.toDto(objectMapper))
+        return ResponseEntity.ok(published.toDto())
     }
 
     override fun discardVariantDraft(
@@ -545,7 +544,7 @@ class EpistolaTemplateApi(
             ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
         val version = GetActiveVersion(variantId = variantIdComposite, environmentId = environmentIdComposite).query()
             ?: throw NoActiveVersionException(tenantIdComposite.key, variantIdComposite.key, environmentIdComposite.key)
-        return ResponseEntity.ok(version.toDto(objectMapper))
+        return ResponseEntity.ok(version.toDto())
     }
 
     // ================== Version operations ==================
@@ -596,7 +595,7 @@ class EpistolaTemplateApi(
         val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val version = GetVersion(versionId = versionIdComposite).query()
             ?: throw VersionNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key, versionIdComposite.key)
-        return ResponseEntity.ok(version.toDto(objectMapper))
+        return ResponseEntity.ok(version.toDto())
     }
 
     override fun updateVersion(
@@ -607,9 +606,8 @@ class EpistolaTemplateApi(
         versionId: Int,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
-        val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
-        } ?: throw ValidationException(field = "templateModel", message = "Template model is required")
+        val templateModel = updateDraftRequest.templateModel
+            ?: throw ValidationException(field = "templateModel", message = "Template model is required")
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
@@ -618,7 +616,7 @@ class EpistolaTemplateApi(
             versionId = versionIdComposite,
             templateModel = templateModel,
         ).execute()
-        return ResponseEntity.ok(version.toDto(objectMapper))
+        return ResponseEntity.ok(version.toDto())
     }
 
     override fun publishVersion(
@@ -638,7 +636,7 @@ class EpistolaTemplateApi(
             versionId = versionIdComposite,
             environmentId = environmentIdComposite,
         ).execute()
-        return ResponseEntity.ok(result.version.toDto(objectMapper))
+        return ResponseEntity.ok(result.version.toDto())
     }
 
     override fun archiveVersion(
@@ -655,7 +653,7 @@ class EpistolaTemplateApi(
         val archived = ArchiveVersion(
             versionId = versionIdComposite,
         ).execute()
-        return ResponseEntity.ok(archived.toDto(objectMapper))
+        return ResponseEntity.ok(archived.toDto())
     }
 
     // ================== Helper methods ==================

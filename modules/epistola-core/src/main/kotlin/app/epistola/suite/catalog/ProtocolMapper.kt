@@ -6,17 +6,17 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.themes.BlockStylePresets
+import app.epistola.template.model.BlockStylePreset
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
  * Centralizes conversions between the suite's internal types and the
- * catalog protocol model's `Map<String, Any?>` representations.
+ * catalog protocol representations.
  *
- * Protocol resources use plain maps for JSON-like structures (dataModel,
- * documentStyles, blockStylePresets), while the suite uses typed wrappers
- * (ObjectNode, DocumentStyles, BlockStylePresets). This mapper keeps that
+ * Protocol resources use plain maps for JSON-like structures such as data models
+ * and document styles, while the suite uses typed wrappers for persistence. This mapper keeps that
  * translation in one place so import/export handlers stay focused on
  * orchestration logic.
  */
@@ -38,12 +38,9 @@ class ProtocolMapper(private val objectMapper: ObjectMapper) {
     /** Protocol Map → Suite DocumentStyles. */
     fun mapToDocumentStyles(map: Map<String, Any?>?): DocumentStyles = map?.filterValues { it != null }?.mapValues { (_, v) -> v!! } ?: emptyMap()
 
-    /** Suite BlockStylePresets → Protocol Map. */
-    @Suppress("UNCHECKED_CAST")
-    fun blockStylePresetsToMap(presets: BlockStylePresets?): Map<String, Any?>? = presets?.let {
-        objectMapper.convertValue(it, Map::class.java) as Map<String, Any?>
-    }
+    /** Suite persistence wrapper → portable catalog preset map. */
+    fun blockStylePresetsToMap(presets: BlockStylePresets?): Map<String, BlockStylePreset>? = presets
 
-    /** Protocol Map → Suite BlockStylePresets. */
-    fun mapToBlockStylePresets(map: Map<String, Any?>?): BlockStylePresets? = map?.let { objectMapper.convertValue(it, BlockStylePresets::class.java) }
+    /** Portable catalog preset map → Suite persistence wrapper. */
+    fun mapToBlockStylePresets(map: Map<String, BlockStylePreset>?): BlockStylePresets? = map?.let(::BlockStylePresets)
 }

@@ -62,7 +62,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         root = "root",
         nodes = mapOf(
             "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-            "text1" to Node(id = "text1", type = "text", slots = emptyList(), props = mapOf("content" to "Hello")),
+            "text1" to Node(id = "text1", type = "text", slots = emptyList(), props = mapOf("content" to richText("Hello"))),
         ),
         slots = mapOf(
             "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text1")),
@@ -292,7 +292,12 @@ class StencilIntegrationTest : IntegrationTestBase() {
             root = "root",
             nodes = mapOf(
                 "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-                "text-updated" to Node(id = "text-updated", type = "text", slots = emptyList(), props = mapOf("content" to "Updated")),
+                "text-updated" to Node(
+                    id = "text-updated",
+                    type = "text",
+                    slots = emptyList(),
+                    props = mapOf("content" to richText("Updated")),
+                ),
             ),
             slots = mapOf(
                 "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text-updated")),
@@ -310,7 +315,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
     // ── Publish validation ──
 
     @Test
-    fun `publish rejects stencil with nested stencil nodes`() = test {
+    fun `create rejects stencil with nested stencil nodes`() = test {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val id = stencilId(tenantId)
@@ -323,21 +328,24 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 "nested-stencil" to Node(
                     id = "nested-stencil",
                     type = "stencil",
-                    slots = emptyList(),
-                    props = mapOf("stencilId" to "other", "version" to 1),
+                    slots = listOf("slot-nested-stencil"),
+                    props = mapOf("stencilId" to "other", "version" to 1, "isDraft" to false),
                 ),
             ),
             slots = mapOf(
                 "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("nested-stencil")),
+                "slot-nested-stencil" to Slot(
+                    id = "slot-nested-stencil",
+                    nodeId = "nested-stencil",
+                    name = "children",
+                    children = emptyList(),
+                ),
             ),
             themeRef = ThemeRef.Inherit,
         )
 
-        CreateStencil(id = id, name = "Nested Test", content = contentWithNestedStencil).execute()
-        val versionId = StencilVersionId(VersionKey.of(1), id)
-
         assertThatThrownBy {
-            PublishStencilVersion(versionId = versionId).execute()
+            CreateStencil(id = id, name = "Nested Test", content = contentWithNestedStencil).execute()
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("stencil")
     }
@@ -559,7 +567,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilId" to stencilKey, "version" to 1, "isDraft" to false),
             ),
         ),
         slots = mapOf(
@@ -596,5 +604,15 @@ class StencilIntegrationTest : IntegrationTestBase() {
             "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text-path")),
         ),
         themeRef = ThemeRef.Inherit,
+    )
+
+    private fun richText(text: String): Map<String, Any?> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "paragraph",
+                "content" to listOf(mapOf("type" to "text", "text" to text)),
+            ),
+        ),
     )
 }

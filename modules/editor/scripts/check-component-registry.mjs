@@ -11,7 +11,7 @@ function readJson(path) {
 }
 
 const dumpedPath = 'dist/component-registry.json';
-const contractPath = 'node_modules/@epistola.app/epistola-model/registry/component-registry.json';
+const contractPath = 'node_modules/@epistola.app/epistola-catalog/registry/component-registry.json';
 
 const dumped = readJson(dumpedPath);
 const contract = readJson(contractPath);

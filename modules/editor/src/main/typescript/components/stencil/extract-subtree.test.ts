@@ -5,7 +5,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetCounter } from '../../engine/test-helpers.js';
 import { extractSubtree } from './extract-subtree.js';
-import { setupEngine, insertStencil, insertText, getStencilSlot } from './stencil-test-helpers.js';
+import {
+  setupEngine,
+  insertStencil,
+  insertText,
+  getStencilSlot,
+  richText,
+  richTextValue,
+} from './stencil-test-helpers.js';
 import type { TemplateDocument, NodeId } from '../../types/index.js';
 
 beforeEach(() => {
@@ -26,8 +33,8 @@ describe('extractSubtree for inspector actions', () => {
     // Should have a root + 2 text nodes
     const textNodes = Object.values(extracted.nodes).filter((n) => n.type === 'text');
     expect(textNodes).toHaveLength(2);
-    expect(textNodes.some((n) => n.props?.content === 'Header text')).toBe(true);
-    expect(textNodes.some((n) => n.props?.content === 'Subtitle')).toBe(true);
+    expect(textNodes.some((n) => richTextValue(n.props?.content) === 'Header text')).toBe(true);
+    expect(textNodes.some((n) => richTextValue(n.props?.content) === 'Subtitle')).toBe(true);
   });
 
   it('extracted content is a valid standalone document', () => {
@@ -82,13 +89,13 @@ describe('extractSubtree for inspector actions', () => {
           id: 'defaultText',
           type: 'text',
           slots: [],
-          props: { content: 'default content' },
+          props: { content: richText('default content') },
         },
         fillText: {
           id: 'fillText',
           type: 'text',
           slots: [],
-          props: { content: 'override content' },
+          props: { content: richText('override content') },
         },
       },
       slots: {
@@ -118,10 +125,10 @@ describe('extractSubtree for inspector actions', () => {
 
     // Default content survives.
     const texts = Object.values(extracted.nodes).filter((n) => n.type === 'text');
-    expect(texts.some((n) => n.props?.content === 'default content')).toBe(true);
+    expect(texts.some((n) => richTextValue(n.props?.content) === 'default content')).toBe(true);
 
     // Fill content was stripped.
-    expect(texts.some((n) => n.props?.content === 'override content')).toBe(false);
+    expect(texts.some((n) => richTextValue(n.props?.content) === 'override content')).toBe(false);
 
     // Fill slot is still present (structurally) but empty.
     const fillSlot = Object.values(extracted.slots).find((s) => s.name === 'fill');

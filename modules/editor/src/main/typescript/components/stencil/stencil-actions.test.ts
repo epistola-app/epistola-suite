@@ -17,7 +17,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestDocument, resetCounter, nodeId, slotId } from '../../engine/test-helpers.js';
 import * as actions from './stencil-actions.js';
-import { setupEngine, insertStencil, createMockCallbacks } from './stencil-test-helpers.js';
+import {
+  setupEngine,
+  insertStencil,
+  createMockCallbacks,
+  richText,
+  richTextValue,
+} from './stencil-test-helpers.js';
 import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
 import type { JsonSchema } from '../../data-contract/types.js';
@@ -97,8 +103,18 @@ describe('stencil-actions module', () => {
       targetSlotId: stencilSlot,
       index: -1,
       _restoreNodes: [
-        { id: defaultText, type: 'text', slots: [], props: { content: 'default content' } },
-        { id: fillText, type: 'text', slots: [], props: { content: 'override content' } },
+        {
+          id: defaultText,
+          type: 'text',
+          slots: [],
+          props: { content: richText('default content') },
+        },
+        {
+          id: fillText,
+          type: 'text',
+          slots: [],
+          props: { content: richText('override content') },
+        },
       ],
     });
 
@@ -112,12 +128,12 @@ describe('stencil-actions module', () => {
     expect(fillSlotInSent!.children).toEqual([]);
     // Default content survives.
     const defaultTextInSent = Object.values(sentContent.nodes).find(
-      (n) => n.type === 'text' && n.props?.content === 'default content',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'default content',
     );
     expect(defaultTextInSent).toBeDefined();
     // Override content is NOT sent to the backend.
     const fillTextInSent = Object.values(sentContent.nodes).find(
-      (n) => n.type === 'text' && n.props?.content === 'override content',
+      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'override content',
     );
     expect(fillTextInSent).toBeUndefined();
   });
@@ -225,13 +241,20 @@ describe('stencil-actions module', () => {
       ],
       targetSlotId: stencilSlot,
       index: -1,
-      _restoreNodes: [{ id: fillText, type: 'text', slots: [], props: { content: 'override' } }],
+      _restoreNodes: [
+        {
+          id: fillText,
+          type: 'text',
+          slots: [],
+          props: { content: richText('override') },
+        },
+      ],
     });
 
     await actions.publishDraft(ctx, 5);
 
     expect(engine.doc.slots[fillSlot].children).toEqual([fillText]);
-    expect(engine.doc.nodes[fillText]?.props?.content).toBe('override');
+    expect(richTextValue(engine.doc.nodes[fillText]?.props?.content)).toBe('override');
   });
 
   it('discard reverts to the published version and preserves user fills', async () => {
@@ -255,7 +278,7 @@ describe('stencil-actions module', () => {
           id: 'v1-default-text' as NodeId,
           type: 'text',
           slots: [],
-          props: { content: 'v1 default' },
+          props: { content: richText('v1 default') },
         },
       },
       slots: {
@@ -319,9 +342,14 @@ describe('stencil-actions module', () => {
             id: editedDefaultText,
             type: 'text',
             slots: [],
-            props: { content: 'edited (to be discarded)' },
+            props: { content: richText('edited (to be discarded)') },
           },
-          { id: fillText, type: 'text', slots: [], props: { content: 'user override' } },
+          {
+            id: fillText,
+            type: 'text',
+            slots: [],
+            props: { content: richText('user override') },
+          },
         ],
       },
       { bypassLock: true },
@@ -335,14 +363,16 @@ describe('stencil-actions module', () => {
     const newPh = newPlaceholders[0];
     const newDefaultSlotId = newPh.slots.find((s) => engine.doc.slots[s]?.name === 'default')!;
     const newFillSlotId = newPh.slots.find((s) => engine.doc.slots[s]?.name === 'fill')!;
-    expect(engine.doc.nodes[engine.doc.slots[newDefaultSlotId].children[0]]?.props?.content).toBe(
-      'v1 default',
-    );
+    expect(
+      richTextValue(
+        engine.doc.nodes[engine.doc.slots[newDefaultSlotId].children[0]]?.props?.content,
+      ),
+    ).toBe('v1 default');
     // The user's fill was preserved by name.
     expect(engine.doc.slots[newFillSlotId].children).toHaveLength(1);
-    expect(engine.doc.nodes[engine.doc.slots[newFillSlotId].children[0]]?.props?.content).toBe(
-      'user override',
-    );
+    expect(
+      richTextValue(engine.doc.nodes[engine.doc.slots[newFillSlotId].children[0]]?.props?.content),
+    ).toBe('user override');
     // Stencil exits draft mode.
     expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
   });

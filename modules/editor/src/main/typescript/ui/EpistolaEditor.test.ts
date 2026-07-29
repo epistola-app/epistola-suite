@@ -12,6 +12,8 @@ import {
   testRegistry,
 } from '../engine/test-helpers.js';
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js';
+import { createDefaultRegistry } from '../engine/registry.js';
+import { createStencilDefinition } from '../components/stencil/stencil-registration.js';
 import {
   BLOCK_CLIPBOARD_MIME,
   extractBlockSubtree,
@@ -65,8 +67,187 @@ function createMultiSlotDocument(): {
   return { doc, textNodeId, columnsNodeId, leftSlotId, rightSlotId };
 }
 
+function createPublishedStencilWithEmptyFill(): {
+  doc: TemplateDocument;
+  fillSlotId: SlotId;
+  lockedStencilSlotId: SlotId;
+} {
+  const rootId = nodeId('root');
+  const rootSlotId = slotId('root-slot');
+  const stencilNodeId = nodeId('outer-stencil');
+  const stencilSlotId = slotId('outer-stencil-children');
+  const placeholderNodeId = nodeId('placeholder');
+  const defaultSlotId = slotId('placeholder-default');
+  const fillSlotId = slotId('placeholder-fill');
+
+  return {
+    doc: {
+      modelVersion: 1,
+      root: rootId,
+      nodes: {
+        [rootId]: { id: rootId, type: 'root', slots: [rootSlotId] },
+        [stencilNodeId]: {
+          id: stencilNodeId,
+          type: 'stencil',
+          slots: [stencilSlotId],
+          props: {
+            stencilId: 'outer',
+            catalogKey: 'local',
+            version: 1,
+            isDraft: false,
+          },
+        },
+        [placeholderNodeId]: {
+          id: placeholderNodeId,
+          type: 'placeholder',
+          slots: [defaultSlotId, fillSlotId],
+          props: { name: 'body', description: '', kind: 'block' },
+        },
+      },
+      slots: {
+        [rootSlotId]: {
+          id: rootSlotId,
+          nodeId: rootId,
+          name: 'children',
+          children: [stencilNodeId],
+        },
+        [stencilSlotId]: {
+          id: stencilSlotId,
+          nodeId: stencilNodeId,
+          name: 'children',
+          children: [placeholderNodeId],
+        },
+        [defaultSlotId]: {
+          id: defaultSlotId,
+          nodeId: placeholderNodeId,
+          name: 'default',
+          children: [],
+        },
+        [fillSlotId]: {
+          id: fillSlotId,
+          nodeId: placeholderNodeId,
+          name: 'fill',
+          children: [],
+        },
+      },
+      themeRef: { type: 'inherit' },
+    },
+    fillSlotId,
+    lockedStencilSlotId: stencilSlotId,
+  };
+}
+
 beforeEach(() => {
   resetCounter();
+});
+
+describe('EpistolaEditor contextual block insertion', () => {
+  it('inserts a selected stencil into an empty published-stencil fill', async () => {
+    const { doc, fillSlotId } = createPublishedStencilWithEmptyFill();
+    const registry = createDefaultRegistry();
+    registry.register(createStencilDefinition({ callbacks: null }));
+
+    const stencil = registry.getOrThrow('stencil');
+    const insertionTargets: SlotId[] = [];
+    registry.register({
+      ...stencil,
+      onBeforeInsert: async (_engine, context) => {
+        if (context?.targetSlotId) insertionTargets.push(context.targetSlotId);
+        return {
+          stencilId: 'inner',
+          catalogKey: 'local',
+          version: 1,
+          isDraft: false,
+        };
+      },
+    });
+
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, registry);
+
+    const editorAny = editor as unknown as {
+      _handleInsertBlockAtSlot: (event: CustomEvent<{ slotId: SlotId }>) => void;
+      _insertDialogBlockOptions: Array<{ type: string }>;
+      _selectInsertDialogOption: (index: number) => Promise<void>;
+      _insertDialogOpen: boolean;
+      _engine: { doc: TemplateDocument };
+    };
+    editorAny._handleInsertBlockAtSlot(
+      new CustomEvent('epistola-insert-block-at-slot', {
+        detail: { slotId: fillSlotId },
+      }),
+    );
+    const stencilIndex =
+      editorAny._insertDialogBlockOptions.findIndex((definition) => definition.type === 'stencil') +
+      1;
+    expect(stencilIndex).toBeGreaterThan(0);
+
+    await editorAny._selectInsertDialogOption(stencilIndex);
+
+    expect(insertionTargets).toEqual([fillSlotId]);
+    const fillChildren = editorAny._engine.doc.slots[fillSlotId].children;
+    expect(fillChildren).toHaveLength(1);
+    expect(editorAny._engine.doc.nodes[fillChildren[0]].props?.stencilId).toBe('inner');
+    expect(editorAny._insertDialogOpen).toBe(false);
+  });
+
+  it('does not open contextual insertion for a locked stencil layout slot', async () => {
+    const { doc, lockedStencilSlotId } = createPublishedStencilWithEmptyFill();
+    const registry = createDefaultRegistry();
+    registry.register(createStencilDefinition({ callbacks: null }));
+
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, registry);
+
+    const editorAny = editor as unknown as {
+      _handleInsertBlockAtSlot: (event: CustomEvent<{ slotId: SlotId }>) => void;
+      _insertDialogOpen: boolean;
+    };
+    editorAny._handleInsertBlockAtSlot(
+      new CustomEvent('epistola-insert-block-at-slot', {
+        detail: { slotId: lockedStencilSlotId },
+      }),
+    );
+
+    expect(editorAny._insertDialogOpen).toBe(false);
+  });
+
+  it('keeps the fill unchanged when the component pre-insert flow is cancelled', async () => {
+    const { doc, fillSlotId } = createPublishedStencilWithEmptyFill();
+    const registry = createDefaultRegistry();
+    registry.register(createStencilDefinition({ callbacks: null }));
+    const stencil = registry.getOrThrow('stencil');
+    registry.register({
+      ...stencil,
+      onBeforeInsert: async () => null,
+    });
+
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, registry);
+
+    const editorAny = editor as unknown as {
+      _handleInsertBlockAtSlot: (event: CustomEvent<{ slotId: SlotId }>) => void;
+      _insertDialogBlockOptions: Array<{ type: string }>;
+      _selectInsertDialogOption: (index: number) => Promise<void>;
+      _insertDialogError: string;
+      _insertDialogOpen: boolean;
+      _engine: { doc: TemplateDocument };
+    };
+    editorAny._handleInsertBlockAtSlot(
+      new CustomEvent('epistola-insert-block-at-slot', {
+        detail: { slotId: fillSlotId },
+      }),
+    );
+    const stencilIndex =
+      editorAny._insertDialogBlockOptions.findIndex((definition) => definition.type === 'stencil') +
+      1;
+
+    await editorAny._selectInsertDialogOption(stencilIndex);
+
+    expect(editorAny._engine.doc.slots[fillSlotId].children).toEqual([]);
+    expect(editorAny._insertDialogOpen).toBe(true);
+    expect(editorAny._insertDialogError).toBe('');
+  });
 });
 
 describe('EpistolaEditor block clipboard', () => {

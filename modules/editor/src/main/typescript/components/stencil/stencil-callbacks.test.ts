@@ -21,6 +21,8 @@ import {
   getStencilSlot,
   createSampleContent,
   createMockCallbacks,
+  richText,
+  richTextValue,
 } from './stencil-test-helpers.js';
 import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
@@ -127,7 +129,7 @@ describe('Inspector action flows with callbacks', () => {
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     {
-      const { node, slots } = registry.createNode('text', { content: 'Old content' });
+      const { node, slots } = registry.createNode('text', { content: richText('Old content') });
       engine.dispatch(
         { type: 'InsertNode', node, slots, targetSlotId: stencilSlot, index: -1 },
         { bypassLock: true },
@@ -176,7 +178,7 @@ describe('Inspector action flows with callbacks', () => {
     expect(newChildren.length).toBeGreaterThan(0);
     const textNodes = newChildren
       .map((id) => engine.doc.nodes[id])
-      .filter((n) => n?.type === 'text' && n?.props?.content === 'Sample');
+      .filter((n) => n?.type === 'text' && richTextValue(n?.props?.content) === 'Sample');
     expect(textNodes).toHaveLength(1);
   });
 
@@ -219,7 +221,7 @@ describe('Inspector action flows with callbacks', () => {
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     {
-      const { node, slots } = registry.createNode('text', { content: 'Content' });
+      const { node, slots } = registry.createNode('text', { content: richText('Content') });
       engine.dispatch(
         { type: 'InsertNode', node, slots, targetSlotId: stencilSlot, index: -1 },
         { bypassLock: true },
@@ -319,8 +321,18 @@ function setupStencilWithFilledPlaceholder(
         slots: [defaultSlotId, fillSlotId],
         props: { name: 'body' },
       },
-      { id: defaultText, type: 'text', slots: [], props: { content: 'default content' } },
-      { id: fillText, type: 'text', slots: [], props: { content: 'override content' } },
+      {
+        id: defaultText,
+        type: 'text',
+        slots: [],
+        props: { content: richText('default content') },
+      },
+      {
+        id: fillText,
+        type: 'text',
+        slots: [],
+        props: { content: richText('override content') },
+      },
     ],
   });
   return { stencilId, placeholderId, fillSlotId, defaultSlotId };
@@ -344,7 +356,7 @@ describe('Edit/Publish flow with two-slot placeholder', () => {
     });
 
     expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
-    expect(engine.doc.nodes[fillBefore[0]]?.props?.content).toBe('override content');
+    expect(richTextValue(engine.doc.nodes[fillBefore[0]]?.props?.content)).toBe('override content');
     expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
   });
 
@@ -371,7 +383,7 @@ describe('Edit/Publish flow with two-slot placeholder', () => {
     });
 
     expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
-    expect(engine.doc.nodes[fillBefore[0]]?.props?.content).toBe('override content');
+    expect(richTextValue(engine.doc.nodes[fillBefore[0]]?.props?.content)).toBe('override content');
     expect(engine.doc.nodes[stencilId].props?.version).toBe(2);
     expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
   });

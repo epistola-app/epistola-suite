@@ -21,6 +21,25 @@ import { createStencilDefinition } from './stencil-registration.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
 
+export function richText(text: string) {
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  };
+}
+
+export function richTextValue(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const content = (value as { content?: unknown }).content;
+  if (!Array.isArray(content)) return undefined;
+  const paragraph = content[0];
+  if (typeof paragraph !== 'object' || paragraph === null) return undefined;
+  const inline = (paragraph as { content?: unknown }).content;
+  if (!Array.isArray(inline)) return undefined;
+  const text = inline[0];
+  return typeof text === 'object' && text !== null ? (text as { text?: string }).text : undefined;
+}
+
 export function createMockCallbacks(overrides?: Partial<StencilCallbacks>): StencilCallbacks {
   return {
     searchStencils: vi.fn().mockResolvedValue([]),
@@ -66,7 +85,10 @@ export function insertText(
   targetSlotId: SlotId,
   content?: string,
 ): NodeId {
-  const { node, slots } = registry.createNode('text', content ? { content } : undefined);
+  const { node, slots } = registry.createNode(
+    'text',
+    content ? { content: richText(content) } : undefined,
+  );
   engine.dispatch({
     type: 'InsertNode',
     node,
@@ -91,7 +113,7 @@ export function createSampleContent(): TemplateDocument {
     root: rootId,
     nodes: {
       [rootId]: { id: rootId, type: 'root', slots: [rootSlot] },
-      [textId]: { id: textId, type: 'text', slots: [], props: { content: 'Sample' } },
+      [textId]: { id: textId, type: 'text', slots: [], props: { content: richText('Sample') } },
     } as Record<NodeId, Node>,
     slots: {
       [rootSlot]: { id: rootSlot, nodeId: rootId, name: 'children', children: [textId] },

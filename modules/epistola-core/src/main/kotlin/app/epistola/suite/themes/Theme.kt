@@ -22,18 +22,8 @@ import tools.jackson.databind.annotation.JsonDeserialize
 import tools.jackson.databind.annotation.JsonSerialize
 import java.time.OffsetDateTime
 
-/**
- * A named block style preset (like a CSS class for blocks).
- *
- * @param label Human-readable label for the preset
- * @param styles CSS-like style properties for this preset
- * @param applicableTo Node types this preset can be applied to (empty/null means all types)
- */
-data class BlockStylePreset(
-    val label: String,
-    val styles: Map<String, Any>,
-    val applicableTo: List<String>? = null,
-)
+/** Compatibility name for the portable catalog-owned preset model. */
+typealias BlockStylePreset = app.epistola.template.model.BlockStylePreset
 
 /**
  * Wrapper type for a map of [BlockStylePreset] to work around Java type erasure.

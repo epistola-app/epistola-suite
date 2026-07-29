@@ -136,7 +136,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
                     id = "stencil-instance",
                     type = "stencil",
                     slots = listOf("stencil-children"),
-                    props = mapOf("stencilId" to sId.key.value, "version" to 1),
+                    props = mapOf("stencilId" to sId.key.value, "version" to 1, "isDraft" to false),
                 ),
                 "embedded-ph" to Node(
                     id = "embedded-ph",

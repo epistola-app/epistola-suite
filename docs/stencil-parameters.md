@@ -293,7 +293,7 @@ the canvas converges to the resolved value. The cache invalidates on
 | Shared row helper             | `modules/editor/src/main/typescript/components/stencil/binding-row.ts`                                      |
 | Picker dialog (step 4)        | `modules/editor/src/main/typescript/components/stencil/stencil-picker-dialog.ts`                            |
 | Inspector                     | `modules/editor/src/main/typescript/components/stencil/StencilInspector.ts`                                 |
-| Catalog wire field            | `StencilResource.parameterSchema` in `epistola-model` (`app.epistola.catalog.protocol.ResourceDetail`)      |
+| Catalog wire field            | `StencilResource.parameterSchema` in `epistola-catalog` (`app.epistola.catalog.protocol.ResourceDetail`)    |
 | Catalog export                | `modules/epistola-core/src/main/kotlin/.../catalog/queries/ExportResources.kt` (`ExportStencilsHandler`)    |
 | Catalog import                | `modules/epistola-core/src/main/kotlin/.../catalog/commands/ImportStencil.kt`                               |
 

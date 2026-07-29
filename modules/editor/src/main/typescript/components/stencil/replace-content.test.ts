@@ -11,6 +11,7 @@ import {
   insertText,
   getStencilSlot,
   createSampleContent,
+  richTextValue,
 } from './stencil-test-helpers.js';
 import type { Slot } from '../../types/index.js';
 
@@ -63,7 +64,7 @@ describe('Content replacement flow', () => {
     expect(engine.doc.slots[stencilSlot].children).toHaveLength(1);
     const newChild = engine.doc.nodes[engine.doc.slots[stencilSlot].children[0]];
     expect(newChild.type).toBe('text');
-    expect(newChild.props?.content).toBe('Sample');
+    expect(richTextValue(newChild.props?.content)).toBe('Sample');
   });
 
   it('replacement is undoable', () => {
@@ -96,6 +97,6 @@ describe('Content replacement flow', () => {
 
     // Original content is back
     expect(engine.doc.slots[stencilSlot].children).toContain(originalChildId);
-    expect(engine.doc.nodes[originalChildId].props?.content).toBe('Original');
+    expect(richTextValue(engine.doc.nodes[originalChildId].props?.content)).toBe('Original');
   });
 });

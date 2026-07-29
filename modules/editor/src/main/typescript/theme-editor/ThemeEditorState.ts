@@ -9,7 +9,7 @@
  * No Lit dependency — testable with plain unit tests.
  */
 
-import type { BlockStylePreset, PageSettings } from '@epistola.app/epistola-model/generated/theme';
+import type { BlockStylePreset, Theme } from '@epistola.app/epistola-catalog';
 import { COMPOUND_STYLE_TYPES } from '../ui/inputs/style-inputs.js';
 
 export interface ThemeData {
@@ -17,7 +17,7 @@ export interface ThemeData {
   name: string;
   description?: string;
   documentStyles: Record<string, unknown>;
-  pageSettings?: PageSettings;
+  pageSettings?: Theme['pageSettings'];
   blockStylePresets: Record<string, BlockStylePreset>;
   spacingUnit?: number | null;
 }

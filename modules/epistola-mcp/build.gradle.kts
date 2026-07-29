@@ -47,7 +47,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     // Template/document model types referenced by tool DTOs
-    implementation(libs.epistola.model)
+    implementation(libs.epistola.catalog)
 
     testImplementation(project(":modules:testing"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")

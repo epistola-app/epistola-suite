@@ -4,6 +4,9 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.archive.CatalogArchive
+import app.epistola.catalog.archive.CatalogArchivePolicy
+import app.epistola.catalog.archive.CatalogArchiveWriter
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
@@ -21,10 +24,8 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 
 /**
  * Exports all resources in a catalog as a self-contained ZIP archive.
@@ -46,7 +47,6 @@ data class ExportCatalogZipResult(
 
 @Component
 class ExportCatalogZipHandler(
-    private val objectMapper: ObjectMapper,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
     private val sizeLimits: CatalogSizeLimits,
@@ -94,30 +94,27 @@ class ExportCatalogZipHandler(
             ReleaseInfo(version = version, releasedAt = releasedAt, fingerprint = fingerprint),
         )
 
-        val baos = ByteArrayOutputStream()
-        ZipOutputStream(baos).use { zip ->
-            zip.putNextEntry(ZipEntry("catalog.json"))
-            zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(manifest))
-            zip.closeEntry()
-
-            for ((key, detail) in content.resourceDetails) {
-                zip.putNextEntry(ZipEntry("resources/$key.json"))
-                zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(detail))
-                zip.closeEntry()
-            }
-
-            for ((filename, bytes) in content.assetContents) {
-                zip.putNextEntry(ZipEntry("resources/asset/$filename"))
-                zip.write(bytes)
-                zip.closeEntry()
-            }
+        val assetContent = content.assetContents.mapKeys { (filename, _) -> "resources/asset/$filename" }
+        val portableArchive = CatalogArchive(
+            manifest = manifest,
+            resourceDetails = content.resourceDetails,
+            paths = assetContent.keys,
+            content = { path ->
+                ByteArrayInputStream(requireNotNull(assetContent[path]) { "Missing catalog asset: $path" })
+            },
+        )
+        val output = ByteArrayOutputStream()
+        portableArchive.use {
+            CatalogArchiveWriter.write(
+                it,
+                output,
+                CatalogArchivePolicy(
+                    maxCompressedBytes = sizeLimits.maxZipSize.toBytes(),
+                    maxExpandedBytes = sizeLimits.maxDecompressedSize.toBytes(),
+                ),
+            )
         }
-
-        val zipBytes = baos.toByteArray()
-        require(zipBytes.size <= sizeLimits.maxDecompressedSize.toBytes()) {
-            "Catalog export exceeds maximum size of ${sizeLimits.maxDecompressedSize} " +
-                "(actual: ${zipBytes.size / 1024 / 1024} MB)"
-        }
+        val zipBytes = output.toByteArray()
 
         val filename = "${command.catalogKey.value}-$version.zip"
         return ExportCatalogZipResult(zipBytes = zipBytes, filename = filename)

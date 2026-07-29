@@ -4,7 +4,7 @@
 
 **Role:** a binary image (logo, picture) used by templates/themes. The detail file is **metadata only**; the bytes live in a separate binary file referenced by `contentUrl`.
 
-**DTO:** `AssetResource` (`CatalogResource` subtype, `epistola-model`).
+**DTO:** `AssetResource` (`CatalogResource` subtype, `epistola-catalog`).
 **Exported by:** [`ExportAssets.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportAssets.kt) (metadata) + the binary is added to the archive.
 **Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 0 (first — everything else may reference assets).

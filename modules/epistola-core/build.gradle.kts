@@ -15,7 +15,7 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 
 dependencies {
     // Existing modules
-    api(libs.epistola.model)
+    api(libs.epistola.catalog)
     api(project(":modules:generation"))
 
     // Credential encryption-at-rest primitives (CredentialCipher, Secret). `api`
