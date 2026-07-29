@@ -26,23 +26,34 @@ import org.junit.jupiter.api.Test
 class StencilParameterReuseUiTest : BasePlaywrightTest() {
 
     @Test
-    fun `published inline stencil keeps parameter controls when inserted in another template`() {
+    fun `upgrading a parameterless stencil to a parameterized version adds parameter controls`() {
         val fixture = withMediator { createFixture() }
 
         openEditor(fixture.tenant, fixture.authoring)
-        createParameterizedStencil()
+        createStencil()
+        publishStencil()
+        saveTemplate()
+
+        openEditor(fixture.tenant, fixture.consuming)
+        insertParameterlessStencil()
+        saveTemplate()
+
+        openEditor(fixture.tenant, fixture.authoring)
+        selectOnlyBlock()
+        startEditingStencil()
+        defineRecipientNameParameter()
         publishStencil()
 
         openEditor(fixture.tenant, fixture.consuming)
-        insertPublishedStencil()
+        selectOnlyBlock()
+        val upgrade = page.locator("stencil-inspector button:has-text('Upgrade to v2')")
+        assertThat(upgrade).isVisible()
+        upgrade.click()
 
-        val insertedStencil = page.getByTestId("canvas-block")
-        assertThat(insertedStencil).hasCount(1)
-        insertedStencil.click()
         assertThat(page.locator("stencil-inspector button:has-text('Configure parameters')")).isVisible()
     }
 
-    private fun createParameterizedStencil() {
+    private fun createStencil() {
         val picker = page.openDialogByTrigger(
             page.getByTestId("palette-item-stencil"),
             "dialog.stencil-picker-dialog",
@@ -53,6 +64,10 @@ class StencilParameterReuseUiTest : BasePlaywrightTest() {
         picker.locator("button.create-confirm").click()
 
         assertThat(page.getByTestId("canvas-block")).hasCount(1)
+        assertThat(page.locator("stencil-inspector button:has-text('Define parameters… (0)')")).isVisible()
+    }
+
+    private fun defineRecipientNameParameter() {
         val defineParameters = page.locator("stencil-inspector button:has-text('Define parameters')")
         val definitions = page.openDialogByTrigger(
             defineParameters,
@@ -65,6 +80,11 @@ class StencilParameterReuseUiTest : BasePlaywrightTest() {
         assertThat(page.locator("stencil-inspector button:has-text('Define parameters… (1)')")).isVisible()
     }
 
+    private fun startEditingStencil() {
+        page.locator("stencil-inspector button:has-text('Start Editing')").click()
+        assertThat(page.locator("stencil-inspector button:has-text('Define parameters… (0)')")).isVisible()
+    }
+
     private fun publishStencil() {
         page.locator("stencil-inspector button:has-text('Publish Draft')").click()
 
@@ -72,7 +92,7 @@ class StencilParameterReuseUiTest : BasePlaywrightTest() {
         assertThat(page.locator("stencil-inspector button:has-text('Start Editing')")).isVisible()
     }
 
-    private fun insertPublishedStencil() {
+    private fun insertParameterlessStencil() {
         val picker = page.openDialogByTrigger(
             page.getByTestId("palette-item-stencil"),
             "dialog.stencil-picker-dialog",
@@ -90,11 +110,22 @@ class StencilParameterReuseUiTest : BasePlaywrightTest() {
         publishedVersion.click()
         picker.locator("button.insert:not(.create-confirm)").click()
 
-        val bindings = picker.locator("#stencil-step-bindings")
-        assertThat(bindings).isVisible()
-        assertThat(bindings.locator("input[data-param='recipientName']")).isVisible()
-        picker.locator("button.insert:not(.create-confirm)").click()
         assertThat(page.locator("dialog.stencil-picker-dialog")).hasCount(0)
+        assertThat(page.getByTestId("canvas-block")).hasCount(1)
+        assertThat(page.locator("stencil-inspector button:has-text('Configure parameters')")).hasCount(0)
+    }
+
+    private fun saveTemplate() {
+        val save = page.locator("epistola-toolbar button.toolbar-btn:has-text('Save')")
+        assertThat(save).isVisible()
+        save.click()
+        assertThat(page.locator("epistola-toolbar button.toolbar-btn:has-text('Saved')")).isVisible()
+    }
+
+    private fun selectOnlyBlock() {
+        val block = page.getByTestId("canvas-block")
+        assertThat(block).hasCount(1)
+        block.click()
     }
 
     private fun openEditor(tenant: Tenant, target: EditorTarget) {
