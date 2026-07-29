@@ -271,7 +271,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 zip.write(
                     """
                     {
-                      "schemaVersion": 4,
+                      "schemaVersion": 5,
                       "catalog": {"slug": "${catalogKey.value}", "name": "Invalid portable catalog"},
                       "publisher": {"name": "Epistola tests"},
                       "release": {"version": "1.0.0"},
@@ -292,7 +292,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 zip.write(
                     """
                     {
-                      "schemaVersion": 4,
+                      "schemaVersion": 5,
                       "resource": {
                         "type": "template",
                         "slug": "invoice",
@@ -670,7 +670,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             zip.write(
                 """
                 {
-                  "schemaVersion": 4,
+                  "schemaVersion": 5,
                   "catalog": {
                     "slug": "needs-missing",
                     "name": "Needs Missing Dep",
@@ -1017,7 +1017,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     props = mapOf(
                         "stencilId" to stencilSlug,
                         "version" to 1,
-                        "isDraft" to false,
                         "parameterSchemaSnapshot" to schemaSnapshot,
                         "parameterBindings" to mapOf("recipientName" to "'Alice'"),
                         "paramsAlias" to "params",

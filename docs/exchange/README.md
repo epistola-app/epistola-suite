@@ -9,22 +9,22 @@ Catalogs are first-class entities in Epistola for organizing, sharing, and impor
 
 ## Parts & contract versions
 
-Import/export is a **wire format**: a `catalog.json` [manifest](v4/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract, all documented together under **one folder per catalog wire version** (currently [`v4/`](v4/)).
+Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract, all documented together under **one folder per catalog wire version** (currently [`v5/`](v5/); [`v4/`](v4/) remains the migration baseline).
 
-**There is one catalog-wide wire `schemaVersion`** (currently `4`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. Portable version gating and future explicit migrations are owned by `epistola-catalog`; the current baseline and current version are both `4`, so no older wire version is accepted.
+**There is one catalog-wide wire `schemaVersion`** (currently `5`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. Portable version gating and explicit migrations are owned by `epistola-catalog`; version `4` is the accepted baseline and is migrated to `5` before typed binding.
 
-**Parts, at catalog `schemaVersion` 4** — each documented in [`v4/`](v4/):
+**Parts, at catalog `schemaVersion` 5** — each documented in [`v5/`](v5/):
 
 | Part                                        | Carries                                                                           |
 | ------------------------------------------- | --------------------------------------------------------------------------------- |
-| [Manifest](v4/manifest.md) (`catalog.json`) | catalog identity, `release` (version + fingerprint), resource index, dependencies |
-| [Asset](v4/asset.md)                        | image metadata + `contentUrl` to the binary                                       |
-| [Code list](v4/code-list.md)                | reusable enumerations (`entries`)                                                 |
-| [Font](v4/font.md)                          | asset-backed font family + variants                                               |
-| [Attribute](v4/attribute.md)                | variant attribute + `codeListBinding`                                             |
-| [Theme](v4/theme.md)                        | document styles, page settings, presets                                           |
-| [Stencil](v4/stencil.md)                    | published fragment (`content` + `version`)                                        |
-| [Template](v4/template.md)                  | `templateModel`, `dataModel`, variants                                            |
+| [Manifest](v5/manifest.md) (`catalog.json`) | catalog identity, `release` (version + fingerprint), resource index, dependencies |
+| [Asset](v5/asset.md)                        | image metadata + `contentUrl` to the binary                                       |
+| [Code list](v5/code-list.md)                | reusable enumerations (`entries`)                                                 |
+| [Font](v5/font.md)                          | asset-backed font family + variants                                               |
+| [Attribute](v5/attribute.md)                | variant attribute + `codeListBinding`                                             |
+| [Theme](v5/theme.md)                        | document styles, page settings, presets                                           |
+| [Stencil](v5/stencil.md)                    | published fragment (`content` + `version`)                                        |
+| [Template](v5/template.md)                  | `templateModel`, `dataModel`, variants                                            |
 
 (Rows are in install order — see [`CatalogConstants.RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt).)
 
@@ -38,13 +38,14 @@ Import/export is a **wire format**: a `catalog.json` [manifest](v4/manifest.md) 
 
 These three are the **catalog-level** axes. For the full picture — including the editorial **template / contract / stencil** versions and how they do (and don't) relate to import/export — see [version-axes.md](../version-axes.md).
 
-**Maintaining these docs:** the wire shape lives under [`v4/`](v4/) — one file per part at catalog `schemaVersion` 4. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the whole `v4/` folder to `v5/`, edit the changed part(s) there, and land a migration step in the single chain. Leave the old version folder in place so the whole set diffs against the previous wire version.
+**Maintaining these docs:** the current wire shape lives under [`v5/`](v5/) — one file per part at catalog `schemaVersion` 5. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the current folder, edit the changed part(s), and land a dedicated migration class in the single chain. Leave old version folders in place so the whole set diffs against the previous wire version.
 
 > **Implementation status.** `epistola-catalog` owns the portable
 > `CatalogSchemaMigrator`. It gates the manifest and every resource detail
 > before typed binding at both Suite import paths. The current supported window
-> is exactly version `4`; no older migration exists. A future wire version must
-> add an explicit portable migration before its predecessor can be accepted.
+> spans baseline version `4` through current version `5`. `CatalogV4ToV5Migration`
+> removes legacy `isDraft` markers; exact stored-draft resolution that requires
+> Suite database state is handled by the matching Flyway migration.
 
 ## Concepts
 

@@ -13,15 +13,15 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `current manifest binds through portable migrator`() {
-        val migrated = migrator.migrateAndBindManifest(manifest(4))
+        val migrated = migrator.migrateAndBindManifest(manifest(5))
 
         assertThat(migrated.manifest.catalog.slug).isEqualTo("demo")
-        assertThat(migrated.catalog.sourceVersion).isEqualTo(4)
+        assertThat(migrated.catalog.sourceVersion).isEqualTo(5)
     }
 
     @Test
     fun `newer manifest retains Suite exception presentation`() {
-        assertThatThrownBy { migrator.migrateAndBindManifest(manifest(5)) }
+        assertThatThrownBy { migrator.migrateAndBindManifest(manifest(6)) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
             .hasMessageContaining("newer than this instance supports")
     }

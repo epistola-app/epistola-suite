@@ -98,7 +98,7 @@ export function nearestStencilAncestor(
  *
  * Walks the placeholder's ancestors looking for the nearest stencil:
  *   - none, draft, or unlinked → 'stencil-author' (the user is editing the stencil itself).
- *   - published (`stencilId != null && !isDraft`) → 'template-fill' (the user is filling
+ *   - published (`stencilId != null && !draftVersion`) → 'template-fill' (the user is filling
  *     a placeholder inside an inserted stencil).
  *
  * Used by the placeholder canvas to render the right slot.

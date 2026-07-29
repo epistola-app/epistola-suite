@@ -35,6 +35,10 @@ class TemplateDocumentValidator(
         validateAt(TEMPLATE_FIELD, doc, TemplateDocumentKind.TEMPLATE)
     }
 
+    fun validateTemplatePublishable(doc: TemplateDocument) {
+        validateAt(TEMPLATE_FIELD, doc, TemplateDocumentKind.TEMPLATE, allowDraftStencilReferences = false)
+    }
+
     /**
      * Drafts may be persisted with required parameters still unbound. All other
      * document and binding validation remains active so a draft cannot retain
@@ -52,6 +56,11 @@ class TemplateDocumentValidator(
     fun validateStencil(doc: TemplateDocument) {
         rejectUnsupportedNestedStencilAuthoring(doc)
         validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL)
+    }
+
+    fun validateStencilPublishable(doc: TemplateDocument) {
+        rejectUnsupportedNestedStencilAuthoring(doc)
+        validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL, allowDraftStencilReferences = false)
     }
 
     private fun rejectUnsupportedNestedStencilAuthoring(document: TemplateDocument) {
@@ -87,8 +96,9 @@ class TemplateDocumentValidator(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
         ignoredCodes: Set<String> = emptySet(),
+        allowDraftStencilReferences: Boolean = true,
     ) {
-        validate(document, kind)
+        validate(document, kind, allowDraftStencilReferences)
             .filterNot { it.code in ignoredCodes }
             .minWithOrNull(compareBy({ LEGACY_CODE_PRIORITY.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }, { it.path }))
             ?.let { throw it.asSuiteException(requestField, document) }
@@ -97,10 +107,12 @@ class TemplateDocumentValidator(
     private fun validate(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
+        allowDraftStencilReferences: Boolean = true,
     ): List<TemplateValidationFinding> = TemplateValidator.validate(
         document,
         object : TemplateValidationContext {
             override val documentKind: TemplateDocumentKind = kind
+            override val allowDraftStencilReferences: Boolean = allowDraftStencilReferences
 
             override fun resolveParameterSchema(
                 node: Node,

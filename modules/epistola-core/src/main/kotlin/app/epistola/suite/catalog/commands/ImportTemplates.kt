@@ -155,7 +155,7 @@ class ImportTemplatesHandler(
     }
 
     private fun validateTemplateModels(input: ImportTemplateInput) {
-        templateDocumentValidator.validateTemplate(input.templateModel)
+        templateDocumentValidator.validateTemplatePublishable(input.templateModel)
         input.variants.mapNotNull { it.templateModel }.forEach(templateDocumentValidator::validateTemplate)
     }
 

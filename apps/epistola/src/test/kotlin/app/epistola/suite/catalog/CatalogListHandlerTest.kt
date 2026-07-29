@@ -666,7 +666,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey.value, "version" to version, "isDraft" to false),
+                props = mapOf("stencilId" to stencilKey.value, "version" to version),
             ),
         ),
         slots = mapOf(

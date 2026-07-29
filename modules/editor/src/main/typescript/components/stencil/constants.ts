@@ -29,8 +29,8 @@ export const STENCIL_PROP_CATALOG_KEY = 'catalogKey';
 /** Prop key — the inlined published version number. */
 export const STENCIL_PROP_VERSION = 'version';
 
-/** Prop key — true when the user is editing the stencil definition in place. */
-export const STENCIL_PROP_IS_DRAFT = 'isDraft';
+/** Prop key — exact mutable version when editing the stencil definition. */
+export const STENCIL_PROP_DRAFT_VERSION = 'draftVersion';
 
 /**
  * Prop key — JSON Schema snapshot of the stencil version's parameter schema,

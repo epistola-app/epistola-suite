@@ -11,7 +11,7 @@
  * - Inserting stencils with existing content (re-keying)
  * - Multiple stencils on one page
  * - Non-recursive stencil nesting
- * - Props and state management (stencilId, version, isDraft)
+ * - Props and state management (stencilId, version, draftVersion)
  * - extractSubtree utility
  * - reKeyContent utility
  * - Undo/redo for stencil operations
@@ -120,7 +120,7 @@ function createSampleStencilContent(): TemplateDocument {
         slots: [],
         props: { content: richText('Inner') },
       },
-    } as Record<NodeId, Node>,
+    },
     slots: {
       [rootSlot]: {
         id: rootSlot,
@@ -134,7 +134,7 @@ function createSampleStencilContent(): TemplateDocument {
         name: 'children',
         children: [innerTextId],
       },
-    } as Record<SlotId, Slot>,
+    },
     themeRef: { type: 'inherit' },
   };
 }
@@ -165,7 +165,7 @@ function createPlaceholderStencilContent(): TemplateDocument {
         slots: [],
         props: { content: richText('Outer default') },
       },
-    } as Record<NodeId, Node>,
+    },
     slots: {
       [rootSlot]: {
         id: rootSlot,
@@ -185,7 +185,7 @@ function createPlaceholderStencilContent(): TemplateDocument {
         name: 'fill',
         children: [],
       },
-    } as Record<SlotId, Slot>,
+    },
     themeRef: { type: 'inherit' },
   };
 }
@@ -223,14 +223,12 @@ describe('Stencil component registration', () => {
     expect(registry.canContain('stencil', 'stencil')).toBe(true);
   });
 
-  it('has default props with null stencilId, version, isDraft=false', () => {
+  it('has default props without nullable provenance fields', () => {
     const { registry } = setupEngine();
     const def = registry.get('stencil');
     expect(def!.defaultProps).toEqual({
       stencilId: null,
       catalogKey: null,
-      version: null,
-      isDraft: false,
     });
   });
 });
@@ -255,13 +253,13 @@ describe('Insert empty stencil', () => {
     expect(slot.children).toHaveLength(0);
   });
 
-  it('has null stencilId and version by default', () => {
+  it('has no stencil provenance by default', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId);
 
     const node = engine.doc.nodes[stencilId];
     expect(node.props?.stencilId).toBeNull();
-    expect(node.props?.version).toBeNull();
+    expect(node.props?.version).toBeUndefined();
   });
 
   it('allows adding children to empty stencil', () => {
@@ -439,13 +437,13 @@ describe('Multiple stencils on one page', () => {
     const stencil1 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
       _content: content,
     });
     const stencil2 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
       _content: content,
     });
 
@@ -473,7 +471,7 @@ describe('Multiple stencils on one page', () => {
     expect(engine.doc.slots[slot2].children).not.toContain(text1);
   });
 
-  it('can add content to a published stencil after setting isDraft=true', () => {
+  it('can add content to a published stencil after recording a draft version', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const content = createSampleStencilContent();
 
@@ -483,17 +481,17 @@ describe('Multiple stencils on one page', () => {
       _content: content,
     });
 
-    // Stencil is locked (isDraft defaults to false)
-    expect(engine.doc.nodes[stencilNodeId].props?.isDraft).toBeFalsy();
+    // Stencil is locked when no exact draft version is present.
+    expect(engine.doc.nodes[stencilNodeId].props?.draftVersion).toBeUndefined();
 
     // Simulate "Start Editing"
     const result = engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilNodeId,
-      props: { ...engine.doc.nodes[stencilNodeId].props, isDraft: true },
+      props: { ...engine.doc.nodes[stencilNodeId].props, draftVersion: 2 },
     });
     expect(result.ok).toBe(true);
-    expect(engine.doc.nodes[stencilNodeId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[stencilNodeId].props?.draftVersion).toBe(2);
 
     // Now add content — should work
     const stencilSlot = getStencilSlot(engine, stencilNodeId);
@@ -558,13 +556,13 @@ describe('Multiple stencils on one page', () => {
     // Check ALL nodes in both subtrees are independent
     const collectDescendants = (nodeId: NodeId): Set<string> => {
       const ids = new Set<string>();
-      ids.add(nodeId as string);
+      ids.add(nodeId);
       const node = engine.doc.nodes[nodeId];
       if (!node) return ids;
       for (const sid of node.slots) {
         const slot = engine.doc.slots[sid];
         if (!slot) continue;
-        ids.add(sid as string);
+        ids.add(sid);
         for (const cid of slot.children) {
           for (const id of collectDescendants(cid)) ids.add(id);
         }
@@ -594,7 +592,7 @@ describe('Stencil nesting', () => {
     const outerStencil = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'letter',
       version: 1,
-      isDraft: false,
+
       _content: createPlaceholderStencilContent(),
     });
     const outerPlaceholder = Object.values(engine.doc.nodes).find(
@@ -609,7 +607,7 @@ describe('Stencil nesting', () => {
     const innerStencil = insertStencil(engine, registry, fillSlot!.id, {
       stencilId: 'address',
       version: 1,
-      isDraft: false,
+
       _content: createSampleStencilContent(),
     });
 
@@ -636,13 +634,13 @@ describe('Stencil props and state', () => {
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { stencilId: 'my-stencil', version: 1, isDraft: false },
+      props: { stencilId: 'my-stencil', version: 1 },
     });
 
     const node = engine.doc.nodes[stencilId];
     expect(node.props?.stencilId).toBe('my-stencil');
     expect(node.props?.version).toBe(1);
-    expect(node.props?.isDraft).toBe(false);
+    expect(node.props?.draftVersion).toBeUndefined();
   });
 
   it('can switch to draft mode', () => {
@@ -655,10 +653,10 @@ describe('Stencil props and state', () => {
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { ...engine.doc.nodes[stencilId].props, isDraft: true },
+      props: { ...engine.doc.nodes[stencilId].props, draftVersion: 2 },
     });
 
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(2);
   });
 
   it('can detach by clearing stencilId and version', () => {
@@ -671,7 +669,7 @@ describe('Stencil props and state', () => {
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { stencilId: null, version: null, isDraft: false },
+      props: { stencilId: null, version: null },
     });
 
     const node = engine.doc.nodes[stencilId];
@@ -859,25 +857,24 @@ describe('Undo/redo', () => {
     expect(engine.doc.slots[stencilSlot].children).not.toContain(textId);
   });
 
-  it('undoes prop update (isDraft toggle)', () => {
+  it('undoes an exact draft provenance update', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'test',
       version: 1,
-      isDraft: false,
     });
 
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { stencilId: 'test', version: 1, isDraft: true },
+      props: { stencilId: 'test', version: 1, draftVersion: 2 },
     });
 
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(2);
 
     engine.undo();
 
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
   });
 });
 
@@ -895,7 +892,7 @@ describe('Delete stencil after modifying content', () => {
     const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
       _content: content,
     });
 
@@ -924,7 +921,7 @@ describe('Delete stencil after modifying content', () => {
     const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
       _content: content,
     });
 
@@ -958,11 +955,11 @@ describe('Delete stencil after modifying content', () => {
     const reachableSlots = new Set<string>();
 
     function walk(nodeId: NodeId) {
-      reachableNodes.add(nodeId as string);
+      reachableNodes.add(nodeId);
       const node = engine.doc.nodes[nodeId];
       if (!node) return;
       for (const sid of node.slots) {
-        reachableSlots.add(sid as string);
+        reachableSlots.add(sid);
         const slot = engine.doc.slots[sid];
         if (!slot) continue;
         for (const cid of slot.children) walk(cid);
@@ -1023,13 +1020,13 @@ describe('Multiple instances of the same stencil version', () => {
     const s1 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
       _content: content,
     });
     const s2 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
       _content: content,
     });
 
@@ -1071,7 +1068,7 @@ describe('Multiple instances of the same stencil version', () => {
           slots: [],
           props: { content: richText('Version 2') },
         },
-      } as Record<NodeId, Node>,
+      },
       slots: {
         [slotId('v2-slot-dup')]: {
           id: slotId('v2-slot-dup2'),
@@ -1079,7 +1076,7 @@ describe('Multiple instances of the same stencil version', () => {
           name: 'children',
           children: [nodeId('v2-text-dup2')],
         },
-      } as Record<SlotId, Slot>,
+      },
       themeRef: { type: 'inherit' },
     };
 
@@ -1112,11 +1109,11 @@ describe('Multiple instances of the same stencil version', () => {
     // Verify no orphans
     const reachable = new Set<string>();
     function walk(nodeId: NodeId) {
-      reachable.add(nodeId as string);
+      reachable.add(nodeId);
       const node = engine.doc.nodes[nodeId];
       if (!node) return;
       for (const sid of node.slots) {
-        reachable.add(sid as string);
+        reachable.add(sid);
         const slot = engine.doc.slots[sid];
         if (!slot) continue;
         for (const cid of slot.children) walk(cid);

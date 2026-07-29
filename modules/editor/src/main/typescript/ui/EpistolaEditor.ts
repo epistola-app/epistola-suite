@@ -237,10 +237,10 @@ export class EpistolaEditor extends LitElement {
     this._doc = this._engine.doc;
     this._unsubParameterCache = wireParameterCache(this._engine);
 
-    this._unsubEngine = this._engine.events.on('doc:change', ({ doc }) => {
+    this._unsubEngine = this._engine.events.on('doc:change', ({ doc, commandType }) => {
       this._doc = doc;
       // Notify save service of changes
-      if (this._saveService) {
+      if (this._saveService && commandType !== 'HydrateStencilDrafts') {
         this._saveService.markDirty();
         this._saveService.scheduleAutoSave(doc);
       }

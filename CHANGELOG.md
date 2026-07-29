@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+- **[user]** feat(stencils)!: **Stencil drafts now retain exact provenance.**
+  Catalog schema v5 replaces the ambiguous `isDraft` flag with `draftVersion`, migrates stored
+  template and stencil JSON containing legacy markers against the owning catalog's exact draft
+  rows without rewriting unaffected versions, and rejects unsafe publication of draft-linked
+  content. The editor hydrates exact drafts on open, caches duplicate lookups, promotes versions
+  published elsewhere, and preserves embedded content with recover, discard, and detach choices
+  when a draft is missing, archived, or unavailable.
+- **[dev]** feat(catalog)!: **Catalog v5 is produced and v4 remains importable.**
+  Suite consumes `epistola-catalog` 0.16.0, uses semantic v3 fingerprints with legacy matching,
+  reports migration notices during confirmed authored imports, publishes only validated content,
+  and ships independently versioned portable and Flyway migrations plus v4/v5 exchange docs.
 - **[user]** fix(themes): **Numeric theme settings remain readable.** Margin, spacing, unit, and border-width controls now reserve enough space for their value and browser stepper buttons, using two-column groups where compact four-value rows previously squeezed the numbers out of view.
 - **[user]** feat(themes): **Theme configuration is now a focused, full-width workspace.** Basic information, document styles, page settings, and block presets are arranged as responsive cards; presets are quicker to add, open, edit, and remove. The old preview placeholder is gone, and a lazily loaded usage dialog shows draft and published template versions using the theme through a variant override, template default, or tenant default. Published versions with frozen theme snapshots are identified clearly, and usage remains catalog-safe and paginated without slowing the configuration page.
 - **[user]** fix(themes): **Theme detail and updates respect catalog identity.**
@@ -15,19 +26,18 @@
   `epistola-catalog` Kotlin data classes themselves. This removes Jackson tree conversions and the
   duplicate portable JVM model without changing their JSON wire representation.
 - **[dev]** fix(stencils): **Existing editor stencil references retain their established
-  meaning.** Portable validation treats a missing `isDraft` property as non-draft, matching the
-  editor's historical behavior without rewriting stored template or stencil content. Newly
-  maintained test fixtures use the explicit canonical shape.
+  meaning.** Portable v4 validation treats a missing `isDraft` property as non-draft, matching the
+  editor's historical behavior; catalog v5 now migrates those references to exact provenance.
 - **[dev]** docs(catalog): **Catalog contract breaking changes are explicit.**
   The compatibility guide now distinguishes stored editor documents from portable exports,
   records the canonical rich-text and stencil-reference requirements, explains strict
   revalidation boundaries, documents the Contract/Suite ownership split and the catalog-v5
-  follow-up for RC3 draft markers, and gives production snapshot checks.
+  migration for RC3 draft markers, and gives production snapshot checks.
 - **[dev]** fix(stencils): **Nested stencil authoring remains explicitly gated in Suite.**
   `epistola-catalog` now specifies and validates portable nested-stencil composition, while the
   Suite adapter preserves the existing create, update, import, and publish rejection until the
   editor, lifecycle, and resource-resolution work is implemented separately. Kotlin and bundled
-  catalog fixtures now use the canonical explicit stencil `version` and `isDraft` fields.
+  catalog fixtures now use published `version` pins without legacy draft booleans.
 - **[user]** fix(editor): **Empty stencil placeholders expose a working add-block action.**
   The action targets the editable fill slot, runs component pre-insert hooks (including the stencil
   picker with ancestor recursion and depth context), and no longer offers locked stencil slots.

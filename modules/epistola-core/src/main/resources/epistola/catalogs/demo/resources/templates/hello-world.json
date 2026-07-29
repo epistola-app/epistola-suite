@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "resource": {
     "type": "template",
     "slug": "hello-world",
@@ -52,7 +52,6 @@
             "stencilId": "company-header",
             "catalogKey": "epistola-demo",
             "version": 2,
-            "isDraft": false,
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"

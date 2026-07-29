@@ -34,7 +34,7 @@ function buildDoc({ fillPopulated }: { fillPopulated: boolean }): TemplateDocume
         id: id('stencil'),
         type: 'stencil',
         slots: [sid('stencil-slot')],
-        props: { stencilId: 'A', version: 1, isDraft: false },
+        props: { stencilId: 'A', version: 1 },
       },
       'text-locked': {
         id: id('text-locked'),

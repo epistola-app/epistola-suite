@@ -85,8 +85,9 @@ class ReleaseCatalogVersionHandler(
         }
 
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
+        fingerprintService.requirePublishable(content)
         val fingerprint = fingerprintService.fingerprint(content)
-        val unchanged = existing.any { it.fingerprint == fingerprint }
+        val unchanged = existing.any { fingerprintService.matchesFingerprint(content, it.fingerprint) }
         if (unchanged) {
             logger.warn(
                 "Releasing catalog '{}' v{} with content identical to a previous release (fingerprint {})",

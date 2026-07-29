@@ -204,8 +204,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
                         "props",
                         objectMapper.createObjectNode()
                             .put("stencilId", "render-test")
-                            .put("version", 1)
-                            .put("isDraft", false),
+                            .put("version", 1),
                     ),
             )
         }

@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.migration.CatalogMigrationNotice
+
 /**
  * Raised by `ImportCatalogZip` when importing an **AUTHORED** ZIP whose catalog
  * schema version is below current but a migration chain can bring it to current:
@@ -17,6 +19,7 @@ package app.epistola.suite.catalog
 class CatalogMigrationConfirmationRequiredException(
     val fromVersion: Int,
     val toVersion: Int,
+    val notices: List<CatalogMigrationNotice> = emptyList(),
 ) : RuntimeException(
     "Catalog is at schema version $fromVersion; importing will update it to $toVersion. Confirm to proceed.",
 )

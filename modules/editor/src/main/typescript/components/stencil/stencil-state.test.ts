@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 describe('Stencil props state transitions', () => {
-  it('publish as stencil: sets stencilId, version, isDraft=false', () => {
+  it('publish as stencil: sets stencilId and version without draft provenance', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId);
 
@@ -27,66 +27,67 @@ describe('Stencil props state transitions', () => {
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { stencilId: 'new-stencil', version: 1, isDraft: false },
+      props: { stencilId: 'new-stencil', version: 1 },
     });
 
     const node = engine.doc.nodes[stencilId];
     expect(node.props?.stencilId).toBe('new-stencil');
     expect(node.props?.version).toBe(1);
-    expect(node.props?.isDraft).toBe(false);
+    expect(node.props?.draftVersion).toBeUndefined();
   });
 
-  it('start editing: sets isDraft=true', () => {
+  it('start editing: records the exact draft version', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { ...engine.doc.nodes[stencilId].props, isDraft: true },
+      props: { ...engine.doc.nodes[stencilId].props, draftVersion: 2 },
     });
 
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(2);
   });
 
-  it('publish draft: sets version to new, isDraft=false', () => {
+  it('publish draft: sets the published version and clears draft provenance', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
     });
 
+    const { draftVersion: _, ...publishedProps } = engine.doc.nodes[stencilId].props ?? {};
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { ...engine.doc.nodes[stencilId].props, version: 2, isDraft: false },
+      props: { ...publishedProps, version: 2 },
     });
 
     expect(engine.doc.nodes[stencilId].props?.version).toBe(2);
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
   });
 
-  it('discard: sets isDraft=false, keeps original version', () => {
+  it('discard: clears draft provenance and keeps the original version', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
     });
 
+    const { draftVersion: _, ...publishedProps } = engine.doc.nodes[stencilId].props ?? {};
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { ...engine.doc.nodes[stencilId].props, isDraft: false },
+      props: publishedProps,
     });
 
     expect(engine.doc.nodes[stencilId].props?.version).toBe(1);
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
   });
 
   it('upgrade: sets version to latest', () => {
@@ -94,7 +95,6 @@ describe('Stencil props state transitions', () => {
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     engine.dispatch({
@@ -106,24 +106,23 @@ describe('Stencil props state transitions', () => {
     expect(engine.doc.nodes[stencilId].props?.version).toBe(3);
   });
 
-  it('detach: clears stencilId, version, isDraft', () => {
+  it('detach: clears stencil provenance', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { stencilId: null, version: null, isDraft: false },
+      props: { stencilId: null, version: null },
     });
 
     const node = engine.doc.nodes[stencilId];
     expect(node.props?.stencilId).toBeNull();
     expect(node.props?.version).toBeNull();
-    expect(node.props?.isDraft).toBe(false);
+    expect(node.props?.draftVersion).toBeUndefined();
   });
 });
 
@@ -145,7 +144,6 @@ describe('getLabel', () => {
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 2,
-      isDraft: false,
     });
 
     const def = registry.get('stencil');
@@ -160,13 +158,13 @@ describe('getLabel', () => {
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
     });
 
     const def = registry.get('stencil');
     const node = engine.doc.nodes[stencilId];
     const label = def!.getLabel!(node, engine);
-    expect(label).toBe('header');
+    expect(label).toBe('header draft v2');
   });
 
   it('shows label without upgrade suffix when newer version available', () => {
@@ -175,7 +173,6 @@ describe('getLabel', () => {
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     // Set upgrade state
@@ -193,7 +190,6 @@ describe('getLabel', () => {
     const stencilId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 3,
-      isDraft: false,
     });
 
     engine.setComponentState('stencil:upgrades', { header: 3 });
@@ -211,7 +207,7 @@ describe('catalogKey propagation', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
+
       catalogKey: 'my-catalog',
     });
 
@@ -223,7 +219,6 @@ describe('catalogKey propagation', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     expect(engine.doc.nodes[nodeId].props?.catalogKey).toBeNull();

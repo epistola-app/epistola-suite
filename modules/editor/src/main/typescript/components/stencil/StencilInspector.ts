@@ -12,9 +12,9 @@
  *
  * State shown:
  * - Unlinked (no `stencilId`): no controls (publishing flows through other UI).
- * - Locked (`stencilId` set, `isDraft=false`): "Upgrade" (when one is available)
+ * - Locked (`stencilId` and `version` set, no `draftVersion`): "Upgrade" (when available)
  *   or "Start Editing" + "Detach".
- * - Editing draft (`isDraft=true`): "Save to Draft", "Publish Draft",
+ * - Editing draft (`draftVersion` set): "Save to Draft", "Publish Draft",
  *   "Discard Changes", "Detach".
  */
 
@@ -29,6 +29,7 @@ import { openParameterDefinitionsDialog } from './parameter-definitions-dialog.j
 import { openParameterBindingsDialog } from './parameter-bindings-dialog.js';
 import { STENCIL_BINDING_ERRORS_KEY, type BindingErrors } from './binding-errors.js';
 import { bindingsDeclaredBySchema, missingRequiredParameters } from './parameter-requirements.js';
+import type { DraftRecovery } from './draft-hydration.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -44,8 +45,8 @@ export class StencilInspector extends LitElement {
   @state() private _message = '';
   @state() private _messageFading = false;
   @state() private _messageType: 'info' | 'success' | 'error' = 'info';
-  @state() private _draftVersion: number | null = null;
   @state() private _latestVersion: number | null = null;
+  @state() private _recovery: DraftRecovery | null = null;
 
   private _unsubState?: () => void;
   private _messageTimer?: ReturnType<typeof setTimeout>;
@@ -54,17 +55,13 @@ export class StencilInspector extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     this._readUpgradeState();
+    this._readRecoveryState();
     this._checkForUpgrades();
-    // If we're mounting on a stencil that's already in draft mode (e.g. user
-    // reloaded the page mid-edit, or selected the stencil after a previous
-    // Start Editing), discover the backend draft's version so Publish/Save
-    // know which version to target.
-    if (this._isDraft && this._draftVersion === null && this.callbacks) {
-      void this._refreshDraftVersion();
-    }
     this._unsubState = this.engine.events.on('component-state:change', ({ key }) => {
       if (key === 'stencil:upgrades') {
         this._readUpgradeState();
+      } else if (key === 'stencil:draftRecovery') {
+        this._readRecoveryState();
       }
     });
   }
@@ -89,15 +86,15 @@ export class StencilInspector extends LitElement {
   }
 
   private get _version(): number | null {
-    return isStencil(this.node) ? this.node.props.version : null;
+    return isStencil(this.node) ? (this.node.props.version ?? null) : null;
   }
 
-  private get _isDraft(): boolean {
-    return isStencil(this.node) ? this.node.props.isDraft : false;
+  private get _hasDraft(): boolean {
+    return isStencil(this.node) ? this.node.props.draftVersion != null : false;
   }
 
   private get _isLocked(): boolean {
-    return this._stencilId !== null && !this._isDraft;
+    return this._stencilId !== null && !this._hasDraft;
   }
 
   private get _hasUpgrade(): boolean {
@@ -105,7 +102,7 @@ export class StencilInspector extends LitElement {
       this._latestVersion != null &&
       this._version != null &&
       this._latestVersion > this._version &&
-      !this._isDraft
+      !this._hasDraft
     );
   }
 
@@ -123,7 +120,7 @@ export class StencilInspector extends LitElement {
 
   /** Check for upgrades for this specific stencil on every selection. */
   private async _checkForUpgrades() {
-    if (!this._ref || !this._version || this._isDraft) return;
+    if (!this._ref || !this._version || this._hasDraft) return;
     const ctx = this._ctx();
     if (!ctx) return;
     const latest = await stencilActions.findLatestPublishedVersion(ctx);
@@ -144,11 +141,10 @@ export class StencilInspector extends LitElement {
     }
   }
 
-  /** Resolve the current backend draft version for this stencil. */
-  private async _refreshDraftVersion() {
-    const ctx = this._ctx();
-    if (!ctx) return;
-    this._draftVersion = await stencilActions.loadDraftVersion(ctx);
+  private _readRecoveryState() {
+    const recovery =
+      this.engine.getComponentState<Record<string, DraftRecovery>>('stencil:draftRecovery') ?? {};
+    this._recovery = recovery[this.node.id] ?? null;
   }
 
   /** Look up this node's parent node id, if any. Used to compute the outer
@@ -165,8 +161,12 @@ export class StencilInspector extends LitElement {
       <div class="inspector-section">
         <div class="inspector-section-label">Stencil</div>
 
-        ${this._isLocked ? this._renderLocked() : nothing}
-        ${this._isDraft ? this._renderDraft() : nothing}
+        ${this._recovery
+          ? this._renderRecovery()
+          : html`
+              ${this._isLocked ? this._renderLocked() : nothing}
+              ${this._hasDraft ? this._renderDraft() : nothing}
+            `}
         ${this._message
           ? html`<div
               class=${`callout callout--${this._messageType}${this._messageFading ? ' is-fading' : ''}`}
@@ -176,6 +176,25 @@ export class StencilInspector extends LitElement {
           : nothing}
       </div>
       ${this._renderParameters()}
+    `;
+  }
+
+  private _renderRecovery() {
+    return html`
+      <div class="callout callout--error">${this._recovery?.message}</div>
+      <div class="stencil-actions">
+        <button class="btn btn-primary" ?disabled=${this._busy} @click=${this._handleRecover}>
+          Recover embedded copy
+        </button>
+        ${this._version != null
+          ? html`<button class="btn" ?disabled=${this._busy} @click=${this._handleDiscard}>
+              Discard to v${this._version}
+            </button>`
+          : nothing}
+        <button class="btn" ?disabled=${this._busy} @click=${this._handleDetach}>
+          Detach embedded copy
+        </button>
+      </div>
     `;
   }
 
@@ -394,28 +413,18 @@ export class StencilInspector extends LitElement {
   private _handleStartEditing = () =>
     this._run(async (ctx) => {
       const r = await stencilActions.startEditing(ctx);
-      this._draftVersion = r.draftVersion;
-      return 'Editing the stencil — your template overrides are preserved';
+      return `Editing exact draft v${r.version} — your template overrides are preserved`;
     }, 'info');
 
   private _handleSaveDraft = () =>
     this._run(async (ctx) => {
       const r = await stencilActions.saveDraft(ctx);
-      this._draftVersion = r.version;
       return `Draft v${r.version} saved`;
     });
 
   private _handlePublishDraft = () =>
     this._run(async (ctx) => {
-      let draftVersion = this._draftVersion;
-      if (draftVersion == null) {
-        draftVersion = await stencilActions.loadDraftVersion(ctx);
-        if (draftVersion != null) this._draftVersion = draftVersion;
-      }
-      if (draftVersion == null) {
-        throw new Error('Could not locate the draft version. Reload the editor and try again.');
-      }
-      const r = await stencilActions.publishDraft(ctx, draftVersion);
+      const r = await stencilActions.publishDraft(ctx);
       return `Published v${r.version}`;
     });
 
@@ -423,7 +432,15 @@ export class StencilInspector extends LitElement {
     this._run(async (ctx) => {
       if (this._version == null) throw new Error('No published version to revert to');
       await stencilActions.discard(ctx, this._version);
+      this._clearRecovery();
       return 'Changes discarded — reverted to published version';
+    });
+
+  private _handleRecover = () =>
+    this._run(async (ctx) => {
+      const result = await stencilActions.recoverDraft(ctx);
+      this._clearRecovery();
+      return `Recovered embedded copy as draft v${result.version}`;
     });
 
   private _handleUpgrade = () =>
@@ -442,7 +459,16 @@ export class StencilInspector extends LitElement {
       stencilNodeId: this.node.id,
     });
     this._setMessage('Converted to container', 'success');
+    this._clearRecovery();
   };
+
+  private _clearRecovery() {
+    const recovery = {
+      ...this.engine.getComponentState<Record<string, DraftRecovery>>('stencil:draftRecovery'),
+    };
+    delete recovery[this.node.id];
+    this.engine.setComponentState('stencil:draftRecovery', recovery);
+  }
 
   private _setMessage(msg: string, type: 'info' | 'success' | 'error' = 'info') {
     clearTimeout(this._messageTimer);

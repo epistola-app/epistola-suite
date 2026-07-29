@@ -53,17 +53,16 @@ describe('Inspector action flows with callbacks', () => {
         ...engine.doc.nodes[nodeId].props,
         stencilId: result.stencilId,
         version: result.version,
-        isDraft: false,
       },
     });
 
     expect(callbacks.publishAsStencil).toHaveBeenCalledOnce();
     expect(engine.doc.nodes[nodeId].props?.stencilId).toBe('new-header');
     expect(engine.doc.nodes[nodeId].props?.version).toBe(1);
-    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[nodeId].props?.draftVersion).toBeUndefined();
   });
 
-  it('start editing: calls callback and sets isDraft', async () => {
+  it('start editing: calls callback and records the exact draft version', async () => {
     const callbacks = createMockCallbacks({
       startEditing: vi.fn().mockResolvedValue({ draftVersion: 2 }),
     });
@@ -71,7 +70,6 @@ describe('Inspector action flows with callbacks', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     await callbacks.startEditing!('header');
@@ -79,11 +77,11 @@ describe('Inspector action flows with callbacks', () => {
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId,
-      props: { ...engine.doc.nodes[nodeId].props, isDraft: true },
+      props: { ...engine.doc.nodes[nodeId].props, draftVersion: 2 },
     });
 
     expect(callbacks.startEditing).toHaveBeenCalledWith('header');
-    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[nodeId].props?.draftVersion).toBe(2);
   });
 
   it('save to draft: calls callback with extracted content', async () => {
@@ -94,7 +92,7 @@ describe('Inspector action flows with callbacks', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     insertText(engine, registry, stencilSlot, 'Edited content');
@@ -125,7 +123,6 @@ describe('Inspector action flows with callbacks', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     {
@@ -191,7 +188,7 @@ describe('Inspector action flows with callbacks', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     insertText(engine, registry, stencilSlot, 'Draft content');
@@ -200,16 +197,17 @@ describe('Inspector action flows with callbacks', () => {
     await callbacks.updateStencil!('header', content);
     const result = await callbacks.publishDraft!('header', 2);
 
+    const { draftVersion: _, ...publishedProps } = engine.doc.nodes[nodeId].props ?? {};
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId,
-      props: { ...engine.doc.nodes[nodeId].props, version: result.version, isDraft: false },
+      props: { ...publishedProps, version: result.version },
     });
 
     expect(callbacks.updateStencil).toHaveBeenCalledOnce();
     expect(callbacks.publishDraft).toHaveBeenCalledWith('header', 2);
     expect(engine.doc.nodes[nodeId].props?.version).toBe(2);
-    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[nodeId].props?.draftVersion).toBeUndefined();
   });
 
   it('detach converts stencil to container via ReplaceNode', () => {
@@ -217,7 +215,6 @@ describe('Inspector action flows with callbacks', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     {
@@ -246,7 +243,6 @@ describe('Inspector action flows with callbacks', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     engine.dispatch({
@@ -271,7 +267,6 @@ describe('Inspector action flows with callbacks', () => {
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
-      isDraft: false,
     });
 
     try {
@@ -280,7 +275,7 @@ describe('Inspector action flows with callbacks', () => {
       // Error caught — engine state should NOT have changed
     }
 
-    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[nodeId].props?.draftVersion).toBeUndefined();
     expect(engine.doc.nodes[nodeId].props?.version).toBe(1);
   });
 });
@@ -294,7 +289,7 @@ function setupStencilWithFilledPlaceholder(
   engine: EditorEngine,
   _registry: ComponentRegistry,
   rootSlotId: SlotId,
-  stencilProps: Record<string, unknown> = { stencilId: 'header', version: 1, isDraft: false },
+  stencilProps: Record<string, unknown> = { stencilId: 'header', version: 1 },
 ): { stencilId: NodeId; placeholderId: NodeId; fillSlotId: SlotId; defaultSlotId: SlotId } {
   const stencilId = nodeId('stencil');
   const stencilSlotId = slotId('stencil-slot');
@@ -352,12 +347,12 @@ describe('Edit/Publish flow with two-slot placeholder', () => {
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { ...engine.doc.nodes[stencilId].props, isDraft: true },
+      props: { ...engine.doc.nodes[stencilId].props, draftVersion: 2 },
     });
 
     expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
     expect(richTextValue(engine.doc.nodes[fillBefore[0]]?.props?.content)).toBe('override content');
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(2);
   });
 
   it('publish (extractSubtree + UpdateNodeProps) leaves the local fill content intact', () => {
@@ -366,7 +361,7 @@ describe('Edit/Publish flow with two-slot placeholder', () => {
       engine,
       registry,
       rootSlotId,
-      { stencilId: 'header', version: 1, isDraft: true },
+      { stencilId: 'header', version: 1, draftVersion: 2 },
     );
 
     const fillBefore = [...engine.doc.slots[fillSlotId].children];
@@ -376,15 +371,16 @@ describe('Edit/Publish flow with two-slot placeholder', () => {
     expect(extractedFillSlot?.children).toEqual([]);
     expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
 
+    const { draftVersion: _, ...publishedProps } = engine.doc.nodes[stencilId].props ?? {};
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: stencilId,
-      props: { ...engine.doc.nodes[stencilId].props, version: 2, isDraft: false },
+      props: { ...publishedProps, version: 2 },
     });
 
     expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
     expect(richTextValue(engine.doc.nodes[fillBefore[0]]?.props?.content)).toBe('override content');
     expect(engine.doc.nodes[stencilId].props?.version).toBe(2);
-    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
   });
 });

@@ -24,7 +24,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/templates/hello-world.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(4)
+        assertThat(detail.schemaVersion).isEqualTo(5)
         assertThat(detail.resource).isInstanceOf(TemplateResource::class.java)
 
         val template = detail.resource as TemplateResource
@@ -38,7 +38,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/themes/corporate.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(4)
+        assertThat(detail.schemaVersion).isEqualTo(5)
         assertThat(detail.resource).isInstanceOf(ThemeResource::class.java)
 
         val theme = detail.resource as ThemeResource
@@ -53,8 +53,8 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         // Catalog-wide wire version: every detail carries the bundle's
-        // schemaVersion (4), not an independent per-resource number (ADR 0007).
-        assertThat(detail.schemaVersion).isEqualTo(4)
+        // schemaVersion (5), not an independent per-resource number (ADR 0007).
+        assertThat(detail.schemaVersion).isEqualTo(5)
         assertThat(detail.resource).isInstanceOf(AttributeResource::class.java)
 
         val attr = detail.resource as AttributeResource
@@ -69,7 +69,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/stencils/company-header.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(4)
+        assertThat(detail.schemaVersion).isEqualTo(5)
         assertThat(detail.resource).isInstanceOf(StencilResource::class.java)
 
         val stencil = detail.resource as StencilResource

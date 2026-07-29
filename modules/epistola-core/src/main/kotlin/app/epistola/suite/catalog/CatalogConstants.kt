@@ -15,12 +15,11 @@ package app.epistola.suite.catalog
  * [CATALOG_SCHEMA_VERSION] (manifest + every resource detail move together). See
  * `docs/adr/0007-catalog-wire-format-migrations.md` and `docs/exchange/`.
  *
- * `CATALOG_BASELINE_SCHEMA_VERSION == CATALOG_SCHEMA_VERSION` today — no
- * migrations exist yet, so the chain is empty and every payload binds as-is.
+ * Version 4 is retained as the explicit migration baseline.
  */
 
 /** The wire schema version this instance emits, and upgrades older imports to. */
-const val CATALOG_SCHEMA_VERSION: Int = 4
+const val CATALOG_SCHEMA_VERSION: Int = 5
 
 /** The oldest wire schema version this instance can still upgrade to current. */
 const val CATALOG_BASELINE_SCHEMA_VERSION: Int = 4

@@ -24,6 +24,7 @@ import type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dia
 import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
 import { createStencilDefinition } from './components/stencil/stencil-registration.js';
 import { collectStencilUpgradeRefs } from './components/stencil/upgrade-refs.js';
+import { hydrateStencilDrafts } from './components/stencil/draft-hydration.js';
 import type { StencilCallbacks } from './components/stencil/types.js';
 import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
 import { nanoid } from 'nanoid';
@@ -265,9 +266,9 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   container.innerHTML = '';
   container.appendChild(editorEl);
 
-  // Check for stencil upgrades after mount
-  if (options.stencilOptions?.checkUpgrades) {
-    const stencilRefs = collectStencilUpgradeRefs(doc);
+  const checkStencilUpgrades = (document: TemplateDocument) => {
+    if (!options.stencilOptions?.checkUpgrades) return;
+    const stencilRefs = collectStencilUpgradeRefs(document);
 
     if (stencilRefs.length > 0) {
       options.stencilOptions.checkUpgrades(stencilRefs).then((upgrades) => {
@@ -284,6 +285,25 @@ export function mountEditor(options: EditorOptions): EditorInstance {
         }
       });
     }
+  };
+
+  if (options.stencilOptions) {
+    const mountedDocument = editorEl.engine?.doc;
+    void hydrateStencilDrafts(structuredClone(doc), registry, options.stencilOptions).then(
+      ({ document, recovery }) => {
+        // Never replace edits made while hydration was in flight.
+        if (!editorEl.engine) return;
+        if (editorEl.engine.doc !== mountedDocument) {
+          checkStencilUpgrades(editorEl.engine.doc);
+          return;
+        }
+        editorEl.engine.replaceDocument(document, 'HydrateStencilDrafts');
+        editorEl.engine.setComponentState('stencil:draftRecovery', recovery);
+        checkStencilUpgrades(document);
+      },
+    );
+  } else {
+    checkStencilUpgrades(doc);
   }
 
   return {

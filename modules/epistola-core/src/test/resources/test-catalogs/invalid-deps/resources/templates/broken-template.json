@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "resource": {
     "type": "template",
     "slug": "broken-template",
@@ -18,7 +18,7 @@
           "id": "n-stencil",
           "type": "stencil",
           "slots": [],
-          "props": { "stencilId": "nonexistent-stencil", "version": 1, "isDraft": false }
+          "props": { "stencilId": "nonexistent-stencil", "version": 1 }
         },
         "n-img": {
           "id": "n-img",

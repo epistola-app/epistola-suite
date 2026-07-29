@@ -46,13 +46,13 @@ class GetCatalogReleaseStatusHandler(
 
     override fun handle(query: GetCatalogReleaseStatus): CatalogReleaseStatus {
         val release = GetLatestCatalogRelease(query.tenantKey, query.catalogKey).query()
-        val workingFingerprint = fingerprintService.fingerprint(query.tenantKey, query.catalogKey)
+        val fingerprint = fingerprintService.evaluate(query.tenantKey, query.catalogKey, release.latestFingerprint)
 
         return CatalogReleaseStatus(
             latestVersion = release.latestVersion,
             latestFingerprint = release.latestFingerprint,
-            workingFingerprint = workingFingerprint,
-            hasUnreleasedChanges = release.latestFingerprint == null || release.latestFingerprint != workingFingerprint,
+            workingFingerprint = fingerprint.current,
+            hasUnreleasedChanges = !fingerprint.matchesExpected,
             suggestedNext = release.suggestedNext,
             history = release.history,
         )

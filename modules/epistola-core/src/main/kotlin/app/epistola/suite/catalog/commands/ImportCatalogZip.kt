@@ -233,7 +233,11 @@ class ImportCatalogZipHandler(
             CatalogImportSchemaAction.BLOCK_TOO_OLD ->
                 throw CatalogSchemaTooOldException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
             CatalogImportSchemaAction.CONFIRM_MIGRATION ->
-                throw CatalogMigrationConfirmationRequiredException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
+                throw CatalogMigrationConfirmationRequiredException(
+                    catalogCtx.sourceVersion,
+                    CATALOG_SCHEMA_VERSION,
+                    read.migrationNotices,
+                )
             CatalogImportSchemaAction.IMPORT -> {} // proceed
         }
         val catalogKey = CatalogKey.of(manifest.catalog.slug)

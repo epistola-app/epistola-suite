@@ -84,7 +84,7 @@ describe('PlaceholderInspector — context-aware rendering', () => {
     const { engine, placeholder } = setupEngineWithPlaceholder({
       stencilId: 'A',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
     });
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
@@ -103,7 +103,6 @@ describe('PlaceholderInspector — context-aware rendering', () => {
     const { engine, placeholder } = setupEngineWithPlaceholder({
       stencilId: 'A',
       version: 1,
-      isDraft: false,
     });
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
@@ -123,7 +122,6 @@ describe('PlaceholderInspector — context-aware rendering', () => {
     const { engine, placeholder } = setupEngineWithPlaceholder({
       stencilId: null,
       version: 1,
-      isDraft: false,
     });
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
@@ -164,7 +162,7 @@ describe('PlaceholderInspector — name uniqueness scoping', () => {
           id: 'stencil-a' as NodeId,
           type: 'stencil',
           slots: ['stencil-a-slot' as SlotId],
-          props: { stencilId: 'A', version: 1, isDraft: false },
+          props: { stencilId: 'A', version: 1 },
         },
         'stencil-b': {
           id: 'stencil-b' as NodeId,
@@ -239,7 +237,7 @@ describe('PlaceholderInspector — name uniqueness scoping', () => {
     const { engine, placeholder } = setupTwoStencilsWith('body', 'placeholder-1', {
       stencilId: 'B',
       version: 1,
-      isDraft: true,
+      draftVersion: 2,
     });
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
@@ -266,7 +264,7 @@ describe('PlaceholderInspector — name uniqueness scoping', () => {
           id: 'stencil-b' as NodeId,
           type: 'stencil',
           slots: ['stencil-b-slot' as SlotId],
-          props: { stencilId: 'B', version: 1, isDraft: true },
+          props: { stencilId: 'B', version: 1, draftVersion: 2 },
         },
         'ph-x': {
           id: 'ph-x' as NodeId,

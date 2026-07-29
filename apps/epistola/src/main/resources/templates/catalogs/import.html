@@ -155,8 +155,15 @@
                 <div class="alert-title">Update available</div>
                 <p style="margin: var(--ep-space-1) 0 0;">
                     This catalog is at schema version <span th:text="${fromSchemaVersion}">2</span>.
-                    Importing will update it to version <span th:text="${toSchemaVersion}">4</span>.
+                    Importing will update it to version <span th:text="${toSchemaVersion}">5</span>.
                 </p>
+                <ul th:if="${migrationNotices != null and !migrationNotices.isEmpty()}"
+                    style="margin: var(--ep-space-2) 0 0; padding-left: var(--ep-space-5);">
+                    <li th:each="notice : ${migrationNotices}">
+                        <code th:text="${notice.path}">resource path</code>:
+                        <span th:text="${notice.message}">migration detail</span>
+                    </li>
+                </ul>
                 <button type="submit" name="confirmMigration" value="true"
                         class="ep-btn ep-btn-primary ep-btn-sm" style="margin-top: var(--ep-space-2);"
                         th:text="'Import and update to v' + ${toSchemaVersion}">Import and update</button>

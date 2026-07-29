@@ -26,6 +26,7 @@ export function collectStencilUpgradeRefs(doc: TemplateDocument): StencilUpgrade
     .filter(
       (n) => n.type === 'stencil' && n.props?.stencilId && n.props?.version && n.props?.catalogKey,
     )
+    .filter((n) => n.props?.draftVersion == null)
     .map((n) => ({
       stencilId: n.props!.stencilId as string,
       version: n.props!.version as number,

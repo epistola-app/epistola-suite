@@ -28,7 +28,23 @@ class CatalogFingerprintService(
     /** Fingerprint of the live working copy of a catalog. */
     fun fingerprint(tenantKey: TenantKey, catalogKey: CatalogKey): String = canonicalizer.fingerprint(contentBuilder.build(tenantKey, catalogKey))
 
+    fun evaluate(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        expected: String?,
+    ): CatalogFingerprintEvaluation {
+        val content = contentBuilder.build(tenantKey, catalogKey)
+        return CatalogFingerprintEvaluation(
+            current = canonicalizer.fingerprint(content),
+            matchesExpected = expected != null && canonicalizer.matchesFingerprint(content, expected),
+        )
+    }
+
     fun fingerprint(content: CatalogContent): String = canonicalizer.fingerprint(content)
+
+    fun matchesFingerprint(content: CatalogContent, expected: String): Boolean = canonicalizer.matchesFingerprint(content, expected)
+
+    fun requirePublishable(content: CatalogContent) = canonicalizer.requirePublishable(content)
 
     /**
      * Fingerprint of a catalog fetched from a source URL. Used to verify the
@@ -55,3 +71,8 @@ class CatalogFingerprintService(
         }
     }
 }
+
+data class CatalogFingerprintEvaluation(
+    val current: String,
+    val matchesExpected: Boolean,
+)

@@ -11,8 +11,8 @@ Templates and catalogs created by the current editor use the canonical shapes
 required by the shared validator:
 
 - text content is a ProseMirror document object;
-- linked stencil instances carry `stencilId`, an exact positive `version`, and
-  an explicit `isDraft` boolean;
+- linked stencil instances carry `stencilId`, an exact positive published
+  `version`, and, while editing, an exact positive `draftVersion`;
 - published templates refer to published stencil versions;
 - the editor maintains a rooted, owned, reachable node/slot graph.
 
@@ -21,18 +21,19 @@ state model landed in April 2026, and the ProseMirror object model predates the
 current production period. Therefore content created only through the editor
 during the last month is expected to remain compatible.
 
-For stored editor documents, a missing `isDraft` has the same meaning as
-`isDraft: false`. The shared validator accepts that historical shape so opening
-or rendering a published stencil reference does not depend on a bulk JSONB
-rewrite. The current editor still writes the property explicitly.
+The catalog-v5 Flyway migration removes false or stale `isDraft` markers and
+resolves true markers in draft rows against the owning catalog's exact
+`stencil_versions` row. It preserves the embedded subtree and published base,
+and aborts with a row/node diagnostic when provenance is missing, ambiguous,
+or inconsistent.
 
 This is not an unconditional backward-compatibility guarantee. The following
 historical or malformed shapes are intentionally rejected when they cross a
 strict boundary:
 
 - string or bare-array text content;
-- stencil nodes missing `stencilId` or a positive `version`, or carrying a
-  non-boolean `isDraft`;
+- stencil nodes with incomplete or inconsistent `version`/`draftVersion`
+  provenance, or carrying the removed v4 `isDraft` property;
 - cycles, unreachable nodes, inconsistent node/slot ownership, unsupported
   components, or invalid property shapes;
 - stencil-instance ancestry deeper than five levels;
@@ -61,14 +62,14 @@ or fingerprint rules.
 The dependency upgrade does not scan, rewrite, or bulk-revalidate every stored
 template at startup.
 
-| Operation after upgrade                | Validation behavior                                                                                                                                                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Render an existing published template  | Applies graph/type traversal-safety checks so an otherwise valid stored document continues rendering.                                                                                                               |
-| Open and save a template draft         | The current editor sends the canonical model; the shared validator checks it before the write.                                                                                                                      |
-| Publish a template or stencil draft    | Revalidates the stored draft and rejects a historical malformed shape instead of freezing it.                                                                                                                       |
-| Copy or upgrade stored stencil content | Revalidates the source content before reusing it.                                                                                                                                                                   |
-| Import or re-import a catalog          | Applies the complete portable archive, wire, resource, reference, schema, hash, and template validation policy before mutation.                                                                                     |
-| Export a catalog                       | Builds current `schemaVersion: 4` content from published resources. A legacy invalid stored document can still produce an archive that the portable validator rejects, so validate or round-trip important exports. |
+| Operation after upgrade                | Validation behavior                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Render an existing published template  | Applies graph/type traversal-safety checks so an otherwise valid stored document continues rendering.                                       |
+| Open and save a template draft         | The current editor sends the canonical model; the shared validator checks it before the write.                                              |
+| Publish a template or stencil draft    | Revalidates the stored draft and rejects a historical malformed shape instead of freezing it.                                               |
+| Copy or upgrade stored stencil content | Revalidates the source content before reusing it.                                                                                           |
+| Import or re-import a catalog          | Applies the complete portable archive, wire, resource, reference, schema, hash, and template validation policy before mutation.             |
+| Export a catalog                       | Builds current `schemaVersion: 5` content from published resources and refuses non-publishable draft provenance before writing the archive. |
 
 This means an already-published editor-created template is not invalidated just
 because the application starts with the new library. The realistic failure
@@ -84,19 +85,17 @@ does not yet expose nested-stencil definition authoring: its adapter preserves
 the existing create, update, import, and publish capability gate. Templates
 may continue to contain ordinary stencil instances and placeholder fills.
 
-## Known v4 archive limitation and catalog v5
+## Catalog v4 import compatibility
 
-Catalog v4 uses `version` plus `isDraft` for stencil references. A portable
-published catalog must not contain `isDraft: true`, so this integration rejects
-such an archive with `STENCIL_REFERENCE_INVALID`.
+Catalog v4 uses `version` plus `isDraft` for stencil references. It remains the
+accepted baseline: `CatalogV4ToV5Migration` removes false markers and removes
+true markers with an explicit migration notice because an archive contains no
+database identity from which to recover an exact draft version.
 
-Some RC3 exports can nevertheless contain `isDraft: true` as a stale authoring
-marker even though the archive embeds a complete, usable stencil copy. The
-intentional compatibility fix is tracked in
-[epistola-contract#52](https://github.com/epistola-app/epistola-contract/issues/52):
-catalog v5 replaces `isDraft` with exact `draftVersion` provenance and adds a
-v4-to-v5 migration that preserves the embedded subtree and published version
-for this RC3 case. This Suite PR does not implement or close that follow-up.
+Authored imports surface those notices in the confirmation UI before mutation;
+subscribed catalogs are never migrated. Catalog v5 publication rejects any
+`draftVersion`, so exported content always points to exact published stencil
+versions.
 
 ## Deployment check
 

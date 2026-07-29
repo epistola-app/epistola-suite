@@ -144,7 +144,7 @@ class TemplateDocumentValidatorTest {
                     props = mapOf(
                         "stencilId" to "header",
                         "version" to 1,
-                        "isDraft" to true,
+                        "draftVersion" to 2,
                         "parameterSchemaSnapshot" to mapOf(
                             "type" to "object",
                             "properties" to mapOf("recipientName" to mapOf("type" to "string")),
@@ -181,7 +181,7 @@ class TemplateDocumentValidatorTest {
                 id = "stencil-$index",
                 type = "stencil",
                 slots = listOf("stencil-$index-children"),
-                props = mapOf("stencilId" to slug, "version" to 1, "isDraft" to false),
+                props = mapOf("stencilId" to slug, "version" to 1),
             )
         }
         return TemplateDocument(

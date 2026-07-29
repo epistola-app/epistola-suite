@@ -563,7 +563,7 @@ export class EditorEngine {
   // Replace document (e.g., loading a new template)
   // -----------------------------------------------------------------------
 
-  replaceDocument(doc: TemplateDocument): void {
+  replaceDocument(doc: TemplateDocument, commandType: string = 'ReplaceDocument'): void {
     this._doc = deepFreeze(structuredClone(doc));
     this._indexes = buildIndexes(this._doc);
     this._recomputeStyles();
@@ -571,7 +571,7 @@ export class EditorEngine {
     this._pmStateCache.clear();
     this._componentState.clear();
     this._selectedNodeId = null;
-    this._notify(true, 'ReplaceDocument');
+    this._notify(true, commandType);
   }
 
   // -----------------------------------------------------------------------
