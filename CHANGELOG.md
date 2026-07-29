@@ -6,10 +6,11 @@
 
 - **[user]** feat(stencils)!: **Stencil drafts now retain exact provenance.**
   Catalog schema v5 replaces the ambiguous `isDraft` flag with `draftVersion`, migrates stored
-  template and stencil JSON against the owning catalog's exact draft rows, and rejects unsafe
-  publication of draft-linked content. The editor hydrates exact drafts on open, caches duplicate
-  lookups, promotes versions published elsewhere, and preserves embedded content with recover,
-  discard, and detach choices when a draft is missing, archived, or unavailable.
+  template and stencil JSON containing legacy markers against the owning catalog's exact draft
+  rows without rewriting unaffected versions, and rejects unsafe publication of draft-linked
+  content. The editor hydrates exact drafts on open, caches duplicate lookups, promotes versions
+  published elsewhere, and preserves embedded content with recover, discard, and detach choices
+  when a draft is missing, archived, or unavailable.
 - **[dev]** feat(catalog)!: **Catalog v5 is produced and v4 remains importable.**
   Suite consumes `epistola-catalog` 0.15.1, uses semantic v3 fingerprints with legacy matching,
   reports migration notices during confirmed authored imports, publishes only validated content,

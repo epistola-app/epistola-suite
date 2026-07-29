@@ -152,7 +152,8 @@ SET template_model = migrate_catalog_v5_stencil_provenance(
         variant_key,
         id
     )
-);
+)
+WHERE template_model @? '$.nodes.*.props.isDraft';
 
 UPDATE stencil_versions
 SET content = migrate_catalog_v5_stencil_provenance(
@@ -161,6 +162,7 @@ SET content = migrate_catalog_v5_stencil_provenance(
     catalog_key::text,
     status,
     format('stencil_versions[%s/%s/%s/%s]', tenant_key, catalog_key, stencil_key, id)
-);
+)
+WHERE content @? '$.nodes.*.props.isDraft';
 
 DROP FUNCTION migrate_catalog_v5_stencil_provenance(JSONB, TEXT, TEXT, TEXT, TEXT);
