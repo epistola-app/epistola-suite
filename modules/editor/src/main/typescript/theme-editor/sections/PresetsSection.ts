@@ -18,7 +18,7 @@ export function renderPresetsSection(state: ThemeEditorState, readOnly = false):
   const entries = Object.entries(presets);
 
   return html`
-    <section class="theme-section">
+    <div class="theme-section">
       <h3 class="theme-section-label">Block Style Presets</h3>
       <p class="theme-section-hint">
         Named style collections that blocks can reference. Similar to CSS classes.
@@ -38,7 +38,7 @@ export function renderPresetsSection(state: ThemeEditorState, readOnly = false):
       </div>
 
       <button
-        class="theme-preset-add-btn"
+        class="ep-btn ep-btn-outline ep-btn-sm theme-preset-add-btn"
         ?disabled=${readOnly}
         @click=${() => {
           const name = generatePresetName(presets);
@@ -47,7 +47,7 @@ export function renderPresetsSection(state: ThemeEditorState, readOnly = false):
       >
         + Add Preset
       </button>
-    </section>
+    </div>
   `;
 }
 

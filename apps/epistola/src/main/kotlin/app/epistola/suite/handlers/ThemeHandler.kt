@@ -33,12 +33,16 @@ import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
+import app.epistola.suite.themes.queries.GetThemeUsagePage
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.themes.queries.ThemeUsagePage
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
+
+private const val THEME_USAGE_PAGE_SIZE = 50
 
 /**
  * Request body for updating a theme via PATCH.
@@ -251,6 +255,7 @@ class ThemeHandler(
         )
 
         val editable = theme.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
+        val usagePage = GetThemeUsagePage(themeId, limit = THEME_USAGE_PAGE_SIZE).query()
 
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"
@@ -259,7 +264,44 @@ class ThemeHandler(
             "theme" to theme
             "themeJson" to themeJson
             "editable" to editable
+            themeUsageModel(usagePage, page = 1)
         }
+    }
+
+    fun usage(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val themeId = request.themeId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val theme = GetTheme(id = themeId).query()
+            ?: return ServerResponse.notFound().build()
+
+        val page = request.param("page").orElse("1").toIntOrNull()?.coerceAtLeast(1) ?: 1
+        val usagePage = GetThemeUsagePage(
+            themeId = themeId,
+            limit = THEME_USAGE_PAGE_SIZE,
+            offset = (page - 1) * THEME_USAGE_PAGE_SIZE,
+        ).query()
+
+        return request.htmx {
+            fragment("themes/detail", "usage") {
+                "tenantId" to tenantId.key
+                "catalogId" to themeId.catalogKey.value
+                "theme" to theme
+                themeUsageModel(usagePage, page)
+            }
+            onNonHtmx {
+                redirect(
+                    "/tenants/${tenantId.key}/themes/${themeId.catalogKey}/${themeId.key}",
+                )
+            }
+        }
+    }
+
+    private fun ModelBuilder.themeUsageModel(usagePage: ThemeUsagePage, page: Int) {
+        "usage" to usagePage.items
+        "usageTotal" to usagePage.total
+        "usagePage" to page
+        "usageTotalPages" to maxOf(1, (usagePage.total + THEME_USAGE_PAGE_SIZE - 1) / THEME_USAGE_PAGE_SIZE)
     }
 
     fun update(request: ServerRequest): ServerResponse {

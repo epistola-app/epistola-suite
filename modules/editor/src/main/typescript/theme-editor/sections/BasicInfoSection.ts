@@ -13,7 +13,7 @@ export function renderBasicInfoSection(state: ThemeEditorState, readOnly = false
   const theme = state.theme;
 
   return html`
-    <section class="theme-section">
+    <div class="theme-section">
       <h3 class="theme-section-label">Basic Information</h3>
       <div class="inspector-field">
         <label class="inspector-field-label" for="theme-name">Name</label>
@@ -21,6 +21,7 @@ export function renderBasicInfoSection(state: ThemeEditorState, readOnly = false
           type="text"
           id="theme-name"
           class="ep-input"
+          maxlength="100"
           .value=${theme.name}
           ?disabled=${readOnly}
           @change=${(e: Event) => state.updateName((e.target as HTMLInputElement).value)}
@@ -41,6 +42,6 @@ export function renderBasicInfoSection(state: ThemeEditorState, readOnly = false
           placeholder="Optional description..."
         ></textarea>
       </div>
-    </section>
+    </div>
   `;
 }

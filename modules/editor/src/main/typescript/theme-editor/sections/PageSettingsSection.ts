@@ -26,7 +26,7 @@ export function renderPageSettingsSection(state: ThemeEditorState, readOnly = fa
     '';
 
   return html`
-    <section class="theme-section">
+    <div class="theme-section">
       <h3 class="theme-section-label">Page Settings</h3>
 
       <div class="inspector-field">
@@ -132,6 +132,6 @@ export function renderPageSettingsSection(state: ThemeEditorState, readOnly = fa
           }}
         />
       </div>
-    </section>
+    </div>
   `;
 }

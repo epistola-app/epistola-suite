@@ -26,7 +26,7 @@ export function renderDocumentStylesSection(state: ThemeEditorState, readOnly = 
   const docStyles = state.theme.documentStyles;
 
   return html`
-    <section class="theme-section">
+    <div class="theme-section">
       <h3 class="theme-section-label">Document Styles</h3>
       <p class="theme-section-hint">Default styles inherited by all templates using this theme.</p>
       ${defaultStyleRegistry.groups.map((group) => {
@@ -47,7 +47,7 @@ export function renderDocumentStylesSection(state: ThemeEditorState, readOnly = 
           </div>
         `;
       })}
-    </section>
+    </div>
   `;
 }
 

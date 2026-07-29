@@ -89,5 +89,9 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         // …and the theme editor booted on htmx:load after the swap (proving the
         // editor survives the boosted navigation the soft redirect performs).
         assertThat(page.locator("#theme-editor-container[data-editor-mounted='true']")).isVisible()
+        // The old placeholder has been replaced by a real, server-rendered
+        // usage panel that is also present for a newly-created, unused theme.
+        assertThat(page.locator(".theme-usage-panel")).isVisible()
+        assertThat(page.locator(".theme-editor-preview-placeholder")).hasCount(0)
     }
 }

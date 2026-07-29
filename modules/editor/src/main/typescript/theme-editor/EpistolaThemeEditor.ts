@@ -5,8 +5,8 @@
 /**
  * EpistolaThemeEditor — Root Lit element for the theme editor.
  *
- * Two-column layout: editing panel (left, scrollable) + placeholder (right).
- * Status bar at bottom with save state indicator.
+ * Single-column editing surface. The host page owns surrounding context such
+ * as resource usage.
  * Autosave with 2-second debounce, Ctrl+S for manual save,
  * beforeunload warning when dirty.
  */
@@ -75,16 +75,11 @@ export class EpistolaThemeEditor extends LitElement {
 
     return html`
       ${this._readOnly ? '' : this._renderStatusBar()}
-      <div class="theme-editor-layout">
-        <div class="theme-editor-panel">
-          ${renderBasicInfoSection(this.themeState, this._readOnly)}
-          ${renderDocumentStylesSection(this.themeState, this._readOnly)}
-          ${renderPageSettingsSection(this.themeState, this._readOnly)}
-          ${renderPresetsSection(this.themeState, this._readOnly)}
-        </div>
-        <div class="theme-editor-preview">
-          <div class="theme-editor-preview-placeholder">Preview panel coming soon</div>
-        </div>
+      <div class="theme-editor-panel">
+        ${renderBasicInfoSection(this.themeState, this._readOnly)}
+        ${renderDocumentStylesSection(this.themeState, this._readOnly)}
+        ${renderPageSettingsSection(this.themeState, this._readOnly)}
+        ${renderPresetsSection(this.themeState, this._readOnly)}
       </div>
     `;
   }
