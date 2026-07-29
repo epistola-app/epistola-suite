@@ -20,10 +20,10 @@ import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Regression coverage for the reported parameter-schema loss when a stencil
- * is authored inline in one template and then reused in another template.
+ * Regression coverage for synchronizing a stencil instance's parameter schema
+ * when its published version is upgraded.
  */
-class StencilParameterReuseUiTest : BasePlaywrightTest() {
+class StencilParameterUpgradeUiTest : BasePlaywrightTest() {
 
     @Test
     fun `upgrading a parameterless stencil to a parameterized version adds parameter controls`() {
@@ -140,8 +140,8 @@ class StencilParameterReuseUiTest : BasePlaywrightTest() {
 
     private fun createFixture(): Fixture {
         val tenant = CreateTenant(
-            id = TenantKey.of("test-stencil-parameter-reuse-${System.nanoTime()}"),
-            name = "Stencil Parameter Reuse UI Test",
+            id = TenantKey.of("test-stencil-parameter-upgrade-${System.nanoTime()}"),
+            name = "Stencil Parameter Upgrade UI Test",
         ).execute()
         val tenantId = TenantId(tenant.id)
 

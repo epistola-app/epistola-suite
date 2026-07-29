@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-- **[dev]** test(stencils): **Parameterized stencil upgrades have end-to-end regression coverage.** Browser coverage follows a parameterless stencil from v1 insertion through a parameterized v2 publication and consumer upgrade, asserting that the upgraded instance exposes its new parameter controls.
+- **[user]** fix(stencils): **Upgraded stencils now use the new version's parameters.** Moving a stencil instance to another published version refreshes its parameter schema, preserves bindings that remain valid, and removes bindings for parameters that no longer exist. Reverting draft changes restores the published parameter schema as well.
 - **[user]** fix(auth): **OIDC users now show their display name consistently.** The top navigation and footer render the identity provider's human-readable `name` claim from the signed-in Epistola principal instead of Spring's provider-dependent principal name, which defaulted to the opaque `sub` UUID on some installations. Email and display name are refreshed at login while `sub` remains the stable account key; rendering uses the existing session principal and adds no per-request user lookup.
 - **[dev]** chore(build): **Warnings now fail fast.** Kotlin compiler warnings and Gradle deprecations fail builds by default, with a documented narrow exception policy for unavoidable upstream diagnostics.
 - **[dev]** test(kotlin): **Test compiler warnings removed.** Test fixtures now avoid redundant null assertions and conversions, use typed exception assertions, and follow the current Jackson 3 and AssertJ APIs.
