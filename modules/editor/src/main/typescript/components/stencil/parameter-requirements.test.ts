@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from 'vitest';
 import type { JsonSchema } from '../../data-contract/types.js';
-import { missingRequiredParameters, parameterHasDefault } from './parameter-requirements.js';
+import {
+  bindingsDeclaredBySchema,
+  missingRequiredParameters,
+  parameterHasDefault,
+} from './parameter-requirements.js';
 
 describe('stencil parameter requirements', () => {
   const schema = {
@@ -32,5 +36,15 @@ describe('stencil parameter requirements', () => {
     expect(missingRequiredParameters(schema, { bound: '   ', missing: "'value'" })).toEqual([
       'bound',
     ]);
+  });
+
+  it('removes bindings for parameters no longer declared by the schema', () => {
+    expect(
+      bindingsDeclaredBySchema(schema, {
+        bound: 'customer.name',
+        removed: 'customer.legacyName',
+      }),
+    ).toEqual({ bound: 'customer.name' });
+    expect(bindingsDeclaredBySchema(undefined, { bound: 'customer.name' })).toEqual({});
   });
 });

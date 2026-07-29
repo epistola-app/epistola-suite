@@ -19,3 +19,12 @@ export function missingRequiredParameters(
     (name) => !(bindings[name] ?? '').trim() && !parameterHasDefault(schema, name),
   );
 }
+
+/** Retain only instance bindings declared by the supplied parameter schema. */
+export function bindingsDeclaredBySchema(
+  schema: JsonSchema | undefined,
+  bindings: Record<string, string>,
+): Record<string, string> {
+  const declared = new Set(Object.keys(schema?.properties ?? {}));
+  return Object.fromEntries(Object.entries(bindings).filter(([name]) => declared.has(name)));
+}

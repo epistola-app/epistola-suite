@@ -140,6 +140,63 @@ describe('stencil-actions module', () => {
     expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
   });
 
+  it('publishDraft rejects missing required bindings before changing backend state', async () => {
+    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
+    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
+    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
+    const requiredSchema: JsonSchema = {
+      ...RECIPIENT_SCHEMA,
+      required: ['recipientName'],
+    };
+    const { engine, stencilId, ctx } = setupCtx(
+      {
+        stencilId: 'header',
+        catalogKey: 'cat',
+        version: 4,
+        isDraft: true,
+        parameterSchemaSnapshot: requiredSchema,
+      },
+      callbacks,
+    );
+
+    await expect(actions.publishDraft(ctx, 5)).rejects.toThrow(
+      'Configure required parameter before publishing: recipientName',
+    );
+
+    expect(updateStencil).not.toHaveBeenCalled();
+    expect(publishDraft).not.toHaveBeenCalled();
+    expect(engine.doc.nodes[stencilId].props?.version).toBe(4);
+    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+  });
+
+  it('publishDraft accepts a required parameter supplied by a schema default', async () => {
+    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
+    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
+    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
+    const requiredSchema: JsonSchema = {
+      type: 'object',
+      properties: {
+        recipientName: { type: 'string', default: 'Anonymous' },
+      },
+      required: ['recipientName'],
+    };
+    const { ctx } = setupCtx(
+      {
+        stencilId: 'header',
+        catalogKey: 'cat',
+        version: 4,
+        isDraft: true,
+        parameterSchemaSnapshot: requiredSchema,
+      },
+      callbacks,
+    );
+
+    await actions.publishDraft(ctx, 5);
+
+    expect(updateStencil).toHaveBeenCalledOnce();
+    expect(publishDraft).toHaveBeenCalledOnce();
+  });
+
   it('publishDraft does NOT swap local content — fills survive', async () => {
     const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
     const publishDraft = vi.fn().mockResolvedValue({ version: 5 });

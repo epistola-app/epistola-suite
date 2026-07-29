@@ -65,6 +65,60 @@ class TemplateDocumentValidatorTest {
         assertThat(exception.field).isEqualTo("templateModel.nodes.placeholder")
     }
 
+    @Test
+    fun `draft validation allows missing required parameter binding but publication validation rejects it`() {
+        val schemaRegistry = NodeParameterSchemaProviderRegistry(
+            listOf(
+                NodeTypeProviderBinding(
+                    nodeType = "stencil",
+                    provider = NodeParameterSchemaProvider { node, _ ->
+                        @Suppress("UNCHECKED_CAST")
+                        node.props?.get("parameterSchemaSnapshot") as? Map<String, Any?>
+                    },
+                ),
+            ),
+        )
+        val parameterAwareValidator = TemplateDocumentValidator(
+            placeholderValidator = PlaceholderValidator(),
+            nodeParameterBindingValidator = NodeParameterBindingValidator(schemaRegistry),
+            pageHeaderCardinalityValidator = PageHeaderCardinalityValidator(),
+        )
+        val document = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "stencil" to Node(
+                    id = "stencil",
+                    type = "stencil",
+                    slots = listOf("stencil-slot"),
+                    props = mapOf(
+                        "stencilId" to "header",
+                        "version" to 1,
+                        "isDraft" to true,
+                        "parameterSchemaSnapshot" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf("recipientName" to mapOf("type" to "string")),
+                            "required" to listOf("recipientName"),
+                        ),
+                    ),
+                ),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("stencil")),
+                "stencil-slot" to Slot("stencil-slot", "stencil", "children", emptyList()),
+            ),
+        )
+
+        assertThatCode {
+            parameterAwareValidator.validateTemplateDraft(document)
+        }.doesNotThrowAnyException()
+        val exception = assertThrows<ValidationException> {
+            parameterAwareValidator.validateTemplate(document)
+        }
+        assertThat(exception.field)
+            .isEqualTo("templateModel.nodes.stencil.props.parameterBindings.recipientName")
+    }
+
     private fun documentWithMissingRoot() = TemplateDocument(
         root = "missing",
         nodes = mapOf("root" to Node(id = "root", type = "root")),

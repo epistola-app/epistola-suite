@@ -140,6 +140,35 @@ class NodeParameterBindingValidatorTest {
     }
 
     @Test
+    fun `required parameter without binding is accepted in an incomplete draft`() {
+        val node = stencilNode(
+            "s1",
+            schema = mapOf(
+                "properties" to mapOf("name" to mapOf("type" to "string")),
+                "required" to listOf("name"),
+            ),
+            bindings = null,
+        )
+
+        assertThatCode {
+            validator.validate(doc(node), requireCompleteBindings = false)
+        }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `unknown binding is still rejected in an incomplete draft`() {
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("ghost" to "customer.name"),
+        )
+
+        assertThatThrownBy {
+            validator.validate(doc(node), requireCompleteBindings = false)
+        }.hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN)
+    }
+
+    @Test
     fun `required parameter without binding but with default is accepted`() {
         val node = stencilNode(
             "s1",

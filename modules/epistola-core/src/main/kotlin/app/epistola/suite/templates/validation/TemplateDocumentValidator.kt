@@ -23,10 +23,26 @@ class TemplateDocumentValidator(
     private val graphValidator = TemplateDocumentGraphValidator()
 
     fun validateTemplate(doc: TemplateDocument) {
+        validateTemplate(doc, requireCompleteBindings = true)
+    }
+
+    /**
+     * Drafts may be persisted with required parameters still unbound. All other
+     * document and binding validation remains active so a draft cannot retain
+     * malformed expressions or bindings to parameters that do not exist.
+     */
+    fun validateTemplateDraft(doc: TemplateDocument) {
+        validateTemplate(doc, requireCompleteBindings = false)
+    }
+
+    private fun validateTemplate(
+        doc: TemplateDocument,
+        requireCompleteBindings: Boolean,
+    ) {
         validateAt(TEMPLATE_FIELD) {
             graphValidator.validate(doc)
             placeholderValidator.validateAsTemplate(doc)
-            nodeParameterBindingValidator.validate(doc)
+            nodeParameterBindingValidator.validate(doc, requireCompleteBindings)
             pageHeaderCardinalityValidator.validate(doc)
         }
     }

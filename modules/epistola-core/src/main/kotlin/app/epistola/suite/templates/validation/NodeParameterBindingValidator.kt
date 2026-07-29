@@ -37,7 +37,10 @@ class NodeParameterBindingValidator(
      * snapshot) — those flow through with whatever schema-shaped bindings were present.
      */
     @Suppress("UNCHECKED_CAST")
-    fun validate(doc: TemplateDocument) {
+    fun validate(
+        doc: TemplateDocument,
+        requireCompleteBindings: Boolean = true,
+    ) {
         for (node in doc.nodes.values) {
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) as? Map<*, *>
 
@@ -81,6 +84,11 @@ class NodeParameterBindingValidator(
                     )
                 }
             }
+
+            // Incomplete bindings are a valid intermediate state while editing a
+            // draft. The immutable publication boundary calls this validator with
+            // requireCompleteBindings=true and enforces the required parameters.
+            if (!requireCompleteBindings) continue
 
             // Required parameters with neither a binding nor a default.
             val required = (schema["required"] as? List<Any?>)?.filterIsInstance<String>().orEmpty()

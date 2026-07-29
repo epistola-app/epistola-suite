@@ -28,7 +28,7 @@ import { isStencil } from './node-types.js';
 import { openParameterDefinitionsDialog } from './parameter-definitions-dialog.js';
 import { openParameterBindingsDialog } from './parameter-bindings-dialog.js';
 import { STENCIL_BINDING_ERRORS_KEY, type BindingErrors } from './binding-errors.js';
-import { missingRequiredParameters } from './parameter-requirements.js';
+import { bindingsDeclaredBySchema, missingRequiredParameters } from './parameter-requirements.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -303,6 +303,12 @@ export class StencilInspector extends LitElement {
   private _renderDraft() {
     const schema = isStencil(this.node) ? this.node.props.parameterSchemaSnapshot : undefined;
     const paramCount = schema?.properties ? Object.keys(schema.properties).length : 0;
+    const missingRequired = schema
+      ? missingRequiredParameters(
+          schema,
+          isStencil(this.node) ? (this.node.props.parameterBindings ?? {}) : {},
+        )
+      : [];
 
     return html`
       <div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
@@ -328,7 +334,7 @@ export class StencilInspector extends LitElement {
         ${this.callbacks?.publishDraft
           ? html`<button
               class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
-              ?disabled=${this._busy}
+              ?disabled=${this._busy || missingRequired.length > 0}
               @click=${this._handlePublishDraft}
             >
               ${this._busy ? 'Publishing...' : 'Publish Draft'}
@@ -347,6 +353,12 @@ export class StencilInspector extends LitElement {
         <button class="ep-btn ep-btn-outline ep-btn-sm stencil-btn" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
+        ${missingRequired.length > 0
+          ? html`<div class="callout callout--warning">
+              Configure required ${missingRequired.length === 1 ? 'parameter' : 'parameters'} before
+              publishing: ${missingRequired.join(', ')}. You can still save this as a draft.
+            </div>`
+          : nothing}
       </div>
     `;
   }
@@ -361,6 +373,15 @@ export class StencilInspector extends LitElement {
     const next = { ...this.node.props } as Record<string, unknown>;
     if (hasProps) next.parameterSchemaSnapshot = result;
     else delete next.parameterSchemaSnapshot;
+    const retainedBindings = bindingsDeclaredBySchema(
+      hasProps ? result : undefined,
+      this.node.props.parameterBindings ?? {},
+    );
+    if (Object.keys(retainedBindings).length > 0) {
+      next.parameterBindings = retainedBindings;
+    } else {
+      delete next.parameterBindings;
+    }
     this.engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: this.node.id,

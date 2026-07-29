@@ -36,6 +36,7 @@ import { captureFillsByName, reKeyCapturedFill, type CapturedFill } from './pres
 import { PLACEHOLDER_SLOT_FILL } from '../placeholder/constants.js';
 import { isPlaceholder, placeholderName } from '../placeholder/node-types.js';
 import { isStencil } from './node-types.js';
+import { bindingsDeclaredBySchema, missingRequiredParameters } from './parameter-requirements.js';
 
 export interface StencilActionContext {
   engine: EditorEngine;
@@ -101,6 +102,18 @@ export async function publishDraft(
   const ref = requireRef(ctx);
   if (!ctx.callbacks.publishDraft) {
     throw new Error('publishDraft callback is not configured');
+  }
+  const node = stencilNode(ctx);
+  if (isStencil(node) && node.props.parameterSchemaSnapshot) {
+    const missing = missingRequiredParameters(
+      node.props.parameterSchemaSnapshot,
+      node.props.parameterBindings ?? {},
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        `Configure required ${missing.length === 1 ? 'parameter' : 'parameters'} before publishing: ${missing.join(', ')}`,
+      );
+    }
   }
   if (ctx.callbacks.updateStencil) {
     const content = extractSubtree(ctx.engine.doc, ctx.stencilNodeId);
@@ -293,11 +306,8 @@ function versionProps(
     delete props.parameterSchemaSnapshot;
   }
 
-  const declaredParameters = new Set(Object.keys(schema?.properties ?? {}));
   const bindings = isStencil(node) ? node.props.parameterBindings : undefined;
-  const preservedBindings = Object.fromEntries(
-    Object.entries(bindings ?? {}).filter(([name]) => declaredParameters.has(name)),
-  );
+  const preservedBindings = bindingsDeclaredBySchema(schema, bindings ?? {});
   if (Object.keys(preservedBindings).length > 0) {
     props.parameterBindings = preservedBindings;
   } else {
