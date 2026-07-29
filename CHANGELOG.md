@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-RC5] - 2026-07-29
+
+This release preserves exact stencil draft provenance across catalogs, with clear recovery choices
+when linked drafts are unavailable, as part of the deliberate catalog schema v5 change before GA.
+It also redesigns theme configuration with usage visibility, adds an opt-in guided editor
+walkthrough in alpha, and hardens stencil parameters and template validation.
+
 - **[user]** feat(stencils)!: **Stencil drafts now retain exact provenance.**
   Catalog schema v5 replaces the ambiguous `isDraft` flag with `draftVersion`, migrates stored
   template and stencil JSON containing legacy markers against the owning catalog's exact draft
@@ -55,15 +62,15 @@
   instances in templates, including realistic placeholder-fill insertion, persistence,
   publication, and visible PDF content, while rejecting direct or transitive recursion. Reusable
   stencil definition authoring remains gated in Suite.
-- Delegated standalone parameter-schema and whole-catalog ZIP validation to
+- **[dev]** refactor(catalog): **Catalog validation delegates to the portable contract.** Delegated standalone parameter-schema and whole-catalog ZIP validation to
   `epistola-catalog` before Suite performs any import mutation; subscribed catalog registration
   now rejects non-current wire schemas instead of retaining an unreachable legacy upgrade state,
   while portable document-version findings retain Suite's established import error presentation.
-- Portable stencil semantics delegate to `epistola-catalog`; Suite retains only its temporary
+- **[dev]** refactor(stencils): **Portable stencil semantics delegate to the catalog.** Suite retains only its temporary
   product-capability gate against authoring nested stencil definitions.
-- Consumed the rich-text JSON Schema references from `epistola-catalog` instead of maintaining
+- **[dev]** refactor(catalog): **Rich-text schemas come from the portable contract.** Consumed the rich-text JSON Schema references from `epistola-catalog` instead of maintaining
   Suite-owned copies.
-- Updated active catalog, Exchange, stencil, and registry documentation to the
+- **[dev]** docs(catalog): **Catalog artifact naming is current.** Updated active catalog, Exchange, stencil, and registry documentation to the
   `epistola-catalog` npm, Maven, and classpath names; historical ADR and migration references retain
   the retired artifact name for accuracy.
 - **[dev]** build(catalog): **Portable catalog dependency adopted.** Suite now consumes `app.epistola.contract:epistola-catalog` instead of the retired pre-1.0 `epistola-model` coordinate, retaining the existing Kotlin model packages while gaining the shared registries, validation, archive, migration, canonicalization, and fixture boundary.
