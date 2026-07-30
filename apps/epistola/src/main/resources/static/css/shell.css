@@ -320,7 +320,7 @@
 
   .main-content {
     flex: 1;
-    max-width: var(--ep-max-width-base);
+    max-width: var(--ep-max-width-lg);
     margin: var(--ep-space-8) auto;
     padding: 0 var(--ep-space-6);
     width: 100%;
