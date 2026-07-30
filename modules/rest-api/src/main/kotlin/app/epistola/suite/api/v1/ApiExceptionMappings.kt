@@ -19,6 +19,8 @@ import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
@@ -541,6 +543,20 @@ object ApiExceptionMappings {
             defaultDetail = "Catalog cannot be upgraded",
             extensions = { mapOf("catalogId" to it.catalogKey.value) },
             logMessage = { "Catalog not upgradeable: ${it.message}" },
+        )
+
+        builder.register<CatalogReleaseVersionException>(
+            problemType = ApiProblemTypes.CATALOG_RELEASE_VERSION_INVALID,
+            defaultDetail = "Catalog release version is invalid",
+            extensions = { emptyMap() },
+            logMessage = { "Catalog release version rejected: ${it.message}" },
+        )
+
+        builder.register<CatalogUpgradeConflictException>(
+            problemType = ApiProblemTypes.CATALOG_UPGRADE_CONFLICT,
+            defaultDetail = "Catalog upgrade is blocked by resources that are still in use",
+            extensions = { mapOf("conflicts" to it.conflicts) },
+            logMessage = { "Catalog upgrade blocked by ${it.conflicts.size} conflict(s)" },
         )
 
         builder.register<CatalogSchemaTooNewException>(
