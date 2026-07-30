@@ -8,19 +8,19 @@ code-list identifiers; they never take an API key or tenant ID.
 
 Use the smallest calls that can establish the render graph:
 
-| Concern | Tools |
-| --- | --- |
-| Catalog and template identity | `list_catalogs`, `list_templates`, `get_template` |
-| Variant and exact content | `list_variants`, `get_variant`, `list_versions`, `get_version` |
-| Current editor context | `get_template_content` |
-| Themes | `list_themes`, `get_theme` |
-| Stencils | `list_stencils`, `get_stencil`, `list_stencil_versions`, `get_stencil_version` |
-| Images | `list_images`, `get_image` |
-| Fonts | `list_fonts` |
-| Data | `get_data_contract` |
-| Attributes and code lists | `list_attributes`, `get_attribute`, `list_code_lists`, `get_code_list`, `list_code_list_entries` |
-| Component semantics | `list_component_types`, `get_component_type` |
-| Controlled rendering | `preview_document` |
+| Concern                       | Tools                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| Catalog and template identity | `list_catalogs`, `list_templates`, `get_template`                                                |
+| Variant and exact content     | `list_variants`, `get_variant`, `list_versions`, `get_version`                                   |
+| Current editor context        | `get_template_content`                                                                           |
+| Themes                        | `list_themes`, `get_theme`                                                                       |
+| Stencils                      | `list_stencils`, `get_stencil`, `list_stencil_versions`, `get_stencil_version`                   |
+| Images                        | `list_images`, `get_image`                                                                       |
+| Fonts                         | `list_fonts`                                                                                     |
+| Data                          | `get_data_contract`                                                                              |
+| Attributes and code lists     | `list_attributes`, `get_attribute`, `list_code_lists`, `get_code_list`, `list_code_list_entries` |
+| Component semantics           | `list_component_types`, `get_component_type`                                                     |
+| Controlled rendering          | `preview_document`                                                                               |
 
 `get_version` is authoritative for one persisted draft or published template
 version. It also exposes a published version's frozen `resolvedTheme` and
