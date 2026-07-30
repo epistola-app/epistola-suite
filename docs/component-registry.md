@@ -72,10 +72,15 @@ on `:modules:editor` merely to get a generated JSON file onto the classpath.
 ## Updating the Vocabulary
 
 Change the static vocabulary in `epistola-contract`, release or locally publish
-`epistola-catalog`, then bump both suite dependencies:
+`epistola-catalog`, then bump all suite contract references to the same version:
 
-- `gradle/libs.versions.toml` `epistola-catalog`
+- `gradle/libs.versions.toml` `epistola-contract` (shared by the REST server API
+  and Kotlin `epistola-catalog`)
 - `modules/editor/package.json` `@epistola.app/epistola-catalog`
+- `pnpm-lock.yaml`
+
+Run `./gradlew checkContractVersionAlignment` to verify backend/frontend
+alignment.
 
 If the change also needs suite runtime behavior, update the editor registration
 hooks and renderer/validator code in the same suite change. The static JSON and

@@ -57,6 +57,10 @@
     }
   ],
   "gradle": {
-    "fileMatch": ["(^|/)build\\.gradle\\.kts$", "(^|/)settings\\.gradle\\.kts$"]
+    "fileMatch": [
+      "(^|/)build\\.gradle\\.kts$",
+      "(^|/)settings\\.gradle\\.kts$",
+      "(^|/)gradle/libs\\.versions\\.toml$"
+    ]
   }
 }

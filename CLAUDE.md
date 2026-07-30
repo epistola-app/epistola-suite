@@ -266,6 +266,21 @@ pnpm install && pnpm build && ./gradlew build
 pnpm --filter @epistola/editor sbom
 ```
 
+### Contract Dependency Alignment
+
+Epistola contract dependency upgrades are one atomic backend/frontend change. Always update all
+of these to the exact same released version:
+
+- `gradle/libs.versions.toml` — the `epistola-contract` version shared by the generated REST server
+  API and Kotlin `epistola-catalog` artifacts
+- `modules/editor/package.json` — `@epistola.app/epistola-catalog`
+- `pnpm-lock.yaml` — regenerate it from the updated editor dependency
+
+Run `./gradlew checkContractVersionAlignment` after every contract bump. The task is also wired
+into the root `check`/`build` lifecycle and fails if the backend, editor, or lockfile versions
+drift. Renovate must keep the Maven and npm packages in the same `epistola-contract` group and
+must include `gradle/libs.versions.toml` in its Gradle file matcher.
+
 CycloneDX 3.3.0 may print `Unknown keyword meta:enum` and
 `Unknown keyword deprecated` while networknt validates SPDX schema metadata.
 These are upstream schema-vocabulary notices, not Gradle deprecations. Keep the
