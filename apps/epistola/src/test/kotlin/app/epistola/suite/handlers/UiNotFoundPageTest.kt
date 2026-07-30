@@ -42,10 +42,23 @@ class UiNotFoundPageTest : BaseIntegrationTest() {
         val response = getHtml("/tenants/${tenant.id.value}/load-tests/${UUID.randomUUID()}")
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(response.headers.contentType?.isCompatibleWith(MediaType.TEXT_HTML)).isTrue()
         assertThat(response.body)
             .withFailMessage("404 response headers: %s", response.headers)
             .contains("id=\"app-nav\"", "class=\"app-footer\"", "Page not found")
             .contains("Handled Not Found")
+    }
+
+    @Test
+    fun `missing tenant page is rendered as html`() {
+        val response = getHtml("/tenants/demo-non-existing-tenant")
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(response.headers.contentType?.isCompatibleWith(MediaType.TEXT_HTML)).isTrue()
+        assertThat(response.body)
+            .withFailMessage("404 response headers: %s", response.headers)
+            .contains("id=\"app-nav\"", "class=\"app-footer\"", "Page not found")
+            .contains("View tenants")
     }
 
     @Test
