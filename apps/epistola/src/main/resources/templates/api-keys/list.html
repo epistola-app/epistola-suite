@@ -36,16 +36,19 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table ep-table-fixed">
+        <div th:if="${!#lists.isEmpty(apiKeys)}"
+             class="ep-table-scroll" role="region" aria-label="API keys table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 13%" /><!-- Name -->
+                <col style="width: 12%" /><!-- Name -->
                 <col style="width: 13%" /><!-- Prefix -->
                 <col style="width: 18%" /><!-- Scope -->
                 <col style="width: 9%" /><!-- Created by -->
                 <col style="width: 15%" /><!-- Created -->
                 <col style="width: 15%" /><!-- Last used -->
                 <col style="width: 11%" /><!-- Expires -->
-                <col style="width: 6%" /><!-- Actions -->
+                <col style="width: 7%" /><!-- Actions -->
             </colgroup>
             <thead>
                 <tr>
@@ -104,6 +107,7 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
         </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />

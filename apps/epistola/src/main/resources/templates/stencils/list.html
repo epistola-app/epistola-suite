@@ -37,7 +37,10 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(stencils)}" class="ep-table ep-table-fixed">
+        <div th:if="${!#lists.isEmpty(stencils)}"
+             class="ep-table-scroll" role="region" aria-label="Stencils table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
             <colgroup>
                 <col style="width: 23%" /><!-- Name -->
                 <col style="width: 14%" /><!-- Catalog -->
@@ -94,6 +97,7 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 

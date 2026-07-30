@@ -37,7 +37,10 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table ep-table-fixed">
+        <div th:if="${!#lists.isEmpty(codeLists)}"
+             class="ep-table-scroll" role="region" aria-label="Code lists table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
             <colgroup>
                 <col style="width: 21%" /><!-- Slug -->
                 <col style="width: 13%" /><!-- Catalog -->
@@ -88,6 +91,7 @@
                 </tr>
             </tbody>
         </table>
+        </div>
 
         <!-- Dialog mount: the create dialog is swapped in here by the trigger
              (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On

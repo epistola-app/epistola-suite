@@ -45,7 +45,10 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(attributes)}" class="ep-table ep-table-fixed">
+        <div th:if="${!#lists.isEmpty(attributes)}"
+             class="ep-table-scroll" role="region" aria-label="Attributes table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
             <colgroup>
                 <col style="width: 19%" /><!-- ID -->
                 <col style="width: 13%" /><!-- Catalog -->
@@ -82,6 +85,7 @@
                             <div th:if="${attr.codeListSlug == null and !attr.allowedValues.isEmpty()}" class="badge-list">
                                 <span th:each="val : ${attr.allowedValues}"
                                       class="badge badge-outline"
+                                      th:title="${val}"
                                       th:text="${val}"></span>
                             </div>
                             <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
@@ -112,6 +116,7 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
         </div>
 
         <!-- Dialog mount: the create dialog is swapped in here by the trigger

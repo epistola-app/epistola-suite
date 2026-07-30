@@ -77,7 +77,10 @@
                     </th:block>
                 </div>
 
-                <table th:if="${total > 0}" class="ep-table ep-table-fixed">
+                <div th:if="${total > 0}"
+                     class="ep-table-scroll" role="region" aria-label="Templates table" tabindex="0"
+                     data-testid="fixed-table-scroll">
+                <table class="ep-table ep-table-fixed">
                     <colgroup>
                         <col style="width: 23%" /><!-- Name -->
                         <col style="width: 13%" /><!-- Catalog -->
@@ -116,6 +119,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div>
 
                 <nav th:if="${totalPages > 1}" class="ep-pagination" aria-label="Templates pagination" data-testid="template-pagination">
                     <a th:if="${hasPrev}"

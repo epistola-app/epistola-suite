@@ -631,6 +631,15 @@
     }
   }
 
+  /* Contains fixed list tables on narrow viewports without hiding columns or
+     controls. The region is focusable in markup so keyboard users can scroll it. */
+  .ep-table-scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
   /* Modifier for list tables: column widths come from the table's <colgroup>
      (percentages totaling 100% — browsers normalize percentage colgroups, so
      the table provably never exceeds its container; avoid large pixel <col>
@@ -638,6 +647,7 @@
      ellipsis — put th:title on cells whose value may be cut, and class
      "cell-wrap" on cells that should wrap instead (tag/badge lists). */
   .ep-table-fixed {
+    min-width: calc(var(--ep-max-width-lg) - var(--ep-space-12));
     table-layout: fixed;
 
     & td {
@@ -647,6 +657,15 @@
     }
 
     & td.cell-wrap {
+      white-space: normal;
+    }
+
+    /* Actions are functional content, never truncatable text. Compact their
+       padding and wrap controls within the assigned column instead of clipping
+       them when several actions share a row. */
+    & td.actions {
+      padding-inline: var(--ep-space-2);
+      flex-wrap: wrap;
       white-space: normal;
     }
 

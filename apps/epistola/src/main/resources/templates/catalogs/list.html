@@ -29,7 +29,10 @@
             <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
         </div>
 
-        <table th:if="${!catalogs.isEmpty()}" class="ep-table ep-table-fixed">
+        <div th:if="${!catalogs.isEmpty()}"
+             class="ep-table-scroll" role="region" aria-label="Catalogs table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
             <colgroup>
                 <col style="width: 21%" /><!-- Name -->
                 <col style="width: 15%" /><!-- ID -->
@@ -118,6 +121,7 @@
                 </tr>
             </tbody>
         </table>
+        </div>
         </div>
         <!-- /#catalog-list -->
 

@@ -55,7 +55,9 @@
                 searchUrl='/tenants/search',
                 targetId='tenant-rows'
             )}"></div>
-            <table class="ep-table ep-table-fixed" style="margin-top: var(--ep-space-4)">
+            <div class="ep-table-scroll" role="region" aria-label="Tenants table" tabindex="0"
+                 data-testid="fixed-table-scroll" style="margin-top: var(--ep-space-4)">
+            <table class="ep-table ep-table-fixed">
                 <colgroup>
                     <col style="width: 30%" /><!-- ID -->
                     <col style="width: 35%" /><!-- Name -->
@@ -102,6 +104,7 @@
                     </th:block>
                 </tbody>
             </table>
+            </div>
         </section>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
