@@ -8,6 +8,9 @@
   resolve to an empty or unmatched 404 now show a clear recovery page with the usual header,
   navigation, and footer. Tenant URLs retain their accessible tenant context, while API,
   download, structured, and HTMX fragment error contracts remain unchanged.
+- **[user]** fix(ui): **Missing tenants render as pages instead of source text.** Tenant-home
+  requests for an unknown tenant now explicitly return HTML when upgraded to the shared 404 page,
+  so browsers render the recovery page under the application's MIME-sniffing protection.
 
 ## [1.0.0-RC5] - 2026-07-29
 

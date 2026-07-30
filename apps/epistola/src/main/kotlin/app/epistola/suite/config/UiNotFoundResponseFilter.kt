@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse
 import jakarta.servlet.http.HttpServletResponseWrapper
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 import java.io.PrintWriter
@@ -45,6 +46,7 @@ class UiNotFoundResponseFilter : OncePerRequestFilter() {
             wrappedResponse.reset()
             request.setAttribute(NOT_FOUND_ORIGINAL_PATH_ATTRIBUTE, request.requestURI)
             wrappedResponse.status = HttpServletResponse.SC_NOT_FOUND
+            wrappedResponse.contentType = MediaType.TEXT_HTML_VALUE
             if (request.isFullPageHtmx()) {
                 wrappedResponse.setHeader("HX-Reswap", "innerHTML")
             }
