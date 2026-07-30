@@ -10,9 +10,13 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.mcp.dto.VersionContentInfo
 import app.epistola.suite.mcp.dto.VersionInfo
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.queries.versions.ListVersions
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
@@ -44,5 +48,31 @@ class VersionMcpTools(
             TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantId)),
         )
         return mediator.query(ListVersions(vId)).map { VersionInfo.from(it) }
+    }
+
+    @McpTool(
+        name = "get_version",
+        description = "Fetch one exact template version, including its persisted template node/slot " +
+            "graph and any rendering-default and resolved-theme snapshot frozen at publication. " +
+            "Use this instead of current editor content when diagnosing historical or generated output.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
+    )
+    fun getVersion(
+        @McpToolParam(description = "Catalog key.")
+        catalogId: String,
+        @McpToolParam(description = "Template key.")
+        templateId: String,
+        @McpToolParam(description = "Variant key.")
+        variantId: String,
+        @McpToolParam(description = "Sequential version number returned by list_versions.")
+        versionId: Int,
+    ): VersionContentInfo? {
+        val tenantId = mcpTenantId()
+        val variant = VariantId(
+            VariantKey.of(variantId),
+            TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantId)),
+        )
+        return mediator.query(GetVersion(VersionId(VersionKey.of(versionId), variant)))
+            ?.let(VersionContentInfo::from)
     }
 }

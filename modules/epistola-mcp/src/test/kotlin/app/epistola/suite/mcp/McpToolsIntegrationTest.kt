@@ -9,9 +9,11 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mcp.tools.CatalogMcpTools
 import app.epistola.suite.mcp.tools.PreviewMcpTools
 import app.epistola.suite.mcp.tools.TemplateMcpTools
+import app.epistola.suite.mcp.tools.VersionMcpTools
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.EpistolaPrincipal
@@ -46,6 +48,9 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var previewMcpTools: PreviewMcpTools
+
+    @Autowired
+    private lateinit var versionMcpTools: VersionMcpTools
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
@@ -172,6 +177,32 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(content.dataExamples).hasSize(1)
         assertThat(content.dataExamples[0].name).isEqualTo("default")
         assertThat(content.dataModel).isNotNull
+    }
+
+    @Test
+    fun `get_version returns the exact persisted template and rendering context`() {
+        val tenant = createTenant("MCP Exact Version Tenant")
+        val tenantId = TenantId(tenant.id)
+        val templateKey = withMediator {
+            val id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+            CreateDocumentTemplate(id = id, name = "Versioned letter").execute()
+            id.key
+        }
+
+        val version = runAsApiKey(tenantId) {
+            versionMcpTools.getVersion(
+                catalogId = "default",
+                templateId = templateKey.value,
+                variantId = VariantKey.INITIAL.value,
+                versionId = 1,
+            )
+        }
+
+        assertThat(version).isNotNull
+        assertThat(version!!.id).isEqualTo(1)
+        assertThat(version.variantId).isEqualTo("initial")
+        assertThat(version.status).isEqualTo("draft")
+        assertThat(version.templateModel).isNotNull
     }
 
     @Test

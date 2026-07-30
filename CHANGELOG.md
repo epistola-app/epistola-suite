@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** feat(mcp): **AI assistants can trace exact rendering dependencies.**
+  Added read-only inspection for exact template versions and image metadata, including frozen
+  published theme context, dimensions, media type, and catalog provenance.
 - **[user]** fix(api): **Preview failures return actionable problem details.** Document previews
   now report missing active, published, or explicitly requested versions and other missing
   resources through the API's typed error responses instead of returning an internal server error.
