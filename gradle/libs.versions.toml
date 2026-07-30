@@ -15,7 +15,6 @@ uuid-creator = "6.1.1"
 spring-web = "7.0.8"
 playwright = "1.61.0"
 epistola-contract = "0.16.1"
-epistola-catalog = "0.16.0"
 epistola-hub-client = "0.7.0"
 aws-sdk = "2.46.21"
 guava = "33.6.0-jre"
@@ -35,7 +34,7 @@ uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-
 spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
-epistola-catalog = { module = "app.epistola.contract:epistola-catalog", version.ref = "epistola-catalog" }
+epistola-catalog = { module = "app.epistola.contract:epistola-catalog", version.ref = "epistola-contract" }
 epistola-hub-client = { module = "app.epistola.hub:client", version.ref = "epistola-hub-client" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
