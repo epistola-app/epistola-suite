@@ -36,7 +36,20 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table">
+        <div th:if="${!#lists.isEmpty(apiKeys)}"
+             class="ep-table-scroll" role="region" aria-label="API keys table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 12%" /><!-- Name -->
+                <col style="width: 13%" /><!-- Prefix -->
+                <col style="width: 18%" /><!-- Scope -->
+                <col style="width: 9%" /><!-- Created by -->
+                <col style="width: 15%" /><!-- Created -->
+                <col style="width: 15%" /><!-- Last used -->
+                <col style="width: 11%" /><!-- Expires -->
+                <col style="width: 7%" /><!-- Actions -->
+            </colgroup>
             <thead>
                 <tr>
                     <th>Name</th>
@@ -52,28 +65,28 @@
             <tbody id="api-key-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
-                        <td th:text="${apiKey.name}" style="font-weight: 500;"></td>
-                        <td>
+                        <td th:text="${apiKey.name}" th:title="${apiKey.name}" style="font-weight: 500;"></td>
+                        <td th:title="${apiKey.keyPrefix}">
                             <code th:text="${apiKey.keyPrefix} + '…'"></code>
                         </td>
-                        <td>
+                        <td class="cell-wrap">
                             <span class="api-key-scope">
                                 <span class="badge badge-outline"
                                       th:each="role : ${apiKey.roles}"
                                       th:text="${roleLabels.containsKey(role.name()) ? roleLabels.get(role.name()) : role.name()}">Viewer</span>
                             </span>
                         </td>
-                        <td>
+                        <td th:title="${apiKey.createdByDisplayName}">
                             <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
                             <span th:if="${apiKey.createdByDisplayName == null}" class="text-muted">—</span>
                         </td>
-                        <td th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td>
+                        <td th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:title="${#temporals.format(apiKey.lastUsedAt, 'yyyy-MM-dd HH:mm')}">
                             <span th:if="${apiKey.lastUsedAt != null}"
                                   th:text="${#temporals.format(apiKey.lastUsedAt, 'yyyy-MM-dd HH:mm')}"></span>
                             <span th:if="${apiKey.lastUsedAt == null}" class="text-muted">Never</span>
                         </td>
-                        <td>
+                        <td th:title="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}">
                             <span th:if="${apiKey.expiresAt != null}"
                                   th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></span>
                             <span th:if="${apiKey.expiresAt == null}" class="text-muted">Never</span>
@@ -94,6 +107,7 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
         </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />

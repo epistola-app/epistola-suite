@@ -37,7 +37,17 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(themes)}" class="ep-table">
+        <div th:if="${!#lists.isEmpty(themes)}"
+             class="ep-table-scroll" role="region" aria-label="Themes table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 26%" /><!-- Name -->
+                <col style="width: 14%" /><!-- Catalog -->
+                <col style="width: 30%" /><!-- Description -->
+                <col style="width: 15%" /><!-- Last Modified -->
+                <col style="width: 15%" /><!-- Actions -->
+            </colgroup>
             <thead>
                 <tr>
                     <th>Name</th>
@@ -51,17 +61,19 @@
                 <th:block th:fragment="rows">
                     <tr th:each="theme : ${themes}"
                         th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey}">
-                        <td>
+                        <td th:title="${theme.name}">
+                            <!--/* Badge before the name: the cell clips at its end, so a long
+                                   name would push a trailing badge out of view entirely. */-->
+                            <span th:if="${isDefault}" class="badge badge-primary" style="margin-right: var(--ep-space-2);" data-testid="theme-default-badge">Default</span>
                             <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
-                            <span th:if="${isDefault}" class="badge badge-primary" style="margin-left: var(--ep-space-2);" data-testid="theme-default-badge">Default</span>
                         </td>
-                        <td><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
-                        <td>
-                            <span th:if="${theme.description != null}" th:text="${theme.description}" class="text-truncate"></span>
+                        <td th:title="${theme.catalogKey}"><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
+                        <td th:title="${theme.description}">
+                            <span th:if="${theme.description != null}" th:text="${theme.description}"></span>
                             <span th:unless="${theme.description != null}" class="text-muted">-</span>
                         </td>
-                        <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <span th:if="${theme.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <form th:if="${auth.has('TENANT_SETTINGS') and !isDefault}"
@@ -105,6 +117,7 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 

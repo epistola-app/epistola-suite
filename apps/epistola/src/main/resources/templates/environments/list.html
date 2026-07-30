@@ -41,21 +41,32 @@
                  always exists; a th:if would remove it and the search box would
                  fire htmx:targetError on an empty list (CR5). The thead is gated
                  so an empty list carries no visible header and no stray table row. -->
-            <table th:style="${#lists.isEmpty(environments)} ? 'display:none' : null" class="ep-table">
+            <div th:style="${#lists.isEmpty(environments)} ? 'display:none' : null"
+                 class="ep-table-scroll" role="region" aria-label="Environments table" tabindex="0"
+                 data-testid="fixed-table-scroll">
+            <table class="ep-table ep-table-fixed">
+                <colgroup>
+                    <col style="width: 32%" /><!-- Name -->
+                    <col style="width: 32%" /><!-- ID -->
+                    <col style="width: 17%" /><!-- Created -->
+                    <!--/* Gated like the Actions td below — an unconditional col would
+                           reserve a blank fixed-width column for viewer roles. */-->
+                    <col th:if="${auth.has('TENANT_SETTINGS')}" style="width: 19%" /><!-- Actions -->
+                </colgroup>
                 <thead th:if="${!#lists.isEmpty(environments)}">
                     <tr>
                         <th>Name</th>
                         <th>ID</th>
                         <th>Created</th>
-                        <th></th>
+                        <th th:if="${auth.has('TENANT_SETTINGS')}"></th>
                     </tr>
                 </thead>
                 <tbody id="environment-rows">
                     <th:block th:fragment="rows">
                         <tr th:each="env : ${environments}">
-                            <td style="font-weight: 500;" th:text="${env.name}"></td>
-                            <td><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                            <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td style="font-weight: 500;" th:text="${env.name}" th:title="${env.name}"></td>
+                            <td th:title="${env.id}"><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                            <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
@@ -70,6 +81,7 @@
                     </th:block>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- Dialog mount: the create dialog is swapped in here by the trigger

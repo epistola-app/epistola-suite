@@ -45,7 +45,20 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(attributes)}" class="ep-table">
+        <div th:if="${!#lists.isEmpty(attributes)}"
+             class="ep-table-scroll" role="region" aria-label="Attributes table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 19%" /><!-- ID -->
+                <col style="width: 13%" /><!-- Catalog -->
+                <col style="width: 19%" /><!-- Display Name -->
+                <col style="width: 22%" /><!-- Allowed Values -->
+                <col style="width: 15%" /><!-- Created -->
+                <!--/* Gated like the Actions td below — an unconditional col would
+                       reserve a blank fixed-width column for viewer roles. */-->
+                <col th:if="${auth.has('TENANT_SETTINGS')}" style="width: 12%" /><!-- Actions -->
+            </colgroup>
             <thead>
                 <tr>
                     <th>ID</th>
@@ -53,16 +66,16 @@
                     <th>Display Name</th>
                     <th>Allowed Values</th>
                     <th>Created</th>
-                    <th></th>
+                    <th th:if="${auth.has('TENANT_SETTINGS')}"></th>
                 </tr>
             </thead>
             <tbody id="attribute-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="attr : ${attributes}">
-                        <td><code th:text="${attr.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
-                        <td><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
-                        <td style="font-weight: 500;" th:text="${attr.displayName}"></td>
-                        <td>
+                        <td th:title="${attr.id}"><code th:text="${attr.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td th:title="${attr.catalogKey}"><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
+                        <td style="font-weight: 500;" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
+                        <td class="cell-wrap">
                             <div th:if="${attr.codeListSlug != null}" class="badge-list">
                                 <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
                                    class="badge badge-default"
@@ -72,11 +85,12 @@
                             <div th:if="${attr.codeListSlug == null and !attr.allowedValues.isEmpty()}" class="badge-list">
                                 <span th:each="val : ${attr.allowedValues}"
                                       class="badge badge-outline"
+                                      th:title="${val}"
                                       th:text="${val}"></span>
                             </div>
                             <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
                         </td>
-                        <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                             <span th:if="${attr.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <th:block th:if="${attr.catalogType.name() == 'AUTHORED'}">
@@ -102,6 +116,7 @@
                 </th:block>
             </tbody>
         </table>
+        </div>
         </div>
 
         <!-- Dialog mount: the create dialog is swapped in here by the trigger

@@ -26,7 +26,20 @@
                         data-open-dialog="install-preview-dialog">Install All</button>
             </div>
             <div class="card-content">
-                <table class="ep-table">
+                <div class="ep-table-scroll" role="region" aria-label="Catalog resources table" tabindex="0"
+                     data-testid="fixed-table-scroll">
+                <table class="ep-table ep-table-fixed">
+                    <!--/* Authored catalogs omit the last two cols; the sub-100% total
+                           is fine — browsers scale percentage colgroups to fit. */-->
+                    <colgroup>
+                        <col style="width: 12%" /><!-- Type -->
+                        <col style="width: 20%" /><!-- Name -->
+                        <col style="width: 16%" /><!-- Slug -->
+                        <col style="width: 23%" /><!-- Description -->
+                        <col style="width: 8%" /><!-- Used by -->
+                        <col th:if="${catalog.type.name() == 'SUBSCRIBED'}" style="width: 11%" /><!-- Status -->
+                        <col th:if="${catalog.type.name() == 'SUBSCRIBED'}" style="width: 10%" /><!-- Actions -->
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>Type</th>
@@ -49,7 +62,21 @@
                                 <span th:if="${resource.type == 'codeList'}" class="badge badge-default">code list</span>
                                 <span th:if="${resource.type == 'font'}" class="badge badge-default">font</span>
                             </td>
-                            <td>
+                            <td th:title="${resource.name}">
+                                <!-- Version-pin drift warning: shown when published templates in this
+                                     catalog pin a stencil version that is not the latest published —
+                                     either because different templates pin different versions
+                                     ("inconsistent") or because all templates agree on a non-latest
+                                     version ("stale"). The wire format ships only the latest
+                                     published version, so any non-latest pin would be unresolvable
+                                     in the target after import; this stencil currently blocks export.
+                                     Placed before the name: the cell clips at its end, so a long
+                                     name would hide a trailing badge. -->
+                                <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
+                                      class="badge badge-warning"
+                                      style="margin-right: var(--ep-space-2);"
+                                      th:title="'Stencil version-pin drift: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Republish template usages against the latest published version before exporting.'"
+                                      th:text="'Pin drift: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                                 <!-- Authored: link to detail page for templates/themes/stencils -->
                                 <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
                                     <a th:if="${resource.type == 'template'}"
@@ -70,21 +97,9 @@
                                 </th:block>
                                 <!-- Subscribed: plain text -->
                                 <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>
-                                <!-- Version-pin drift warning: shown when published templates in this
-                                     catalog pin a stencil version that is not the latest published —
-                                     either because different templates pin different versions
-                                     ("inconsistent") or because all templates agree on a non-latest
-                                     version ("stale"). The wire format ships only the latest
-                                     published version, so any non-latest pin would be unresolvable
-                                     in the target after import; this stencil currently blocks export. -->
-                                <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
-                                      class="badge badge-warning"
-                                      style="margin-left: var(--ep-space-2);"
-                                      th:title="'Stencil version-pin drift: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Republish template usages against the latest published version before exporting.'"
-                                      th:text="'Pin drift: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                             </td>
-                            <td><code th:text="${resource.slug}"></code></td>
-                            <td>
+                            <td th:title="${resource.slug}"><code th:text="${resource.slug}"></code></td>
+                            <td th:title="${resource.description}">
                                 <span th:if="${resource.description}" th:text="${resource.description}"></span>
                                 <span th:unless="${resource.description}" class="text-muted">-</span>
                             </td>
@@ -117,6 +132,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
 
