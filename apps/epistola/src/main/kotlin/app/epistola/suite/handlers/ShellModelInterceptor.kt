@@ -5,6 +5,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.config.NOT_FOUND_ORIGINAL_PATH_ATTRIBUTE
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavMenuAggregator
 import jakarta.servlet.http.HttpServletRequest
@@ -52,10 +53,17 @@ class ShellModelInterceptor(
         // The module-contributed nav menu is shell-only; contributors resolve their own
         // visibility, so the host owns no feature flags for it.
         if (viewName != "layout/shell") return
-        val tenantId = modelAndView.model["tenantId"]?.toString() ?: return
+        val tenantId = modelAndView.model["tenantId"]?.toString()
+        if (tenantId == null) {
+            modelAndView.addObject("navGroups", emptyList<Any>())
+            modelAndView.addObject("activeNavSection", "")
+            return
+        }
         val auth = modelAndView.model["auth"] as AuthContext
         val context = UiRequestContext(TenantKey.of(tenantId)) { auth.has(it) }
-        val nav = navMenuAggregator.build(context, request.requestURI)
+        val requestPath =
+            request.getAttribute(NOT_FOUND_ORIGINAL_PATH_ATTRIBUTE) as? String ?: request.requestURI
+        val nav = navMenuAggregator.build(context, requestPath)
         modelAndView.addObject("navGroups", nav.groups)
         modelAndView.addObject("activeNavSection", nav.activeNavSection)
     }

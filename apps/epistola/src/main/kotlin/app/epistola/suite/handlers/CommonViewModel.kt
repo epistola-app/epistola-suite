@@ -74,6 +74,8 @@ class CommonViewModel(
             val context = UiRequestContext(TenantKey.of(tenantId)) { auth.has(it) }
             // Module-contributed footer chrome (e.g. the feedback FAB).
             result["footerFragments"] = footerFragmentResolver.resolve(context)
+        } else {
+            result["footerFragments"] = emptyList<Any>()
         }
         return result
     }

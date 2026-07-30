@@ -5,14 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Page Not Found - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
+    <link rel="stylesheet" th:href="@{/css/shell.css}">
 </head>
-<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--ep-bg-secondary);">
-    <div style="text-align: center; max-width: 480px; padding: var(--ep-space-8);">
-        <h1 style="font-size: 1.5rem; margin-bottom: var(--ep-space-4);">Page Not Found</h1>
-        <p style="color: var(--ep-text-secondary); margin-bottom: var(--ep-space-6);">
-            The page you're looking for doesn't exist or has been moved.
+<body>
+    <section th:fragment="content" class="not-found-page" aria-labelledby="not-found-title">
+        <div class="not-found-code" aria-hidden="true">404</div>
+        <div class="not-found-icon">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon')}" />
+        </div>
+        <h1 id="not-found-title">Page not found</h1>
+        <p>
+            The page you’re looking for doesn’t exist, may have moved, or is no longer available.
         </p>
-        <a href="/" class="ep-btn ep-btn-primary">Back to Home</a>
-    </div>
+        <div class="not-found-actions">
+            <a th:if="${tenantId != null}"
+               th:href="@{/tenants/{id}(id=${tenantId})}"
+               class="ep-btn ep-btn-primary">Go to tenant home</a>
+            <a th:unless="${tenantId != null}"
+               th:href="@{/}"
+               class="ep-btn ep-btn-primary">View tenants</a>
+            <a th:if="${tenantId != null}"
+               th:href="@{/}"
+               class="ep-btn ep-btn-outline">View all tenants</a>
+        </div>
+    </section>
 </body>
 </html>

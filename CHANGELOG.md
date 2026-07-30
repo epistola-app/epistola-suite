@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[user]** feat(ui): **Missing pages retain the Epistola shell.** Browser navigations that
+  resolve to an empty or unmatched 404 now show a clear recovery page with the usual header,
+  navigation, and footer. Tenant URLs retain their accessible tenant context, while API,
+  download, structured, and HTMX fragment error contracts remain unchanged.
+
 ## [1.0.0-RC5] - 2026-07-29
 
 This release preserves exact stencil draft provenance across catalogs, with clear recovery choices

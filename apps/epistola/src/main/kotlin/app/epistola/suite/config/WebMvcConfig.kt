@@ -21,7 +21,7 @@ class WebMvcConfig(
         registry.addInterceptor(versionInterceptor)
             .addPathPatterns("/**")
         registry.addInterceptor(shellModelInterceptor)
-            .addPathPatterns("/tenants/**")
+            .addPathPatterns("/**")
         registry.addInterceptor(siteBannerInterceptor)
             .addPathPatterns("/**")
     }
