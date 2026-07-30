@@ -1,0 +1,4 @@
+interface:
+  display_name: "Debug Epistola Templates"
+  short_description: "Diagnose Epistola template rendering differences"
+  default_prompt: "Use $debug-epistola-templates to diagnose why these Epistola templates render differently through the connected read-only Epistola MCP server."
