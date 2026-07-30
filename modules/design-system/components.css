@@ -631,6 +631,40 @@
     }
   }
 
+  /* Modifier for list tables: column widths come from the table's <colgroup>
+     (percentages totaling 100% — browsers normalize percentage colgroups, so
+     the table provably never exceeds its container; avoid large pixel <col>
+     widths, which CAN widen it). Cells are single-line and clip with an
+     ellipsis — put th:title on cells whose value may be cut, and class
+     "cell-wrap" on cells that should wrap instead (tag/badge lists). */
+  .ep-table-fixed {
+    table-layout: fixed;
+
+    & td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    & td.cell-wrap {
+      white-space: normal;
+    }
+
+    /* In wrapping cells (user-content badge lists: tags, scopes, values) a
+       single overlong badge caps at the cell and ellipsizes inside its own
+       pill. inline-block instead of inline-flex because text-overflow has no
+       effect on a flex container; bottom alignment because overflow:hidden
+       moves an inline-block's baseline. Deliberately NOT applied to other
+       cells — fixed-text badges (Read-only, statuses) must never shrink. */
+    & td.cell-wrap .badge {
+      display: inline-block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+    }
+  }
+
   /* ── Sortable table headers ───────────────────────────────────────────── */
 
   .ep-sort {

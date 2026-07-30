@@ -9,6 +9,8 @@
   resources through the API's typed error responses instead of returning an internal server error.
   Catalog release and upgrade endpoints likewise return specific problem details for missing or
   incompatible catalogs, invalid release versions, and upgrade conflicts.
+- **[user]** feat(ui): **Wider content area.** Regular pages now use a 72rem content width (previously 56rem), giving tables and list pages more room to breathe.
+- **[user]** fix(ui): **List tables always fit the page.** All list tables (templates, stencils, themes, tenants, catalogs and catalog browsing, code lists, attributes, environments, API keys) now use fixed column widths, so an extremely long name, slug, or identifier can no longer stretch a table past the content area. Overlong values are cut with an ellipsis — hover shows the full value — dates always stay on one line, and status badges such as Default or Pin drift are never pushed out of view by a long name.
 
 ## [1.0.0-RC6] - 2026-07-30
 

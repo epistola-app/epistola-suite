@@ -37,7 +37,15 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table">
+        <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 21%" /><!-- Slug -->
+                <col style="width: 13%" /><!-- Catalog -->
+                <col style="width: 21%" /><!-- Display Name -->
+                <col style="width: 12%" /><!-- Source -->
+                <col style="width: 19%" /><!-- Last refreshed -->
+                <col style="width: 14%" /><!-- Actions -->
+            </colgroup>
             <thead>
                 <tr>
                     <th>Slug</th>
@@ -50,26 +58,28 @@
             </thead>
             <tbody>
                 <tr th:each="cl : ${codeLists}">
-                    <td>
+                    <td th:title="${cl.slug}">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
                            th:text="${cl.slug}"></a>
                     </td>
-                    <td>
+                    <td th:title="${cl.catalogKey}">
                         <span class="badge" th:text="${cl.catalogKey}"
                               th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
                     </td>
-                    <td style="font-weight: 500;" th:text="${cl.displayName}"></td>
+                    <td style="font-weight: 500;" th:text="${cl.displayName}" th:title="${cl.displayName}"></td>
                     <td>
                         <span class="badge badge-outline" th:text="${cl.sourceType}"></span>
                     </td>
-                    <td>
-                        <span th:if="${cl.lastRefreshedAt != null}"
-                              th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                        <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
+                    <td th:with="refreshedAt=${cl.lastRefreshedAt != null ? #temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm') : null}"
+                        th:title="${refreshedAt}">
+                        <!--/* Badge before the date: the cell clips at its end, and the badge
+                               (with the error detail in its own title) must stay reachable. */-->
                         <span th:if="${cl.lastRefreshError != null}"
                               class="badge badge-error"
                               th:title="${cl.lastRefreshError}"
-                              style="margin-left: var(--ep-space-2);">refresh failed</span>
+                              style="margin-right: var(--ep-space-2);">refresh failed</span>
+                        <span th:if="${cl.lastRefreshedAt != null}" th:text="${refreshedAt}"></span>
+                        <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"

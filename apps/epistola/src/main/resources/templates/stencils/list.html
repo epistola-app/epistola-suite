@@ -37,7 +37,15 @@
             </button>
         </div>
 
-        <table th:if="${!#lists.isEmpty(stencils)}" class="ep-table">
+        <table th:if="${!#lists.isEmpty(stencils)}" class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 23%" /><!-- Name -->
+                <col style="width: 14%" /><!-- Catalog -->
+                <col style="width: 23%" /><!-- Description -->
+                <col style="width: 11%" /><!-- Tags -->
+                <col style="width: 15%" /><!-- Last Modified -->
+                <col style="width: 14%" /><!-- Actions (fits eye button + Read-only badge at ≥1024px viewports) -->
+            </colgroup>
             <thead>
                 <tr>
                     <th>Name</th>
@@ -51,19 +59,19 @@
             <tbody id="stencil-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="stencil : ${stencils}">
-                        <td>
+                        <td th:title="${stencil.name}">
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
                                th:text="${stencil.name}" style="font-weight: 500;"></a>
                         </td>
-                        <td><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
-                        <td>
-                            <span th:if="${stencil.description != null}" th:text="${stencil.description}" class="text-truncate"></span>
+                        <td th:title="${stencil.catalogKey}"><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
+                        <td th:title="${stencil.description}">
+                            <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
                             <span th:unless="${stencil.description != null}" class="text-muted">-</span>
                         </td>
-                        <td>
+                        <td class="cell-wrap" th:title="${#strings.listJoin(stencil.tags, ', ')}">
                             <span th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
                         </td>
-                        <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">

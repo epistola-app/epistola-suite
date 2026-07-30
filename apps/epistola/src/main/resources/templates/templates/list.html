@@ -77,7 +77,15 @@
                     </th:block>
                 </div>
 
-                <table th:if="${total > 0}" class="ep-table">
+                <table th:if="${total > 0}" class="ep-table ep-table-fixed">
+                    <colgroup>
+                        <col style="width: 23%" /><!-- Name -->
+                        <col style="width: 13%" /><!-- Catalog -->
+                        <col style="width: 24%" /><!-- ID -->
+                        <col style="width: 11%" /><!-- Variants -->
+                        <col style="width: 15%" /><!-- Last Modified -->
+                        <col style="width: 14%" /><!-- Actions -->
+                    </colgroup>
                     <thead>
                         <tr>
                             <th th:replace="~{templates/list :: sort-header('Name', 'name')}"></th>
@@ -90,14 +98,14 @@
                     </thead>
                     <tbody>
                         <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
-                            <td>
+                            <td th:title="${template.name}">
                                 <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
                                    th:text="${template.name}" style="font-weight: 500;"></a>
                             </td>
-                            <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
-                            <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                            <td th:title="${template.catalogKey}"><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
+                            <td th:title="${template.id}"><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                             <td th:text="${template.variantCount}"></td>
-                            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                                 <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"

@@ -29,7 +29,15 @@
             <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
         </div>
 
-        <table th:if="${!catalogs.isEmpty()}" class="ep-table">
+        <table th:if="${!catalogs.isEmpty()}" class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 21%" /><!-- Name -->
+                <col style="width: 15%" /><!-- ID -->
+                <col style="width: 13%" /><!-- Type -->
+                <col style="width: 12%" /><!-- Version -->
+                <col style="width: 17%" /><!-- Last Modified -->
+                <col style="width: 22%" /><!-- Actions -->
+            </colgroup>
             <thead>
                 <tr>
                     <th>Name</th>
@@ -42,11 +50,11 @@
             </thead>
             <tbody>
                 <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
-                    <td style="font-weight: 500;">
+                    <td style="font-weight: 500;" th:title="${catalog.name}">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            th:text="${catalog.name}"></a>
                     </td>
-                    <td><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                    <td th:title="${catalog.id}"><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                     <td>
                         <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
                         <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
@@ -71,7 +79,7 @@
                             </span>
                         </th:block>
                     </td>
-                    <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
