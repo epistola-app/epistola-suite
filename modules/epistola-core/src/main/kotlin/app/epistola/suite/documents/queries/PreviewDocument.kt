@@ -15,6 +15,9 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.DefaultVariantNotFoundException
+import app.epistola.suite.documents.NoPublishedVersionException
+import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
@@ -22,6 +25,8 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.NoActiveVersionException
+import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
@@ -29,6 +34,7 @@ import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.queries.GetTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -113,22 +119,22 @@ class PreviewDocumentHandler(
         val version = if (query.versionId != null) {
             val vid = VersionId(query.versionId, variantId)
             mediator.query(GetVersion(vid))
-                ?: throw IllegalStateException("Version ${query.versionId} not found")
+                ?: throw VersionNotFoundException(query.tenantId, query.templateId, resolvedVariantKey, query.versionId)
         } else if (query.environmentId != null) {
             val envId = EnvironmentId(query.environmentId, tenantId)
             mediator.query(GetActiveVersion(variantId, envId))
-                ?: throw IllegalStateException("No active version for environment ${query.environmentId}")
+                ?: throw NoActiveVersionException(query.tenantId, resolvedVariantKey, query.environmentId)
         } else {
             // Fallback: latest published version
             mediator.query(GetLatestPublishedVersion(variantId))
-                ?: throw IllegalStateException("No published version found for variant $resolvedVariantKey")
+                ?: throw NoPublishedVersionException(query.tenantId, query.templateId, resolvedVariantKey)
         }
 
         // 3. Fetch template and tenant for theme resolution
         val template = mediator.query(GetDocumentTemplate(templateId))
-            ?: throw IllegalStateException("Template ${query.templateId} not found")
+            ?: throw TemplateNotFoundException(query.tenantId, query.templateId)
         val tenant = mediator.query(GetTenant(id = query.tenantId))
-            ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
+            ?: throw TenantNotFoundException(query.tenantId)
 
         // 4. Resolve data: use provided data, or fall back to first example from version's contract
         val contractVersion = version.contractVersion?.let { cv ->
@@ -186,9 +192,7 @@ class PreviewDocumentHandler(
                 .findOne()
                 .orElse(null)
         }
-        requireNotNull(variantId) {
-            "No default variant found for template $templateId in tenant $tenantId"
-        }
+        variantId ?: throw DefaultVariantNotFoundException(tenantId, templateId)
         return VariantKey.of(variantId)
     }
 }

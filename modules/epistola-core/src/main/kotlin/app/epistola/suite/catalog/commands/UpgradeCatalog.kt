@@ -8,6 +8,8 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.RemovedResource
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -93,10 +95,13 @@ class UpgradeCatalogHandler(
 
     override fun handle(command: UpgradeCatalog): UpgradeCatalogResult = CatalogImportContext.runAsImport {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
-            ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
+            ?: throw CatalogNotFoundException(command.catalogKey)
 
         val sourceUrl = catalog.sourceUrl
-            ?: throw IllegalStateException("Catalog '${command.catalogKey}' has no source URL — only subscribed catalogs can be upgraded")
+            ?: throw CatalogNotUpgradeableException(
+                command.catalogKey,
+                "only subscribed catalogs with a source URL can be upgraded",
+            )
 
         val previousVersion = catalog.installedReleaseVersion
 

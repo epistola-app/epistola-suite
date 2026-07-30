@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -81,6 +82,70 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `release missing catalog returns catalog not found problem details`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/missing-catalog/release",
+            HttpMethod.POST,
+            HttpEntity("""{"releaseVersion":"1.0.0"}""", baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-not-found")
+        assertThat(JsonPath.read<String>(body, "$.catalogId")).isEqualTo("missing-catalog")
+    }
+
+    @Test
+    fun `release rejects a non-advancing version with actionable problem details`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        withMediator {
+            ReleaseCatalogVersion(
+                tenantKey = tenantKey,
+                catalogKey = CatalogKey.of(catalogSlug),
+                version = "1.0.0",
+            ).execute()
+        }
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/$catalogSlug/release",
+            HttpMethod.POST,
+            HttpEntity("""{"releaseVersion":"1.0.0"}""", baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-release-version-invalid")
+        assertThat(JsonPath.read<String>(body, "$.detail")).contains("greater than")
+    }
+
+    @Test
+    fun `release rejects a subscribed catalog with read only problem details`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        withMediator {
+            RegisterCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+        }
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/epistola-demo/release",
+            HttpMethod.POST,
+            HttpEntity("""{"releaseVersion":"1.0.0"}""", baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
+    }
+
+    @Test
     fun `upgrade catalog applies subscribed catalog upgrade request`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         withMediator {
@@ -101,6 +166,26 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(body, "$.aborted")).isFalse
         assertThat(JsonPath.read<List<Any>>(body, "$.installResults")).isNotNull
         assertThat(JsonPath.read<List<Any>>(body, "$.removedResources")).isNotNull
+    }
+
+    @Test
+    fun `upgrade rejects an authored catalog with not upgradeable problem details`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "upg-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/$catalogSlug/upgrade",
+            HttpMethod.POST,
+            HttpEntity("{}", baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-not-upgradeable")
+        assertThat(JsonPath.read<String>(body, "$.catalogId")).isEqualTo(catalogSlug)
     }
 
     private fun seedAuthoredCatalog(tenantKey: TenantKey, slug: String) = withMediator {

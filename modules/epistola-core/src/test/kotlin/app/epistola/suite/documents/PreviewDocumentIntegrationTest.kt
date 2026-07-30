@@ -6,6 +6,7 @@ package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -13,6 +14,7 @@ import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.NoActiveVersionException
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -23,6 +25,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -570,9 +573,45 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             data = emptyData(),
                         ),
                     )
-                }.isInstanceOf(IllegalStateException::class.java)
+                }.isInstanceOf(VersionNotFoundException::class.java)
                     .hasMessageContaining("Version")
                     .hasMessageContaining("not found")
+            }
+        }
+
+        @Test
+        fun `preview reports no active version as a client-facing domain error`() = scenario {
+            given {
+                val tenant = tenant("Test Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "Test Template")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+                val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
+                val version = version(compositeVariantId, templateModel)
+                DocumentSetup(tenant, template, variant, version)
+            }.whenever { setup ->
+                setup
+            }.then { setup, _ ->
+                val production = EnvironmentKey.of("production")
+
+                val error = assertThrows<NoActiveVersionException> {
+                    query(
+                        PreviewDocument(
+                            tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
+                            templateId = setup.template.id,
+                            variantId = setup.variant.id,
+                            environmentId = production,
+                            data = emptyData(),
+                        ),
+                    )
+                }
+
+                assertThat(error.tenantId).isEqualTo(setup.tenant.id)
+                assertThat(error.variantId).isEqualTo(setup.variant.id)
+                assertThat(error.environmentId).isEqualTo(production)
             }
         }
 

@@ -83,6 +83,8 @@ object ApiProblemTypes {
     val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog is subscribed/read-only and cannot be modified through this API.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
     val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
+    val CATALOG_RELEASE_VERSION_INVALID = problem("CATALOG_RELEASE_VERSION_INVALID", "Invalid Catalog Release Version", HttpStatus.BAD_REQUEST, "The requested catalog release version is invalid or does not advance the current version.", emptyList())
+    val CATALOG_UPGRADE_CONFLICT = problem("CATALOG_UPGRADE_CONFLICT", "Catalog Upgrade Conflict", HttpStatus.CONFLICT, "The catalog upgrade would remove resources that are still in use.", listOf("conflicts"))
     val CATALOG_SCHEMA_TOO_NEW = problem("CATALOG_SCHEMA_TOO_NEW", "Catalog Wire Schema Too New", HttpStatus.BAD_REQUEST, "The catalog was exported by a newer Epistola than this instance can read; upgrade this instance.", listOf("version", "supportedVersion"))
     val CATALOG_SCHEMA_TOO_OLD = problem("CATALOG_SCHEMA_TOO_OLD", "Catalog Wire Schema Too Old", HttpStatus.BAD_REQUEST, "The catalog's wire format predates the oldest version this instance can upgrade; re-export from a current source.", listOf("version", "baselineVersion"))
     val CATALOG_SCHEMA_UNKNOWN = problem("CATALOG_SCHEMA_UNKNOWN", "Catalog Wire Schema Unrecognised", HttpStatus.BAD_REQUEST, "The uploaded payload is not a recognised catalog wire format (not valid JSON, or a missing or non-integer schemaVersion).", emptyList())
@@ -151,6 +153,8 @@ object ApiProblemTypes {
         CATALOG_READ_ONLY,
         CATALOG_NOT_FOUND,
         CATALOG_NOT_UPGRADEABLE,
+        CATALOG_RELEASE_VERSION_INVALID,
+        CATALOG_UPGRADE_CONFLICT,
         CATALOG_SCHEMA_TOO_NEW,
         CATALOG_SCHEMA_TOO_OLD,
         CATALOG_SCHEMA_UNKNOWN,

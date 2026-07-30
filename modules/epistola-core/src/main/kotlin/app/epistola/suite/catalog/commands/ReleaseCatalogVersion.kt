@@ -8,6 +8,8 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -65,9 +67,9 @@ class ReleaseCatalogVersionHandler(
 
     override fun handle(command: ReleaseCatalogVersion): ReleaseCatalogVersionResult {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
-            ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
-        check(catalog.type == CatalogType.AUTHORED) {
-            "Only AUTHORED catalogs can be released — '${command.catalogKey.value}' is ${catalog.type}"
+            ?: throw CatalogNotFoundException(command.catalogKey)
+        if (catalog.type != CatalogType.AUTHORED) {
+            throw CatalogReadOnlyException(command.catalogKey)
         }
 
         val newVersion = try {
