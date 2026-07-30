@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** fix(api): **Preview failures return actionable problem details.** Document previews
+  now report missing active, published, or explicitly requested versions and other missing
+  resources through the API's typed error responses instead of returning an internal server error.
+
 ## [1.0.0-RC6] - 2026-07-30
 
 This release gives missing pages and unknown tenant URLs a consistent Epistola recovery experience,
