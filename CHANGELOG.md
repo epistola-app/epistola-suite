@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [1.0.0-RC6] - 2026-07-30
+
+This release gives missing pages and unknown tenant URLs a consistent Epistola recovery experience,
+retaining the familiar application shell and accessible tenant context.
+
 - **[user]** feat(ui): **Missing pages retain the Epistola shell.** Browser navigations that
   resolve to an empty or unmatched 404 now show a clear recovery page with the usual header,
   navigation, and footer. Tenant URLs retain their accessible tenant context, while API,
