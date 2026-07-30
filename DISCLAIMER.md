@@ -7,12 +7,16 @@ liability limitation already set out in sections 15–17 of the
 distributed. Where this document and the LICENSE differ, the LICENSE governs the
 legal terms.
 
+Epistola Nederland B.V. is the copyright holder and distributor of the
+first-party portions of Epistola Suite. Identified third-party materials and
+separately attributed contributions remain subject to their respective notices.
+
 ## No warranty
 
-To the maximum extent permitted by applicable law, the Epistola authors,
-contributors, and copyright holders make **no warranties or representations of
-any kind**, whether express, implied, statutory, or otherwise, including but not
-limited to warranties of:
+To the maximum extent permitted by applicable law, Epistola Nederland B.V. and,
+where applicable, other contributors and copyright holders make **no warranties
+or representations of any kind**, whether express, implied, statutory, or
+otherwise, including but not limited to warranties of:
 
 - **Correctness** — that generated documents, PDFs, calculations, dates,
   numbers, layouts, or any other output are accurate, complete, or fit for any
@@ -30,14 +34,14 @@ backups and review processes.
 
 ## No liability
 
-To the maximum extent permitted by applicable law, in no event will the Epistola
-authors, contributors, or copyright holders be **liable for any damages**
-whatsoever — including without limitation any direct, indirect, incidental,
-special, exemplary, or consequential damages; loss of data; loss of profits,
-revenue, or business; regulatory or legal exposure; or damages arising from
-**incorrect, faulty, or misleading output** — arising out of or in connection
-with the use of, or inability to use, this software, even if advised of the
-possibility of such damages.
+To the maximum extent permitted by applicable law, in no event will Epistola
+Nederland B.V. or, where applicable, other contributors or copyright holders be
+**liable for any damages** whatsoever — including without limitation any direct,
+indirect, incidental, special, exemplary, or consequential damages; loss of
+data; loss of profits, revenue, or business; regulatory or legal exposure; or
+damages arising from **incorrect, faulty, or misleading output** — arising out
+of or in connection with the use of, or inability to use, this software, even if
+advised of the possibility of such damages.
 
 ## Coverage is available under a commercial SLA
 
@@ -45,13 +49,14 @@ The disclaimers above reflect the terms of open-source software offered free of
 charge. If your use of Epistola requires **guarantees** — such as correctness
 assurances, defect remediation, support response times, uptime commitments, or
 contractual liability coverage — these are **only** available under a separate
-commercial **Service Level Agreement (SLA)** with Epistola.
+commercial **Service Level Agreement (SLA)** with Epistola Nederland B.V.
 
 A commercial SLA is a paid, written agreement whose terms supersede this
 disclaimer to the extent expressly stated in that agreement. Using the software
 under the AGPL, or using the optional commercial-tier modules
 (`epistola-support*`) without a signed SLA in place, does **not** create any
-warranty, support obligation, or liability on the part of Epistola.
+warranty, support obligation, or liability on the part of Epistola Nederland
+B.V.
 
-To discuss a commercial SLA, contact the Epistola team at
+To discuss a commercial SLA, contact Epistola Nederland B.V. at
 **<https://epistola.app>**.

@@ -1,6 +1,8 @@
 # Contributing to Epistola Suite
 
-Thank you for your interest in contributing to Epistola Suite! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to Epistola Suite! Epistola Suite is
+published by Epistola Nederland B.V. This document provides guidelines and
+information for contributors.
 
 ## Code of Conduct
 
@@ -205,7 +207,9 @@ For questions and discussions, please use [GitHub Discussions](../../discussions
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the same license as the project.
+By contributing, you agree that your contributions will be licensed under the
+same license as the project. This contribution process does not transfer
+copyright; any copyright assignment requires a separate written agreement.
 
 ---
 

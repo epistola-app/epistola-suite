@@ -1,17 +1,18 @@
 # Epistola Release & Support Policy
 
-Epistola follows a **continuous delivery** model.
+Epistola Suite is published and supported by **Epistola Nederland B.V.** and
+follows a **continuous delivery** model.
 
-Rather than maintaining many historical versions for years, Epistola invests in
-**easy upgrades**, **automated migrations**, **excellent documentation**,
-**predictable releases**, and **rapid bug and security fixes**.
+Rather than maintaining many historical versions for years, Epistola Nederland
+B.V. invests in **easy upgrades**, **automated migrations**, **excellent
+documentation**, **predictable releases**, and **rapid bug and security fixes**.
 
 Customers are expected to remain on a **supported release**. That is a
 deliberate trade-off: instead of long-lived legacy support, upgrading should be
 inexpensive and operationally straightforward.
 
-Epistola’s value proposition is **rapid innovation with low-friction upgrades**,
-not long-term maintenance of old versions.
+Epistola Suite’s value proposition is **rapid innovation with low-friction
+upgrades**, not long-term maintenance of old versions.
 
 ## Versioning
 
@@ -47,7 +48,7 @@ can evolve without rewriting this document.
 - Bug fixes
 - Security fixes
 - Documentation updates
-- Technical support (where a support arrangement applies)
+- Technical support (where an arrangement with Epistola Nederland B.V. applies)
 
 **Unsupported** versions receive **no** updates.
 
@@ -59,7 +60,7 @@ Installations can also learn support status via the in-product
 
 Customers are expected to **upgrade regularly**.
 
-Epistola commits to:
+Epistola Nederland B.V. commits to:
 
 - **Direct upgrades** from any **supported** version to the latest supported
   version
@@ -93,7 +94,7 @@ Database migrations are **forward-only**.
 
 ## Compatibility
 
-Within a major version, Epistola aims to preserve:
+Within a major version, Epistola Nederland B.V. aims to preserve:
 
 - Public APIs
 - Templates
@@ -140,8 +141,8 @@ See also the repository [CHANGELOG.md](CHANGELOG.md).
 
 ## Future direction
 
-Epistola may expose richer **machine-readable release metadata** (for example a
-JSON endpoint) so installations can notify administrators that:
+Epistola Nederland B.V. may expose richer **machine-readable release metadata**
+(for example a JSON endpoint) so installations can notify administrators that:
 
 - a newer version exists
 - whether it is a security update

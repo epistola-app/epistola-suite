@@ -14,7 +14,7 @@
 > Your data is now stable across upgrades, but while Epistola is in release-candidate phase the REST APIs, catalog formats, configuration, and internal architecture may still be adjusted before 1.0.0-GA. Review the [changelog](CHANGELOG.md) before updating.
 
 > [!IMPORTANT]
-> **Provided "as is", without warranty.** Epistola takes no responsibility for the correctness of output or for any damages arising from use of this software. Correctness assurances, support, and liability coverage are available only under a commercial SLA — see the [Disclaimer](DISCLAIMER.md).
+> **Provided "as is", without warranty.** Epistola Nederland B.V. takes no responsibility for the correctness of output or for any damages arising from use of this software. Correctness assurances, support, and liability coverage are available only under a commercial SLA with Epistola Nederland B.V. — see the [Disclaimer](DISCLAIMER.md).
 
 > [!NOTE]
 > **Supported versions and upgrades.** Epistola follows continuous delivery with a limited set of supported release lines and low-friction upgrades (not long-lived legacy support). See the [Release & Support Policy](SUPPORT_POLICY.md).
@@ -271,11 +271,11 @@ Both the app and Helm chart follow this convention. The Helm chart version is on
 
 ## Support and upgrades
 
-Epistola publishes releases when ready and expects installations to stay on a
-**supported** version. Upgrades are designed to be direct (no intermediate
-releases required), with automated migrations and documented manual steps when
-needed. Downgrades after a successful upgrade are not supported; rollback of a
-**failed** upgrade is supported via backup restore.
+Epistola Nederland B.V. publishes releases when ready and expects installations
+to stay on a **supported** version. Upgrades are designed to be direct (no
+intermediate releases required), with automated migrations and documented
+manual steps when needed. Downgrades after a successful upgrade are not
+supported; rollback of a **failed** upgrade is supported via backup restore.
 
 Full details: [SUPPORT_POLICY.md](SUPPORT_POLICY.md). Currently supported
 versions are published separately (website / release metadata), not hardcoded
@@ -284,17 +284,21 @@ in the policy. See also [docs/version-check.md](docs/version-check.md) and
 
 The installation-wide version check is enabled by default. Once per day, one
 node retrieves the public release metadata and sends the running suite version
-plus the stable installation id; Epistola uses that request to understand how
-many active installations run each version. Disable it with
+plus the stable installation id; Epistola Nederland B.V. uses that request to
+understand how many active installations run each version. Disable it with
 `epistola.version-check.enabled=false`.
 
 ## License
 
-Epistola Suite is licensed under the [GNU Affero General Public License v3](LICENSE).
+Copyright in the first-party portions of Epistola Suite is held by
+**Epistola Nederland B.V.** Identified third-party materials and separately
+attributed contributions remain subject to their respective notices.
 
-The software is provided **"as is", without warranty of any kind**. Epistola
-accepts no responsibility for the correctness of output or for any damages
-incurred through use of the software. Correctness assurances, defect
-remediation, support, and contractual liability coverage are available only
-under a separate commercial **Service Level Agreement (SLA)**. See
+Epistola Suite is distributed under the
+[GNU Affero General Public License v3](LICENSE). The software is provided **"as
+is", without warranty of any kind**. Epistola Nederland B.V. accepts no
+responsibility for the correctness of output or for any damages incurred through
+use of the software. Correctness assurances, defect remediation, support, and
+contractual liability coverage are available only under a separate commercial
+**Service Level Agreement (SLA)** with Epistola Nederland B.V. See
 [DISCLAIMER.md](DISCLAIMER.md) for the full statement.

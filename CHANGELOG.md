@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** docs(legal): **Epistola's legal entity is now explicit.** Root documentation now
+  identifies Epistola Nederland B.V. as the first-party copyright holder, publisher, support
+  provider, and commercial SLA counterparty, while preserving third-party and contributor rights.
 - **[user]** feat(mcp): **AI assistants can trace exact rendering dependencies.**
   Added read-only inspection for exact template versions and image metadata, including frozen
   published theme context, dimensions, media type, and catalog provenance.
