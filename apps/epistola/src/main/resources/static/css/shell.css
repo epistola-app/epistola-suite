@@ -342,6 +342,65 @@
     padding: var(--ep-space-8);
   }
 
+  /* ── Not-found page ──────────────────────────────────────────────────── */
+
+  .not-found-page {
+    min-height: min(32rem, calc(100vh - 10rem));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--ep-space-12) var(--ep-space-6);
+  }
+
+  .not-found-code {
+    color: var(--ep-stone-200);
+    font-size: clamp(5rem, 14vw, 9rem);
+    font-weight: 700;
+    letter-spacing: -0.08em;
+    line-height: 0.8;
+    margin-right: 0.08em;
+    user-select: none;
+  }
+
+  .not-found-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    display: grid;
+    place-items: center;
+    margin-top: calc(var(--ep-space-6) * -1);
+    margin-bottom: var(--ep-space-5);
+    color: var(--ep-muted-foreground);
+    background: var(--ep-white);
+    border: 1px solid var(--ep-border-color);
+    border-radius: 50%;
+    box-shadow: var(--ep-shadow-sm);
+  }
+
+  .not-found-icon .ep-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .not-found-page h1 {
+    margin-bottom: var(--ep-space-3);
+    font-size: var(--ep-text-2xl);
+  }
+
+  .not-found-page p {
+    max-width: 30rem;
+    margin-bottom: var(--ep-space-6);
+    color: var(--ep-muted-foreground);
+  }
+
+  .not-found-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--ep-space-3);
+    flex-wrap: wrap;
+  }
+
   /* ── HTMX swap indicator ─────────────────────────────────────────────── */
 
   .htmx-request .main-content {

@@ -5,13 +5,16 @@
         <!-- Top bar (always visible) -->
         <div class="app-nav-bar">
             <div class="app-nav-left">
-                <a th:href="@{/tenants/{id}(id=${tenantId})}" class="app-nav-logo" title="Tenant home" aria-label="Epistola — Tenant home">
+                <a th:href="${tenantId != null} ? @{/tenants/{id}(id=${tenantId})} : @{/}"
+                   class="app-nav-logo"
+                   th:title="${tenantId != null} ? 'Tenant home' : 'Epistola home'"
+                   th:aria-label="${tenantId != null} ? 'Epistola — Tenant home' : 'Epistola home'">
                     <img class="ep-icon ep-icon-lg" th:src="@{/design-system/epistola-logo.svg}" alt="Epistola" />
                     <span>Epistola</span>
                 </a>
 
                 <!-- Module-contributed dropdowns (see NavMenuAggregator / NavContributor) -->
-                <div class="app-nav-links">
+                <div class="app-nav-links" th:if="${tenantId != null}">
                     <div th:each="group : ${navGroups}" class="app-nav-dropdown"
                          th:classappend="${group.active} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
@@ -36,7 +39,8 @@
                 </div>
 
                 <!-- Mobile hamburger toggle -->
-                <button class="app-nav-hamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobile-nav">
+                <button sec:authorize="isAuthenticated()"
+                        class="app-nav-hamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobile-nav">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='menu', class='ep-icon')}" />
                 </button>
             </div>
@@ -44,7 +48,7 @@
             <div class="app-nav-right">
                 <a th:href="@{/}" class="app-nav-tenant" title="Switch tenant">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
-                    <span th:text="${tenantName} ?: 'Tenant'">Tenant</span>
+                    <span th:text="${tenantName} ?: 'Tenants'">Tenants</span>
                 </a>
 
                 <div class="app-nav-user" sec:authorize="isAuthenticated()">
@@ -60,10 +64,10 @@
         </div>
 
         <!-- Mobile menu panel (below header, overlay) -->
-        <div id="mobile-nav" class="app-nav-mobile" role="menu">
+        <div sec:authorize="isAuthenticated()" id="mobile-nav" class="app-nav-mobile" role="menu">
             <div class="app-nav-mobile-backdrop"></div>
             <div class="app-nav-mobile-panel">
-                <div th:each="group : ${navGroups}" class="app-nav-mobile-group">
+                <div th:if="${tenantId != null}" th:each="group : ${navGroups}" class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label" th:text="${group.label}">Group</div>
                     <a th:each="item : ${group.items}"
                        th:href="@{/tenants/{id}/{p}(id=${tenantId}, p=${item.pathSuffix})}"
