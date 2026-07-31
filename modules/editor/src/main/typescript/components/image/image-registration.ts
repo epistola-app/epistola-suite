@@ -13,6 +13,7 @@ import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import { openAssetPickerDialog, type AssetPickerCallbacks } from './asset-picker-dialog.js';
 import { html } from 'lit';
+import { convertSpToPt, DEFAULT_SPACING_UNIT_PT } from '../../ui/style-css.js';
 
 /** Layout-only style properties available on image nodes. */
 const IMAGE_STYLES = ['padding', 'margin'];
@@ -65,6 +66,14 @@ function parsePt(value: unknown): number | null {
 /** Convert image pixel dimensions to pt (1px = 0.75pt). */
 function pxToPt(px: number): number {
   return Math.round(px * 0.75);
+}
+
+/** Convert an image dimension to browser CSS using the active theme spacing scale. */
+export function resolveCanvasDimension(
+  value: string | undefined,
+  spacingUnitPt: number,
+): string | undefined {
+  return value ? convertSpToPt(value, spacingUnitPt) : undefined;
 }
 
 export function createImageDefinition(options?: ImageOptions): ComponentDefinition {
@@ -215,8 +224,9 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       const nodeCatalogKey = node.props?.catalogKey as string | undefined;
       const src = resolveContentUrl(contentUrlPattern, assetId, nodeCatalogKey, defaultCatalogKey);
       const alt = (node.props?.alt as string) || '';
-      const width = node.props?.width as string | undefined;
-      const height = node.props?.height as string | undefined;
+      const spacingUnit = engine.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
+      const width = resolveCanvasDimension(node.props?.width as string | undefined, spacingUnit);
+      const height = resolveCanvasDimension(node.props?.height as string | undefined, spacingUnit);
 
       const imgStyle =
         [width ? `width: ${width}` : '', height ? `height: ${height}` : '']

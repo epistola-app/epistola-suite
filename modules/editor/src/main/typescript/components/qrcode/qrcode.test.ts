@@ -7,9 +7,20 @@ import { EditorEngine } from '../../engine/EditorEngine.js';
 import { createDefaultRegistry } from '../../engine/registry.js';
 import { createTestDocument, resetCounter } from '../../engine/test-helpers.js';
 import type { NodeId } from '../../types/index.js';
+import { parseSizeToPt } from './EpistolaQrCodePreview.js';
 
 beforeEach(() => {
   resetCounter();
+});
+
+describe('QR code canvas sizing', () => {
+  it('converts sp sizes with the theme spacing unit', () => {
+    expect(parseSizeToPt('1sp', 16)).toBe(16);
+  });
+
+  it('keeps pt sizes unchanged', () => {
+    expect(parseSizeToPt('16pt', 16)).toBe(16);
+  });
 });
 
 function setupQrCodeEngine(overrideProps?: Record<string, unknown>) {

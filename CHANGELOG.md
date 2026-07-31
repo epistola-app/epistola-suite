@@ -11,7 +11,8 @@
   unit for canvas styles and every `sp` unit conversion, including borders and theme presets. Live
   PDF previews now use that same resolved editor theme so spacing conversions cannot drift. Unit
   switches on component properties such as image dimensions also use the theme's configured scale
-  instead of always falling back to 4pt.
+  instead of always falling back to 4pt, and image and QR-code dimensions render with that scale
+  on the editor canvas as well as in PDF previews.
 - **[user]** fix(editor): **Margin and padding settings are no longer duplicated.** Template blocks
   and theme presets now show one four-side Margin control and one four-side Padding control while
   retaining the existing per-side values in stored documents.

@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, it, expect } from 'vitest';
-import { createImageDefinition, resolveContentUrl, crossCatalogKey } from './image-registration.js';
+import {
+  createImageDefinition,
+  resolveContentUrl,
+  crossCatalogKey,
+  resolveCanvasDimension,
+} from './image-registration.js';
 import type { ComponentDefinition } from '../../engine/registry.js';
 
 /** Minimal stubs — the asset picker is unused in onPropChange tests. */
@@ -63,6 +68,17 @@ describe('crossCatalogKey', () => {
 
   it('returns the asset catalog when it differs from the template catalog', () => {
     expect(crossCatalogKey('system', 'epistola-demo')).toBe('system');
+  });
+});
+
+describe('resolveCanvasDimension', () => {
+  it('converts sp dimensions with the theme spacing unit', () => {
+    expect(resolveCanvasDimension('1sp', 16)).toBe('16pt');
+  });
+
+  it('preserves absolute and percentage dimensions', () => {
+    expect(resolveCanvasDimension('16pt', 16)).toBe('16pt');
+    expect(resolveCanvasDimension('50%', 16)).toBe('50%');
   });
 });
 

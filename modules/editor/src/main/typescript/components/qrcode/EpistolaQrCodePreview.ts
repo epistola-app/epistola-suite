@@ -9,13 +9,16 @@ import QRCode from 'qrcode';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { NodeId } from '../../types/index.js';
 import { evaluateExpression } from '../../engine/resolve-expression.js';
+import { DEFAULT_SPACING_UNIT_PT } from '../../ui/style-css.js';
 
 const DEFAULT_SIZE_PT = 120;
 const PX_PER_PT = 96 / 72;
-const SPACING_UNIT_PT = 4;
 const MAX_VALUE_BYTES = 2500;
 
-function parseSizeToPt(value: unknown): number | null {
+export function parseSizeToPt(
+  value: unknown,
+  spacingUnitPt: number = DEFAULT_SPACING_UNIT_PT,
+): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value > 0 ? value : null;
   }
@@ -27,7 +30,7 @@ function parseSizeToPt(value: unknown): number | null {
 
   if (trimmed.endsWith('sp')) {
     const sp = Number.parseFloat(trimmed.slice(0, -2));
-    return Number.isFinite(sp) && sp > 0 ? sp * SPACING_UNIT_PT : null;
+    return Number.isFinite(sp) && sp > 0 ? sp * spacingUnitPt : null;
   }
 
   if (trimmed.endsWith('pt')) {
@@ -39,13 +42,13 @@ function parseSizeToPt(value: unknown): number | null {
   return Number.isFinite(unitless) && unitless > 0 ? unitless : null;
 }
 
-function resolveCssSize(value: unknown): string {
-  const sizePt = parseSizeToPt(value) ?? DEFAULT_SIZE_PT;
+function resolveCssSize(value: unknown, spacingUnitPt: number): string {
+  const sizePt = parseSizeToPt(value, spacingUnitPt) ?? DEFAULT_SIZE_PT;
   return `${sizePt}pt`;
 }
 
-function resolveQrWidth(value: unknown): number {
-  const sizePt = parseSizeToPt(value) ?? DEFAULT_SIZE_PT;
+function resolveQrWidth(value: unknown, spacingUnitPt: number): number {
+  const sizePt = parseSizeToPt(value, spacingUnitPt) ?? DEFAULT_SIZE_PT;
   return Math.max(128, Math.round(sizePt * PX_PER_PT));
 }
 
@@ -108,7 +111,7 @@ export class EpistolaQrCodePreview extends LitElement {
   }
 
   override render() {
-    const size = resolveCssSize(this.size);
+    const size = resolveCssSize(this.size, this._spacingUnit);
 
     if (this._status === 'ready' && this._svgMarkup) {
       return html`
@@ -185,7 +188,7 @@ export class EpistolaQrCodePreview extends LitElement {
         type: 'svg',
         errorCorrectionLevel: 'M',
         margin: 1,
-        width: resolveQrWidth(this.size),
+        width: resolveQrWidth(this.size, this._spacingUnit),
         color: {
           dark: '#111827ff',
           light: '#ffffffff',
@@ -196,6 +199,10 @@ export class EpistolaQrCodePreview extends LitElement {
       this._svgMarkup = null;
       this._status = 'invalid';
     }
+  }
+
+  private get _spacingUnit(): number {
+    return this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
   }
 }
 
