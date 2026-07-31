@@ -12,7 +12,8 @@
   PDF previews now use that same resolved editor theme so spacing conversions cannot drift. Unit
   switches on component properties such as image dimensions also use the theme's configured scale
   instead of always falling back to 4pt, and image and QR-code dimensions render with that scale
-  on the editor canvas as well as in PDF previews.
+  on the editor canvas as well as in PDF previews. Locked image aspect ratios now remain correct
+  when either dimension uses `sp`, including mixed `pt`/`sp` dimensions.
 - **[user]** fix(editor): **Margin and padding settings are no longer duplicated.** Template blocks
   and theme presets now show one four-side Margin control, one four-side Padding control, and one
   four-side Border control while retaining the existing per-side values in stored documents.

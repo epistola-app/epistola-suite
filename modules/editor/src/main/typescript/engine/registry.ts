@@ -283,6 +283,7 @@ export interface ComponentDefinition {
     key: string,
     value: unknown,
     currentProps: Record<string, unknown>,
+    context?: { engine: unknown },
   ) => Record<string, unknown>;
 
   /**

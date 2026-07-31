@@ -145,14 +145,46 @@ describe('image onPropChange aspect ratio lock', () => {
     expect(result.height).toBe('');
   });
 
-  it('does nothing when value uses non-pt unit', () => {
+  it('does nothing when value uses a percentage', () => {
     const def = imageDef();
     const props = { width: '100pt', height: '200pt', aspectRatioLocked: true };
 
     const result = def.onPropChange!('width', '50%', props);
 
-    // parsePt returns null for non-pt values, so height stays unchanged
     expect(result.height).toBe('200pt');
+  });
+
+  it('adjusts an sp dimension using the active theme spacing unit', () => {
+    const def = imageDef();
+    const props = { width: '1sp', height: '2sp', aspectRatioLocked: true };
+
+    const result = def.onPropChange!('width', '2sp', props, {
+      engine: { theme: { spacingUnit: 16 } },
+    });
+
+    expect(result.height).toBe('4sp');
+  });
+
+  it('adjusts a pt dimension when the changed dimension uses sp', () => {
+    const def = imageDef();
+    const props = { width: '16pt', height: '32pt', aspectRatioLocked: true };
+
+    const result = def.onPropChange!('width', '2sp', props, {
+      engine: { theme: { spacingUnit: 16 } },
+    });
+
+    expect(result.height).toBe('64pt');
+  });
+
+  it('keeps the linked dimension stable for an equivalent pt to sp switch', () => {
+    const def = imageDef();
+    const props = { width: '16pt', height: '32pt', aspectRatioLocked: true };
+
+    const result = def.onPropChange!('width', '1sp', props, {
+      engine: { theme: { spacingUnit: 16 } },
+    });
+
+    expect(result.height).toBe('32pt');
   });
 
   it('rounds the computed dimension', () => {

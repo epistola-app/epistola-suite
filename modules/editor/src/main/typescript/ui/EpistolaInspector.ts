@@ -659,7 +659,7 @@ export class EpistolaInspector extends LitElement {
 
     const def = this.engine.registry.get(node.type);
     if (def?.onPropChange) {
-      newProps = def.onPropChange(key, value, newProps);
+      newProps = def.onPropChange(key, value, newProps, { engine: this.engine });
     }
 
     setNestedValue(newProps, key, value);
