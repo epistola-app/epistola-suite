@@ -176,9 +176,9 @@ describe('EpistolaInspector generic presentation hook', () => {
       documentStyles: {},
       pageSettings: undefined,
       blockStylePresets: {},
-      spacingUnit: 6,
+      spacingUnit: 16,
     });
-    engine.dispatch({ type: 'UpdateNodeProps', nodeId: textNodeId, props: { width: '12pt' } });
+    engine.dispatch({ type: 'UpdateNodeProps', nodeId: textNodeId, props: { width: '32pt' } });
     inspector.doc = engine.doc;
 
     const fieldTemplate = (
