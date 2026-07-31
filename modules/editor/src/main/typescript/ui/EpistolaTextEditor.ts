@@ -43,6 +43,7 @@ import type { TextChangeOps } from '../engine/undo.js';
 import type { NodeId } from '../types/index.js';
 import { type DocumentIndexes, isAncestor } from '../engine/indexes.js';
 import { rewriteExpressionsInContent } from '../engine/alias-rewrite.js';
+import { DEFAULT_LOCALE } from '../engine/locale.js';
 
 const DEBOUNCE_MS = 300;
 
@@ -200,19 +201,27 @@ export class EpistolaTextEditor extends LitElement {
   private _createProseMirror(): void {
     if (!this._pmContainer) return;
 
-    const engine = this.engine;
-    const nodeId = this.nodeId;
-
-    // Getters that resolve fresh on each call — so alias changes take effect immediately
-    const getFieldPaths = () =>
-      engine && nodeId ? engine.getAvailableVariablesAt(nodeId) : (engine?.fieldPaths ?? []);
-    const getExampleData = engine
-      ? () => (nodeId ? engine.getEvaluationContextAt(nodeId) : engine.getExampleData())
-      : undefined;
+    // Resolve component inputs on every call. Canvas nodes are normally keyed
+    // by node ID, but these callbacks must also remain safe if a host updates a
+    // mounted editor's engine or node identity through another lifecycle path.
+    const getFieldPaths = () => {
+      const engine = this.engine;
+      const nodeId = this.nodeId;
+      return engine && nodeId ? engine.getAvailableVariablesAt(nodeId) : (engine?.fieldPaths ?? []);
+    };
+    const getExampleData = () => {
+      const engine = this.engine;
+      const nodeId = this.nodeId;
+      return engine
+        ? nodeId
+          ? engine.getEvaluationContextAt(nodeId)
+          : engine.getExampleData()
+        : undefined;
+    };
     // Effective BCP-47 locale the host resolved (variant attribute → tenant
     // default → app default). Read fresh per call so a future locale change
     // mid-session would re-format on the next refresh.
-    const getLocale = engine ? () => engine.locale : undefined;
+    const getLocale = () => this.engine?.locale ?? DEFAULT_LOCALE;
 
     const plugins = createPlugins(epistolaSchema, {
       expressionNodeViewOptions: { getFieldPaths, getExampleData, getLocale },
