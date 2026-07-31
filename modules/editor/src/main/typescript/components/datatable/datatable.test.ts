@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { EditorEngine } from '../../engine/EditorEngine.js';
 import { createDefaultRegistry } from '../../engine/registry.js';
 import { createTestDocument, resetCounter } from '../../engine/test-helpers.js';
-import type { NodeId, SlotId } from '../../types/index.js';
+import type { NodeId } from '../../types/index.js';
 
 beforeEach(() => {
   resetCounter();
@@ -72,6 +72,14 @@ describe('Datatable createNode subtree', () => {
 
     // slots = 1 columns slot + 3 body slots = 4 total
     expect(slots).toHaveLength(4);
+  });
+
+  it('does not persist the transient column count factory input', () => {
+    const registry = createDefaultRegistry();
+    const { node, extraNodes } = registry.createNode('datatable', { _columnCount: 4 });
+
+    expect(extraNodes).toHaveLength(4);
+    expect(node.props).not.toHaveProperty('_columnCount');
   });
 
   it('columns slot has 3 child node IDs', () => {

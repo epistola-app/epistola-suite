@@ -10,6 +10,9 @@
 - **[user]** fix(editor): **Margin and padding settings are no longer duplicated.** Template blocks
   and theme presets now show one four-side Margin control and one four-side Padding control while
   retaining the existing per-side values in stored documents.
+- **[user]** fix(editor): **New datatables pass template validation.** The column-count prompt now
+  remains an editor-only creation detail instead of leaking `_columnCount` into the saved
+  datatable properties.
 - **[user]** docs(legal): **Epistola's legal entity is now explicit.** Root documentation now
   identifies Epistola Nederland B.V. as the first-party copyright holder, publisher, support
   provider, and commercial SLA counterparty, while preserving third-party and contributor rights.
