@@ -168,4 +168,39 @@ describe('EpistolaInspector generic presentation hook', () => {
 
     expect(updateCount).toBe(2);
   });
+
+  it('uses the theme spacing unit when converting component unit properties', () => {
+    const { engine, inspector, textNodeId } = setupInspector();
+    const unitField = { key: 'width', label: 'Width', type: 'unit', units: ['pt', 'sp'] } as const;
+    engine.setTheme({
+      documentStyles: {},
+      pageSettings: undefined,
+      blockStylePresets: {},
+      spacingUnit: 6,
+    });
+    engine.dispatch({ type: 'UpdateNodeProps', nodeId: textNodeId, props: { width: '12pt' } });
+    inspector.doc = engine.doc;
+
+    const fieldTemplate = (
+      inspector as unknown as {
+        _renderField: (
+          node: NonNullable<ReturnType<EditorEngine['getNode']>>,
+          field: unknown,
+        ) => {
+          values: unknown[];
+        };
+      }
+    )._renderField(engine.getNode(textNodeId)!, unitField);
+    const unitTemplate = fieldTemplate.values.at(-1) as { values: unknown[] };
+    const selectTemplate = unitTemplate.values.find(
+      (value): value is { values: unknown[] } =>
+        typeof value === 'object' && value !== null && 'values' in value,
+    )!;
+    const handleUnitChange = selectTemplate.values.find(
+      (value): value is (event: Event) => void => typeof value === 'function',
+    )!;
+    handleUnitChange({ target: { value: 'sp' } } as unknown as Event);
+
+    expect(engine.getNode(textNodeId)?.props?.width).toBe('2sp');
+  });
 });

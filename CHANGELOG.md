@@ -9,7 +9,9 @@
 - **[user]** fix(editor): **Theme spacing and defaults now match generated documents.** The
   template editor receives the effective variant, template, or tenant theme and uses its spacing
   unit for canvas styles and every `sp` unit conversion, including borders and theme presets. Live
-  PDF previews now use that same resolved editor theme so spacing conversions cannot drift.
+  PDF previews now use that same resolved editor theme so spacing conversions cannot drift. Unit
+  switches on component properties such as image dimensions also use the theme's configured scale
+  instead of always falling back to 4pt.
 - **[user]** fix(editor): **Margin and padding settings are no longer duplicated.** Template blocks
   and theme presets now show one four-side Margin control and one four-side Padding control while
   retaining the existing per-side values in stored documents.

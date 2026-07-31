@@ -583,7 +583,7 @@ export class EpistolaInspector extends LitElement {
               value,
               field.units ?? ['pt'],
               (v) => this._handlePropChange(field.key, v),
-              undefined,
+              this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT,
               fieldId,
             )}
           </div>
