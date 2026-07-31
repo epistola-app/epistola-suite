@@ -85,8 +85,16 @@ jobs:
           fi
           echo "Publishing ${CHART} ${VERSION}"
 
-          # Sync appVersion with the latest app tag (published chart only).
-          APP_VERSION="$(git tag -l 'v*' --sort=-v:refname | head -n1 | sed 's/^v//')"
+          # Sync appVersion with the latest final app tag (published chart only).
+          # Git's version sort places prereleases such as v1.0.0-RC6 ahead of
+          # v1.0.0, so select only exact vMAJOR.MINOR.PATCH tags.
+          APP_VERSION=""
+          while IFS= read -r APP_TAG; do
+            if [[ "$APP_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              APP_VERSION="${BASH_REMATCH[1]}"
+              break
+            fi
+          done < <(git tag -l 'v*' --sort=-v:refname)
           if [ -n "${APP_VERSION}" ]; then
             sed -i "s/^appVersion:.*/appVersion: \"${APP_VERSION}\"/" "${DIR}/Chart.yaml"
           fi

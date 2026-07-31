@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-31
+
+### Changed
+
+- **First stable chart release.** The chart's values and templates now follow SemVer compatibility,
+  and the default application image is pinned to Epistola Suite `1.0.0` for reproducible installs
+  and upgrades. Operators can continue to override `image.tag` explicitly.
+- **Stable application releases stay pinned.** Chart publication now selects the newest final
+  `vMAJOR.MINOR.PATCH` application tag, preventing a release-candidate tag from overriding the GA
+  `appVersion` in the packaged chart.
+
 ## [0.11.0] - 2026-07-13
 
 ### Removed
