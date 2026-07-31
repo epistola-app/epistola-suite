@@ -14,6 +14,7 @@ import type {
 } from '../engine/registry.js';
 import type { BlockStylePreset, StyleProperty } from '@epistola.app/epistola-catalog';
 import { getNestedValue, setNestedValue } from '../engine/props.js';
+import { isEditorStyleApplicable } from '../engine/style-registry.js';
 import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../engine/font-ref.js';
 import {
@@ -403,7 +404,7 @@ export class EpistolaInspector extends LitElement {
   ): StyleProperty[] {
     if (!applicableStyles || applicableStyles === 'all') return properties;
     if (applicableStyles.length === 0) return [];
-    return properties.filter((p) => applicableStyles.includes(p.key));
+    return properties.filter((p) => isEditorStyleApplicable(p.key, applicableStyles));
   }
 
   private _renderStyleProperty(

@@ -78,6 +78,17 @@ function setupInspector(): SetupResult {
 }
 
 describe('EpistolaInspector generic presentation hook', () => {
+  it('renders one four-side margin and padding control without longhand duplicates', () => {
+    const { inspector } = setupInspector();
+
+    const html = templateToHtml(inspector.render());
+
+    expect(html.match(/>Margin</g)).toHaveLength(1);
+    expect(html.match(/>Padding</g)).toHaveLength(1);
+    expect(html).not.toContain('Top Margin');
+    expect(html).not.toContain('Right Padding');
+  });
+
   it('renders the default component label and full generic sections when no presentation hook is provided', () => {
     const { inspector } = setupInspector();
 
