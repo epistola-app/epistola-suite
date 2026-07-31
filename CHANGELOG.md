@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(editor): **Theme spacing and defaults now match generated documents.** The
+  template editor receives the effective variant, template, or tenant theme and uses its spacing
+  unit for canvas styles and every `sp` unit conversion, including borders and theme presets.
 - **[user]** docs(legal): **Epistola's legal entity is now explicit.** Root documentation now
   identifies Epistola Nederland B.V. as the first-party copyright holder, publisher, support
   provider, and commercial SLA counterparty, while preserving third-party and contributor rights.

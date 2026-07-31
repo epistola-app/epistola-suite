@@ -28,6 +28,7 @@ import {
   renderSpacingInput,
   renderSelectInput,
   COMPOUND_STYLE_TYPES,
+  DEFAULT_SPACING_UNIT,
   type BorderValue,
 } from './inputs/style-inputs.js';
 import './inputs/BorderInput.js';
@@ -427,6 +428,7 @@ export class EpistolaInspector extends LitElement {
     onChange: (value: unknown) => void,
     inputId: string,
   ): unknown {
+    const spacingUnit = this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT;
     switch (prop.type) {
       case 'select':
         return renderSelectInput(
@@ -436,7 +438,13 @@ export class EpistolaInspector extends LitElement {
           inputId,
         );
       case 'unit':
-        return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v), undefined, inputId);
+        return renderUnitInput(
+          value,
+          prop.units ?? ['px'],
+          (v) => onChange(v),
+          spacingUnit,
+          inputId,
+        );
       case 'color':
         return renderColorInput(value, (v) => onChange(v || undefined), inputId);
       case 'spacing':
@@ -444,7 +452,7 @@ export class EpistolaInspector extends LitElement {
           value,
           prop.units ?? ['px'],
           (v) => onChange(v),
-          undefined,
+          spacingUnit,
           inputId,
         );
       case 'border':
@@ -452,6 +460,7 @@ export class EpistolaInspector extends LitElement {
           <epistola-border-input
             .value=${value as BorderValue | undefined}
             .units=${prop.units ?? ['pt', 'sp']}
+            .baseUnit=${spacingUnit}
             @change=${(e: CustomEvent) => onChange(e.detail)}
           ></epistola-border-input>
         `;

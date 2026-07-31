@@ -33,6 +33,7 @@ async function mount(container) {
   mountEditor({
     container: container,
     template: config.templateModel,
+    theme: config.theme ?? undefined,
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
     plugins: plugins,

@@ -23,3 +23,11 @@ export type {
   ExpressionLanguage,
   Expression,
 } from '@epistola.app/epistola-catalog';
+
+import type { Theme } from '@epistola.app/epistola-catalog';
+
+/** Theme defaults required by the template editor's style cascade. */
+export type EditorTheme = Pick<
+  Theme,
+  'documentStyles' | 'pageSettings' | 'blockStylePresets' | 'spacingUnit'
+>;

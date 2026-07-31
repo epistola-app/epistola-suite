@@ -11,6 +11,8 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -22,6 +24,7 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
@@ -1372,6 +1375,49 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"moduleUrl\": \"/editor/walkthrough-plugin-")
                 assertThat(response.body).contains("\"stylesheetUrl\": \"/editor/ai-plugin-")
                 assertThat(response.body).doesNotContain("<link rel=\"stylesheet\" href=\"/editor/ai-plugin-")
+            }
+        }
+
+        @Test
+        fun `GET editor page includes effective theme defaults`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Themed Editor Tenant")
+                template = template(testTenant, "Themed Editor Template")
+                variantId = variant(testTenant, template, "Default").id
+                withMediator {
+                    val catalogId = CatalogId.default(TenantId(testTenant.id))
+                    val themeId = ThemeId(ThemeKey.of("editor-theme"), catalogId)
+                    CreateTheme(
+                        id = themeId,
+                        name = "Editor Theme",
+                        documentStyles = mapOf("fontSize" to "10pt"),
+                        spacingUnit = 6f,
+                    ).execute()
+                    UpdateDocumentTemplate(
+                        id = TemplateId(template.id, catalogId),
+                        themeId = themeId.key,
+                        themeCatalogKey = themeId.catalogKey,
+                    ).execute()
+                }
+            }
+
+            whenever {
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("\"theme\": {")
+                assertThat(response.body).contains("\"documentStyles\":{\"fontSize\":\"10pt\"}")
+                assertThat(response.body).contains("\"spacingUnit\":6.0")
             }
         }
 

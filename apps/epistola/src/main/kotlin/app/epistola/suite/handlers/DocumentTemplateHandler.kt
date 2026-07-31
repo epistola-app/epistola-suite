@@ -56,7 +56,11 @@ import app.epistola.suite.templates.validation.MigrationSuggestion
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.themes.BlockStylePresets
+import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.template.model.DocumentStyles
+import app.epistola.template.model.PageSettings
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -116,6 +120,14 @@ data class ValidateSchemaResponse(
     }
 }
 
+/** Theme defaults needed by the browser editor, without persistence metadata. */
+data class EditorThemeConfig(
+    val documentStyles: DocumentStyles,
+    val pageSettings: PageSettings?,
+    val blockStylePresets: BlockStylePresets?,
+    val spacingUnit: Float?,
+)
+
 /**
  * Handles core template CRUD operations and template detail views.
  * Variant operations are handled by [VariantRouteHandler].
@@ -145,6 +157,7 @@ class DocumentTemplateHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val detailHelper: TemplateDetailHelper,
     private val localeResolver: TenantLocaleResolver,
+    private val themeStyleResolver: ThemeStyleResolver,
 ) {
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
 
@@ -402,6 +415,21 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.notFound().build()
         val resolvedLocale = localeResolver.resolve(tenant, context.variantAttributes)
         val featureToggles = ResolveFeatureToggles(tenantId.key).query()
+        val editorTheme = themeStyleResolver.resolveTheme(
+            tenantId = tenantId.key,
+            templateDefaultThemeId = context.templateThemeKey,
+            tenantDefaultThemeId = tenant.defaultThemeKey,
+            templateModel = context.templateModel,
+            templateCatalogKey = context.templateThemeCatalogKey,
+            tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+        )?.let {
+            EditorThemeConfig(
+                documentStyles = it.documentStyles,
+                pageSettings = it.pageSettings,
+                blockStylePresets = it.blockStylePresets,
+                spacingUnit = it.spacingUnit,
+            )
+        }
 
         // Test-only seam (issue #418, Instance C): a `leaderTiming` query
         // param (JSON) lets UI tests shrink the editor's leader-hint TTLs so
@@ -419,6 +447,7 @@ class DocumentTemplateHandler(
                 "templateName" to context.templateName,
                 "variantAttributes" to context.variantAttributes,
                 "templateModel" to context.templateModel,
+                "editorTheme" to editorTheme,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
                 "leaderTiming" to leaderTiming,

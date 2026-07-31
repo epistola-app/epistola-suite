@@ -19,6 +19,7 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
+  DEFAULT_SPACING_UNIT,
 } from '../../ui/inputs/style-inputs.js';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
 
@@ -41,6 +42,7 @@ export function renderDocumentStylesSection(state: ThemeEditorState, readOnly = 
                 prop,
                 docStyles[prop.key],
                 (value) => state.updateDocumentStyle(prop.key, value),
+                state.theme.spacingUnit ?? DEFAULT_SPACING_UNIT,
                 readOnly,
               ),
             )}
@@ -55,13 +57,14 @@ function renderStyleProperty(
   prop: StyleProperty,
   value: unknown,
   onChange: (value: unknown) => void,
+  spacingUnit: number,
   readOnly = false,
 ): unknown {
   const inputId = `theme-doc-style-${prop.key}`;
   return html`
     <div class="inspector-field">
       <label class="inspector-field-label" for=${inputId}>${prop.label}</label>
-      ${renderStyleInput(prop, value, onChange, inputId, readOnly)}
+      ${renderStyleInput(prop, value, onChange, spacingUnit, inputId, readOnly)}
     </div>
   `;
 }
@@ -70,6 +73,7 @@ function renderStyleInput(
   prop: StyleProperty,
   value: unknown,
   onChange: (value: unknown) => void,
+  spacingUnit: number,
   inputId: string,
   readOnly = false,
 ): unknown {
@@ -87,7 +91,7 @@ function renderStyleInput(
         value,
         prop.units ?? ['px'],
         (v) => onChange(v),
-        undefined,
+        spacingUnit,
         inputId,
         readOnly,
       );
@@ -98,7 +102,7 @@ function renderStyleInput(
         value,
         prop.units ?? ['px'],
         (v) => onChange(v),
-        undefined,
+        spacingUnit,
         inputId,
         readOnly,
       );
