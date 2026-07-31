@@ -5,7 +5,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
-import type { TemplateDocument, NodeId, SlotId } from '../types/index.js';
+import type { TemplateDocument, NodeId, SlotId, EditorTheme } from '../types/index.js';
 import { EditorEngine } from '../engine/EditorEngine.js';
 import { wireParameterCache } from '../engine/parameter-evaluation-cache.js';
 import {
@@ -216,6 +216,7 @@ export class EpistolaEditor extends LitElement {
     options?: {
       dataModel?: object;
       dataExamples?: object[];
+      theme?: EditorTheme;
       features?: EditorFeatures;
       locale?: string;
     },
@@ -231,6 +232,7 @@ export class EpistolaEditor extends LitElement {
     this._engine = new EditorEngine(doc, reg, {
       dataModel: options?.dataModel,
       dataExamples: options?.dataExamples,
+      theme: options?.theme,
       features: options?.features,
       locale: options?.locale,
     });

@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.FontRef
 import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.properties.Property
+import com.itextpdf.layout.properties.UnitValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -222,6 +223,8 @@ class StyleApplicatorTest {
             fontCache = fontCache,
             spacingUnit = 6f, // 2sp = 12pt
         )
+
+        assertEquals(12f, div.getProperty<UnitValue>(Property.MARGIN_BOTTOM).value)
     }
 
     @Test
@@ -238,7 +241,7 @@ class StyleApplicatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // keepTogether / keepWithNext
+    // keepTogether
     // -----------------------------------------------------------------------
 
     @Test
@@ -267,20 +270,6 @@ class StyleApplicatorTest {
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
-    }
-
-    @Test
-    fun `keepWithNext true sets property on element`() {
-        val div = Div()
-        StyleApplicator.applyStylesWithPreset(
-            div,
-            blockInlineStyles = mapOf("keepWithNext" to true),
-            blockStylePreset = null,
-            blockStylePresets = emptyMap(),
-            inheritedStyles = emptyMap(),
-            fontCache = fontCache,
-        )
-        assertTrue(div.getProperty<Boolean>(Property.KEEP_WITH_NEXT) == true)
     }
 
     @Test

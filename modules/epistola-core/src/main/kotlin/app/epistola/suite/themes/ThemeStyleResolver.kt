@@ -91,6 +91,46 @@ class ThemeStyleResolver(
         templateCatalogKey: CatalogKey? = null,
         tenantDefaultThemeCatalogKey: CatalogKey? = null,
     ): ResolvedStyles {
+        val theme = resolveTheme(
+            tenantId = tenantId,
+            templateDefaultThemeId = templateDefaultThemeId,
+            tenantDefaultThemeId = tenantDefaultThemeId,
+            templateModel = templateModel,
+            templateCatalogKey = templateCatalogKey,
+            tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
+        )
+        val templateDocumentStyles = templateModel.documentStylesOverride ?: emptyMap()
+
+        return if (theme != null) {
+            ResolvedStyles(
+                documentStyles = mergeDocumentStyles(theme.documentStyles, templateDocumentStyles),
+                pageSettings = theme.pageSettings, // Theme page settings as fallback
+                blockStylePresets = theme.blockStylePresets ?: BlockStylePresets.EMPTY,
+                spacingUnit = theme.spacingUnit ?: SpacingScale.DEFAULT_BASE_UNIT,
+            )
+        } else {
+            ResolvedStyles(
+                documentStyles = templateDocumentStyles,
+                pageSettings = null,
+                blockStylePresets = BlockStylePresets.EMPTY,
+            )
+        }
+    }
+
+    /**
+     * Returns the unmerged effective theme selected by the same cascade used
+     * for generation. Callers that apply template overrides themselves (such
+     * as the editor) must use this rather than [resolveStyles], otherwise an
+     * override would be baked into the theme fallback and could not be cleared.
+     */
+    fun resolveTheme(
+        tenantId: TenantKey,
+        templateDefaultThemeId: ThemeKey?,
+        tenantDefaultThemeId: ThemeKey?,
+        templateModel: TemplateDocument,
+        templateCatalogKey: CatalogKey? = null,
+        tenantDefaultThemeCatalogKey: CatalogKey? = null,
+    ): Theme? {
         // Theme cascade: variant-level > template-level > tenant-level
         // The catalog key must follow the theme key through the cascade
         val (effectiveThemeId, effectiveCatalogKey) = when (val ref = templateModel.themeRef) {
@@ -108,23 +148,7 @@ class ThemeStyleResolver(
             }
         }
 
-        val theme = effectiveThemeId?.let { getTheme(tenantId, effectiveCatalogKey, it) }
-        val templateDocumentStyles = templateModel.documentStylesOverride ?: emptyMap()
-
-        return if (theme != null) {
-            ResolvedStyles(
-                documentStyles = mergeDocumentStyles(theme.documentStyles, templateDocumentStyles),
-                pageSettings = theme.pageSettings, // Theme page settings as fallback
-                blockStylePresets = theme.blockStylePresets ?: BlockStylePresets.EMPTY,
-                spacingUnit = theme.spacingUnit ?: SpacingScale.DEFAULT_BASE_UNIT,
-            )
-        } else {
-            ResolvedStyles(
-                documentStyles = templateDocumentStyles,
-                pageSettings = null,
-                blockStylePresets = BlockStylePresets.EMPTY,
-            )
-        }
+        return effectiveThemeId?.let { getTheme(tenantId, effectiveCatalogKey, it) }
     }
 
     /**

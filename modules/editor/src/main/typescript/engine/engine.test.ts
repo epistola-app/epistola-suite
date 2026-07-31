@@ -1400,6 +1400,38 @@ describe('UpdatePageSettings', () => {
   });
 });
 
+describe('Editor theme defaults', () => {
+  it('keeps theme defaults separate so clearing an override reveals the theme', () => {
+    const registry = testRegistry();
+    const doc = {
+      ...createTestDocument(),
+      documentStylesOverride: { color: '#abcdef' },
+    };
+    const engine = new EditorEngine(doc, registry, {
+      theme: {
+        documentStyles: { color: '#112233', fontSize: '10pt' },
+        pageSettings: {
+          format: 'Letter',
+          orientation: 'landscape',
+          margins: { top: 12, right: 13, bottom: 14, left: 15 },
+        },
+        blockStylePresets: {
+          heading: { label: 'Heading', styles: { fontWeight: 700 } },
+        },
+        spacingUnit: 6,
+      },
+    });
+
+    expect(engine.theme?.spacingUnit).toBe(6);
+    expect(engine.resolvedDocStyles).toMatchObject({ color: '#abcdef', fontSize: '10pt' });
+    expect(engine.resolvedPageSettings.format).toBe('Letter');
+
+    engine.dispatch({ type: 'UpdateDocumentStyles', styles: {} });
+
+    expect(engine.resolvedDocStyles).toMatchObject({ color: '#112233', fontSize: '10pt' });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Undo / Redo
 // ---------------------------------------------------------------------------

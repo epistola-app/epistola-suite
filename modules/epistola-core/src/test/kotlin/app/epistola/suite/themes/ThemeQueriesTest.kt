@@ -35,8 +35,76 @@ import app.epistola.suite.themes.queries.GetThemeUsagePage
 import app.epistola.suite.themes.queries.ListThemes
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 
 class ThemeQueriesTest : IntegrationTestBase() {
+    @Autowired
+    private lateinit var themeStyleResolver: ThemeStyleResolver
+
+    @Test
+    fun `effective theme follows cascade without merging template overrides`(): Unit = withMediator {
+        val tenant = createTenant("Theme Resolver Cascade")
+        val catalogId = CatalogId.default(TenantId(tenant.id))
+        val tenantTheme = ThemeId(ThemeKey.of("tenant-theme"), catalogId)
+        val templateTheme = ThemeId(ThemeKey.of("template-theme"), catalogId)
+        val variantTheme = ThemeId(ThemeKey.of("variant-theme"), catalogId)
+        CreateTheme(id = tenantTheme, name = "Tenant", spacingUnit = 4f).execute()
+        CreateTheme(id = templateTheme, name = "Template", spacingUnit = 5f).execute()
+        CreateTheme(
+            id = variantTheme,
+            name = "Variant",
+            documentStyles = mapOf("color" to "#112233", "fontSize" to "10pt"),
+            spacingUnit = 6f,
+        ).execute()
+
+        val inheritedModel = createDefaultTemplateModel(VariantKey.INITIAL)
+        assertThat(
+            themeStyleResolver.resolveTheme(
+                tenantId = tenant.id,
+                templateDefaultThemeId = null,
+                tenantDefaultThemeId = tenantTheme.key,
+                templateModel = inheritedModel,
+                tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            )?.name,
+        ).isEqualTo("Tenant")
+        assertThat(
+            themeStyleResolver.resolveTheme(
+                tenantId = tenant.id,
+                templateDefaultThemeId = templateTheme.key,
+                tenantDefaultThemeId = tenantTheme.key,
+                templateModel = inheritedModel,
+                templateCatalogKey = templateTheme.catalogKey,
+                tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            )?.name,
+        ).isEqualTo("Template")
+
+        val overriddenModel = inheritedModel.copy(
+            themeRef = ThemeRefOverride(variantTheme.key.value, variantTheme.catalogKey.value),
+            documentStylesOverride = mapOf("color" to "#abcdef"),
+        )
+        val rawTheme = themeStyleResolver.resolveTheme(
+            tenantId = tenant.id,
+            templateDefaultThemeId = templateTheme.key,
+            tenantDefaultThemeId = tenantTheme.key,
+            templateModel = overriddenModel,
+            templateCatalogKey = templateTheme.catalogKey,
+            tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+        )
+        val mergedStyles = themeStyleResolver.resolveStyles(
+            tenantId = tenant.id,
+            templateDefaultThemeId = templateTheme.key,
+            tenantDefaultThemeId = tenantTheme.key,
+            templateModel = overriddenModel,
+            templateCatalogKey = templateTheme.catalogKey,
+            tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+        )
+
+        assertThat(rawTheme?.name).isEqualTo("Variant")
+        assertThat(rawTheme?.spacingUnit).isEqualTo(6f)
+        assertThat(rawTheme?.documentStyles?.get("color")).isEqualTo("#112233")
+        assertThat(mergedStyles.documentStyles["color"]).isEqualTo("#abcdef")
+        assertThat(mergedStyles.documentStyles["fontSize"]).isEqualTo("10pt")
+    }
 
     @Test
     fun `GetTheme returns the theme`(): Unit = withMediator {

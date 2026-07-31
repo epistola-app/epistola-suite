@@ -14,6 +14,7 @@ import type {
 } from '../engine/registry.js';
 import type { BlockStylePreset, StyleProperty } from '@epistola.app/epistola-catalog';
 import { getNestedValue, setNestedValue } from '../engine/props.js';
+import { isEditorStyleApplicable } from '../engine/style-registry.js';
 import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../engine/font-ref.js';
 import {
@@ -28,6 +29,7 @@ import {
   renderSpacingInput,
   renderSelectInput,
   COMPOUND_STYLE_TYPES,
+  DEFAULT_SPACING_UNIT,
   type BorderValue,
 } from './inputs/style-inputs.js';
 import './inputs/BorderInput.js';
@@ -402,7 +404,7 @@ export class EpistolaInspector extends LitElement {
   ): StyleProperty[] {
     if (!applicableStyles || applicableStyles === 'all') return properties;
     if (applicableStyles.length === 0) return [];
-    return properties.filter((p) => applicableStyles.includes(p.key));
+    return properties.filter((p) => isEditorStyleApplicable(p.key, applicableStyles));
   }
 
   private _renderStyleProperty(
@@ -427,6 +429,7 @@ export class EpistolaInspector extends LitElement {
     onChange: (value: unknown) => void,
     inputId: string,
   ): unknown {
+    const spacingUnit = this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT;
     switch (prop.type) {
       case 'select':
         return renderSelectInput(
@@ -436,7 +439,13 @@ export class EpistolaInspector extends LitElement {
           inputId,
         );
       case 'unit':
-        return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v), undefined, inputId);
+        return renderUnitInput(
+          value,
+          prop.units ?? ['px'],
+          (v) => onChange(v),
+          spacingUnit,
+          inputId,
+        );
       case 'color':
         return renderColorInput(value, (v) => onChange(v || undefined), inputId);
       case 'spacing':
@@ -444,7 +453,7 @@ export class EpistolaInspector extends LitElement {
           value,
           prop.units ?? ['px'],
           (v) => onChange(v),
-          undefined,
+          spacingUnit,
           inputId,
         );
       case 'border':
@@ -452,6 +461,7 @@ export class EpistolaInspector extends LitElement {
           <epistola-border-input
             .value=${value as BorderValue | undefined}
             .units=${prop.units ?? ['pt', 'sp']}
+            .baseUnit=${spacingUnit}
             @change=${(e: CustomEvent) => onChange(e.detail)}
           ></epistola-border-input>
         `;
@@ -573,7 +583,7 @@ export class EpistolaInspector extends LitElement {
               value,
               field.units ?? ['pt'],
               (v) => this._handlePropChange(field.key, v),
-              undefined,
+              this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT,
               fieldId,
             )}
           </div>
@@ -649,7 +659,7 @@ export class EpistolaInspector extends LitElement {
 
     const def = this.engine.registry.get(node.type);
     if (def?.onPropChange) {
-      newProps = def.onPropChange(key, value, newProps);
+      newProps = def.onPropChange(key, value, newProps, { engine: this.engine });
     }
 
     setNestedValue(newProps, key, value);

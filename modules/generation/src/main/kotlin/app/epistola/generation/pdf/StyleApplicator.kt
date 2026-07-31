@@ -260,12 +260,11 @@ object StyleApplicator {
             }
         }
 
-        // Page flow: prevent page breaks from splitting or separating blocks
+        // Page flow: prevent page breaks from splitting blocks. keepWithNext
+        // is coordinated between siblings by NodeRendererRegistry because
+        // iText only handles that property at a document root renderer.
         if (styles["keepTogether"] == true || styles["keepTogether"] == "true") {
             element.setKeepTogether(true)
-        }
-        if (styles["keepWithNext"] == true || styles["keepWithNext"] == "true") {
-            element.setKeepWithNext(true)
         }
     }
 

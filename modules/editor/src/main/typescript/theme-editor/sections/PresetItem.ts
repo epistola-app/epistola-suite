@@ -20,6 +20,7 @@ import {
   renderSpacingInput,
   renderSelectInput,
   COMPOUND_STYLE_TYPES,
+  DEFAULT_SPACING_UNIT,
   type BorderValue,
 } from '../../ui/inputs/style-inputs.js';
 import '../../ui/inputs/BorderInput.js';
@@ -169,6 +170,7 @@ function renderPresetBody(
                   value,
                   (v) => state.updatePresetStyle(name, prop.key, v, prop.type),
                   `preset-${name}-style-${prop.key}`,
+                  state.theme.spacingUnit ?? DEFAULT_SPACING_UNIT,
                   readOnly,
                 );
               })}
@@ -185,12 +187,13 @@ function renderPresetStyleProperty(
   value: unknown,
   onChange: (value: unknown) => void,
   inputId: string,
+  spacingUnit: number,
   readOnly = false,
 ): unknown {
   return html`
     <div class="inspector-field">
       <label class="inspector-field-label" for=${inputId}>${prop.label}</label>
-      ${renderPresetStyleInput(prop, value, onChange, inputId, readOnly)}
+      ${renderPresetStyleInput(prop, value, onChange, inputId, spacingUnit, readOnly)}
     </div>
   `;
 }
@@ -200,6 +203,7 @@ function renderPresetStyleInput(
   value: unknown,
   onChange: (value: unknown) => void,
   inputId: string,
+  spacingUnit: number,
   readOnly = false,
 ): unknown {
   switch (prop.type) {
@@ -216,7 +220,7 @@ function renderPresetStyleInput(
         value,
         prop.units ?? ['px'],
         (v) => onChange(v),
-        undefined,
+        spacingUnit,
         inputId,
         readOnly,
       );
@@ -227,7 +231,7 @@ function renderPresetStyleInput(
         value,
         prop.units ?? ['px'],
         (v) => onChange(v),
-        undefined,
+        spacingUnit,
         inputId,
         readOnly,
       );
@@ -236,6 +240,7 @@ function renderPresetStyleInput(
         <epistola-border-input
           .value=${value as BorderValue | undefined}
           .units=${prop.units ?? ['pt', 'sp']}
+          .baseUnit=${spacingUnit}
           ?readOnly=${readOnly}
           @change=${(e: CustomEvent) => onChange(e.detail)}
         ></epistola-border-input>

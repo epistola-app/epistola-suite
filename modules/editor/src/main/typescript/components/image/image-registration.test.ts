@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, it, expect } from 'vitest';
-import { createImageDefinition, resolveContentUrl, crossCatalogKey } from './image-registration.js';
+import {
+  createImageDefinition,
+  resolveContentUrl,
+  crossCatalogKey,
+  resolveCanvasDimension,
+} from './image-registration.js';
 import type { ComponentDefinition } from '../../engine/registry.js';
 
 /** Minimal stubs — the asset picker is unused in onPropChange tests. */
@@ -63,6 +68,17 @@ describe('crossCatalogKey', () => {
 
   it('returns the asset catalog when it differs from the template catalog', () => {
     expect(crossCatalogKey('system', 'epistola-demo')).toBe('system');
+  });
+});
+
+describe('resolveCanvasDimension', () => {
+  it('converts sp dimensions with the theme spacing unit', () => {
+    expect(resolveCanvasDimension('1sp', 16)).toBe('16pt');
+  });
+
+  it('preserves absolute and percentage dimensions', () => {
+    expect(resolveCanvasDimension('16pt', 16)).toBe('16pt');
+    expect(resolveCanvasDimension('50%', 16)).toBe('50%');
   });
 });
 
@@ -129,14 +145,46 @@ describe('image onPropChange aspect ratio lock', () => {
     expect(result.height).toBe('');
   });
 
-  it('does nothing when value uses non-pt unit', () => {
+  it('does nothing when value uses a percentage', () => {
     const def = imageDef();
     const props = { width: '100pt', height: '200pt', aspectRatioLocked: true };
 
     const result = def.onPropChange!('width', '50%', props);
 
-    // parsePt returns null for non-pt values, so height stays unchanged
     expect(result.height).toBe('200pt');
+  });
+
+  it('adjusts an sp dimension using the active theme spacing unit', () => {
+    const def = imageDef();
+    const props = { width: '1sp', height: '2sp', aspectRatioLocked: true };
+
+    const result = def.onPropChange!('width', '2sp', props, {
+      engine: { theme: { spacingUnit: 16 } },
+    });
+
+    expect(result.height).toBe('4sp');
+  });
+
+  it('adjusts a pt dimension when the changed dimension uses sp', () => {
+    const def = imageDef();
+    const props = { width: '16pt', height: '32pt', aspectRatioLocked: true };
+
+    const result = def.onPropChange!('width', '2sp', props, {
+      engine: { theme: { spacingUnit: 16 } },
+    });
+
+    expect(result.height).toBe('64pt');
+  });
+
+  it('keeps the linked dimension stable for an equivalent pt to sp switch', () => {
+    const def = imageDef();
+    const props = { width: '16pt', height: '32pt', aspectRatioLocked: true };
+
+    const result = def.onPropChange!('width', '1sp', props, {
+      engine: { theme: { spacingUnit: 16 } },
+    });
+
+    expect(result.height).toBe('32pt');
   });
 
   it('rounds the computed dimension', () => {

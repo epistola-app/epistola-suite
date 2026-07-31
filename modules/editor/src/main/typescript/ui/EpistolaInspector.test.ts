@@ -78,6 +78,27 @@ function setupInspector(): SetupResult {
 }
 
 describe('EpistolaInspector generic presentation hook', () => {
+  it('renders one four-side margin and padding control without longhand duplicates', () => {
+    const { inspector } = setupInspector();
+
+    const html = templateToHtml(inspector.render());
+
+    expect(html.match(/>Margin</g)).toHaveLength(1);
+    expect(html.match(/>Padding</g)).toHaveLength(1);
+    expect(html).not.toContain('Top Margin');
+    expect(html).not.toContain('Right Padding');
+  });
+
+  it('renders one four-side border control without longhand duplicates', () => {
+    const { inspector } = setupInspector();
+
+    const html = templateToHtml(inspector.render());
+
+    expect(html.match(/>Border</g)).toHaveLength(1);
+    expect(html).not.toContain('Top Border');
+    expect(html).not.toContain('Right Border');
+  });
+
   it('renders the default component label and full generic sections when no presentation hook is provided', () => {
     const { inspector } = setupInspector();
 
@@ -156,5 +177,40 @@ describe('EpistolaInspector generic presentation hook', () => {
     engine.setComponentState('another:key', null);
 
     expect(updateCount).toBe(2);
+  });
+
+  it('uses the theme spacing unit when converting component unit properties', () => {
+    const { engine, inspector, textNodeId } = setupInspector();
+    const unitField = { key: 'width', label: 'Width', type: 'unit', units: ['pt', 'sp'] } as const;
+    engine.setTheme({
+      documentStyles: {},
+      pageSettings: undefined,
+      blockStylePresets: {},
+      spacingUnit: 16,
+    });
+    engine.dispatch({ type: 'UpdateNodeProps', nodeId: textNodeId, props: { width: '32pt' } });
+    inspector.doc = engine.doc;
+
+    const fieldTemplate = (
+      inspector as unknown as {
+        _renderField: (
+          node: NonNullable<ReturnType<EditorEngine['getNode']>>,
+          field: unknown,
+        ) => {
+          values: unknown[];
+        };
+      }
+    )._renderField(engine.getNode(textNodeId)!, unitField);
+    const unitTemplate = fieldTemplate.values.at(-1) as { values: unknown[] };
+    const selectTemplate = unitTemplate.values.find(
+      (value): value is { values: unknown[] } =>
+        typeof value === 'object' && value !== null && 'values' in value,
+    )!;
+    const handleUnitChange = selectTemplate.values.find(
+      (value): value is (event: Event) => void => typeof value === 'function',
+    )!;
+    handleUnitChange({ target: { value: 'sp' } } as unknown as Event);
+
+    expect(engine.getNode(textNodeId)?.props?.width).toBe('2sp');
   });
 });

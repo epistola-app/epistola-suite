@@ -75,6 +75,12 @@ export function createDatatableDefinition(): ComponentDefinition {
     createSubtree: (nodeId: NodeId, props?: Record<string, unknown>) => {
       const columnCount = (props?._columnCount as number | undefined) ?? 3;
 
+      // The dialog value is factory input, not a contract-declared property.
+      // Remove it from the same merged object that createNode persists.
+      if (props) {
+        delete props._columnCount;
+      }
+
       const columnsSlotId = nanoid() as SlotId;
       const columnNodeIds: NodeId[] = [];
       const extraNodes: Node[] = [];

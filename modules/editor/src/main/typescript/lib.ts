@@ -14,7 +14,7 @@
 import './editor.css';
 import './ui/EpistolaEditor.js';
 import './ui/quality-plugin.js';
-import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
+import type { TemplateDocument, NodeId, SlotId, EditorTheme } from './types/index.js';
 import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
 import { createDefaultRegistry } from './engine/registry.js';
@@ -31,7 +31,7 @@ import { nanoid } from 'nanoid';
 
 validateCoreShortcutRegistriesOnStartup();
 
-export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js';
+export type { TemplateDocument, Node, Slot, NodeId, SlotId, EditorTheme } from './types/index.js';
 export type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dialog.js';
 export type { FontInfo } from './engine/font-catalog.js';
 export type {
@@ -88,6 +88,8 @@ export interface EditorOptions {
   container: HTMLElement;
   /** Initial template document (node/slot model) */
   template?: TemplateDocument;
+  /** Effective theme defaults selected by the host's variant/template/tenant cascade. */
+  theme?: EditorTheme;
   /** Callback when the template is saved */
   onSave?: (template: TemplateDocument) => Promise<void>;
   /** JSON Schema describing the data model (for expression autocomplete) */
@@ -258,6 +260,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   editorEl.initEngine(doc, registry, {
     dataModel,
     dataExamples,
+    theme: options.theme,
     features: options.features,
     locale: options.locale,
   });

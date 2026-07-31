@@ -4,7 +4,9 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -22,6 +24,8 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class EditorContext(
     val templateName: String,
+    val templateThemeKey: ThemeKey?,
+    val templateThemeCatalogKey: CatalogKey?,
     val variantAttributes: Map<String, String>,
     val templateModel: TemplateDocument,
     val dataExamples: List<DataExample>,
@@ -50,6 +54,8 @@ class GetEditorContextHandler(
             """
             SELECT
                 dt.name as template_name,
+                dt.theme_key,
+                dt.theme_catalog_key,
                 cv.data_model,
                 cv.data_examples,
                 tv.attributes as variant_attributes,
@@ -124,6 +130,8 @@ class GetEditorContextHandler(
 
         EditorContext(
             templateName = row["template_name"] as String,
+            templateThemeKey = (row["theme_key"] as String?)?.let(ThemeKey::of),
+            templateThemeCatalogKey = (row["theme_catalog_key"] as String?)?.let(CatalogKey::of),
             variantAttributes = variantAttributes,
             templateModel = templateModel,
             dataExamples = dataExamples,

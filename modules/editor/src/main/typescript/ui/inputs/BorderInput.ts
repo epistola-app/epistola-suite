@@ -43,6 +43,7 @@ export class BorderInput extends LitElement {
 
   @property({ type: Object }) value?: BorderValue;
   @property({ type: Array }) units: string[] = ['pt', 'sp'];
+  @property({ type: Number }) baseUnit = DEFAULT_SPACING_UNIT;
   @property({ type: Boolean }) readOnly = false;
 
   @state() private _linked = true;
@@ -191,10 +192,10 @@ export class BorderInput extends LitElement {
                           let newValue = widthParsed.value;
                           if (oldUnit === 'pt' && newUnit === 'sp') {
                             newValue = parseFloat(
-                              nearestSpacingStep(widthParsed.value, DEFAULT_SPACING_UNIT),
+                              nearestSpacingStep(widthParsed.value, this.baseUnit),
                             );
                           } else if (oldUnit === 'sp' && newUnit === 'pt') {
-                            newValue = widthParsed.value * DEFAULT_SPACING_UNIT;
+                            newValue = widthParsed.value * this.baseUnit;
                           }
                           this._handleSideChange(
                             side,

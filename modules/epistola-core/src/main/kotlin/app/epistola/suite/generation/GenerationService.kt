@@ -84,29 +84,33 @@ class GenerationService(
         tenantDefaultThemeCatalogKey: CatalogKey? = null,
         culture: RenderCulture = RenderCulture.DEFAULT,
         watermarkText: String? = null,
+        resolvedThemeOverride: ResolvedTheme? = null,
     ) {
         templateDocumentValidator.validateTemplateGraphForRendering(templateModel)
 
-        // Resolve styles from theme (variant-level > template-level > tenant-level)
-        val resolvedStyles = themeStyleResolver.resolveStyles(
+        // Live editor previews can provide the exact theme snapshot used by
+        // the canvas; all other callers resolve the authoritative cascade.
+        val resolvedTheme = resolvedThemeOverride ?: themeStyleResolver.resolveStyles(
             tenantId,
             templateDefaultThemeId,
             tenantDefaultThemeId,
             templateModel,
             templateCatalogKey = templateCatalogKey,
             tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
-        )
+        ).let { resolvedStyles ->
+            ResolvedTheme(
+                documentStyles = resolvedStyles.documentStyles,
+                pageSettings = resolvedStyles.pageSettings,
+                blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
+                spacingUnit = resolvedStyles.spacingUnit,
+            )
+        }
 
         pdfRenderer.render(
             document = templateModel,
             data = data,
             outputStream = outputStream,
-            resolvedTheme = ResolvedTheme(
-                documentStyles = resolvedStyles.documentStyles,
-                pageSettings = resolvedStyles.pageSettings,
-                blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
-                spacingUnit = resolvedStyles.spacingUnit,
-            ),
+            resolvedTheme = resolvedTheme,
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,

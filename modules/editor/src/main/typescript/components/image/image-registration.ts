@@ -13,6 +13,7 @@ import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import { openAssetPickerDialog, type AssetPickerCallbacks } from './asset-picker-dialog.js';
 import { html } from 'lit';
+import { convertSpToPt, DEFAULT_SPACING_UNIT_PT } from '../../ui/style-css.js';
 
 /** Layout-only style properties available on image nodes. */
 const IMAGE_STYLES = ['padding', 'margin'];
@@ -53,18 +54,44 @@ export function crossCatalogKey(
   return assetCatalogKey === defaultCatalogKey ? null : assetCatalogKey;
 }
 
-/** Parse a pt value, returning the numeric part or null for non-pt / empty values. */
-function parsePt(value: unknown): number | null {
+interface ParsedDimension {
+  points: number;
+  unit: 'pt' | 'sp';
+}
+
+/** Resolve a physical image dimension to points while retaining its stored unit. */
+function parseDimension(value: unknown, spacingUnitPt: number): ParsedDimension | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (!trimmed.endsWith('pt')) return null;
   const num = parseFloat(trimmed);
-  return Number.isFinite(num) && num > 0 ? num : null;
+  if (!Number.isFinite(num) || num <= 0) return null;
+  if (trimmed.endsWith('pt')) return { points: num, unit: 'pt' };
+  if (trimmed.endsWith('sp')) return { points: num * spacingUnitPt, unit: 'sp' };
+  return null;
+}
+
+/** Format a computed physical dimension in the linked property's existing unit. */
+function formatDimension(
+  points: number,
+  unit: ParsedDimension['unit'],
+  spacingUnitPt: number,
+): string {
+  if (unit === 'pt') return `${Math.round(points)}pt`;
+  const multiplier = Number((points / spacingUnitPt).toFixed(3));
+  return `${multiplier}sp`;
 }
 
 /** Convert image pixel dimensions to pt (1px = 0.75pt). */
 function pxToPt(px: number): number {
   return Math.round(px * 0.75);
+}
+
+/** Convert an image dimension to browser CSS using the active theme spacing scale. */
+export function resolveCanvasDimension(
+  value: string | undefined,
+  spacingUnitPt: number,
+): string | undefined {
+  return value ? convertSpToPt(value, spacingUnitPt) : undefined;
 }
 
 export function createImageDefinition(options?: ImageOptions): ComponentDefinition {
@@ -97,21 +124,25 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       aspectRatioLocked: true,
     },
 
-    onPropChange: (key, value, props) => {
+    onPropChange: (key, value, props, context) => {
       if (!props.aspectRatioLocked) return props;
 
-      const oldWidth = parsePt(props.width);
-      const oldHeight = parsePt(props.height);
+      const editorEngine = context?.engine as EditorEngine | undefined;
+      const spacingUnit = editorEngine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
+      const oldWidth = parseDimension(props.width, spacingUnit);
+      const oldHeight = parseDimension(props.height, spacingUnit);
 
       if (key === 'width' && oldHeight && oldWidth) {
-        const newWidth = parsePt(value);
+        const newWidth = parseDimension(value, spacingUnit);
         if (newWidth) {
-          props.height = `${Math.round(oldHeight * (newWidth / oldWidth))}pt`;
+          const heightPoints = oldHeight.points * (newWidth.points / oldWidth.points);
+          props.height = formatDimension(heightPoints, oldHeight.unit, spacingUnit);
         }
       } else if (key === 'height' && oldWidth && oldHeight) {
-        const newHeight = parsePt(value);
+        const newHeight = parseDimension(value, spacingUnit);
         if (newHeight) {
-          props.width = `${Math.round(oldWidth * (newHeight / oldHeight))}pt`;
+          const widthPoints = oldWidth.points * (newHeight.points / oldHeight.points);
+          props.width = formatDimension(widthPoints, oldWidth.unit, spacingUnit);
         }
       }
 
@@ -215,8 +246,9 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       const nodeCatalogKey = node.props?.catalogKey as string | undefined;
       const src = resolveContentUrl(contentUrlPattern, assetId, nodeCatalogKey, defaultCatalogKey);
       const alt = (node.props?.alt as string) || '';
-      const width = node.props?.width as string | undefined;
-      const height = node.props?.height as string | undefined;
+      const spacingUnit = engine.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
+      const width = resolveCanvasDimension(node.props?.width as string | undefined, spacingUnit);
+      const height = resolveCanvasDimension(node.props?.height as string | undefined, spacingUnit);
 
       const imgStyle =
         [width ? `width: ${width}` : '', height ? `height: ${height}` : '']

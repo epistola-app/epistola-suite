@@ -33,6 +33,7 @@ async function mount(container) {
   mountEditor({
     container: container,
     template: config.templateModel,
+    theme: config.theme ?? undefined,
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
     plugins: plugins,
@@ -326,7 +327,11 @@ async function mount(container) {
             Accept: 'application/pdf',
             'X-XSRF-TOKEN': window.getCsrfToken(),
           },
-          body: JSON.stringify({ templateModel: doc, data: data?.data ?? data }),
+          body: JSON.stringify({
+            templateModel: doc,
+            data: data?.data ?? data,
+            theme: config.theme ?? null,
+          }),
           signal: signal,
         },
       );

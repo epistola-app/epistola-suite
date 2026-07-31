@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.queries
 
+import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -45,6 +46,7 @@ data class PreviewVariant(
     val variantId: VariantKey,
     val data: ObjectNode,
     val templateModel: TemplateDocument? = null,
+    val resolvedTheme: ResolvedTheme? = null,
 ) : Query<ByteArray>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
@@ -129,6 +131,7 @@ class PreviewVariantHandler(
             tenant = tenant,
             data = query.data,
             culture = culture,
+            resolvedThemeOverride = query.resolvedTheme,
         )
     }
 

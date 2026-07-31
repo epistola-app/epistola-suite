@@ -9,10 +9,16 @@
  * undo/redo, and change notification. Framework-agnostic.
  */
 
-import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js';
+import type {
+  TemplateDocument,
+  NodeId,
+  SlotId,
+  PageSettings,
+  EditorTheme,
+} from '../types/index.js';
 import { type FieldPath, extractFieldPaths } from './schema-paths.js';
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
-import type { StyleRegistry, Theme } from '@epistola.app/epistola-catalog';
+import type { StyleRegistry } from '@epistola.app/epistola-catalog';
 import { type DocumentIndexes, buildIndexes } from './indexes.js';
 import { type AnyCommand, type CommandResult, applyCommand } from './commands.js';
 import { UndoStack } from './undo.js';
@@ -46,7 +52,7 @@ export class EditorEngine {
   private _selectedNodeId: NodeId | null = null;
   readonly registry: ComponentRegistry;
   readonly styleRegistry: StyleRegistry;
-  private _theme: Theme | undefined;
+  private _theme: EditorTheme | undefined;
   private _resolvedDocStyles!: Record<string, unknown>;
   private _inheritableKeys: Set<string>;
   private _resolvedPageSettings!: PageSettings;
@@ -87,7 +93,7 @@ export class EditorEngine {
     doc: TemplateDocument,
     registry: ComponentRegistry,
     options?: {
-      theme?: Theme;
+      theme?: EditorTheme;
       styleRegistry?: StyleRegistry;
       undoDepth?: number;
       dataModel?: object;
@@ -178,7 +184,7 @@ export class EditorEngine {
     return this._doc.slots[id];
   }
 
-  get theme(): Theme | undefined {
+  get theme(): EditorTheme | undefined {
     return this._theme;
   }
 
@@ -347,7 +353,7 @@ export class EditorEngine {
   }
 
   /** Update the theme (e.g. when loading a different theme). */
-  setTheme(theme: Theme | undefined): void {
+  setTheme(theme: EditorTheme | undefined): void {
     this._theme = theme;
     this._recomputeStyles();
     this._notify(false);
