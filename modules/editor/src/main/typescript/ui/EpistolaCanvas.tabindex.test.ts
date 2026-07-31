@@ -217,4 +217,64 @@ describe('EpistolaCanvas — read-only blocks are not user-focusable', () => {
 
     expect(engine.selectedNodeId).toBe('stencil');
   });
+
+  it('recreates a text editor when a child node is replaced with a different ID', async () => {
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    const initialEditor = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-toplevel"] epistola-text-editor',
+    );
+    expect(initialEditor).not.toBeNull();
+
+    const replacement = structuredClone(engine.doc);
+    const initialNode = replacement.nodes['text-toplevel'];
+    delete replacement.nodes['text-toplevel'];
+    replacement.nodes['text-hydrated'] = {
+      ...initialNode,
+      id: 'text-hydrated' as NodeId,
+    };
+    const rootSlot = replacement.slots['root-slot'];
+    replacement.slots['root-slot'] = {
+      ...rootSlot,
+      children: rootSlot.children.map((childId) =>
+        childId === 'text-toplevel' ? ('text-hydrated' as NodeId) : childId,
+      ),
+    };
+
+    engine.replaceDocument(replacement);
+    await renderCanvas(container, engine);
+
+    const hydratedEditor = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-hydrated"] epistola-text-editor',
+    );
+    expect(hydratedEditor).not.toBeNull();
+    expect(hydratedEditor).not.toBe(initialEditor);
+    expect(initialEditor!.isConnected).toBe(false);
+  });
+
+  it('preserves a text editor when its node ID is reordered within a slot', async () => {
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    const initialEditor = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-toplevel"] epistola-text-editor',
+    );
+    expect(initialEditor).not.toBeNull();
+
+    const reordered = structuredClone(engine.doc);
+    const rootSlot = reordered.slots['root-slot'];
+    reordered.slots['root-slot'] = {
+      ...rootSlot,
+      children: rootSlot.children.toReversed(),
+    };
+
+    engine.replaceDocument(reordered);
+    await renderCanvas(container, engine);
+
+    const reorderedEditor = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-toplevel"] epistola-text-editor',
+    );
+    expect(reorderedEditor).toBe(initialEditor);
+  });
 });

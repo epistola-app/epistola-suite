@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** fix(editor): **Stencil parameters remain available after draft loading.** Text
+  expression choices now follow the hydrated stencil's current node identity, so parameters such
+  as `params.param1` no longer disappear when the original text editor mounted before draft
+  hydration completed.
 - **[user]** fix(editor): **New text blocks are ready for typing.** Selecting an empty text block
   now moves the caret into its rich-text surface so typed content appears immediately.
 - **[user]** fix(editor): **Theme spacing and defaults now match generated documents.** The

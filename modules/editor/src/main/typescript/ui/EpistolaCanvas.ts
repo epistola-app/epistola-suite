@@ -4,6 +4,7 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import {
   draggable,
@@ -387,7 +388,11 @@ export class EpistolaCanvas extends LitElement {
           ? html`<span class="canvas-slot-hint"
               >${isMultiSlot ? slot.name : 'Drop blocks here'}</span
             >`
-          : slot.children.map((childId) => this._renderBlock(childId))}
+          : repeat(
+              slot.children,
+              (childId) => childId,
+              (childId) => this._renderBlock(childId),
+            )}
       </div>
     `;
   }
