@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-31
+
+Epistola Suite 1.0.0 is the first generally available release. It makes template editing and
+previews more reliable, adds wider and more resilient list pages, expands AI rendering diagnostics,
+and returns clearer API errors for preview and catalog failures.
+
 - **[user]** fix(editor): **Stencil parameters remain available after draft loading.** Text
   expression choices now follow the hydrated stencil's current node identity, so parameters such
   as `params.param1` no longer disappear when the original text editor mounted before draft
