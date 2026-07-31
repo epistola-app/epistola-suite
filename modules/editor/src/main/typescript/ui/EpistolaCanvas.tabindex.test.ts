@@ -134,6 +134,22 @@ describe('EpistolaCanvas — read-only blocks are not user-focusable', () => {
     expect(tabindexFor(container, 'stencil')).toBe('0');
   });
 
+  it('moves focus into an empty text editor when its block is selected', async () => {
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    const block = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-toplevel"]',
+    );
+    expect(block).not.toBeNull();
+
+    block!.click();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(engine.selectedNodeId).toBe('text-toplevel');
+    expect(document.activeElement?.classList.contains('ProseMirror')).toBe(true);
+  });
+
   it('blocks inside the locked stencil children slot have no tabindex (out of tab cycle and click cycle)', async () => {
     const engine = setupEngine(true);
     await renderCanvas(container, engine);

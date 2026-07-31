@@ -321,6 +321,11 @@ export class EpistolaTextEditor extends LitElement {
     this._pmView = null;
   }
 
+  /** Move keyboard focus into the rich-text surface after its block is selected. */
+  focusEditor(): void {
+    this._pmView?.focus();
+  }
+
   // ---------------------------------------------------------------------------
   // TextChange integration
   // ---------------------------------------------------------------------------

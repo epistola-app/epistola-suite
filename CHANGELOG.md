@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(editor): **New text blocks are ready for typing.** Selecting an empty text block
+  now moves the caret into its rich-text surface so typed content appears immediately.
 - **[user]** fix(editor): **Theme spacing and defaults now match generated documents.** The
   template editor receives the effective variant, template, or tenant theme and uses its spacing
   unit for canvas styles and every `sp` unit conversion, including borders and theme presets.
