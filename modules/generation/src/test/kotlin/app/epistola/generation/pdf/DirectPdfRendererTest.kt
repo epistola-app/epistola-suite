@@ -14,6 +14,7 @@ import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
+import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.Locale
@@ -56,6 +57,24 @@ class DirectPdfRendererTest {
             pageSettingsOverride = pageSettingsOverride,
         )
     }
+
+    private fun renderedPageTexts(document: TemplateDocument): List<String> {
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+        PdfDocument(PdfReader(ByteArrayInputStream(output.toByteArray()))).use { pdf ->
+            return (1..pdf.numberOfPages).map { page -> PdfTextExtractor.getTextFromPage(pdf.getPage(page)) }
+        }
+    }
+
+    private fun richTextContent(blocks: List<Map<String, Any>>): Map<String, Any> = mapOf(
+        "type" to "doc",
+        "content" to blocks,
+    )
+
+    private fun paragraph(text: String): Map<String, Any> = mapOf(
+        "type" to "paragraph",
+        "content" to listOf(mapOf("type" to "text", "text" to text)),
+    )
 
     @Test
     fun `renders empty template`() {
@@ -214,6 +233,104 @@ class DirectPdfRendererTest {
         val pdfBytes = output.toByteArray()
         assertTrue(pdfBytes.isNotEmpty())
         assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `keepWithNext moves nested siblings to the same page`() {
+        fun document(keepWithNext: Boolean): TemplateDocument {
+            val filler = Node(
+                id = "filler",
+                type = "text",
+                props = mapOf(
+                    "content" to richTextContent(
+                        (1..35).map { paragraph("Filler line $it") },
+                    ),
+                ),
+            )
+            val heading = Node(
+                id = "heading",
+                type = "text",
+                props = mapOf(
+                    "content" to richTextContent(
+                        listOf(
+                            mapOf(
+                                "type" to "heading",
+                                "attrs" to mapOf("level" to 1),
+                                "content" to listOf(mapOf("type" to "text", "text" to "KEEP HEADING")),
+                            ),
+                        ),
+                    ),
+                ),
+                styles = if (keepWithNext) mapOf("keepWithNext" to true) else emptyMap(),
+            )
+            val following = Node(
+                id = "following",
+                type = "text",
+                props = mapOf(
+                    "content" to richTextContent(
+                        listOf(paragraph("FOLLOWING CONTENT " + "must stay together ".repeat(80))),
+                    ),
+                ),
+                styles = mapOf("keepTogether" to true),
+            )
+            val container = Node(
+                id = "container",
+                type = "container",
+                slots = listOf("container-slot"),
+            )
+            val root = Node(id = "root", type = "root", slots = listOf("root-slot"))
+            return TemplateDocument(
+                root = root.id,
+                nodes = listOf(root, filler, container, heading, following).associateBy(Node::id),
+                slots = mapOf(
+                    "root-slot" to Slot("root-slot", root.id, "children", listOf(filler.id, container.id)),
+                    "container-slot" to Slot("container-slot", container.id, "children", listOf(heading.id, following.id)),
+                ),
+            )
+        }
+
+        val baseline = renderedPageTexts(document(keepWithNext = false))
+        val kept = renderedPageTexts(document(keepWithNext = true))
+        val baselineHeadingPage = baseline.indexOfFirst { "KEEP HEADING" in it }
+        val baselineFollowingPage = baseline.indexOfFirst { "FOLLOWING CONTENT" in it }
+        val keptHeadingPage = kept.indexOfFirst { "KEEP HEADING" in it }
+        val keptFollowingPage = kept.indexOfFirst { "FOLLOWING CONTENT" in it }
+
+        assertTrue(baselineHeadingPage >= 0)
+        assertTrue(baselineFollowingPage > baselineHeadingPage)
+        assertEquals(keptFollowingPage, keptHeadingPage)
+        assertTrue(keptHeadingPage > baselineHeadingPage)
+    }
+
+    @Test
+    fun `oversized keepWithNext group degrades to normal page splitting`() {
+        val heading = Node(
+            id = "heading",
+            type = "text",
+            props = mapOf(
+                "content" to richTextContent(listOf(paragraph("OVERSIZED HEADING"))),
+            ),
+            styles = mapOf("keepWithNext" to true),
+        )
+        val following = Node(
+            id = "following",
+            type = "text",
+            props = mapOf(
+                "content" to richTextContent(
+                    (1..100).map { paragraph("Oversized content line $it") },
+                ),
+            ),
+        )
+        val document = documentWithChildren(
+            childNodes = mapOf(heading.id to heading, following.id to following),
+            childNodeIds = listOf(heading.id, following.id),
+        )
+
+        val pages = renderedPageTexts(document)
+
+        assertTrue(pages.size > 1)
+        assertTrue("OVERSIZED HEADING" in pages.first())
+        assertTrue(pages.any { "Oversized content line 100" in it })
     }
 
     @Test

@@ -6,7 +6,11 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.layout.element.AreaBreak
+import com.itextpdf.layout.element.Div
+import com.itextpdf.layout.element.IBlockElement
 import com.itextpdf.layout.element.IElement
+import com.itextpdf.layout.element.Image
 
 /**
  * Interface for rendering template nodes to iText PDF elements.
@@ -83,7 +87,56 @@ class NodeRendererRegistry(
         context: RenderContext,
     ): List<IElement> {
         val slot = document.slots[slotId] ?: return emptyList()
-        return slot.children.flatMap { childNodeId -> renderNode(childNodeId, document, context) }
+        val result = mutableListOf<IElement>()
+        val pendingGroup = mutableListOf<IElement>()
+        var pendingHasFollower = false
+
+        fun flushPending(groupWithNext: Boolean) {
+            if (pendingGroup.isEmpty()) return
+            if (groupWithNext && pendingGroup.size > 1) {
+                result += keepTogether(pendingGroup)
+            } else {
+                result += pendingGroup
+            }
+            pendingGroup.clear()
+            pendingHasFollower = false
+        }
+
+        for (childNodeId in slot.children) {
+            val node = document.nodes[childNodeId]
+                ?: throw IllegalStateException("Node '$childNodeId' not found in template document")
+            val elements = renderNode(childNodeId, document, context)
+
+            // A condition or other structural node that emits nothing is
+            // transparent: the previous visible block keeps with the next
+            // visible sibling instead.
+            if (elements.isEmpty()) continue
+
+            // Never group across an explicit page break, including one emitted
+            // by a structural child such as a conditional.
+            if (elements.any { it is AreaBreak }) {
+                flushPending(groupWithNext = pendingHasFollower)
+                result += elements
+                continue
+            }
+
+            if (pendingGroup.isNotEmpty()) {
+                pendingHasFollower = true
+                pendingGroup += elements
+                if (!keepsWithNext(node, context)) {
+                    flushPending(groupWithNext = true)
+                }
+            } else if (keepsWithNext(node, context)) {
+                pendingGroup += elements
+            } else {
+                result += elements
+            }
+        }
+
+        // A final keepWithNext has no following rendered sibling, so it has no
+        // page-flow effect and is rendered normally.
+        flushPending(groupWithNext = pendingHasFollower)
+        return result
     }
 
     /**
@@ -99,4 +152,26 @@ class NodeRendererRegistry(
         document: TemplateDocument,
         context: RenderContext,
     ): List<IElement> = node.slots.flatMap { slotId -> renderSlot(slotId, document, context) }
+
+    private fun keepsWithNext(node: Node, context: RenderContext): Boolean {
+        val inline = node.styles?.filterNonNullValues()?.get("keepWithNext")
+        val preset = node.stylePreset?.let { context.blockStylePresets[it]?.get("keepWithNext") }
+        val componentDefault = context.renderingDefaults.componentDefaults(node.type)?.get("keepWithNext")
+        val effective = inline ?: preset ?: componentDefault
+        return effective == true || effective == "true"
+    }
+
+    private fun keepTogether(elements: List<IElement>): Div {
+        val group = Div().setKeepTogether(true)
+        for (element in elements) {
+            when (element) {
+                is IBlockElement -> group.add(element)
+                is Image -> group.add(element)
+                // AreaBreak is excluded by the caller; retain this branch as a
+                // defensive fallback for future element implementations.
+                is AreaBreak -> group.add(element)
+            }
+        }
+        return group
+    }
 }

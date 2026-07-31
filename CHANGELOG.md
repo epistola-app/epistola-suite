@@ -13,6 +13,9 @@
 - **[user]** fix(editor): **New datatables pass template validation.** The column-count prompt now
   remains an editor-only creation detail instead of leaking `_columnCount` into the saved
   datatable properties.
+- **[user]** fix(pdf): **Keep with next now prevents orphaned blocks.** A block can stay with its
+  next visible sibling at any nesting level, including preset-driven chains inside containers and
+  stencils, while explicit page breaks and oversized groups continue to paginate safely.
 - **[user]** docs(legal): **Epistola's legal entity is now explicit.** Root documentation now
   identifies Epistola Nederland B.V. as the first-party copyright holder, publisher, support
   provider, and commercial SLA counterparty, while preserving third-party and contributor rights.

@@ -303,7 +303,7 @@
           "id": "n-attachments",
           "type": "text",
           "slots": [],
-          "styles": { "marginTop": "4sp" },
+          "styles": { "marginTop": "4sp", "keepWithNext": true },
           "props": {
             "content": {
               "type": "doc",

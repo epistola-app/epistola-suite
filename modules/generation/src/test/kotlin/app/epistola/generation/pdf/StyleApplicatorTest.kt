@@ -238,7 +238,7 @@ class StyleApplicatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // keepTogether / keepWithNext
+    // keepTogether
     // -----------------------------------------------------------------------
 
     @Test
@@ -267,20 +267,6 @@ class StyleApplicatorTest {
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
-    }
-
-    @Test
-    fun `keepWithNext true sets property on element`() {
-        val div = Div()
-        StyleApplicator.applyStylesWithPreset(
-            div,
-            blockInlineStyles = mapOf("keepWithNext" to true),
-            blockStylePreset = null,
-            blockStylePresets = emptyMap(),
-            inheritedStyles = emptyMap(),
-            fontCache = fontCache,
-        )
-        assertTrue(div.getProperty<Boolean>(Property.KEEP_WITH_NEXT) == true)
     }
 
     @Test
