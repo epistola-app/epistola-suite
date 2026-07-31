@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** build(deps): **Upgrade Epistola contract dependencies to 1.0.0.** Backend artifacts,
+  the editor catalog package, and the pnpm lockfile now consume the GA contract release together.
+
 ## [1.0.0] - 2026-07-31
 
 Epistola Suite 1.0.0 is the first generally available release. It makes template editing and
