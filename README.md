@@ -1,23 +1,18 @@
 # Epistola Suite
 
+[![Version](https://img.shields.io/github/v/release/epistola-app/epistola-suite?label=version&sort=semver)](https://github.com/epistola-app/epistola-suite/releases/latest)
+[![Helm chart](https://img.shields.io/github/v/tag/epistola-app/epistola-suite?filter=epistola-*&label=helm%20chart&logo=helm&sort=semver)](#helm-chart)
 [![Build and Publish](https://github.com/epistola-app/epistola-suite/actions/workflows/build.yml/badge.svg)](https://github.com/epistola-app/epistola-suite/actions/workflows/build.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/epistola-app/epistola-suite/main/.github/badges/coverage.json)](https://github.com/epistola-app/epistola-suite/actions/workflows/build.yml)
 [![Security Scan](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/epistola-app/epistola-suite/main/.github/badges/trivy.json)](https://github.com/epistola-app/epistola-suite/actions/workflows/security-scan.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 > [!NOTE]
-> **1.0.0-RC1 is out — first stable release (25 June 2026); 1.0.0-GA planned for July 2026.** **From this release onward the database will no longer be reset between versions** — your data persists across upgrades, and every schema change ships as a forward migration.
-
-> [!WARNING]
-> **Release candidate — some APIs may still change before 1.0.0-GA.**
->
-> Your data is now stable across upgrades, but while Epistola is in release-candidate phase the REST APIs, catalog formats, configuration, and internal architecture may still be adjusted before 1.0.0-GA. Review the [changelog](CHANGELOG.md) before updating.
-
-> [!IMPORTANT]
-> **Provided "as is", without warranty.** Epistola Nederland B.V. takes no responsibility for the correctness of output or for any damages arising from use of this software. Correctness assurances, support, and liability coverage are available only under a commercial SLA with Epistola Nederland B.V. — see the [Disclaimer](DISCLAIMER.md).
-
-> [!NOTE]
-> **Supported versions and upgrades.** Epistola follows continuous delivery with a limited set of supported release lines and low-friction upgrades (not long-lived legacy support). See the [Release & Support Policy](SUPPORT_POLICY.md).
+> **Epistola Suite 1.0.0 is generally available (31 July 2026).** GA REST APIs, catalog formats,
+> configuration, and architecture follow SemVer compatibility. Explicitly labelled alpha and beta
+> features remain experimental and may change in a minor release. Review the
+> [changelog](CHANGELOG.md) before updating and see the
+> [Release & Support Policy](SUPPORT_POLICY.md) for supported versions and upgrades.
 
 A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 

@@ -2,7 +2,9 @@
 
 Epistola is a multi-tenant document generation platform for creating professional PDF documents from templates with dynamic data binding. It serves two audiences: **developers** who integrate via a REST API to generate documents programmatically, and **business users** who design templates visually in a block-based editor without writing code.
 
-> **Status:** Epistola 1.0.0-RC1 is released — the first stable release (1.0.0-GA planned for July 2026). The database is stable and is no longer reset between versions; data persists across upgrades. During the release-candidate phase, schemas, APIs, and architecture may still see deliberate, explicitly-flagged breaking changes before 1.0.0-GA, but data is never discarded.
+> **Status:** Epistola 1.0.0 is generally available — the first GA release (31 July 2026). GA APIs,
+> catalog formats, configuration, and architecture follow SemVer compatibility, while
+> explicitly labelled alpha and beta features remain experimental.
 
 ## Use Cases
 

@@ -11,11 +11,15 @@ Epistola Suite is a document suite application with:
 
 ## Release Status
 
-**Epistola Suite 1.0.0-RC1 is released — the first stable release (25 June 2026). 1.0.0-GA is planned for July 2026.**
+**Epistola Suite 1.0.0 is generally available — the first GA release (31 July 2026).**
 
 **The database is now stable and is NO LONGER reset between versions.** Every schema change MUST ship as a forward Flyway migration that preserves existing data. Do **not** write destructive migrations that drop or reset user data, and do **not** rewrite or "fold back" a released migration — add a new timestamped one (see [`docs/migrations.md`](docs/migrations.md)). The RC1 consolidation was the **last** history-rewriting clear; there are no more.
 
-While in the release-candidate phase, the REST APIs, catalog wire formats, configuration, and internal architecture MAY still change before 1.0.0-GA — but such changes must be **deliberate and explicitly flagged as breaking** (`feat!:` / `fix!:` / `BREAKING CHANGE:`), never casual. After 1.0.0-GA these become stable too. Data stability is not negotiable at any point from RC1 onward.
+From 1.0.0 onward, GA REST APIs, catalog wire formats, configuration, and architecture are stable
+and follow SemVer compatibility. Breaking changes to GA surfaces require a major release and a
+deliberate migration/deprecation path. Explicitly labelled alpha and beta features remain governed
+by the feature-maturity exception below. Data stability is not negotiable at any point from RC1
+onward.
 
 ## Project Structure
 

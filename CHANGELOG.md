@@ -10,6 +10,10 @@ Epistola Suite 1.0.0 is the first generally available release. It makes template
 previews more reliable, adds wider and more resilient list pages, expands AI rendering diagnostics,
 and returns clearer API errors for preview and catalog failures.
 
+- **[user]** docs(release): **Epistola Suite 1.0.0 is generally available.** Active project
+  documentation now identifies 1.0.0 as the first GA release and records the SemVer stability
+  commitment for GA APIs, catalog formats, configuration, and architecture while keeping labelled
+  alpha and beta features explicitly experimental.
 - **[user]** fix(editor): **Stencil parameters remain available after draft loading.** Text
   expression choices now follow the hydrated stencil's current node identity, so parameters such
   as `params.param1` no longer disappear when the original text editor mounted before draft
