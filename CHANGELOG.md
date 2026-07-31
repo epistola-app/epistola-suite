@@ -8,7 +8,8 @@
   now moves the caret into its rich-text surface so typed content appears immediately.
 - **[user]** fix(editor): **Theme spacing and defaults now match generated documents.** The
   template editor receives the effective variant, template, or tenant theme and uses its spacing
-  unit for canvas styles and every `sp` unit conversion, including borders and theme presets.
+  unit for canvas styles and every `sp` unit conversion, including borders and theme presets. Live
+  PDF previews now use that same resolved editor theme so spacing conversions cannot drift.
 - **[user]** fix(editor): **Margin and padding settings are no longer duplicated.** Template blocks
   and theme presets now show one four-side Margin control and one four-side Padding control while
   retaining the existing per-side values in stored documents.

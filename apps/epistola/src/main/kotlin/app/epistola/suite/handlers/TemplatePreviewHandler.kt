@@ -4,6 +4,8 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.generation.pdf.ResolvedTheme
+import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
@@ -33,6 +35,7 @@ data class PreviewRequest(
     val data: ObjectNode? = null,
     val templateModel: Map<String, Any?>? = null,
     val versionId: Int? = null,
+    val theme: EditorThemeConfig? = null,
 )
 
 /**
@@ -89,6 +92,16 @@ class TemplatePreviewHandler(
                     variantId = variantId.key,
                     data = dataNode,
                     templateModel = liveTemplateModel,
+                    resolvedTheme = previewRequest.theme?.let { theme ->
+                        ResolvedTheme(
+                            documentStyles = theme.documentStyles,
+                            pageSettings = theme.pageSettings,
+                            blockStylePresets = theme.blockStylePresets
+                                ?.mapValues { (_, preset) -> preset.styles }
+                                .orEmpty(),
+                            spacingUnit = theme.spacingUnit ?: SpacingScale.DEFAULT_BASE_UNIT,
+                        )
+                    },
                 ).query()
             }
         } catch (e: ValidationException) {

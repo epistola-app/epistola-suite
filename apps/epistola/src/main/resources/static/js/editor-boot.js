@@ -327,7 +327,11 @@ async function mount(container) {
             Accept: 'application/pdf',
             'X-XSRF-TOKEN': window.getCsrfToken(),
           },
-          body: JSON.stringify({ templateModel: doc, data: data?.data ?? data }),
+          body: JSON.stringify({
+            templateModel: doc,
+            data: data?.data ?? data,
+            theme: config.theme ?? null,
+          }),
           signal: signal,
         },
       );

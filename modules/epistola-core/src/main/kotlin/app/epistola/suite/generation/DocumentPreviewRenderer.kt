@@ -9,6 +9,7 @@ import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -59,6 +60,7 @@ class DocumentPreviewRenderer(
         tenant: Tenant,
         data: ObjectNode,
         culture: RenderCulture = RenderCulture.DEFAULT,
+        resolvedThemeOverride: ResolvedTheme? = null,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
 
@@ -120,6 +122,7 @@ class DocumentPreviewRenderer(
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
                 culture = culture,
                 watermarkText = PREVIEW_WATERMARK,
+                resolvedThemeOverride = resolvedThemeOverride,
             )
         }
 

@@ -78,6 +78,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
     }
 
+    private fun pdfPageCount(pdfBytes: ByteArray): Int = Regex("""/Type\s*/Page\b""")
+        .findAll(pdfBytes.toString(Charsets.ISO_8859_1))
+        .count()
+
     @Test
     fun `GET templates returns list page with template data`() = fixture {
         lateinit var testTenant: Tenant
@@ -1758,6 +1762,73 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<ByteArray>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PDF)
+            }
+        }
+
+        @Test
+        fun `POST live preview uses the editor theme spacing unit`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Preview Spacing Tenant")
+                template = template(testTenant, "Preview Spacing Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            whenever {
+                fun preview(spacingUnit: Int): ByteArray {
+                    val headers = HttpHeaders()
+                    headers.contentType = MediaType.APPLICATION_JSON
+                    val textNodes = (1..5).joinToString(",") { index ->
+                        """"text-$index": {
+                            "id": "text-$index",
+                            "type": "text",
+                            "slots": [],
+                            "styles": {"marginBottom": "10sp"},
+                            "props": {"content": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "SPACING-$index"}]}]}}
+                        }"""
+                    }
+                    val textChildren = (1..5).joinToString(",") { index -> "\"text-$index\"" }
+                    val body = """{
+                        "data": {},
+                        "theme": {
+                            "documentStyles": {},
+                            "pageSettings": null,
+                            "blockStylePresets": null,
+                            "spacingUnit": $spacingUnit
+                        },
+                        "templateModel": {
+                            "modelVersion": 1,
+                            "root": "root-1",
+                            "nodes": {
+                                "root-1": {"id": "root-1", "type": "root", "slots": ["slot-1"]},
+                                $textNodes
+                            },
+                            "slots": {
+                                "slot-1": {"id": "slot-1", "nodeId": "root-1", "name": "children", "children": [$textChildren]}
+                            },
+                            "themeRef": {"type": "inherit"}
+                        }
+                    }"""
+                    return requireNotNull(
+                        restTemplate.postForEntity(
+                            "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                            HttpEntity(body, headers),
+                            ByteArray::class.java,
+                        ).body,
+                    )
+                }
+
+                val defaultPdf = preview(spacingUnit = 4)
+                val largePdf = preview(spacingUnit = 20)
+                pdfPageCount(defaultPdf) to pdfPageCount(largePdf)
+            }
+
+            then {
+                val (defaultPages, largePages) = result<Pair<Int, Int>>()
+                assertThat(largePages).isGreaterThan(defaultPages)
             }
         }
 
