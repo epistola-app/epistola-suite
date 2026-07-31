@@ -12,9 +12,10 @@
 import { styleRegistry } from '@epistola.app/epistola-catalog/registry';
 import type { StyleRegistry } from '@epistola.app/epistola-catalog';
 
-const COMPOUND_SPACING_LONGHANDS: Record<string, ReadonlySet<string>> = {
+const COMPOUND_STYLE_LONGHANDS: Record<string, ReadonlySet<string>> = {
   margin: new Set(['marginTop', 'marginRight', 'marginBottom', 'marginLeft']),
   padding: new Set(['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']),
+  border: new Set(['borderTop', 'borderRight', 'borderBottom', 'borderLeft']),
 };
 
 /**
@@ -27,7 +28,7 @@ export function createEditorStyleRegistry(source: StyleRegistry): StyleRegistry 
   for (const group of registry.groups) {
     const keys = new Set(group.properties.map((property) => property.key));
     const hiddenLonghands = new Set<string>();
-    for (const [compound, longhands] of Object.entries(COMPOUND_SPACING_LONGHANDS)) {
+    for (const [compound, longhands] of Object.entries(COMPOUND_STYLE_LONGHANDS)) {
       if (keys.has(compound)) {
         longhands.forEach((key) => hiddenLonghands.add(key));
       }
@@ -40,7 +41,7 @@ export function createEditorStyleRegistry(source: StyleRegistry): StyleRegistry 
 /** Whether a component allowlist makes an editor property available. */
 export function isEditorStyleApplicable(propertyKey: string, applicableStyles: string[]): boolean {
   if (applicableStyles.includes(propertyKey)) return true;
-  const longhands = COMPOUND_SPACING_LONGHANDS[propertyKey];
+  const longhands = COMPOUND_STYLE_LONGHANDS[propertyKey];
   return longhands ? applicableStyles.some((key) => longhands.has(key)) : false;
 }
 

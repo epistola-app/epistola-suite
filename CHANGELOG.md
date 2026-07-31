@@ -14,8 +14,8 @@
   instead of always falling back to 4pt, and image and QR-code dimensions render with that scale
   on the editor canvas as well as in PDF previews.
 - **[user]** fix(editor): **Margin and padding settings are no longer duplicated.** Template blocks
-  and theme presets now show one four-side Margin control and one four-side Padding control while
-  retaining the existing per-side values in stored documents.
+  and theme presets now show one four-side Margin control, one four-side Padding control, and one
+  four-side Border control while retaining the existing per-side values in stored documents.
 - **[user]** fix(editor): **New datatables pass template validation.** The column-count prompt now
   remains an editor-only creation detail instead of leaking `_columnCount` into the saved
   datatable properties.

@@ -19,12 +19,21 @@ describe('editor style registry', () => {
     expect(keys).toEqual(['padding', 'margin']);
   });
 
+  it('replaces border longhands with the compound border control', () => {
+    const borders = defaultStyleRegistry.groups.find((group) => group.label === 'Borders');
+    const keys = borders?.properties.map((property) => property.key);
+
+    expect(keys).toEqual(['border', 'borderRadius']);
+  });
+
   it('does not mutate the contract registry', () => {
     createEditorStyleRegistry(styleRegistry);
     const spacing = styleRegistry.groups.find((group) => group.label === 'Spacing');
 
     expect(spacing?.properties.map((property) => property.key)).toContain('marginTop');
     expect(spacing?.properties.map((property) => property.key)).toContain('paddingLeft');
+    const borders = styleRegistry.groups.find((group) => group.label === 'Borders');
+    expect(borders?.properties.map((property) => property.key)).toContain('borderTop');
   });
 
   it('keeps a longhand when a future registry omits its compound control', () => {
@@ -45,6 +54,7 @@ describe('editor style registry', () => {
   it('maps component longhand allowlists to their compound control', () => {
     expect(isEditorStyleApplicable('margin', ['marginBottom'])).toBe(true);
     expect(isEditorStyleApplicable('padding', ['paddingLeft'])).toBe(true);
+    expect(isEditorStyleApplicable('border', ['borderBottom'])).toBe(true);
     expect(isEditorStyleApplicable('margin', ['paddingTop'])).toBe(false);
   });
 });
