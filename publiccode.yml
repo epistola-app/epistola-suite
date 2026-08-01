@@ -1,0 +1,106 @@
+# Standard: https://yml.publiccode.tools/
+# Declares 0.5 rather than the newer 0.7: the reference validator
+# (italia/publiccode-parser-go, used by the EU OSS Catalogue and
+# developer.overheid.nl crawlers) supports up to 0.5. Nothing here uses a
+# 0.7-only key, so bump this once the parser catches up.
+publiccodeYmlVersion: "0.5"
+
+name: Epistola Suite
+url: "https://github.com/epistola-app/epistola-suite"
+softwareVersion: "1.0.0"
+releaseDate: "2026-07-31"
+logo: modules/design-system/epistola-logo.svg
+
+platforms:
+  - web
+  - linux
+
+categories:
+  - document-management
+  - content-management
+
+developmentStatus: stable
+
+softwareType: standalone/web
+
+description:
+  en:
+    shortDescription: >-
+      Multi-tenant platform for generating PDF documents from visually designed
+      templates bound to structured data.
+
+    longDescription: |
+      Epistola Suite turns document generation into a product capability instead
+      of a code change. Business users design templates in a block-based visual
+      editor — text, tables, columns, conditionals, loops, page headers and
+      footers — and bind them to a data contract expressed as a JSON Schema
+      (Draft 2020-12). Developers then call a versioned REST API with real data
+      to produce PDFs, single or in batch.
+
+      Every template carries variants (per language, brand or audience) and
+      immutable numbered versions with a `DRAFT` → `PUBLISHED` → `ARCHIVED`
+      lifecycle, so a document layout can be changed, reviewed and promoted
+      without touching the systems that consume it. Environments (for example
+      `staging` and `production`) each activate their own version of a variant,
+      making rollout and rollback a configuration action rather than a
+      redeployment.
+
+      Rendering is server-side and direct-to-PDF, with no intermediate HTML
+      step, and the same rendering path feeds both the editor's live preview and
+      the produced document, so what the designer sees is what the API returns.
+      Data binding uses JSONata by default, with sandboxed JavaScript and a
+      simple dot-path evaluator as alternatives.
+
+      The suite is multi-tenant by construction — all data is isolated per
+      tenant — and runs equally as a shared SaaS deployment or a single-tenant
+      self-hosted installation on Kubernetes via the bundled Helm chart.
+
+    features:
+      - Block-based visual template editor with live PDF preview
+      - JSON Schema (Draft 2020-12) data contracts with named data examples
+      - Template variants per language, brand or audience
+      - Immutable template versions with draft/published/archived lifecycle
+      - Environment-scoped version activation for staged rollout and rollback
+      - Reusable themes with a document, template and block style cascade
+      - Expression binding via JSONata, sandboxed JavaScript or dot paths
+      - Server-side PDF rendering, including PDF/A output
+      - Per-document locale resolution for dates, numbers and formatting
+      - Bundled and custom fonts with deterministic resolution
+      - Versioned REST API with RFC 9457 problem details
+      - Batch document generation with job tracking
+      - Catalog import and export for moving resources between installations
+      - Multi-tenancy with per-tenant isolation, roles and API keys
+      - Model Context Protocol server exposing read-only discovery to AI assistants
+      - OpenID Connect single sign-on
+
+    documentation: "https://github.com/epistola-app/epistola-suite/tree/main/docs"
+
+legal:
+  license: AGPL-3.0-only
+  mainCopyrightOwner: Epistola Nederland B.V.
+
+maintenance:
+  type: internal
+  contacts:
+    - name: Sander de Groot
+      affiliation: Epistola Nederland B.V.
+
+localisation:
+  # The application UI is English-only; document *output* is locale-aware
+  # per render (see docs/locale.md), which is a product feature rather than
+  # UI localisation.
+  localisationReady: false
+  availableLanguages:
+    - en
+
+dependsOn:
+  open:
+    - name: PostgreSQL
+      versionMin: "18"
+      optional: false
+    - name: Keycloak
+      optional: true
+
+organisation:
+  name: Epistola Nederland B.V.
+  uri: "https://github.com/epistola-app"
