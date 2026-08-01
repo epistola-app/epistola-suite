@@ -59,8 +59,3 @@ plan.md
 # workspace as a Docker volume). Never commit store blobs; reuse lint skips
 # gitignored files.
 .pnpm-store/
-
-### Claude Code ###
-# Per-developer local settings (permission allowlists); the shared
-# .claude/settings.json stays tracked.
-.claude/settings.local.json

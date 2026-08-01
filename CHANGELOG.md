@@ -18,10 +18,9 @@
   exact version in lockstep with the backend. SBOM generation now runs as
   `pnpm --filter @epistola/editor run sbom`, since pnpm 11 added a built-in `sbom` command that
   otherwise shadows the package script, and the dead root `clean` script was removed for the same
-  reason. `.pnpm-store/` is now gitignored (pnpm falls back to an in-project store when the
+  reason. `.pnpm-store/` is now gitignored: pnpm falls back to an in-project store when the
   repository and the global store live on different filesystems, and those blobs must never be
-  committed or license-scanned), as is `.claude/settings.local.json` (per-developer settings,
-  previously ignored only by one developer's global git configuration).
+  committed or license-scanned.
 
 ## [1.0.0] - 2026-07-31
 
