@@ -6,6 +6,22 @@
 
 - **[dev]** build(deps): **Upgrade Epistola contract dependencies to 1.0.0.** Backend artifacts,
   the editor catalog package, and the pnpm lockfile now consume the GA contract release together.
+- **[dev]** build(toolchain): **TypeScript 7 and pnpm 11.** The editor now type-checks with
+  TypeScript 7.0.2, the Go port, cutting a cold `tsc -b` from roughly 3.9 s to 0.45 s with
+  identical diagnostics and no source or `tsconfig` changes. pnpm moves to 11.18.0 in both
+  `.mise.toml` and `packageManager`, which replaces `onlyBuiltDependencies` with the `allowBuilds`
+  map and adds a seven-day `minimumReleaseAge` supply-chain gate; Renovate carries a matching
+  `minimumReleaseAge` so it never proposes a version pnpm would decline to install. TypeScript
+  updates now ride the non-automerged `toolchain` Renovate group alongside Kotlin, Gradle, Java,
+  Node, and pnpm, so every TypeScript release arrives as a reviewable PR instead of an automerge. First-party
+  `@epistola.app/**` contract packages are exempt from the gate because they are pinned to an
+  exact version in lockstep with the backend. SBOM generation now runs as
+  `pnpm --filter @epistola/editor run sbom`, since pnpm 11 added a built-in `sbom` command that
+  otherwise shadows the package script, and the dead root `clean` script was removed for the same
+  reason. `.pnpm-store/` is now gitignored (pnpm falls back to an in-project store when the
+  repository and the global store live on different filesystems, and those blobs must never be
+  committed or license-scanned), as is `.claude/settings.local.json` (per-developer settings,
+  previously ignored only by one developer's global git configuration).
 
 ## [1.0.0] - 2026-07-31
 

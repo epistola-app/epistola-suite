@@ -52,3 +52,15 @@ dist/
 ### Test Coverage ###
 coverage/
 plan.md
+
+### pnpm ###
+# pnpm falls back to an in-project store when the repo and the global store
+# live on different filesystems (also happens under act, which mounts the
+# workspace as a Docker volume). Never commit store blobs; reuse lint skips
+# gitignored files.
+.pnpm-store/
+
+### Claude Code ###
+# Per-developer local settings (permission allowlists); the shared
+# .claude/settings.json stays tracked.
+.claude/settings.local.json

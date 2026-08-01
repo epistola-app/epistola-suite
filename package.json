@@ -4,8 +4,8 @@
   "description": "Epistola Suite - Document generation platform",
   "scripts": {
     "build": "pnpm -r build",
+    "typecheck": "tsc -b modules/editor",
     "dev": "pnpm -r --parallel dev",
-    "clean": "pnpm -r clean",
     "test": "pnpm -r test",
     "test:watch": "pnpm -r test:watch",
     "test:coverage": "pnpm -r test:coverage",
@@ -30,10 +30,10 @@
     "oxlint-tsgolint": "^0.24.0",
     "stylelint": "^17.11.0",
     "stylelint-config-standard": "^40.0.0",
-    "typescript": "^6.0.0"
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "pnpm@10.33.2"
+  "packageManager": "pnpm@11.18.0"
 }

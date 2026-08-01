@@ -153,7 +153,7 @@ Batch generation is tracked as jobs with status progression: `PENDING` → `PROC
 | Dynamic interactions | HTMX                                 |
 | Editor               | Lit 3 (web components) + ProseMirror |
 | Drag & drop          | Atlassian Pragmatic DnD              |
-| Editor build         | Vite 7, TypeScript 5.9               |
+| Editor build         | Vite 8, TypeScript 7                 |
 | Editor tests         | Vitest                               |
 
 The frontend uses **server-side rendering** with Thymeleaf and HTMX for most pages (navigation, forms, lists). Only components that require rich client-side interactivity — primarily the template editor — are built as embedded JavaScript modules. This avoids the complexity of a full SPA while keeping the interactive editor experience.

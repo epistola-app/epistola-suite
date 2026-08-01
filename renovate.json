@@ -5,7 +5,8 @@
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
   "ignorePaths": ["**/test/resources/**"],
-  "constraints": { "pnpm": "10.28.2", "node": "24.18.0" },
+  "constraints": { "pnpm": "11.18.0", "node": "24.18.0" },
+  "minimumReleaseAge": "7 days",
   "lockFileMaintenance": {
     "enabled": true,
     "groupName": "all non-major dependencies",
@@ -34,7 +35,7 @@
       "automerge": false
     },
     {
-      "description": "Group toolchain updates (Kotlin, Gradle, Kover, Java, Node, pnpm) into a separate PR",
+      "description": "Group toolchain updates (Kotlin, Gradle, Kover, Java, Node, pnpm, TypeScript) into a separate PR",
       "matchPackageNames": [
         "org.jetbrains.kotlin*",
         "org.jetbrains.kotlinx.kover*",
@@ -42,7 +43,8 @@
         "gradle",
         "java",
         "node",
-        "pnpm"
+        "pnpm",
+        "typescript"
       ],
       "groupName": "toolchain",
       "groupSlug": "toolchain",
