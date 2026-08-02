@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** build(graphify): **Scoped AI impact graphs stay local and current.** A pinned,
+  production-only Graphify workflow now builds and lazily refreshes separate backend, editor,
+  support, and migration graphs so assistants can find candidate impact without committing large
+  generated artifacts or treating the repository-wide graph as an architecture score.
 - **[dev]** fix(ci): **The scheduled security scan generates the editor SBOM with pnpm 11.**
   Invoke the editor's `sbom` package script explicitly so pnpm does not route the command to its
   built-in SBOM generator and fail because no format was supplied.
