@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(licenses): **REUSE metadata matches the tracked source tree.** Removed the stale
+  Apache-2.0 annotation and license text after deleting the last Apache-licensed source file, so
+  the license compliance check no longer fails on an unused license.
 - **[dev]** chore(repo): **Machine-readable software metadata added.** A `publiccode.yml`
   (publiccode.yml standard v0.5) at the repository root describes the suite for public-sector
   OSS catalogue crawlers: identity, licensing, features, maintenance contacts, and dependencies.

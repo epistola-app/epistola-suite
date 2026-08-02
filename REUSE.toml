@@ -92,12 +92,6 @@ SPDX-FileCopyrightText = "Epistola Nederland B.V."
 SPDX-License-Identifier = "AGPL-3.0-only"
 
 [[annotations]]
-path = "org/springframework/boot/flyway/autoconfigure/FlywayProperties.java"
-precedence = "override"
-SPDX-FileCopyrightText = "2012-present the original author or authors"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
 path = "modules/epistola-core/src/main/resources/epistola/fonts/inter/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2020 The Inter Project Authors (https://github.com/rsms/inter)"
