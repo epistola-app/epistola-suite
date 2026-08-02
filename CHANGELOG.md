@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** feat(a11y): **Skip to main content link.** Keyboard and screen-reader users can now jump straight to the page content instead of tabbing through the navigation on every page (WCAG 2.4.1 Bypass Blocks).
 - **[dev]** build(deps): **Upgrade Epistola contract dependencies to 1.0.0.** Backend artifacts,
   the editor catalog package, and the pnpm lockfile now consume the GA contract release together.
 

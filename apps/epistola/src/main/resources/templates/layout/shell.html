@@ -10,13 +10,26 @@
 </head>
 <body class="app-shell" hx-boost="true">
 
+    <!--/* Must stay the FIRST focusable element in the body — its whole purpose
+           is to be what Tab reaches before the nav.
+           Plain href, not th:href: a bare fragment needs no context path, and
+           htmx leaves it alone precisely because it starts with '#' (isLocalLink
+           in htmx.js:2379-2383 excludes those), so hx-boost="true" on the body
+           does not turn this into an AJAX page swap. */-->
+    <a class="app-skip-link" href="#main-content">Skip to main content</a>
+
     <th:block th:replace="~{layout/nav :: nav}" />
 
     <th:block th:if="${siteBanner != null}">
         <th:block th:replace="~{fragments/site-banner :: banner}" />
     </th:block>
 
-    <main id="main-content" class="main-content">
+    <!--/* tabindex="-1" makes <main> a valid focus target for the skip link.
+           Without it the browser scrolls but leaves focus on the link, so the
+           next Tab returns to the nav — the exact trap the link exists to skip.
+           It stays out of the tab order (-1, not 0), and the design system's
+           `:focus:not(:focus-visible)` rule suppresses a ring here. */-->
+    <main id="main-content" class="main-content" tabindex="-1">
         <div th:replace="~{__${contentView}__ :: content}">Page content</div>
     </main>
 

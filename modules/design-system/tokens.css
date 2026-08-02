@@ -227,6 +227,8 @@
   --ep-z-overlay: 40;
   --ep-z-modal: 50;
   --ep-z-tooltip: 60;
+  /* Above everything: a skip link that renders behind other chrome is useless. */
+  --ep-z-skip-link: 70;
 
   /* ── Sidebar width (editor-specific, kept here for central reference) ── */
   --ep-sidebar-width: 18rem;

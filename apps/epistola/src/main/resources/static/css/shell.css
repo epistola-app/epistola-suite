@@ -25,6 +25,40 @@
     padding-bottom: 0;
   }
 
+  /* ── Skip to content ─────────────────────────────────────────────────────
+     First focusable element on every page (WCAG 2.4.1 Bypass Blocks).
+
+     Parked off-screen with a transform rather than `display:none` or
+     `visibility:hidden` — both of those remove an element from the tab order
+     entirely, which would make the link unreachable by the only input method
+     that needs it. It stays laid out and focusable; it just isn't on screen.
+
+     Deliberately no transition: motion in this app is not yet gated on
+     prefers-reduced-motion, so adding animation here would widen that gap. */
+
+  .app-skip-link {
+    position: fixed;
+    top: var(--ep-space-2);
+    left: var(--ep-space-2);
+    z-index: var(--ep-z-skip-link);
+    padding: var(--ep-space-2) var(--ep-space-4);
+    background: var(--ep-background);
+    color: var(--ep-foreground);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-md);
+    box-shadow: var(--ep-shadow-md);
+    text-decoration: none;
+    /* Clears its own height plus the top offset, so no sliver peeks out. */
+    transform: translateY(calc(-100% - var(--ep-space-4)));
+  }
+
+  /* :focus, not :focus-visible — the link is off-screen and unclickable, so
+     keyboard focus is the only way to reach it; there is no mouse-focus case
+     to exclude. */
+  .app-skip-link:focus {
+    transform: translateY(0);
+  }
+
   /* ── Site banner ─────────────────────────────────────────────────────────
      Installation-wide notice strip below the nav. Full-bleed (no rounded box),
      reusing the design-system .alert severity colours. */
