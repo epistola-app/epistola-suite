@@ -68,7 +68,6 @@
 }
 
 .changelog-loading,
-.changelog-error,
 .changelog-empty {
   color: var(--ep-muted-foreground);
 }

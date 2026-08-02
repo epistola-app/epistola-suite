@@ -36,19 +36,6 @@
   transform: translateX(-2px);
 }
 
-/* ── Section headers ──────────────────────────────────────────────────── */
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--ep-space-4);
-}
-
-.section-header h2 {
-  margin: 0;
-}
-
 /* ── Tabs ────────────────────────────────────────────────────────────── */
 
 .tab-nav {
@@ -78,14 +65,6 @@
 .tab-nav-item.active {
   color: var(--ep-foreground);
   border-bottom-color: var(--ep-primary);
-}
-
-.tab-panel {
-  display: none;
-}
-
-.tab-panel.active {
-  display: block;
 }
 
 /* (Expand/collapse toggle and variant detail row styles removed — deployment matrix replaces inline versions) */

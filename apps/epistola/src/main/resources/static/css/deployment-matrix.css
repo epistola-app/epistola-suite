@@ -29,18 +29,3 @@
   text-align: center;
   min-width: 8rem;
 }
-
-.deployment-cell-active {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ep-space-1);
-}
-
-.deployment-cell-actions {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.deployment-matrix-cell:hover .deployment-cell-actions {
-  opacity: 1;
-}

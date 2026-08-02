@@ -11,45 +11,6 @@
  * All colors, radii, shadows, transitions must use --ep-* tokens.
  */
 
-/* ── Info box ─────────────────────────────────────────────────────────── */
-
-.info-box {
-  background-color: var(--ep-terracotta-50);
-  border: 1px solid var(--ep-terracotta-200);
-  border-radius: var(--ep-radius-lg);
-  padding: var(--ep-space-4) var(--ep-space-6);
-}
-
-.info-box h3 {
-  margin-top: 0;
-  margin-bottom: var(--ep-space-2);
-  color: var(--ep-terracotta-800);
-}
-
-.info-box ul {
-  margin: var(--ep-space-2) 0 0 0;
-  padding-left: var(--ep-space-6);
-}
-
-.info-box li {
-  margin-bottom: var(--ep-space-2);
-  font-size: var(--ep-text-sm);
-  color: var(--ep-terracotta-800);
-}
-
-/* ── Preset items (theme detail) ──────────────────────────────────────── */
-
-.preset-item {
-  background: var(--ep-muted);
-  padding: var(--ep-space-4);
-  border-radius: var(--ep-radius-md);
-}
-
-.preset-styles {
-  font-family: var(--ep-font-mono);
-  font-size: var(--ep-text-sm);
-}
-
 /* ── Quick links grid ────────────────────────────────────────────────── */
 
 .quick-links {

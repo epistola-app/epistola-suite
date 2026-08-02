@@ -118,28 +118,6 @@
     align-items: center;
   }
 
-  .app-nav-link {
-    padding: var(--ep-space-1-5) var(--ep-space-3);
-    font-size: var(--ep-text-sm);
-    font-weight: 500;
-    color: var(--ep-muted-foreground);
-    text-decoration: none;
-    border-radius: var(--ep-radius-md);
-    transition: var(--ep-transition-colors);
-    white-space: nowrap;
-  }
-
-  .app-nav-link:hover {
-    color: var(--ep-foreground);
-    background: var(--ep-muted);
-    text-decoration: none;
-  }
-
-  .app-nav-link.active {
-    color: var(--ep-foreground);
-    background: var(--ep-muted);
-  }
-
   /* ── Dropdown navigation ─────────────────────────────────────────── */
 
   .app-nav-dropdown {
@@ -288,14 +266,6 @@
   .app-nav-link-sm:hover {
     color: var(--ep-foreground);
     text-decoration: underline;
-  }
-
-  .app-nav-logout {
-    background: none;
-    border: none;
-    padding: 0;
-    font: inherit;
-    cursor: pointer;
   }
 
   /* Hamburger menu (hidden on desktop) */

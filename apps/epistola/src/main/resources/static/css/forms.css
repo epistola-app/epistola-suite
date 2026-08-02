@@ -104,24 +104,6 @@
   margin-top: var(--ep-space-6);
 }
 
-/* ── Inline form (for create variant) ─────────────────────────────────── */
-
-.inline-form {
-  display: flex;
-  gap: var(--ep-space-2);
-  align-items: flex-end;
-  margin-top: var(--ep-space-4);
-}
-
-.inline-form .form-group {
-  margin-bottom: 0;
-  flex: 1;
-}
-
-.inline-form input {
-  width: 100%;
-}
-
 /* ── Form row (multi-column layout) ───────────────────────────────────── */
 
 .form-row {

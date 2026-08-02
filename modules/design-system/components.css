@@ -131,15 +131,6 @@
     --btn-hover-border-color: var(--ep-red-700);
   }
 
-  .ep-btn-warning {
-    --btn-bg: var(--ep-amber-500);
-    --btn-color: var(--ep-white);
-    --btn-border-color: var(--ep-amber-500);
-    --btn-hover-bg: var(--ep-amber-600);
-    --btn-hover-color: var(--ep-white);
-    --btn-hover-border-color: var(--ep-amber-600);
-  }
-
   .ep-btn-sm {
     --btn-height: var(--ep-h-8);
     --btn-padding-x: var(--ep-space-2-5);
@@ -349,8 +340,7 @@
   }
 
   .ep-input-sm,
-  .ep-select-sm,
-  .ep-textarea-sm {
+  .ep-select-sm {
     --ep-form-control-height: var(--ep-h-8);
     --ep-form-control-padding-y: var(--ep-space-1-5);
     --ep-form-control-padding-x: var(--ep-space-2-5);
@@ -404,10 +394,6 @@
 
   .ep-gap-4 {
     gap: var(--ep-space-4);
-  }
-
-  .ep-gap-6 {
-    gap: var(--ep-space-6);
   }
 
   .ep-checkbox {
@@ -928,16 +914,6 @@
   }
 
   /* ── Panel patterns (existing, updated) ──────────────────────────────── */
-
-  .panel-heading {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--ep-muted-foreground);
-    text-transform: uppercase;
-    letter-spacing: var(--ep-tracking-wider);
-    padding: var(--ep-space-1) var(--ep-space-2);
-    margin-bottom: var(--ep-space-1);
-  }
 
   .panel-empty {
     padding: var(--ep-space-3);

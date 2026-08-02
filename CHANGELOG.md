@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(css): **Remove dead rules.** Twenty-three classes across ten stylesheets had no markup referencing them anywhere, mostly rules left behind when pages moved to shared components. The generation history dashboard now uses the existing `.text-truncate` utility instead of repeating it as an inline style.
 - **[dev]** build(deps): **Upgrade Epistola contract dependencies to 1.0.0.** Backend artifacts,
   the editor catalog package, and the pnpm lockfile now consume the GA contract release together.
 

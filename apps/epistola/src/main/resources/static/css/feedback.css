@@ -45,8 +45,3 @@
   gap: var(--ep-space-3);
   margin-top: var(--ep-space-6);
 }
-
-.pagination-info {
-  font-size: var(--ep-text-sm);
-  color: var(--ep-muted-foreground);
-}
