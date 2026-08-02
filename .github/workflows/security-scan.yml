@@ -29,7 +29,7 @@ jobs:
         run: gradle :apps:epistola:generateSbom
 
       - name: Generate frontend SBOM
-        run: pnpm --filter @epistola/editor sbom
+        run: pnpm --filter @epistola/editor run sbom
 
       - name: Scan backend SBOM for vulnerabilities
         id: trivy-backend

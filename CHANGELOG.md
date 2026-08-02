@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(ci): **The scheduled security scan generates the editor SBOM with pnpm 11.**
+  Invoke the editor's `sbom` package script explicitly so pnpm does not route the command to its
+  built-in SBOM generator and fail because no format was supplied.
 - **[dev]** fix(licenses): **REUSE metadata matches the tracked source tree.** Removed the stale
   Apache-2.0 annotation and license text after deleting the last Apache-licensed source file, so
   the license compliance check no longer fails on an unused license.
