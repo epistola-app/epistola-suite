@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** chore(repo): **Machine-readable software metadata added.** A `publiccode.yml`
+  (publiccode.yml standard v0.5) at the repository root describes the suite for public-sector
+  OSS catalogue crawlers: identity, licensing, features, maintenance contacts, and dependencies.
 - **[dev]** build(deps): **Upgrade Epistola contract dependencies to 1.0.0.** Backend artifacts,
   the editor catalog package, and the pnpm lockfile now consume the GA contract release together.
 - **[dev]** build(toolchain): **TypeScript 7 and pnpm 11.** The editor now type-checks with
