@@ -11,6 +11,7 @@ target/
 .gradle/
 .kotlin/
 coverage/
+graphify-out/
 **/build/
 **/dist/
 **/out/

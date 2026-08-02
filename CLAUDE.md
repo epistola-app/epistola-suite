@@ -469,6 +469,28 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
 | `docs/github.md`                 | GitHub workflows documentation |
 | `.github/labels.yml`             | Issue label definitions        |
 
+## Graphify impact analysis
+
+Use the repository's local Graphify workflow for impact analysis when a change
+is unfamiliar, cross-cutting, or asks about callers, dependencies, or a path
+between symbols. Do not run it for every small edit.
+
+1. Select the narrowest scope: `backend`, `editor`, `support`, or `migrations`.
+2. Start with `scripts/graphify.sh affected`, `explain`, or `path`; use `query`
+   only when the structural command does not fit.
+3. Treat every result as a candidate set. Verify the relevant definitions and
+   references in source, check Gradle module dependencies for cross-module
+   claims, and search tests separately because production graphs exclude tests.
+4. Fall back to `rg` and direct source reading when a symbol is ambiguous, a
+   path is noisy, or the graph cannot represent the relationship.
+
+The graphs are structural reference maps, not coupling metrics. A large
+connected component is expected in an application and does not by itself mean
+the modules are poorly decoupled. Generated corpora, graphs, reports, and HTML
+visualizations stay under the ignored `graphify-out/` directory. See
+[`docs/graphify.md`](docs/graphify.md) for commands, scope boundaries, refresh
+behavior, and limitations.
+
 ## When Making Changes
 
 1. **Read existing code first** - Understand patterns before modifying

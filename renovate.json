@@ -12,6 +12,19 @@
     "groupName": "all non-major dependencies",
     "groupSlug": "non-major"
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update pinned Graphify tooling used by scripts/graphify.sh",
+      "managerFilePatterns": ["/^scripts\\/graphify\\.sh$/"],
+      "matchStrings": [
+        "UV_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\" # renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)",
+        "GRAPHIFY_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\" # renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)"
+      ],
+      "datasourceTemplate": "{{datasource}}",
+      "versioningTemplate": "loose"
+    }
+  ],
   "packageRules": [
     {
       "description": "Default group for major updates (specific groups below override)",
@@ -26,6 +39,13 @@
       "groupSlug": "non-major",
       "automerge": true,
       "automergeType": "pr"
+    },
+    {
+      "description": "Keep Graphify upgrades reviewable because extraction semantics can change",
+      "matchPackageNames": ["graphifyy", "astral-sh/uv"],
+      "groupName": "graphify tooling",
+      "groupSlug": "graphify-tooling",
+      "automerge": false
     },
     {
       "description": "Group epistola-contract packages (server SDK + editor model) together",
