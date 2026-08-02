@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- fix(a11y,ui): **Catalog filter is shared and labelled.** The dropdown was copy-pasted across seven list pages and no copy had an accessible name, so screen readers announced only its current value. It now lives in a single `fragments/catalog-filter`, where the label was added once.
 - **[dev]** build(deps): **Upgrade Epistola contract dependencies to 1.0.0.** Backend artifacts,
   the editor catalog package, and the pnpm lockfile now consume the GA contract release together.
 

@@ -14,16 +14,9 @@
             actions=~{::template-list-actions}
         )}"></div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
-                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">
-                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
-                <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
-                        th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
-            </select>
-        </div>
+        <div th:replace="~{fragments/catalog-filter :: catalog-filter(
+            baseUrl=@{/tenants/{tenantId}/templates(tenantId=${tenantId})}
+        )}"></div>
 
         <div id="template-table">
             <th:block th:fragment="table">

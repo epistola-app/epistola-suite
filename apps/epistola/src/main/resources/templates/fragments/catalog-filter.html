@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--
+    Reusable catalog filter dropdown for list pages.
+
+    Usage:
+    <div th:replace="~{fragments/catalog-filter :: catalog-filter(
+        baseUrl=@{/tenants/{tenantId}/themes(tenantId=${tenantId})}
+    )}"></div>
+
+    Parameters:
+    - baseUrl: The list page URL; the filter navigates to it with ?catalog=<id>
+
+    Required model attributes (read from the page context, NOT passed in — every
+    list page that shows this filter already exposes both under these exact
+    names, so passing them would be seven identical arguments carrying no
+    information):
+    - catalogs: The catalogs to offer. NOTE: when this is missing or empty the
+      whole block renders nothing at all — a handler that forgets it loses the
+      filter silently rather than failing loudly.
+    - selectedCatalog: The selected catalog id ('' selects "All catalogs")
+-->
+<body>
+
+<!--/* The `th:if` lives on the fragment root, so a call site is a single
+       th:replace with no guard of its own. Navigation is delegated: the
+       change listener in static/js/behaviors.js matches on the
+       [data-catalog-filter-base] attribute (never the id), reads the base
+       URL from it and rewrites the `catalog` query param. */-->
+<div th:fragment="catalog-filter(baseUrl)"
+     th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+    <!--/* No visible <label>: the option text ("All catalogs" / a catalog name)
+           already reads as the control's purpose sighted. aria-label carries that
+           purpose to screen readers, matching the filter selects in
+           fragments/changelog.html. Deliberately generic rather than per-page
+           ("Filter themes by catalog") so the fragment keeps its single argument. */-->
+    <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
+            aria-label="Filter by catalog"
+            th:attr="data-catalog-filter-base=${baseUrl}">
+        <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+        <option th:each="cat : ${catalogs}"
+                th:value="${cat.id}"
+                th:text="${cat.name}"
+                th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
+    </select>
+</div>
+
+</body>
+</html>
