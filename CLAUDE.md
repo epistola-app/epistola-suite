@@ -267,7 +267,9 @@ pnpm install && pnpm build && ./gradlew build
 
 # Generate SBOM (Software Bill of Materials)
 ./gradlew :apps:epistola:generateSbom
-pnpm --filter @epistola/editor sbom
+# `run` is required: pnpm 11 has a built-in `sbom` command that would otherwise
+# shadow the editor package's own sbom script.
+pnpm --filter @epistola/editor run sbom
 ```
 
 ### Contract Dependency Alignment

@@ -2,8 +2,23 @@ packages:
   - modules/*
   - scripts/gh-mcp
   - .husky
-onlyBuiltDependencies:
-  - core-js
-  - esbuild
-  - keytar
-  - protobufjs
+allowBuilds:
+  core-js: true
+  esbuild: true
+  keytar: true
+  protobufjs: true
+  # Transitive dep of @scalar/api-reference. Its build script was already
+  # silently skipped under pnpm 10's onlyBuiltDependencies; false preserves that
+  # proven behaviour. pnpm 11's strictDepBuilds turns the silent skip into an
+  # error, so the choice now has to be explicit.
+  vue-demi: false
+# Supply-chain gate: refuse package versions published less than 7 days ago.
+# Renovate is configured with a matching minimumReleaseAge so it does not
+# propose versions pnpm would decline to install.
+minimumReleaseAge: 10080
+# First-party contract artifacts are exempt. They are published on our own
+# release schedule and must be pinned to an exact version in lockstep with the
+# backend (see checkContractVersionAlignment), so there is no older version to
+# fall back to and no third-party supply-chain risk for the gate to mitigate.
+minimumReleaseAgeExclude:
+  - "@epistola.app/**"

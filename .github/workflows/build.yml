@@ -105,7 +105,7 @@ jobs:
       - name: Generate SBOMs
         run: |
           gradle :apps:epistola:generateSbom
-          pnpm --filter @epistola/editor sbom
+          pnpm --filter @epistola/editor run sbom
 
       - name: Generate third-party license notices
         run: |
@@ -570,7 +570,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           gradle :apps:epistola:generateSbom -PreleaseVersion=$VERSION
-          pnpm --filter @epistola/editor sbom
+          pnpm --filter @epistola/editor run sbom
 
       - name: Generate third-party license notices
         if: ${{ matrix.enabled && matrix.variant == 'JVM' }}
