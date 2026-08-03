@@ -40,6 +40,7 @@ const ICONS = [
   'chevron-down',
   'chevron-right',
   'chevron-up',
+  'circle-arrow-up',
   'clock',
   'columns-2',
   'copy',
@@ -118,7 +119,19 @@ function generateSprite() {
     }
   }
 
-  const sprite = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none">\n${symbols.join('\n')}\n</svg>\n`;
+  // Assembled at runtime so license scanners don't read these literals as
+  // this file's own SPDX declaration.
+  const spdxTag = (name, value) => `  SPDX-${name}: ${value}`;
+  const header = [
+    '<!--',
+    spdxTag('FileCopyrightText', 'Epistola Nederland B.V.'),
+    '',
+    spdxTag('License-Identifier', 'AGPL-3.0-only'),
+    '-->',
+    '',
+    '',
+  ].join('\n');
+  const sprite = `${header}<svg xmlns="http://www.w3.org/2000/svg" style="display:none">\n${symbols.join('\n')}\n</svg>\n`;
 
   const outPath = join(ROOT, 'icons.svg');
   writeFileSync(outPath, sprite, 'utf-8');
