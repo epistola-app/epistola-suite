@@ -157,6 +157,45 @@
     container.appendChild(clone);
   });
 
+  // ── Font files: canonicalize the browser-provided MIME type ─────────────────
+  // Chromium may source File.type from an OS-managed extension registry. Replace
+  // selected TTF/OTF files with equivalent File objects carrying the canonical
+  // IANA type so multipart submissions are stable across corporate endpoints.
+  // The server still validates the filename and bytes independently.
+  function canonicalFontMimeType(filename) {
+    const lowerName = filename.toLowerCase();
+    if (lowerName.endsWith('.ttf')) return 'font/ttf';
+    if (lowerName.endsWith('.otf')) return 'font/otf';
+    return null;
+  }
+
+  document.addEventListener('change', function (event) {
+    const input = event.target.closest && event.target.closest('input[data-font-file]');
+    if (!input || !input.files || input.files.length === 0) return;
+    if (typeof File !== 'function' || typeof DataTransfer !== 'function') return;
+
+    const normalizedFiles = Array.from(input.files).map(function (file) {
+      const canonicalType = canonicalFontMimeType(file.name);
+      if (!canonicalType || file.type === canonicalType) return file;
+      return new File([file], file.name, {
+        type: canonicalType,
+        lastModified: file.lastModified,
+      });
+    });
+    if (
+      normalizedFiles.every(function (file, index) {
+        return file === input.files[index];
+      })
+    )
+      return;
+
+    const transfer = new DataTransfer();
+    normalizedFiles.forEach(function (file) {
+      transfer.items.add(file);
+    });
+    input.files = transfer.files;
+  });
+
   // ── File input: show the selected file name ─────────────────────────────────
   // Usage: <input type="file" data-file-preview="preview-container-id">
   // The container holds a #file-name span; it is shown with the chosen file's

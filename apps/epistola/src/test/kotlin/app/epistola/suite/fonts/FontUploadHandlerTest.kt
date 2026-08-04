@@ -14,6 +14,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.core.io.ByteArrayResource
@@ -49,11 +51,11 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
         .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
         .contentAsByteArray
 
-    private fun facePart(name: String) = HttpEntity(
+    private fun facePart(name: String, contentType: String = "font/ttf") = HttpEntity(
         object : ByteArrayResource(ttf()) {
             override fun getFilename(): String = name
         },
-        HttpHeaders().apply { contentType = MediaType.parseMediaType("font/ttf") },
+        HttpHeaders().apply { this.contentType = MediaType.parseMediaType(contentType) },
     )
 
     /** A face whose content type is font/ttf but whose bytes are not a valid font. */
@@ -111,6 +113,72 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             )
             val slugs = objectMapper.readTree(search.body).values().map { it["slug"].asString() }
             assertThat(slugs).contains("acme-sans")
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["application/octet-stream", "application/x-octect-stream"])
+    fun `valid TTF upload ignores advisory browser media type`(browserMediaType: String) = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Font Browser MIME ${browserMediaType.hashCode()}") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("slug", "corporate-sans")
+            payload.add("name", "Corporate Sans")
+            payload.add("kind", "sans")
+            payload.add("catalog", "default")
+            payload.add("file", facePart("corporate-sans.ttf", browserMediaType))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(payload, multipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+
+            val assets = withMediator { ListAssets(tenantId = testTenant.id).query() }
+            val asset = assets.single { it.name == "corporate-sans.ttf" }
+            assertThat(asset.name).isEqualTo("corporate-sans.ttf")
+            assertThat(asset.mediaType.mimeType).isEqualTo("font/ttf")
+        }
+    }
+
+    @Test
+    fun `PDF upload is rejected with a font-specific error`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given { testTenant = tenant("Font PDF Reject Tenant") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add("slug", "not-a-font")
+            payload.add("name", "Not A Font")
+            payload.add("kind", "sans")
+            payload.add("catalog", "default")
+            payload.add("file", facePart("not-a-font.pdf", "application/pdf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(payload, multipartHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.body).contains("Use a .ttf or .otf file")
+            assertThat(response.body).doesNotContain("Supported:")
+            assertThat(withMediator { ListAssets(tenantId = testTenant.id).query() })
+                .noneMatch { it.name == "not-a-font.pdf" }
         }
     }
 

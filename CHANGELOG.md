@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[user]** fix(fonts): **Font uploads work with incorrect browser MIME labels.** Font files
+  selected on corporate-managed devices are sent and stored as canonical `font/ttf` or
+  `font/otf`, while server-side byte validation accepts valid fonts even when the browser reports
+  a generic or misspelled binary type. Font-upload errors now mention only TTF and OTF rather than
+  the global asset allowlist.
 - **[user]** fix(catalog): **Catalogs with JSON Schema properties named `type` export normally.**
   Upgrade the backend and editor contract dependencies to 1.0.1, which prevents semantic
   fingerprinting from coercing nested schema objects to strings during catalog export.
