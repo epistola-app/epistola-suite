@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalog): **Catalogs with JSON Schema properties named `type` export normally.**
+  Upgrade the backend and editor contract dependencies to 1.0.1, which prevents semantic
+  fingerprinting from coercing nested schema objects to strings during catalog export.
 - **[dev]** fix(ci): **The scheduled security scan generates the editor SBOM with pnpm 11.**
   Invoke the editor's `sbom` package script explicitly so pnpm does not route the command to its
   built-in SBOM generator and fail because no format was supplied.
