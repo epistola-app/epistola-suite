@@ -244,7 +244,7 @@ class FontHandler(
             for (row in rows) {
                 try {
                     assetTypeCatalog.require(row.mediaType.mimeType)
-                } catch (e: UnsupportedAssetTypeException) {
+                } catch (_: UnsupportedAssetTypeException) {
                     faceError = "Unsupported font format. Use a .ttf or .otf file."
                     break
                 }
