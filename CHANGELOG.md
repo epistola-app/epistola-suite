@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalog): **Catalogs with JSON Schema properties named `type` export normally.**
+  Upgrade the backend and editor contract dependencies to 1.0.1, which prevents semantic
+  fingerprinting from coercing nested schema objects to strings during catalog export.
 - **[user]** fix(catalogs): **Catalog update entry no longer clips out of reach.** In the
   catalogs list, long version strings could push the "update available" button past the
   fixed-width Version column's clipping edge, leaving the update unreachable except through

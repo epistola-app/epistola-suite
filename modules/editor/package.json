@@ -19,7 +19,7 @@
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^2.0.0",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^2.0.0",
-    "@epistola.app/epistola-catalog": "1.0.0",
+    "@epistola.app/epistola-catalog": "1.0.1",
     "@epistola/design-system": "workspace:*",
     "@floating-ui/dom": "^1.7.5",
     "driver.js": "^1.8.0",
