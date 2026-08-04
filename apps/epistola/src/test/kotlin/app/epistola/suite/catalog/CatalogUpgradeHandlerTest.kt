@@ -190,7 +190,55 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Up to date")
-            assertThat(response.body).doesNotContain("Update →")
+            assertThat(response.body).doesNotContain("catalog-upgrade-review")
+        }
+    }
+
+    @Test
+    fun `upgrade-check renders the review button when an update is available`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Upgrade Check Available")
+            // Register + install from a file-based source, then advance the
+            // source's release so the next check reports UPDATE_AVAILABLE.
+            val dir = Files.createTempDirectory("update-catalog")
+            val manifest = dir.resolve("catalog.json")
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"moving-source","name":"Moving Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
+            )
+            withMediator {
+                RegisterCatalog(testTenant.id, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
+                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("moving-source")).execute()
+            }
+            Files.writeString(
+                manifest,
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"moving-source","name":"Moving Source"},""" +
+                    """"publisher":{"name":"P"},"release":{"version":"1.1.0"},"resources":[]}""",
+            )
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/moving-source/upgrade-check",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The review entry: icon + target version inside the button, full
+            // context in the tooltip, gentle pulse via ep-breathe.
+            assertThat(body).contains("catalog-upgrade-review")
+            assertThat(body).contains("upgrade-preview")
+            assertThat(body).contains("Update available — v1.1.0")
+            assertThat(body).contains("icon-circle-arrow-up")
+            assertThat(body).contains("ep-breathe")
         }
     }
 

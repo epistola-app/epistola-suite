@@ -34,12 +34,12 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 21%" /><!-- Name -->
+                <col style="width: 18%" /><!-- Name -->
                 <col style="width: 15%" /><!-- ID -->
                 <col style="width: 13%" /><!-- Type -->
-                <col style="width: 12%" /><!-- Version -->
+                <col style="width: 20%" /><!-- Version -->
                 <col style="width: 17%" /><!-- Last Modified -->
-                <col style="width: 22%" /><!-- Actions -->
+                <col style="width: 17%" /><!-- Actions -->
             </colgroup>
             <thead>
                 <tr>
@@ -271,9 +271,10 @@
          "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which
          returns this fragment swapped into that cell. `state` ∈ UNCHECKED |
          UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED |
-         NOT_IN_SYNC | SOURCE_AHEAD. Up to date is green; an available update is
-         grey + the new version, which is the clickable entry to the Review
-         dialog. NOT_IN_SYNC (amber) means the source publishes an older catalog
+         NOT_IN_SYNC | SOURCE_AHEAD. Up to date is green; an available update
+         shows the installed version in the accent color next to a gently
+         pulsing (ep-breathe) icon+version button — the clickable entry to the
+         Review dialog. NOT_IN_SYNC (amber) means the source publishes an older catalog
          schema version than this Epistola and must republish it. CSP-safe
          (hx-get only). -->
     <th:block th:fragment="version-status" th:switch="${state}">
@@ -287,13 +288,17 @@
               th:text="${installedVersion != null ? 'v' + installedVersion : 'Up to date'}">v1.0.0</span>
 
         <span th:case="'UPDATE_AVAILABLE'"
-              style="display: inline-flex; align-items: baseline; gap: var(--ep-space-1);">
-            <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
-            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="font-weight: 500;"
+              style="display: inline-flex; align-items: center; gap: var(--ep-space-2);">
+            <span style="color: var(--ep-primary-strong); font-weight: 500;"
+                  th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-breathe" style="font-weight: 500;"
                     th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
-                    th:text="${availableVersion != null ? '→ v' + availableVersion : '→ update available'}">→ v1.1.0</button>
+                    data-testid="catalog-upgrade-review">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='circle-arrow-up', class='ep-icon ep-icon-sm')}" />
+                <span th:text="${availableVersion != null ? 'v' + availableVersion : 'update available'}">v1.1.0</span>
+            </button>
         </span>
 
         <span th:case="'ZIP_MANAGED'" class="text-muted"
