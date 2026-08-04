@@ -7,6 +7,15 @@
 - **[user]** fix(catalog): **Catalogs with JSON Schema properties named `type` export normally.**
   Upgrade the backend and editor contract dependencies to 1.0.1, which prevents semantic
   fingerprinting from coercing nested schema objects to strings during catalog export.
+- **[user]** fix(catalogs): **Catalog update entry no longer clips out of reach.** In the
+  catalogs list, long version strings could push the "update available" button past the
+  fixed-width Version column's clipping edge, leaving the update unreachable except through
+  developer tools. The Version column is wider (at the expense of the Name and Actions
+  columns), and the update entry is redesigned: the installed version renders in the accent
+  color next to a gently pulsing button carrying an upgrade icon and the target version.
+- **[dev]** feat(design-system): **Motion utilities get a home.** New `animations.css` in the
+  design system holds shared motion utilities, starting with `ep-breathe` (slow opacity pulse
+  for passive attention). All utilities in it are disabled under `prefers-reduced-motion`.
 - **[dev]** fix(ci): **The scheduled security scan generates the editor SBOM with pnpm 11.**
   Invoke the editor's `sbom` package script explicitly so pnpm does not route the command to its
   built-in SBOM generator and fail because no format was supplied.

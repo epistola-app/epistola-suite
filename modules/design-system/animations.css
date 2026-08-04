@@ -1,0 +1,38 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
+ * Epistola Design System — Animations
+ *
+ * Shared motion utilities. Keep this file small and deliberate: every
+ * animation must stay subtle, and every utility added here must be disabled
+ * under `prefers-reduced-motion` (extend the guard at the bottom).
+ */
+
+@layer components {
+  /* Slow opacity pulse for passive attention — content that should draw the
+     eye without moving (e.g. the catalog list's update-available button).
+     Stays well above legibility floor at its dimmest. */
+  .ep-breathe {
+    animation: ep-breathe 1.2s ease-in-out infinite;
+  }
+
+  @keyframes ep-breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ep-breathe {
+      animation: none;
+    }
+  }
+}
