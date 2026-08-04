@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-04
+
+This patch release makes font uploads more resilient on managed devices, restores reliable catalog
+exports for JSON Schemas with `type` properties, and keeps catalog upgrades reachable when version
+labels are long.
+
 - **[user]** fix(fonts): **Font uploads work with incorrect browser MIME labels.** Font files
   selected on corporate-managed devices are sent and stored as canonical `font/ttf` or
   `font/otf`, while server-side byte validation accepts valid fonts even when the browser reports
