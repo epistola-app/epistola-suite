@@ -201,7 +201,7 @@ class FontHandler(
             val weight: Int,
             val italic: Boolean,
             val filename: String,
-            val contentType: String?,
+            val mediaType: AssetMediaType,
             val bytes: ByteArray,
         )
         val rows = mutableListOf<FaceRow>()
@@ -219,12 +219,18 @@ class FontHandler(
             }
             val italic = italics.getOrNull(idx)?.equals("true", ignoreCase = true) == true
             val bytes = part.inputStream.use { it.readAllBytes() }
+            val filename = part.submittedFileName
+                ?: "${slug?.value ?: "font"}-$weight${if (italic) "i" else ""}"
+            val mediaType = fontMediaType(filename)
+            if (mediaType == null) {
+                faceError = "Unsupported font file: $filename. Use a .ttf or .otf file."
+                break
+            }
             rows += FaceRow(
                 weight = weight,
                 italic = italic,
-                filename = part.submittedFileName
-                    ?: "${slug?.value ?: "font"}-$weight${if (italic) "i" else ""}",
-                contentType = part.contentType,
+                filename = filename,
+                mediaType = mediaType,
                 bytes = bytes,
             )
         }
@@ -236,19 +242,10 @@ class FontHandler(
         }
         if (faceError == null) {
             for (row in rows) {
-                val contentType = row.contentType
-                if (contentType == null) {
-                    faceError = "No content type on uploaded face"
-                    break
-                }
-                val mediaType = try {
-                    assetTypeCatalog.require(contentType)
+                try {
+                    assetTypeCatalog.require(row.mediaType.mimeType)
                 } catch (e: UnsupportedAssetTypeException) {
-                    faceError = e.message ?: "Unsupported font format"
-                    break
-                }
-                if (mediaType !in FONT_MEDIA_TYPES) {
-                    faceError = "Unsupported font format: $contentType. Use TTF or OTF."
+                    faceError = "Unsupported font format. Use a .ttf or .otf file."
                     break
                 }
                 val reason = app.epistola.generation.pdf.FontBytesValidator.rejectionReason(row.bytes)
@@ -268,7 +265,7 @@ class FontHandler(
                     val asset = UploadAsset(
                         tenantId = tenantKey,
                         name = row.filename,
-                        mediaType = assetTypeCatalog.require(row.contentType!!),
+                        mediaType = row.mediaType,
                         content = row.bytes,
                         width = null,
                         height = null,
@@ -480,10 +477,19 @@ class FontHandler(
     }
 
     private companion object {
-        /** Asset media types accepted for font-face binaries. */
-        val FONT_MEDIA_TYPES = setOf(
-            AssetMediaType.TTF,
-            AssetMediaType.OTF,
-        )
+        /**
+         * Browser-supplied multipart media types are advisory: Chromium can
+         * source them from the host OS and enterprise-managed registries. Use
+         * the accepted filename extension for the canonical stored media type;
+         * [app.epistola.generation.pdf.FontBytesValidator] remains the content
+         * authority before anything is persisted.
+         */
+        fun fontMediaType(filename: String): AssetMediaType? = when (
+            filename.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        ) {
+            "ttf" -> AssetMediaType.TTF
+            "otf" -> AssetMediaType.OTF
+            else -> null
+        }
     }
 }

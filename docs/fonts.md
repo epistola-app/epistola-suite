@@ -31,6 +31,14 @@ is rejected at upload. Allowed media types live in the seeded `asset_types`
 lookup table (not an enum/CHECK); `AssetMediaType` is an open value class with
 an `AssetMediaCategory` (IMAGE/FONT) split.
 
+The multipart media type reported by a browser is advisory. Some browsers
+derive it from OS-managed extension mappings, which can be missing or changed
+on corporate devices. The web UI therefore canonicalizes `.ttf` and `.otf`
+selections to `font/ttf` and `font/otf` before submission, and the server derives
+the stored type from the accepted extension. Actual acceptance still depends on
+`FontBytesValidator`: changing a filename or request header cannot make invalid,
+corrupt, WOFF/WOFF2, or embedding-restricted bytes pass validation.
+
 ## The `fontFamily` style value
 
 `fontFamily` in document styles / block-style presets / inline node styles is
