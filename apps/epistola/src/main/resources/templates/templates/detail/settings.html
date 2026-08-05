@@ -9,10 +9,15 @@
                 <dl class="description-list">
                     <dt>Name</dt>
                     <dd>
+                        <!-- Committing the field (blur / Enter via keydown JS) fires the native
+                             change event, which hx-patches the new name and swaps this input
+                             back; the page <h1> is synced by an OOB fragment in the response. -->
                         <input type="text" id="template-name-input" class="ep-input" maxlength="100"
-                               th:value="${template.name}" th:disabled="${!editable}"
+                               th:fragment="name-input"
+                               name="name" th:value="${template.name}" th:disabled="${!editable}"
                                data-template-name-input
-                               th:attr="data-original-name=${template.name},data-patch-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                               th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/name(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                               hx-trigger="change" hx-swap="outerHTML"
                                style="max-width: 300px;">
                     </dd>
                     <dt>ID</dt>
@@ -91,9 +96,16 @@
             </div>
         </div>
 
-        <!-- Behaviors (name edit, theme select, PDF/A toggle, delete confirm)
-             live in /js/pages/template-detail.js (ADR 0010: no inline scripts). -->
+        <!-- Behaviors (name edit keyboard UX, delete confirm) live in
+             /js/pages/template-detail.js (ADR 0010: no inline scripts). -->
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+
+    <!-- OOB companion for the rename response: syncs the page header's title
+         text (the first span inside [data-testid=page-title]; the second is
+         the optional stage badge, which must survive the rename). -->
+    <span th:fragment="page-title-oob"
+          hx-swap-oob="textContent:[data-testid='page-title'] > span:first-child"
+          th:text="${template.name}"></span>
 </body>
 </html>
