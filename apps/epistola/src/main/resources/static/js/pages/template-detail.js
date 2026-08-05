@@ -10,9 +10,9 @@
 // later by HTMX (the shell uses hx-boost, so page navigation is a body swap).
 //
 // Hooks (declared by templates/templates/** and fragments/version-comparison.html):
-//   [data-template-name-input]   settings: inline-editable template name; PATCHes
-//                                data-patch-url, Enter commits, Escape reverts to
-//                                data-original-name
+//   [data-template-name-input]   settings: keyboard UX for the rename input (Enter
+//                                commits, Escape reverts); the rename itself is a
+//                                native hx-patch in the template
 //   [data-pdfa-toggle]           settings: PDF/A checkbox; PATCHes data-patch-url,
 //                                reverts the checkbox on failure
 //   [data-confirm-submit]        handled by /js/behaviors.js (confirm-then-submit)
@@ -37,36 +37,18 @@
     return typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
   }
 
-  // ── Settings: inline-editable template name ───────────────────────────────
-  document.addEventListener('focusout', function (event) {
-    const input = event.target.closest && event.target.closest('[data-template-name-input]');
-    if (!input) return;
-    const newName = input.value.trim();
-    if (!newName || newName === input.dataset.originalName) {
-      input.value = input.dataset.originalName;
-      return;
-    }
-    fetch(input.dataset.patchUrl, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-      body: JSON.stringify({ name: newName }),
-    }).then(function (r) {
-      if (r.ok) {
-        input.dataset.originalName = newName;
-        const h1 = document.querySelector('.page-header h1');
-        if (h1) h1.textContent = newName;
-      } else {
-        input.value = input.dataset.originalName;
-      }
-    });
-  });
-
+  // ── Settings: template name keyboard UX ───────────────────────────────────
+  // The rename itself is a native HTMX control (hx-patch on change, see
+  // templates/detail/settings.html). This only adds keyboard affordances:
+  // Enter commits (blur fires the change event), Escape reverts to the
+  // server-rendered value (defaultValue = the value attribute) — reverted
+  // means no change event, so no request.
   document.addEventListener('keydown', function (event) {
     const input = event.target.closest && event.target.closest('[data-template-name-input]');
     if (!input) return;
     if (event.key === 'Enter') input.blur();
     if (event.key === 'Escape') {
-      input.value = input.dataset.originalName;
+      input.value = input.defaultValue;
       input.blur();
     }
   });
