@@ -114,6 +114,27 @@ class DataPreservationMigrationIT {
                 INSERT INTO feature_toggles (tenant_key, feature_key, enabled)
                 VALUES ('$TENANT', 'stencil-parameters', true),
                        ('$TENANT', 'support-feedback', false);
+
+                -- audit_log is partitioned, while this migration-only fixture does not start the
+                -- partition scheduler. Create the historical partition explicitly so the scoped
+                -- consumer-housekeeping cleanup can be exercised against pre-existing rows.
+                CREATE TABLE audit_log_202606
+                    PARTITION OF audit_log
+                    FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+                INSERT INTO audit_log
+                    (id, occurred_at, tenant_key, action, operation, outcome, instance_id)
+                VALUES
+                    ('00000000-0000-0000-0000-000000000101', '2026-06-23 10:00:00+00', '$TENANT',
+                     'TouchConsumerNode', 'WRITE', 'SUCCESS', 'migration-test'),
+                    ('00000000-0000-0000-0000-000000000102', '2026-06-23 10:00:01+00', '$TENANT',
+                     'TouchConsumerNode', 'WRITE', 'FAILURE', 'migration-test'),
+                    ('00000000-0000-0000-0000-000000000103', '2026-06-23 10:00:02+00', '$TENANT',
+                     'AcknowledgeGenerationResults', 'WRITE', 'SUCCESS', 'migration-test'),
+                    ('00000000-0000-0000-0000-000000000104', '2026-06-23 10:00:03+00', '$TENANT',
+                     'AcknowledgeGenerationResults', 'WRITE', 'FAILURE', 'migration-test'),
+                    ('00000000-0000-0000-0000-000000000105', '2026-06-23 10:00:04+00', '$TENANT',
+                     'CreateTheme', 'WRITE', 'SUCCESS', 'migration-test');
                 """.trimIndent(),
             )
         }
@@ -161,6 +182,18 @@ class DataPreservationMigrationIT {
                 .isEqualTo("0")
             assertThat(one("SELECT count(*) FROM feature_toggles WHERE tenant_key = '$TENANT' AND feature_key = 'support-feedback'"))
                 .describedAs("unrelated feature-toggle rows must survive the scoped delete")
+                .isEqualTo("1")
+
+            // Consumer transport housekeeping is intentionally removed from historical audit
+            // partitions, including failures; unrelated audit history remains untouched.
+            assertThat(one("SELECT count(*) FROM audit_log WHERE action = 'TouchConsumerNode'"))
+                .describedAs("historical consumer heartbeat audit rows must be deleted")
+                .isEqualTo("0")
+            assertThat(one("SELECT count(*) FROM audit_log WHERE action = 'AcknowledgeGenerationResults'"))
+                .describedAs("historical consumer acknowledgement audit rows must be deleted")
+                .isEqualTo("0")
+            assertThat(one("SELECT count(*) FROM audit_log WHERE action = 'CreateTheme'"))
+                .describedAs("unrelated audit rows must survive the scoped delete")
                 .isEqualTo("1")
         }
     }
