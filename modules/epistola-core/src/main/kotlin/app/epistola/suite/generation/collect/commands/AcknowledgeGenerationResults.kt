@@ -4,6 +4,7 @@
 
 package app.epistola.suite.generation.collect.commands
 
+import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -23,6 +24,9 @@ import org.springframework.stereotype.Component
  *
  * Empty [partitions] or non-positive [acknowledgeUpTo] are no-ops — useful so
  * the collect endpoint can call this unconditionally without branching.
+ *
+ * This is high-frequency transport housekeeping rather than a user/domain action,
+ * so it is excluded from the audit trail via [NotAudited].
  */
 data class AcknowledgeGenerationResults(
     val tenantId: TenantKey,
@@ -30,7 +34,8 @@ data class AcknowledgeGenerationResults(
     val partitions: Set<Int>,
     val acknowledgeUpTo: Long,
 ) : Command<Unit>,
-    RequiresPermission {
+    RequiresPermission,
+    NotAudited {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 }

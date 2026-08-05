@@ -103,7 +103,10 @@ Commands and queries have **opposite default polarity**:
   (the high-frequency opt-out). `NotAudited` covers `RecordApiKeyUsage` /
   `RecordUserLogin` (housekeeping) and `GenerateDocument` /
   `GenerateDocumentBatch` (high-volume, and already tracked in full by the
-  generation subsystem — they would bury the trail without adding much).
+  generation subsystem — they would bury the trail without adding much). It also
+  covers the consumer protocol's `TouchConsumerNode` heartbeat/assignment update
+  and `AcknowledgeGenerationResults` cursor advance: both are high-frequency
+  transport housekeeping, not operator actions.
 - **Queries → opt-in** (`operation = READ`). Queries are recorded _only_ when
   marked `AuditedRead`, because they are overwhelmingly high-volume internal
   reads (nav, feature toggles, list pages — several per page render). Only the
@@ -115,6 +118,11 @@ The mediator notifies cross-cutting listeners for _every_ command and query; the
 audit listener applies the polarity above. So adding a read to the trail is a
 one-line `AuditedRead` marker on the query, and removing command noise is a
 one-line `NotAudited` marker.
+
+Rows created for the consumer housekeeping commands before they were classified
+as `NotAudited` are removed by a scoped forward data migration. Genuine audit
+events remain append-only and forever-retained; this cleanup corrects historical
+scope rather than introducing general retention or deletion.
 
 If a genuinely useful **system** action should be audited despite being
 `SystemInternal`, introduce a small opt-in marker (e.g. `AlwaysAudited`) and
