@@ -13,8 +13,6 @@
 //   [data-template-name-input]   settings: keyboard UX for the rename input (Enter
 //                                commits, Escape reverts); the rename itself is a
 //                                native hx-patch in the template
-//   [data-pdfa-toggle]           settings: PDF/A checkbox; PATCHes data-patch-url,
-//                                reverts the checkbox on failure
 //   [data-confirm-submit]        handled by /js/behaviors.js (confirm-then-submit)
 //   [data-add-attr-button]       variant dialogs: reveals the [data-attr-row] chosen in
 //                                the sibling [data-add-attr-select] within the closest
@@ -53,22 +51,8 @@
     }
   });
 
-  // The settings theme select is a native HTMX control (hx-patch on the
-  // <select> in templates/detail/settings.html) — no JS here.
-
-  // ── Settings: PDF/A output toggle ──────────────────────────────────────────
-  document.addEventListener('change', function (event) {
-    const toggle = event.target.closest && event.target.closest('[data-pdfa-toggle]');
-    if (!toggle) return;
-    const enabled = toggle.checked;
-    fetch(toggle.dataset.patchUrl, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-      body: JSON.stringify({ pdfaEnabled: enabled }),
-    }).then(function (r) {
-      if (!r.ok) toggle.checked = !enabled;
-    });
-  });
+  // The settings theme select and PDF/A toggle are native HTMX controls
+  // (hx-patch in templates/detail/settings.html) — no JS here.
 
   // ── Variant dialogs: "Add attribute" picker ────────────────────────────────
   // Works for both the create dialog (rendered with the page) and the edit

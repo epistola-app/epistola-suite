@@ -224,6 +224,88 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `PATCH pdfa with the checkbox param enables PDF A and returns the checked fragment`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Pdfa On")
+                val tplKey = TestIdHelpers.nextTemplateId()
+                CreateDocumentTemplate(
+                    id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
+                    name = "Invoice",
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            patchForm(
+                "/tenants/${tenant.id}/templates/default/$templateKey/pdfa",
+                "pdfaEnabled" to "on",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            assertThat(body).contains("id=\"output-settings-section\"")
+            assertThat(body).containsPattern("<input[^>]*id=\"pdfa-toggle\"[^>]*checked")
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(app.epistola.suite.common.ids.TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.pdfaEnabled).isTrue()
+        }
+    }
+
+    @Test
+    fun `PATCH pdfa without the checkbox param disables PDF A`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Pdfa Off")
+                val tplKey = TestIdHelpers.nextTemplateId()
+                val templateId = TemplateId(tplKey, CatalogId.default(TenantId(t.id)))
+                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                app.epistola.suite.templates.commands.UpdateDocumentTemplate(
+                    id = templateId,
+                    pdfaEnabled = true,
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            // An unchecked checkbox submits no param at all — the request body is empty.
+            patchForm("/tenants/${tenant.id}/templates/default/$templateKey/pdfa")
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).doesNotContainPattern("<input[^>]*id=\"pdfa-toggle\"[^>]*checked")
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(app.epistola.suite.common.ids.TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.pdfaEnabled).isFalse()
+        }
+    }
+
     /** Form-encoded PATCH with the HX-Request header — what an hx-patch control sends. */
     private fun patchForm(url: String, vararg params: Pair<String, String>): ResponseEntity<String> {
         val headers = HttpHeaders()
