@@ -34,19 +34,14 @@ The refactoring focuses on:
 
 ### Task 2: Extract Inline JavaScript from Thymeleaf Templates
 
-**Status:** Pending
+**Status:** Superseded
 
-**Files:**
-
-- `apps/epistola/src/main/resources/templates/themes/detail.html` (lines 128-275)
-- `apps/epistola/src/main/resources/templates/templates/detail.html` (lines 172-288)
-
-**Changes:**
-
-- Create `/static/js/modules/api-client.js` - shared fetch logic with CSRF handling
-- Create `/static/js/modules/theme-editor.js` - theme CRUD operations
-- Create `/static/js/modules/template-detail.js` - template configuration
-- Update templates to import modules
+Inline scripts were removed wholesale by the strict CSP work (ADR 0010) — behavior lives in
+delegated `data-*` hooks in static JS, not per-template modules. The `api-client.js` fetch
+wrapper this task proposed was created but never imported, and has been deleted: simple
+server interactions belong to native HTMX attributes backed by fragment endpoints (see the
+#477 hand-rolled-HTMX conversion), not a shared fetch layer. Only genuinely client-side
+call sites (editor callbacks, blob previews) use `fetch()` directly.
 
 ---
 
@@ -81,18 +76,12 @@ The refactoring focuses on:
 
 ### Task 5: Standardize API Communication Patterns
 
-**Status:** Pending
+**Status:** Superseded
 
-**Files:**
-
-- `templates/editor.html`
-- `templates/detail.html`
-- `themes/detail.html`
-
-**Changes:**
-
-- Standardize content-type to `application/json`
-- Extract shared fetch error handling to `api-client.js`
+Communication standardized the other way around: simple UI interactions became native HTMX
+requests against fragment endpoints (form-encoded, see the #477 hand-rolled-HTMX
+conversion), and `api-client.js` was deleted rather than adopted. Shared fetch error
+handling for the remaining legitimate `fetch()` sites is part of the #477 notice work.
 
 ---
 
@@ -172,6 +161,7 @@ After all tasks complete:
 
 ### New JavaScript Modules
 
-- `apps/epistola/src/main/resources/static/js/modules/api-client.js`
 - `apps/epistola/src/main/resources/static/js/modules/theme-editor.js`
 - `apps/epistola/src/main/resources/static/js/modules/template-detail.js`
+- (`api-client.js` was proposed here too — created, never imported, later deleted; see
+  Tasks 2 and 5)
