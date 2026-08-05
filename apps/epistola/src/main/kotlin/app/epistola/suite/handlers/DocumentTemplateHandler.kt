@@ -531,8 +531,10 @@ class DocumentTemplateHandler(
     }
 
     /**
-     * Updates the template's default theme via HTMX.
-     * Returns the theme-section fragment for seamless UI updates.
+     * Updates the template's default theme from the settings tab's theme
+     * `<select>` (a native HTMX `hx-patch`, so the request is form-encoded and
+     * carries the select's own `themeId` value: `"catalogKey/themeKey"`, or
+     * blank for "no theme"). Returns the theme-section fragment.
      */
     fun updateTheme(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -540,14 +542,13 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val body = request.body(String::class.java)
-        val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
-
+        val selected = request.params().getFirst("themeId").orEmpty()
         val updated = UpdateDocumentTemplate(
             id = templateId,
-            themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
-            themeCatalogKey = updateRequest.themeCatalogKey?.let { app.epistola.suite.common.ids.CatalogKey.of(it) },
-            clearThemeId = updateRequest.clearThemeId,
+            themeId = selected.substringAfter('/', "").ifBlank { null }?.let { ThemeKey.of(it) },
+            themeCatalogKey = selected.substringBefore('/', "").ifBlank { null }
+                ?.let { app.epistola.suite.common.ids.CatalogKey.of(it) },
+            clearThemeId = selected.isBlank(),
         ).execute() ?: return ServerResponse.notFound().build()
 
         // Load available themes for the fragment
