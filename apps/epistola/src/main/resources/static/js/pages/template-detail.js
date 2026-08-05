@@ -13,8 +13,6 @@
 //   [data-template-name-input]   settings: inline-editable template name; PATCHes
 //                                data-patch-url, Enter commits, Escape reverts to
 //                                data-original-name
-//   [data-theme-select]          settings: default-theme select; PATCHes data-patch-url
-//                                and swaps the returned fragment into #theme-section
 //   [data-pdfa-toggle]           settings: PDF/A checkbox; PATCHes data-patch-url,
 //                                reverts the checkbox on failure
 //   [data-confirm-submit]        handled by /js/behaviors.js (confirm-then-submit)
@@ -73,39 +71,8 @@
     }
   });
 
-  // ── Settings: default theme select ─────────────────────────────────────────
-  document.addEventListener('change', function (event) {
-    const select = event.target.closest && event.target.closest('[data-theme-select]');
-    if (!select) return;
-    const raw = select.value;
-    const clearThemeId = !raw;
-    let themeId = null;
-    let themeCatalogKey = null;
-    if (raw) {
-      const slash = raw.indexOf('/');
-      themeCatalogKey = raw.substring(0, slash);
-      themeId = raw.substring(slash + 1);
-    }
-    fetch(select.dataset.patchUrl, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-XSRF-TOKEN': csrfToken(),
-        'HX-Request': 'true',
-      },
-      body: JSON.stringify({
-        themeId: themeId,
-        themeCatalogKey: themeCatalogKey,
-        clearThemeId: clearThemeId,
-      }),
-    })
-      .then(function (r) {
-        return r.text();
-      })
-      .then(function (html) {
-        document.getElementById('theme-section').outerHTML = html;
-      });
-  });
+  // The settings theme select is a native HTMX control (hx-patch on the
+  // <select> in templates/detail/settings.html) — no JS here.
 
   // ── Settings: PDF/A output toggle ──────────────────────────────────────────
   document.addEventListener('change', function (event) {
