@@ -16,6 +16,13 @@
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while
   preserving genuine audit history.
+- **[dev]** refactor(ui): **Hand-rolled HTMX converted to native HTMX.** The template
+  settings controls (theme select, rename, PDF/A toggle) and the version-comparison dialog
+  trigger reimplemented HTMX by hand — `fetch()` calls with manual swaps, a hand-set
+  `HX-Request` header, and programmatic `htmx.ajax()`. They are now plain `hx-*` attributes
+  backed by focused fragment endpoints (`PATCH …/name`, `…/pdfa`, form-encoded `…/theme`);
+  the JSON `PATCH /tenants/…/templates/{catalogId}/{id}` UI route and the orphaned
+  `static/js/modules/api-client.js` are removed; no user-visible behavior change.
 
 ## [1.0.1] - 2026-08-04
 
