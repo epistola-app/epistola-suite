@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[user]** fix(audit): **Consumer polling no longer floods the audit log.** Consumer node
+  heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
+  from auditing, and a scoped migration removes their existing success and failure entries while
+  preserving genuine audit history.
+
 ## [1.0.1] - 2026-08-04
 
 This patch release makes font uploads more resilient on managed devices, restores reliable catalog

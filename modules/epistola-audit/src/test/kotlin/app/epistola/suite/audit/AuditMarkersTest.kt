@@ -9,6 +9,8 @@ import app.epistola.suite.common.NotAudited
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.commands.GenerateDocumentBatch
 import app.epistola.suite.documents.queries.GetDocument
+import app.epistola.suite.generation.collect.commands.AcknowledgeGenerationResults
+import app.epistola.suite.generation.collect.commands.TouchConsumerNode
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test
  * Fast guard for the deliberate audit-scope decisions, so a marker can't be
  * dropped silently:
  * - high-volume document generation is excluded from the audit log ([NotAudited]);
+ * - consumer heartbeat/cursor housekeeping is excluded from the audit log;
  * - retrieving a stored document is an audited data-access read ([AuditedRead]).
  */
 class AuditMarkersTest {
@@ -24,6 +27,12 @@ class AuditMarkersTest {
     fun `high-volume generation commands are excluded from audit`() {
         assertThat(NotAudited::class.java.isAssignableFrom(GenerateDocument::class.java)).isTrue()
         assertThat(NotAudited::class.java.isAssignableFrom(GenerateDocumentBatch::class.java)).isTrue()
+    }
+
+    @Test
+    fun `consumer transport housekeeping commands are excluded from audit`() {
+        assertThat(NotAudited::class.java.isAssignableFrom(TouchConsumerNode::class.java)).isTrue()
+        assertThat(NotAudited::class.java.isAssignableFrom(AcknowledgeGenerationResults::class.java)).isTrue()
     }
 
     @Test

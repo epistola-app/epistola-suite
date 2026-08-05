@@ -4,6 +4,7 @@
 
 package app.epistola.suite.generation.collect.commands
 
+import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.generation.collect.domain.Partition
 import app.epistola.suite.generation.collect.domain.PartitionAssignment
@@ -33,13 +34,17 @@ import org.springframework.stereotype.Component
  *     storing the freshly-computed partition list and `last_seen_at = now`.
  *  5. Returns this node's [PartitionAssignment] (the `mine` field of the wire
  *     `_meta` line).
+ *
+ * This is high-frequency transport housekeeping rather than a user/domain action,
+ * so it is excluded from the audit trail via [NotAudited].
  */
 data class TouchConsumerNode(
     val tenantId: TenantKey,
     val consumerId: String,
     val nodeId: String,
 ) : Command<PartitionAssignment>,
-    RequiresPermission {
+    RequiresPermission,
+    NotAudited {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 }
