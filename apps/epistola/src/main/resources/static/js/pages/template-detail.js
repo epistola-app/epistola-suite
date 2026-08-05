@@ -19,8 +19,6 @@
 //                                [data-attr-rows] scope
 //   select[data-filter-key]      variants tab (#variant-filter-bar): attribute filter
 //                                for the variant card grid
-//   [data-compare-url]           opens the version-comparison dialog and HTMX-loads the
-//                                comparison UI from that URL
 //   [data-compare-versions]      version-comparison dialog: runs the side-by-side compare
 //   [data-show-dialog-on-swap]   after an HTMX swap targets this element, its
 //                                enclosing <dialog> is opened — handled app-wide
@@ -128,15 +126,9 @@
     comparisonBlobUrls = [];
   }
 
-  document.addEventListener('click', function (event) {
-    const button = event.target.closest && event.target.closest('[data-compare-url]');
-    if (!button) return;
-    const container = document.getElementById('version-comparison-dialog-body');
-    const dialog = document.getElementById('version-comparison-dialog');
-    if (!container || !dialog) return;
-    htmx.ajax('GET', button.dataset.compareUrl, { target: container, swap: 'innerHTML' });
-    dialog.showModal();
-  });
+  // Opening the comparison dialog is plain HTMX (hx-get on the trigger) plus
+  // the app-wide data-open-dialog hook in behaviors.js — no JS here. Running
+  // the compare stays below: the previews are PDF blobs, which HTMX can't swap.
 
   document.addEventListener('click', function (event) {
     const button = event.target.closest && event.target.closest('[data-compare-versions]');

@@ -3,18 +3,19 @@
 <body>
     <!--
         Reusable version comparison dialog.
-        Include once per page, then trigger with a button that has data-compare-url.
-        The behavior (open dialog, load comparison UI, run the compare) is a
+        Include once per page; the trigger is plain HTMX plus the app-wide
+        data-open-dialog hook (behaviors.js). Running the compare itself stays a
         delegated hook in /js/pages/template-detail.js (ADR 0010: no inline scripts).
 
         Usage:
             1. Include the dialog:
                 <th:block th:replace="~{fragments/version-comparison :: version-comparison}" />
 
-            2. Add a compare button (builds URL from tenantId, templateId, variantId;
-               clicking any [data-compare-url] element opens the dialog):
+            2. Add a compare button (hx-get loads the comparison UI, the hook opens the dialog):
                 <button type="button"
-                        th:data-compare-url="@{/tenants/{t}/templates/{id}/variants/{v}/compare(t=${tenantId},id=${templateId},v=${variantId})}">
+                        th:hx-get="@{/tenants/{t}/templates/{id}/variants/{v}/compare(t=${tenantId},id=${templateId},v=${variantId})}"
+                        hx-target="#version-comparison-dialog-body" hx-swap="innerHTML"
+                        data-open-dialog="version-comparison-dialog">
                     Compare
                 </button>
     -->
