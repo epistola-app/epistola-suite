@@ -531,6 +531,44 @@ class DocumentTemplateHandler(
     }
 
     /**
+     * Renames the template from the settings tab's name input (a native HTMX
+     * `hx-patch` on change, form-encoded `name` param). Returns the name-input
+     * fragment plus an OOB fragment syncing the page header title. A blank or
+     * unchanged name is a no-op that re-renders the current name — the same
+     * silent revert the field has always done.
+     */
+    fun updateName(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val requested = request.params().getFirst("name")?.trim().orEmpty()
+        val current = GetDocumentTemplate(id = templateId).query()
+            ?: return ServerResponse.notFound().build()
+        val template = if (requested.isBlank() || requested == current.name) {
+            current
+        } else {
+            UpdateDocumentTemplate(id = templateId, name = requested).execute()
+                ?: return ServerResponse.notFound().build()
+        }
+
+        val model: app.epistola.suite.htmx.ModelBuilder.() -> Unit = {
+            "tenantId" to tenantId.key
+            "catalogId" to catalogId.value
+            "template" to template
+            "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
+        }
+        return request.htmx {
+            fragment("templates/detail/settings", "name-input", model)
+            oob("templates/detail/settings", "page-title-oob", model)
+            onNonHtmx {
+                redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
+            }
+        }
+    }
+
+    /**
      * Updates the template's default theme from the settings tab's theme
      * `<select>` (a native HTMX `hx-patch`, so the request is form-encoded and
      * carries the select's own `themeId` value: `"catalogKey/themeKey"`, or
