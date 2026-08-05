@@ -139,6 +139,91 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `PATCH name renames and returns the input fragment plus the OOB title sync`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Name")
+                val tplKey = TestIdHelpers.nextTemplateId()
+                CreateDocumentTemplate(
+                    id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
+                    name = "Invoice",
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            patchForm(
+                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "name" to "Quarterly Invoice",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The main swap: the input re-rendered with the new name.
+            assertThat(body).contains("data-template-name-input")
+            assertThat(body).contains("value=\"Quarterly Invoice\"")
+            // The OOB companion: header title sync (badge span untouched).
+            assertThat(body).contains("hx-swap-oob=\"textContent:[data-testid='page-title'] > span:first-child\"")
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(app.epistola.suite.common.ids.TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.name).isEqualTo("Quarterly Invoice")
+        }
+    }
+
+    @Test
+    fun `PATCH name with a blank value is a silent no-op that re-renders the current name`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Name Blank")
+                val tplKey = TestIdHelpers.nextTemplateId()
+                CreateDocumentTemplate(
+                    id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
+                    name = "Invoice",
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            patchForm(
+                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "name" to "   ",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("value=\"Invoice\"")
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(app.epistola.suite.common.ids.TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.name).isEqualTo("Invoice")
+        }
+    }
+
     /** Form-encoded PATCH with the HX-Request header — what an hx-patch control sends. */
     private fun patchForm(url: String, vararg params: Pair<String, String>): ResponseEntity<String> {
         val headers = HttpHeaders()
