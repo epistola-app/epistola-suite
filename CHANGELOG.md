@@ -12,6 +12,13 @@
 - **[user]** docs(security): **Security updates follow the two-minor support window.** The security
   policy now matches the public support policy by covering the two most recently released minor
   lines, or every available minor line while fewer than two exist.
+- **[user]** feat(ui): **Corner notices give async actions consistent feedback.** Actions
+  without a natural feedback spot — the template settings controls (rename, default theme,
+  PDF/A toggle) first — now confirm success with a transient corner notice, and every
+  unhandled failure surfaces as an error notice: unshaped server errors of any status
+  (previously only 403/5xx reached the top-of-page banner, which is gone), network failures,
+  and swap failures. Notices auto-dismiss, can be dismissed early, and are announced to
+  screen readers. (#477)
 - **[user]** fix(audit): **Consumer polling no longer floods the audit log.** Consumer node
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while
