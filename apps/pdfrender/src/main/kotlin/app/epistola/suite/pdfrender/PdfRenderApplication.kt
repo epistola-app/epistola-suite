@@ -50,9 +50,10 @@ class PdfRenderApplication {
 }
 
 fun main(args: Array<String>) {
+    runApplication<PdfRenderApplication>(*args)
+    // Log after Boot has initialized Logback so production output obeys the structured format.
     LoggerFactory.getLogger(PdfRenderApplication::class.java).warn(
         "pdfrender is a BETA feature — functional but not yet supported for production. " +
             "Its deployment shape and the pdf-render capability/config may still change.",
     )
-    runApplication<PdfRenderApplication>(*args)
 }
