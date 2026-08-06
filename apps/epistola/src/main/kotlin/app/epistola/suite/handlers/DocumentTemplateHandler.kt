@@ -509,6 +509,7 @@ class DocumentTemplateHandler(
                 "template" to template
                 "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
+            successNotice(if (enabled) "PDF/A output enabled." else "PDF/A output disabled.")
             onNonHtmx {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
@@ -531,7 +532,8 @@ class DocumentTemplateHandler(
         val requested = request.params().getFirst("name")?.trim().orEmpty()
         val current = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
-        val template = if (requested.isBlank() || requested == current.name) {
+        val renamed = requested.isNotBlank() && requested != current.name
+        val template = if (!renamed) {
             current
         } else {
             UpdateDocumentTemplate(id = templateId, name = requested).execute()
@@ -547,6 +549,10 @@ class DocumentTemplateHandler(
         return request.htmx {
             fragment("templates/detail/settings", "name-input", model)
             oob("templates/detail/settings", "page-title-oob", model)
+            // The blank/unchanged no-op stays silent — nothing was saved.
+            if (renamed) {
+                successNotice("Template renamed.")
+            }
             onNonHtmx {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
@@ -614,6 +620,7 @@ class DocumentTemplateHandler(
                 "themeCatalogs" to themeCatalogs
                 "editable" to (updated.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
+            successNotice(if (selected.isBlank()) "Default theme cleared." else "Default theme updated.")
             onNonHtmx {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
