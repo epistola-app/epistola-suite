@@ -15,7 +15,11 @@
   backed by focused fragment endpoints (`PATCH …/name`, `…/pdfa`, form-encoded `…/theme`);
   the JSON `PATCH /tenants/…/templates/{catalogId}/{id}` UI route and the orphaned
   `static/js/modules/api-client.js` are removed. Groundwork for consistent async-action
-  feedback (#477); no user-visible behavior change.
+  feedback (#477). Success paths are behavior-identical; two deliberate differences: the
+  settings controls are now disabled without the `TEMPLATE_EDIT` permission (previously
+  enabled but silently failing), and a failed update no longer snaps the control back —
+  the entered value stays until reload (the old silent revert; visible failure feedback
+  lands with the #477 notice work).
 
 ## [1.0.1] - 2026-08-04
 
