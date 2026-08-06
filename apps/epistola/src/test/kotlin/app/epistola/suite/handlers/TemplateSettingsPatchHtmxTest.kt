@@ -347,6 +347,50 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `PATCH pdfa with an explicit false value disables PDF A`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Pdfa False")
+                val tplKey = TestIdHelpers.nextTemplateId()
+                val templateId = TemplateId(tplKey, CatalogId.default(TenantId(t.id)))
+                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                app.epistola.suite.templates.commands.UpdateDocumentTemplate(
+                    id = templateId,
+                    pdfaEnabled = true,
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            // The hidden-false-companion convention: the param present with the
+            // literal value "false" must read as disable, not as presence=enable.
+            patchForm(
+                "/tenants/${tenant.id}/templates/default/$templateKey/pdfa",
+                "pdfaEnabled" to "false",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).doesNotContainPattern("<input[^>]*id=\"pdfa-toggle\"[^>]*checked")
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(app.epistola.suite.common.ids.TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.pdfaEnabled).isFalse()
+        }
+    }
+
     /** Form-encoded PATCH with the HX-Request header — what an hx-patch control sends. */
     private fun patchForm(url: String, vararg params: Pair<String, String>): ResponseEntity<String> {
         val headers = HttpHeaders()
