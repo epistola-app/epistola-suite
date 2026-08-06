@@ -306,11 +306,18 @@ document.addEventListener('click', function (event) {
   }
 });
 
-document.addEventListener('htmx:load', function () {
-  document.querySelectorAll('[data-notice]:not([data-notice-mounted])').forEach(function (notice) {
-    notice.setAttribute('data-notice-mounted', '');
-    setTimeout(function () {
-      dismissNotice(notice);
-    }, NOTICE_TIMEOUT_MS);
+// htmx:load covers server-sent notices (OOB swaps); epistola:notice-added is
+// dispatched by the app-shell.js safety net for client-cloned ones, where no
+// swap happened and htmx:load never fires.
+['htmx:load', 'epistola:notice-added'].forEach(function (eventName) {
+  document.addEventListener(eventName, function () {
+    document
+      .querySelectorAll('[data-notice]:not([data-notice-mounted])')
+      .forEach(function (notice) {
+        notice.setAttribute('data-notice-mounted', '');
+        setTimeout(function () {
+          dismissNotice(notice);
+        }, NOTICE_TIMEOUT_MS);
+      });
   });
 });

@@ -254,8 +254,26 @@ document.addEventListener('htmx:beforeRequest', function (event) {
   });
 });
 
-// ── Global safety net for unhandled errors ──────────────────────
+// ── Global safety net for unhandled errors (#477) ───────────────
+//
+// Every async failure a handler did not shape ends in a corner error notice,
+// so silent failure is not a possible outcome. The notice is cloned from the
+// shell's #notice-template (no server HTML exists for these cases — cloning
+// keeps the markup single-sourced in the epistola-web/notice fragment);
+// behaviors.js picks it up for auto-dismiss via the epistola:notice-added
+// event, since no htmx:load fires when nothing was swapped.
 
+function showErrorNotice(message) {
+  var region = document.getElementById('notices');
+  var template = document.getElementById('notice-template');
+  if (!region || !template || !template.content.firstElementChild) return;
+  var notice = template.content.firstElementChild.cloneNode(true);
+  notice.querySelector('.notice-message').textContent = message;
+  region.insertBefore(notice, region.firstChild);
+  document.dispatchEvent(new CustomEvent('epistola:notice-added'));
+}
+
+// The server responded 4xx/5xx and the response was not shaped for HTMX.
 document.addEventListener('htmx:responseError', function (event) {
   var xhr = event.detail.xhr;
   if (!xhr) return;
@@ -264,7 +282,7 @@ document.addEventListener('htmx:responseError', function (event) {
   // swap above — nothing to add here.
   if (xhr.getResponseHeader('HX-Reswap')) return;
 
-  // Don't show global error if the target is inside the confirm dialog
+  // The confirm dialog reports failures in its own error area.
   var target = event.detail.target;
   if (target && target.closest && target.closest('#confirm-dialog')) return;
 
@@ -285,7 +303,7 @@ document.addEventListener('htmx:responseError', function (event) {
     message = detail || 'The request failed. Please try again.';
   }
 
-  // Prefer the issuing form's global error slot over the page banner.
+  // Prefer the issuing form's global error slot \u2014 inline, next to the inputs.
   var sourceForm =
     event.detail.elt && event.detail.elt.closest ? event.detail.elt.closest('form') : null;
   var slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
@@ -295,34 +313,18 @@ document.addEventListener('htmx:responseError', function (event) {
     return;
   }
 
-  // No slot (row actions, non-form triggers): keep the banner, but only for
-  // the statuses it always covered.
-  if (xhr.status !== 403 && xhr.status < 500) return;
+  // Non-form failure (standalone controls, row actions): corner error notice.
+  // Replaces the old top-of-page banner, and covers every status \u2014 the banner
+  // only showed 403/5xx and silently dropped other client errors.
+  showErrorNotice(message);
+});
 
-  // Insert error banner at top of main content
-  var main = document.querySelector('#main-content') || document.querySelector('main');
-  if (!main) return;
+// The request never reached the server \u2014 there is no response to speak for it.
+document.addEventListener('htmx:sendError', function () {
+  showErrorNotice('Network error \u2014 check your connection and try again.');
+});
 
-  // Remove any existing global error banner
-  var existing = main.querySelector('.global-error-banner');
-  if (existing) existing.remove();
-
-  var banner = document.createElement('div');
-  banner.className = 'alert alert-error global-error-banner';
-  banner.style.marginBottom = 'var(--ep-space-4)';
-  var span = document.createElement('span');
-  span.textContent = message;
-  banner.appendChild(span);
-  var closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'ep-btn ep-btn-sm ep-btn-ghost';
-  closeBtn.style.marginLeft = 'auto';
-  closeBtn.textContent = '\u00d7';
-  closeBtn.addEventListener('click', function () {
-    banner.remove();
-  });
-  banner.appendChild(closeBtn);
-  banner.style.display = 'flex';
-  banner.style.alignItems = 'center';
-  main.insertBefore(banner, main.firstChild);
+// The response arrived but swapping it into the page failed.
+document.addEventListener('htmx:swapError', function () {
+  showErrorNotice('Something went wrong displaying the response. Reload the page.');
 });
