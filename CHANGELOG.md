@@ -16,6 +16,11 @@
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while
   preserving genuine audit history.
+- **[user]** fix(ui): **Template settings respect edit permission.** The name, default-theme,
+  and PDF/A controls on the template settings tab are now disabled for users without the
+  template-edit permission (previously they were enabled and failed silently on submit).
+  Server-side, over-length names and references to a since-deleted theme are rejected with a
+  clear client error instead of an internal server error.
 - **[dev]** refactor(ui): **Hand-rolled HTMX converted to native HTMX.** The template
   settings controls (theme select, rename, PDF/A toggle) and the version-comparison dialog
   trigger reimplemented HTMX by hand — `fetch()` calls with manual swaps, a hand-set
