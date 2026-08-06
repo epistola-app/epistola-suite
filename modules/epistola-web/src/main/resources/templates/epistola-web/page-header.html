@@ -23,7 +23,9 @@
                 <span th:text="${backLinkLabel}"></span>
             </a>
             <h1 data-testid="page-title">
-                <span th:text="${pageTitle}"></span>
+                <!-- The id is a swap anchor (e.g. the template-rename OOB targets it);
+                     data-testid stays a test-only soft contract. -->
+                <span id="page-title-text" th:text="${pageTitle}"></span>
                 <span th:if="${stage != null and stage.badgeClass != null}"
                       th:class="${'badge ' + stage.badgeClass}"
                       th:text="${stage.label}">Beta</span>

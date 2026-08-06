@@ -583,6 +583,16 @@ class DocumentTemplateHandler(
                 .getOrElse { return ServerResponse.badRequest().build() }
             themeKey = runCatching { ThemeKey.of(themePart) }
                 .getOrElse { return ServerResponse.badRequest().build() }
+
+            // Well-formed but nonexistent (a stale page whose theme was deleted in
+            // another tab posts exactly this): reject cleanly rather than letting
+            // the FK violation surface as a 500. The detail rides the RFC 9457
+            // shape the global HTMX error handling reads.
+            app.epistola.suite.themes.queries.GetTheme(
+                id = app.epistola.suite.common.ids.ThemeId(themeKey, app.epistola.suite.common.ids.CatalogId(themeCatalogKey, tenantId)),
+            ).query() ?: return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("status" to 400, "detail" to "The selected theme no longer exists. Reload the page to see the current themes."))
         }
         val updated = UpdateDocumentTemplate(
             id = templateId,

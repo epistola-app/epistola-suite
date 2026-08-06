@@ -112,6 +112,13 @@ class UiExceptionFilter(
                 log.warn("Catalog read-only: {}", cause.message)
                 UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")
             }
+            "ValidationException" -> {
+                // Command-level validation (a command's init block) thrown outside the
+                // form{} binder — e.g. a raw-param HTMX control endpoint whose input
+                // slipped past client-side constraints. A user error, not a server one.
+                log.warn("Validation rejected outside a form binder: {}", cause.message)
+                UiError(400, ApiProblemTypes.BAD_REQUEST, cause.message ?: "A value you entered is invalid.")
+            }
             else -> {
                 log.error("Unhandled exception on UI request: {} {}", cause::class.simpleName, cause.message, cause)
                 UiError(500, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred.")
