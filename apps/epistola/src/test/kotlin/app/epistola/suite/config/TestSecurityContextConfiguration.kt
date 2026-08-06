@@ -56,17 +56,31 @@ class TestSecurityContextConfiguration {
             response: HttpServletResponse,
             filterChain: FilterChain,
         ) {
+            // A test may downgrade this request's principal to a limited role set
+            // via the X-Test-Tenant-Roles header (comma-separated TenantRole
+            // names). Same user id — only the authorization changes — so
+            // permission-denied paths become testable at the HTTP level.
+            val roleOverride = request.getHeader("X-Test-Tenant-Roles")
+                ?.split(',')
+                ?.map { TenantRole.valueOf(it.trim()) }
+                ?.toSet()
+            val principal = if (roleOverride == null) {
+                testPrincipal
+            } else {
+                testPrincipal.copy(globalRoles = roleOverride, platformRoles = emptySet())
+            }
+
             // Populate Spring Security's SecurityContextHolder so Thymeleaf's
             // sec:authorize="isAuthenticated()" evaluates to true
             val secCtx = SecurityContextHolder.createEmptyContext()
-            secCtx.authentication = TestingAuthenticationToken(testPrincipal, "N/A", listOf())
+            secCtx.authentication = TestingAuthenticationToken(principal, "N/A", listOf())
             SecurityContextHolder.setContext(secCtx)
             try {
                 if (SecurityContext.isBound()) {
                     // Principal already bound (e.g., by production SecurityFilter) — pass through
                     filterChain.doFilter(request, response)
                 } else {
-                    SecurityContext.runWithPrincipal(testPrincipal) {
+                    SecurityContext.runWithPrincipal(principal) {
                         filterChain.doFilter(request, response)
                     }
                 }
