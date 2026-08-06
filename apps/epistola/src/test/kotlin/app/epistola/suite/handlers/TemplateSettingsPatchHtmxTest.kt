@@ -37,7 +37,10 @@ import org.springframework.util.LinkedMultiValueMap
  * native HTMX controls: each `hx-patch`es its endpoint form-encoded and swaps
  * the returned fragment in place. These tests assert that server contract —
  * form-param parsing, persisted state, and the fragment (incl. OOB parts)
- * coming back.
+ * coming back. Since #477 the successful responses also carry a corner
+ * success notice as an OOB fragment (`hx-swap-oob="afterbegin:#notices"`);
+ * the happy-path tests pin its presence and message, and the rename no-op
+ * pins its absence — a save that didn't happen must not be confirmed.
  */
 class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
@@ -83,6 +86,9 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val option = Regex("<option[^>]*default/brand-theme[^>]*>").find(body)?.value
             assertThat(option).isNotNull()
             assertThat(option).contains("selected")
+            // The success notice rides along as an OOB fragment.
+            assertThat(body).contains("hx-swap-oob=\"afterbegin:#notices\"")
+            assertThat(body).contains("Default theme updated.")
 
             val updated = withMediator {
                 GetDocumentTemplate(
@@ -132,6 +138,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // No theme option may come back selected once the assignment is cleared.
             assertThat(response.body).doesNotContainPattern("<option[^>]*default/brand-theme[^>]*selected")
+            assertThat(response.body).contains("Default theme cleared.")
 
             val updated = withMediator {
                 GetDocumentTemplate(
@@ -218,6 +225,9 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             assertThat(body).contains("value=\"Quarterly Invoice\"")
             // The OOB companion: header title sync (badge span untouched).
             assertThat(body).contains("hx-swap-oob=\"innerHTML:#page-title-text\"")
+            // A real rename is confirmed with a success notice.
+            assertThat(body).contains("hx-swap-oob=\"afterbegin:#notices\"")
+            assertThat(body).contains("Template renamed.")
 
             val updated = withMediator {
                 GetDocumentTemplate(
@@ -258,6 +268,8 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("value=\"Invoice\"")
+            // Nothing was saved, so nothing is confirmed: no notice on the no-op.
+            assertThat(response.body).doesNotContain("afterbegin:#notices")
 
             val updated = withMediator {
                 GetDocumentTemplate(
@@ -303,6 +315,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val toggleTag = Regex("<input[^>]*id=\"pdfa-toggle\"[^>]*>").find(body)?.value
             assertThat(toggleTag).isNotNull()
             assertThat(toggleTag).contains("checked")
+            assertThat(body).contains("PDF/A output enabled.")
 
             val updated = withMediator {
                 GetDocumentTemplate(
@@ -345,6 +358,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val toggleTag = Regex("<input[^>]*id=\"pdfa-toggle\"[^>]*>").find(response.body!!)?.value
             assertThat(toggleTag).isNotNull()
             assertThat(toggleTag).doesNotContain("checked")
+            assertThat(response.body).contains("PDF/A output disabled.")
 
             val updated = withMediator {
                 GetDocumentTemplate(
