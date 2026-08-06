@@ -602,6 +602,59 @@ class HtmxDslTest {
         }
     }
 
+    @Nested
+    inner class NoticeTest {
+        @Test
+        fun `successNotice emits the notice-oob fragment with kind, title and message`() {
+            val builder = HtmxResponseBuilder(createHtmxRequest()).apply {
+                fragment("templates/list")
+                successNotice("Template renamed.", title = "Saved")
+            }
+
+            val notice = builder.emittedFragments.single { it.isOob }
+            assertThat(notice.template).isEqualTo("epistola-web/notice")
+            assertThat(notice.fragmentName).isEqualTo("notice-oob")
+            assertThat(notice.model)
+                .containsEntry("kind", "success")
+                .containsEntry("title", "Saved")
+                .containsEntry("message", "Template renamed.")
+        }
+
+        @Test
+        fun `errorNotice shapes the response - error status and no primary swap`() {
+            val response = HtmxResponseBuilder(createHtmxRequest()).apply {
+                errorNotice("The theme no longer exists.")
+            }.build()
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.headers().getFirst("HX-Reswap")).isEqualTo("none")
+        }
+
+        @Test
+        fun `a message at the limit passes, one over it throws`() {
+            val builder = HtmxResponseBuilder(createHtmxRequest())
+            val atLimit = "m".repeat(HtmxResponseBuilder.NOTICE_MESSAGE_MAX_LENGTH)
+
+            builder.successNotice(atLimit)
+
+            org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+                builder.successNotice(atLimit + "x")
+            }
+        }
+
+        @Test
+        fun `a title at the limit passes, one over it throws`() {
+            val builder = HtmxResponseBuilder(createHtmxRequest())
+            val atLimit = "t".repeat(HtmxResponseBuilder.NOTICE_TITLE_MAX_LENGTH)
+
+            builder.successNotice("Saved.", title = atLimit)
+
+            org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+                builder.errorNotice("Failed.", title = atLimit + "x")
+            }
+        }
+    }
+
     private fun createHtmxRequest(): ServerRequest {
         val mockRequest = MockHttpServletRequest()
         mockRequest.addHeader("HX-Request", "true")
