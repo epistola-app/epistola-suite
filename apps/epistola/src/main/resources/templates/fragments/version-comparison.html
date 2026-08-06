@@ -13,7 +13,7 @@
 
             2. Add a compare button (hx-get loads the comparison UI, the hook opens the dialog):
                 <button type="button"
-                        th:hx-get="@{/tenants/{t}/templates/{id}/variants/{v}/compare(t=${tenantId},id=${templateId},v=${variantId})}"
+                        th:hx-get="@{/tenants/{t}/templates/{c}/{id}/variants/{v}/compare(t=${tenantId},c=${catalogId},id=${templateId},v=${variantId})}"
                         hx-target="#version-comparison-dialog-body" hx-swap="innerHTML"
                         data-open-dialog="version-comparison-dialog">
                     Compare

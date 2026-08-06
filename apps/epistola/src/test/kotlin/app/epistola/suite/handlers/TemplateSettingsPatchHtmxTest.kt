@@ -140,6 +140,47 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `PATCH theme with a malformed value returns 400 without touching the assignment`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Theme Malformed")
+                val tplKey = TestIdHelpers.nextTemplateId()
+                CreateDocumentTemplate(
+                    id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
+                    name = "Invoice",
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            // The select only ever emits "catalogKey/themeKey" — a slashless
+            // value can only come from a tampered request.
+            patchForm(
+                "/tenants/${tenant.id}/templates/default/$templateKey/theme",
+                "themeId" to "brand-theme",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(app.epistola.suite.common.ids.TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.themeKey).isNull()
+        }
+    }
+
+    @Test
     fun `PATCH name renames and returns the input fragment plus the OOB title sync`() = fixture {
         lateinit var tenant: Tenant
         var templateKey = ""
