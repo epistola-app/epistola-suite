@@ -36,7 +36,9 @@ The setting takes effect immediately for new batch/API generations. Preview rend
 
 There is no REST API endpoint for this setting — it is configured through the settings UI
 only. (The toggle itself issues a form-encoded `PATCH …/templates/{catalogId}/{templateId}/pdfa`
-UI request; UI routes are internal and may change freely.)
+UI request; UI routes are internal and may change freely.) The setting also does not
+round-trip through catalog export/import. Whether this UI-only scoping is deliberate is an
+open question tracked in [#817](https://github.com/epistola-app/epistola-suite/issues/817).
 
 ## How it works
 
