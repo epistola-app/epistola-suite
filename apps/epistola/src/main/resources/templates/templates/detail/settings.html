@@ -14,7 +14,8 @@
                              back; the page <h1> is synced by an OOB fragment in the response. -->
                         <input type="text" id="template-name-input" class="ep-input" maxlength="100"
                                th:fragment="name-input"
-                               name="name" th:value="${template.name}" th:disabled="${!editable}"
+                               name="name" th:value="${template.name}"
+                               th:disabled="${!editable or !auth.has('TEMPLATE_EDIT')}"
                                data-template-name-input
                                th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/name(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                                hx-trigger="change" hx-swap="outerHTML"
@@ -40,7 +41,7 @@
                 <div class="form-row">
                     <div class="form-group" style="margin-bottom: 0;">
                         <select id="theme-select" name="themeId" class="ep-select"
-                                th:disabled="${!editable}"
+                                th:disabled="${!editable or !auth.has('TEMPLATE_EDIT')}"
                                 th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/theme(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                                 hx-trigger="change" hx-target="#theme-section" hx-swap="outerHTML">
                             <option value="">No theme (use variant defaults)</option>
@@ -69,7 +70,8 @@
                     <input type="checkbox" class="ep-checkbox" id="pdfa-toggle"
                            style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
                            name="pdfaEnabled"
-                           th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
+                           th:checked="${template.pdfaEnabled}"
+                           th:disabled="${!editable or !auth.has('TEMPLATE_EDIT')}"
                            th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/pdfa(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                            hx-trigger="change" hx-target="#output-settings-section" hx-swap="outerHTML">
                     <span>
