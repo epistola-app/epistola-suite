@@ -276,3 +276,41 @@ document.addEventListener('click', function (event) {
     done(ok);
   }
 });
+
+// ── Corner notices (#477): auto-dismiss + early dismiss ─────────────────────
+// Server-sent feedback fragments (epistola-web/notice) arrive as OOB swaps
+// into the fixed #notices region. Every notice auto-dismisses after a uniform
+// timeout; the × button (data-notice-dismiss) closes early. Both paths exit
+// via .notice-leaving (slide-out in notice.css) and remove on animationend —
+// the timeout fallback covers reduced-motion, where animation:none never
+// fires the event. htmx:load fires for every batch of newly settled content
+// (incl. OOB insertions), so the timer scan is guarded per notice by
+// data-notice-mounted.
+const NOTICE_TIMEOUT_MS = 5000;
+
+function dismissNotice(notice) {
+  if (notice.classList.contains('notice-leaving')) return;
+  notice.classList.add('notice-leaving');
+  const remove = function () {
+    notice.remove();
+  };
+  notice.addEventListener('animationend', remove, { once: true });
+  setTimeout(remove, 300);
+}
+
+document.addEventListener('click', function (event) {
+  const dismiss = event.target.closest && event.target.closest('[data-notice-dismiss]');
+  if (dismiss) {
+    const notice = dismiss.closest('[data-notice]');
+    if (notice) dismissNotice(notice);
+  }
+});
+
+document.addEventListener('htmx:load', function () {
+  document.querySelectorAll('[data-notice]:not([data-notice-mounted])').forEach(function (notice) {
+    notice.setAttribute('data-notice-mounted', '');
+    setTimeout(function () {
+      dismissNotice(notice);
+    }, NOTICE_TIMEOUT_MS);
+  });
+});
