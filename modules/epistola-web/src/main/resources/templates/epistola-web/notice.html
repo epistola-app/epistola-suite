@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    Corner notice: transient feedback for async actions that have no natural
+    place to render it (standalone controls, dialogs, background-ish actions).
+    Forms keep their inline error slots (epistola-web/form-error) — the notice
+    is the general mechanism, not a replacement for the specific one.
+
+    Severity styling (colors + colorblind-safe shape icon) comes entirely from
+    the design-system .alert family; notice.css owns only the overlay chrome.
+
+    Params:
+      kind    'success' | 'error' (any .alert-* severity works, only these two
+              are used — see HtmxDsl.successNotice/errorNotice)
+      title   optional bold first line; null for the usual one-sentence notice
+      message the one-sentence feedback text
+
+    Every notice auto-dismisses after a uniform timeout; the × closes early
+    (delegated data-notice-dismiss hook in behaviors.js, ADR 0010).
+    role: errors announce assertively (role=alert), successes politely — the
+    #notices region is additionally aria-live=polite for inserted content.
+    -->
+    <div th:fragment="notice(kind, title, message)"
+         th:class="'alert alert-' + ${kind} + ' notice'"
+         th:attr="role=${kind == 'error'} ? 'alert' : 'status'"
+         data-notice>
+        <div class="notice-body">
+            <div th:if="${title != null}" class="alert-title" th:text="${title}"></div>
+            <span class="notice-message" th:text="${message}"></span>
+        </div>
+        <button type="button" class="notice-dismiss" data-notice-dismiss aria-label="Dismiss">&times;</button>
+    </div>
+
+    <!--
+    OOB delivery wrapper (what HtmxDsl.successNotice/errorNotice render).
+
+    The hx-swap-oob attribute must sit on a WRAPPER, not on the notice itself:
+    for every OOB swap style except outerHTML, htmx inserts the element's
+    CONTENT, not the element (htmx isInlineSwap) — an attribute-carrying notice
+    would arrive stripped of its own classes/role/data-notice. The wrapper is
+    what htmx discards; its content — the intact notice — lands as the region's
+    first child (newest on top).
+    -->
+    <th:block th:fragment="notice-oob(kind, title, message)">
+        <div hx-swap-oob="afterbegin:#notices">
+            <th:block th:replace="~{epistola-web/notice :: notice(${kind}, ${title}, ${message})}" />
+        </div>
+    </th:block>
+</body>
+</html>
