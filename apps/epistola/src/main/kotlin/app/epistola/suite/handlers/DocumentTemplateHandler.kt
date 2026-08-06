@@ -562,11 +562,28 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.badRequest().build()
 
         val selected = request.params().getFirst("themeId").orEmpty()
+        val themeCatalogKey: app.epistola.suite.common.ids.CatalogKey?
+        val themeKey: ThemeKey?
+        if (selected.isBlank()) {
+            themeCatalogKey = null
+            themeKey = null
+        } else {
+            // The select only emits "catalogKey/themeKey"; anything else is a
+            // tampered request and gets a 400 rather than a silent no-op.
+            val catalogPart = selected.substringBefore('/', "")
+            val themePart = selected.substringAfter('/', "")
+            if (catalogPart.isBlank() || themePart.isBlank()) {
+                return ServerResponse.badRequest().build()
+            }
+            themeCatalogKey = runCatching { app.epistola.suite.common.ids.CatalogKey.of(catalogPart) }
+                .getOrElse { return ServerResponse.badRequest().build() }
+            themeKey = runCatching { ThemeKey.of(themePart) }
+                .getOrElse { return ServerResponse.badRequest().build() }
+        }
         val updated = UpdateDocumentTemplate(
             id = templateId,
-            themeId = selected.substringAfter('/', "").ifBlank { null }?.let { ThemeKey.of(it) },
-            themeCatalogKey = selected.substringBefore('/', "").ifBlank { null }
-                ?.let { app.epistola.suite.common.ids.CatalogKey.of(it) },
+            themeId = themeKey,
+            themeCatalogKey = themeCatalogKey,
             clearThemeId = selected.isBlank(),
         ).execute() ?: return ServerResponse.notFound().build()
 
