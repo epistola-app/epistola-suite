@@ -108,10 +108,10 @@
     </th:block>
 
     <!-- OOB companion for the rename response: syncs the page header's title
-         text (the first span inside [data-testid=page-title]; the second is
-         the optional stage badge, which must survive the rename). -->
+         text via its dedicated swap anchor (only the title span — the sibling
+         stage badge must survive the rename). -->
     <span th:fragment="page-title-oob"
-          hx-swap-oob="textContent:[data-testid='page-title'] > span:first-child"
+          hx-swap-oob="textContent:#page-title-text"
           th:text="${template.name}"></span>
 </body>
 </html>
