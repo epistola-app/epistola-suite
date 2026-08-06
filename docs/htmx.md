@@ -636,11 +636,11 @@ its next HTMX request (`app-shell.js`):
 
 3. **Unhandled errors** — the global `htmx:responseError` safety net writes
    the RFC 7807 `detail` (or `error`, or a status-based fallback) into the
-   issuing form's slot. Requests not initiated from a form with a slot fall
-   back to the top-of-page banner (403/5xx only), as before.
+   issuing form's slot. Requests not initiated from a form with a slot get a
+   corner **error notice** instead (any status — see the next section).
 
 Row-level one-button action forms and GET filter/search forms deliberately do
-not carry a slot — the banner covers them.
+not carry a slot — the notice safety net covers them.
 
 > **Constraint — multiple slots in one render.** The `error` model key (fill
 > path 1) is page-global: every slot in a single Thymeleaf render reads the same
@@ -651,6 +651,48 @@ not carry a slot — the banner covers them.
 > Paths 2 and 3 are always id-scoped and safe. Single-form pages, and dialog
 > forms that re-render as their own fragment (one slot per render), are
 > unaffected — the constraint only bites when one render emits ≥2 slots.
+
+### Corner Notices (async-action feedback, #477)
+
+The **corner notice** is the feedback channel for async actions that have no
+natural place to render it — standalone controls, row actions, anything
+without a form. It is the general mechanism; forms keep their inline slots
+(above). Sorting rule: **field errors belong next to fields; everything else
+gets a notice.**
+
+A notice is the `epistola-web/notice` fragment (design-system `.alert`
+severity + overlay chrome from `notice.css`), OOB-inserted into the shell's
+fixed `#notices` region, newest on top. Every notice auto-dismisses after a
+uniform timeout; a dismiss button closes early (`behaviors.js`). Two DSL
+helpers are the only way to emit one:
+
+```kotlin
+// Success: purely additive — rides along with the primary fragment.
+return request.htmx {
+    fragment("templates/detail/settings", "output-settings") { … }
+    successNotice("PDF/A output enabled.")
+    onNonHtmx { redirect(…) }
+}
+
+// Handled failure with no form slot: shaped like globalFormError
+// (OOB + HX-Reswap: none + real error status, 400 by default).
+errorNotice("The selected theme no longer exists.", title = "Update failed")
+```
+
+Rules:
+
+- **One sentence.** The helpers throw on a message over 150 chars or a title
+  over 40, and the `NoticeLengthTest` architecture test fails the build on
+  over-length literals. Longer content belongs in a dialog, not a notice.
+- **Confirm only what was saved.** A no-op (e.g. the rename's blank/unchanged
+  revert) must not emit a success notice.
+- **Don't wire error notices for cases the safety net already covers.** The
+  `app-shell.js` safety net turns every unshaped non-form 4xx/5xx into an
+  error notice carrying the RFC 9457 `detail`, and `htmx:sendError` /
+  `htmx:swapError` (network down, swap failure) into generic ones — cloned
+  from the shell's inert `#notice-template`, since no server HTML exists for
+  those. Reach for `errorNotice()` only when the handler has a better message
+  than the problem detail it would otherwise send.
 
 ## Common Patterns
 
@@ -699,6 +741,10 @@ Rules of thumb learned the hard way:
   a second fragment with `hx-swap-oob` targeting a **dedicated id** — never a
   positional or testid-based selector (`#page-title-text` is the reference;
   testids are a test-only soft contract).
+- **Confirm the save with a corner notice**: the swap re-rendering a lone
+  control isn't self-evident feedback, so the handler adds
+  `successNotice("PDF/A output enabled.")` (see Corner Notices above; the
+  settings handlers are the reference).
 - Keyboard/UX affordances that HTMX can't express (Enter commits, Escape
   reverts to `input.defaultValue` — the server-rendered value attribute) stay
   as small delegated hooks in static JS.
