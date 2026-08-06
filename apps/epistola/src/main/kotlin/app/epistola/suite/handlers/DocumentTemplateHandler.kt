@@ -482,9 +482,11 @@ class DocumentTemplateHandler(
     /**
      * Toggles PDF/A output from the settings tab's checkbox (a native HTMX
      * `hx-patch` on change). Checkbox semantics: a checked box submits its
-     * `pdfaEnabled` param, an unchecked one submits nothing — so presence is
-     * the state. Returns the output-settings fragment rendered from the
-     * persisted value, so the checkbox always reflects server truth.
+     * `pdfaEnabled` param, an unchecked one submits nothing. The value is
+     * still inspected — presence alone would silently invert a future
+     * hidden-false companion input (`pdfaEnabled=false` must mean false).
+     * Returns the output-settings fragment rendered from the persisted
+     * value, so the checkbox always reflects server truth.
      */
     fun updatePdfa(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -492,7 +494,9 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val enabled = request.params().getFirst("pdfaEnabled") != null
+        val enabled = request.params().getFirst("pdfaEnabled")
+            ?.let { it != "false" }
+            ?: false
         val template = UpdateDocumentTemplate(
             id = templateId,
             pdfaEnabled = enabled,
