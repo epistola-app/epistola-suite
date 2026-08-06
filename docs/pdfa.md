@@ -34,14 +34,9 @@ This matters for regulated industries (finance, healthcare, government) and any 
 
 The setting takes effect immediately for new batch/API generations. Preview rendering in the editor always uses standard PDF for speed.
 
-### Per template (API)
-
-```http
-PATCH /tenants/{tenantId}/templates/{templateId}
-Content-Type: application/json
-
-{ "pdfaEnabled": true }
-```
+There is no REST API endpoint for this setting — it is configured through the settings UI
+only. (The toggle itself issues a form-encoded `PATCH …/templates/{catalogId}/{templateId}/pdfa`
+UI request; UI routes are internal and may change freely.)
 
 ## How it works
 
