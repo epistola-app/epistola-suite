@@ -265,6 +265,22 @@ document.addEventListener('htmx:beforeRequest', function (event) {
 // behaviors.js picks it up for auto-dismiss via the epistola:notice-added
 // event, since no htmx:load fires when nothing was swapped.
 
+// Public client-side notice API — the JS mirror of the Kotlin DSL helpers
+// (successNotice/errorNotice), for legit-fetch sites (PDF blobs) that have no
+// HTMX response for a server-sent notice to ride. Same component, same rules:
+// one short sentence, and mind that an open modal <dialog> sits in the top
+// layer and covers the corner region — feedback for a failure inside an open
+// modal belongs inside that dialog, not here (the version-comparison dialog
+// in template-detail.js is the reference).
+window.epistolaNotice = {
+  success: function (message) {
+    insertNotice('success', message);
+  },
+  error: function (message) {
+    insertNotice('error', message);
+  },
+};
+
 // [dedupeKey] identifies "the same failure recurring" (e.g. one failing 2s
 // poll): a visible notice with the same key is refreshed in place — message
 // updated only if it changed (so aria-live does not re-announce an identical
@@ -272,8 +288,10 @@ document.addEventListener('htmx:beforeRequest', function (event) {
 // the timer, this file owns insertion — the event is the seam between them) —
 // instead of stacking a pile. The old page banner deduped as a singleton;
 // keyed dedupe keeps that property without coalescing unrelated failures
-// that happen to share wording. No key → always a new notice.
-function showErrorNotice(message, dedupeKey) {
+// that happen to share wording. No key → always a new notice. The key stays
+// an internal (safety-net) affordance — deliberately not part of the
+// epistolaNotice API surface.
+function insertNotice(kind, message, dedupeKey) {
   var region = document.getElementById('notices');
   var template = document.getElementById('notice-template');
   if (!region || !template || !template.content.firstElementChild) return;
@@ -289,10 +307,21 @@ function showErrorNotice(message, dedupeKey) {
   }
 
   var notice = template.content.firstElementChild.cloneNode(true);
+  // The template ships error-flavored; other kinds swap the severity class
+  // and announce politely instead of assertively.
+  if (kind !== 'error') {
+    notice.classList.remove('alert-error');
+    notice.classList.add('alert-' + kind);
+    notice.setAttribute('role', 'status');
+  }
   if (dedupeKey) notice.setAttribute('data-notice-key', dedupeKey);
   notice.querySelector('.notice-message').textContent = message;
   region.insertBefore(notice, region.firstChild);
   document.dispatchEvent(new CustomEvent('epistola:notice-added'));
+}
+
+function showErrorNotice(message, dedupeKey) {
+  insertNotice('error', message, dedupeKey);
 }
 
 // What identifies a recurring failure for showErrorNotice's dedupe: the
