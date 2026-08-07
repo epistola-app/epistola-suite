@@ -23,13 +23,22 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = 'feedback-fab-styles';
   style.textContent = `
+:root {
+    /* Published corner-geometry contract: the host app's notice region
+       (notice.css) reads these to stay clear of the FAB and popover.
+       Change the FAB's footprint HERE, not in the rules below. */
+    --ep-feedback-fab-offset: var(--ep-space-5, 1.25rem);
+    --ep-feedback-fab-size: 48px;
+    --ep-feedback-popover-width: 340px;
+    --ep-feedback-popover-max-height: 60vh;
+}
 .feedback-fab {
     position: fixed;
-    bottom: var(--ep-space-5, 1.25rem);
-    right: var(--ep-space-5, 1.25rem);
+    bottom: var(--ep-feedback-fab-offset);
+    right: var(--ep-feedback-fab-offset);
     z-index: 1000;
-    width: 48px;
-    height: 48px;
+    width: var(--ep-feedback-fab-size);
+    height: var(--ep-feedback-fab-size);
     border-radius: 50%;
     border: 1px solid var(--ep-border, #e2e8f0);
     background: var(--ep-background, #fff);
@@ -73,11 +82,11 @@ function injectStyles() {
 }
 .feedback-popover {
     position: fixed;
-    bottom: calc(var(--ep-space-5, 1.25rem) + 56px);
-    right: var(--ep-space-5, 1.25rem);
+    bottom: calc(var(--ep-feedback-fab-offset) + var(--ep-feedback-fab-size) + 8px);
+    right: var(--ep-feedback-fab-offset);
     z-index: 999;
-    width: 340px;
-    max-height: 60vh;
+    width: var(--ep-feedback-popover-width);
+    max-height: var(--ep-feedback-popover-max-height);
     background: var(--ep-background, #fff);
     border: 1px solid var(--ep-border, #e2e8f0);
     border-radius: var(--ep-radius-lg, 0.5rem);
