@@ -10,7 +10,8 @@
   unhandled failure surfaces as an error notice: unshaped server errors of any status
   (previously only 403/5xx reached the top-of-page banner, which is gone), network failures,
   and swap failures. Notices auto-dismiss, can be dismissed early, and are announced to
-  screen readers. (#477)
+  screen readers. The last two browser `alert()` fallbacks are gone: a failed PDF preview
+  shows an error notice, and a failed version comparison reports inside its dialog. (#477)
 - **[user]** fix(audit): **Consumer polling no longer floods the audit log.** Consumer node
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while

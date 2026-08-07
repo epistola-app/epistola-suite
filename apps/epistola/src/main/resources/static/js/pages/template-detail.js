@@ -227,11 +227,16 @@
         document.getElementById('comparison-frame-' + side).style.display = 'block';
       });
     } catch (error) {
+      // No corner notice here: this dialog is open as a MODAL, and the top
+      // layer paints over the fixed notice region — a notice would fire
+      // invisibly and auto-dismiss unseen. Inside a modal, feedback renders
+      // in the dialog's own placeholder slots. Full error in the console.
       console.error('Version comparison failed:', error);
-      alert('Failed to compare versions: ' + error.message);
       ['a', 'b'].forEach(function (side) {
+        const empty = document.getElementById('comparison-empty-' + side);
+        empty.textContent = 'Failed to generate the preview. Try Compare again.';
         document.getElementById('comparison-loading-' + side).style.display = 'none';
-        document.getElementById('comparison-empty-' + side).style.display = 'flex';
+        empty.style.display = 'flex';
       });
     }
   }
