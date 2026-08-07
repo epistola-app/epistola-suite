@@ -257,7 +257,9 @@ document.addEventListener('htmx:beforeRequest', function (event) {
 // ── Global safety net for unhandled errors (#477) ───────────────
 //
 // Every async failure a handler did not shape ends in a corner error notice,
-// so silent failure is not a possible outcome. The notice is cloned from the
+// so silent failure is not a possible outcome on shell pages (the few
+// standalone pages have no #notices region — their async goes through the
+// editor's own error channel or a form slot). The notice is cloned from the
 // shell's #notice-template (no server HTML exists for these cases — cloning
 // keeps the markup single-sourced in the epistola-web/notice fragment);
 // behaviors.js picks it up for auto-dismiss via the epistola:notice-added
