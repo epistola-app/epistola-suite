@@ -265,14 +265,41 @@ document.addEventListener('htmx:beforeRequest', function (event) {
 // behaviors.js picks it up for auto-dismiss via the epistola:notice-added
 // event, since no htmx:load fires when nothing was swapped.
 
-function showErrorNotice(message) {
+// [dedupeKey] identifies "the same failure recurring" (e.g. one failing 2s
+// poll): a visible notice with the same key is refreshed in place — message
+// updated only if it changed (so aria-live does not re-announce an identical
+// one), dismiss timer extended via epistola:notice-refresh (behaviors.js owns
+// the timer, this file owns insertion — the event is the seam between them) —
+// instead of stacking a pile. The old page banner deduped as a singleton;
+// keyed dedupe keeps that property without coalescing unrelated failures
+// that happen to share wording. No key → always a new notice.
+function showErrorNotice(message, dedupeKey) {
   var region = document.getElementById('notices');
   var template = document.getElementById('notice-template');
   if (!region || !template || !template.content.firstElementChild) return;
+
+  if (dedupeKey) {
+    var existing = region.querySelector('[data-notice-key="' + CSS.escape(dedupeKey) + '"]');
+    if (existing && !existing.classList.contains('notice-leaving')) {
+      var text = existing.querySelector('.notice-message');
+      if (text.textContent !== message) text.textContent = message;
+      existing.dispatchEvent(new CustomEvent('epistola:notice-refresh', { bubbles: true }));
+      return;
+    }
+  }
+
   var notice = template.content.firstElementChild.cloneNode(true);
+  if (dedupeKey) notice.setAttribute('data-notice-key', dedupeKey);
   notice.querySelector('.notice-message').textContent = message;
   region.insertBefore(notice, region.firstChild);
   document.dispatchEvent(new CustomEvent('epistola:notice-added'));
+}
+
+// What identifies a recurring failure for showErrorNotice's dedupe: the
+// request path (same poll → same key) plus the failure mode.
+function noticeKeyFor(kind, event) {
+  var path = (event.detail.pathInfo && event.detail.pathInfo.requestPath) || '';
+  return kind + ':' + path;
 }
 
 // The server responded 4xx/5xx and the response was not shaped for HTMX.
@@ -318,15 +345,21 @@ document.addEventListener('htmx:responseError', function (event) {
   // Non-form failure (standalone controls, row actions): corner error notice.
   // Replaces the old top-of-page banner, and covers every status \u2014 the banner
   // only showed 403/5xx and silently dropped other client errors.
-  showErrorNotice(message);
+  showErrorNotice(message, noticeKeyFor('error:' + xhr.status, event));
 });
 
 // The request never reached the server \u2014 there is no response to speak for it.
-document.addEventListener('htmx:sendError', function () {
-  showErrorNotice('Network error \u2014 check your connection and try again.');
+document.addEventListener('htmx:sendError', function (event) {
+  showErrorNotice(
+    'Network error \u2014 check your connection and try again.',
+    noticeKeyFor('network', event),
+  );
 });
 
 // The response arrived but swapping it into the page failed.
-document.addEventListener('htmx:swapError', function () {
-  showErrorNotice('Something went wrong displaying the response. Reload the page.');
+document.addEventListener('htmx:swapError', function (event) {
+  showErrorNotice(
+    'Something went wrong displaying the response. Reload the page.',
+    noticeKeyFor('swap', event),
+  );
 });
