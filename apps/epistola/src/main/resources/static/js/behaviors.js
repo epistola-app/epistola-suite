@@ -306,6 +306,27 @@ document.addEventListener('click', function (event) {
   }
 });
 
+// The auto-dismiss timer is deadline-based rather than clearTimeout/reset so
+// a deduped notice can be kept alive: the safety net (app-shell.js) refreshes
+// a recurring failure's notice via epistola:notice-refresh, which only bumps
+// data-notice-deadline; the timer re-checks on fire and reschedules the
+// remainder. Refreshes are race-free writes to one attribute — no timer
+// handle to track across N refreshes, no cancel/rearm window — and the
+// notice dismisses NOTICE_TIMEOUT_MS after the LAST occurrence, not the first.
+function scheduleNoticeDismiss(notice, delay) {
+  setTimeout(function () {
+    if (!notice.isConnected) return;
+    const remaining = Number(notice.dataset.noticeDeadline) - Date.now();
+    if (remaining > 0) scheduleNoticeDismiss(notice, remaining);
+    else dismissNotice(notice);
+  }, delay);
+}
+
+document.addEventListener('epistola:notice-refresh', function (event) {
+  const notice = event.target.closest && event.target.closest('[data-notice]');
+  if (notice) notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
+});
+
 // htmx:load covers server-sent notices (OOB swaps); epistola:notice-added is
 // dispatched by the app-shell.js safety net for client-cloned ones, where no
 // swap happened and htmx:load never fires.
@@ -315,9 +336,8 @@ document.addEventListener('click', function (event) {
       .querySelectorAll('[data-notice]:not([data-notice-mounted])')
       .forEach(function (notice) {
         notice.setAttribute('data-notice-mounted', '');
-        setTimeout(function () {
-          dismissNotice(notice);
-        }, NOTICE_TIMEOUT_MS);
+        notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
+        scheduleNoticeDismiss(notice, NOTICE_TIMEOUT_MS);
       });
   });
 });
