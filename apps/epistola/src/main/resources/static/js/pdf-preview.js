@@ -62,8 +62,9 @@ async function previewPdf(button) {
     // Revoke blob URL after the new tab has had time to load
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   } catch (error) {
+    // The full error stays in the console; the notice is a short sentence.
     console.error('PDF preview failed:', error);
-    alert('Failed to generate PDF preview: ' + error.message);
+    window.epistolaNotice.error('Failed to generate the PDF preview. Please try again.');
   } finally {
     button.innerHTML = originalContent;
     button.disabled = false;
