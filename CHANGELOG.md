@@ -32,6 +32,9 @@ labels are long.
 - **[dev]** feat(design-system): **Motion utilities get a home.** New `animations.css` in the
   design system holds shared motion utilities, starting with `ep-breathe` (slow opacity pulse
   for passive attention). All utilities in it are disabled under `prefers-reduced-motion`.
+- **[user]** docs(release): **Two minor release lines receive maintenance.** The public support
+  policy and GitHub documentation now guarantee fixes for the two most recently released minor
+  lines, or every available minor line while fewer than two exist.
 - **[dev]** fix(ci): **The scheduled security scan generates the editor SBOM with pnpm 11.**
   Invoke the editor's `sbom` package script explicitly so pnpm does not route the command to its
   built-in SBOM generator and fail because no format was supplied.

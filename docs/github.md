@@ -359,7 +359,9 @@ Every PR should include:
 
 Located at `.github/SECURITY.md`.
 
-**Supported versions:** Currently only the latest version.
+**Supported versions:** The two most recently released minor release lines are
+supported and patched. As long as fewer than two minor release lines have been
+released, all available minor release lines are supported.
 
 **Response SLA:** 48 hours for initial acknowledgment.
 

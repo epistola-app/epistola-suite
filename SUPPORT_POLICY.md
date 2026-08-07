@@ -36,12 +36,12 @@ Typical expectation:
 
 ## Supported versions
 
-Only a **limited number of release lines** are supported at any time.
+The **two most recently released minor release lines** are supported and
+patched. As long as fewer than two minor release lines have been released, all
+available minor release lines are supported.
 
-This policy does **not** hardcode support windows (for example “12 months” or
-“N minor versions”). The set of currently supported versions is published
-separately (website and/or repository release metadata) so the support window
-can evolve without rewriting this document.
+The set of currently supported versions is published separately through the
+website and/or repository release metadata.
 
 **Supported** versions receive:
 
