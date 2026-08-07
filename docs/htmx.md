@@ -693,6 +693,14 @@ Rules:
   from the shell's inert `#notice-template`, since no server HTML exists for
   those. Reach for `errorNotice()` only when the handler has a better message
   than the problem detail it would otherwise send.
+- **Legit-`fetch` sites** (PDF blobs — outside htmx, so neither a server-sent
+  notice nor the safety net can reach them) use the client mirror:
+  `epistolaNotice.success(message)` / `.error(message)` (app-shell.js), which
+  clones the same fragment. Same one-sentence rule — and mind modals: an open
+  modal `<dialog>` sits in the browser's top layer and covers the corner
+  region, so a failure inside one must render in the dialog itself (the
+  version-comparison dialog in `pages/template-detail.js` is the reference),
+  never as a notice.
 
 ## Common Patterns
 
