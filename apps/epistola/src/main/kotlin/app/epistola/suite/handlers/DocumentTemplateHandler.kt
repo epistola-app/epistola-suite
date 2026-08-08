@@ -69,22 +69,6 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Request body for updating a document template's metadata.
- * Note: templateModel is now stored in TemplateVersion and updated separately.
- * Note: dataModel and dataExamples are now managed via contract versions.
- *
- * @property themeId The default theme ID for this template (optional)
- * @property clearThemeId When true, removes the default theme assignment
- */
-data class UpdateTemplateRequest(
-    val name: String? = null,
-    val themeId: String? = null,
-    val themeCatalogKey: String? = null,
-    val clearThemeId: Boolean = false,
-    val pdfaEnabled: Boolean? = null,
-)
-
-/**
  * Request body for validating schema compatibility with existing examples.
  */
 data class ValidateSchemaRequest(
@@ -495,44 +479,85 @@ class DocumentTemplateHandler(
             )
     }
 
-    fun update(request: ServerRequest): ServerResponse {
+    /**
+     * Toggles PDF/A output from the settings tab's checkbox (a native HTMX
+     * `hx-patch` on change). Checkbox semantics: a checked box submits its
+     * `pdfaEnabled` param, an unchecked one submits nothing. The value is
+     * still inspected — presence alone would silently invert a future
+     * hidden-false companion input (`pdfaEnabled=false` must mean false).
+     * Returns the output-settings fragment rendered from the persisted
+     * value, so the checkbox always reflects server truth.
+     */
+    fun updatePdfa(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val body = request.body(String::class.java)
-        val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
+        val enabled = request.params().getFirst("pdfaEnabled")
+            ?.let { it != "false" }
+            ?: false
+        val template = UpdateDocumentTemplate(
+            id = templateId,
+            pdfaEnabled = enabled,
+        ).execute() ?: return ServerResponse.notFound().build()
 
-        return try {
-            val updated = UpdateDocumentTemplate(
-                id = templateId,
-                name = updateRequest.name,
-                themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
-                clearThemeId = updateRequest.clearThemeId,
-                pdfaEnabled = updateRequest.pdfaEnabled,
-            ).execute() ?: return ServerResponse.notFound().build()
-
-            val responseBody = mutableMapOf<String, Any?>(
-                "id" to updated.id,
-                "name" to updated.name,
-                "createdAt" to updated.createdAt,
-                "updatedAt" to updated.updatedAt,
-            )
-
-            ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(responseBody)
-        } catch (e: DataModelValidationException) {
-            ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("errors" to e.validationErrors))
+        return request.htmx {
+            fragment("templates/detail/settings", "output-settings") {
+                "tenantId" to tenantId.key
+                "catalogId" to catalogId.value
+                "template" to template
+                "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
+            }
+            onNonHtmx {
+                redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
+            }
         }
     }
 
     /**
-     * Updates the template's default theme via HTMX.
-     * Returns the theme-section fragment for seamless UI updates.
+     * Renames the template from the settings tab's name input (a native HTMX
+     * `hx-patch` on change, form-encoded `name` param). Returns the name-input
+     * fragment plus an OOB fragment syncing the page header title. A blank or
+     * unchanged name is a no-op that re-renders the current name — the same
+     * silent revert the field has always done.
+     */
+    fun updateName(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val requested = request.params().getFirst("name")?.trim().orEmpty()
+        val current = GetDocumentTemplate(id = templateId).query()
+            ?: return ServerResponse.notFound().build()
+        val template = if (requested.isBlank() || requested == current.name) {
+            current
+        } else {
+            UpdateDocumentTemplate(id = templateId, name = requested).execute()
+                ?: return ServerResponse.notFound().build()
+        }
+
+        val model: app.epistola.suite.htmx.ModelBuilder.() -> Unit = {
+            "tenantId" to tenantId.key
+            "catalogId" to catalogId.value
+            "template" to template
+            "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
+        }
+        return request.htmx {
+            fragment("templates/detail/settings", "name-input", model)
+            oob("templates/detail/settings", "page-title-oob", model)
+            onNonHtmx {
+                redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
+            }
+        }
+    }
+
+    /**
+     * Updates the template's default theme from the settings tab's theme
+     * `<select>` (a native HTMX `hx-patch`, so the request is form-encoded and
+     * carries the select's own `themeId` value: `"catalogKey/themeKey"`, or
+     * blank for "no theme"). Returns the theme-section fragment.
      */
     fun updateTheme(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -540,14 +565,40 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val body = request.body(String::class.java)
-        val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
+        val selected = request.params().getFirst("themeId").orEmpty()
+        val themeCatalogKey: app.epistola.suite.common.ids.CatalogKey?
+        val themeKey: ThemeKey?
+        if (selected.isBlank()) {
+            themeCatalogKey = null
+            themeKey = null
+        } else {
+            // The select only emits "catalogKey/themeKey"; anything else is a
+            // tampered request and gets a 400 rather than a silent no-op.
+            val catalogPart = selected.substringBefore('/', "")
+            val themePart = selected.substringAfter('/', "")
+            if (catalogPart.isBlank() || themePart.isBlank()) {
+                return ServerResponse.badRequest().build()
+            }
+            themeCatalogKey = runCatching { app.epistola.suite.common.ids.CatalogKey.of(catalogPart) }
+                .getOrElse { return ServerResponse.badRequest().build() }
+            themeKey = runCatching { ThemeKey.of(themePart) }
+                .getOrElse { return ServerResponse.badRequest().build() }
 
+            // Well-formed but nonexistent (a stale page whose theme was deleted in
+            // another tab posts exactly this): reject cleanly rather than letting
+            // the FK violation surface as a 500. The detail rides the RFC 9457
+            // shape the global HTMX error handling reads.
+            app.epistola.suite.themes.queries.GetTheme(
+                id = app.epistola.suite.common.ids.ThemeId(themeKey, app.epistola.suite.common.ids.CatalogId(themeCatalogKey, tenantId)),
+            ).query() ?: return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("status" to 400, "detail" to "The selected theme no longer exists. Reload the page to see the current themes."))
+        }
         val updated = UpdateDocumentTemplate(
             id = templateId,
-            themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
-            themeCatalogKey = updateRequest.themeCatalogKey?.let { app.epistola.suite.common.ids.CatalogKey.of(it) },
-            clearThemeId = updateRequest.clearThemeId,
+            themeId = themeKey,
+            themeCatalogKey = themeCatalogKey,
+            clearThemeId = selected.isBlank(),
         ).execute() ?: return ServerResponse.notFound().build()
 
         // Load available themes for the fragment

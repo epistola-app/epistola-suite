@@ -9,10 +9,16 @@
                 <dl class="description-list">
                     <dt>Name</dt>
                     <dd>
+                        <!-- Committing the field (blur / Enter via keydown JS) fires the native
+                             change event, which hx-patches the new name and swaps this input
+                             back; the page <h1> is synced by an OOB fragment in the response. -->
                         <input type="text" id="template-name-input" class="ep-input" maxlength="100"
-                               th:value="${template.name}" th:disabled="${!editable}"
+                               th:fragment="name-input"
+                               name="name" th:value="${template.name}"
+                               th:disabled="${!editable or !auth.has('TEMPLATE_EDIT')}"
                                data-template-name-input
-                               th:attr="data-original-name=${template.name},data-patch-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                               th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/name(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                               hx-trigger="change" hx-swap="outerHTML"
                                style="max-width: 300px;">
                     </dd>
                     <dt>ID</dt>
@@ -35,8 +41,9 @@
                 <div class="form-row">
                     <div class="form-group" style="margin-bottom: 0;">
                         <select id="theme-select" name="themeId" class="ep-select"
-                                th:disabled="${!editable}" data-theme-select
-                                th:attr="data-patch-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/theme(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}">
+                                th:disabled="${!editable or !auth.has('TEMPLATE_EDIT')}"
+                                th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/theme(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                                hx-trigger="change" hx-target="#theme-section" hx-swap="outerHTML">
                             <option value="">No theme (use variant defaults)</option>
                             <th:block th:each="catalog : ${themeCatalogs}">
                                 <optgroup th:label="${catalog.key}">
@@ -53,15 +60,20 @@
         </div>
 
         <!-- Output Settings -->
-        <div class="ep-panel detail-section" id="output-settings-section">
+        <div class="ep-panel detail-section" id="output-settings-section" th:fragment="output-settings">
             <div class="detail-section-header"><h3>Output Settings</h3></div>
             <div class="detail-section-body">
                 <label style="display: flex; align-items: flex-start; gap: var(--ep-space-3); cursor: pointer;">
+                    <!-- Native HTMX: change hx-patches the checkbox state (an unchecked
+                         checkbox submits nothing = disable) and the section re-renders
+                         from the persisted value, so the UI always shows server truth. -->
                     <input type="checkbox" class="ep-checkbox" id="pdfa-toggle"
                            style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
-                           th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
-                           data-pdfa-toggle
-                           th:attr="data-patch-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}">
+                           name="pdfaEnabled"
+                           th:checked="${template.pdfaEnabled}"
+                           th:disabled="${!editable or !auth.has('TEMPLATE_EDIT')}"
+                           th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/pdfa(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                           hx-trigger="change" hx-target="#output-settings-section" hx-swap="outerHTML">
                     <span>
                         <strong style="font-size: var(--ep-text-sm);">PDF/A-2b compliance</strong>
                         <span class="text-muted" style="display: block; font-size: var(--ep-text-sm); margin-top: 2px;">
@@ -90,9 +102,16 @@
             </div>
         </div>
 
-        <!-- Behaviors (name edit, theme select, PDF/A toggle, delete confirm)
-             live in /js/pages/template-detail.js (ADR 0010: no inline scripts). -->
+        <!-- Behaviors (name edit keyboard UX, delete confirm) live in
+             /js/pages/template-detail.js (ADR 0010: no inline scripts). -->
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+
+    <!-- OOB companion for the rename response: syncs the page header's title
+         text via its dedicated swap anchor (only the title span — the sibling
+         stage badge must survive the rename). -->
+    <span th:fragment="page-title-oob"
+          hx-swap-oob="textContent:#page-title-text"
+          th:text="${template.name}"></span>
 </body>
 </html>
