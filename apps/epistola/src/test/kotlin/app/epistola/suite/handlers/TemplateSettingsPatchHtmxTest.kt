@@ -644,6 +644,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val base = "/tenants/${tenant.id}/templates/default/$templateKey"
             listOf(
                 patchFormAs("CONTENT_VIEWER", "$base/name", "name" to "Hijacked"),
+                patchFormAs("CONTENT_VIEWER", "$base/name", "name" to ""), // no-op must 403 too
                 patchFormAs("CONTENT_VIEWER", "$base/theme", "themeId" to "default/brand-theme"),
                 patchFormAs("CONTENT_VIEWER", "$base/pdfa", "pdfaEnabled" to "on"),
             )
