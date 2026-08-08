@@ -316,15 +316,53 @@ document.addEventListener('click', function (event) {
 function scheduleNoticeDismiss(notice, delay) {
   setTimeout(function () {
     if (!notice.isConnected) return;
+    if (notice.hasAttribute('data-notice-hovered')) {
+      scheduleNoticeDismiss(notice, NOTICE_TIMEOUT_MS);
+      return;
+    }
     const remaining = Number(notice.dataset.noticeDeadline) - Date.now();
     if (remaining > 0) scheduleNoticeDismiss(notice, remaining);
     else dismissNotice(notice);
   }, delay);
 }
 
+// Restart the remaining-time bar (notice.css ::after) from full — used
+// wherever the deadline resets so the two stay in sync.
+function restartNoticeTimerBar(notice) {
+  notice.classList.add('notice-timer-reset');
+  void notice.offsetWidth;
+  notice.classList.remove('notice-timer-reset');
+}
+
+// Hovering pauses auto-dismiss; leaving resumes the remaining time. The bar
+// resumes on its own — paused CSS animations continue where they stopped.
+document.addEventListener('mouseover', function (event) {
+  const notice = event.target.closest && event.target.closest('[data-notice]');
+  if (notice && !notice.hasAttribute('data-notice-hovered')) {
+    notice.setAttribute('data-notice-hovered', '');
+    notice.dataset.noticeRemaining = String(
+      Math.max(0, Number(notice.dataset.noticeDeadline) - Date.now()),
+    );
+  }
+});
+
+document.addEventListener('mouseout', function (event) {
+  const notice = event.target.closest && event.target.closest('[data-notice]');
+  if (notice && !(event.relatedTarget && notice.contains(event.relatedTarget))) {
+    notice.removeAttribute('data-notice-hovered');
+    const remaining = Number(notice.dataset.noticeRemaining || 0);
+    notice.dataset.noticeDeadline = String(Date.now() + remaining);
+    // The pending check can be a full timeout away; dismiss on the remainder.
+    scheduleNoticeDismiss(notice, remaining);
+  }
+});
+
 document.addEventListener('epistola:notice-refresh', function (event) {
   const notice = event.target.closest && event.target.closest('[data-notice]');
-  if (notice) notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
+  if (notice) {
+    notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
+    restartNoticeTimerBar(notice);
+  }
 });
 
 // htmx:load covers server-sent notices (OOB swaps); epistola:notice-added is
@@ -336,6 +374,7 @@ document.addEventListener('epistola:notice-refresh', function (event) {
       .querySelectorAll('[data-notice]:not([data-notice-mounted])')
       .forEach(function (notice) {
         notice.setAttribute('data-notice-mounted', '');
+        notice.style.setProperty('--notice-timeout', NOTICE_TIMEOUT_MS + 'ms');
         notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
         scheduleNoticeDismiss(notice, NOTICE_TIMEOUT_MS);
       });

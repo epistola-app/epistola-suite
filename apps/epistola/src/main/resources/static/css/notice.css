@@ -100,6 +100,40 @@
   /* The app's in-flow .alert margin (24px bottom) would stack onto the flex
      gap; the region's gap is the single source of spacing here. */
   margin: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Remaining-time bar. Duration comes from behaviors.js (--notice-timeout, set
+   from NOTICE_TIMEOUT_MS at mount); the hover pause and deadline resets drive
+   play-state and the .notice-timer-reset restart. */
+.notice::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--ep-primary);
+  transform-origin: left;
+  animation: notice-timer var(--notice-timeout, 5s) linear forwards;
+}
+
+.notice[data-notice-hovered]::after {
+  animation-play-state: paused;
+}
+
+.notice-timer-reset::after {
+  animation: none;
+}
+
+@keyframes notice-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }
 
 /* Severity icon color (the mask paints in currentColor, re-colored per kind
@@ -153,6 +187,9 @@
   .notice,
   .notice-leaving {
     animation: none;
+  }
+  .notice::after {
+    content: none;
   }
 }
 
