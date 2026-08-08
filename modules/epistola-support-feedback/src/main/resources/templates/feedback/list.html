@@ -79,7 +79,7 @@
 
         <!-- Submit dialog (data-backdrop-close: feedback.js closes it on backdrop click) -->
         <dialog id="feedback-dialog" class="ep-dialog ep-dialog-wide" data-backdrop-close>
-            <div id="feedback-dialog-content" class="feedback-dialog-content">
+            <div id="feedback-dialog-content" class="feedback-dialog-content" data-show-dialog-on-swap>
                 <!-- Loaded via HTMX -->
             </div>
         </dialog>
@@ -90,8 +90,7 @@
         <button type="button" class="ep-btn ep-btn-primary"
                 hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
                 hx-target="#feedback-dialog-content"
-                hx-swap="innerHTML"
-                data-open-dialog="feedback-dialog">
+                hx-swap="innerHTML">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Feedback
         </button>
