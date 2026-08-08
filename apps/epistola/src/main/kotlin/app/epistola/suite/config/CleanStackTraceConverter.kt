@@ -14,7 +14,7 @@ import ch.qos.logback.classic.spi.StackTraceElementProxy
  *
  * Register as a conversion rule in logback-spring.xml:
  * ```xml
- * <conversionRule conversionWord="cleanEx" converterClass="app.epistola.suite.config.CleanStackTraceConverter"/>
+ * <conversionRule conversionWord="cleanEx" class="app.epistola.suite.config.CleanStackTraceConverter"/>
  * ```
  */
 class CleanStackTraceConverter : ThrowableProxyConverter() {
