@@ -62,6 +62,24 @@ body:has(.feedback-popover--open) .notice-region {
   );
 }
 
+/* While a modal <dialog> is open, behaviors.js moves the region inside it and
+   shows it as a manual popover, so notices paint ABOVE the dialog's backdrop
+   and stay clickable (the dialog subtree is exempt from showModal's inert).
+   The UA [popover] styles would otherwise center the region as a bordered
+   canvas-colored box (inset:0 + margin:auto + border + background); reset
+   them back to the fixed-corner overlay. Only the [popover] state needs
+   this — the normal shell state never carries the attribute. */
+.notice-region[popover] {
+  top: auto;
+  left: auto;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
+}
+
 /* Neutral card surface over the .alert severity tints: the brand palette is
    warm "Peach Paper", and a saturated green/red card floating over it clashes.
    As an overlay the notice reads as an app CARD (white on paper, like every
