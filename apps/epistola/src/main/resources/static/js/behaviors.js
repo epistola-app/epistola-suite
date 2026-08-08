@@ -339,5 +339,91 @@ document.addEventListener('epistola:notice-refresh', function (event) {
         notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
         scheduleNoticeDismiss(notice, NOTICE_TIMEOUT_MS);
       });
+    syncNoticeRegionPlacement();
   });
+});
+
+// ── Notices above modal dialogs (#477) ──────────────────────────────────────
+//
+// An open modal <dialog> paints in the browser TOP LAYER, over the fixed
+// #notices region — a notice arriving while a dialog is open would sit behind
+// the ::backdrop, invisible until the dialog closes. The fix is the documented
+// platform pattern for toasts-over-modals, and BOTH halves are load-bearing:
+//
+//   1. Move the region INTO the open dialog. The dialog's subtree is exempt
+//      from showModal()'s inert, so the dismiss × stays clickable (a popover
+//      left outside the dialog is painted but inert). #notices travels with
+//      its id, so server OOB swaps (afterbegin:#notices) keep working.
+//   2. Show it as a MANUAL popover. Re-entering the top layer after the
+//      dialog paints the region above the dialog and its backdrop; `manual`
+//      means no light-dismiss stealing clicks.
+//
+// Placement is synced from the dialog `toggle` events (ToggleEvent, baseline
+// 2024; capture — they don't bubble) plus the notice mount scan above as a
+// safety net. In a browser without dialog toggle events nothing engages and
+// notices simply keep the behind-the-backdrop behavior. The region's normal
+// (no-dialog) state is completely untouched: no popover attribute, plain
+// fixed positioning.
+
+// Where the region belongs when no dialog is open; captured before the first
+// hoist. The parent can be gone after a body swap — document.body is a safe
+// fallback anchor since the region is position:fixed (placement only matters
+// for the body:has() geometry rules, which any body descendant satisfies).
+let noticeRegionHome = null;
+
+function syncNoticeRegionPlacement() {
+  const region = document.getElementById('notices');
+  if (!region || typeof region.showPopover !== 'function') return;
+
+  const openModals = Array.prototype.filter.call(
+    document.querySelectorAll('dialog[open]'),
+    function (d) {
+      return d.matches(':modal');
+    },
+  );
+  const host = openModals[openModals.length - 1] || null;
+
+  if (host) {
+    if (region.parentElement === host) return;
+    if (!noticeRegionHome) {
+      noticeRegionHome = { parent: region.parentNode, next: region.nextSibling };
+    }
+    if (region.matches(':popover-open')) region.hidePopover();
+    host.appendChild(region);
+    region.setAttribute('popover', 'manual');
+    region.showPopover();
+  } else if (region.hasAttribute('popover')) {
+    if (region.matches(':popover-open')) region.hidePopover();
+    region.removeAttribute('popover');
+    if (noticeRegionHome && noticeRegionHome.parent.isConnected) {
+      noticeRegionHome.parent.insertBefore(region, noticeRegionHome.next);
+    } else {
+      document.body.appendChild(region);
+    }
+  }
+}
+
+document.addEventListener(
+  'toggle',
+  function (event) {
+    // <details> and popovers fire toggle too — only dialogs drive placement.
+    if (event.target instanceof HTMLDialogElement) syncNoticeRegionPlacement();
+  },
+  true,
+);
+
+// A swap that replaces the region's host dialog would destroy the region with
+// it — move it home first; the htmx:load mount scan re-hoists if a modal is
+// still open afterwards.
+document.addEventListener('htmx:beforeSwap', function (event) {
+  const region = document.getElementById('notices');
+  const target = event.detail.target;
+  if (!region || !target || !region.hasAttribute('popover')) return;
+  if (target !== region && target.contains(region)) {
+    if (region.matches(':popover-open')) region.hidePopover();
+    region.removeAttribute('popover');
+    const home = noticeRegionHome && noticeRegionHome.parent.isConnected ? noticeRegionHome : null;
+    if (home) home.parent.insertBefore(region, home.next);
+    else document.body.appendChild(region);
+  }
 });
