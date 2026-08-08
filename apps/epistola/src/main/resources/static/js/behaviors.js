@@ -371,17 +371,19 @@ document.addEventListener('epistola:notice-refresh', function (event) {
 // for the body:has() geometry rules, which any body descendant satisfies).
 let noticeRegionHome = null;
 
+// Open modals in OPENING order — DOM order can differ (the confirm dialog
+// sits before the version-history dialog it stacks on top of).
+const openModalStack = [];
+
 function syncNoticeRegionPlacement() {
   const region = document.getElementById('notices');
   if (!region || typeof region.showPopover !== 'function') return;
 
-  const openModals = Array.prototype.filter.call(
-    document.querySelectorAll('dialog[open]'),
-    function (d) {
-      return d.matches(':modal');
-    },
-  );
-  const host = openModals[openModals.length - 1] || null;
+  for (let i = openModalStack.length - 1; i >= 0; i--) {
+    const d = openModalStack[i];
+    if (!d.isConnected || !d.matches(':modal')) openModalStack.splice(i, 1);
+  }
+  const host = openModalStack[openModalStack.length - 1] || null;
 
   if (host) {
     if (region.parentElement === host) return;
@@ -407,7 +409,12 @@ document.addEventListener(
   'toggle',
   function (event) {
     // <details> and popovers fire toggle too — only dialogs drive placement.
-    if (event.target instanceof HTMLDialogElement) syncNoticeRegionPlacement();
+    const dialog = event.target;
+    if (!(dialog instanceof HTMLDialogElement)) return;
+    if (event.newState === 'open' && dialog.matches(':modal') && !openModalStack.includes(dialog)) {
+      openModalStack.push(dialog);
+    }
+    syncNoticeRegionPlacement();
   },
   true,
 );
