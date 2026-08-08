@@ -26,6 +26,7 @@
 @import url('navigation.css') layer(app);
 @import url('utilities.css') layer(app-utilities);
 @import url('feedback.css') layer(app);
+@import url('notice.css') layer(app);
 @import url('dialogs.css') layer(app);
 @import url('cards.css') layer(app);
 @import url('dashboard.css') layer(app);

@@ -276,3 +276,68 @@ document.addEventListener('click', function (event) {
     done(ok);
   }
 });
+
+// ── Corner notices (#477): auto-dismiss + early dismiss ─────────────────────
+// Server-sent feedback fragments (epistola-web/notice) arrive as OOB swaps
+// into the fixed #notices region. Every notice auto-dismisses after a uniform
+// timeout; the × button (data-notice-dismiss) closes early. Both paths exit
+// via .notice-leaving (slide-out in notice.css) and remove on animationend —
+// the timeout fallback covers reduced-motion, where animation:none never
+// fires the event. htmx:load fires for every batch of newly settled content
+// (incl. OOB insertions), so the timer scan is guarded per notice by
+// data-notice-mounted.
+const NOTICE_TIMEOUT_MS = 5000;
+
+function dismissNotice(notice) {
+  if (notice.classList.contains('notice-leaving')) return;
+  notice.classList.add('notice-leaving');
+  const remove = function () {
+    notice.remove();
+  };
+  notice.addEventListener('animationend', remove, { once: true });
+  setTimeout(remove, 300);
+}
+
+document.addEventListener('click', function (event) {
+  const dismiss = event.target.closest && event.target.closest('[data-notice-dismiss]');
+  if (dismiss) {
+    const notice = dismiss.closest('[data-notice]');
+    if (notice) dismissNotice(notice);
+  }
+});
+
+// The auto-dismiss timer is deadline-based rather than clearTimeout/reset so
+// a deduped notice can be kept alive: the safety net (app-shell.js) refreshes
+// a recurring failure's notice via epistola:notice-refresh, which only bumps
+// data-notice-deadline; the timer re-checks on fire and reschedules the
+// remainder. Refreshes are race-free writes to one attribute — no timer
+// handle to track across N refreshes, no cancel/rearm window — and the
+// notice dismisses NOTICE_TIMEOUT_MS after the LAST occurrence, not the first.
+function scheduleNoticeDismiss(notice, delay) {
+  setTimeout(function () {
+    if (!notice.isConnected) return;
+    const remaining = Number(notice.dataset.noticeDeadline) - Date.now();
+    if (remaining > 0) scheduleNoticeDismiss(notice, remaining);
+    else dismissNotice(notice);
+  }, delay);
+}
+
+document.addEventListener('epistola:notice-refresh', function (event) {
+  const notice = event.target.closest && event.target.closest('[data-notice]');
+  if (notice) notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
+});
+
+// htmx:load covers server-sent notices (OOB swaps); epistola:notice-added is
+// dispatched by the app-shell.js safety net for client-cloned ones, where no
+// swap happened and htmx:load never fires.
+['htmx:load', 'epistola:notice-added'].forEach(function (eventName) {
+  document.addEventListener(eventName, function () {
+    document
+      .querySelectorAll('[data-notice]:not([data-notice-mounted])')
+      .forEach(function (notice) {
+        notice.setAttribute('data-notice-mounted', '');
+        notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
+        scheduleNoticeDismiss(notice, NOTICE_TIMEOUT_MS);
+      });
+  });
+});

@@ -296,6 +296,77 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         status(statusCode)
     }
 
+    /**
+     * Attaches a success notice to the response: a transient confirmation
+     * (`epistola-web/notice`, design-system `.alert-success`) OOB-inserted into
+     * the shell's fixed `#notices` corner region, newest on top. Auto-dismisses
+     * client-side after a uniform timeout (behaviors.js).
+     *
+     * For async actions whose swap isn't self-evident feedback — standalone
+     * controls, background-ish actions. Purely additive: rides along with
+     * whatever primary fragment the handler renders. A handler with nothing to
+     * re-render should pair it with `reswap(HxSwap.NONE)`.
+     *
+     * Usage:
+     * ```kotlin
+     * fragment("templates/detail/settings", "output-settings") { … }
+     * successNotice("PDF/A output enabled.")
+     * ```
+     */
+    fun successNotice(message: String, title: String? = null) {
+        notice("success", message, title)
+    }
+
+    /**
+     * Reports a handled failure as an error notice (`.alert-error`,
+     * `role=alert`) in the corner region, for actions that have NO form error
+     * slot to render into — the notice counterpart of [globalFormError], with
+     * the same mechanics: OOB fragment, `HX-Reswap: none` (no primary swap; the
+     * OOB still processes — app-shell.js lets shaped error responses swap), and
+     * a real error status.
+     *
+     * A handler that wants to ALSO re-render its fragment (e.g. reverting a
+     * control to persisted state) can call `reswap(HxSwap.OUTER_HTML)` after
+     * this to re-enable the primary swap.
+     *
+     * @param message The error message to display
+     * @param title Optional bold first line
+     * @param statusCode The response status (default 400)
+     */
+    fun errorNotice(
+        message: String,
+        title: String? = null,
+        statusCode: Int = 400,
+    ) {
+        notice("error", message, title)
+        reswap(HxSwap.NONE)
+        status(statusCode)
+    }
+
+    private fun notice(kind: String, message: String, title: String?) {
+        // Developer contract, enforced at the single funnel every notice goes
+        // through: notices are one-sentence feedback, not a place to render
+        // long (or user-interpolated) prose — that is a dialog's job. A
+        // violating handler throws on its first run, so no test needs to
+        // scrape notice text to police this.
+        require(message.length <= NOTICE_MESSAGE_MAX_LENGTH) {
+            "Notice message exceeds $NOTICE_MESSAGE_MAX_LENGTH chars — notices are one-sentence feedback"
+        }
+        require(title == null || title.length <= NOTICE_TITLE_MAX_LENGTH) {
+            "Notice title exceeds $NOTICE_TITLE_MAX_LENGTH chars — keep it to a few words"
+        }
+        oob("epistola-web/notice", "notice-oob") {
+            "kind" to kind
+            "title" to title
+            "message" to message
+        }
+    }
+
+    companion object {
+        const val NOTICE_MESSAGE_MAX_LENGTH = 150
+        const val NOTICE_TITLE_MAX_LENGTH = 40
+    }
+
     private sealed interface TriggerDetail {
         fun toJson(objectMapper: ObjectMapper): String
     }

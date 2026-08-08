@@ -1,0 +1,150 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
+ * Corner notices (#477) — transient feedback for async actions.
+ *
+ * Overlay chrome ONLY: severity colors and icons come from the design-system
+ * .alert family (components.css); the epistola-web/notice fragment composes
+ * both. Notices are OOB-swapped into the fixed #notices region in layout/shell
+ * and removed by behaviors.js (auto-dismiss + data-notice-dismiss).
+ */
+
+/* The fixed shell region. pointer-events off so the (usually empty) overlay
+   never blocks clicks on content beneath it; re-enabled per notice. */
+.notice-region {
+  position: fixed;
+  bottom: var(--ep-space-6);
+  right: var(--ep-space-6);
+  z-index: var(--ep-z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+  width: min(24rem, calc(100vw - 2 * var(--ep-space-6)));
+  pointer-events: none;
+}
+
+/* The feedback FAB (epistola-support-feedback) is a circle fixed in the same
+   corner at z-index 1000 — above the region, so it would cover the bottom
+   notice. When its mount marker is present, lift the region clear of the FAB
+   instead of fighting it with z-index (notices are transient; the FAB is
+   permanent chrome that must stay clickable).
+
+   The FAB's geometry comes from the --ep-feedback-* variables the module
+   itself publishes on :root (feedback-fab.js), so its footprint can change
+   without silently reintroducing the overlap. The var() fallbacks mirror the
+   module's current values and are REQUIRED, not decoration: the server
+   renders the [data-feedback-fab] marker before the module's JS injects the
+   variables, and an unresolvable var() would invalidate the whole
+   declaration (dropping the region to bottom:auto) instead of falling back
+   to the base rule above. */
+body:has([data-feedback-fab]) .notice-region {
+  bottom: calc(
+    var(--ep-feedback-fab-offset, 1.25rem) + var(--ep-feedback-fab-size, 48px) + var(--ep-space-4)
+  );
+}
+
+/* While the feedback POPOVER is open (a live class toggle — :has() re-
+   evaluates as the DOM changes, so this applies exactly while it is open),
+   it occupies the lifted region's footprint: a fixed-width column above the
+   FAB at z-index 999, which would cover the notices. Slide the notices LEFT
+   of the popover column — its WIDTH is a constant, so this is exact for any
+   content; its height is content-driven (up to its max-height) and unknowable
+   to sibling CSS, which rules out lifting above without a floaty worst-case
+   gap. */
+body:has(.feedback-popover--open) .notice-region {
+  right: calc(
+    var(--ep-feedback-fab-offset, 1.25rem) + var(--ep-feedback-popover-width, 340px) +
+      var(--ep-space-2)
+  );
+}
+
+/* Neutral card surface over the .alert severity tints: the brand palette is
+   warm "Peach Paper", and a saturated green/red card floating over it clashes.
+   As an overlay the notice reads as an app CARD (white on paper, like every
+   panel), with severity carried by the ICON alone (no tint, no accent bar —
+   border-left-width resets .alert's 4px bar). The shape cue (circle vs
+   triangle icon) keeps severity colorblind-safe (WCAG 1.4.1) — same guarantee
+   the tinted alerts rely on. In-page .alert usage is untouched. Wins over
+   components.css by layer order (app > components), not specificity. */
+.notice {
+  pointer-events: auto;
+  box-shadow: var(--ep-shadow-lg);
+  align-items: flex-start;
+  background-color: var(--ep-card);
+  border-color: var(--ep-border-color);
+  border-left-width: 1px;
+  color: var(--ep-foreground);
+  /* The app's in-flow .alert margin (24px bottom) would stack onto the flex
+     gap; the region's gap is the single source of spacing here. */
+  margin: 0;
+}
+
+/* Severity icon color (the mask paints in currentColor, re-colored per kind
+   since the text is now neutral). */
+.notice.alert-success::before {
+  background-color: var(--ep-success);
+}
+
+.notice.alert-error::before {
+  background-color: var(--ep-destructive);
+}
+
+.notice-body {
+  flex: 1 1 auto;
+}
+
+/* Motion: slide-in from the right on arrival; the removal paths in
+   behaviors.js add .notice-leaving and remove on animationend (with a timeout
+   fallback for reduced-motion, where animation:none never fires the event). */
+.notice {
+  animation: notice-enter 0.18s ease-out;
+}
+
+.notice-leaving {
+  animation: notice-leave 0.15s ease-in forwards;
+}
+
+@keyframes notice-enter {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes notice-leave {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice,
+  .notice-leaving {
+    animation: none;
+  }
+}
+
+/* Same reset as .site-banner-dismiss — the × is text, not a button chrome. */
+.notice-dismiss {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  padding: 0 var(--ep-space-1);
+  font-size: var(--ep-text-lg);
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+}

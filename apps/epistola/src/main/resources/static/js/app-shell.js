@@ -254,8 +254,84 @@ document.addEventListener('htmx:beforeRequest', function (event) {
   });
 });
 
-// ── Global safety net for unhandled errors ──────────────────────
+// ── Global safety net for unhandled errors (#477) ───────────────
+//
+// Every async failure a handler did not shape ends in a corner error notice,
+// so silent failure is not a possible outcome on shell pages (the few
+// standalone pages have no #notices region — their async goes through the
+// editor's own error channel or a form slot). The notice is cloned from the
+// shell's #notice-template (no server HTML exists for these cases — cloning
+// keeps the markup single-sourced in the epistola-web/notice fragment);
+// behaviors.js picks it up for auto-dismiss via the epistola:notice-added
+// event, since no htmx:load fires when nothing was swapped.
 
+// Public client-side notice API — the JS mirror of the Kotlin DSL helpers
+// (successNotice/errorNotice), for legit-fetch sites (PDF blobs) that have no
+// HTMX response for a server-sent notice to ride. Same component, same rules:
+// one short sentence, and mind that an open modal <dialog> sits in the top
+// layer and covers the corner region — feedback for a failure inside an open
+// modal belongs inside that dialog, not here (the version-comparison dialog
+// in template-detail.js is the reference).
+window.epistolaNotice = {
+  success: function (message) {
+    insertNotice('success', message);
+  },
+  error: function (message) {
+    insertNotice('error', message);
+  },
+};
+
+// [dedupeKey] identifies "the same failure recurring" (e.g. one failing 2s
+// poll): a visible notice with the same key is refreshed in place — message
+// updated only if it changed (so aria-live does not re-announce an identical
+// one), dismiss timer extended via epistola:notice-refresh (behaviors.js owns
+// the timer, this file owns insertion — the event is the seam between them) —
+// instead of stacking a pile. The old page banner deduped as a singleton;
+// keyed dedupe keeps that property without coalescing unrelated failures
+// that happen to share wording. No key → always a new notice. The key stays
+// an internal (safety-net) affordance — deliberately not part of the
+// epistolaNotice API surface.
+function insertNotice(kind, message, dedupeKey) {
+  var region = document.getElementById('notices');
+  var template = document.getElementById('notice-template');
+  if (!region || !template || !template.content.firstElementChild) return;
+
+  if (dedupeKey) {
+    var existing = region.querySelector('[data-notice-key="' + CSS.escape(dedupeKey) + '"]');
+    if (existing && !existing.classList.contains('notice-leaving')) {
+      var text = existing.querySelector('.notice-message');
+      if (text.textContent !== message) text.textContent = message;
+      existing.dispatchEvent(new CustomEvent('epistola:notice-refresh', { bubbles: true }));
+      return;
+    }
+  }
+
+  var notice = template.content.firstElementChild.cloneNode(true);
+  // The template ships error-flavored; other kinds swap the severity class
+  // and announce politely instead of assertively.
+  if (kind !== 'error') {
+    notice.classList.remove('alert-error');
+    notice.classList.add('alert-' + kind);
+    notice.setAttribute('role', 'status');
+  }
+  if (dedupeKey) notice.setAttribute('data-notice-key', dedupeKey);
+  notice.querySelector('.notice-message').textContent = message;
+  region.insertBefore(notice, region.firstChild);
+  document.dispatchEvent(new CustomEvent('epistola:notice-added'));
+}
+
+function showErrorNotice(message, dedupeKey) {
+  insertNotice('error', message, dedupeKey);
+}
+
+// What identifies a recurring failure for showErrorNotice's dedupe: the
+// request path (same poll → same key) plus the failure mode.
+function noticeKeyFor(kind, event) {
+  var path = (event.detail.pathInfo && event.detail.pathInfo.requestPath) || '';
+  return kind + ':' + path;
+}
+
+// The server responded 4xx/5xx and the response was not shaped for HTMX.
 document.addEventListener('htmx:responseError', function (event) {
   var xhr = event.detail.xhr;
   if (!xhr) return;
@@ -264,7 +340,7 @@ document.addEventListener('htmx:responseError', function (event) {
   // swap above — nothing to add here.
   if (xhr.getResponseHeader('HX-Reswap')) return;
 
-  // Don't show global error if the target is inside the confirm dialog
+  // The confirm dialog reports failures in its own error area.
   var target = event.detail.target;
   if (target && target.closest && target.closest('#confirm-dialog')) return;
 
@@ -285,7 +361,7 @@ document.addEventListener('htmx:responseError', function (event) {
     message = detail || 'The request failed. Please try again.';
   }
 
-  // Prefer the issuing form's global error slot over the page banner.
+  // Prefer the issuing form's global error slot \u2014 inline, next to the inputs.
   var sourceForm =
     event.detail.elt && event.detail.elt.closest ? event.detail.elt.closest('form') : null;
   var slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
@@ -295,34 +371,24 @@ document.addEventListener('htmx:responseError', function (event) {
     return;
   }
 
-  // No slot (row actions, non-form triggers): keep the banner, but only for
-  // the statuses it always covered.
-  if (xhr.status !== 403 && xhr.status < 500) return;
+  // Non-form failure (standalone controls, row actions): corner error notice.
+  // Replaces the old top-of-page banner, and covers every status \u2014 the banner
+  // only showed 403/5xx and silently dropped other client errors.
+  showErrorNotice(message, noticeKeyFor('error:' + xhr.status, event));
+});
 
-  // Insert error banner at top of main content
-  var main = document.querySelector('#main-content') || document.querySelector('main');
-  if (!main) return;
+// The request never reached the server \u2014 there is no response to speak for it.
+document.addEventListener('htmx:sendError', function (event) {
+  showErrorNotice(
+    'Network error \u2014 check your connection and try again.',
+    noticeKeyFor('network', event),
+  );
+});
 
-  // Remove any existing global error banner
-  var existing = main.querySelector('.global-error-banner');
-  if (existing) existing.remove();
-
-  var banner = document.createElement('div');
-  banner.className = 'alert alert-error global-error-banner';
-  banner.style.marginBottom = 'var(--ep-space-4)';
-  var span = document.createElement('span');
-  span.textContent = message;
-  banner.appendChild(span);
-  var closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'ep-btn ep-btn-sm ep-btn-ghost';
-  closeBtn.style.marginLeft = 'auto';
-  closeBtn.textContent = '\u00d7';
-  closeBtn.addEventListener('click', function () {
-    banner.remove();
-  });
-  banner.appendChild(closeBtn);
-  banner.style.display = 'flex';
-  banner.style.alignItems = 'center';
-  main.insertBefore(banner, main.firstChild);
+// The response arrived but swapping it into the page failed.
+document.addEventListener('htmx:swapError', function (event) {
+  showErrorNotice(
+    'Something went wrong displaying the response. Reload the page.',
+    noticeKeyFor('swap', event),
+  );
 });
