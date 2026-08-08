@@ -179,7 +179,7 @@ export function initFeedbackFab(tenantId) {
 </div>
 
 <dialog id="feedback-fab-dialog" class="ep-dialog ep-dialog-wide">
-    <div id="feedback-fab-dialog-content" class="feedback-dialog-content"></div>
+    <div id="feedback-fab-dialog-content" class="feedback-dialog-content" data-show-dialog-on-swap></div>
 </dialog>
 `;
 

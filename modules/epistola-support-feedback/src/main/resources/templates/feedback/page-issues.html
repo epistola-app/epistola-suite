@@ -4,11 +4,13 @@
     <th:block th:fragment="content">
         <div class="feedback-popover-header" th:data-feedback-count="${#lists.size(feedbackItems)}">
             <span class="feedback-popover-title">Page Feedback</span>
+            <!-- The dialog opens when the form arrives (data-show-dialog-on-swap
+                 on its content div) — an eager open here would strand an empty
+                 backdrop when the request fails. -->
             <button type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
                     hx-target="#feedback-fab-dialog-content"
-                    hx-swap="innerHTML"
-                    data-open-dialog="feedback-fab-dialog">
+                    hx-swap="innerHTML">
                 New
             </button>
         </div>
