@@ -416,6 +416,49 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `PATCH pdfa with a malformed value returns 400 without touching the setting`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Pdfa Malformed")
+                val tplKey = TestIdHelpers.nextTemplateId()
+                val templateId = TemplateId(tplKey, CatalogId.default(TenantId(t.id)))
+                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                UpdateDocumentTemplate(
+                    id = templateId,
+                    pdfaEnabled = false,
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            // The checkbox only ever submits "on" or nothing; anything else is
+            // a tampered request.
+            patchForm(
+                "/tenants/${tenant.id}/templates/default/$templateKey/pdfa",
+                "pdfaEnabled" to "garbage",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.pdfaEnabled).isFalse()
+        }
+    }
+
+    @Test
     fun `PATCH theme with a well-formed but nonexistent theme returns 400 with a detail`() = fixture {
         lateinit var tenant: Tenant
         var templateKey = ""

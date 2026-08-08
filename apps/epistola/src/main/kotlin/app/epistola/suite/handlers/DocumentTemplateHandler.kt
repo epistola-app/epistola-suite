@@ -494,9 +494,11 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val enabled = request.params().getFirst("pdfaEnabled")
-            ?.let { it != "false" }
-            ?: false
+        val enabled = when (request.params().getFirst("pdfaEnabled")) {
+            null, "false" -> false
+            "on", "true" -> true
+            else -> return ServerResponse.badRequest().build()
+        }
         val template = UpdateDocumentTemplate(
             id = templateId,
             pdfaEnabled = enabled,
