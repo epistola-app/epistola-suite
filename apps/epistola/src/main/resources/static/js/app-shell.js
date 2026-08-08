@@ -268,10 +268,11 @@ document.addEventListener('htmx:beforeRequest', function (event) {
 // Public client-side notice API — the JS mirror of the Kotlin DSL helpers
 // (successNotice/errorNotice), for legit-fetch sites (PDF blobs) that have no
 // HTMX response for a server-sent notice to ride. Same component, same rules:
-// one short sentence, and mind that an open modal <dialog> sits in the top
-// layer and covers the corner region — feedback for a failure inside an open
-// modal belongs inside that dialog, not here (the version-comparison dialog
-// in template-detail.js is the reference).
+// one short sentence. Notices stay visible above open modal dialogs
+// (behaviors.js hosts the region inside the dialog), but the convention
+// stands: a failure belonging to a dialog's own action renders inside that
+// dialog, next to what the user did — not here (the version-comparison
+// dialog in template-detail.js is the reference).
 window.epistolaNotice = {
   success: function (message) {
     insertNotice('success', message);
@@ -342,11 +343,10 @@ document.addEventListener('htmx:responseError', function (event) {
 
   // The confirm dialog already reports failures in its own error area
   // (openConfirmDialog's responseError listener), so the safety net must stay
-  // out of it — a corner notice here would be a duplicate, hidden behind the
-  // modal top layer until the dialog closes. The check must use the issuing
-  // element (detail.elt, the form inside the dialog): the dialog form's
-  // hx-target always points outside the dialog, so detail.target never
-  // matches.
+  // out of it — a corner notice here would duplicate the in-dialog message.
+  // The check must use the issuing element (detail.elt, the form inside the
+  // dialog): the dialog form's hx-target always points outside the dialog,
+  // so detail.target never matches.
   var sourceElt = event.detail.elt;
   if (sourceElt && sourceElt.closest && sourceElt.closest('#confirm-dialog')) return;
 
@@ -385,10 +385,10 @@ document.addEventListener('htmx:responseError', function (event) {
 
 // The request never reached the server \u2014 there is no response to speak for it.
 // If the request came from the open confirm dialog, the message renders in the
-// dialog's own error area: the dialog form only handles responseError itself
-// (a network failure would otherwise leave the dialog looking like nothing
-// happened), and a corner notice would sit behind the modal top layer,
-// invisible until the dialog closes.
+// dialog's own error area, next to the button the user just clicked \u2014 the
+// dialog form only handles responseError itself, so a network failure would
+// otherwise leave the dialog looking like nothing happened (a dialog reports
+// its own request's failures in-dialog; the corner is for everything else).
 document.addEventListener('htmx:sendError', function (event) {
   var message = 'Network error \u2014 check your connection and try again.';
   var sourceElt = event.detail.elt;
