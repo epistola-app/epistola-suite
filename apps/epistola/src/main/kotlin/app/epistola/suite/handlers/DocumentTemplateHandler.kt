@@ -529,6 +529,9 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        // The no-op branch below returns before the command's own check.
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+
         val requested = request.params().getFirst("name")?.trim().orEmpty()
         val current = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
