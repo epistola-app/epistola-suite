@@ -340,9 +340,15 @@ document.addEventListener('htmx:responseError', function (event) {
   // swap above — nothing to add here.
   if (xhr.getResponseHeader('HX-Reswap')) return;
 
-  // The confirm dialog reports failures in its own error area.
-  var target = event.detail.target;
-  if (target && target.closest && target.closest('#confirm-dialog')) return;
+  // The confirm dialog already reports failures in its own error area
+  // (openConfirmDialog's responseError listener), so the safety net must stay
+  // out of it — a corner notice here would be a duplicate, hidden behind the
+  // modal top layer until the dialog closes. The check must use the issuing
+  // element (detail.elt, the form inside the dialog): the dialog form's
+  // hx-target always points outside the dialog, so detail.target never
+  // matches.
+  var sourceElt = event.detail.elt;
+  if (sourceElt && sourceElt.closest && sourceElt.closest('#confirm-dialog')) return;
 
   var detail;
   try {
@@ -378,11 +384,23 @@ document.addEventListener('htmx:responseError', function (event) {
 });
 
 // The request never reached the server \u2014 there is no response to speak for it.
+// If the request came from the open confirm dialog, the message renders in the
+// dialog's own error area: the dialog form only handles responseError itself
+// (a network failure would otherwise leave the dialog looking like nothing
+// happened), and a corner notice would sit behind the modal top layer,
+// invisible until the dialog closes.
 document.addEventListener('htmx:sendError', function (event) {
-  showErrorNotice(
-    'Network error \u2014 check your connection and try again.',
-    noticeKeyFor('network', event),
-  );
+  var message = 'Network error \u2014 check your connection and try again.';
+  var sourceElt = event.detail.elt;
+  if (sourceElt && sourceElt.closest && sourceElt.closest('#confirm-dialog')) {
+    var errorEl = document.getElementById('confirm-dialog-error');
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+      return;
+    }
+  }
+  showErrorNotice(message, noticeKeyFor('network', event));
 });
 
 // The response arrived but swapping it into the page failed.
