@@ -227,10 +227,11 @@
         document.getElementById('comparison-frame-' + side).style.display = 'block';
       });
     } catch (error) {
-      // No corner notice here: this dialog is open as a MODAL, and the top
-      // layer paints over the fixed notice region — a notice would fire
-      // invisibly and auto-dismiss unseen. Inside a modal, feedback renders
-      // in the dialog's own placeholder slots. Full error in the console.
+      // No corner notice here: this failure belongs to the dialog's own
+      // action, so it renders in the dialog's placeholder slots, next to
+      // what the user did (the notices-over-dialogs convention — a dialog
+      // reports its own request's failures in-dialog; the corner is for
+      // everything else). Full error in the console.
       console.error('Version comparison failed:', error);
       ['a', 'b'].forEach(function (side) {
         const empty = document.getElementById('comparison-empty-' + side);

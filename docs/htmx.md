@@ -663,8 +663,12 @@ gets a notice.**
 A notice is the `epistola-web/notice` fragment (design-system `.alert`
 severity + overlay chrome from `notice.css`), OOB-inserted into the shell's
 fixed `#notices` region, newest on top. Every notice auto-dismisses after a
-uniform timeout; a dismiss button closes early (`behaviors.js`). Two DSL
-helpers are the only way to emit one:
+uniform timeout; a dismiss button closes early (`behaviors.js`). While a modal
+`<dialog>` is open, `behaviors.js` hosts the region inside it as a manual
+popover, so notices stay visible above the backdrop and dismissible (the
+platform toasts-over-modals pattern; browsers without dialog `toggle` events
+keep the behind-the-backdrop behavior). Two DSL helpers are the only way to
+emit one:
 
 ```kotlin
 // Success: purely additive — rides along with the primary fragment.
@@ -696,11 +700,16 @@ Rules:
 - **Legit-`fetch` sites** (PDF blobs — outside htmx, so neither a server-sent
   notice nor the safety net can reach them) use the client mirror:
   `epistolaNotice.success(message)` / `.error(message)` (app-shell.js), which
-  clones the same fragment. Same one-sentence rule — and mind modals: an open
-  modal `<dialog>` sits in the browser's top layer and covers the corner
-  region, so a failure inside one must render in the dialog itself (the
-  version-comparison dialog in `pages/template-detail.js` is the reference),
-  never as a notice.
+  clones the same fragment. Same one-sentence rule.
+- **A dialog reports its own request's failures in-dialog; the corner is for
+  everything else.** A failure belonging to a dialog's open action renders
+  inside that dialog, next to what the user did — the confirm dialog's error
+  area and the version-comparison dialog's placeholder slots
+  (`pages/template-detail.js`) are the references — never as a notice (the
+  safety net skips the confirm dialog for exactly this reason). Notices from
+  _unrelated_ sources arriving while a dialog happens to be open need no
+  special handling: the region is hosted above the backdrop, so they stay
+  visible.
 
 ## Common Patterns
 
