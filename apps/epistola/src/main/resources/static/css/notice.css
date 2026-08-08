@@ -27,39 +27,25 @@
   pointer-events: none;
 }
 
-/* The feedback FAB (epistola-support-feedback) is a circle fixed in the same
-   corner at z-index 1000 — above the region, so it would cover the bottom
-   notice. When its mount marker is present, lift the region clear of the FAB
-   instead of fighting it with z-index (notices are transient; the FAB is
-   permanent chrome that must stay clickable).
+@media (width > 56rem) {
+  /* Lift clear of the feedback FAB. Geometry comes from the --ep-feedback-*
+     variables feedback-fab.js publishes; the fallbacks are REQUIRED — the
+     marker server-renders before that JS runs, and an unresolvable var()
+     invalidates the whole declaration. */
+  body:has([data-feedback-fab]) .notice-region {
+    bottom: calc(
+      var(--ep-feedback-fab-offset, 1.25rem) + var(--ep-feedback-fab-size, 48px) + var(--ep-space-4)
+    );
+  }
 
-   The FAB's geometry comes from the --ep-feedback-* variables the module
-   itself publishes on :root (feedback-fab.js), so its footprint can change
-   without silently reintroducing the overlap. The var() fallbacks mirror the
-   module's current values and are REQUIRED, not decoration: the server
-   renders the [data-feedback-fab] marker before the module's JS injects the
-   variables, and an unresolvable var() would invalidate the whole
-   declaration (dropping the region to bottom:auto) instead of falling back
-   to the base rule above. */
-body:has([data-feedback-fab]) .notice-region {
-  bottom: calc(
-    var(--ep-feedback-fab-offset, 1.25rem) + var(--ep-feedback-fab-size, 48px) + var(--ep-space-4)
-  );
-}
-
-/* While the feedback POPOVER is open (a live class toggle — :has() re-
-   evaluates as the DOM changes, so this applies exactly while it is open),
-   it occupies the lifted region's footprint: a fixed-width column above the
-   FAB at z-index 999, which would cover the notices. Slide the notices LEFT
-   of the popover column — its WIDTH is a constant, so this is exact for any
-   content; its height is content-driven (up to its max-height) and unknowable
-   to sibling CSS, which rules out lifting above without a floaty worst-case
-   gap. */
-body:has(.feedback-popover--open) .notice-region {
-  right: calc(
-    var(--ep-feedback-fab-offset, 1.25rem) + var(--ep-feedback-popover-width, 340px) +
-      var(--ep-space-2)
-  );
+  /* Open feedback popover: slide LEFT of it — its width is constant, its
+     height is content-driven, which rules out lifting above. */
+  body:has(.feedback-popover--open) .notice-region {
+    right: calc(
+      var(--ep-feedback-fab-offset, 1.25rem) + var(--ep-feedback-popover-width, 340px) +
+        var(--ep-space-2)
+    );
+  }
 }
 
 /* While a modal <dialog> is open, behaviors.js moves the region inside it and
@@ -78,6 +64,21 @@ body:has(.feedback-popover--open) .notice-region {
   background: transparent;
   color: inherit;
   overflow: visible;
+}
+
+/* Narrow viewports (shell nav's 56rem breakpoint): top-center, opposite edge
+   from the FAB/popover corner — hence the desktop-only guard on the corner
+   rules above. After the [popover] reset so the dialog-hosted state centers
+   the same way. */
+@media (width <= 56rem) {
+  .notice-region,
+  .notice-region[popover] {
+    top: var(--ep-space-6);
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
 }
 
 /* Neutral card surface over the .alert severity tints: the brand palette is
