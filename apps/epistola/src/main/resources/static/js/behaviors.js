@@ -290,6 +290,7 @@ const NOTICE_TIMEOUT_MS = 5000;
 
 function dismissNotice(notice) {
   if (notice.classList.contains('notice-leaving')) return;
+  notice.style.animation = ''; // clear the reparent suppression so leave plays
   notice.classList.add('notice-leaving');
   const remove = function () {
     notice.remove();
@@ -414,6 +415,21 @@ let noticeRegionHome = null;
 // sits before the version-history dialog it stacks on top of).
 const openModalStack = [];
 
+// Reparenting restarts every CSS animation in the region: pin each notice's
+// bar back to its deadline (--notice-elapsed + negative delay in notice.css)
+// and suppress the enter-slide replay (dismissNotice clears the inline
+// suppression so the leave animation still plays).
+function reanchorNoticeAnimations(region) {
+  region.querySelectorAll('[data-notice-mounted]').forEach(function (notice) {
+    notice.style.animation = 'none';
+    const remaining = notice.hasAttribute('data-notice-hovered')
+      ? Number(notice.dataset.noticeRemaining || 0)
+      : Number(notice.dataset.noticeDeadline) - Date.now();
+    const elapsed = Math.min(NOTICE_TIMEOUT_MS, NOTICE_TIMEOUT_MS - Math.max(0, remaining));
+    notice.style.setProperty('--notice-elapsed', elapsed + 'ms');
+  });
+}
+
 function syncNoticeRegionPlacement() {
   const region = document.getElementById('notices');
   if (!region || typeof region.showPopover !== 'function') return;
@@ -433,6 +449,7 @@ function syncNoticeRegionPlacement() {
     host.appendChild(region);
     region.setAttribute('popover', 'manual');
     region.showPopover();
+    reanchorNoticeAnimations(region);
   } else if (region.hasAttribute('popover')) {
     if (region.matches(':popover-open')) region.hidePopover();
     region.removeAttribute('popover');
@@ -441,6 +458,7 @@ function syncNoticeRegionPlacement() {
     } else {
       document.body.appendChild(region);
     }
+    reanchorNoticeAnimations(region);
   }
 }
 

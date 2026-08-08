@@ -117,6 +117,9 @@
   background: var(--ep-primary);
   transform-origin: left;
   animation: notice-timer var(--notice-timeout, 5s) linear forwards;
+  /* Re-anchor after a reparent restart: behaviors.js sets the elapsed time,
+     and the negative delay jumps the restarted animation to that position. */
+  animation-delay: calc(-1 * var(--notice-elapsed, 0ms));
 }
 
 .notice[data-notice-hovered]::after {
