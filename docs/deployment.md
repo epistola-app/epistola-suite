@@ -406,7 +406,79 @@ timeout) and leak detection off. Migrations stay bounded by
 
 ## Logging
 
-Two chart values set the log level on the app pods (both empty by default, so
+### Console format
+
+Application pods use the human-readable colored console format by default in every environment,
+including `prod`. Structured output is opt-in and independent of Spring profiles: set
+`LOGGING_STRUCTURED_FORMAT_CONSOLE` to `logstash`, `ecs`, or `gelf`.
+
+| Value      | Intended consumer                                         |
+| ---------- | --------------------------------------------------------- |
+| `logstash` | General JSON collectors and Logstash-compatible pipelines |
+| `ecs`      | Elastic Common Schema pipelines                           |
+| `gelf`     | Graylog Extended Log Format pipelines                     |
+| unset      | Human-readable console output                             |
+
+For Helm, use the first-class `logging.format` value:
+
+```yaml
+logging:
+  format: ecs
+```
+
+Allowed values are `plain`, `logstash`, `ecs`, and `gelf`. The default is `plain`; selecting a
+structured format is always explicit.
+
+The equivalent direct process configuration is:
+
+```bash
+LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs java -jar epistola.jar
+```
+
+Spring property syntax is also supported:
+
+```bash
+java -jar epistola.jar --logging.structured.format.console=ecs
+```
+
+Each structured event contains the format's standard timestamp, level, message, logger, thread and
+exception members. Trace and span MDC values are included when tracing is active, and Epistola adds
+`tenant_id` whenever the logging thread has an active tenant security context. Logs emitted before
+a tenant is resolved, and system-wide background logs, omit `tenant_id`. Stack traces are escaped
+inside the single JSON record and bounded to 32 KiB per event.
+
+Console formatting is independent of the in-app database log capture and dedicated OTLP telemetry
+appenders: changing the console format neither enables nor disables those outputs.
+
+The dedicated migration runner is the exception: it deliberately bypasses Spring Boot's global
+logging initialization and continues to use Logback's plain default format. This prevents its
+short-lived Spring context from tearing down logging used by sibling contexts in the test JVM.
+
+### Local verification
+
+Select a structured format while retaining the local datasource and authentication configuration:
+
+```bash
+./gradlew :apps:epistola:bootRun \
+  --args='--spring.profiles.active=local --logging.structured.format.console=ecs --spring.main.banner-mode=off'
+```
+
+Gradle writes its own plain-text task output before the application starts. To validate the
+application records interactively, keep only lines that begin with a JSON object and stream them
+through `jq`:
+
+```bash
+./gradlew :apps:epistola:bootRun \
+  --args='--spring.profiles.active=local --logging.structured.format.console=ecs --spring.main.banner-mode=off' \
+  2>&1 | awk '/^\{/' | jq -c .
+```
+
+Run with only `--spring.profiles.active=local` to verify that the default developer output remains
+human-readable.
+
+### Log levels
+
+Two additional chart values set the log level on the app pods (both empty by default, so
 the application's built-in defaults apply):
 
 - **`logging.level`** — the root logger, rendered as `LOGGING_LEVEL_ROOT`

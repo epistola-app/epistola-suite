@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
+  processes can emit newline-delimited Logstash, ECS, or GELF output through
+  `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack
+  traces. Human-readable output remains the default in every environment. Database log capture and
+  dedicated OTLP telemetry remain independent of console formatting.
 - **[user]** fix(audit): **Consumer polling no longer floods the audit log.** Consumer node
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while

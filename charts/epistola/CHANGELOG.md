@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
+  or `gelf`; `plain` is the chart default in every environment, including production. The chart
+  validates the value and renders it only on application pods; the isolated migration step retains
+  its minimal plain-text output.
+
 ## [1.0.0] - 2026-07-31
 
 ### Changed

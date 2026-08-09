@@ -8,6 +8,14 @@ server:
     include-stacktrace: never
     include-message: never
 
+# Apply the same Epistola context and exception bounds for any selected structured format.
+logging:
+  structured:
+    json:
+      customizer: app.epistola.suite.logs.EpistolaStructuredLoggingJsonCustomizer
+      stacktrace:
+        max-length: 32768
+
 spring:
   application:
     name: epistola-pdfrender

@@ -17,6 +17,16 @@ server:
     mime-types: text/html,text/css,text/javascript,application/javascript,application/json,image/svg+xml
     min-response-size: 1024
 
+# These enrichments apply whenever structured logging is explicitly enabled in any environment
+# with LOGGING_STRUCTURED_FORMAT_CONSOLE=logstash (or ecs/gelf).
+logging:
+  structured:
+    json:
+      customizer: app.epistola.suite.logs.EpistolaStructuredLoggingJsonCustomizer
+      stacktrace:
+        # Bound exceptional events so a single failure cannot monopolize a collector batch.
+        max-length: 32768
+
 spring:
   ai:
     mcp:

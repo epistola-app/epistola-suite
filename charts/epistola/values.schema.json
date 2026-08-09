@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "title": "Epistola Suite Helm values",
-  "description": "Partial schema: constrains the datasource/migration wiring that has hard render-time requirements. Other values are validated by the templates.",
+  "description": "Partial schema: constrains operational values that have hard render-time requirements. Other values are validated by the templates.",
   "type": "object",
   "properties": {
     "database": {
@@ -41,6 +41,15 @@
           }
         }
       ]
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "Console output format. Plain is the default; structured formats are opt-in.",
+          "enum": ["plain", "logstash", "ecs", "gelf"]
+        }
+      }
     },
     "migration": {
       "type": "object",

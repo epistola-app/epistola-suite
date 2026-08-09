@@ -9,6 +9,17 @@ shaped so they can later be forwarded to **epistola-hub** for fleet aggregation.
 > This is distinct from the **`event_log`** table (`EventLogSubscriber`), which
 > is a command-completion **audit trail** (domain events), not logger output.
 
+## Console output
+
+Console formatting is a separate output leg from the database capture described below. Every
+environment uses human-readable output by default and can opt into Logstash, ECS, or GELF through
+`LOGGING_STRUCTURED_FORMAT_CONSOLE`. Structured console records include `tenant_id` from the same
+`SecurityContext` source used by database capture whenever a tenant is bound. Selecting a console
+format does not change which events are stored or forwarded over OTLP.
+
+See [Deployment — Logging](deployment.md#logging) for format selection, Helm configuration, output
+behavior, and local verification commands.
+
 ## Storage
 
 Table `application_log` (migration `core/V20260612053608__core_application_log.sql`):

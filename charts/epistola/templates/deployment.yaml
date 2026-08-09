@@ -79,7 +79,13 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.config.profiles | quote }}
             {{- end }}
-            {{- /* Logging levels (app pods only). Other loggers go via config.env. */}}
+            {{- /* Logging output + levels (app pods only). Other loggers go via config.env. */}}
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              {{- if eq .Values.logging.format "plain" }}
+              value: ""
+              {{- else }}
+              value: {{ .Values.logging.format | quote }}
+              {{- end }}
             {{- if .Values.logging.level }}
             - name: LOGGING_LEVEL_ROOT
               value: {{ .Values.logging.level | quote }}
