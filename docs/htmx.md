@@ -692,11 +692,13 @@ Rules:
   revert) must not emit a success notice.
 - **Don't wire error notices for cases the safety net already covers.** The
   `app-shell.js` safety net turns every unshaped non-form 4xx/5xx into an
-  error notice carrying the RFC 9457 `detail`, and `htmx:sendError` /
-  `htmx:swapError` (network down, swap failure) into generic ones — cloned
-  from the shell's inert `#notice-template`, since no server HTML exists for
-  those. Reach for `errorNotice()` only when the handler has a better message
-  than the problem detail it would otherwise send.
+  error notice — carrying the RFC 9457 `detail` for client errors, while a
+  5xx always gets a generic sentence (deliberate: a 500's detail must never
+  surface server internals to users). `htmx:sendError` / `htmx:swapError`
+  (network down, swap failure) become generic notices cloned from the shell's
+  inert `#notice-template`, since no server HTML exists for those. Reach for
+  `errorNotice()` only when the handler has a better message than the problem
+  detail it would otherwise send.
 - **Legit-`fetch` sites** (PDF blobs — outside htmx, so neither a server-sent
   notice nor the safety net can reach them) use the client mirror:
   `epistolaNotice.success(message)` / `.error(message)` (app-shell.js), which
