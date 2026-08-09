@@ -65,6 +65,8 @@ pdfrender must point at the **same database and secrets** as the suite:
 - `epistola.storage.backend` (and, for `s3`, its credentials) — must match the suite.
 - `EPISTOLA_NODE_ID` — set a **distinct** id per process when co-locating with the suite on one
   host (node identity derives from the hostname otherwise, so two processes on one host collide).
+- `LOGGING_STRUCTURED_FORMAT_CONSOLE` — optional `logstash`, `ecs`, or `gelf` console output. The
+  worker remains human-readable in every profile when this is unset.
 
 ## Build & run
 
@@ -106,6 +108,11 @@ only** (rendering off) so every job lands on pdfrender:
 # Terminal 3 — the render worker
 ./gradlew :apps:pdfrender:bootRun --args='--spring.profiles.active=local'
 ```
+
+To exercise structured logging locally without changing any other worker configuration, add
+`--logging.structured.format.console=ecs --spring.main.banner-mode=off` to Terminal 3's arguments.
+The suite and worker select their console formats independently, so set the property on both
+processes when testing a consistently structured deployment.
 
 Then sign in to the suite at <http://localhost:4000> (`admin@local` / `admin`), generate a
 document from a demo template, and watch Terminal 3: the worker's `job-render-…` threads log

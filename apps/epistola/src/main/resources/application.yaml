@@ -17,9 +17,8 @@ server:
     mime-types: text/html,text/css,text/javascript,application/javascript,application/json,image/svg+xml
     min-response-size: 1024
 
-# These enrichments apply whenever structured logging is enabled in any environment. Production
-# selects Logstash JSON by default; other environments can opt in with
-# LOGGING_STRUCTURED_FORMAT_CONSOLE=logstash (or ecs/gelf).
+# These enrichments apply whenever structured logging is explicitly enabled in any environment
+# with LOGGING_STRUCTURED_FORMAT_CONSOLE=logstash (or ecs/gelf).
 logging:
   structured:
     json:

@@ -311,11 +311,13 @@ config:
   # Additional environment variables
   env: {}
 
-# Logging levels (optional). Blank values fall back to the application's
-# built-in defaults. Applied to the app pods only; the migration step keeps
-# its own minimal logging. For any logger other than the two below, set the
-# corresponding LOGGING_LEVEL_<LOGGER> env var via config.env.
+# Logging output and levels. Blank level values fall back to the application's built-in defaults.
+# Applied to app pods only; the migration step keeps its own minimal plain-text logging.
+# For any logger other than the two below, set the corresponding LOGGING_LEVEL_<LOGGER> env var
+# via config.env.
 logging:
+  # Console output: plain, logstash, ecs, or gelf.
+  format: plain
   # Root logger level → LOGGING_LEVEL_ROOT. One of TRACE, DEBUG, INFO, WARN,
   # ERROR, OFF.
   level: ""

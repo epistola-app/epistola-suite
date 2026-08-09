@@ -1,5 +1,0 @@
-# Production stdout is newline-delimited Logstash JSON, matching the suite application.
-logging:
-  structured:
-    format:
-      console: logstash

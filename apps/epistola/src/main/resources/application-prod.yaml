@@ -11,13 +11,6 @@ spring:
   session:
     timeout: 8h
 
-# Production stdout is newline-delimited Logstash JSON for container log collectors. Local and
-# test profiles retain the human-readable console pattern from logback-spring.xml.
-logging:
-  structured:
-    format:
-      console: logstash
-
 # Isolate the actuator/management endpoints (health, info, prometheus) onto a
 # separate port so they are NOT served on the public application port. The
 # management port is meant to stay cluster-internal (never exposed via the
