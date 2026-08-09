@@ -9,6 +9,9 @@
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack
   traces. Human-readable output remains the default in every environment. Database log capture and
   dedicated OTLP telemetry remain independent of console formatting.
+- **[user]** docs(security): **Security updates follow the two-minor support window.** The security
+  policy now matches the public support policy by covering the two most recently released minor
+  lines, or every available minor line while fewer than two exist.
 - **[user]** fix(audit): **Consumer polling no longer floods the audit log.** Consumer node
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while

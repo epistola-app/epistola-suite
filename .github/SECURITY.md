@@ -2,11 +2,13 @@
 
 ## Supported Versions
 
-| Version | Supported |
-| ------- | --------- |
-| Latest  | Yes       |
+| Version                                        | Supported |
+| ---------------------------------------------- | --------- |
+| Two most recently released minor release lines | Yes       |
 
-Currently, only the latest version receives security updates. As the project matures, we may extend support to additional versions.
+Security updates are provided for the two most recently released minor release
+lines. As long as fewer than two minor release lines have been released, all
+available minor release lines are supported.
 
 ## Reporting a Vulnerability
 
