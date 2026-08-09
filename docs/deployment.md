@@ -406,12 +406,13 @@ timeout) and leak detection off. Migrations stay bounded by
 
 ## Logging
 
-Application pods running with the `prod` profile write newline-delimited Logstash JSON to stdout.
-Each event contains Spring Boot's standard timestamp, level, message, logger, thread and exception
-members; trace and span MDC values are included when tracing is active, and Epistola adds
-`tenant_id` whenever the logging thread has an active tenant security context. Stack traces are
-bounded to 32 KiB per event. Local and test profiles retain the human-readable colored console
-format.
+Application pods running with the `prod` profile write newline-delimited Logstash JSON to stdout by
+default. Any other environment can opt in independently of its profiles by setting
+`LOGGING_STRUCTURED_FORMAT_CONSOLE` to `logstash`, `ecs`, or `gelf`; leaving it unset retains the
+human-readable colored console format. Each structured event contains Spring Boot's standard
+timestamp, level, message, logger, thread and exception members; trace and span MDC values are
+included when tracing is active, and Epistola adds `tenant_id` whenever the logging thread has an
+active tenant security context. Stack traces are bounded to 32 KiB per event.
 
 The dedicated migration runner is the exception: it deliberately bypasses Spring Boot's global
 logging initialization and continues to use Logback's plain default format. This prevents its

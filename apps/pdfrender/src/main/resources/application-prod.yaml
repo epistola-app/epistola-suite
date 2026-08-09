@@ -3,7 +3,3 @@ logging:
   structured:
     format:
       console: logstash
-    json:
-      customizer: app.epistola.suite.logs.EpistolaStructuredLoggingJsonCustomizer
-      stacktrace:
-        max-length: 32768

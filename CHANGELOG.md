@@ -7,8 +7,9 @@
 - **[dev]** feat(logging): **Production application logs are structured JSON.** Suite and PDF
   renderer processes using the `prod` profile emit newline-delimited Logstash JSON to stdout,
   including tenant context when available and bounded stack traces, while local and test output
-  remains human-readable. Database log capture and dedicated OTLP telemetry remain independent of
-  console formatting.
+  remains human-readable by default. Other environments can independently select Logstash, ECS,
+  or GELF output through `LOGGING_STRUCTURED_FORMAT_CONSOLE`. Database log capture and dedicated
+  OTLP telemetry remain independent of console formatting.
 - **[user]** fix(audit): **Consumer polling no longer floods the audit log.** Consumer node
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while

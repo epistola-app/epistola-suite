@@ -9,13 +9,16 @@
     <property name="CONSOLE_LOG_PATTERN"
               value="%clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr(${LOGGED_APPLICATION_NAME:-}[%15.15t]){faint} %clr(${LOG_CORRELATION_PATTERN:-}){faint}%clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%cleanEx"/>
 
-    <!-- Keep developer output readable, while production emits one JSON object per line. -->
-    <springProfile name="!prod">
-        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
-    </springProfile>
-    <springProfile name="prod">
-        <include resource="org/springframework/boot/logging/logback/structured-console-appender.xml"/>
-    </springProfile>
+    <!-- Select the appender from logging.structured.format.console, independently of profiles. -->
+    <condition class="app.epistola.suite.config.StructuredConsoleLoggingCondition"/>
+    <if>
+        <then>
+            <include resource="org/springframework/boot/logging/logback/structured-console-appender.xml"/>
+        </then>
+        <else>
+            <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        </else>
+    </if>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

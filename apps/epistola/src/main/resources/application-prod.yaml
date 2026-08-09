@@ -17,11 +17,6 @@ logging:
   structured:
     format:
       console: logstash
-    json:
-      customizer: app.epistola.suite.logs.EpistolaStructuredLoggingJsonCustomizer
-      stacktrace:
-        # Bound exceptional events so a single failure cannot monopolize a collector batch.
-        max-length: 32768
 
 # Isolate the actuator/management endpoints (health, info, prometheus) onto a
 # separate port so they are NOT served on the public application port. The
