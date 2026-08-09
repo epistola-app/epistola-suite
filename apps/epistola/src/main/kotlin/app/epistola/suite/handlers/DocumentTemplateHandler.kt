@@ -57,6 +57,7 @@ import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.BlockStylePresets
+import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.template.model.DocumentStyles
@@ -595,15 +596,12 @@ class DocumentTemplateHandler(
             themeKey = runCatching { ThemeKey.of(themePart) }
                 .getOrElse { return ServerResponse.badRequest().build() }
 
-            // Well-formed but nonexistent (a stale page whose theme was deleted in
-            // another tab posts exactly this): reject cleanly rather than letting
-            // the FK violation surface as a 500. The detail rides the RFC 9457
-            // shape the global HTMX error handling reads.
+            // Well-formed but nonexistent (a stale page whose theme was deleted
+            // in another tab posts exactly this): reject before the FK turns it
+            // into a 500. UiExceptionFilter shapes the problem response.
             app.epistola.suite.themes.queries.GetTheme(
                 id = app.epistola.suite.common.ids.ThemeId(themeKey, app.epistola.suite.common.ids.CatalogId(themeCatalogKey, tenantId)),
-            ).query() ?: return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("status" to 400, "detail" to "The selected theme no longer exists. Reload the page to see the current themes."))
+            ).query() ?: throw ThemeNotFoundException(themeKey)
         }
         val updated = UpdateDocumentTemplate(
             id = templateId,

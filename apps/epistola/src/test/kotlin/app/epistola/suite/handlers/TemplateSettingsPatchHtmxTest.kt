@@ -490,6 +490,10 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            // An RFC 9457 problem shaped by UiExceptionFilter from the handler's
+            // ThemeNotFoundException — the registered type, not ad-hoc JSON.
+            assertThat(response.headers.contentType!!.isCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+            assertThat(response.body).contains("errors/theme-not-found")
             assertThat(response.body).contains("The selected theme no longer exists")
 
             val updated = withMediator {

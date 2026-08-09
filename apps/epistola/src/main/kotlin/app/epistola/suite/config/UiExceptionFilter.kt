@@ -112,6 +112,12 @@ class UiExceptionFilter(
                 log.warn("Catalog read-only: {}", cause.message)
                 UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")
             }
+            "ThemeNotFoundException" -> {
+                // 400, not the type's canonical 404: on this surface the theme
+                // arrives as form input (a stale select), not a resource path.
+                log.warn("Theme not found: {}", cause.message)
+                UiError(400, ApiProblemTypes.THEME_NOT_FOUND, "The selected theme no longer exists. Reload the page to see the current themes.")
+            }
             "ValidationException" -> {
                 // Command-level validation (a command's init block) thrown outside the
                 // form{} binder — e.g. a raw-param HTMX control endpoint whose input
