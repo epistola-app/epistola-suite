@@ -13,6 +13,7 @@ import app.epistola.suite.backups.TenantBackupService
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
@@ -108,16 +109,16 @@ class BackupsHandler(
             }
         } catch (e: HubEntitlementDeniedException) {
             log.warn("Backup not entitled for tenant {}: {}", tenantId.key.value, e.message)
-            redirect(tenantId.key.value, "error=not-entitled")
+            redirect(request, tenantId.key.value, "error=not-entitled")
         } catch (e: HubUnauthenticatedException) {
             log.warn("Hub rejected this installation's credentials backing up tenant {}: {}", tenantId.key.value, e.message)
-            redirect(tenantId.key.value, "error=hub-auth")
+            redirect(request, tenantId.key.value, "error=hub-auth")
         } catch (e: HubException) {
             log.warn("Backup could not reach the hub for tenant {}: {}", tenantId.key.value, e.message)
-            redirect(tenantId.key.value, "error=hub-unavailable")
+            redirect(request, tenantId.key.value, "error=hub-unavailable")
         } catch (e: Exception) {
             log.error("Manual backup failed for tenant {}: {}", tenantId.key.value, e.message, e)
-            redirect(tenantId.key.value, "error=backup-failed")
+            redirect(request, tenantId.key.value, "error=backup-failed")
         }
     }
 
@@ -127,31 +128,36 @@ class BackupsHandler(
         val backupId = request.pathVariable("backupId")
         return try {
             backupService.restoreFromBackup(tenantId.key, backupId)
-            redirect(tenantId.key.value, "saved=restore")
+            redirect(request, tenantId.key.value, "saved=restore")
         } catch (e: IncompatibleBackupSchemaException) {
             log.warn("Restore refused for tenant {} from backup {}: {}", tenantId.key.value, backupId, e.reason)
-            redirect(tenantId.key.value, "error=restore-incompatible")
+            redirect(request, tenantId.key.value, "error=restore-incompatible")
         } catch (e: HubEntitlementDeniedException) {
             log.warn("Restore not entitled for tenant {}: {}", tenantId.key.value, e.message)
-            redirect(tenantId.key.value, "error=not-entitled")
+            redirect(request, tenantId.key.value, "error=not-entitled")
         } catch (e: HubUnauthenticatedException) {
             log.warn("Hub rejected this installation's credentials restoring tenant {} backup {}: {}", tenantId.key.value, backupId, e.message)
-            redirect(tenantId.key.value, "error=hub-auth")
+            redirect(request, tenantId.key.value, "error=hub-auth")
         } catch (e: HubException) {
             log.warn("Restore could not reach the hub for tenant {} backup {}: {}", tenantId.key.value, backupId, e.message)
-            redirect(tenantId.key.value, "error=hub-unavailable")
+            redirect(request, tenantId.key.value, "error=hub-unavailable")
         } catch (e: Exception) {
             log.error("Restore failed for tenant {} from backup {}: {}", tenantId.key.value, backupId, e.message, e)
-            redirect(tenantId.key.value, "error=restore-failed")
+            redirect(request, tenantId.key.value, "error=restore-failed")
         }
     }
 
-    // Both actions are triggered via htmx; return 200 with HX-Redirect so htmx navigates the whole
-    // page — a 303 would be followed transparently by the XHR and the HX-Redirect header would be lost.
+    // htmx gets 200 + HX-Redirect for a full-page navigation (a 303 would be followed
+    // transparently by the XHR and the header lost); a plain form gets a real 303.
     private fun redirect(
+        request: ServerRequest,
         tenantKey: String,
         query: String,
-    ): ServerResponse = ServerResponse.ok().header("HX-Redirect", "/tenants/$tenantKey/backups?$query").build()
+    ): ServerResponse = if (request.isHtmx) {
+        ServerResponse.ok().header("HX-Redirect", "/tenants/$tenantKey/backups?$query").build()
+    } else {
+        ServerResponse.status(303).header("Location", "/tenants/$tenantKey/backups?$query").build()
+    }
 
     private fun StoredBackup.toView(
         isLatest: Boolean,

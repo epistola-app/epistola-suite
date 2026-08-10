@@ -97,6 +97,15 @@ class BackupsHubUnavailableTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.headers.getFirst("HX-Redirect")).contains("error=hub-unavailable")
+
+        // A plain (no-JS) submit must get a real 303, not a blank 200 with an
+        // HX-Redirect header the browser ignores. The test client follows the
+        // redirect, so the response is the error-banner landing.
+        val plainBody = HttpEntity(LinkedMultiValueMap<String, String>(), plainForm())
+        val plain = restTemplate.postForEntity("/tenants/${tenant.id.value}/backups", plainBody, String::class.java)
+        assertThat(plain.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(plain.body!!).contains("hub")
+        assertThat(plain.headers.getFirst("HX-Redirect")).isNull()
     }
 
     @Test
@@ -114,6 +123,9 @@ class BackupsHubUnavailableTest : BaseIntegrationTest() {
         contentType = MediaType.APPLICATION_FORM_URLENCODED
         add("HX-Request", "true")
     }
+
+    /** A plain browser form POST — no HX-Request, i.e. the no-JS fallback path. */
+    private fun plainForm() = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
 
     /** A [TenantBackupStore] whose hub-backed reads throw a configurable [HubException] per test. */
     class UnavailableBackupStore : TenantBackupStore {

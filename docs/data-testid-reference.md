@@ -23,7 +23,7 @@ for that consumer.
 | `confirm-dialog-confirm` | Destructive confirmation button, built dynamically by `window.openConfirmDialog` in `fragments/htmx.html` | Every delete flow in the app (tenant, theme, template, attribute, environment, API key, catalog, variant, font, stencil, asset, code-list) |
 | `search-input`           | `<input name="q">` inside `fragments/search.html`                                                         | All pages that use the shared search fragment: themes, templates, environments, stencils, fonts, attributes, code-lists                    |
 | `page-title`             | Page-header `<h1>`                                                                                        | Tenants list, tenant home, template detail, theme detail, generation-history, consumers                                                    |
-| `alert-success`          | `.alert.alert-success` banner                                                                             | Login logout message, catalog saved confirmation, feature toggle saved confirmation, catalog browse success, feedback sync                 |
+| `alert-success`          | `.alert.alert-success` banner                                                                             | Login logout message (the save confirmations moved to corner notices — `#notices`, issue #477)                                             |
 
 ---
 
