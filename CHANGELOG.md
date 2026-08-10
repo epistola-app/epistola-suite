@@ -11,6 +11,14 @@
   suite: the corner-notice subsystem (23 tests), paired with `NoticeModalPlacementUiTest` for
   the top-layer half (hoist, modal stacking, unmount rescue, server-OOB delivery). Runs via
   `pnpm test`, not Gradle — see `docs/testing.md`. (#477)
+- **[user]** feat(ui): **Saves confirm with corner notices instead of page banners.** The
+  feature-toggles, defaults, and site-banner forms now save in place and confirm with a
+  corner notice (previously a full-page redirect showing a green banner), catalog mutations
+  (create, register, release, upgrade, delete) and on-demand backups confirm with notices
+  too, and installing from a catalog reports honestly: success closes the preview dialog
+  with a notice, while a failure now keeps the dialog open with an error notice and a real
+  error status (previously the dialog closed as if it had succeeded). Restore-from-backup
+  and error reports keep their persistent banners deliberately. (#477)
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack
