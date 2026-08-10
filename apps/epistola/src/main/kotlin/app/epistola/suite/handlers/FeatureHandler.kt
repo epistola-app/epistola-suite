@@ -4,9 +4,11 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.features.queries.GetFeatureToggles
+import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -20,24 +22,12 @@ class FeatureHandler {
     // TODO: Add explicit TENANT_SETTINGS permission check before rendering, to show a proper "not authorized" page instead of a mediator 403 error on direct URL access
     fun featureToggles(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val toggles = GetFeatureToggles(tenantId.key).query()
-
-        val features = toggles.map { (key, enabled) ->
-            val md = KnownFeatures.metadataFor(key)
-            mapOf(
-                "key" to key.value,
-                "title" to (md?.title ?: key.value),
-                "enabled" to enabled,
-                "description" to (md?.description ?: ""),
-                "stage" to (md?.stage ?: KnownFeatures.FeatureStage.STABLE),
-            )
-        }
 
         return ServerResponse.ok().page("features") {
             "pageTitle" to "Feature Toggles - Epistola"
             "tenantId" to tenantId.key
             "activeNavSection" to "features"
-            "features" to features
+            "features" to features(tenantId)
         }
     }
 
@@ -53,8 +43,27 @@ class FeatureHandler {
             ).execute()
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/features?saved=true")
-            .build()
+        return request.htmx {
+            fragment("features", "toggles-form") {
+                "tenantId" to tenantId.key
+                "features" to features(tenantId)
+            }
+            successNotice("Feature toggle settings saved.")
+            onFullPage { redirect("/tenants/${tenantId.key}/features") }
+        }
+    }
+
+    private fun features(tenantId: TenantId): List<Map<String, Any>> {
+        val toggles = GetFeatureToggles(tenantId.key).query()
+        return toggles.map { (key, enabled) ->
+            val md = KnownFeatures.metadataFor(key)
+            mapOf(
+                "key" to key.value,
+                "title" to (md?.title ?: key.value),
+                "enabled" to enabled,
+                "description" to (md?.description ?: ""),
+                "stage" to (md?.stage ?: KnownFeatures.FeatureStage.STABLE),
+            )
+        }
     }
 }

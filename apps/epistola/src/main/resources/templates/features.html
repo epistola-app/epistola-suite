@@ -7,13 +7,15 @@
             pageDescription='Enable or disable tenant features.'
         )}"></div>
 
-        <div class="alert alert-success" th:if="${param.saved}" data-testid="alert-success">
-            Feature toggle settings saved successfully.
-        </div>
-
         <div class="card">
             <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/features(tenantId=${tenantId})}" method="post">
+                <!-- hx-disinherit: without it the boosted Cancel link inherits the
+                     form's target/swap and swaps its page into the form. -->
+                <form th:fragment="toggles-form"
+                      th:action="@{/tenants/{tenantId}/features(tenantId=${tenantId})}" method="post"
+                      th:hx-post="@{/tenants/{tenantId}/features(tenantId=${tenantId})}"
+                      hx-target="this" hx-swap="outerHTML"
+                      hx-disinherit="hx-target hx-swap">
                     <div th:replace="~{epistola-web/form-error :: form-error(id='feature-toggles-error')}"></div>
 
                     <div class="feature-toggle-item" th:each="feature : ${features}" data-testid="feature-toggle" th:data-feature-key="${feature['key']}">
