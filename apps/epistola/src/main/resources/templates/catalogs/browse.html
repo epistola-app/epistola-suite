@@ -12,7 +12,6 @@
 
         <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" style="margin-bottom: var(--ep-space-4);" th:text="${catalog.sourceUrl}"></p>
 
-        <div id="catalog-alert"></div>
 
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
@@ -265,12 +264,5 @@
         </div>
     </th:block>
 
-    <!-- OOB alert fragment -->
-    <th:block th:fragment="alert">
-        <div id="catalog-alert" hx-swap-oob="true">
-            <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-testid="alert-success"></div>
-            <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
-        </div>
-    </th:block>
 </body>
 </html>

@@ -37,6 +37,7 @@ import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -567,8 +568,10 @@ class CatalogHandler {
             ).execute()
 
             val failed = results.filter { it.status == InstallStatus.FAILED }
-            val message = if (failed.isNotEmpty()) {
-                null to "Failed to install: ${failed.joinToString(", ") { it.slug }}"
+            if (failed.isNotEmpty()) {
+                // Full slugs are in the log; the notice stays one bounded sentence.
+                logger.warn("Install from catalog $catalogKey failed for: ${failed.joinToString(", ") { it.slug }}")
+                installOutcome(request, catalogKey, error = "Failed to install ${failed.size} of ${results.size} resources.")
             } else {
                 val installed = results.count { it.status == InstallStatus.INSTALLED }
                 val updated = results.count { it.status == InstallStatus.UPDATED }
@@ -576,21 +579,20 @@ class CatalogHandler {
                     if (installed > 0) "$installed installed" else null,
                     if (updated > 0) "$updated updated" else null,
                 )
-                "Resources ${parts.joinToString(", ")}." to null
+                val message = if (parts.isEmpty()) "Resources are already up to date." else "Resources ${parts.joinToString(", ")}."
+                installOutcome(request, catalogKey, success = message)
             }
-
-            browseFragment(request, catalogKey, message.first, message.second)
         } catch (e: Exception) {
             logger.warn("Failed to install from catalog: ${e.message}", e)
-            browseFragment(request, catalogKey, errorMessage = e.message ?: "Failed to install resources from catalog.")
+            installOutcome(request, catalogKey, error = "Failed to install resources from catalog.")
         }
     }
 
-    private fun browseFragment(
+    private fun installOutcome(
         request: ServerRequest,
         catalogKey: CatalogKey,
-        successMessage: String? = null,
-        errorMessage: String? = null,
+        success: String? = null,
+        error: String? = null,
     ): ServerResponse {
         val tenantId = request.tenantId()
         val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
@@ -601,9 +603,12 @@ class CatalogHandler {
                 "tenantId" to tenantId.key
                 "catalog" to result.catalog
             }
-            oob("catalogs/browse", "alert") {
-                if (successMessage != null) "successMessage" to successMessage
-                if (errorMessage != null) "errorMessage" to errorMessage
+            if (success != null) successNotice(success)
+            if (error != null) {
+                // Real error status: close-on-success keeps the preview dialog open.
+                errorNotice(error, statusCode = 422)
+                // Partial installs did land — refresh the rows behind the dialog.
+                reswap(HxSwap.OUTER_HTML)
             }
             trigger("installComplete")
             onNonHtmx {
@@ -613,7 +618,6 @@ class CatalogHandler {
                     "activeNavSection" to "catalogs"
                     "catalog" to result.catalog
                     "resources" to result.resources
-                    if (errorMessage != null) "error" to errorMessage
                 }
             }
         }
