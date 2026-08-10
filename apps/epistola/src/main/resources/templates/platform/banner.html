@@ -18,12 +18,11 @@
             <a th:href="@{/}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="banner-back">&larr; Back to tenants</a>
         </p>
 
-        <div class="alert alert-success" th:if="${param.saved}" data-testid="alert-success">
-            Site banner saved.
-        </div>
-
         <section class="ep-panel form-section">
-            <form th:action="@{/platform/banner}" method="post">
+            <form th:fragment="banner-form"
+                  th:action="@{/platform/banner}" method="post"
+                  hx-post="/platform/banner"
+                  hx-target="this" hx-swap="outerHTML">
                 <div th:replace="~{epistola-web/form-error :: form-error(id='site-banner-error')}"></div>
 
                 <div class="form-group">
@@ -66,5 +65,12 @@
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}" />
+
+    <!-- Corner-notice region + client template, same pair as layout/shell:
+         this page renders its own <body>, so it hosts them itself. -->
+    <div id="notices" class="notice-region" aria-live="polite"></div>
+    <template id="notice-template">
+        <th:block th:replace="~{epistola-web/notice :: notice('error', null, '')}" />
+    </template>
 </body>
 </html>

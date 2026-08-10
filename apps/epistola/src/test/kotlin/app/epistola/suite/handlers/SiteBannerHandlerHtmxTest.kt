@@ -29,15 +29,27 @@ class SiteBannerHandlerHtmxTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
-    private fun form() = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
+    private fun htmxForm() = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_FORM_URLENCODED
+        add("HX-Request", "true")
+    }
+
+    /** A plain browser form POST — no HX-Request, i.e. the no-JS fallback path. */
+    private fun plainForm() = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
+
+    private fun payload(message: String, severity: String, enabled: Boolean, action: String = "save") = LinkedMultiValueMap<String, String>().apply {
+        add("action", action)
+        add("message", message)
+        add("severity", severity)
+        if (enabled) add("enabled", "on")
+    }
 
     private fun save(message: String, severity: String, enabled: Boolean, action: String = "save") {
-        val payload = LinkedMultiValueMap<String, String>()
-        payload.add("action", action)
-        payload.add("message", message)
-        payload.add("severity", severity)
-        if (enabled) payload.add("enabled", "on")
-        val response = restTemplate.postForEntity("/platform/banner", HttpEntity(payload, form()), String::class.java)
+        val response = restTemplate.postForEntity(
+            "/platform/banner",
+            HttpEntity(payload(message, severity, enabled, action), plainForm()),
+            String::class.java,
+        )
         // 303 redirect (whether or not the client follows it) — never an error.
         assertThat(response.statusCode.value()).isLessThan(400)
     }
@@ -64,6 +76,46 @@ class SiteBannerHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("data-site-banner")
         assertThat(body).contains("alert-warning")
         assertThat(body).contains("Scheduled maintenance tonight")
+    }
+
+    @Test
+    fun `htmx save re-renders the banner form with an OOB success notice`() {
+        try {
+            val response = restTemplate.postForEntity(
+                "/platform/banner",
+                HttpEntity(payload("Maintenance window tonight", "WARNING", enabled = true), htmxForm()),
+                String::class.java,
+            )
+
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // Primary swap: the form fragment (showing the saved state incl. the
+            // now-visible Clear button), not a full page.
+            assertThat(body).contains("Maintenance window tonight")
+            assertThat(body).contains("Clear banner")
+            assertThat(body).doesNotContain("<title")
+            // The success notice rides the same response as an OOB swap into #notices.
+            assertThat(body).contains("hx-swap-oob=\"afterbegin:#notices\"")
+            assertThat(body).contains("Site banner saved.")
+        } finally {
+            save("", "INFO", enabled = false, action = "clear")
+        }
+    }
+
+    @Test
+    fun `htmx clear re-renders the form without the clear button and confirms it`() {
+        save("To be cleared", "INFO", enabled = true)
+
+        val response = restTemplate.postForEntity(
+            "/platform/banner",
+            HttpEntity(payload("", "INFO", enabled = false, action = "clear"), htmxForm()),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(body).doesNotContain("Clear banner")
+        assertThat(body).contains("Site banner cleared.")
     }
 
     @Test

@@ -8,6 +8,7 @@ import app.epistola.suite.banner.SiteBannerSeverity
 import app.epistola.suite.banner.commands.ClearSiteBanner
 import app.epistola.suite.banner.commands.SetSiteBanner
 import app.epistola.suite.banner.queries.GetSiteBanner
+import app.epistola.suite.htmx.htmx
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.springframework.stereotype.Component
@@ -36,9 +37,11 @@ class SiteBannerHandler {
     }
 
     fun save(request: ServerRequest): ServerResponse {
-        when (request.param("action").orElse("save")) {
-            "clear" -> ClearSiteBanner().execute()
-            else -> SetSiteBanner(
+        val cleared = request.param("action").orElse("save") == "clear"
+        if (cleared) {
+            ClearSiteBanner().execute()
+        } else {
+            SetSiteBanner(
                 message = request.param("message").orElse(""),
                 severity = request.param("severity")
                     .map { runCatching { SiteBannerSeverity.valueOf(it) }.getOrDefault(SiteBannerSeverity.WARNING) }
@@ -46,8 +49,13 @@ class SiteBannerHandler {
                 enabled = request.param("enabled").isPresent,
             ).execute()
         }
-        return ServerResponse.status(303)
-            .header("Location", "/platform/banner?saved=true")
-            .build()
+        return request.htmx {
+            fragment("platform/banner", "banner-form") {
+                "banner" to GetSiteBanner().query()
+                "severities" to SiteBannerSeverity.entries
+            }
+            successNotice(if (cleared) "Site banner cleared." else "Site banner saved.")
+            onFullPage { redirect("/platform/banner") }
+        }
     }
 }
