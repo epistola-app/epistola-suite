@@ -7,10 +7,6 @@
             pageDescription='Manage tenant-wide default settings.'
         )}"></div>
 
-        <div class="alert alert-success" th:if="${param.saved}">
-            Defaults saved successfully.
-        </div>
-
         <div class="card">
             <div class="card-header">
                 <h2>Default locale</h2>
@@ -21,7 +17,13 @@
                 </p>
             </div>
             <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/defaults/locale(tenantId=${tenantId})}" method="post">
+                <!-- hx-disinherit: without it the boosted Cancel link inherits the
+                     form's target/swap and swaps its page into the form. -->
+                <form th:fragment="locale-form"
+                      th:action="@{/tenants/{tenantId}/defaults/locale(tenantId=${tenantId})}" method="post"
+                      th:hx-post="@{/tenants/{tenantId}/defaults/locale(tenantId=${tenantId})}"
+                      hx-target="this" hx-swap="outerHTML"
+                      hx-disinherit="hx-target hx-swap">
                     <div th:replace="~{epistola-web/form-error :: form-error(id='defaults-locale-error')}"></div>
                     <p class="form-hint">
                         <strong>Effective locale:</strong>

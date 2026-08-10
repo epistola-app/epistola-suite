@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -27,8 +28,8 @@ import org.springframework.web.servlet.function.ServerResponse
 
 /**
  * Per-tenant default values (currently: default locale). Pattern mirrors
- * `FeatureHandler` — a single GET render and a plain form POST that 303s
- * back, no HTMX fragment plumbing.
+ * `FeatureHandler` — the save answers HTMX submits with the re-rendered
+ * locale form plus a corner notice, and 303s back for plain submits.
  *
  * `GetTenant` only requires authentication, so this handler explicitly
  * gates on `TENANT_SETTINGS` before rendering. `UiExceptionFilter` turns
@@ -41,18 +42,12 @@ class DefaultsHandler(
     fun defaults(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
-        val tenant = GetTenant(tenantId.key).query()
-            ?: return ServerResponse.notFound().build()
-        val entries = listBcp47Entries(tenantId.key)
+        val model = localeModel(tenantId) ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok().page("defaults") {
+            putAll(model)
             "pageTitle" to "Defaults - Epistola"
-            "tenantId" to tenantId.key
             "activeNavSection" to "defaults"
-            "tenant" to tenant
-            "entries" to entries
-            "effectiveLocale" to localeResolver.resolve(tenant)
-            "applicationDefault" to localeResolver.applicationDefault
             "error" to null
         }
     }
@@ -66,24 +61,41 @@ class DefaultsHandler(
         try {
             SetTenantDefaultLocale(tenantId = tenantId.key, locale = locale).execute()
         } catch (e: InvalidLocaleException) {
-            val tenant = GetTenant(tenantId.key).query()
-                ?: return ServerResponse.notFound().build()
-            val entries = listBcp47Entries(tenantId.key)
-            return ServerResponse.ok().page("defaults") {
-                "pageTitle" to "Defaults - Epistola"
-                "tenantId" to tenantId.key
-                "activeNavSection" to "defaults"
-                "tenant" to tenant
-                "entries" to entries
-                "effectiveLocale" to localeResolver.resolve(tenant)
-                "applicationDefault" to localeResolver.applicationDefault
-                "error" to "Unknown locale '${e.locale}'. Pick a value from the list."
+            val message = "Unknown locale '${e.locale}'. Pick a value from the list."
+            val model = localeModel(tenantId) ?: return ServerResponse.notFound().build()
+            return request.htmx {
+                globalFormError("defaults-locale-error", message)
+                onFullPage {
+                    page(422, "defaults") {
+                        putAll(model)
+                        "pageTitle" to "Defaults - Epistola"
+                        "activeNavSection" to "defaults"
+                        "error" to message
+                    }
+                }
             }
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key.value}/defaults?saved=true")
-            .build()
+        val model = localeModel(tenantId) ?: return ServerResponse.notFound().build()
+        return request.htmx {
+            fragment("defaults", "locale-form") {
+                putAll(model)
+                "error" to null
+            }
+            successNotice("Defaults saved.")
+            onFullPage { redirect("/tenants/${tenantId.key.value}/defaults") }
+        }
+    }
+
+    private fun localeModel(tenantId: TenantId): Map<String, Any?>? {
+        val tenant = GetTenant(tenantId.key).query() ?: return null
+        return mapOf(
+            "tenantId" to tenantId.key,
+            "tenant" to tenant,
+            "entries" to listBcp47Entries(tenantId.key),
+            "effectiveLocale" to localeResolver.resolve(tenant),
+            "applicationDefault" to localeResolver.applicationDefault,
+        )
     }
 
     private fun listBcp47Entries(tenantKey: TenantKey) = ListCodeListEntries(
