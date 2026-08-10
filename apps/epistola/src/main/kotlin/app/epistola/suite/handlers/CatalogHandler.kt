@@ -58,15 +58,10 @@ class CatalogHandler {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    fun list(request: ServerRequest): ServerResponse {
-        val saved = request.param("saved").isPresent
-
-        return ServerResponse.ok().page("catalogs/list") {
-            "pageTitle" to "Catalogs - Epistola"
-            "activeNavSection" to "catalogs"
-            catalogListModel(request)
-            if (saved) "saved" to true
-        }
+    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("catalogs/list") {
+        "pageTitle" to "Catalogs - Epistola"
+        "activeNavSection" to "catalogs"
+        catalogListModel(request)
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -151,7 +146,8 @@ class CatalogHandler {
             dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
                 catalogListModel(request)
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+            successNotice("Catalog created.")
+            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs") }
         }
     }
 
@@ -212,7 +208,8 @@ class CatalogHandler {
                 dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
                     catalogListModel(request)
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+                successNotice("Catalog registered.")
+                onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs") }
             }
         } catch (e: Exception) {
             logger.warn("Failed to register catalog: ${e.message}", e)
@@ -256,6 +253,7 @@ class CatalogHandler {
                 fragment("catalogs/list", "catalog-list") {
                     catalogListModel(request)
                 }
+                successNotice("Catalog deleted.")
                 onNonHtmx {
                     ServerResponse.status(303)
                         .header("Location", "/tenants/${tenantId.key}/catalogs")
@@ -340,8 +338,9 @@ class CatalogHandler {
                     catalogListModel(request)
                     "oob" to true
                 }
+                successNotice("Catalog released.")
                 onNonHtmx {
-                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                    redirect("/tenants/${tenantId.key}/catalogs")
                 }
             }
         } catch (e: CatalogReleaseVersionException) {
@@ -448,8 +447,9 @@ class CatalogHandler {
                     catalogListModel(request)
                     "oob" to true
                 }
+                successNotice("Catalog upgraded.")
                 onNonHtmx {
-                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                    redirect("/tenants/${tenantId.key}/catalogs")
                 }
             }
         } catch (e: CatalogUpgradeConflictException) {

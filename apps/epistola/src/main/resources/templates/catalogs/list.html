@@ -7,9 +7,6 @@
             actions=~{::catalog-list-actions}
         )}"></div>
 
-        <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
-            Catalog settings updated successfully.
-        </div>
         <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
 
         <!-- Single, always-present swap region for every list mutation

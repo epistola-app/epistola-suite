@@ -73,6 +73,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body!!).contains("Catalog released.")
             val catalog = withMediator { GetCatalog(testTenant.id, CatalogKey.of("rel-cat")).query() }
             assertThat(catalog!!.releasedVersion).isEqualTo("1.0.0")
         }

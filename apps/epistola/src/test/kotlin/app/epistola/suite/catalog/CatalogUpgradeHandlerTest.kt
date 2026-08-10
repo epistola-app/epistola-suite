@@ -100,6 +100,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).doesNotContain("alert alert-danger")
+            assertThat(response.body!!).contains("Catalog upgraded.")
         }
     }
 

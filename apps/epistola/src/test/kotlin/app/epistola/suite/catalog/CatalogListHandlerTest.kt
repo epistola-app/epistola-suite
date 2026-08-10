@@ -158,6 +158,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("id=\"catalog-list\"")
             assertThat(body).contains("hx-swap-oob")
             assertThat(body).contains("My Catalog")
+            assertThat(body).contains("Catalog created.")
             // Persistence verified through the mediator.
             val persisted = withMediator { ListCatalogs(tenantKey = t.id).query() }
             assertThat(persisted.map { it.name }).contains("My Catalog")
@@ -331,6 +332,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("id=\"catalog-list\"")
             assertThat(body).contains("hx-swap-oob")
             assertThat(body).contains("Epistola Demo Catalog")
+            assertThat(body).contains("Catalog registered.")
             // Persistence verified through the mediator.
             val persisted = withMediator { ListCatalogs(tenantKey = t.id).query() }
             assertThat(persisted.map { it.name }).contains("Epistola Demo Catalog")
@@ -410,6 +412,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("<table").contains("</table>")
             assertThat(body).contains("Keep Cat")
             assertThat(body).doesNotContain("Gone Cat")
+            assertThat(body).contains("Catalog deleted.")
         }
     }
 
