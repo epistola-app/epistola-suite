@@ -10,7 +10,9 @@ import app.epistola.hub.client.error.HubUnauthenticatedException
 import app.epistola.suite.backups.BackupOutcome
 import app.epistola.suite.backups.StoredBackup
 import app.epistola.suite.backups.TenantBackupService
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
@@ -65,8 +67,6 @@ class BackupsHandler(
                 hubStatus = "UNAVAILABLE"
                 emptyList()
             }
-        val restorability = if (backups.isEmpty()) emptyMap() else backupService.restorability(tenantId.key, backups)
-
         return ServerResponse.ok().page("backups/list") {
             "pageTitle" to "Backups - Epistola"
             "tenant" to tenant
@@ -74,12 +74,18 @@ class BackupsHandler(
             "activeNavSection" to "backups"
             "stage" to KnownFeatures.stageOf(KnownFeatures.SUPPORT_BACKUPS)
             "hubStatus" to hubStatus
-            "backups" to
-                backups.mapIndexed { index, backup ->
-                    backup.toView(isLatest = index == 0, restorable = restorability.getValue(backup.id))
-                }
+            "backups" to toViews(tenantId.key, backups)
             "saved" to request.param("saved").orElse(null)
             "error" to request.param("error").orElse(null)
+        }
+    }
+
+    private fun backupViews(tenantKey: TenantKey): List<BackupView> = toViews(tenantKey, backupService.listBackups(tenantKey))
+
+    private fun toViews(tenantKey: TenantKey, backups: List<StoredBackup>): List<BackupView> {
+        val restorability = if (backups.isEmpty()) emptyMap() else backupService.restorability(tenantKey, backups)
+        return backups.mapIndexed { index, backup ->
+            backup.toView(isLatest = index == 0, restorable = restorability.getValue(backup.id))
         }
     }
 
@@ -87,12 +93,19 @@ class BackupsHandler(
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.BACKUP_CREATE)
         return try {
-            val query =
+            val message =
                 when (backupService.backupTenant(tenantId.key)) {
-                    is BackupOutcome.Created -> "saved=backup"
-                    is BackupOutcome.Unchanged -> "saved=backup-unchanged"
+                    is BackupOutcome.Created -> "Backup completed."
+                    is BackupOutcome.Unchanged -> "No changes since the last backup."
                 }
-            redirect(tenantId.key.value, query)
+            request.htmx {
+                fragment("backups/list", "backup-list") {
+                    "tenantId" to tenantId.key
+                    "backups" to backupViews(tenantId.key)
+                }
+                successNotice(message)
+                onFullPage { redirect("/tenants/${tenantId.key.value}/backups") }
+            }
         } catch (e: HubEntitlementDeniedException) {
             log.warn("Backup not entitled for tenant {}: {}", tenantId.key.value, e.message)
             redirect(tenantId.key.value, "error=not-entitled")

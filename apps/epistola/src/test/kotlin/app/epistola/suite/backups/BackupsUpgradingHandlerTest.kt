@@ -144,15 +144,18 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         enableSupport(tenant.id)
         val body = HttpEntity(LinkedMultiValueMap<String, String>(), htmxForm())
 
+        // The htmx save answers in place: the backup-list fragment plus an OOB
+        // corner notice — no redirect.
         val first = restTemplate.postForEntity("/tenants/${tenant.id.value}/backups", body, String::class.java)
         assertThat(first.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(first.headers.getFirst("HX-Redirect")).contains("saved=backup")
-        assertThat(first.headers.getFirst("HX-Redirect")).doesNotContain("unchanged")
+        assertThat(first.body!!).contains("id=\"backup-list\"")
+        assertThat(first.body!!).contains("hx-swap-oob=\"afterbegin:#notices\"")
+        assertThat(first.body!!).contains("Backup completed.")
 
         // Same catalogs ⇒ same fingerprint ⇒ dedup, no new snapshot.
         val second = restTemplate.postForEntity("/tenants/${tenant.id.value}/backups", body, String::class.java)
         assertThat(second.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(second.headers.getFirst("HX-Redirect")).contains("saved=backup-unchanged")
+        assertThat(second.body!!).contains("No changes since the last backup.")
     }
 
     private fun htmxForm() = HttpHeaders().apply {

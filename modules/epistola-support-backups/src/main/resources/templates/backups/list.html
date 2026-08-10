@@ -9,8 +9,6 @@
             actions=~{::backup-list-actions}
         )}"></div>
 
-        <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>
-        <div th:if="${saved == 'backup-unchanged'}" class="alert alert-info" role="status">No changes since the last backup — nothing new to store.</div>
         <div th:if="${saved == 'restore'}" class="alert alert-success" role="status">Tenant restored from the backup.</div>
         <div th:if="${error == 'backup-failed'}" class="alert alert-error" role="alert">The backup failed. Please try again or check the logs.</div>
         <div th:if="${error == 'restore-failed'}" class="alert alert-error" role="alert">The restore failed and was rolled back. Please try again or check the logs.</div>
@@ -22,6 +20,7 @@
         <div th:if="${hubStatus == 'AUTH'}" class="alert alert-error" role="alert">The Epistola hub rejected this installation's credentials (authentication failed), so stored backups can't be listed. Reconnect this installation on Support → Overview.</div>
         <div th:if="${hubStatus == 'NOT_ENTITLED'}" class="alert alert-info" role="status">This installation isn't entitled to backups — contact Epistola for a service contract.</div>
 
+        <div id="backup-list" th:fragment="backup-list">
         <div th:if="${#lists.isEmpty(backups)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
@@ -76,11 +75,14 @@
                 </tr>
             </tbody>
         </table>
+        </div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
     <th:block th:fragment="backup-list-actions">
-        <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
+        <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post"
+              th:hx-post="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}"
+              hx-target="#backup-list" hx-swap="outerHTML">
             <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${hubStatus != 'OK'}">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='upload-cloud', class='ep-icon')}" />
                 Back up now
