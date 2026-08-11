@@ -450,7 +450,9 @@ function syncNoticeRegionPlacement() {
     region.setAttribute('popover', 'manual');
     region.showPopover();
     reanchorNoticeAnimations(region);
+    hoistedRegionObserver.observe(document.documentElement, { childList: true, subtree: true });
   } else if (region.hasAttribute('popover')) {
+    hoistedRegionObserver.disconnect();
     if (region.matches(':popover-open')) region.hidePopover();
     region.removeAttribute('popover');
     if (noticeRegionHome && noticeRegionHome.parent.isConnected) {
@@ -484,10 +486,42 @@ document.addEventListener('htmx:beforeSwap', function (event) {
   const target = event.detail.target;
   if (!region || !target || !region.hasAttribute('popover')) return;
   if (target !== region && target.contains(region)) {
+    hoistedRegionObserver.disconnect();
     if (region.matches(':popover-open')) region.hidePopover();
     region.removeAttribute('popover');
     const home = noticeRegionHome && noticeRegionHome.parent.isConnected ? noticeRegionHome : null;
     if (home) home.parent.insertBefore(region, home.next);
     else document.body.appendChild(region);
+  }
+});
+
+// The htmx rescue above cannot see non-htmx removals: a framework-rendered
+// dialog (the editor's Lit dialogs) unmounts by direct DOM removal, destroying
+// a hoisted region with it — and with no #notices left, every later notice
+// silently no-ops. While the region is hoisted, watch for it leaving the
+// document and re-home it, live notices intact. Observation is scoped to the
+// hoisted state (attached on hoist, disconnected on every move-home path):
+// at home the region is a direct body child only an htmx body swap — which
+// ships a fresh region — can remove, so the observer costs nothing in the
+// steady state. A reparent also records a removal, but by callback time the
+// region is connected again, so the isConnected guard makes those a no-op.
+const hoistedRegionObserver = new MutationObserver(function (mutations) {
+  if (document.getElementById('notices')) return;
+  for (const mutation of mutations) {
+    for (const node of mutation.removedNodes) {
+      if (!(node instanceof Element)) continue;
+      const region = node.id === 'notices' ? node : node.querySelector('#notices');
+      if (!region || region.isConnected) continue;
+      hoistedRegionObserver.disconnect();
+      region.removeAttribute('popover');
+      if (noticeRegionHome && noticeRegionHome.parent.isConnected) {
+        noticeRegionHome.parent.insertBefore(region, noticeRegionHome.next);
+      } else {
+        document.body.appendChild(region);
+      }
+      reanchorNoticeAnimations(region);
+      syncNoticeRegionPlacement();
+      return;
+    }
   }
 });
