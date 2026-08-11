@@ -187,7 +187,7 @@ see the KDoc on each helper.
 Why the split matters (see also the "Error handling" section of `FORMS_PLAN.md`):
 
 - The **global slot** (`dialogFormError` / `globalFormError`) and the **generic
-  5xx** client safety net (`app-shell.js`) both write into the in-dialog
+  5xx** client safety net (`notices.js`) both write into the in-dialog
   `[data-form-error]` slot with the list untouched.
 - **Field errors** default to `outerHTML`, which — because the form targets the
   list — would replace the list and nuke the dialog; `dialogFieldErrors`

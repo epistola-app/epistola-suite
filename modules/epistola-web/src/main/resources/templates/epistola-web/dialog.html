@@ -20,7 +20,7 @@
     Conventions the caller composes inside `content` (kept DRY with the tiny
     helper fragments below, all optional):
       - error slot  — `form-error(id='…')`, dropped INSIDE the dialog so the 5xx
-                      client safety net (app-shell.js) writes into it, not behind
+                      client safety net (notices.js) writes into it, not behind
                       the open dialog. Author it directly, above the body.
       - `ep-dialog-body`   — the body region; use the `dialog-body(~{::…})` helper
                              or the class directly.

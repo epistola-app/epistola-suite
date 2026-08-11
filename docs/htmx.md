@@ -663,8 +663,8 @@ gets a notice.**
 A notice is the `epistola-web/notice` fragment (design-system `.alert`
 severity + overlay chrome from `notice.css`), OOB-inserted into the shell's
 fixed `#notices` region, newest on top. Every notice auto-dismisses after a
-uniform timeout; a dismiss button closes early (`behaviors.js`). While a modal
-`<dialog>` is open, `behaviors.js` hosts the region inside it as a manual
+uniform timeout; a dismiss button closes early (`notices.js`). While a modal
+`<dialog>` is open, `notices.js` hosts the region inside it as a manual
 popover, so notices stay visible above the backdrop and dismissible (the
 platform toasts-over-modals pattern; browsers without dialog `toggle` events
 keep the behind-the-backdrop behavior). Two DSL helpers are the only way to
@@ -691,7 +691,7 @@ Rules:
 - **Confirm only what was saved.** A no-op (e.g. the rename's blank/unchanged
   revert) must not emit a success notice.
 - **Don't wire error notices for cases the safety net already covers.** The
-  `app-shell.js` safety net turns every unshaped non-form 4xx/5xx into an
+  `notices.js` safety net turns every unshaped non-form 4xx/5xx into an
   error notice — carrying the RFC 9457 `detail` for client errors, while a
   5xx always gets a generic sentence (deliberate: a 500's detail must never
   surface server internals to users). `htmx:sendError` / `htmx:swapError`
@@ -701,7 +701,7 @@ Rules:
   detail it would otherwise send.
 - **Legit-`fetch` sites** (PDF blobs — outside htmx, so neither a server-sent
   notice nor the safety net can reach them) use the client mirror:
-  `epistolaNotice.success(message)` / `.error(message)` (app-shell.js), which
+  `epistolaNotice.success(message)` / `.error(message)` (notices.js), which
   clones the same fragment. Same one-sentence rule.
 - **A dialog reports its own request's failures in-dialog; the corner is for
   everything else.** A failure belonging to a dialog's open action renders
