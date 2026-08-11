@@ -10,7 +10,7 @@
  * Overlay chrome ONLY: severity colors and icons come from the design-system
  * .alert family (components.css); the epistola-web/notice fragment composes
  * both. Notices are OOB-swapped into the fixed #notices region in layout/shell
- * and removed by behaviors.js (auto-dismiss + data-notice-dismiss).
+ * and removed by notices.js (auto-dismiss + data-notice-dismiss).
  */
 
 /* The fixed shell region. pointer-events off so the (usually empty) overlay
@@ -48,7 +48,7 @@
   }
 }
 
-/* While a modal <dialog> is open, behaviors.js moves the region inside it and
+/* While a modal <dialog> is open, notices.js moves the region inside it and
    shows it as a manual popover, so notices paint ABOVE the dialog's backdrop
    and stay clickable (the dialog subtree is exempt from showModal's inert).
    The UA [popover] styles would otherwise center the region as a bordered
@@ -104,7 +104,7 @@
   overflow: hidden;
 }
 
-/* Remaining-time bar. Duration comes from behaviors.js (--notice-timeout, set
+/* Remaining-time bar. Duration comes from notices.js (--notice-timeout, set
    from NOTICE_TIMEOUT_MS at mount); the hover pause and deadline resets drive
    play-state and the .notice-timer-reset restart. */
 .notice::after {
@@ -117,7 +117,7 @@
   background: var(--ep-primary);
   transform-origin: left;
   animation: notice-timer var(--notice-timeout, 5s) linear forwards;
-  /* Re-anchor after a reparent restart: behaviors.js sets the elapsed time,
+  /* Re-anchor after a reparent restart: notices.js sets the elapsed time,
      and the negative delay jumps the restarted animation to that position. */
   animation-delay: calc(-1 * var(--notice-elapsed, 0ms));
 }
@@ -154,7 +154,7 @@
 }
 
 /* Motion: slide-in from the right on arrival; the removal paths in
-   behaviors.js add .notice-leaving and remove on animationend (with a timeout
+   notices.js add .notice-leaving and remove on animationend (with a timeout
    fallback for reduced-motion, where animation:none never fires the event). */
 .notice {
   animation: notice-enter 0.18s ease-out;
