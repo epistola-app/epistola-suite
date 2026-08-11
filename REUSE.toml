@@ -58,6 +58,7 @@ path = [
   "renovate.json",
   "modules/*/package.json",
   "modules/editor/tsconfig*.json",
+  "apps/epistola/package.json",
   "scripts/gh-mcp/package.json",
 ]
 precedence = "override"

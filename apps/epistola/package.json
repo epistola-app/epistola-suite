@@ -1,0 +1,14 @@
+{
+  "name": "@epistola/app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Unit tests for the app's static JS (vitest + happy-dom); the app itself builds with Gradle",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.0.0",
+    "vitest": "^4.0.16"
+  }
+}
