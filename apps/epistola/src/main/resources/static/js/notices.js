@@ -18,8 +18,8 @@
 // editor's own error channel or a form slot). The notice is cloned from the
 // shell's #notice-template (no server HTML exists for these cases — cloning
 // keeps the markup single-sourced in the epistola-web/notice fragment);
-// the auto-dismiss scan below picks it up via the epistola:notice-added
-// event, since no htmx:load fires when nothing was swapped.
+// insertNotice registers its auto-dismiss state directly, so it needs no
+// htmx:load — none fires when nothing was swapped.
 
 // Public client-side notice API — the JS mirror of the Kotlin DSL helpers
 // (successNotice/errorNotice), for legit-fetch sites (PDF blobs, editor
@@ -61,11 +61,14 @@ function insertNotice(kind, message, options) {
   const opts = options || {};
 
   if (opts.dedupeKey) {
-    const existing = region.querySelector('[data-notice-key="' + CSS.escape(opts.dedupeKey) + '"]');
-    if (existing && !existing.classList.contains('notice-leaving')) {
+    const existing = liveNoticeByKey(opts.dedupeKey);
+    if (existing) {
+      const entry = notices.get(existing);
       const text = existing.querySelector('.notice-message');
       if (text.textContent !== message) text.textContent = message;
-      existing.dispatchEvent(new CustomEvent('epistola:notice-refresh', { bubbles: true }));
+      entry.deadline = Date.now() + NOTICE_TIMEOUT_MS;
+      if (entry.remaining !== null) entry.remaining = NOTICE_TIMEOUT_MS;
+      restartNoticeTimerBar(existing);
       return noticeHandle(existing);
     }
   }
@@ -78,7 +81,6 @@ function insertNotice(kind, message, options) {
     notice.classList.add('alert-' + kind);
     notice.setAttribute('role', 'status');
   }
-  if (opts.dedupeKey) notice.setAttribute('data-notice-key', opts.dedupeKey);
   // The template ships the title slot empty; fill it or drop it.
   const title = notice.querySelector('.alert-title');
   if (title) {
@@ -87,7 +89,8 @@ function insertNotice(kind, message, options) {
   }
   notice.querySelector('.notice-message').textContent = message;
   region.insertBefore(notice, region.firstChild);
-  document.dispatchEvent(new CustomEvent('epistola:notice-added'));
+  mountNotice(notice, opts.dedupeKey);
+  syncNoticeRegionPlacement();
   return noticeHandle(notice);
 }
 
@@ -145,7 +148,7 @@ document.addEventListener('htmx:responseError', function (event) {
     message = detail || 'The request failed. Please try again.';
   }
 
-  // Prefer the issuing form's global error slot \u2014 inline, next to the inputs.
+  // Prefer the issuing form's global error slot — inline, next to the inputs.
   const sourceForm =
     event.detail.elt && event.detail.elt.closest ? event.detail.elt.closest('form') : null;
   const slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
@@ -156,19 +159,19 @@ document.addEventListener('htmx:responseError', function (event) {
   }
 
   // Non-form failure (standalone controls, row actions): corner error notice.
-  // Replaces the old top-of-page banner, and covers every status \u2014 the banner
+  // Replaces the old top-of-page banner, and covers every status — the banner
   // only showed 403/5xx and silently dropped other client errors.
   showErrorNotice(message, noticeKeyFor('error:' + xhr.status, event));
 });
 
-// The request never reached the server \u2014 there is no response to speak for it.
+// The request never reached the server — there is no response to speak for it.
 // If the request came from the open confirm dialog, the message renders in the
-// dialog's own error area, next to the button the user just clicked \u2014 the
+// dialog's own error area, next to the button the user just clicked — the
 // dialog form only handles responseError itself, so a network failure would
 // otherwise leave the dialog looking like nothing happened (a dialog reports
 // its own request's failures in-dialog; the corner is for everything else).
 document.addEventListener('htmx:sendError', function (event) {
-  const message = 'Network error \u2014 check your connection and try again.';
+  const message = 'Network error — check your connection and try again.';
   const sourceElt = event.detail.elt;
   if (sourceElt && sourceElt.closest && sourceElt.closest('#confirm-dialog')) {
     const errorEl = document.getElementById('confirm-dialog-error');
@@ -191,17 +194,61 @@ document.addEventListener('htmx:swapError', function (event) {
 
 // ── Corner notices (#477): auto-dismiss + early dismiss ─────────────────────
 // Server-sent feedback fragments (epistola-web/notice) arrive as OOB swaps
-// into the fixed #notices region. Every notice auto-dismisses after a uniform
-// timeout; the × button (data-notice-dismiss) closes early. Both paths exit
-// via .notice-leaving (slide-out in notice.css) and remove on animationend —
-// the timeout fallback covers reduced-motion, where animation:none never
-// fires the event. htmx:load fires for every batch of newly settled content
-// (incl. OOB insertions), so the timer scan is guarded per notice by
-// data-notice-mounted.
+// into the fixed #notices region; client-built ones come from insertNotice
+// above. Every notice auto-dismisses after a uniform timeout; the × button
+// (data-notice-dismiss) closes early. Both paths exit via .notice-leaving
+// (slide-out in notice.css) and remove on animationend — the timeout fallback
+// covers reduced-motion, where animation:none never fires the event.
+//
+// Timing state lives HERE, in one Map keyed by notice element, not in data-*
+// attributes on the notice. One shared interval sweeps the map while any
+// notice is alive; when the map empties, the interval stops. That makes every
+// state change a plain field write — a dedupe refresh bumps entry.deadline,
+// hover-pause parks the leftover time in entry.remaining — with no per-notice
+// timer handle to track, cancel, or rearm, and no custom events between
+// insertion and timing. dismissNotice removes the entry and marks the element
+// .notice-leaving in the same breath, so a map entry always means "live
+// notice" (data-notice-hovered stays on the element purely as the CSS hook
+// that pauses the timer bar).
 const NOTICE_TIMEOUT_MS = 5000;
+const NOTICE_TICK_MS = 250;
+
+/** @type {Map<Element, {deadline: number, remaining: number|null, dedupeKey: string|null}>} */
+const notices = new Map();
+let noticeTicker = null;
+
+function mountNotice(notice, dedupeKey) {
+  notice.style.setProperty('--notice-timeout', NOTICE_TIMEOUT_MS + 'ms');
+  notices.set(notice, {
+    deadline: Date.now() + NOTICE_TIMEOUT_MS,
+    remaining: null,
+    dedupeKey: dedupeKey || null,
+  });
+  if (noticeTicker === null) noticeTicker = setInterval(sweepNotices, NOTICE_TICK_MS);
+}
+
+function sweepNotices() {
+  const now = Date.now();
+  for (const [notice, entry] of notices) {
+    if (!notice.isConnected) notices.delete(notice);
+    else if (entry.remaining === null && now >= entry.deadline) dismissNotice(notice);
+  }
+  if (notices.size === 0) {
+    clearInterval(noticeTicker);
+    noticeTicker = null;
+  }
+}
+
+function liveNoticeByKey(dedupeKey) {
+  for (const [notice, entry] of notices) {
+    if (entry.dedupeKey === dedupeKey && notice.isConnected) return notice;
+  }
+  return null;
+}
 
 function dismissNotice(notice) {
   if (notice.classList.contains('notice-leaving')) return;
+  notices.delete(notice);
   notice.style.animation = ''; // clear the reparent suppression so leave plays
   notice.classList.add('notice-leaving');
   const remove = function () {
@@ -219,26 +266,6 @@ document.addEventListener('click', function (event) {
   }
 });
 
-// The auto-dismiss timer is deadline-based rather than clearTimeout/reset so
-// a deduped notice can be kept alive: the safety net above refreshes
-// a recurring failure's notice via epistola:notice-refresh, which only bumps
-// data-notice-deadline; the timer re-checks on fire and reschedules the
-// remainder. Refreshes are race-free writes to one attribute — no timer
-// handle to track across N refreshes, no cancel/rearm window — and the
-// notice dismisses NOTICE_TIMEOUT_MS after the LAST occurrence, not the first.
-function scheduleNoticeDismiss(notice, delay) {
-  setTimeout(function () {
-    if (!notice.isConnected) return;
-    if (notice.hasAttribute('data-notice-hovered')) {
-      scheduleNoticeDismiss(notice, NOTICE_TIMEOUT_MS);
-      return;
-    }
-    const remaining = Number(notice.dataset.noticeDeadline) - Date.now();
-    if (remaining > 0) scheduleNoticeDismiss(notice, remaining);
-    else dismissNotice(notice);
-  }, delay);
-}
-
 // Restart the remaining-time bar (notice.css ::after) from full — used
 // wherever the deadline resets so the two stay in sync.
 function restartNoticeTimerBar(notice) {
@@ -251,48 +278,37 @@ function restartNoticeTimerBar(notice) {
 // resumes on its own — paused CSS animations continue where they stopped.
 document.addEventListener('mouseover', function (event) {
   const notice = event.target.closest && event.target.closest('[data-notice]');
-  if (notice && !notice.hasAttribute('data-notice-hovered')) {
+  const entry = notice && notices.get(notice);
+  if (entry && entry.remaining === null) {
     notice.setAttribute('data-notice-hovered', '');
-    notice.dataset.noticeRemaining = String(
-      Math.max(0, Number(notice.dataset.noticeDeadline) - Date.now()),
-    );
+    entry.remaining = Math.max(0, entry.deadline - Date.now());
   }
 });
 
 document.addEventListener('mouseout', function (event) {
   const notice = event.target.closest && event.target.closest('[data-notice]');
-  if (notice && !(event.relatedTarget && notice.contains(event.relatedTarget))) {
+  if (!notice || (event.relatedTarget && notice.contains(event.relatedTarget))) return;
+  const entry = notices.get(notice);
+  if (entry && entry.remaining !== null) {
     notice.removeAttribute('data-notice-hovered');
-    const remaining = Number(notice.dataset.noticeRemaining || 0);
-    notice.dataset.noticeDeadline = String(Date.now() + remaining);
-    // The pending check can be a full timeout away; dismiss on the remainder.
-    scheduleNoticeDismiss(notice, remaining);
+    entry.deadline = Date.now() + entry.remaining;
+    entry.remaining = null;
   }
 });
 
-document.addEventListener('epistola:notice-refresh', function (event) {
-  const notice = event.target.closest && event.target.closest('[data-notice]');
-  if (notice) {
-    notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
-    restartNoticeTimerBar(notice);
-  }
-});
-
-// htmx:load covers server-sent notices (OOB swaps); epistola:notice-added is
-// dispatched by the safety net above for client-cloned ones, where no
-// swap happened and htmx:load never fires.
-['htmx:load', 'epistola:notice-added'].forEach(function (eventName) {
-  document.addEventListener(eventName, function () {
-    document
-      .querySelectorAll('[data-notice]:not([data-notice-mounted])')
-      .forEach(function (notice) {
-        notice.setAttribute('data-notice-mounted', '');
-        notice.style.setProperty('--notice-timeout', NOTICE_TIMEOUT_MS + 'ms');
-        notice.dataset.noticeDeadline = String(Date.now() + NOTICE_TIMEOUT_MS);
-        scheduleNoticeDismiss(notice, NOTICE_TIMEOUT_MS);
-      });
-    syncNoticeRegionPlacement();
+// Server-sent notices (OOB swaps) enter the DOM without passing through
+// insertNotice. htmx:load fires for every batch of newly settled content
+// (incl. OOB insertions), so adopt whatever the map doesn't know yet — the
+// map itself is the "already mounted" guard for client-built notices, and
+// the .notice-leaving check keeps a dismissed notice (out of the map, still
+// animating out) from being re-adopted.
+document.addEventListener('htmx:load', function () {
+  document.querySelectorAll('[data-notice]').forEach(function (notice) {
+    if (!notices.has(notice) && !notice.classList.contains('notice-leaving')) {
+      mountNotice(notice, null);
+    }
   });
+  syncNoticeRegionPlacement();
 });
 
 // ── Notices above modal dialogs (#477) ──────────────────────────────────────
@@ -311,11 +327,11 @@ document.addEventListener('epistola:notice-refresh', function (event) {
 //      means no light-dismiss stealing clicks.
 //
 // Placement is synced from the dialog `toggle` events (ToggleEvent, baseline
-// 2024; capture — they don't bubble) plus the notice mount scan above as a
-// safety net. In a browser without dialog toggle events nothing engages and
-// notices simply keep the behind-the-backdrop behavior. The region's normal
-// (no-dialog) state is completely untouched: no popover attribute, plain
-// fixed positioning.
+// 2024; capture — they don't bubble) plus the htmx:load adoption pass above
+// as a safety net. In a browser without dialog toggle events nothing engages
+// and notices simply keep the behind-the-backdrop behavior. The region's
+// normal (no-dialog) state is completely untouched: no popover attribute,
+// plain fixed positioning.
 
 // Where the region belongs when no dialog is open; captured before the first
 // hoist. The parent can be gone after a body swap — document.body is a safe
@@ -327,16 +343,18 @@ let noticeRegionHome = null;
 // sits before the version-history dialog it stacks on top of).
 const openModalStack = [];
 
-// Reparenting restarts every CSS animation in the region: pin each notice's
-// bar back to its deadline (--notice-elapsed + negative delay in notice.css)
-// and suppress the enter-slide replay (dismissNotice clears the inline
-// suppression so the leave animation still plays).
+// Reparenting restarts every CSS animation in the region: pin each live
+// notice's bar back to its deadline (--notice-elapsed + negative delay in
+// notice.css) and suppress the enter-slide replay (dismissNotice clears the
+// inline suppression so the leave animation still plays). Leaving notices
+// are not in the map and are skipped — their exit animation replays from
+// the top, and the dismiss fallback still removes them.
 function reanchorNoticeAnimations(region) {
-  region.querySelectorAll('[data-notice-mounted]').forEach(function (notice) {
+  region.querySelectorAll('[data-notice]').forEach(function (notice) {
+    const entry = notices.get(notice);
+    if (!entry) return;
     notice.style.animation = 'none';
-    const remaining = notice.hasAttribute('data-notice-hovered')
-      ? Number(notice.dataset.noticeRemaining || 0)
-      : Number(notice.dataset.noticeDeadline) - Date.now();
+    const remaining = entry.remaining !== null ? entry.remaining : entry.deadline - Date.now();
     const elapsed = Math.min(NOTICE_TIMEOUT_MS, NOTICE_TIMEOUT_MS - Math.max(0, remaining));
     notice.style.setProperty('--notice-elapsed', elapsed + 'ms');
   });
@@ -391,7 +409,7 @@ document.addEventListener(
 );
 
 // A swap that replaces the region's host dialog would destroy the region with
-// it — move it home first; the htmx:load mount scan re-hoists if a modal is
+// it — move it home first; the htmx:load adoption pass re-hoists if a modal is
 // still open afterwards.
 document.addEventListener('htmx:beforeSwap', function (event) {
   const region = document.getElementById('notices');
