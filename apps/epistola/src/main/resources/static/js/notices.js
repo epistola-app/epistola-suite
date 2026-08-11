@@ -2,34 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// The corner-notice subsystem (#477): the epistolaNotice API, notice
-// insertion + keyed dedupe, the global error safety net, auto-dismiss
-// timers, hover-pause, and the notices-above-modal-dialogs placement.
-// Server-sent notices arrive as OOB swaps into the #notices region
-// (epistola-web/notice via HtmxDsl successNotice/errorNotice); this file
-// owns everything that happens to them client-side. Markup stays
-// single-sourced in the epistola-web/notice fragment; chrome in notice.css.
+// The corner-notice subsystem (#477): the epistolaNotice API, insertion +
+// keyed dedupe, the global error safety net, auto-dismiss/hover-pause, and
+// the notices-above-modal-dialogs placement. Server-sent notices arrive as
+// OOB swaps into #notices (HtmxDsl successNotice/errorNotice); client-built
+// ones clone the shell's #notice-template, so markup stays single-sourced
+// in the epistola-web/notice fragment. Overlay chrome lives in notice.css.
 
-// ── Global safety net for unhandled errors (#477) ───────────────
-//
-// Every async failure a handler did not shape ends in a corner error notice,
-// so silent failure is not a possible outcome on shell pages (the few
-// standalone pages have no #notices region — their async goes through the
-// editor's own error channel or a form slot). The notice is cloned from the
-// shell's #notice-template (no server HTML exists for these cases — cloning
-// keeps the markup single-sourced in the epistola-web/notice fragment);
-// insertNotice registers its auto-dismiss state directly, so it needs no
-// htmx:load — none fires when nothing was swapped.
-
-// Public client-side notice API — the JS mirror of the Kotlin DSL helpers
-// (successNotice/errorNotice), for legit-fetch sites (PDF blobs, editor
+// Public client-side notice API for legit-fetch sites (PDF blobs, editor
 // callbacks) that have no HTMX response for a server-sent notice to ride.
-// Same component, same rules: one short sentence, title ≤ a few words.
-// Notices stay visible above open modal dialogs (the modal-placement section
-// below hosts the region inside the dialog), but the convention stands: a
-// failure belonging to a dialog's own action renders inside that dialog,
-// next to what the user did — not here (the version-comparison dialog in
-// template-detail.js is the reference).
+// Same rules as the Kotlin DSL: one short sentence, title ≤ a few words, and
+// a failure belonging to a dialog's own action renders inside that dialog,
+// not here (the version-comparison dialog in template-detail.js is the
+// reference).
 //
 // options:
 //   title      optional bold first line, mirroring the DSL's title param.
@@ -37,14 +22,11 @@
 //              poll): a visible notice with the same key is refreshed in
 //              place — message updated only if it changed (so aria-live does
 //              not re-announce an identical one), dismiss timer extended —
-//              instead of stacking a pile. Unrelated failures that happen to
-//              share wording are NOT coalesced; pick keys per failure source.
-//              Recurring background call sites (polls, periodic checks)
-//              should always pass one.
+//              instead of stacking a pile. Pick keys per failure source;
+//              recurring background call sites should always pass one.
 //
-// Returns a handle { dismiss() } for retracting the notice early (e.g. a
-// standing network-error notice once connectivity returns), or null when the
-// page hosts no notice region.
+// Returns a handle { dismiss() } for retracting the notice early, or null
+// when the page hosts no notice region.
 window.epistolaNotice = {
   success: function (message, options) {
     return insertNotice('success', message, options);
@@ -102,11 +84,17 @@ function noticeHandle(notice) {
   };
 }
 
+// ── Global safety net for unhandled errors (#477) ───────────────────────────
+// Every async failure a handler did not shape ends in a corner error notice,
+// so silent failure is not a possible outcome on shell pages (the few
+// standalone pages have no #notices region — their async goes through the
+// editor's own error channel or a form slot).
+
 function showErrorNotice(message, dedupeKey) {
   insertNotice('error', message, { dedupeKey: dedupeKey });
 }
 
-// What identifies a recurring failure for showErrorNotice's dedupe: the
+// What identifies a recurring failure for the safety net's dedupe: the
 // request path (same poll → same key) plus the failure mode.
 function noticeKeyFor(kind, event) {
   const path = (event.detail.pathInfo && event.detail.pathInfo.requestPath) || '';
@@ -118,16 +106,14 @@ document.addEventListener('htmx:responseError', function (event) {
   const xhr = event.detail.xhr;
   if (!xhr) return;
 
-  // Shaped error responses already delivered their message via the OOB
-  // swap above — nothing to add here.
+  // Shaped error responses (HX-Reswap: none + OOB) already carry their own
+  // message — nothing to add here.
   if (xhr.getResponseHeader('HX-Reswap')) return;
 
-  // The confirm dialog already reports failures in its own error area
-  // (openConfirmDialog's responseError listener), so the safety net must stay
-  // out of it — a corner notice here would duplicate the in-dialog message.
-  // The check must use the issuing element (detail.elt, the form inside the
-  // dialog): the dialog form's hx-target always points outside the dialog,
-  // so detail.target never matches.
+  // The confirm dialog reports failures in its own error area. The check must
+  // use the issuing element (detail.elt, the form inside the dialog): the
+  // dialog form's hx-target points outside the dialog, so detail.target
+  // never matches.
   const sourceElt = event.detail.elt;
   if (sourceElt && sourceElt.closest && sourceElt.closest('#confirm-dialog')) return;
 
@@ -158,18 +144,13 @@ document.addEventListener('htmx:responseError', function (event) {
     return;
   }
 
-  // Non-form failure (standalone controls, row actions): corner error notice.
-  // Replaces the old top-of-page banner, and covers every status — the banner
-  // only showed 403/5xx and silently dropped other client errors.
   showErrorNotice(message, noticeKeyFor('error:' + xhr.status, event));
 });
 
-// The request never reached the server — there is no response to speak for it.
-// If the request came from the open confirm dialog, the message renders in the
-// dialog's own error area, next to the button the user just clicked — the
-// dialog form only handles responseError itself, so a network failure would
-// otherwise leave the dialog looking like nothing happened (a dialog reports
-// its own request's failures in-dialog; the corner is for everything else).
+// The request never reached the server. The confirm dialog's form only
+// handles responseError itself, so its network failures land in the dialog's
+// own error area here — otherwise the dialog would look like nothing
+// happened.
 document.addEventListener('htmx:sendError', function (event) {
   const message = 'Network error — check your connection and try again.';
   const sourceElt = event.detail.elt;
@@ -192,24 +173,12 @@ document.addEventListener('htmx:swapError', function (event) {
   );
 });
 
-// ── Corner notices (#477): auto-dismiss + early dismiss ─────────────────────
-// Server-sent feedback fragments (epistola-web/notice) arrive as OOB swaps
-// into the fixed #notices region; client-built ones come from insertNotice
-// above. Every notice auto-dismisses after a uniform timeout; the × button
-// (data-notice-dismiss) closes early. Both paths exit via .notice-leaving
-// (slide-out in notice.css) and remove on animationend — the timeout fallback
-// covers reduced-motion, where animation:none never fires the event.
-//
-// Timing state lives HERE, in one Map keyed by notice element, not in data-*
-// attributes on the notice. One shared interval sweeps the map while any
-// notice is alive; when the map empties, the interval stops. That makes every
-// state change a plain field write — a dedupe refresh bumps entry.deadline,
-// hover-pause parks the leftover time in entry.remaining — with no per-notice
-// timer handle to track, cancel, or rearm, and no custom events between
-// insertion and timing. dismissNotice removes the entry and marks the element
-// .notice-leaving in the same breath, so a map entry always means "live
-// notice" (data-notice-hovered stays on the element purely as the CSS hook
-// that pauses the timer bar).
+// ── Auto-dismiss + hover pause ──────────────────────────────────────────────
+// Timing state lives in this map, swept by one shared interval that only
+// runs while a notice is alive. Deadline moves (dedupe refresh, hover
+// pause/resume) are plain field writes — no per-notice timer to cancel or
+// rearm. dismissNotice deletes the entry and marks .notice-leaving in the
+// same step, so a map entry always means a live notice.
 const NOTICE_TIMEOUT_MS = 5000;
 const NOTICE_TICK_MS = 250;
 
@@ -221,7 +190,7 @@ function mountNotice(notice, dedupeKey) {
   notice.style.setProperty('--notice-timeout', NOTICE_TIMEOUT_MS + 'ms');
   notices.set(notice, {
     deadline: Date.now() + NOTICE_TIMEOUT_MS,
-    remaining: null,
+    remaining: null, // non-null while hover-paused: the leftover time
     dedupeKey: dedupeKey || null,
   });
   if (noticeTicker === null) noticeTicker = setInterval(sweepNotices, NOTICE_TICK_MS);
@@ -255,6 +224,7 @@ function dismissNotice(notice) {
     notice.remove();
   };
   notice.addEventListener('animationend', remove, { once: true });
+  // Reduced-motion sets animation:none, which never fires animationend.
   setTimeout(remove, 300);
 }
 
@@ -274,8 +244,9 @@ function restartNoticeTimerBar(notice) {
   notice.classList.remove('notice-timer-reset');
 }
 
-// Hovering pauses auto-dismiss; leaving resumes the remaining time. The bar
-// resumes on its own — paused CSS animations continue where they stopped.
+// Hovering pauses auto-dismiss; leaving resumes the remaining time. The
+// data-notice-hovered attribute is purely the CSS hook pausing the timer
+// bar — paused CSS animations resume where they stopped on their own.
 document.addEventListener('mouseover', function (event) {
   const notice = event.target.closest && event.target.closest('[data-notice]');
   const entry = notice && notices.get(notice);
@@ -296,11 +267,9 @@ document.addEventListener('mouseout', function (event) {
   }
 });
 
-// Server-sent notices (OOB swaps) enter the DOM without passing through
-// insertNotice. htmx:load fires for every batch of newly settled content
-// (incl. OOB insertions), so adopt whatever the map doesn't know yet — the
-// map itself is the "already mounted" guard for client-built notices, and
-// the .notice-leaving check keeps a dismissed notice (out of the map, still
+// Adopt server-sent notices: OOB swaps bypass insertNotice, and htmx:load
+// fires for every batch of newly settled content, OOB insertions included.
+// The .notice-leaving check keeps a dismissed notice (out of the map, still
 // animating out) from being re-adopted.
 document.addEventListener('htmx:load', function () {
   document.querySelectorAll('[data-notice]').forEach(function (notice) {
@@ -312,11 +281,9 @@ document.addEventListener('htmx:load', function () {
 });
 
 // ── Notices above modal dialogs (#477) ──────────────────────────────────────
-//
-// An open modal <dialog> paints in the browser TOP LAYER, over the fixed
-// #notices region — a notice arriving while a dialog is open would sit behind
-// the ::backdrop, invisible until the dialog closes. The fix is the documented
-// platform pattern for toasts-over-modals, and BOTH halves are load-bearing:
+// An open modal <dialog> paints in the top layer, over the fixed #notices
+// region — a notice arriving would sit behind the ::backdrop, invisible.
+// BOTH halves of the fix are load-bearing:
 //
 //   1. Move the region INTO the open dialog. The dialog's subtree is exempt
 //      from showModal()'s inert, so the dismiss × stays clickable (a popover
@@ -326,17 +293,14 @@ document.addEventListener('htmx:load', function () {
 //      dialog paints the region above the dialog and its backdrop; `manual`
 //      means no light-dismiss stealing clicks.
 //
-// Placement is synced from the dialog `toggle` events (ToggleEvent, baseline
-// 2024; capture — they don't bubble) plus the htmx:load adoption pass above
-// as a safety net. In a browser without dialog toggle events nothing engages
-// and notices simply keep the behind-the-backdrop behavior. The region's
-// normal (no-dialog) state is completely untouched: no popover attribute,
-// plain fixed positioning.
+// In a browser without dialog ToggleEvents nothing engages and notices keep
+// the behind-the-backdrop behavior; the normal no-dialog state never carries
+// the popover attribute.
 
-// Where the region belongs when no dialog is open; captured before the first
-// hoist. The parent can be gone after a body swap — document.body is a safe
-// fallback anchor since the region is position:fixed (placement only matters
-// for the body:has() geometry rules, which any body descendant satisfies).
+// Where the region belongs when no dialog is open. The parent can be gone
+// after a body swap — document.body is a safe fallback anchor since the
+// region is position:fixed (only the body:has() geometry rules care, and any
+// body descendant satisfies them).
 let noticeRegionHome = null;
 
 // Open modals in OPENING order — DOM order can differ (the confirm dialog
@@ -345,10 +309,9 @@ const openModalStack = [];
 
 // Reparenting restarts every CSS animation in the region: pin each live
 // notice's bar back to its deadline (--notice-elapsed + negative delay in
-// notice.css) and suppress the enter-slide replay (dismissNotice clears the
-// inline suppression so the leave animation still plays). Leaving notices
-// are not in the map and are skipped — their exit animation replays from
-// the top, and the dismiss fallback still removes them.
+// notice.css) and suppress the enter-slide replay. Leaving notices are not
+// in the map and are skipped — their exit replays, and the dismiss fallback
+// still removes them.
 function reanchorNoticeAnimations(region) {
   region.querySelectorAll('[data-notice]').forEach(function (notice) {
     const entry = notices.get(notice);
@@ -394,6 +357,7 @@ function syncNoticeRegionPlacement() {
   }
 }
 
+// Capture: ToggleEvents don't bubble.
 document.addEventListener(
   'toggle',
   function (event) {
@@ -408,8 +372,8 @@ document.addEventListener(
   true,
 );
 
-// A swap that replaces the region's host dialog would destroy the region with
-// it — move it home first; the htmx:load adoption pass re-hoists if a modal is
+// A swap that replaces the region's host dialog would destroy the region
+// with it — move it home first; the htmx:load pass re-hoists if a modal is
 // still open afterwards.
 document.addEventListener('htmx:beforeSwap', function (event) {
   const region = document.getElementById('notices');
@@ -426,15 +390,14 @@ document.addEventListener('htmx:beforeSwap', function (event) {
 });
 
 // The htmx rescue above cannot see non-htmx removals: a framework-rendered
-// dialog (the editor's Lit dialogs) unmounts by direct DOM removal, destroying
-// a hoisted region with it — and with no #notices left, every later notice
-// silently no-ops. While the region is hoisted, watch for it leaving the
-// document and re-home it, live notices intact. Observation is scoped to the
-// hoisted state (attached on hoist, disconnected on every move-home path):
-// at home the region is a direct body child only an htmx body swap — which
-// ships a fresh region — can remove, so the observer costs nothing in the
-// steady state. A reparent also records a removal, but by callback time the
-// region is connected again, so the isConnected guard makes those a no-op.
+// dialog (the editor's Lit dialogs) unmounts by direct DOM removal,
+// destroying a hoisted region with it — and with no #notices left, every
+// later notice silently no-ops. Watch for the region leaving the document
+// and re-home it, live notices intact. Observation is scoped to the hoisted
+// state (attached on hoist, disconnected on every move-home path), so the
+// observer costs nothing in the steady state. A reparent also records a
+// removal, but by callback time the region is connected again — the
+// isConnected guard makes those a no-op.
 const hoistedRegionObserver = new MutationObserver(function (mutations) {
   if (document.getElementById('notices')) return;
   for (const mutation of mutations) {
