@@ -699,10 +699,15 @@ Rules:
   inert `#notice-template`, since no server HTML exists for those. Reach for
   `errorNotice()` only when the handler has a better message than the problem
   detail it would otherwise send.
-- **Legit-`fetch` sites** (PDF blobs — outside htmx, so neither a server-sent
-  notice nor the safety net can reach them) use the client mirror:
-  `epistolaNotice.success(message)` / `.error(message)` (notices.js), which
-  clones the same fragment. Same one-sentence rule.
+- **Legit-`fetch` sites** (PDF blobs, editor callbacks — outside htmx, so
+  neither a server-sent notice nor the safety net can reach them) use the
+  client mirror: `epistolaNotice.success(message, options?)` /
+  `.error(message, options?)` (notices.js), which clones the same fragment.
+  Same one-sentence rule. `options.title` mirrors the DSL's title param;
+  `options.dedupeKey` refreshes a same-key visible notice in place instead of
+  stacking — recurring background call sites (polls, periodic checks) should
+  always pass one. Returns `{ dismiss() }` for retracting a standing notice
+  early (or `null` on pages without a region).
 - **A dialog reports its own request's failures in-dialog; the corner is for
   everything else.** A failure belonging to a dialog's open action renders
   inside that dialog, next to what the user did — the confirm dialog's error

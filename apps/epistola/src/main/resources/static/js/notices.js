@@ -22,50 +22,55 @@
 // event, since no htmx:load fires when nothing was swapped.
 
 // Public client-side notice API — the JS mirror of the Kotlin DSL helpers
-// (successNotice/errorNotice), for legit-fetch sites (PDF blobs) that have no
-// HTMX response for a server-sent notice to ride. Same component, same rules:
-// one short sentence. Notices stay visible above open modal dialogs
-// (the modal-placement section below hosts the region inside the dialog),
-// but the convention
-// stands: a failure belonging to a dialog's own action renders inside that
-// dialog, next to what the user did — not here (the version-comparison
-// dialog in template-detail.js is the reference).
+// (successNotice/errorNotice), for legit-fetch sites (PDF blobs, editor
+// callbacks) that have no HTMX response for a server-sent notice to ride.
+// Same component, same rules: one short sentence, title ≤ a few words.
+// Notices stay visible above open modal dialogs (the modal-placement section
+// below hosts the region inside the dialog), but the convention stands: a
+// failure belonging to a dialog's own action renders inside that dialog,
+// next to what the user did — not here (the version-comparison dialog in
+// template-detail.js is the reference).
+//
+// options:
+//   title      optional bold first line, mirroring the DSL's title param.
+//   dedupeKey  identifies "the same failure recurring" (e.g. one failing
+//              poll): a visible notice with the same key is refreshed in
+//              place — message updated only if it changed (so aria-live does
+//              not re-announce an identical one), dismiss timer extended —
+//              instead of stacking a pile. Unrelated failures that happen to
+//              share wording are NOT coalesced; pick keys per failure source.
+//              Recurring background call sites (polls, periodic checks)
+//              should always pass one.
+//
+// Returns a handle { dismiss() } for retracting the notice early (e.g. a
+// standing network-error notice once connectivity returns), or null when the
+// page hosts no notice region.
 window.epistolaNotice = {
-  success: function (message) {
-    insertNotice('success', message);
+  success: function (message, options) {
+    return insertNotice('success', message, options);
   },
-  error: function (message) {
-    insertNotice('error', message);
+  error: function (message, options) {
+    return insertNotice('error', message, options);
   },
 };
 
-// [dedupeKey] identifies "the same failure recurring" (e.g. one failing 2s
-// poll): a visible notice with the same key is refreshed in place — message
-// updated only if it changed (so aria-live does not re-announce an identical
-// one), dismiss timer extended via epistola:notice-refresh (the timer
-// section below owns the timer; the event is the seam between insertion
-// and timing) —
-// instead of stacking a pile. The old page banner deduped as a singleton;
-// keyed dedupe keeps that property without coalescing unrelated failures
-// that happen to share wording. No key → always a new notice. The key stays
-// an internal (safety-net) affordance — deliberately not part of the
-// epistolaNotice API surface.
-function insertNotice(kind, message, dedupeKey) {
-  var region = document.getElementById('notices');
-  var template = document.getElementById('notice-template');
-  if (!region || !template || !template.content.firstElementChild) return;
+function insertNotice(kind, message, options) {
+  const region = document.getElementById('notices');
+  const template = document.getElementById('notice-template');
+  if (!region || !template || !template.content.firstElementChild) return null;
+  const opts = options || {};
 
-  if (dedupeKey) {
-    var existing = region.querySelector('[data-notice-key="' + CSS.escape(dedupeKey) + '"]');
+  if (opts.dedupeKey) {
+    const existing = region.querySelector('[data-notice-key="' + CSS.escape(opts.dedupeKey) + '"]');
     if (existing && !existing.classList.contains('notice-leaving')) {
-      var text = existing.querySelector('.notice-message');
+      const text = existing.querySelector('.notice-message');
       if (text.textContent !== message) text.textContent = message;
       existing.dispatchEvent(new CustomEvent('epistola:notice-refresh', { bubbles: true }));
-      return;
+      return noticeHandle(existing);
     }
   }
 
-  var notice = template.content.firstElementChild.cloneNode(true);
+  const notice = template.content.firstElementChild.cloneNode(true);
   // The template ships error-flavored; other kinds swap the severity class
   // and announce politely instead of assertively.
   if (kind !== 'error') {
@@ -73,26 +78,41 @@ function insertNotice(kind, message, dedupeKey) {
     notice.classList.add('alert-' + kind);
     notice.setAttribute('role', 'status');
   }
-  if (dedupeKey) notice.setAttribute('data-notice-key', dedupeKey);
+  if (opts.dedupeKey) notice.setAttribute('data-notice-key', opts.dedupeKey);
+  // The template ships the title slot empty; fill it or drop it.
+  const title = notice.querySelector('.alert-title');
+  if (title) {
+    if (opts.title) title.textContent = opts.title;
+    else title.remove();
+  }
   notice.querySelector('.notice-message').textContent = message;
   region.insertBefore(notice, region.firstChild);
   document.dispatchEvent(new CustomEvent('epistola:notice-added'));
+  return noticeHandle(notice);
+}
+
+function noticeHandle(notice) {
+  return {
+    dismiss: function () {
+      dismissNotice(notice);
+    },
+  };
 }
 
 function showErrorNotice(message, dedupeKey) {
-  insertNotice('error', message, dedupeKey);
+  insertNotice('error', message, { dedupeKey: dedupeKey });
 }
 
 // What identifies a recurring failure for showErrorNotice's dedupe: the
 // request path (same poll → same key) plus the failure mode.
 function noticeKeyFor(kind, event) {
-  var path = (event.detail.pathInfo && event.detail.pathInfo.requestPath) || '';
+  const path = (event.detail.pathInfo && event.detail.pathInfo.requestPath) || '';
   return kind + ':' + path;
 }
 
 // The server responded 4xx/5xx and the response was not shaped for HTMX.
 document.addEventListener('htmx:responseError', function (event) {
-  var xhr = event.detail.xhr;
+  const xhr = event.detail.xhr;
   if (!xhr) return;
 
   // Shaped error responses already delivered their message via the OOB
@@ -105,18 +125,18 @@ document.addEventListener('htmx:responseError', function (event) {
   // The check must use the issuing element (detail.elt, the form inside the
   // dialog): the dialog form's hx-target always points outside the dialog,
   // so detail.target never matches.
-  var sourceElt = event.detail.elt;
+  const sourceElt = event.detail.elt;
   if (sourceElt && sourceElt.closest && sourceElt.closest('#confirm-dialog')) return;
 
-  var detail;
+  let detail;
   try {
-    var body = JSON.parse(xhr.responseText);
+    const body = JSON.parse(xhr.responseText);
     detail = body.detail || body.error;
-  } catch (e) {
+  } catch {
     detail = null;
   }
 
-  var message;
+  let message;
   if (xhr.status === 403) {
     message = detail || "You don't have permission to perform this action.";
   } else if (xhr.status >= 500) {
@@ -126,9 +146,9 @@ document.addEventListener('htmx:responseError', function (event) {
   }
 
   // Prefer the issuing form's global error slot \u2014 inline, next to the inputs.
-  var sourceForm =
+  const sourceForm =
     event.detail.elt && event.detail.elt.closest ? event.detail.elt.closest('form') : null;
-  var slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
+  const slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
   if (slot) {
     slot.textContent = message;
     slot.hidden = false;
@@ -148,10 +168,10 @@ document.addEventListener('htmx:responseError', function (event) {
 // otherwise leave the dialog looking like nothing happened (a dialog reports
 // its own request's failures in-dialog; the corner is for everything else).
 document.addEventListener('htmx:sendError', function (event) {
-  var message = 'Network error \u2014 check your connection and try again.';
-  var sourceElt = event.detail.elt;
+  const message = 'Network error \u2014 check your connection and try again.';
+  const sourceElt = event.detail.elt;
   if (sourceElt && sourceElt.closest && sourceElt.closest('#confirm-dialog')) {
-    var errorEl = document.getElementById('confirm-dialog-error');
+    const errorEl = document.getElementById('confirm-dialog-error');
     if (errorEl) {
       errorEl.textContent = message;
       errorEl.style.display = 'block';
