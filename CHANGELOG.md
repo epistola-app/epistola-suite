@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+- **[dev]** test(ui): **The app's static JS is unit-testable.** `apps/epistola` joined the pnpm
+  workspace with a vitest + happy-dom test ground (`src/test/js/`) that evaluates the real
+  classic scripts and drives them through DOM events, synthetic htmx events, and fake timers —
+  covering the timing behaviors the UI-test hygiene rules keep out of browser tests. First
+  suite: the corner-notice subsystem (23 tests), paired with `NoticeModalPlacementUiTest` for
+  the top-layer half (hoist, modal stacking, unmount rescue, server-OOB delivery). Runs via
+  `pnpm test`, not Gradle — see `docs/testing.md`. (#477)
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack
