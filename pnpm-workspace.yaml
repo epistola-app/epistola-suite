@@ -1,5 +1,6 @@
 packages:
   - modules/*
+  - apps/epistola
   - scripts/gh-mcp
   - .husky
 allowBuilds:
