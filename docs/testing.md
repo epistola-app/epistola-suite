@@ -20,6 +20,9 @@
 # All tests
 ./gradlew test
 
+# Static-JS unit tests (vitest — NOT run by Gradle, see below)
+pnpm --filter @epistola/app test
+
 # Specific test class
 ./gradlew test --tests "app.epistola.suite.tenants.TenantCommandsTest"
 
@@ -35,6 +38,24 @@
 | Unit        | —             | No     | Utilities, pure functions, validation           |
 | Integration | `integration` | Yes    | Business logic, DB operations, commands/queries |
 | UI          | `ui`          | Yes    | Browser interactions, HTMX, page rendering      |
+| Static JS   | vitest        | No     | The app's static JS (`apps/epistola/static/js`) |
+
+### Static-JS unit tests (vitest)
+
+The app's plain-JS behaviors (`apps/epistola/src/main/resources/static/js/`)
+have vitest + happy-dom unit tests in `apps/epistola/src/test/js/` — the
+first suite is `notices.test.js`, covering the corner-notice subsystem. A
+test evaluates the real classic script into the happy-dom page and drives it
+through its public surfaces (DOM events, synthetic htmx `CustomEvent`s with a
+stubbed `xhr`, fake timers for anything the UI-test hygiene rules make
+untestable in a browser). Behaviors that need the real top layer (popover,
+dialog toggle events, animations) stay in Playwright UI tests — see
+`NoticeModalPlacementUiTest` for the split, documented in both files.
+
+**Gradle does not run these.** They are part of the pnpm workspace
+(`apps/epistola` is a workspace member) and run via root `pnpm test` or
+`pnpm --filter @epistola/app test` (watch mode: `test:watch`). CI runs them
+through the frontend `pnpm test` step.
 
 ## Architecture-enforcement tests
 
