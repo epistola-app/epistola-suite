@@ -300,12 +300,19 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * Attaches a success notice to the response: a transient confirmation
      * (`epistola-web/notice`, design-system `.alert-success`) OOB-inserted into
      * the shell's fixed `#notices` corner region, newest on top. Auto-dismisses
-     * client-side after a uniform timeout (behaviors.js).
+     * client-side after a uniform timeout (notices.js).
      *
      * For async actions whose swap isn't self-evident feedback — standalone
      * controls, background-ish actions. Purely additive: rides along with
      * whatever primary fragment the handler renders. A handler with nothing to
      * re-render should pair it with `reswap(HxSwap.NONE)`.
+     *
+     * Notices ride only fragment responses. On the full-page branch — non-HTMX,
+     * boosted, and history-restore requests, i.e. whenever the request doesn't
+     * want a fragment — the OOB fragment is silently discarded, so the
+     * `onFullPage`/`onNonHtmx` path must carry its own feedback: a redirect
+     * whose target shows the new state, or an error rendered into the page
+     * (see `catalogs/browse.html`).
      *
      * Usage:
      * ```kotlin
@@ -328,6 +335,10 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * A handler that wants to ALSO re-render its fragment (e.g. reverting a
      * control to persisted state) can call `reswap(HxSwap.OUTER_HTML)` after
      * this to re-enable the primary swap.
+     *
+     * Like [successNotice], this rides only fragment responses — the full-page
+     * branch (non-HTMX, boosted, history-restore) discards it, so pair it with
+     * a full-page path that reports the failure itself.
      *
      * @param message The error message to display
      * @param title Optional bold first line

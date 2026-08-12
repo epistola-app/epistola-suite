@@ -683,6 +683,13 @@ return request.htmx {
 errorNotice("The selected theme no longer exists.", title = "Update failed")
 ```
 
+**Notices ride only fragment responses.** On the full-page branch — non-HTMX,
+boosted, and history-restore requests — the OOB fragment is silently
+discarded, so the `onFullPage`/`onNonHtmx` path above gives no notice: it must
+carry its own feedback. A redirect whose target renders the new state is
+enough for success; a failure needs the page itself to report it (see the
+plain-path install alert in `catalogs/browse.html`).
+
 Rules:
 
 - **One sentence.** The helpers throw on a message over 150 chars or a title
