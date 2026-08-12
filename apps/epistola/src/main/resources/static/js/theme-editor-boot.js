@@ -30,11 +30,16 @@ async function mount(container) {
     readonly: !editable,
     fontOptions: {
       listFonts: async () => {
-        const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {
-          headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-        });
-        if (!resp.ok) throw new Error('Failed to list fonts');
-        return await resp.json();
+        try {
+          const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {
+            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+          });
+          if (!resp.ok) throw new Error('Failed to list fonts');
+          return await resp.json();
+        } catch (e) {
+          window.epistolaNotice.error('Could not load the tenant fonts. Default fonts are shown.');
+          throw e;
+        }
       },
     },
     onSave: async (payload) => {
@@ -51,12 +56,22 @@ async function mount(container) {
       );
 
       if (!response.ok) {
-        const text = await response.text().catch(() => response.statusText);
-        throw new Error('Failed to save theme: ' + text);
+        // The status indicator renders this verbatim — never a raw body.
+        let detail = null;
+        try {
+          const body = JSON.parse(await response.text());
+          detail = body.detail || body.message || body.error;
+        } catch {
+          detail = null;
+        }
+        throw new Error(
+          'Failed to save theme: ' + (detail || response.statusText || response.status),
+        );
       }
 
-      // Update page title if name changed
-      const result = await response.json();
+      // Update page title if name changed; the save already succeeded, so a
+      // malformed body must not surface as a false error.
+      const result = await response.json().catch(() => ({}));
       if (result.name) {
         document.title = result.name + ' - Epistola';
         const h1 = document.querySelector('.page-header h1');

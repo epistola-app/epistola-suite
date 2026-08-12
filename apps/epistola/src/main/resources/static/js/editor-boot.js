@@ -41,22 +41,34 @@ async function mount(container) {
     locale: config.locale,
     fontOptions: {
       listFonts: async () => {
-        const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {
-          headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-        });
-        if (!resp.ok) throw new Error('Failed to list fonts');
-        return await resp.json();
+        try {
+          const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {
+            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+          });
+          if (!resp.ok) throw new Error('Failed to list fonts');
+          return await resp.json();
+        } catch (e) {
+          window.epistolaNotice.error('Could not load the tenant fonts. Default fonts are shown.');
+          throw e;
+        }
       },
     },
     imageOptions: {
       defaultCatalogKey: catalogId,
       contentUrlPattern: '/tenants/' + tenantId + '/images/{catalogId}/{assetId}/content',
       listCatalogs: async () => {
-        const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
-          headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-        });
-        if (!resp.ok) throw new Error('Failed to list catalogs');
-        return await resp.json();
+        try {
+          const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
+            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+          });
+          if (!resp.ok) throw new Error('Failed to list catalogs');
+          return await resp.json();
+        } catch (e) {
+          window.epistolaNotice.error(
+            'Could not load the image catalogs. Uploads are unavailable.',
+          );
+          throw e;
+        }
       },
       listAssets: async (catalog) => {
         const params = new URLSearchParams({ catalog });
@@ -83,48 +95,66 @@ async function mount(container) {
       },
     },
     stencilOptions: {
+      // Must never reject — the editor's upgrade check has no catch (lib.ts).
       checkUpgrades: async (refs) => {
         const uniqueKeys = [...new Set(refs.map((r) => r.catalogKey + '/' + r.stencilId))];
         const results = [];
+        let failed = false;
         for (const key of uniqueKeys) {
           const [cat, sid] = key.split('/');
-          const resp = await fetch(
-            '/tenants/' + tenantId + '/stencils/' + cat + '/' + sid + '/versions',
-            {
-              headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-            },
-          );
-          if (!resp.ok) continue;
-          const data = await resp.json();
-          const versions = data.items ?? data;
-          const latestPublished = versions
-            .filter((v) => v.status === 'published')
-            .toSorted((a, b) => b.version - a.version)[0];
-          if (latestPublished) {
-            const currentVersions = refs.filter((r) => r.stencilId === sid && r.catalogKey === cat);
-            for (const ref of currentVersions) {
-              if (latestPublished.version > ref.version) {
-                results.push({
-                  stencilId: sid,
-                  currentVersion: ref.version,
-                  latestVersion: latestPublished.version,
-                });
+          try {
+            const resp = await fetch(
+              '/tenants/' + tenantId + '/stencils/' + cat + '/' + sid + '/versions',
+              {
+                headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+              },
+            );
+            if (!resp.ok) {
+              failed = true;
+              continue;
+            }
+            const data = await resp.json();
+            const versions = data.items ?? data;
+            const latestPublished = versions
+              .filter((v) => v.status === 'published')
+              .toSorted((a, b) => b.version - a.version)[0];
+            if (latestPublished) {
+              const currentVersions = refs.filter(
+                (r) => r.stencilId === sid && r.catalogKey === cat,
+              );
+              for (const ref of currentVersions) {
+                if (latestPublished.version > ref.version) {
+                  results.push({
+                    stencilId: sid,
+                    currentVersion: ref.version,
+                    latestVersion: latestPublished.version,
+                  });
+                }
               }
             }
+          } catch {
+            failed = true;
           }
+        }
+        if (failed) {
+          window.epistolaNotice.error('Could not check for stencil upgrades.', {
+            dedupeKey: 'stencil-upgrade-check',
+          });
         }
         return results;
       },
+      // Throws on failure — the picker catches and reports in-dialog.
       searchStencils: async (query) => {
         const params = new URLSearchParams();
         if (query) params.set('q', query);
         const resp = await fetch('/tenants/' + tenantId + '/stencils/search?' + params, {
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
         });
-        if (!resp.ok) return [];
+        if (!resp.ok) throw new Error('Failed to search stencils');
         const data = await resp.json();
         return data.items ?? data;
       },
+      // Throws on failure — both callers catch and report themselves.
       listVersions: async (ref) => {
         const resp = await fetch(
           '/tenants/' +
@@ -138,34 +168,44 @@ async function mount(container) {
             headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
           },
         );
-        if (!resp.ok) return [];
+        if (!resp.ok) throw new Error('Failed to list stencil versions');
         const data = await resp.json();
         return data.items ?? data;
       },
+      // Must never reject — a rejection strands the picker's Insert button;
+      // null is its handled failure path.
       getStencilVersion: async (ref, version) => {
-        const resp = await fetch(
-          '/tenants/' +
-            tenantId +
-            '/stencils/' +
-            ref.catalogKey +
-            '/' +
-            ref.stencilId +
-            '/versions/' +
-            version,
-          {
-            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-          },
-        );
-        if (!resp.ok) return null;
-        const v = await resp.json();
-        return {
-          ref,
-          stencilName: ref.stencilId,
-          version: v.id ?? version,
-          status: v.status,
-          content: v.content,
-          parameterSchema: v.parameterSchema ?? undefined,
-        };
+        try {
+          const resp = await fetch(
+            '/tenants/' +
+              tenantId +
+              '/stencils/' +
+              ref.catalogKey +
+              '/' +
+              ref.stencilId +
+              '/versions/' +
+              version,
+            {
+              headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+            },
+          );
+          if (!resp.ok) {
+            window.epistolaNotice.error('Failed to load the stencil version. Please try again.');
+            return null;
+          }
+          const v = await resp.json();
+          return {
+            ref,
+            stencilName: ref.stencilId,
+            version: v.id ?? version,
+            status: v.status,
+            content: v.content,
+            parameterSchema: v.parameterSchema ?? undefined,
+          };
+        } catch {
+          window.epistolaNotice.error('Failed to load the stencil version. Please try again.');
+          return null;
+        }
       },
       createStencil: async (slug, name) => {
         const resp = await fetch('/tenants/' + tenantId + '/stencils', {

@@ -362,6 +362,8 @@
               }
             },
             onDeleteDataExample: async (exampleId) => {
+              // The contract editor ignores success:false — the notice is the
+              // only feedback.
               try {
                 const response = await fetch(
                   `/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`,
@@ -370,8 +372,12 @@
                     headers: { 'X-XSRF-TOKEN': csrfToken() },
                   },
                 );
+                if (!response.ok) {
+                  window.epistolaNotice.error('Failed to delete the data example.');
+                }
                 return { success: response.ok };
               } catch (e) {
+                window.epistolaNotice.error('Failed to delete the data example.');
                 return { success: false };
               }
             },

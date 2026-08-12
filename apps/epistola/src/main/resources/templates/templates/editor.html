@@ -117,5 +117,13 @@
     }
     </script>
     <script type="module" th:src="@{/js/editor-boot.js}"></script>
+
+    <!-- Corner-notice region + client template, same pair as layout/shell:
+         this page renders its own <body>, so it hosts them itself. Title ''
+         (not null) so the clone carries an empty .alert-title slot. -->
+    <div id="notices" class="notice-region" aria-live="polite"></div>
+    <template id="notice-template">
+        <th:block th:replace="~{epistola-web/notice :: notice('error', '', '')}" />
+    </template>
 </body>
 </html>
