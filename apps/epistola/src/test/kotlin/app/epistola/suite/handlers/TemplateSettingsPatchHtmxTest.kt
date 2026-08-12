@@ -217,7 +217,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             assertThat(body).contains("data-template-name-input")
             assertThat(body).contains("value=\"Quarterly Invoice\"")
             // The OOB companion: header title sync (badge span untouched).
-            assertThat(body).contains("hx-swap-oob=\"textContent:#page-title-text\"")
+            assertThat(body).contains("hx-swap-oob=\"innerHTML:#page-title-text\"")
 
             val updated = withMediator {
                 GetDocumentTemplate(
