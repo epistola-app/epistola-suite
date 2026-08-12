@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** fix(ui): **Catalog installs report honestly.** Installing from a catalog now
+  keeps the preview dialog open with an error notice and a real error status when the
+  install fails (previously the dialog closed as if it had succeeded); a plain full-page
+  submit shows the error on the page itself. (#477)
 - **[dev]** test(ui): **The app's static JS is unit-testable.** `apps/epistola` joined the pnpm
   workspace with a vitest + happy-dom test ground (`src/test/js/`) that evaluates the real
   classic scripts and drives them through DOM events, synthetic htmx events, and fake timers —
