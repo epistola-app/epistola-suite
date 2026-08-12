@@ -270,14 +270,20 @@ document.addEventListener('mouseout', function (event) {
 
 // Adopt server-sent notices: OOB swaps bypass insertNotice, and htmx:load
 // fires for every batch of newly settled content, OOB insertions included.
+// Notices only ever live inside #notices (server OOB targets it, insertNotice
+// inserts into it, hoisting moves the region wholesale), so the scan stays
+// scoped to the region instead of walking the whole document on every settle.
 // The .notice-leaving check keeps a dismissed notice (out of the map, still
 // animating out) from being re-adopted.
 document.addEventListener('htmx:load', function () {
-  document.querySelectorAll('[data-notice]').forEach(function (notice) {
-    if (!notices.has(notice) && !notice.classList.contains('notice-leaving')) {
-      mountNotice(notice, null);
-    }
-  });
+  const region = document.getElementById('notices');
+  if (region) {
+    region.querySelectorAll('[data-notice]').forEach(function (notice) {
+      if (!notices.has(notice) && !notice.classList.contains('notice-leaving')) {
+        mountNotice(notice, null);
+      }
+    });
+  }
   syncNoticeRegionPlacement();
 });
 
