@@ -618,6 +618,9 @@ class CatalogHandler {
                     "activeNavSection" to "catalogs"
                     "catalog" to result.catalog
                     "resources" to result.resources
+                    // Notices are HTMX-only; the plain full-page render reports
+                    // an install failure through the page itself.
+                    "error" to error
                 }
             }
         }

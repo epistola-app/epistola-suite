@@ -93,32 +93,41 @@ class BackupsHandler(
     fun backupNow(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.BACKUP_CREATE)
-        return try {
-            val message =
-                when (backupService.backupTenant(tenantId.key)) {
-                    is BackupOutcome.Created -> "Backup completed."
-                    is BackupOutcome.Unchanged -> "No changes since the last backup."
-                }
-            request.htmx {
-                fragment("backups/list", "backup-list") {
-                    "tenantId" to tenantId.key
-                    "backups" to backupViews(tenantId.key)
-                }
-                successNotice(message)
-                onFullPage { redirect("/tenants/${tenantId.key.value}/backups") }
+        val message = try {
+            when (backupService.backupTenant(tenantId.key)) {
+                is BackupOutcome.Created -> "Backup completed."
+                is BackupOutcome.Unchanged -> "No changes since the last backup."
             }
         } catch (e: HubEntitlementDeniedException) {
             log.warn("Backup not entitled for tenant {}: {}", tenantId.key.value, e.message)
-            redirect(request, tenantId.key.value, "error=not-entitled")
+            return redirect(request, tenantId.key.value, "error=not-entitled")
         } catch (e: HubUnauthenticatedException) {
             log.warn("Hub rejected this installation's credentials backing up tenant {}: {}", tenantId.key.value, e.message)
-            redirect(request, tenantId.key.value, "error=hub-auth")
+            return redirect(request, tenantId.key.value, "error=hub-auth")
         } catch (e: HubException) {
             log.warn("Backup could not reach the hub for tenant {}: {}", tenantId.key.value, e.message)
-            redirect(request, tenantId.key.value, "error=hub-unavailable")
+            return redirect(request, tenantId.key.value, "error=hub-unavailable")
         } catch (e: Exception) {
             log.error("Manual backup failed for tenant {}: {}", tenantId.key.value, e.message, e)
-            redirect(request, tenantId.key.value, "error=backup-failed")
+            return redirect(request, tenantId.key.value, "error=backup-failed")
+        }
+
+        // The backup itself succeeded past this point — a failure while listing
+        // for the refreshed fragment must not be reported as a backup failure.
+        // Fall back to a plain reload; list() has its own hub-error degradation.
+        val backups = try {
+            backupViews(tenantId.key)
+        } catch (e: Exception) {
+            log.warn("Backup succeeded but listing the backups failed for tenant {}: {}", tenantId.key.value, e.message)
+            return redirect(request, tenantId.key.value, "")
+        }
+        return request.htmx {
+            fragment("backups/list", "backup-list") {
+                "tenantId" to tenantId.key
+                "backups" to backups
+            }
+            successNotice(message)
+            onFullPage { redirect("/tenants/${tenantId.key.value}/backups") }
         }
     }
 
@@ -153,10 +162,13 @@ class BackupsHandler(
         request: ServerRequest,
         tenantKey: String,
         query: String,
-    ): ServerResponse = if (request.isHtmx) {
-        ServerResponse.ok().header("HX-Redirect", "/tenants/$tenantKey/backups?$query").build()
-    } else {
-        ServerResponse.status(303).header("Location", "/tenants/$tenantKey/backups?$query").build()
+    ): ServerResponse {
+        val location = "/tenants/$tenantKey/backups" + if (query.isEmpty()) "" else "?$query"
+        return if (request.isHtmx) {
+            ServerResponse.ok().header("HX-Redirect", location).build()
+        } else {
+            ServerResponse.status(303).header("Location", location).build()
+        }
     }
 
     private fun StoredBackup.toView(
