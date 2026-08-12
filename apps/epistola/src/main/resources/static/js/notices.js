@@ -86,9 +86,10 @@ function noticeHandle(notice) {
 
 // ── Global safety net for unhandled errors (#477) ───────────────────────────
 // Every async failure a handler did not shape ends in a corner error notice,
-// so silent failure is not a possible outcome on shell pages (the few
-// standalone pages have no #notices region — their async goes through the
-// editor's own error channel or a form slot).
+// so silent failure is not a possible outcome on any page that runs htmx:
+// standalone pages (own <body>, no shell) host their own #notices region pair
+// (tenants list). The editor page routes async through the editor's own error
+// channel; login and error pages have no async at all.
 
 function showErrorNotice(message, dedupeKey) {
   insertNotice('error', message, { dedupeKey: dedupeKey });
