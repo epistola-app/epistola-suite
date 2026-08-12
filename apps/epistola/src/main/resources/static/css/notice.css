@@ -102,6 +102,10 @@
   margin: 0;
   position: relative;
   overflow: hidden;
+  /* Motion: slide-in from the right on arrival; the removal paths in
+     notices.js add .notice-leaving and remove on animationend (with a timeout
+     fallback for reduced-motion, where animation:none never fires the event). */
+  animation: notice-enter 0.18s ease-out;
 }
 
 /* Remaining-time bar. Duration comes from notices.js (--notice-timeout, set
@@ -153,13 +157,6 @@
   flex: 1 1 auto;
 }
 
-/* Motion: slide-in from the right on arrival; the removal paths in
-   notices.js add .notice-leaving and remove on animationend (with a timeout
-   fallback for reduced-motion, where animation:none never fires the event). */
-.notice {
-  animation: notice-enter 0.18s ease-out;
-}
-
 .notice-leaving {
   animation: notice-leave 0.15s ease-in forwards;
 }
@@ -196,14 +193,21 @@
   }
 }
 
-/* Same reset as .site-banner-dismiss — the × is text, not a button chrome. */
-.notice-dismiss {
+/* Shared dismiss reset — the × is text, not a button chrome. Hosted here
+   because every page loads notice.css (via main.css) while shell.css is
+   shell-only; each class keeps only its own deltas (padding, the banner's
+   hover affordance in shell.css). */
+.notice-dismiss,
+.site-banner-dismiss {
   flex: 0 0 auto;
   background: none;
   border: none;
-  padding: 0 var(--ep-space-1);
   font-size: var(--ep-text-lg);
   line-height: 1;
   color: inherit;
   cursor: pointer;
+}
+
+.notice-dismiss {
+  padding: 0 var(--ep-space-1);
 }
