@@ -12,6 +12,9 @@
 
         <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" style="margin-bottom: var(--ep-space-4);" th:text="${catalog.sourceUrl}"></p>
 
+        <!-- Plain (no-JS) install feedback; the HTMX path reports via notices. -->
+        <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+
 
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
