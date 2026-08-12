@@ -8,6 +8,13 @@
   keeps the preview dialog open with an error notice and a real error status when the
   install fails (previously the dialog closed as if it had succeeded); a plain full-page
   submit shows the error on the page itself. (#477)
+- **[user]** fix(editor): **Editor failures are no longer silent.** The template, theme, and
+  data-contract editors now surface every failed background request: stencil search and
+  version-list failures report inside the picker, and failures with no UI of their own —
+  the stencil upgrade check, loading a stencil version for Insert, deleting a data example,
+  loading tenant fonts or image catalogs — show a corner error notice. Inserting a stencil
+  while the version fetch fails no longer strands the Insert button on "Loading…", and a
+  theme save error now shows the actual reason instead of a raw response dump. (#477)
 - **[dev]** test(ui): **The app's static JS is unit-testable.** `apps/epistola` joined the pnpm
   workspace with a vitest + happy-dom test ground (`src/test/js/`) that evaluates the real
   classic scripts and drives them through DOM events, synthetic htmx events, and fake timers —
