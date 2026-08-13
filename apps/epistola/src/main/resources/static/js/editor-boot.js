@@ -96,52 +96,47 @@ async function mount(container) {
     },
     stencilOptions: {
       // Must never reject — the editor's upgrade check has no catch (lib.ts).
+      // The per-stencil fetches are independent, so they run concurrently:
+      // the upgrade badge costs one RTT, not one per referenced stencil.
       checkUpgrades: async (refs) => {
         const uniqueKeys = [...new Set(refs.map((r) => r.catalogKey + '/' + r.stencilId))];
-        const results = [];
-        let failed = false;
-        for (const key of uniqueKeys) {
-          const [cat, sid] = key.split('/');
-          try {
-            const resp = await fetch(
-              '/tenants/' + tenantId + '/stencils/' + cat + '/' + sid + '/versions',
-              {
-                headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-              },
-            );
-            if (!resp.ok) {
-              failed = true;
-              continue;
-            }
-            const data = await resp.json();
-            const versions = data.items ?? data;
-            const latestPublished = versions
-              .filter((v) => v.status === 'published')
-              .toSorted((a, b) => b.version - a.version)[0];
-            if (latestPublished) {
-              const currentVersions = refs.filter(
-                (r) => r.stencilId === sid && r.catalogKey === cat,
+        const perKey = await Promise.all(
+          uniqueKeys.map(async (key) => {
+            const [cat, sid] = key.split('/');
+            try {
+              const resp = await fetch(
+                '/tenants/' + tenantId + '/stencils/' + cat + '/' + sid + '/versions',
+                {
+                  headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                },
               );
-              for (const ref of currentVersions) {
-                if (latestPublished.version > ref.version) {
-                  results.push({
-                    stencilId: sid,
-                    currentVersion: ref.version,
-                    latestVersion: latestPublished.version,
-                  });
-                }
-              }
+              if (!resp.ok) return { upgrades: [], failed: true };
+              const data = await resp.json();
+              const versions = data.items ?? data;
+              const latestPublished = versions
+                .filter((v) => v.status === 'published')
+                .toSorted((a, b) => b.version - a.version)[0];
+              if (!latestPublished) return { upgrades: [], failed: false };
+              const upgrades = refs
+                .filter((r) => r.stencilId === sid && r.catalogKey === cat)
+                .filter((ref) => latestPublished.version > ref.version)
+                .map((ref) => ({
+                  stencilId: sid,
+                  currentVersion: ref.version,
+                  latestVersion: latestPublished.version,
+                }));
+              return { upgrades: upgrades, failed: false };
+            } catch {
+              return { upgrades: [], failed: true };
             }
-          } catch {
-            failed = true;
-          }
-        }
-        if (failed) {
+          }),
+        );
+        if (perKey.some((r) => r.failed)) {
           window.epistolaNotice.error('Could not check for stencil upgrades.', {
             dedupeKey: 'stencil-upgrade-check',
           });
         }
-        return results;
+        return perKey.flatMap((r) => r.upgrades);
       },
       // Throws on failure — the picker catches and reports in-dialog.
       searchStencils: async (query) => {
