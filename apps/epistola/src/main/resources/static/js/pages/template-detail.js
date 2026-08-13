@@ -188,6 +188,7 @@
       config.variantId +
       '/preview';
 
+    let failedSide = null;
     try {
       const results = await Promise.all([
         fetch(previewUrl, {
@@ -203,12 +204,12 @@
       ]);
 
       if (!results[0].ok || !results[1].ok) {
-        const errorSide = !results[0].ok ? 'A' : 'B';
+        failedSide = !results[0].ok ? 'a' : 'b';
         const errorResponse = !results[0].ok ? results[0] : results[1];
         const errorText = await errorResponse.text();
         throw new Error(
           'Failed to generate Version ' +
-            errorSide +
+            failedSide.toUpperCase() +
             ': ' +
             (errorText || 'HTTP ' + errorResponse.status),
         );
@@ -233,9 +234,20 @@
       // reports its own request's failures in-dialog; the corner is for
       // everything else). Full error in the console.
       console.error('Version comparison failed:', error);
+      // A one-sided failure keeps its attribution: the failed side shows the
+      // reason, the other names the culprit — not a lookalike generic failure
+      // on both. failedSide is null for network errors, where neither side
+      // can be blamed.
       ['a', 'b'].forEach(function (side) {
         const empty = document.getElementById('comparison-empty-' + side);
-        empty.textContent = 'Failed to generate the preview. Try Compare again.';
+        if (failedSide === null) {
+          empty.textContent = 'Failed to generate the preview. Try Compare again.';
+        } else if (side === failedSide) {
+          empty.textContent = error.message + ' Try Compare again.';
+        } else {
+          empty.textContent =
+            'Preview not shown: generating Version ' + failedSide.toUpperCase() + ' failed.';
+        }
         document.getElementById('comparison-loading-' + side).style.display = 'none';
         empty.style.display = 'flex';
       });
