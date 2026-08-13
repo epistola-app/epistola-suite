@@ -22,20 +22,8 @@
 
     <th:block th:replace="~{fragments/footer :: footer}" />
 
-    <!-- Corner-notice region (#477): fixed OOB target for epistola-web/notice
-         fragments (HtmxDsl.successNotice/errorNotice). Present at load so
-         aria-live announces later insertions. Chrome in notice.css; dismissal
-         in notices.js. -->
-    <div id="notices" class="notice-region" aria-live="polite"></div>
-
-    <!-- Client-side notice source for failures with no server HTML to render
-         (network errors, unshaped 4xx/5xx — the notices.js safety net).
-         The one place a notice is client-built: JS clones this and fills
-         .notice-message, so the markup stays single-sourced in the fragment. -->
-    <!-- Title '' (not null) so the clone carries an empty .alert-title slot:
-         notices.js fills it when epistolaNotice gets a title, drops it otherwise. -->
-    <template id="notice-template">
-        <th:block th:replace="~{epistola-web/notice :: notice('error', '', '')}" />
-    </template>
+    <!-- Corner-notice region + safety-net template (#477); documented at the
+         fragment. Chrome in notice.css; behavior in notices.js. -->
+    <th:block th:replace="~{epistola-web/notice :: notice-host}" />
 </body>
 </html>

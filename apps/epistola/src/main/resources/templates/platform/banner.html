@@ -66,5 +66,9 @@
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}" />
+
+    <!-- This page renders its own <body> and loads notices.js via
+         fragments/htmx, so it hosts the notice pair itself. -->
+    <th:block th:replace="~{epistola-web/notice :: notice-host}" />
 </body>
 </html>

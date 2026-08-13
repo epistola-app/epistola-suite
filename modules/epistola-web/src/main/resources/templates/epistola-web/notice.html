@@ -47,5 +47,27 @@
             <th:block th:replace="~{epistola-web/notice :: notice(${kind}, ${title}, ${message})}" />
         </div>
     </th:block>
+
+    <!--
+    Host pair: the fixed corner region every notice lands in (server OOB
+    target + client insertion point), plus the inert template the notices.js
+    safety net clones when there is no server HTML to render (network errors,
+    unshaped failures). Replace once right before </body> — in the shell, and
+    in every standalone page (own <body>) that loads fragments/htmx:
+
+        <th:block th:replace="~{epistola-web/notice :: notice-host}" />
+
+    Present at load so aria-live announces later insertions. Title '' (not
+    null) so the clone carries an empty .alert-title slot: notices.js fills
+    it when a title is given, drops it otherwise. A page that loads notices.js
+    WITHOUT this pair silently no-ops every notice — that failure mode is why
+    the pair is single-sourced here.
+    -->
+    <th:block th:fragment="notice-host">
+        <div id="notices" class="notice-region" aria-live="polite"></div>
+        <template id="notice-template">
+            <th:block th:replace="~{epistola-web/notice :: notice('error', '', '')}" />
+        </template>
+    </th:block>
 </body>
 </html>
