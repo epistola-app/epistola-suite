@@ -82,6 +82,26 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         assertThat(page.locator("#page-title-text")).hasText("Renamed In Browser")
     }
 
+    @Test
+    fun `a failed toggle reverts to server truth instead of keeping the refused state`() {
+        val (tenant, template) = withMediator { createPublishedTemplateWithDraft() }
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+
+        // PDF/A defaults to enabled — that is the server truth to revert to.
+        val toggle = page.locator("#pdfa-toggle")
+        assertThat(toggle).isChecked()
+
+        // Fail the PATCH at the network edge: data-revert-on-error must not
+        // depend on response shape, and the safety net still says why.
+        page.route("**/pdfa") { route -> route.abort() }
+        toggle.click()
+
+        // The click unchecks it locally; the failed request must snap it back
+        // to the persisted state instead of leaving the refused value.
+        assertThat(page.locator("#notices .notice")).isVisible()
+        assertThat(toggle).isChecked()
+    }
+
     private fun createPublishedTemplateWithDraft(): Pair<Tenant, DocumentTemplate> {
         val tenant = CreateTenant(
             id = TenantKey.of("settings-ui-${System.nanoTime()}"),

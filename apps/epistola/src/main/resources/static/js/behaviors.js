@@ -19,6 +19,33 @@ document.addEventListener('htmx:afterRequest', function (event) {
   if (form && event.detail.successful) form.reset();
 });
 
+// ── Revert a standalone control on a failed request ────────────────────────
+// Usage: <input hx-patch="…" data-revert-on-error>
+// A standalone hx-* control (checkbox, select, text input) swaps in server
+// truth on success — but a failed request swaps nothing, leaving the control
+// displaying the value the server refused, and a change-triggered control
+// can't even retry (the value no longer changes). Reverting to the
+// server-rendered default* properties restores truth for every failure class
+// — shaped 4xx, 5xx, network — while the safety net's notice says why. The
+// defaults track the LATEST successful swap, not page load (same idiom as
+// the rename input's Escape-revert in pages/template-detail.js).
+function revertControlOnError(event) {
+  const elt = event.detail.elt;
+  const control = elt && elt.closest ? elt.closest('[data-revert-on-error]') : null;
+  if (!control) return;
+  if (control.type === 'checkbox' || control.type === 'radio') {
+    control.checked = control.defaultChecked;
+  } else if (control.tagName === 'SELECT') {
+    Array.from(control.options).forEach(function (option) {
+      option.selected = option.defaultSelected;
+    });
+  } else {
+    control.value = control.defaultValue;
+  }
+}
+document.addEventListener('htmx:responseError', revertControlOnError);
+document.addEventListener('htmx:sendError', revertControlOnError);
+
 // ── Dialog open / close ─────────────────────────────────────────────────────
 // Usage: <button data-open-dialog="my-dialog">            → showModal()
 //        <button data-close-dialog>                       → closes closest <dialog>
