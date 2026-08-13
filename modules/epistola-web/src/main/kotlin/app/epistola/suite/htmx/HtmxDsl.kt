@@ -310,7 +310,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * Notices ride only fragment responses. On the full-page branch — non-HTMX,
      * boosted, and history-restore requests, i.e. whenever the request doesn't
      * want a fragment — the OOB fragment is silently discarded, so the
-     * `onFullPage`/`onNonHtmx` path must carry its own feedback: a redirect
+     * `onFullPage` path must carry its own feedback: a redirect
      * whose target shows the new state, or an error rendered into the page
      * (see `catalogs/browse.html`).
      *

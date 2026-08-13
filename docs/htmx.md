@@ -675,7 +675,7 @@ emit one:
 return request.htmx {
     fragment("templates/detail/settings", "output-settings") { … }
     successNotice("PDF/A output enabled.")
-    onNonHtmx { redirect(…) }
+    onFullPage { redirect(…) }
 }
 
 // Handled failure with no form slot: shaped like globalFormError
@@ -685,7 +685,7 @@ errorNotice("The selected theme no longer exists.", title = "Update failed")
 
 **Notices ride only fragment responses.** On the full-page branch — non-HTMX,
 boosted, and history-restore requests — the OOB fragment is silently
-discarded, so the `onFullPage`/`onNonHtmx` path above gives no notice: it must
+discarded, so the `onFullPage` path above gives no notice: it must
 carry its own feedback. A redirect whose target renders the new state is
 enough for success; a failure needs the page itself to report it (see the
 plain-path install alert in `catalogs/browse.html`).

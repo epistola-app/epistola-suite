@@ -513,7 +513,7 @@ class DocumentTemplateHandler(
                 "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
             successNotice(if (enabled) "PDF/A output enabled." else "PDF/A output disabled.")
-            onNonHtmx {
+            onFullPage {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
         }
@@ -559,7 +559,7 @@ class DocumentTemplateHandler(
             if (renamed) {
                 successNotice("Template renamed.")
             }
-            onNonHtmx {
+            onFullPage {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
         }
@@ -624,7 +624,7 @@ class DocumentTemplateHandler(
                 "editable" to (updated.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
             successNotice(if (selected.isBlank()) "Default theme cleared." else "Default theme updated.")
-            onNonHtmx {
+            onFullPage {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
         }
