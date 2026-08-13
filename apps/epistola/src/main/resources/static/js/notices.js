@@ -304,10 +304,11 @@ document.addEventListener('htmx:load', function () {
 // the behind-the-backdrop behavior; the normal no-dialog state never carries
 // the popover attribute.
 
-// Where the region belongs when no dialog is open. The parent can be gone
-// after a body swap — document.body is a safe fallback anchor since the
-// region is position:fixed (only the body:has() geometry rules care, and any
-// body descendant satisfies them).
+// Where the region belongs when no dialog is open. Recorded when the region
+// is hoisted FROM home, consumed by moveRegionHome — one record per hoist
+// cycle, so it can never go stale across boosted navigations (which swap the
+// body's children while document.body itself survives, leaving an old
+// record's parent "connected" but its next sibling detached).
 let noticeRegionHome = null;
 
 // Open modals in OPENING order — DOM order can differ (the confirm dialog
@@ -330,6 +331,32 @@ function reanchorNoticeAnimations(region) {
   });
 }
 
+// The single move-home path (dialog closed, host about to be swapped away,
+// host removed outright). The recorded home is validated before use — a home
+// from an earlier page has a connected parent (document.body survives boosted
+// swaps) but a detached next sibling, and insertBefore with that node would
+// throw mid-restore, stranding the region inside a closed dialog where every
+// later notice renders invisibly. document.body is a safe fallback anchor:
+// the region is position:fixed, and the body:has() geometry rules are
+// satisfied by any body descendant.
+function moveRegionHome(region) {
+  hoistedRegionObserver.disconnect();
+  if (region.matches(':popover-open')) region.hidePopover();
+  region.removeAttribute('popover');
+  const home = noticeRegionHome;
+  noticeRegionHome = null;
+  if (
+    home &&
+    home.parent.isConnected &&
+    (home.next === null || home.next.parentNode === home.parent)
+  ) {
+    home.parent.insertBefore(region, home.next);
+  } else {
+    document.body.appendChild(region);
+  }
+  reanchorNoticeAnimations(region);
+}
+
 function syncNoticeRegionPlacement() {
   const region = document.getElementById('notices');
   if (!region || typeof region.showPopover !== 'function') return;
@@ -342,7 +369,9 @@ function syncNoticeRegionPlacement() {
 
   if (host) {
     if (region.parentElement === host) return;
-    if (!noticeRegionHome) {
+    // Hoisting from home (no popover attribute yet) starts a cycle: record
+    // where to return. A dialog→dialog re-hoist keeps the cycle's record.
+    if (!region.hasAttribute('popover')) {
       noticeRegionHome = { parent: region.parentNode, next: region.nextSibling };
     }
     if (region.matches(':popover-open')) region.hidePopover();
@@ -352,15 +381,7 @@ function syncNoticeRegionPlacement() {
     reanchorNoticeAnimations(region);
     hoistedRegionObserver.observe(document.documentElement, { childList: true, subtree: true });
   } else if (region.hasAttribute('popover')) {
-    hoistedRegionObserver.disconnect();
-    if (region.matches(':popover-open')) region.hidePopover();
-    region.removeAttribute('popover');
-    if (noticeRegionHome && noticeRegionHome.parent.isConnected) {
-      noticeRegionHome.parent.insertBefore(region, noticeRegionHome.next);
-    } else {
-      document.body.appendChild(region);
-    }
-    reanchorNoticeAnimations(region);
+    moveRegionHome(region);
   }
 }
 
@@ -387,12 +408,7 @@ document.addEventListener('htmx:beforeSwap', function (event) {
   const target = event.detail.target;
   if (!region || !target || !region.hasAttribute('popover')) return;
   if (target !== region && target.contains(region)) {
-    hoistedRegionObserver.disconnect();
-    if (region.matches(':popover-open')) region.hidePopover();
-    region.removeAttribute('popover');
-    const home = noticeRegionHome && noticeRegionHome.parent.isConnected ? noticeRegionHome : null;
-    if (home) home.parent.insertBefore(region, home.next);
-    else document.body.appendChild(region);
+    moveRegionHome(region);
   }
 });
 
@@ -412,14 +428,7 @@ const hoistedRegionObserver = new MutationObserver(function (mutations) {
       if (!(node instanceof Element)) continue;
       const region = node.id === 'notices' ? node : node.querySelector('#notices');
       if (!region || region.isConnected) continue;
-      hoistedRegionObserver.disconnect();
-      region.removeAttribute('popover');
-      if (noticeRegionHome && noticeRegionHome.parent.isConnected) {
-        noticeRegionHome.parent.insertBefore(region, noticeRegionHome.next);
-      } else {
-        document.body.appendChild(region);
-      }
-      reanchorNoticeAnimations(region);
+      moveRegionHome(region);
       syncNoticeRegionPlacement();
       return;
     }

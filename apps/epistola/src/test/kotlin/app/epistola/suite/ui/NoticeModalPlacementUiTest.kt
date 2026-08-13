@@ -104,6 +104,36 @@ class NoticeModalPlacementUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `the region still comes home after a boosted navigation between hoist cycles`() {
+        val tenant = createTenant("Notice Boost Home")
+        gotoAndReady("/tenants/${tenant.id}/environments")
+
+        // First hoist/restore cycle: records the region's home, then consumes it.
+        page.openDialogByTrigger(page.locator("[data-open-dialog='changelog-dialog']"), "#changelog-dialog")
+        page.keyboard().press("Escape")
+        assertThat(page.locator("body > #notices:not([popover])")).isAttached()
+
+        // A boosted navigation swaps the body's CHILDREN while document.body
+        // survives — any home record kept across it would pass an isConnected
+        // parent check while pointing at a detached next sibling.
+        page.locator("[data-testid='nav-dropdown-authoring']").click()
+        page.locator("[data-testid='nav-item-templates']").click()
+        page.htmxSettle()
+
+        // The next cycle must re-record home from the new page's DOM. The
+        // regression: restoring against the stale record threw mid-move and
+        // stranded the region inside the closed dialog, rendering every later
+        // notice — safety net included — invisibly.
+        page.openDialogByTrigger(page.locator("[data-open-dialog='changelog-dialog']"), "#changelog-dialog")
+        page.keyboard().press("Escape")
+        page.evaluate("() => window.epistolaNotice.error('Visible after the round trip.')")
+
+        val home = page.locator("body > #notices:not([popover]) .notice")
+        assertThat(home).isVisible()
+        assertThat(home).containsText("Visible after the round trip.")
+    }
+
+    @Test
     fun `a server-sent notice lands in the hoisted region while a dialog is open`() {
         val (tenant, template) = withMediator {
             val tenant = CreateTenant(
