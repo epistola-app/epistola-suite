@@ -20,7 +20,7 @@ The refactoring focuses on:
 
 **Status:** Pending
 
-**File:** `apps/epistola/src/main/kotlin/app/epistola/suite/templates/DocumentTemplateHandler.kt`
+**File:** `apps/epistola/src/main/kotlin/app/epistola/suite/handlers/DocumentTemplateHandler.kt`
 
 **Changes:**
 
@@ -140,12 +140,12 @@ After all tasks complete:
 
 ### Modified Kotlin Files
 
-- `apps/epistola/src/main/kotlin/app/epistola/suite/templates/DocumentTemplateHandler.kt`
-- `apps/epistola/src/main/kotlin/app/epistola/suite/templates/DocumentTemplateRoutes.kt`
+- `apps/epistola/src/main/kotlin/app/epistola/suite/handlers/DocumentTemplateHandler.kt`
+- `apps/epistola/src/main/kotlin/app/epistola/suite/handlers/DocumentTemplateRoutes.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/api/v1/ApiExceptionHandler.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/mediator/SpringMediator.kt`
-- `apps/epistola/src/main/kotlin/app/epistola/suite/themes/ThemeHandler.kt`
-- `apps/epistola/src/main/kotlin/app/epistola/suite/tenants/TenantHandler.kt`
+- `apps/epistola/src/main/kotlin/app/epistola/suite/handlers/ThemeHandler.kt`
+- `apps/epistola/src/main/kotlin/app/epistola/suite/handlers/TenantHandler.kt`
 
 ### New Template Fragments
 
@@ -161,7 +161,7 @@ After all tasks complete:
 
 ### New JavaScript Modules
 
-- `apps/epistola/src/main/resources/static/js/modules/theme-editor.js`
-- `apps/epistola/src/main/resources/static/js/modules/template-detail.js`
-- (`api-client.js` was proposed here too — created, never imported, later deleted; see
-  Tasks 2 and 5)
+- (planned as `js/modules/theme-editor.js` / `js/modules/template-detail.js` /
+  `js/modules/api-client.js` — none exist under `js/modules/` today. The behavior landed as
+  `js/pages/template-detail.js` and `js/theme-editor-boot.js` via the ADR 0010 extraction;
+  `api-client.js` was created, never imported, and later deleted. See Tasks 2 and 5.)
