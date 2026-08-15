@@ -30,16 +30,15 @@ import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Browser coverage for the settings-page interactions the hand-rolled-HTMX
- * conversion rewired in the browser:
+ * Browser coverage for the settings-page behaviors that only exist once the
+ * page is live — each one is two mechanisms that have to line up:
  *
- * - the **compare trigger**: was a delegated click listener calling
- *   `htmx.ajax()` + `showModal()`; now `hx-get` + the app-wide
- *   `data-open-dialog` hook — two independent behaviors that must both fire
- *   from one click;
- * - the **rename Escape-revert**: was `dataset.originalName` bookkeeping; now
- *   the server-rendered `defaultValue`, which must track the LATEST committed
- *   name after a successful hx-patch swap;
+ * - the **compare trigger**: `hx-get` loads the comparison UI and the app-wide
+ *   `data-open-dialog` hook opens the dialog — two independent behaviors that
+ *   must both fire from one click;
+ * - the **rename Escape-revert**: Escape restores the input's `defaultValue`,
+ *   which must be the LATEST committed name — every successful hx-patch swap
+ *   re-renders the input, so its value attribute tracks the server;
  * - the **failure revert**: HTMX does not swap on an error response, so
  *   `data-revert-on-error` must put the persisted value back — otherwise the
  *   control shows a value the server never accepted.
