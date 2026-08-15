@@ -11,11 +11,13 @@
                     <dd>
                         <!-- Committing the field (blur / Enter via keydown JS) fires the native
                              change event, which hx-patches the new name and swaps this input
-                             back; the page <h1> is synced by an OOB fragment in the response. -->
+                             back; the page <h1> is synced by an OOB fragment in the response.
+                             A failed patch does not swap, so data-revert-on-error restores the
+                             persisted name (behaviors.js). -->
                         <input type="text" id="template-name-input" class="ep-input" maxlength="100"
                                th:fragment="name-input"
                                name="name" th:value="${template.name}" th:disabled="${!editable}"
-                               data-template-name-input
+                               data-template-name-input data-revert-on-error
                                th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/name(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                                hx-trigger="change" hx-swap="outerHTML"
                                style="max-width: 300px;">
@@ -65,10 +67,12 @@
                 <label style="display: flex; align-items: flex-start; gap: var(--ep-space-3); cursor: pointer;">
                     <!-- Native HTMX: change hx-patches the checkbox state (an unchecked
                          checkbox submits nothing = disable) and the section re-renders
-                         from the persisted value, so the UI always shows server truth. -->
+                         from the persisted value, so the UI always shows server truth.
+                         A failed patch does not swap, so data-revert-on-error restores
+                         the persisted state (behaviors.js). -->
                     <input type="checkbox" class="ep-checkbox" id="pdfa-toggle"
                            style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
-                           name="pdfaEnabled"
+                           name="pdfaEnabled" data-revert-on-error
                            th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
                            th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/pdfa(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                            hx-trigger="change" hx-target="#output-settings-section" hx-swap="outerHTML">

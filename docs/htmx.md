@@ -661,7 +661,8 @@ inline-editable input (the template settings tab is the canonical example)
 is a **native HTMX control**: the element itself carries `hx-patch` +
 `hx-trigger="change"`, posts its own form-encoded name/value, and swaps a
 fragment that the handler **re-renders from persisted state** — so the UI
-always shows server truth, with no client-side bookkeeping or revert logic.
+always shows server truth, with no client-side copy of that state to keep in
+sync.
 
 ```html
 <input
@@ -699,6 +700,13 @@ Rules of thumb learned the hard way:
   a second fragment with `hx-swap-oob` targeting a **dedicated id** — never a
   positional or testid-based selector (`#page-title-text` is the reference;
   testids are a test-only soft contract).
+- **The failure path needs an explicit revert.** HTMX does not swap on an
+  error response, so a rejected update leaves the typed/toggled value on
+  screen while the server still holds the old one — the control would be
+  asserting something false. Add `data-revert-on-error` (behaviors.js), which
+  restores the control's _default_ property (`defaultValue` /
+  `defaultChecked` / `option.defaultSelected`) — exactly what the server last
+  rendered, so the revert stays bookkeeping-free too.
 - Keyboard/UX affordances that HTMX can't express (Enter commits, Escape
   reverts to `input.defaultValue` — the server-rendered value attribute) stay
   as small delegated hooks in static JS.

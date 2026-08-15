@@ -19,6 +19,28 @@ document.addEventListener('htmx:afterRequest', function (event) {
   if (form && event.detail.successful) form.reset();
 });
 
+// ── Revert a standalone control when its update fails ──────────────────────
+// Usage: <input data-revert-on-error hx-patch="…" hx-trigger="change">
+// Native HTMX controls (docs/htmx.md, "Standalone Controls") re-render from
+// persisted state on success. HTMX does NOT swap on an error response, so
+// without this the typed/toggled value would sit on screen while the server
+// still holds the old one. Restore the control's DEFAULT properties — value /
+// checked / selected as the server last rendered them — so reverting needs no
+// client-side copy of server state either.
+// Only an explicit server rejection reverts (htmx:responseError); a dropped
+// connection leaves the value alone.
+document.addEventListener('htmx:responseError', function (event) {
+  const el = event.target.closest && event.target.closest('[data-revert-on-error]');
+  if (!el) return;
+  if (el.type === 'checkbox' || el.type === 'radio') {
+    el.checked = el.defaultChecked;
+  } else if (el.tagName === 'SELECT') {
+    for (const option of el.options) option.selected = option.defaultSelected;
+  } else {
+    el.value = el.defaultValue;
+  }
+});
+
 // ── Dialog open / close ─────────────────────────────────────────────────────
 // Usage: <button data-open-dialog="my-dialog">            → showModal()
 //        <button data-close-dialog>                       → closes closest <dialog>
