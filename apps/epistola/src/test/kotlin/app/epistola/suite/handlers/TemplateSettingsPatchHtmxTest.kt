@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.config.TEST_TENANT_ROLES_HEADER
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -511,10 +512,89 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
     }
 
     /** Form-encoded PATCH with the HX-Request header — what an hx-patch control sends. */
-    private fun patchForm(url: String, vararg params: Pair<String, String>): ResponseEntity<String> {
+    @Test
+    fun `PATCH name without TEMPLATE_EDIT is denied`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = seedTemplate("Settings Patch Rename Denied", "Invoice")
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            patchFormAsRoles(
+                "CONTENT_VIEWER",
+                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "name" to "Renamed By A Viewer",
+            )
+        }
+
+        then {
+            assertThat(result<ResponseEntity<String>>().statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+            assertThat(nameOf(tenant, templateKey)).isEqualTo("Invoice")
+        }
+    }
+
+    @Test
+    fun `PATCH name that changes nothing is denied without TEMPLATE_EDIT`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = seedTemplate("Settings Patch Rename Noop Denied", "Invoice")
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            // A blank name writes nothing, so the request never reaches the
+            // command whose permission check would reject it.
+            patchFormAsRoles(
+                "CONTENT_VIEWER",
+                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "name" to "",
+            )
+        }
+
+        then {
+            assertThat(result<ResponseEntity<String>>().statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+            assertThat(nameOf(tenant, templateKey)).isEqualTo("Invoice")
+        }
+    }
+
+    private fun seedTemplate(tenantName: String, templateName: String): Pair<Tenant, String> = withMediator {
+        val t = createTenant(tenantName)
+        val tplKey = TestIdHelpers.nextTemplateId()
+        CreateDocumentTemplate(
+            id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
+            name = templateName,
+        ).execute()
+        t to tplKey.value
+    }
+
+    private fun nameOf(tenant: Tenant, templateKey: String): String? = withMediator {
+        GetDocumentTemplate(
+            id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+        ).query()?.name
+    }
+
+    private fun patchForm(url: String, vararg params: Pair<String, String>): ResponseEntity<String> = patchFormAsRoles(null, url, *params)
+
+    /**
+     * PATCH as a principal holding only [roles] (comma-separated [TenantRole]
+     * names), or the default fully-privileged one when null.
+     */
+    private fun patchFormAsRoles(
+        roles: String?,
+        url: String,
+        vararg params: Pair<String, String>,
+    ): ResponseEntity<String> {
         val headers = HttpHeaders()
         headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
         headers.set("HX-Request", "true")
+        if (roles != null) headers.set(TEST_TENANT_ROLES_HEADER, roles)
         val form = LinkedMultiValueMap<String, String>()
         params.forEach { (k, v) -> form.add(k, v) }
         return restTemplate.exchange(url, HttpMethod.PATCH, HttpEntity(form, headers), String::class.java)

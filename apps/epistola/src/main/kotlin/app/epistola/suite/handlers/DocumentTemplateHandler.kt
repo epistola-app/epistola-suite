@@ -519,11 +519,14 @@ class DocumentTemplateHandler(
      * Renames the template from the settings tab's name input (a native HTMX
      * `hx-patch` on change, form-encoded `name` param). Returns the name-input
      * fragment plus an OOB fragment syncing the page header title. A blank or
-     * unchanged name is a no-op that re-renders the current name — the same
-     * silent revert the field has always done.
+     * unchanged name is a no-op that re-renders the current name.
      */
     fun updateName(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        // The no-op path returns without dispatching UpdateDocumentTemplate, so
+        // the command's own TEMPLATE_EDIT check does not cover every request
+        // reaching this endpoint. Enforce it here instead.
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
