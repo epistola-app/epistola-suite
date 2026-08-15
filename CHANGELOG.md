@@ -22,9 +22,7 @@
   `HX-Request` header, and programmatic `htmx.ajax()`. They are now plain `hx-*` attributes
   backed by focused fragment endpoints (`PATCH …/name`, `…/pdfa`, form-encoded `…/theme`);
   the JSON `PATCH /tenants/…/templates/{catalogId}/{id}` UI route and the orphaned
-  `static/js/modules/api-client.js` are removed. Success paths are
-  behavior-identical; one deliberate difference: a failed update no longer snaps the
-  control back — the entered value stays until reload (previously a silent revert).
+  `static/js/modules/api-client.js` are removed. Behavior is unchanged.
 
 ## [1.0.1] - 2026-08-04
 
