@@ -509,7 +509,7 @@ class DocumentTemplateHandler(
                 "template" to template
                 "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
-            onNonHtmx {
+            onFullPage {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
         }
@@ -550,7 +550,7 @@ class DocumentTemplateHandler(
         return request.htmx {
             fragment("templates/detail/settings", "name-input", model)
             oob("templates/detail/settings", "page-title-oob", model)
-            onNonHtmx {
+            onFullPage {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
         }

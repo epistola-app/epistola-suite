@@ -492,7 +492,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         then {
             val response = result<ResponseEntity<String>>()
-            // The onNonHtmx branch redirects to the template detail page. The
+            // The onFullPage branch redirects to the template detail page. The
             // test client may follow the redirect, so accept either the 3xx
             // itself or the followed 200 — never an error.
             if (response.statusCode.is3xxRedirection) {
