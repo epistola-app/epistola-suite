@@ -79,6 +79,7 @@ data class ImportTemplateInput(
     val templateModel: TemplateDocument,
     val variants: List<ImportVariantInput>,
     val publishTo: List<String>,
+    val pdfaEnabled: Boolean = true,
 )
 
 data class ImportVariantInput(
@@ -228,9 +229,9 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
+                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
                     ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, updated_at = NOW(), updated_by = :updatedBy
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
                 .bind("id", templateId)
@@ -239,6 +240,7 @@ class ImportTemplatesHandler(
                 .bind("name", input.name)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
+                .bind("pdfaEnabled", input.pdfaEnabled)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
             ImportStatus.CREATED
@@ -246,7 +248,7 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     UPDATE document_templates
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, updated_at = NOW(), updated_by = :updatedBy
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,
             )
@@ -256,6 +258,7 @@ class ImportTemplatesHandler(
                 .bind("name", input.name)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
+                .bind("pdfaEnabled", input.pdfaEnabled)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
             ImportStatus.UPDATED

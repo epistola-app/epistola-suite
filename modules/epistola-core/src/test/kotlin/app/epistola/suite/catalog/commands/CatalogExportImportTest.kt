@@ -993,6 +993,95 @@ class CatalogExportImportTest : IntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `pdfa_enabled false round-trips through export and import into a new tenant`() {
+        // Issue #745: pdfa_enabled was hardcoded TRUE on import and never exported,
+        // so a disabled template's setting was silently lost on catalog exchange.
+        val tenant = createTenant("Pdfa Export")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val catalogKey = CatalogKey.of("pdfa-export-catalog")
+        val catalogId = CatalogId(catalogKey, tenantId)
+        val templateKey = TestIdHelpers.nextTemplateId()
+
+        val exported = withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Pdfa Export Catalog").execute()
+
+            val templateId = TemplateId(templateKey, catalogId)
+            CreateDocumentTemplate(id = templateId, name = "Pdfa Export Template").execute()
+            UpdateDocumentTemplate(id = templateId, pdfaEnabled = false).execute()
+
+            val variantId = VariantId(VariantKey.INITIAL, templateId)
+            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+            ExportCatalogZip(tenantKey = tenantKey, catalogKey = catalogKey).execute()
+        }
+
+        // The exported wire resource carries the disabled flag, not a hardcoded default.
+        val exportedPdfaEnabled = readTemplateResourcePdfaEnabled(exported.zipBytes, templateKey.value)
+        assertThat(exportedPdfaEnabled).isFalse()
+
+        val target = createTenant("Pdfa Export Target")
+        val targetId = TenantId(target.id)
+
+        withMediator {
+            val importResult = ImportCatalogZip(
+                tenantKey = target.id,
+                zipBytes = exported.zipBytes,
+                catalogType = CatalogType.AUTHORED,
+            ).execute()
+            assertThat(importResult.results).allSatisfy { result ->
+                assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)
+            }
+
+            val importedTemplateId = TemplateId(templateKey, CatalogId(importResult.catalogKey, targetId))
+            val imported = GetDocumentTemplate(importedTemplateId).query()
+            assertThat(imported).isNotNull
+            assertThat(imported!!.pdfaEnabled).isFalse()
+        }
+    }
+
+    @Test
+    fun `re-importing a catalog restores pdfa_enabled from the payload, undoing a local disable`() {
+        // Issue #745: the import UPDATE path never touched pdfa_enabled, so a template
+        // disabled locally stayed disabled forever, even across re-imports whose payload
+        // said otherwise. This guards the ON CONFLICT / UPDATE half of the fix.
+        val tenant = createTenant("Pdfa Reimport")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val catalogKey = CatalogKey.of("pdfa-reimport-catalog")
+        val catalogId = CatalogId(catalogKey, tenantId)
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, catalogId)
+
+        withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Pdfa Reimport Catalog").execute()
+
+            CreateDocumentTemplate(id = templateId, name = "Pdfa Reimport Template").execute()
+            val variantId = VariantId(VariantKey.INITIAL, templateId)
+            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+
+            // Export while pdfa is enabled (the default) — the payload's pdfaEnabled is true.
+            val exportResult = ExportCatalogZip(tenantKey = tenantKey, catalogKey = catalogKey).execute()
+
+            // Disable locally.
+            UpdateDocumentTemplate(id = templateId, pdfaEnabled = false).execute()
+            assertThat(GetDocumentTemplate(templateId).query()!!.pdfaEnabled).isFalse()
+
+            // Re-import the same catalog — the payload carries pdfaEnabled=true and must win.
+            val importResult = ImportCatalogZip(
+                tenantKey = tenantKey,
+                zipBytes = exportResult.zipBytes,
+                catalogType = CatalogType.AUTHORED,
+            ).execute()
+            assertThat(importResult.results).allSatisfy { result ->
+                assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)
+            }
+
+            assertThat(GetDocumentTemplate(templateId).query()!!.pdfaEnabled).isTrue()
+        }
+    }
+
     /**
      * A template that embeds the parametrised "greeting" stencil: a stencil node
      * carrying the schema snapshot + a binding for `recipientName`, whose slot holds
@@ -1087,6 +1176,21 @@ class CatalogExportImportTest : IntegrationTestBase() {
             }
         }
         return emptyList()
+    }
+
+    /** Reads a template resource's `pdfaEnabled` field from an export ZIP's resource detail JSON. */
+    private fun readTemplateResourcePdfaEnabled(zipBytes: ByteArray, slug: String): Boolean? {
+        ZipInputStream(zipBytes.inputStream()).use { zin ->
+            var entry = zin.nextEntry
+            while (entry != null) {
+                if (entry.name == "resources/template/$slug.json") {
+                    val root = ObjectMapper().readTree(zin.readBytes())
+                    return root.get("resource")?.get("pdfaEnabled")?.asBoolean()
+                }
+                entry = zin.nextEntry
+            }
+        }
+        return null
     }
 
     private fun stencilContentWithRoot(rootId: String): TemplateDocument {
