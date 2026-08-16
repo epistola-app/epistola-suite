@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
+  crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
+  or control characters are now rejected at upload. (#644)
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack

@@ -108,12 +108,22 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         const card = document.createElement('div');
         card.className = 'asset-picker-card';
         card.dataset.assetId = asset.id;
-        card.innerHTML = `
-          <div class="asset-picker-card-img">
-            <img src="${asset.contentUrl}" alt="${asset.name}" loading="lazy" />
-          </div>
-          <div class="asset-picker-card-name" title="${asset.name}">${asset.name}</div>
-        `;
+
+        const imgWrapper = document.createElement('div');
+        imgWrapper.className = 'asset-picker-card-img';
+        const img = document.createElement('img');
+        img.src = asset.contentUrl;
+        img.alt = asset.name;
+        img.loading = 'lazy';
+        imgWrapper.appendChild(img);
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'asset-picker-card-name';
+        nameEl.title = asset.name;
+        nameEl.textContent = asset.name;
+
+        card.appendChild(imgWrapper);
+        card.appendChild(nameEl);
         card.addEventListener('click', () => {
           // Deselect previous
           grid
