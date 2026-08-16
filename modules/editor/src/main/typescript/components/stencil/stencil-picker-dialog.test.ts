@@ -116,3 +116,43 @@ describe('openStencilPickerDialog parameter binding step', () => {
     });
   });
 });
+
+describe('openStencilPickerDialog escapes author-controlled text', () => {
+  const MALICIOUS = '"><img src=x onerror=window.__pwned=1>';
+
+  afterEach(() => {
+    document.querySelectorAll('dialog').forEach((dialog) => dialog.remove());
+    (window as unknown as { __pwned?: unknown }).__pwned = undefined;
+  });
+
+  it('renders a crafted stencil name, description, and tag as inert text', async () => {
+    const evil: StencilSummary = {
+      id: 'evil',
+      catalogKey: 'default',
+      name: `Name ${MALICIOUS}`,
+      description: `Desc ${MALICIOUS}`,
+      tags: [`Tag ${MALICIOUS}`],
+      latestPublishedVersion: 1,
+      latestVersion: 1,
+    };
+    void openStencilPickerDialog({
+      searchStencils: () => Promise.resolve([evil]),
+      listVersions: () => Promise.resolve([VERSION]),
+      getStencilVersion: () => Promise.resolve(versionInfo(undefined)),
+    });
+    await tick();
+
+    const card = pickerDialog().querySelector<HTMLElement>('#stencil-list .stencil-picker-card')!;
+    expect(card).not.toBeNull();
+    expect(card.querySelector('img')).toBeNull();
+    expect(card.querySelector('[onerror]')).toBeNull();
+    expect(card.querySelector('.stencil-picker-card-name')!.textContent).toContain(
+      `Name ${MALICIOUS}`,
+    );
+    expect(card.querySelector('.stencil-picker-card-desc')!.textContent).toBe(`Desc ${MALICIOUS}`);
+    expect(card.querySelector('.stencil-picker-card-tags')!.textContent).toContain(
+      `Tag ${MALICIOUS}`,
+    );
+    expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined();
+  });
+});

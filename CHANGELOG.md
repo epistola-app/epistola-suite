@@ -7,6 +7,10 @@
 - **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
   crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
   or control characters are now rejected at upload. (#644)
+- **[user]** fix(editor,stencils): **Stencil picker escapes stencil names, descriptions, and
+  tags.** The same stored-XSS class in the stencil picker is fixed; stencil names and tags with
+  markup or control characters are now rejected at the command boundary (descriptions escape on
+  render but stay free text). (#644)
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack
