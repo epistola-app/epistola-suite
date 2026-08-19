@@ -47,7 +47,9 @@ export function renderExamplesSection(
 
   return html`
     <section class="dc-section dc-examples-section">
-      <h3 class="dc-section-label">Test Data Examples</h3>
+      <h3 class="dc-section-label">
+        Test Data Examples <span class="dc-required-indicator" aria-label="required">*</span>
+      </h3>
       <p class="dc-section-hint">
         Create example data sets to test your templates. Each example must conform to the schema.
       </p>
@@ -119,9 +121,11 @@ export function renderExamplesSection(
                 </div>
                 <button
                   class="dc-example-delete-btn"
-                  ?disabled=${uiState.readOnly}
+                  ?disabled=${uiState.readOnly || examples.length <= 1}
                   @click=${() => callbacks.onDeleteExample(selectedExample.id)}
-                  title="Delete this example"
+                  title=${examples.length <= 1
+                    ? 'At least one test data example is required'
+                    : 'Delete this example'}
                   aria-label="Delete example"
                 >
                   <svg
@@ -259,8 +263,17 @@ export function renderExamplesSection(
                     />
                   </svg>
                 </div>
-                <p>No test data examples yet</p>
-                <span class="dc-empty-state-hint">Click "+ New" to create your first example</span>
+                <p>At least one test data example is required</p>
+                <span class="dc-empty-state-hint">
+                  Add an example before saving or publishing this data contract.
+                </span>
+                <button
+                  class="ep-btn ep-btn-primary ep-btn-sm"
+                  ?disabled=${uiState.readOnly}
+                  @click=${() => callbacks.onAddExample()}
+                >
+                  Add first example
+                </button>
               </div>
             `
           : html`

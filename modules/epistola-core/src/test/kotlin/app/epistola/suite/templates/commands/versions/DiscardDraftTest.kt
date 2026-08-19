@@ -19,6 +19,7 @@ import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -38,7 +39,7 @@ class DiscardDraftTest : IntegrationTestBase() {
         val catalogId = CatalogId.default(tenantId)
         templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "discard-draft-test").execute()
+            CreateDocumentTemplate(id = templateId, name = "discard-draft-test").execute().withRequiredDataExample()
         }
         defaultVariantId = VariantId(
             VariantKey.INITIAL,

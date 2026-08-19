@@ -18,6 +18,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -45,7 +46,7 @@ class MergeNotCascadeIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = main, name = "Main").execute()
-            CreateDocumentTemplate(id = TemplateId(templateKey, catalogId), name = "Invoice").execute()
+            CreateDocumentTemplate(id = TemplateId(templateKey, catalogId), name = "Invoice").execute().withRequiredDataExample()
             val defaultVariant = VariantId(VariantKey.of(variantKey), TemplateId(templateKey, catalogId))
             PublishVersion(versionId = VersionId(VersionKey.of(1), defaultVariant)).execute()
         }

@@ -28,6 +28,7 @@ import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
@@ -231,10 +232,10 @@ class ThemeQueriesTest : IntegrationTestBase() {
         SetTenantDefaultTheme(tenant.id, targetTheme.key, targetTheme.catalogKey).execute()
 
         val tenantTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-        CreateDocumentTemplate(tenantTemplateId, "Tenant Default").execute()
+        CreateDocumentTemplate(tenantTemplateId, "Tenant Default").execute().withRequiredDataExample()
 
         val templateDefaultId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-        CreateDocumentTemplate(templateDefaultId, "Template Default").execute()
+        CreateDocumentTemplate(templateDefaultId, "Template Default").execute().withRequiredDataExample()
         UpdateDocumentTemplate(
             id = templateDefaultId,
             themeId = targetTheme.key,
@@ -242,7 +243,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
         ).execute()
 
         val overrideTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-        CreateDocumentTemplate(overrideTemplateId, "Variant Override").execute()
+        CreateDocumentTemplate(overrideTemplateId, "Variant Override").execute().withRequiredDataExample()
         UpdateDocumentTemplate(
             id = overrideTemplateId,
             themeId = otherTheme.key,

@@ -49,6 +49,7 @@ import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -56,6 +57,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
@@ -134,6 +136,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
             UpdateContractVersion(
                 templateId = templateId,
                 dataModel = contractSchema,
+                dataExamples = listOf(
+                    DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
+                ),
             ).execute()
             PublishContractVersion(templateId = templateId).execute()
 
@@ -369,6 +374,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
             UpdateContractVersion(
                 templateId = templateId,
                 dataModel = contractSchema,
+                dataExamples = listOf(
+                    DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
+                ),
             ).execute()
             PublishContractVersion(templateId = templateId).execute()
 
@@ -636,7 +644,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             // its owning catalog (the cross-catalog reference shape the picker writes).
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, sourceCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute().withRequiredDataExample()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             app.epistola.suite.templates.commands.versions.UpdateDraft(
@@ -879,7 +887,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
             // Template embedding the stencil with a binding + snapshot, published.
             val templateId = TemplateId(templateKey, sourceCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+            CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
             val variantId = VariantId(variantKey, templateId)
             app.epistola.suite.templates.commands.versions.UpdateDraft(
                 variantId = variantId,

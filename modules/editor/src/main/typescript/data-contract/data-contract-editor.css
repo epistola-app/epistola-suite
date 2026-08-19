@@ -74,6 +74,10 @@
     margin: 0 0 var(--ep-space-2) 0;
   }
 
+  .dc-required-indicator {
+    color: var(--ep-color-danger, #c53030);
+  }
+
   .dc-section-hint {
     font-size: var(--ep-text-xs);
     color: var(--ep-stone-600);

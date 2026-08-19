@@ -15,6 +15,7 @@ import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -92,6 +93,7 @@ class UpdateContractVersionHandler(
 
             // Validate examples against schema
             val effectiveExamples = command.dataExamples ?: draft.dataExamples.toList()
+            requireAtLeastOneDataExample(effectiveExamples)
             val warnings = mutableMapOf<String, List<String>>()
 
             if (effectiveDataModel != null && effectiveExamples.isNotEmpty()) {

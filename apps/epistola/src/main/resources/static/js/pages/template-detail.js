@@ -371,7 +371,11 @@
                 });
                 if (!response.ok) {
                   const err = await response.json();
-                  return { success: false, error: err.message, warnings: err.warnings };
+                  return {
+                    success: false,
+                    error: err.detail ?? err.message,
+                    warnings: err.warnings,
+                  };
                 }
                 const result = await response.json();
                 refreshStatusBar();
@@ -389,7 +393,11 @@
                 });
                 if (!response.ok) {
                   const err = await response.json();
-                  return { success: false, warnings: err.warnings };
+                  return {
+                    success: false,
+                    error: err.detail ?? err.message,
+                    warnings: err.warnings,
+                  };
                 }
                 const result = await response.json();
                 refreshStatusBar();

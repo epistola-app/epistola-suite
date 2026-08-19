@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** feat(data contracts): **Every authored data contract keeps at least one example.**
+  Saving or publishing without an example is rejected with an actionable validation error, the
+  editor highlights the requirement, and the final example can no longer be deleted. Existing
+  empty contract versions remain readable and importable.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack

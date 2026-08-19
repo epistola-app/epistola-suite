@@ -24,6 +24,7 @@ import app.epistola.suite.templates.queries.versions.ListPublishableVersionsByTe
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -34,7 +35,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
 
         val cells = GetDeploymentMatrix(templateId = templateId).query()
         assertThat(cells).isEmpty()
@@ -45,7 +46,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val defaultVariant = variants.first()
         val defaultVariantId = VariantId(defaultVariant.id, templateId)
@@ -100,7 +101,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val defaultVariant = variants.first()
         val defaultVariantId = VariantId(defaultVariant.id, templateId)
@@ -139,7 +140,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val defaultVariant = variants.first()
 

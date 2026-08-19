@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -22,6 +23,7 @@ import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.contracts.queries.ListContractVersions
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.validation.ValidationException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -73,12 +75,18 @@ class ContractVersionHandler(
         CreateContractVersion(templateId = templateId).execute()
             ?: return ServerResponse.notFound().build()
 
-        val result = UpdateContractVersion(
-            templateId = templateId,
-            dataModel = updateRequest.dataModel,
-            dataExamples = updateRequest.dataExamples,
-            forceUpdate = updateRequest.forceUpdate ?: false,
-        ).execute() ?: return ServerResponse.notFound().build()
+        val result = try {
+            UpdateContractVersion(
+                templateId = templateId,
+                dataModel = updateRequest.dataModel,
+                dataExamples = updateRequest.dataExamples,
+                forceUpdate = updateRequest.forceUpdate ?: false,
+            ).execute() ?: return ServerResponse.notFound().build()
+        } catch (e: ValidationException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(e.toValidationProblemBody(request.servletRequest()))
+        }
 
         val response = mutableMapOf<String, Any?>(
             "success" to true,
@@ -118,8 +126,14 @@ class ContractVersionHandler(
         val tabUrl = "/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}/data-contract"
 
         // Publish directly with the confirmed flag
-        val result = PublishContractVersion(templateId = templateId, confirmed = confirmed).execute()
-            ?: return ServerResponse.notFound().build()
+        val result = try {
+            PublishContractVersion(templateId = templateId, confirmed = confirmed).execute()
+                ?: return ServerResponse.notFound().build()
+        } catch (e: ValidationException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(e.toValidationProblemBody(request.servletRequest()))
+        }
 
         if (result.published) {
             if (isHtmx) {

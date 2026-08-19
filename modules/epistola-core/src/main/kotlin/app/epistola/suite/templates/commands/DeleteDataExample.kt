@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.contracts.model.ContractVersion
+import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -65,6 +66,7 @@ class DeleteDataExampleHandler(
             }
 
             val updatedExamples = draftContract.dataExamples.filter { it.id != command.exampleId }
+            requireAtLeastOneDataExample(updatedExamples)
 
             handle.createUpdate(
                 """

@@ -161,12 +161,13 @@ class ScenarioBuilder(private val namespace: String) {
             name: String,
         ): DocumentTemplate {
             val tenantId = TenantId(tenantKey)
-            return capturedMediator.send(
+            val template = capturedMediator.send(
                 CreateDocumentTemplate(
                     id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
                     name = name,
                 ),
             )
+            return template.withRequiredDataExample()
         }
 
         /**

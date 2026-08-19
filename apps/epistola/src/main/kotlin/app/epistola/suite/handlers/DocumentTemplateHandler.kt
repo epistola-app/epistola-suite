@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
@@ -59,6 +60,7 @@ import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.PageSettings
 import org.springframework.http.MediaType
@@ -654,10 +656,16 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
-        val result = DeleteDataExample(
-            templateId = templateId,
-            exampleId = exampleId,
-        ).execute() ?: return ServerResponse.notFound().build()
+        val result = try {
+            DeleteDataExample(
+                templateId = templateId,
+                exampleId = exampleId,
+            ).execute() ?: return ServerResponse.notFound().build()
+        } catch (e: ValidationException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(e.toValidationProblemBody(request.servletRequest()))
+        }
 
         return if (result.deleted) {
             ServerResponse.noContent().build()

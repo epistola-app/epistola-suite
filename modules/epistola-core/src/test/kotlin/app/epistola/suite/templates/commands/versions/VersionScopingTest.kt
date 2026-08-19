@@ -26,6 +26,7 @@ import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -78,7 +79,7 @@ class VersionScopingTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        CreateDocumentTemplate(id = templateId, name = "Referenced Paths").execute()
+        CreateDocumentTemplate(id = templateId, name = "Referenced Paths").execute().withRequiredDataExample()
 
         UpdateVersion(
             VersionId(VersionKey.of(1), variantId),
@@ -115,8 +116,8 @@ class VersionScopingTest : IntegrationTestBase() {
         val firstVariantId = VariantId(sharedVariantKey, firstTemplateId)
         val secondVariantId = VariantId(sharedVariantKey, secondTemplateId)
 
-        CreateDocumentTemplate(id = firstTemplateId, name = "First Template").execute()
-        CreateDocumentTemplate(id = secondTemplateId, name = "Second Template").execute()
+        CreateDocumentTemplate(id = firstTemplateId, name = "First Template").execute().withRequiredDataExample()
+        CreateDocumentTemplate(id = secondTemplateId, name = "Second Template").execute().withRequiredDataExample()
         CreateVariant(id = firstVariantId, title = "Shared", description = null).execute()
         CreateVariant(id = secondVariantId, title = "Shared", description = null).execute()
 

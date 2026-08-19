@@ -31,6 +31,7 @@ import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -454,7 +455,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, catalogId)
-            CreateDocumentTemplate(id = templateId, name = "ZIP Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "ZIP Template").execute().withRequiredDataExample()
 
             // Create a theme (so export has multiple resource types)
             val themeKey = ThemeKey.of("zip-theme")
@@ -463,7 +464,17 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Add contract data and publish
             val contractSchema = schema("""{"type":"object","properties":{"invoice_number":{"type":"string"},"total":{"type":"number"}},"required":["invoice_number"]}""")
-            UpdateContractVersion(templateId = templateId, dataModel = contractSchema).execute()
+            UpdateContractVersion(
+                templateId = templateId,
+                dataModel = contractSchema,
+                dataExamples = listOf(
+                    app.epistola.suite.templates.model.DataExample(
+                        "example-1",
+                        "Example 1",
+                        schema("""{"invoice_number":"INV-1","total":42}"""),
+                    ),
+                ),
+            ).execute()
             PublishContractVersion(templateId = templateId).execute()
 
             // Export as ZIP

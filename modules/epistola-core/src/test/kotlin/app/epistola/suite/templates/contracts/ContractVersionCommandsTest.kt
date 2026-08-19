@@ -27,9 +27,12 @@ import app.epistola.suite.templates.contracts.model.ContractVersionStatus
 import app.epistola.suite.templates.contracts.queries.GetDraftContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.ListContractVersions
+import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.validation.ValidationCode
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -58,8 +61,18 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
         templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
         withMediator {
             CreateDocumentTemplate(id = templateId, name = "contract-test-template").execute()
+            UpdateContractVersion(
+                templateId = templateId,
+                dataExamples = listOf(testExample()),
+            ).execute()
         }
     }
+
+    private fun testExample() = DataExample(
+        id = "example-1",
+        name = "Example 1",
+        data = objectMapper.createObjectNode(),
+    )
 
     @Nested
     inner class CreateContractVersionTest {
@@ -136,6 +149,18 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
             assertThat(result).isNotNull
             assertThat(result!!.contractVersion.dataModel).isNotNull
+        }
+
+        @Test
+        fun `rejects an update without an example`() {
+            assertThatThrownBy {
+                withMediator {
+                    UpdateContractVersion(templateId = templateId, dataExamples = emptyList()).execute()
+                }
+            }
+                .isInstanceOf(app.epistola.suite.validation.ValidationException::class.java)
+                .hasValidationCode(ValidationCode.DATA_EXAMPLE_REQUIRED)
+                .hasMessageContaining("At least one data example")
         }
     }
 
@@ -313,13 +338,17 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `publishes auto-created empty draft`() {
-            // Draft always exists (auto-created with template), publish works immediately
-            val result = withMediator {
-                PublishContractVersion(templateId = templateId).execute()
+        fun `rejects publishing an auto-created draft without an example`() {
+            val emptyTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), templateId.catalogId)
+            withMediator {
+                CreateDocumentTemplate(id = emptyTemplateId, name = "empty-contract-template").execute()
             }
-            assertThat(result).isNotNull
-            assertThat(result!!.publishedVersion!!.dataModel).isNull() // empty contract
+
+            assertThatThrownBy {
+                withMediator { PublishContractVersion(templateId = emptyTemplateId).execute() }
+            }
+                .isInstanceOf(app.epistola.suite.validation.ValidationException::class.java)
+                .hasValidationCode(ValidationCode.DATA_EXAMPLE_REQUIRED)
         }
     }
 
@@ -327,7 +356,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
     inner class PublishGuardTest {
         @Test
         fun `PublishToEnvironment auto-publishes compatible draft contract`() {
-            // The auto-created draft v1 (empty) is compatible — auto-publishes on deploy
+            // The draft v1 is compatible and has the required example, so it auto-publishes.
             val tenantId = TenantId(tenantKey)
             val env = withMediator {
                 CreateEnvironment(

@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -711,7 +712,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute().withRequiredDataExample()
         val variantKey = VariantKey.INITIAL
         UpdateDraft(
             variantId = VariantId(variantKey, templateId),
@@ -747,7 +748,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute().withRequiredDataExample()
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
@@ -785,7 +786,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute().withRequiredDataExample()
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()

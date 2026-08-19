@@ -209,6 +209,10 @@ export class EpistolaDataContractEditor extends LitElement {
     return false;
   }
 
+  private get _hasRequiredExample(): boolean {
+    return (this.contractState?.dataExamples.length ?? 0) > 0;
+  }
+
   override render() {
     if (!this.contractState) {
       return html`<div class="dc-empty-state">No data contract loaded.</div>`;
@@ -343,11 +347,15 @@ export class EpistolaDataContractEditor extends LitElement {
       readOnly: this._readOnly,
       jsonPanelOpen: this._jsonPanelOpen,
       saving: this._saving,
-      canSave: state.isDirty && !this._hasExampleErrors,
+      canSave: state.isDirty && !this._hasExampleErrors && this._hasRequiredExample,
       saveSuccess: this._saveSuccess,
       saveError: this._saveError,
       canForceSave: this._canForceSave,
-      saveTooltip: this._hasExampleErrors ? 'Fix example validation errors before saving' : '',
+      saveTooltip: !this._hasRequiredExample
+        ? 'Add at least one test data example before saving'
+        : this._hasExampleErrors
+          ? 'Fix example validation errors before saving'
+          : '',
     };
 
     const callbacks: SchemaSectionCallbacks = {
@@ -568,6 +576,7 @@ export class EpistolaDataContractEditor extends LitElement {
   private async _saveAll(): Promise<void> {
     const state = this.contractState!;
     if (this._saving) return;
+    if (!this._hasRequiredExample) return;
     if (this._hasExampleErrors) return;
 
     // Confirm breaking changes before saving
@@ -608,6 +617,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private async _executeSave(forceUpdate: boolean): Promise<void> {
     const state = this.contractState!;
+    if (!this._hasRequiredExample) return;
     this._saving = true;
     this._saveSuccess = false;
     this._saveError = null;
@@ -779,6 +789,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private async _deleteExample(id: string): Promise<void> {
     const state = this.contractState!;
+    if (state.dataExamples.length <= 1) return;
 
     const result = await state.deleteSingleExample(id);
     if (result.success) {
@@ -914,7 +925,12 @@ export class EpistolaDataContractEditor extends LitElement {
     // Ctrl+S: save
     if (e.key === 's') {
       e.preventDefault();
-      if (!this._saving && this.contractState?.isDirty && !this._hasExampleErrors) {
+      if (
+        !this._saving &&
+        this.contractState?.isDirty &&
+        this._hasRequiredExample &&
+        !this._hasExampleErrors
+      ) {
         this._saveAll();
       }
       return;

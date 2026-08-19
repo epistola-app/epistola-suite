@@ -24,6 +24,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
@@ -274,7 +275,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Nested stencils").execute()
+        CreateDocumentTemplate(id = templateId, name = "Nested stencils").execute().withRequiredDataExample()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         val nested = templateWithNestedStencilFill(
             outerStencilId.key.value,

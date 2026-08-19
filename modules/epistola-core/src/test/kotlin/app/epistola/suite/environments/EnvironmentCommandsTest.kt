@@ -24,6 +24,7 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -61,7 +62,7 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         // Compose the real publish flow to get an activation: template (auto-creates a variant
         // with a draft version), environment, published contract, then publish to the environment.
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variant = ListVariants(templateId = templateId).query().first()
         val variantId = VariantId(variant.id, templateId)
         val draft = ListVersions(variantId = variantId).query().first()
