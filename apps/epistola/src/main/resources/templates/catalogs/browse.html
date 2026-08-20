@@ -14,6 +14,73 @@
 
         <div id="catalog-alert"></div>
 
+        <div id="catalog-metadata" th:fragment="metadata-card" class="card" style="margin-bottom: var(--ep-space-4);">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Catalog details</h2>
+                <button th:if="${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}"
+                        type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML">Edit settings</button>
+            </div>
+            <div class="card-content">
+                <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">
+                    <img th:if="${presentationIcon.available}" alt="Catalog icon"
+                         style="max-width: 96px; max-height: 96px; object-fit: contain;"
+                         th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${presentationIcon.asset.id})}" />
+                    <div th:unless="${presentationIcon.available}" class="alert alert-warning">
+                        Catalog icon is unavailable until asset <code th:text="${presentationIcon.slug}"></code> is installed.
+                    </div>
+                </div>
+
+                <div th:if="${!catalog.portableMetadata.attributes.isEmpty()}" class="form-group">
+                    <span class="ep-label">Attributes</span>
+                    <div class="ep-row ep-gap-2" style="flex-wrap: wrap; margin-top: var(--ep-space-1);">
+                        <span th:each="attribute : ${catalog.portableMetadata.attributes}" class="badge badge-default"
+                              th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
+                    </div>
+                </div>
+                <div th:if="${!catalog.portableMetadata.keywords.isEmpty()}" class="form-group">
+                    <span class="ep-label">Keywords</span>
+                    <div class="ep-row ep-gap-2" style="flex-wrap: wrap; margin-top: var(--ep-space-1);">
+                        <span th:each="keyword : ${catalog.portableMetadata.keywords}" class="badge badge-info" th:text="${keyword}"></span>
+                    </div>
+                </div>
+
+                <div th:if="${!presentationImages.isEmpty()}" class="form-group">
+                    <span class="ep-label">Gallery</span>
+                    <div class="ep-row ep-gap-3" style="flex-wrap: wrap; margin-top: var(--ep-space-2);">
+                        <div th:each="image : ${presentationImages}" style="width: 180px;">
+                            <img th:if="${image.available}" th:alt="${image.asset.name}"
+                                 style="width: 180px; height: 110px; object-fit: contain; border: 1px solid var(--ep-border); border-radius: var(--ep-radius-md);"
+                                 th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${image.asset.id})}" />
+                            <div th:unless="${image.available}" class="text-muted text-sm"
+                                 style="width: 180px; height: 110px; padding: var(--ep-space-3); border: 1px dashed var(--ep-border); border-radius: var(--ep-radius-md);">
+                                Unavailable until installed<br /><code th:text="${image.slug}"></code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${catalog.portableMetadata.license != null}" class="form-group">
+                    <span class="ep-label">License</span>
+                    <p style="margin: var(--ep-space-1) 0 0;">
+                        <a th:if="${catalog.portableMetadata.license.url != null}"
+                           th:href="${catalog.portableMetadata.license.url}" rel="noopener noreferrer"
+                           th:text="${catalog.portableMetadata.license.name}"></a>
+                        <span th:unless="${catalog.portableMetadata.license.url != null}"
+                              th:text="${catalog.portableMetadata.license.name}"></span>
+                        <code th:if="${catalog.portableMetadata.license.spdxExpression != null}"
+                              th:text="${catalog.portableMetadata.license.spdxExpression}"></code>
+                    </p>
+                    <p th:if="${catalog.portableMetadata.license.copyrightText != null}" class="text-muted text-sm"
+                       th:text="${catalog.portableMetadata.license.copyrightText}"></p>
+                </div>
+
+                <p th:if="${catalog.portableMetadata.attributes.isEmpty() and catalog.portableMetadata.keywords.isEmpty() and catalog.portableMetadata.presentation == null and catalog.portableMetadata.license == null}"
+                   class="text-muted">No discovery metadata has been added yet.</p>
+            </div>
+        </div>
+
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Resources</h2>
@@ -61,6 +128,8 @@
                                 <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
                                 <span th:if="${resource.type == 'codeList'}" class="badge badge-default">code list</span>
                                 <span th:if="${resource.type == 'font'}" class="badge badge-default">font</span>
+                                <span th:if="${resource.type == 'asset' and catalog.portableMetadata.presentation != null and (resource.slug == catalog.portableMetadata.presentation.iconAssetSlug or catalog.portableMetadata.presentation.imageAssetSlugs.contains(resource.slug))}"
+                                      class="badge badge-info" title="Used in the catalog presentation">presentation</span>
                             </td>
                             <td th:title="${resource.name}">
                                 <!-- Version-pin drift warning: shown when published templates in this

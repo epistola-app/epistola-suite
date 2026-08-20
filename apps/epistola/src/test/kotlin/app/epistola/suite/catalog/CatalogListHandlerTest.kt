@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -630,6 +631,53 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Redirect"))
                 .isEqualTo("/tenants/${consumer.id}/catalogs/epistola-demo/browse")
+        }
+    }
+
+    @Test
+    fun `authored catalog metadata can be edited from the browse page`() = fixture {
+        lateinit var t: Tenant
+        given {
+            t = tenant("Catalog Metadata")
+            withMediator {
+                CreateCatalog(tenantKey = t.id, id = CatalogKey.of("metadata"), name = "Before").execute()
+            }
+        }
+
+        whenever {
+            val formResponse = restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+            assertThat(formResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(formResponse.body).contains("id=\"catalog-metadata-dialog\"")
+
+            val payload = LinkedMultiValueMap<String, String>()
+            payload.add("name", "Discoverable catalog")
+            payload.add("description", "Metadata shown to catalog consumers")
+            payload.add("keywords", "Letters\nDutch")
+            payload.add("licenseName", "Creative Commons Attribution 4.0")
+            payload.add("licenseSpdx", "CC-BY-4.0")
+            payload.add("licenseUrl", "https://creativecommons.org/licenses/by/4.0/")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(payload, htmxForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+            assertThat(response.headers.getFirst("HX-Redirect"))
+                .isEqualTo("/tenants/${t.id}/catalogs/metadata/browse")
+
+            val catalog = withMediator { GetCatalog(t.id, CatalogKey.of("metadata")).query() }!!
+            assertThat(catalog.name).isEqualTo("Discoverable catalog")
+            assertThat(catalog.portableMetadata.keywords).containsExactlyInAnyOrder("Letters", "Dutch")
+            assertThat(catalog.portableMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
         }
     }
 

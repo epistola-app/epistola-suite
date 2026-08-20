@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalog-ui): **Catalogs can be described and presented as discoverable products.**
+  Authored catalog settings now cover qualified discovery attributes, keywords, an icon, an ordered
+  image gallery, and license details. Subscribed catalogs show the same metadata read-only, with
+  clear placeholders for presentation media that has not been installed. MCP catalog discovery and
+  upgrade previews expose the metadata too. The bundled demo catalog illustrates every new field.
+
 - **[user]** feat(catalog): **Catalog discovery metadata survives every catalog workflow.**
   Qualified attributes, case-preserving keywords, ordered presentation images, and license details
   now round-trip through export, ZIP import, URL registration, upgrades, snapshots, and release

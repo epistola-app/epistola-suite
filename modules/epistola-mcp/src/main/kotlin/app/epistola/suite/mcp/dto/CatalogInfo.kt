@@ -17,6 +17,10 @@ data class CatalogInfo(
     val id: String,
     val name: String,
     val description: String?,
+    val attributes: List<CatalogAttributeInfo>,
+    val keywords: Set<String>,
+    val presentation: CatalogPresentationInfo?,
+    val license: CatalogLicenseInfo?,
     /** AUTHORED (editable in this tenant) or SUBSCRIBED (read-only mirror of remote source). */
     val type: String,
     val sourceUrl: String?,
@@ -42,6 +46,16 @@ data class CatalogInfo(
                 id = catalog.id.value,
                 name = catalog.name,
                 description = catalog.description,
+                attributes = catalog.portableMetadata.attributes.map {
+                    CatalogAttributeInfo(catalog = it.catalog, key = it.key, value = it.value)
+                },
+                keywords = catalog.portableMetadata.keywords,
+                presentation = catalog.portableMetadata.presentation?.let {
+                    CatalogPresentationInfo(iconAssetSlug = it.iconAssetSlug, imageAssetSlugs = it.imageAssetSlugs)
+                },
+                license = catalog.portableMetadata.license?.let {
+                    CatalogLicenseInfo(it.name, it.spdxExpression, it.url, it.copyrightText)
+                },
                 type = catalog.type.name,
                 sourceUrl = catalog.sourceUrl,
                 installedReleaseVersion = catalog.installedReleaseVersion,
@@ -54,3 +68,14 @@ data class CatalogInfo(
         }
     }
 }
+
+data class CatalogAttributeInfo(val catalog: String, val key: String, val value: String)
+
+data class CatalogPresentationInfo(val iconAssetSlug: String?, val imageAssetSlugs: List<String>)
+
+data class CatalogLicenseInfo(
+    val name: String,
+    val spdxExpression: String?,
+    val url: String?,
+    val copyrightText: String?,
+)
