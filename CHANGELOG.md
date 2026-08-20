@@ -20,10 +20,11 @@
   and nested object/array structure. Common municipal roles, communication methods, references,
   and identifiers receive domain-shaped values; unknown strings get a field-specific Dutch
   fallback instead of a repeated generic placeholder. Related fields share a coherent fictional
-  profile, while authored values are preserved and the complete operation can be undone in one
-  step. Empty example fields now render their existing placeholder hints with muted italic text
-  and a subtle accent edge, including rich-text fields, so hints cannot be mistaken for stored
-  test data or disabled controls.
+  profile, and unconstrained arrays receive a seeded two or three items rather than an
+  unrepresentative single item. Authored values are preserved and the complete operation can be
+  undone in one step. Empty example fields now render their existing placeholder hints with muted
+  italic text and a subtle accent edge, including rich-text fields, so hints cannot be mistaken for
+  stored test data or disabled controls.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack

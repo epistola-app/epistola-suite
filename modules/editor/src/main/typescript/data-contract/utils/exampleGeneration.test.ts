@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { RICH_TEXT_INLINE_SCHEMA_REF, type JsonObject, type JsonSchema } from '../types.js';
+import {
+  RICH_TEXT_INLINE_SCHEMA_REF,
+  type JsonObject,
+  type JsonSchema,
+  type JsonValue,
+} from '../types.js';
 import { validateDataAgainstSchema } from './schemaValidation.js';
 import { completeExampleFromSchema } from './exampleGeneration.js';
 import { createSemanticExampleValues } from './semanticExampleValues.js';
@@ -97,15 +102,18 @@ describe('completeExampleFromSchema', () => {
       custom: 'keep me',
     });
 
-    expect(generated).toEqual({
+    expect(generated).toMatchObject({
       name: 'Authored name',
       address: { street: expect.any(String), city: 'Amsterdam' },
-      contacts: [
-        { label: 'Personal', preferred: false },
-        { label: 'Voorbeeld voor label', preferred: false },
-      ],
       custom: 'keep me',
     });
+    const contacts = generated.contacts as JsonValue[];
+    expect(contacts.length).toBeGreaterThanOrEqual(2);
+    expect(contacts.length).toBeLessThanOrEqual(3);
+    expect(contacts[0]).toEqual({ label: 'Personal', preferred: false });
+    for (const contact of contacts.slice(1)) {
+      expect(contact).toEqual({ label: 'Voorbeeld voor label', preferred: false });
+    }
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 
@@ -151,15 +159,22 @@ describe('completeExampleFromSchema', () => {
     expect(generated.introduction).toMatchObject({ type: 'doc' });
   });
 
-  it('does not add an item when maxItems is zero', () => {
+  it('honors array minimum and maximum constraints', () => {
     const schema: JsonSchema = {
       type: 'object',
       properties: {
         values: { type: 'array', items: { type: 'string' }, maxItems: 0 },
+        single: { type: 'array', items: { type: 'string' }, maxItems: 1 },
+        requiredItems: { type: 'array', items: { type: 'string' }, minItems: 5 },
       },
     };
 
-    expect(complete(schema, {})).toEqual({ values: [] });
+    const generated = complete(schema, {});
+
+    expect(generated.values).toEqual([]);
+    expect(generated.single).toHaveLength(1);
+    expect(generated.requiredItems).toHaveLength(5);
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 
   it('keeps explicit schema formats and numeric constraints authoritative', () => {
@@ -209,7 +224,17 @@ describe('completeExampleFromSchema', () => {
 
     const generated = complete(schema, {});
 
-    expect(generated).toEqual({ arr: [{ arr: [{ name: expect.any(String) }] }] });
+    const outerItems = generated.arr as JsonValue[];
+    expect(outerItems.length).toBeGreaterThanOrEqual(2);
+    expect(outerItems.length).toBeLessThanOrEqual(3);
+    for (const outerItem of outerItems) {
+      const innerItems = (outerItem as JsonObject).arr as JsonValue[];
+      expect(innerItems.length).toBeGreaterThanOrEqual(2);
+      expect(innerItems.length).toBeLessThanOrEqual(3);
+      for (const innerItem of innerItems) {
+        expect(innerItem).toEqual({ name: expect.any(String) });
+      }
+    }
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 });

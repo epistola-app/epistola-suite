@@ -41,6 +41,17 @@ describe('createSemanticExampleValues', () => {
     expect(values.boolean({ name: 'opaqueValue' })).toBeUndefined();
   });
 
+  it('suggests representative array sizes within schema constraints', () => {
+    const values = createSemanticExampleValues('array-example');
+    const field = { name: 'items' };
+
+    expect(values.arrayLength(field, { minimum: 0 })).toBeGreaterThanOrEqual(2);
+    expect(values.arrayLength(field, { minimum: 0 })).toBeLessThanOrEqual(3);
+    expect(values.arrayLength(field, { minimum: 0, maximum: 1 })).toBe(1);
+    expect(values.arrayLength(field, { minimum: 0, maximum: 0 })).toBe(0);
+    expect(values.arrayLength(field, { minimum: 5 })).toBe(5);
+  });
+
   it('covers common fields from Dutch municipal contracts', () => {
     const values = createSemanticExampleValues('municipal-example');
 

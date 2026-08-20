@@ -22,12 +22,17 @@ export interface ExampleValueProvider {
   string(field: ExampleField): string | undefined;
   number(field: ExampleField): number | undefined;
   boolean(field: ExampleField): boolean | undefined;
+  arrayLength(
+    field: ExampleField,
+    constraints: { minimum: number; maximum?: number },
+  ): number | undefined;
 }
 
 const NO_SEMANTIC_VALUES: ExampleValueProvider = {
   string: () => undefined,
   number: () => undefined,
   boolean: () => undefined,
+  arrayLength: () => undefined,
 };
 
 /**
@@ -173,8 +178,17 @@ function completeArray(
     );
   }
 
-  const minimum = Math.max(0, schema.minItems ?? (result.length === 0 ? 1 : 0));
-  const target = schema.maxItems === undefined ? minimum : Math.min(minimum, schema.maxItems);
+  const minimum = Math.max(0, schema.minItems ?? 0);
+  const fallbackTarget = Math.max(minimum, result.length === 0 ? 1 : result.length);
+  const suggestedTarget = semanticValues.arrayLength(field, {
+    minimum,
+    maximum: schema.maxItems,
+  });
+  const unconstrainedTarget = Math.max(fallbackTarget, suggestedTarget ?? 0);
+  const target =
+    schema.maxItems === undefined
+      ? unconstrainedTarget
+      : Math.min(unconstrainedTarget, schema.maxItems);
   while (result.length < target) {
     result.push(
       completeValue(

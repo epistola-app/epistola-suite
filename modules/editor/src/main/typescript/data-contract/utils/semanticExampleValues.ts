@@ -257,6 +257,15 @@ export function createSemanticExampleValues(
       }
       return undefined;
     },
+
+    arrayLength(_field, constraints) {
+      if (constraints.maximum === 0) return 0;
+
+      const minimum = Math.max(constraints.minimum, 2);
+      const maximum = Math.max(constraints.minimum, Math.min(constraints.maximum ?? 3, 3));
+      if (maximum < minimum) return maximum;
+      return faker.number.int({ min: minimum, max: maximum });
+    },
   };
 }
 
