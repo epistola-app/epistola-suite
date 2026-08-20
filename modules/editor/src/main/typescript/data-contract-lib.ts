@@ -34,9 +34,13 @@ export interface DataContractEditorOptions {
   callbacks: SaveCallbacks;
   /** When true, all editing controls are disabled */
   readonly?: boolean;
+  /** Host element for contract-wide save controls, or null in read-only mode */
+  saveControlsContainer: HTMLElement | null;
 }
 
 export interface DataContractEditorInstance {
+  /** Move contract-wide save controls to a new host element */
+  setSaveControlsContainer(container: HTMLElement | null): void;
   /** Tear down the editor and clean up */
   unmount(): void;
 }
@@ -47,18 +51,30 @@ export interface DataContractEditorInstance {
 export function mountDataContractEditor(
   options: DataContractEditorOptions,
 ): DataContractEditorInstance {
-  const { container, initialSchema, initialExamples, callbacks, readonly = false } = options;
+  const {
+    container,
+    initialSchema,
+    initialExamples,
+    callbacks,
+    readonly = false,
+    saveControlsContainer,
+  } = options;
 
   const editorEl = document.createElement('epistola-data-contract-editor');
   editorEl.style.display = 'block';
 
   editorEl.init(initialSchema, initialExamples, callbacks, readonly);
+  editorEl.setSaveControlsContainer(saveControlsContainer);
 
   container.innerHTML = '';
   container.appendChild(editorEl);
 
   return {
+    setSaveControlsContainer(nextContainer) {
+      editorEl.setSaveControlsContainer(nextContainer);
+    },
     unmount() {
+      editorEl.setSaveControlsContainer(null);
       editorEl.remove();
     },
   };

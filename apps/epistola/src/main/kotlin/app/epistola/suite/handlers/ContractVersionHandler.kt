@@ -34,6 +34,7 @@ import tools.jackson.databind.node.ObjectNode
 @Component
 class ContractVersionHandler(
     private val objectMapper: ObjectMapper,
+    private val detailHelper: TemplateDetailHelper,
 ) {
     private fun resolveTemplateId(request: ServerRequest): TemplateId {
         val tenantId = TenantId(TenantKey.of(request.pathVariable("tenantId")))
@@ -200,7 +201,9 @@ class ContractVersionHandler(
      * GET /{catalogId}/{id}/contract/status-bar — status bar fragment (HTMX).
      */
     fun statusBar(request: ServerRequest): ServerResponse {
-        val templateId = resolveTemplateId(request)
+        val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
+        val templateId = ctx.templateId
+        val editMode = request.params().getFirst("edit") == "true"
         val contractVersion = GetLatestContractVersion(templateId = templateId).query()
         val draftContract = GetDraftContractVersion(templateId = templateId).query()
         val latestPublished = GetLatestPublishedContractVersion(templateId = templateId).query()
@@ -216,8 +219,8 @@ class ContractVersionHandler(
                 "contractVersionId" to contractVersion?.id?.value
                 "contractVersionStatus" to contractVersion?.status?.name?.lowercase()
                 "hasDraftContract" to (draftContract != null)
-                "editable" to true
-                "editMode" to false
+                "editable" to ctx.editable
+                "editMode" to editMode
                 "hasOutdatedVersions" to usage.versions.any {
                     it.status == "published" && it.contractVersion != latestPublishedId && latestPublishedId != null
                 }

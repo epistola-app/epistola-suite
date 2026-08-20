@@ -17,12 +17,17 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.node.JsonNodeFactory
 
 class DiscardDraftUiTest : BasePlaywrightTest() {
 
@@ -79,11 +84,25 @@ class DiscardDraftUiTest : BasePlaywrightTest() {
         val tenantKey = TenantKey.of("discard-ui-${System.nanoTime()}")
         val tenant = CreateTenant(id = tenantKey, name = "Discard UI Tenant").execute()
         val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(
-            id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
+            id = templateId,
             name = "Discard UI Template",
         ).execute()
-        val variantId = VariantId(VariantKey.INITIAL, TemplateId(template.id, CatalogId.default(tenantId)))
+        CreateContractVersion(templateId = templateId).execute()
+        UpdateContractVersion(
+            templateId = templateId,
+            dataExamples = listOf(
+                DataExample(
+                    id = "discard-example",
+                    name = "Discard example",
+                    data = JsonNodeFactory.instance.objectNode(),
+                ),
+            ),
+        ).execute()
+        PublishContractVersion(templateId = templateId).execute()
+
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
         val draft = GetDraft(variantId).query()!!
         PublishVersion(versionId = VersionId(draft.id, variantId)).execute()
         CreateVersion(variantId = variantId).execute()

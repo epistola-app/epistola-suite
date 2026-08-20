@@ -19,27 +19,28 @@ export interface ContractSaveBarCallbacks {
   onForceSave: () => void;
 }
 
-export function renderContractSaveBar(
+export function renderContractSaveControls(
   state: ContractSaveBarState,
   callbacks: ContractSaveBarCallbacks,
 ): unknown {
   const isDirty = state.schemaDirty || state.examplesDirty;
   const canSave = isDirty && !state.saving && state.blockedReason === null;
   const saveTooltip =
-    state.blockedReason ?? (isDirty ? 'Save the complete data contract' : 'No unsaved changes');
+    state.blockedReason ??
+    (isDirty ? 'Save schema and examples as one draft' : 'No unsaved changes');
 
   return html`
-    <div class="dc-contract-save-bar" role="region" aria-label="Data contract save controls">
+    <div class="dc-contract-save-controls">
       <div class="dc-contract-save-summary" aria-live="polite">
         ${state.saving
-          ? html`<span class="dc-contract-save-state">Saving contract…</span>`
+          ? html`<span class="dc-contract-save-state">Saving draft…</span>`
           : state.saveError
             ? html`<span class="dc-status-error">${state.saveError}</span>`
             : state.saveSuccess
-              ? html`<span class="dc-status-success">Contract saved</span>`
+              ? html`<span class="dc-status-success">Draft saved</span>`
               : isDirty
                 ? html`
-                    <span class="dc-contract-save-state">Unsaved changes</span>
+                    <span class="dc-contract-save-state">Unsaved draft changes</span>
                     ${state.schemaDirty
                       ? html`<span class="dc-contract-change-badge">Schema</span>`
                       : nothing}
@@ -73,7 +74,7 @@ export function renderContractSaveBar(
           @click=${() => callbacks.onSave()}
           title=${saveTooltip}
         >
-          ${state.saving ? 'Saving…' : 'Save contract'}
+          ${state.saving ? 'Saving…' : 'Save draft'}
         </button>
       </div>
     </div>

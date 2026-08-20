@@ -7,7 +7,7 @@
 import { render } from 'lit';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  renderContractSaveBar,
+  renderContractSaveControls,
   type ContractSaveBarCallbacks,
   type ContractSaveBarState,
 } from './ContractSaveBar.js';
@@ -27,7 +27,7 @@ function renderBar(
   callbacks: ContractSaveBarCallbacks = { onSave: vi.fn(), onForceSave: vi.fn() },
 ): HTMLElement {
   const container = document.createElement('div');
-  render(renderContractSaveBar({ ...defaultState, ...state }, callbacks), container);
+  render(renderContractSaveControls({ ...defaultState, ...state }, callbacks), container);
   return container;
 }
 
@@ -39,7 +39,7 @@ describe('ContractSaveBar', () => {
       { onSave, onForceSave: vi.fn() },
     );
 
-    expect(container.textContent).toContain('Unsaved changes');
+    expect(container.textContent).toContain('Unsaved draft changes');
     expect(container.textContent).toContain('Schema');
     expect(container.textContent).toContain('Examples');
 
@@ -73,13 +73,21 @@ describe('ContractSaveBar', () => {
 
   it('shows the shared saving and saved states', () => {
     const saving = renderBar({ examplesDirty: true, saving: true });
-    expect(saving.textContent).toContain('Saving contract…');
+    expect(saving.textContent).toContain('Saving draft…');
     expect(saving.querySelector<HTMLButtonElement>('.dc-save-btn')?.textContent).toContain(
       'Saving…',
     );
 
     const saved = renderBar({ saveSuccess: true });
-    expect(saved.textContent).toContain('Contract saved');
+    expect(saved.textContent).toContain('Draft saved');
+  });
+
+  it('labels the shared action as saving the draft', () => {
+    const container = renderBar({ examplesDirty: true });
+    const saveButton = container.querySelector<HTMLButtonElement>('.dc-save-btn');
+
+    expect(saveButton?.textContent).toContain('Save draft');
+    expect(saveButton?.title).toBe('Save schema and examples as one draft');
   });
 
   it('shows errors and exposes the existing force-save action', () => {

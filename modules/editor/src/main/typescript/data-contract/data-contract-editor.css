@@ -47,23 +47,16 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Contract-wide save bar
+   * Contract-wide save controls
    * ---------------------------------------------------------------------- */
 
-  .dc-contract-save-bar {
-    position: sticky;
-    top: 48px;
-    z-index: 20;
+  .dc-contract-save-controls {
     display: flex;
+    flex: 1 1 auto;
     align-items: center;
     justify-content: space-between;
     gap: var(--ep-space-3);
-    padding: var(--ep-space-3) var(--ep-space-4);
-    background: color-mix(in srgb, var(--ep-white) 96%, transparent);
-    border: 1px solid var(--ep-stone-200);
-    border-radius: var(--ep-radius-md);
-    box-shadow: var(--ep-shadow-sm);
-    backdrop-filter: blur(8px);
+    min-width: 0;
   }
 
   .dc-contract-save-summary,
@@ -457,7 +450,7 @@
   }
 
   @media (max-width: 640px) {
-    .dc-contract-save-bar {
+    .dc-contract-save-controls {
       align-items: flex-start;
       flex-wrap: wrap;
     }

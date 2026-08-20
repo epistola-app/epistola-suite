@@ -81,6 +81,21 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
     }
 
+    private fun createDraftContractWithExample(tenant: Tenant, template: DocumentTemplate) = withMediator {
+        val templateId = TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))
+        CreateContractVersion(templateId = templateId).execute()
+        UpdateContractVersion(
+            templateId = templateId,
+            dataExamples = listOf(
+                DataExample(
+                    id = "example-1",
+                    name = "Example 1",
+                    data = objectMapper.createObjectNode(),
+                ),
+            ),
+        ).execute()
+    }
+
     private fun pdfPageCount(pdfBytes: ByteArray): Int = Regex("""/Type\s*/Page\b""")
         .findAll(pdfBytes.toString(Charsets.ISO_8859_1))
         .count()
@@ -1438,6 +1453,102 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            }
+        }
+    }
+
+    @Nested
+    inner class DataContractPageTest {
+
+        @Test
+        fun `GET data contract edit mode renders the sticky save controls host`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Data Contract Edit Tenant")
+                template = template(testTenant, "Data Contract Edit Template")
+                createDraftContractWithExample(testTenant, template)
+            }
+
+            whenever {
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-contract?edit=true",
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("class=\"contract-status-bar\"")
+                assertThat(response.body).contains("id=\"contract-save-controls\"")
+                assertThat(response.body).contains("Done editing")
+                assertThat(response.body).contains("contract/status-bar?edit=true")
+            }
+        }
+
+        @Test
+        fun `GET contract status bar preserves edit mode during HTMX refresh`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Status Bar Edit Tenant")
+                template = template(testTenant, "Status Bar Edit Template")
+                createDraftContractWithExample(testTenant, template)
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar?edit=true",
+                    HttpMethod.GET,
+                    HttpEntity<Unit>(headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("id=\"contract-save-controls\"")
+                assertThat(response.body).contains("Done editing")
+                assertThat(response.body).doesNotContain(">Publish</button>")
+                assertThat(response.body).doesNotContain(">Edit</a>")
+            }
+        }
+
+        @Test
+        fun `GET contract status bar keeps publish and edit actions in view mode`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Status Bar View Tenant")
+                template = template(testTenant, "Status Bar View Template")
+                createDraftContractWithExample(testTenant, template)
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar",
+                    HttpMethod.GET,
+                    HttpEntity<Unit>(headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("Publish")
+                assertThat(response.body).contains("Edit")
+                assertThat(response.body).doesNotContain("id=\"contract-save-controls\"")
+                assertThat(response.body).doesNotContain("Done editing")
             }
         }
     }
