@@ -39,8 +39,6 @@ export interface DataContractEditorOptions {
 }
 
 export interface DataContractEditorInstance {
-  /** Move contract-wide save controls to a new host element */
-  setSaveControlsContainer(container: HTMLElement | null): void;
   /** Tear down the editor and clean up */
   unmount(): void;
 }
@@ -70,9 +68,6 @@ export function mountDataContractEditor(
   container.appendChild(editorEl);
 
   return {
-    setSaveControlsContainer(nextContainer) {
-      editorEl.setSaveControlsContainer(nextContainer);
-    },
     unmount() {
       editorEl.setSaveControlsContainer(null);
       editorEl.remove();

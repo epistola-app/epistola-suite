@@ -337,7 +337,6 @@
 
     const statusBar = document.getElementById('contract-status-bar');
     const statusBarUrl = statusBar && statusBar.dataset ? statusBar.dataset.statusUrl : undefined;
-    let editorInstance;
 
     async function refreshStatusBar() {
       if (statusBarUrl && typeof htmx !== 'undefined') {
@@ -345,7 +344,6 @@
           target: '#contract-status-bar',
           swap: 'outerHTML',
         });
-        editorInstance?.setSaveControlsContainer(document.getElementById('contract-save-controls'));
       }
     }
 
@@ -356,7 +354,7 @@
     const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
     const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() };
 
-    editorInstance = mountDataContractEditor({
+    mountDataContractEditor({
       container: container,
       templateId: templateId,
       initialSchema: initialSchema,

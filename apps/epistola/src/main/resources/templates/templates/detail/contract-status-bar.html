@@ -14,7 +14,7 @@
             </span>
 
             <!-- Editor-owned save state and actions are rendered here. -->
-            <div th:if="${editMode && editable}" id="contract-save-controls"
+            <div th:if="${editMode && editable}" id="contract-save-controls" hx-preserve
                  class="contract-status-save-controls" role="region"
                  aria-label="Data contract save controls"></div>
 

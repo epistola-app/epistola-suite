@@ -63,20 +63,16 @@ describe('mountDataContractEditor save controls', () => {
     expect(saveControlsContainer.textContent).toContain('Examples');
   });
 
-  it('retargets and clears externally rendered save controls', async () => {
-    const firstContainer = document.createElement('div');
-    const nextContainer = document.createElement('div');
-    document.body.append(firstContainer, nextContainer);
-    const { editor, instance } = mount(firstContainer);
+  it('clears externally rendered save controls when unmounted', async () => {
+    const saveControlsContainer = document.createElement('div');
+    document.body.append(saveControlsContainer);
+    const { editor, instance } = mount(saveControlsContainer);
     await editor.updateComplete;
 
-    instance.setSaveControlsContainer(nextContainer);
-
-    expect(firstContainer.querySelector('.dc-contract-save-controls')).toBeNull();
-    expect(nextContainer.textContent).toContain('Save draft');
+    expect(saveControlsContainer.textContent).toContain('Save draft');
 
     instance.unmount();
-    expect(nextContainer.querySelector('.dc-contract-save-controls')).toBeNull();
+    expect(saveControlsContainer.querySelector('.dc-contract-save-controls')).toBeNull();
   });
 
   it('renders no save controls when read-only', async () => {
