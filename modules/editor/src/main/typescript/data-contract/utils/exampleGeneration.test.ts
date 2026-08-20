@@ -111,8 +111,8 @@ describe('completeExampleFromSchema', () => {
     expect(contacts.length).toBeGreaterThanOrEqual(2);
     expect(contacts.length).toBeLessThanOrEqual(3);
     expect(contacts[0]).toEqual({ label: 'Personal', preferred: false });
-    for (const contact of contacts.slice(1)) {
-      expect(contact).toEqual({ label: 'Voorbeeld voor label', preferred: false });
+    for (const [index, contact] of contacts.slice(1).entries()) {
+      expect(contact).toEqual({ label: `Example label ${index + 2}`, preferred: false });
     }
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
@@ -177,6 +177,63 @@ describe('completeExampleFromSchema', () => {
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 
+  it('generates distinct formatted values for primitive array items', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        recipients: {
+          type: 'array',
+          minItems: 3,
+          items: { type: 'string', format: 'email' },
+        },
+      },
+    };
+
+    const generated = complete(schema, {});
+    const recipients = generated.recipients as string[];
+
+    expect(recipients).toHaveLength(3);
+    expect(new Set(recipients)).toHaveProperty('size', 3);
+    for (const email of recipients) expect(email).toMatch(/@example\./);
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
+  });
+
+  it('generates a distinct coherent person for every object array item', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        people: {
+          type: 'array',
+          minItems: 3,
+          items: {
+            type: 'object',
+            properties: {
+              firstName: { type: 'string' },
+              lastName: { type: 'string' },
+              name: { type: 'string' },
+              email: { type: 'string', format: 'email' },
+            },
+            required: ['firstName', 'lastName', 'name', 'email'],
+          },
+        },
+      },
+    };
+
+    const generated = complete(schema, {});
+    const people = generated.people as JsonObject[];
+
+    expect(people).toHaveLength(3);
+    expect(new Set(people.map((person) => person.name))).toHaveProperty('size', 3);
+    expect(new Set(people.map((person) => person.email))).toHaveProperty('size', 3);
+    for (const person of people) {
+      if (typeof person.firstName !== 'string' || typeof person.lastName !== 'string') {
+        throw new TypeError('Generated person names must be strings');
+      }
+      expect(person.name).toBe(`${person.firstName} ${person.lastName}`);
+    }
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
+  });
+
   it('keeps explicit schema formats and numeric constraints authoritative', () => {
     const schema: JsonSchema = {
       type: 'object',
@@ -190,7 +247,7 @@ describe('completeExampleFromSchema', () => {
 
     const generated = complete(schema, {});
 
-    expect(generated.phoneNumber).toBe('example@example.com');
+    expect(generated.phoneNumber).toMatch(/@example\.(com|net|org)$/);
     expect(generated.website).toBe('2024-01-01');
     expect(generated.amount).toBe(100);
     expect(generated.age).toBe(50);

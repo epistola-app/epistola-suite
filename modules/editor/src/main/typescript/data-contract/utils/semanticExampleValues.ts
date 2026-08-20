@@ -2,40 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { base, en, Faker, nl } from '@faker-js/faker';
-import type { ExampleField, ExampleValueProvider } from './exampleGeneration.js';
-
-const DEFAULT_SEED = 20_260_820;
+import type { ExampleField, ExampleValueProvider } from './exampleValueProvider.js';
+import { createSemanticExampleContext, fullName } from './semanticExampleContext.js';
 
 /**
  * Creates one generation-scoped provider. Related values share a fictional
  * profile, while a fixed seed keeps repeated completion predictable.
  */
-export function createSemanticExampleValues(
-  seed: number | string = DEFAULT_SEED,
-): ExampleValueProvider {
-  const faker = new Faker({ locale: [nl, en, base], seed: normalizeSeed(seed) });
-  const person = {
-    firstName: faker.person.firstName(),
-    lastName: faker.person.lastName(),
-  };
-  const subjectPerson = {
-    firstName: faker.person.firstName(),
-    lastName: faker.person.lastName(),
-  };
-  const officialPerson = {
-    firstName: faker.person.firstName(),
-    lastName: faker.person.lastName(),
-  };
-  const location = {
-    street: faker.location.street(),
-    city: faker.location.city(),
-    postalCode: faker.location.zipCode(),
-  };
+export function createSemanticExampleValues(seed?: number | string): ExampleValueProvider {
+  const context = createSemanticExampleContext(seed);
+  const { faker } = context;
 
   return {
-    string(field) {
+    string(field, constraints) {
       const hint = semanticHint(field);
+      const person = context.personFor(field);
+
+      if (constraints?.format === 'email') return context.nextExampleEmail(person);
 
       if (matches(hint, ['gebruikersnaam', 'username', 'user name', 'loginnaam'])) {
         return faker.internet.username(person);
@@ -51,26 +34,26 @@ export function createSemanticExampleValues(
       }
       if (matches(hint, ['tussenvoegsel', 'middle name', 'middlename'])) return 'van';
       if (matches(hint, ['email', 'e mail', 'emailadres', 'mailadres'])) {
-        return faker.internet.exampleEmail(person);
+        return context.nextExampleEmail(person);
       }
       if (matches(hint, ['telefoon', 'telefoonnummer', 'phone', 'mobile', 'mobiel'])) {
         return faker.phone.number({ style: 'international' });
       }
       if (matches(hint, ['postcode', 'postal code', 'zip code', 'zipcode'])) {
-        return location.postalCode;
+        return context.locationFor(field).postalCode;
       }
       if (matches(hint, ['huisnummer', 'house number', 'building number'])) {
         return faker.location.buildingNumber();
       }
       if (matches(hint, ['straatnaam', 'straat', 'street name', 'street'])) {
-        return location.street;
+        return context.locationFor(field).street;
       }
       if (matches(hint, ['woonplaats', 'plaatsnaam', 'stad', 'city', 'town'])) {
-        return location.city;
+        return context.locationFor(field).city;
       }
       if (matches(hint, ['land', 'country'])) return 'Nederland';
       if (matches(hint, ['beklaagde', 'respondent', 'accused', 'objector'])) {
-        return fullName(subjectPerson);
+        return fullName(context.personFor(field, 'subject'));
       }
       if (
         matches(hint, [
@@ -82,7 +65,7 @@ export function createSemanticExampleValues(
           'official',
         ])
       ) {
-        return fullName(officialPerson);
+        return fullName(context.personFor(field, 'official'));
       }
       if (
         matches(hint, [
@@ -219,7 +202,7 @@ export function createSemanticExampleValues(
       }
       if (matches(hint, ['naam', 'name'])) return fullName(person);
 
-      return `Voorbeeld voor ${humanize(field.title ?? field.name)}`;
+      return context.nextFallback(field);
     },
 
     number(field) {
@@ -267,25 +250,6 @@ export function createSemanticExampleValues(
       return faker.number.int({ min: minimum, max: maximum });
     },
   };
-}
-
-function normalizeSeed(seed: number | string): number {
-  if (typeof seed === 'number') return seed;
-
-  let hash = 2_166_136_261;
-  for (const character of seed) {
-    hash ^= character.codePointAt(0) ?? 0;
-    hash = Math.imul(hash, 16_777_619);
-  }
-  return hash >>> 0;
-}
-
-function fullName(person: { firstName: string; lastName: string }): string {
-  return `${person.firstName} ${person.lastName}`;
-}
-
-function humanize(value: string): string {
-  return normalize(value).replace(/\s+/g, ' ');
 }
 
 function semanticHint(field: ExampleField): string {

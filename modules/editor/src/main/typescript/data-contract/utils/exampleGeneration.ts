@@ -4,6 +4,7 @@
 
 import { findRefType } from '../ref-types.js';
 import type { JsonArray, JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
+import type { ExampleField, ExampleValueProvider } from './exampleValueProvider.js';
 
 const GENERATED_DATE = '2024-01-01';
 const GENERATED_DATE_TIME = '2024-01-01T12:00:00Z';
@@ -11,22 +12,6 @@ const GENERATED_DATE_TIME = '2024-01-01T12:00:00Z';
 type SchemaNode = JsonSchemaProperty & {
   type?: string | string[];
 };
-
-export interface ExampleField {
-  name: string;
-  title?: string;
-  description?: string;
-}
-
-export interface ExampleValueProvider {
-  string(field: ExampleField): string | undefined;
-  number(field: ExampleField): number | undefined;
-  boolean(field: ExampleField): boolean | undefined;
-  arrayLength(
-    field: ExampleField,
-    constraints: { minimum: number; maximum?: number },
-  ): number | undefined;
-}
 
 const NO_SEMANTIC_VALUES: ExampleValueProvider = {
   string: () => undefined,
@@ -44,7 +29,14 @@ export function completeExampleFromSchema(
   existing: JsonObject,
   semanticValues: ExampleValueProvider = NO_SEMANTIC_VALUES,
 ): JsonObject {
-  return completeObject(schema as SchemaNode, schema as JsonObject, existing, semanticValues, 0);
+  return completeObject(
+    schema as SchemaNode,
+    schema as JsonObject,
+    existing,
+    semanticValues,
+    0,
+    [],
+  );
 }
 
 function completeObject(
@@ -53,6 +45,7 @@ function completeObject(
   existing: JsonObject,
   semanticValues: ExampleValueProvider,
   depth: number,
+  path: readonly (string | number)[],
 ): JsonObject {
   if (depth > 20) return structuredClone(existing);
 
@@ -64,7 +57,12 @@ function completeObject(
       rootSchema,
       existing[name],
       present,
-      { name, title: propertySchema.title, description: propertySchema.description },
+      {
+        name,
+        title: propertySchema.title,
+        description: propertySchema.description,
+        path: [...path, name],
+      },
       semanticValues,
       depth + 1,
     );
@@ -93,7 +91,7 @@ function completeValue(
 
   if (present) {
     if (type === 'object' && isJsonObject(existing)) {
-      return completeObject(schema, rootSchema, existing, semanticValues, depth);
+      return completeObject(schema, rootSchema, existing, semanticValues, depth, field.path ?? []);
     }
     if (type === 'array' && Array.isArray(existing)) {
       return completeArray(schema, rootSchema, existing, field, semanticValues, depth);
@@ -120,7 +118,7 @@ function completeValue(
 
   switch (type) {
     case 'object':
-      return completeObject(schema, rootSchema, {}, semanticValues, depth);
+      return completeObject(schema, rootSchema, {}, semanticValues, depth, field.path ?? []);
     case 'array':
       return completeArray(schema, rootSchema, [], field, semanticValues, depth);
     case 'boolean':
@@ -133,7 +131,7 @@ function completeValue(
       return null;
     case 'string':
     default:
-      return generateString(schema, semanticValues.string(field));
+      return generateString(schema, semanticValues.string(field, { format: schema.format }));
   }
 }
 
@@ -147,7 +145,7 @@ function completeGeneratedContainer(
 ): JsonValue {
   const type = resolveType(schema);
   if (type === 'object' && isJsonObject(generated)) {
-    return completeObject(schema, rootSchema, generated, semanticValues, depth);
+    return completeObject(schema, rootSchema, generated, semanticValues, depth, field.path ?? []);
   }
   if (type === 'array' && Array.isArray(generated)) {
     return completeArray(schema, rootSchema, generated, field, semanticValues, depth);
@@ -167,12 +165,13 @@ function completeArray(
   if (!schema.items) return result;
 
   for (let index = 0; index < result.length; index += 1) {
+    const itemField = arrayItemField(field, index);
     result[index] = completeValue(
       schema.items as SchemaNode,
       rootSchema,
       result[index],
       true,
-      field,
+      itemField,
       semanticValues,
       depth + 1,
     );
@@ -190,19 +189,27 @@ function completeArray(
       ? unconstrainedTarget
       : Math.min(unconstrainedTarget, schema.maxItems);
   while (result.length < target) {
+    const itemField = arrayItemField(field, result.length);
     result.push(
       completeValue(
         schema.items as SchemaNode,
         rootSchema,
         undefined,
         false,
-        field,
+        itemField,
         semanticValues,
         depth + 1,
       ),
     );
   }
   return result;
+}
+
+function arrayItemField(field: ExampleField, index: number): ExampleField {
+  return {
+    ...field,
+    path: [...(field.path ?? [field.name]), index],
+  };
 }
 
 function generateString(schema: SchemaNode, semanticValue?: string): string {

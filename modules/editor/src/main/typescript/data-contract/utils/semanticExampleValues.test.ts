@@ -30,13 +30,25 @@ describe('createSemanticExampleValues', () => {
     expect(values.number({ name: 'field_3', description: 'Leeftijd van de aanvrager' })).toBe(42);
   });
 
+  it('generates distinct emails from a schema format without relying on the field name', () => {
+    const values = createSemanticExampleValues('email-list');
+
+    const first = values.string({ name: 'recipient' }, { format: 'email' });
+    const second = values.string({ name: 'recipient' }, { format: 'email' });
+
+    expect(first).toMatch(/@example\.(com|net|org)$/);
+    expect(second).toMatch(/@example\.(com|net|org)$/);
+    expect(second).not.toBe(first);
+  });
+
   it('recognizes semantic numbers and booleans and labels unknown string fields clearly', () => {
     const values = createSemanticExampleValues();
 
     expect(values.number({ name: 'amount' })).toBe(125.5);
     expect(values.number({ name: 'aantalItems' })).toBe(3);
     expect(values.boolean({ name: 'isActive' })).toBe(true);
-    expect(values.string({ name: 'opaqueValue' })).toBe('Voorbeeld voor opaque value');
+    expect(values.string({ name: 'opaqueValue' })).toBe('Example opaque value 1');
+    expect(values.string({ name: 'opaqueValue' })).toBe('Example opaque value 2');
     expect(values.number({ name: 'opaqueValue' })).toBeUndefined();
     expect(values.boolean({ name: 'opaqueValue' })).toBeUndefined();
   });
@@ -55,8 +67,10 @@ describe('createSemanticExampleValues', () => {
   it('covers common fields from Dutch municipal contracts', () => {
     const values = createSemanticExampleValues('municipal-example');
 
-    expect(values.string({ name: 'beklaagde' })).not.toContain('Voorbeeld voor');
-    expect(values.string({ name: 'contactfunctionaris' })).not.toContain('Voorbeeld voor');
+    expect(values.string({ name: 'beklaagde' })).not.toContain('Example beklaagde');
+    expect(values.string({ name: 'contactfunctionaris' })).not.toContain(
+      'Example contactfunctionaris',
+    );
     expect(values.string({ name: 'team' })).toMatch(/^Team /);
     expect(['e-mail', 'telefoon', 'brief']).toContain(values.string({ name: 'communicatie' }));
     expect(values.string({ name: 'kenmerk_intern' })).toMatch(/^Z\/\d{2}\/\d{6}$/);
