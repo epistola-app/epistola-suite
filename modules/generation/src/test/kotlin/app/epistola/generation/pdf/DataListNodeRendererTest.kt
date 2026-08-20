@@ -10,15 +10,15 @@ import app.epistola.generation.expression.JsonataEvaluator
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
-import java.io.ByteArrayOutputStream
-import com.itextpdf.layout.element.List as PdfList
 import com.itextpdf.layout.element.ListItem
 import com.itextpdf.layout.properties.Property
 import com.itextpdf.layout.properties.UnitValue
+import java.io.ByteArrayOutputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.itextpdf.layout.element.List as PdfList
 
 class DataListNodeRendererTest {
 
@@ -172,7 +172,9 @@ class DataListNodeRendererTest {
         )
 
         val list = assertIs<PdfList>(
-            DataListNodeRenderer().render(node, doc, context, NodeRendererRegistry(emptyMap())).single(),
+            DataListNodeRenderer()
+                .render(node, doc, context, NodeRendererRegistry(mapOf("text" to TextNodeRenderer())))
+                .single(),
         )
         val margins = list.children.map {
             assertIs<ListItem>(it).getProperty<UnitValue>(Property.MARGIN_BOTTOM).value

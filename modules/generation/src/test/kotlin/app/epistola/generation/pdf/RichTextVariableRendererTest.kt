@@ -12,7 +12,6 @@ import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
 import com.itextpdf.layout.element.Div
-import com.itextpdf.layout.element.List as PdfList
 import com.itextpdf.layout.element.ListItem
 import com.itextpdf.layout.properties.Property
 import com.itextpdf.layout.properties.UnitValue
@@ -20,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.itextpdf.layout.element.List as PdfList
 
 class RichTextVariableRendererTest {
     private val evaluator = CompositeExpressionEvaluator(jsonataEvaluator = JsonataEvaluator())
@@ -90,8 +90,8 @@ class RichTextVariableRendererTest {
                                         "content" to listOf(mapOf("type" to "text", "text" to value)),
                                     ),
                                 ),
-                            ),
-                        ),
+                            )
+                        },
                     ),
                 ),
             ),
