@@ -10,6 +10,10 @@
   authored text also respects its configured line height inside the WYSIWYG editor, and previously
   published templates retain their versioned rendering defaults.
 
+- **[user]** fix(auth): **The session-expiry login popup closes automatically after SSO.**
+  Popup mode is now stored in the JDBC-backed Spring Session used by OAuth2, so the callback reaches
+  the dedicated success page, not the application overview. The popup then notifies the original
+  window, closes itself, and dismisses the expired-session dialog without manual cleanup.
 - **[user]** feat(data contracts): **Every authored data contract keeps at least one example.**
   Saving or publishing without an example is rejected with an actionable validation error, the
   editor highlights the requirement, and replaces the final example's delete action with an
