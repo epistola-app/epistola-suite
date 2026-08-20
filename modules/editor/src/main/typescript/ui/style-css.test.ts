@@ -77,4 +77,15 @@ describe('toStyleMap', () => {
   it('drops invalid list item spacing values so CSS uses its fallback', () => {
     expect(toStyleMap({ listItemSpacing: 'wide' })).toEqual({});
   });
+
+  it('forwards line height to nested editor content including zero', () => {
+    expect(toStyleMap({ lineHeight: 0 })).toEqual({
+      'line-height': '0',
+      '--ep-line-height': '0',
+    });
+    expect(toStyleMap({ lineHeight: 1.25 })).toEqual({
+      'line-height': '1.25',
+      '--ep-line-height': '1.25',
+    });
+  });
 });

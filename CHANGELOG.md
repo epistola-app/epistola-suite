@@ -7,7 +7,8 @@
 - **[user]** feat(editor,pdf): **List item spacing is consistent and configurable.** Text,
   Rich Text Block, and Data List now share an inheritable List Item Spacing style with a `0.5sp`
   default. Spacing applies only between sibling items, with matching editor and PDF behavior;
-  previously published templates retain their versioned rendering defaults.
+  authored text also respects its configured line height inside the WYSIWYG editor, and previously
+  published templates retain their versioned rendering defaults.
 
 - **[user]** feat(data contracts): **Every authored data contract keeps at least one example.**
   Saving or publishing without an example is rejected with an actionable validation error, the

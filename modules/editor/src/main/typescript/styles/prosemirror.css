@@ -27,7 +27,7 @@
   .prosemirror-container .ProseMirror {
     outline: none;
     min-height: 1.5rem;
-    line-height: 1.6;
+    line-height: var(--ep-line-height, 1.6);
   }
 
   .prosemirror-container .ProseMirror p {
