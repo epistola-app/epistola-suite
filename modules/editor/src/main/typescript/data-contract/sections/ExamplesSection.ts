@@ -22,6 +22,7 @@ export interface ExamplesUiState {
   exampleErrorCounts: Record<string, number>;
   canUndo: boolean;
   canRedo: boolean;
+  canGenerate: boolean;
   readOnly: boolean;
 }
 
@@ -31,6 +32,7 @@ export interface ExamplesSectionCallbacks {
   onDeleteExample: (id: string) => void;
   onUpdateExampleName: (id: string, name: string) => void;
   onUpdateExampleData: (id: string, path: string, value: JsonValue) => void;
+  onGenerateExample: (id: string) => void;
   onUndo: () => void;
   onRedo: () => void;
 }
@@ -157,6 +159,23 @@ export function renderExamplesSection(
               <!-- Floating Toolbar -->
               <div class="dc-example-toolbar">
                 <div class="dc-example-toolbar-actions">
+                  <button
+                    class="dc-example-toolbar-btn dc-example-generate-btn"
+                    ?disabled=${!uiState.canGenerate || uiState.readOnly}
+                    @click=${() => callbacks.onGenerateExample(selectedExample.id)}
+                    title="Fill missing values from the current schema; existing values are kept"
+                    aria-label="Fill missing example values from schema"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path
+                        d="M8 1.5l.8 2.4 2.4.8-2.4.8L8 7.9l-.8-2.4-2.4-.8 2.4-.8L8 1.5zM12.2 8.1l.55 1.65 1.65.55-1.65.55-.55 1.65-.55-1.65L10 10.3l1.65-.55.55-1.65zM4.2 9.1l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1z"
+                        stroke="currentColor"
+                        stroke-width="1.1"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    Fill from schema
+                  </button>
                   <button
                     class="dc-example-toolbar-btn"
                     ?disabled=${!uiState.canUndo || uiState.readOnly}

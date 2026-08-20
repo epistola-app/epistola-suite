@@ -61,6 +61,7 @@ import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
 import { renderContractSaveControls } from './sections/ContractSaveBar.js';
+import { completeExampleFromSchema } from './utils/exampleGeneration.js';
 
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
@@ -463,6 +464,9 @@ export class EpistolaDataContractEditor extends LitElement {
       exampleErrorCounts,
       canUndo: this._exampleCanUndo,
       canRedo: this._exampleCanRedo,
+      canGenerate: Boolean(
+        state.schema?.properties && Object.keys(state.schema.properties).length > 0,
+      ),
       readOnly: this._readOnly,
     };
 
@@ -472,6 +476,7 @@ export class EpistolaDataContractEditor extends LitElement {
       onDeleteExample: (id) => this._deleteExample(id),
       onUpdateExampleName: (id, name) => this._updateExampleName(id, name),
       onUpdateExampleData: (id, path, value) => this._updateExampleData(id, path, value),
+      onGenerateExample: (id) => this._generateExampleData(id),
       onUndo: () => this._undoExampleData(),
       onRedo: () => this._redoExampleData(),
     };
@@ -869,6 +874,21 @@ export class EpistolaDataContractEditor extends LitElement {
 
     const updatedData = setNestedValue(example.data, path, value);
     state.updateDraftExample(id, { data: updatedData });
+    this._clearSaveStatus();
+    this._validateAllExamples();
+    this._syncExampleUndoRedoState();
+  }
+
+  private _generateExampleData(id: string): void {
+    const state = this.contractState!;
+    const example = state.dataExamples.find((candidate) => candidate.id === id);
+    if (!example || !state.schema) return;
+
+    const completedData = completeExampleFromSchema(state.schema, example.data);
+    if (JSON.stringify(completedData) === JSON.stringify(example.data)) return;
+
+    this._getExampleHistory(id).push(example.data);
+    state.updateDraftExample(id, { data: completedData });
     this._clearSaveStatus();
     this._validateAllExamples();
     this._syncExampleUndoRedoState();

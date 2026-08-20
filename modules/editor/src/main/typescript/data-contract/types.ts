@@ -153,6 +153,14 @@ export interface JsonSchemaProperty {
   minimum?: number;
   maximum?: number;
   minItems?: number;
+  maxItems?: number;
+  minLength?: number;
+  maxLength?: number;
+  multipleOf?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  enum?: JsonValue[];
+  const?: JsonValue;
   default?: JsonValue;
 }
 
@@ -163,6 +171,8 @@ export interface JsonSchema {
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
   additionalProperties?: boolean;
+  $defs?: Record<string, JsonSchemaProperty>;
+  definitions?: Record<string, JsonSchemaProperty>;
 }
 
 // =============================================================================

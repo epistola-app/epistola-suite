@@ -14,6 +14,10 @@
   versions remain readable and importable.
 - **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
   The editor now starts a draft automatically before applying the deletion.
+- **[user]** feat(data-contracts): **Example data can be completed from its schema.** A new
+  per-example action fills missing values with deterministic synthetic data based on defaults,
+  enums, formats, numeric constraints, and nested object/array structure. Authored values are
+  preserved, and the complete operation can be undone in one step.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack

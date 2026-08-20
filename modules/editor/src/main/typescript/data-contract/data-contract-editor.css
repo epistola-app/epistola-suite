@@ -1091,6 +1091,7 @@
       display: flex;
       align-items: center;
       gap: var(--ep-space-1);
+      flex-wrap: wrap;
     }
 
     & .dc-example-toolbar-btn {
@@ -1120,6 +1121,16 @@
       &:focus-visible {
         outline: none;
         box-shadow: var(--ep-ring);
+      }
+    }
+
+    & .dc-example-generate-btn {
+      color: var(--ep-primary-strong);
+      background: var(--ep-terracotta-50);
+
+      &:hover:not(:disabled) {
+        color: var(--ep-primary-strong);
+        background: var(--ep-terracotta-100);
       }
     }
   }
