@@ -654,6 +654,63 @@ not carry a slot — the banner covers them.
 
 ## Common Patterns
 
+### Standalone Controls: hx-patch a Focused Fragment Endpoint
+
+Not every mutating control lives in a form. A lone `<select>`, checkbox, or
+inline-editable input (the template settings tab is the canonical example)
+is a **native HTMX control**: the element itself carries `hx-patch` +
+`hx-trigger="change"`, posts its own form-encoded name/value, and swaps a
+fragment that the handler **re-renders from persisted state** — so the UI
+always shows server truth, with no client-side copy of that state to keep in
+sync.
+
+```html
+<input
+  type="checkbox"
+  name="pdfaEnabled"
+  th:checked="${template.pdfaEnabled}"
+  th:hx-patch="@{…/pdfa}"
+  hx-trigger="change"
+  hx-target="#output-settings-section"
+  hx-swap="outerHTML"
+/>
+```
+
+The handler reads `request.params()` (Spring's `FormContentFilter` parses
+form-encoded PATCH bodies), dispatches the command, and responds with
+`request.htmx { fragment(…) }` rendering the control's section. Give each
+control a **focused endpoint** (`…/name`, `…/pdfa`, `…/theme`) rather than
+one JSON grab-bag route — the fragment to re-render differs per control.
+
+Rules of thumb learned the hard way:
+
+- **Checkbox semantics**: an unchecked checkbox submits _nothing_, so absence
+  means false — but still inspect the value: `params().getFirst(name)` merges
+  the query string, and a future hidden-false companion input would submit
+  the literal `"false"`. Presence-only parsing silently inverts both.
+  (`DocumentTemplateHandler.updatePdfa` is the reference.)
+- **Validate like a server, not like the old JS**: the control constrains what
+  _it_ sends, not what the endpoint receives. Malformed shapes → 400;
+  well-formed-but-nonexistent references (a stale page racing a delete in
+  another tab) → 400 with an RFC 9457 `detail`, not an FK-violation 500.
+  Command-level `ValidationException` outside the `form{}` binder is mapped to
+  a 400 by `UiExceptionFilter`.
+- **OOB companions for chrome outside the swap target**: when the change must
+  reflect somewhere else on the page (the rename syncs the page header), ship
+  a second fragment with `hx-swap-oob` targeting a **dedicated id** — never a
+  positional or testid-based selector (`#page-title-text` is the reference;
+  testids are a test-only soft contract).
+- **The failure path needs an explicit revert.** HTMX does not swap on an
+  error response, so a rejected update leaves the typed/toggled value on
+  screen while the server still holds the old one — the control would be
+  asserting something false. Add `data-revert-on-error` (behaviors.js), which
+  restores the control's _default_ property (`defaultValue` /
+  `defaultChecked` / `option.defaultSelected`) — exactly what the server last
+  rendered, so the revert stays bookkeeping-free too.
+- Keyboard/UX affordances that HTMX can't express (Enter commits, Escape
+  reverts to `input.defaultValue` — the server-rendered value attribute) stay
+  as small delegated hooks in static JS.
+
 ### Serving Full Pages and Fragments from One Endpoint
 
 When `hx-boost="true"` is on `<body>`, link navigation sends `HX-Request: true` with `HX-Boosted: true`.
@@ -832,6 +889,16 @@ Kotlin `@JvmInline value class` types (e.g., `VariantId(val value: String)`) are
 ```
 
 ## Client-Side Scripting
+
+**Native `hx-*` attributes first; `fetch()` only for what HTMX cannot do.**
+If an interaction is "send this element's value, swap back HTML", it is an
+HTMX attribute set plus a fragment endpoint (see _Standalone Controls_ above)
+— not a hand-written `fetch()`. Hand-rolled HTMX (manual `HX-Request`
+headers, manual `outerHTML =` swaps, `htmx.ajax()` where attributes would do)
+was systematically removed in the native-HTMX conversion; don't reintroduce it. The
+legitimate `fetch()` residue is exactly two shapes: **binary responses** (PDF
+previews — HTMX can't swap a blob) and **structured JSON the client computes
+with** (editor component callbacks).
 
 Templates never contain executable inline `<script>` tags or `on*=` handler
 attributes — the CSP is `script-src 'self'` (see

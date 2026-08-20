@@ -39,7 +39,8 @@ class DocumentTemplateRoutes(
 
             // Template actions
             POST("/{catalogId}/{id}/delete", handler::delete)
-            PATCH("/{catalogId}/{id}", handler::update)
+            PATCH("/{catalogId}/{id}/name", handler::updateName)
+            PATCH("/{catalogId}/{id}/pdfa", handler::updatePdfa)
             PATCH("/{catalogId}/{id}/theme", handler::updateTheme)
             GET("/{catalogId}/{id}/api", handler::get)
             POST("/{catalogId}/{id}/validate-schema", handler::validateSchema)
