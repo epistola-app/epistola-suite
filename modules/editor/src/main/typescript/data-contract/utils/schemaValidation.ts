@@ -4,7 +4,7 @@
 
 import { findRefType } from '../ref-types.js';
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
-import { resolveExampleSchema } from './exampleSchemaResolver.js';
+import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
 
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -52,7 +52,7 @@ export function validateDataAgainstSchema(
     return { valid: true, errors: [] };
   }
 
-  const jsonSchema = resolveExampleSchema(
+  const jsonSchema = resolveSchemaForValue(
     schema as JsonSchemaProperty,
     schema as JsonSchema,
     data,
@@ -122,7 +122,7 @@ function validateProperty(
     return errors;
   }
 
-  const schema = resolveExampleSchema(originalSchema, rootSchema, value);
+  const schema = resolveSchemaForValue(originalSchema, rootSchema, value);
 
   if (schema.type === undefined) {
     return errors;

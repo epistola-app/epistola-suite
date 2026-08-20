@@ -3,12 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import type { JsonSchema, JsonSchemaProperty } from '../types.js';
-import { resolveExampleSchema } from './exampleSchemaResolver.js';
+import { resolveSchemaForValue } from './schema-resolution.js';
 
-describe('resolveExampleSchema', () => {
+describe('resolveSchemaForValue', () => {
   it('resolves local definitions while retaining sibling annotations', () => {
-    const schema: JsonSchema = {
+    const schema = {
       type: 'object',
       $defs: {
         address: {
@@ -20,7 +19,7 @@ describe('resolveExampleSchema', () => {
     };
 
     expect(
-      resolveExampleSchema({ $ref: '#/$defs/address', description: 'Postal address' }, schema),
+      resolveSchemaForValue({ $ref: '#/$defs/address', description: 'Postal address' }, schema),
     ).toMatchObject({
       type: 'object',
       description: 'Postal address',
@@ -30,7 +29,7 @@ describe('resolveExampleSchema', () => {
   });
 
   it('combines object properties and required fields from allOf', () => {
-    const composed: JsonSchemaProperty = {
+    const composed = {
       type: 'object',
       properties: { id: { type: 'string' } },
       required: ['id'],
@@ -42,14 +41,14 @@ describe('resolveExampleSchema', () => {
       ],
     };
 
-    expect(resolveExampleSchema(composed, { type: 'object' })).toMatchObject({
+    expect(resolveSchemaForValue(composed, { type: 'object' })).toMatchObject({
       properties: { id: { type: 'string' }, name: { type: 'string' } },
       required: ['id', 'name'],
     });
   });
 
   it('selects the oneOf branch matching the current object', () => {
-    const union: JsonSchemaProperty = {
+    const union = {
       oneOf: [
         {
           type: 'object',
@@ -65,14 +64,14 @@ describe('resolveExampleSchema', () => {
     };
 
     expect(
-      resolveExampleSchema(union, { type: 'object' }, { companyName: 'Epistola' }),
+      resolveSchemaForValue(union, { type: 'object' }, { companyName: 'Epistola' }),
     ).toMatchObject({
       properties: { companyName: { type: 'string' } },
     });
   });
 
   it('keeps a partially filled object on the union branch with matching fields', () => {
-    const union: JsonSchemaProperty = {
+    const union = {
       oneOf: [
         {
           type: 'object',
@@ -91,7 +90,7 @@ describe('resolveExampleSchema', () => {
     };
 
     expect(
-      resolveExampleSchema(union, { type: 'object' }, { companyName: 'Epistola' }),
+      resolveSchemaForValue(union, { type: 'object' }, { companyName: 'Epistola' }),
     ).toMatchObject({
       properties: {
         companyName: { type: 'string' },

@@ -5,8 +5,9 @@
 /**
  * JSON Schema → field path extractor.
  *
- * Walks a JSON Schema's `properties` recursively and returns
- * dot-notation paths suitable for expression autocomplete.
+ * Resolves a JSON Schema and walks its properties recursively, returning
+ * dot-notation paths suitable for expression autocomplete. Local references,
+ * compositions, unions, nullable types, and nested arrays are supported.
  *
  * Stays domain-agnostic: every path carries the raw JSON Schema `type`
  * (with `string + format: date` collapsed to `'date'` and `string + format:
@@ -17,6 +18,10 @@
  */
 
 import { scalarFromJsonSchema } from '../data-contract/field-types.js';
+import {
+  type ResolvedSchemaVariant,
+  resolveSchemaVariants,
+} from '../json-schema/schema-resolution.js';
 
 export interface FieldPath {
   /** Dot-notation path, e.g. "customer.address.city" */
@@ -45,51 +50,139 @@ const MAX_DEPTH = 5;
 /**
  * Extract field paths from a JSON Schema object.
  *
- * Walks `properties` recursively (up to MAX_DEPTH levels).
- * For arrays with `items`, appends `[]` and continues into
- * the items schema if it has properties.
+ * Walks all effective `properties` recursively (up to MAX_DEPTH levels).
+ * For arrays with `items`, appends `[]` at each array level and continues into
+ * object items. Union branches are deduplicated in declaration order.
  */
 export function extractFieldPaths(schema: object): FieldPath[] {
-  const result: FieldPath[] = [];
-  walk(schema as Record<string, unknown>, '', 0, result);
-  return result;
+  const fields = new Map<string, FieldPath>();
+  for (const variant of resolveSchemaVariants(schema, schema)) {
+    walkProperties(variant, schema, '', 0, fields);
+  }
+  return [...fields.values()];
 }
 
-function walk(
-  schema: Record<string, unknown>,
+function walkProperties(
+  variant: ResolvedSchemaVariant,
+  rootSchema: object,
   prefix: string,
   depth: number,
-  result: FieldPath[],
+  fields: Map<string, FieldPath>,
 ): void {
   if (depth > MAX_DEPTH) return;
 
-  const properties = schema.properties as Record<string, Record<string, unknown>> | undefined;
-  if (!properties || typeof properties !== 'object') return;
+  const properties = objectRecord(variant.schema.properties);
 
   for (const [key, propSchema] of Object.entries(properties)) {
-    if (!propSchema || typeof propSchema !== 'object') continue;
-
     const path = prefix ? `${prefix}.${key}` : key;
-    const ref = typeof propSchema.$ref === 'string' ? propSchema.$ref : undefined;
-    const rawType = String(propSchema.type ?? (ref ? 'unknown' : 'unknown'));
-    const format = typeof propSchema.format === 'string' ? propSchema.format : undefined;
-    // Collapse `string + format: date`/`date-time` to `'date'`/`'datetime'` via
-    // the shared registry; everything else keeps its raw JSON Schema type.
-    const type = scalarFromJsonSchema(rawType, format) ?? rawType;
+    const resolvedPropertyVariants = resolveSchemaVariants(
+      propSchema,
+      rootSchema,
+      variant.resolvingRefs,
+    );
+    const nonNullVariants = resolvedPropertyVariants.filter(
+      (propertyVariant) => !isNullOnly(propertyVariant.schema),
+    );
+    const propertyVariants =
+      nonNullVariants.length > 0 ? nonNullVariants : resolvedPropertyVariants;
 
-    result.push(ref ? { path, type, ref } : { path, type });
-
-    if (type === 'object') {
-      walk(propSchema, path, depth + 1, result);
-    } else if (type === 'array') {
-      const items = propSchema.items as Record<string, unknown> | undefined;
-      if (items && typeof items === 'object') {
-        const itemType = String(items.type ?? 'unknown');
-        const arrayPath = `${path}[]`;
-        if (itemType === 'object') {
-          walk(items, arrayPath, depth + 1, result);
-        }
-      }
+    for (const propertyVariant of propertyVariants) {
+      addField(fields, path, propertyVariant.schema);
+      walkContainer(propertyVariant, rootSchema, path, depth + 1, fields);
     }
   }
+}
+
+function walkContainer(
+  variant: ResolvedSchemaVariant,
+  rootSchema: object,
+  path: string,
+  depth: number,
+  fields: Map<string, FieldPath>,
+): void {
+  if (depth > MAX_DEPTH) return;
+
+  const types = schemaTypes(variant.schema);
+  const objectLike =
+    types.includes('object') || Object.keys(objectRecord(variant.schema.properties)).length > 0;
+  if (objectLike) {
+    walkProperties(variant, rootSchema, path, depth, fields);
+  }
+
+  const arrayLike = types.includes('array') || isObject(variant.schema.items);
+  if (!arrayLike || !isObject(variant.schema.items)) return;
+
+  for (const itemVariant of resolveSchemaVariants(
+    variant.schema.items,
+    rootSchema,
+    variant.resolvingRefs,
+  )) {
+    walkContainer(itemVariant, rootSchema, `${path}[]`, depth, fields);
+  }
+}
+
+function addField(
+  fields: Map<string, FieldPath>,
+  path: string,
+  schema: Record<string, unknown>,
+): void {
+  const type = displayType(schema);
+  const ref = typeof schema.$ref === 'string' ? schema.$ref : undefined;
+  const existing = fields.get(path);
+
+  if (!existing) {
+    fields.set(path, ref ? { path, type, ref } : { path, type });
+    return;
+  }
+
+  existing.type = mergeTypes(existing.type, type);
+  if (!existing.ref && ref) existing.ref = ref;
+}
+
+function displayType(schema: Record<string, unknown>): string {
+  const types = schemaTypes(schema).filter((type) => type !== 'null');
+  let type = types[0] ?? inferType(schema);
+  for (const candidate of types.slice(1)) type = mergeTypes(type, candidate);
+
+  const format = typeof schema.format === 'string' ? schema.format : undefined;
+  return scalarFromJsonSchema(type, format) ?? type;
+}
+
+function inferType(schema: Record<string, unknown>): string {
+  if (Object.keys(objectRecord(schema.properties)).length > 0) return 'object';
+  if (isObject(schema.items)) return 'array';
+  return 'unknown';
+}
+
+function mergeTypes(left: string, right: string): string {
+  if (left === right) return left;
+  if ((left === 'integer' && right === 'number') || (left === 'number' && right === 'integer')) {
+    return 'number';
+  }
+  return 'unknown';
+}
+
+function isNullOnly(schema: Record<string, unknown>): boolean {
+  const types = schemaTypes(schema);
+  return types.length === 1 && types[0] === 'null';
+}
+
+function schemaTypes(schema: Record<string, unknown>): string[] {
+  if (typeof schema.type === 'string') return [schema.type];
+  return Array.isArray(schema.type)
+    ? schema.type.filter((type): type is string => typeof type === 'string')
+    : [];
+}
+
+function objectRecord(value: unknown): Record<string, Record<string, unknown>> {
+  if (!isObject(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, Record<string, unknown>] =>
+      isObject(entry[1]),
+    ),
+  );
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

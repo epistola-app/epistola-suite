@@ -4,7 +4,7 @@
 
 import { findRefType } from '../ref-types.js';
 import type { JsonArray, JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
-import { resolveExampleSchema } from './exampleSchemaResolver.js';
+import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
 import type { ExampleField, ExampleValueProvider } from './exampleValueProvider.js';
 
 const GENERATED_DATE = '2024-01-01';
@@ -92,7 +92,7 @@ function completeValue(
     return hasUsableRefValue ? structuredClone(existing as JsonValue) : refType.defaultValue();
   }
 
-  const schema = resolveExampleSchema(
+  const schema = resolveSchemaForValue(
     originalSchema,
     rootSchema,
     present ? existing : null,

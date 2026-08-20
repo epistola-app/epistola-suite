@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EpExpressionDialog } from './EpExpressionDialog.js';
 import * as resolveExpression from '../engine/resolve-expression.js';
-import type { FieldPath } from '../engine/schema-paths.js';
+import { extractFieldPaths, type FieldPath } from '../engine/schema-paths.js';
 
 type ExpressionResult = { ok: true; value: unknown } | { ok: false; error: string };
 
@@ -374,6 +374,56 @@ describe('EpExpressionDialog builder mode', () => {
         values: expect.arrayContaining(['params.recipientName']),
       }),
     );
+    component.close(null);
+  });
+
+  it('offers advanced schema branches in Builder and nested arrays in Code', async () => {
+    component.fieldPaths = extractFieldPaths({
+      type: 'object',
+      $defs: {
+        subject: {
+          oneOf: [
+            {
+              type: 'object',
+              properties: { personName: { type: 'string' } },
+            },
+            {
+              type: 'object',
+              properties: { companyName: { type: 'string' } },
+            },
+          ],
+        },
+      },
+      properties: {
+        subject: { $ref: '#/$defs/subject' },
+        alternateSubjects: {
+          type: 'array',
+          items: { $ref: '#/$defs/subject' },
+        },
+      },
+    });
+
+    const dialog = component.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    component.show();
+    await component.updateComplete;
+
+    const builderValues = Array.from(
+      component.querySelectorAll<HTMLOptionElement>('.expression-dialog-field-select option'),
+    ).map((option) => option.value);
+    expect(builderValues).toEqual(
+      expect.arrayContaining(['subject.personName', 'subject.companyName']),
+    );
+    expect(builderValues).not.toContain('alternateSubjects[].personName');
+
+    component.querySelector<HTMLButtonElement>('.expression-dialog-builder-hint-link')?.click();
+    await component.updateComplete;
+
+    const codePaths = Array.from(
+      component.querySelectorAll<HTMLElement>('.expression-dialog-path-item'),
+    ).map((item) => item.textContent ?? '');
+    expect(codePaths.some((text) => text.includes('alternateSubjects[].personName'))).toBe(true);
+    expect(codePaths.some((text) => text.includes('alternateSubjects[].companyName'))).toBe(true);
     component.close(null);
   });
 

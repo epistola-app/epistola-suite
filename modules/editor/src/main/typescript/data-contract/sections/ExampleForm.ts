@@ -29,7 +29,7 @@ import {
 } from '../types.js';
 import { findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
 import { scalarFromJsonSchema } from '../field-types.js';
-import { resolveExampleSchema } from '../utils/exampleSchemaResolver.js';
+import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
 import './EpistolaRichTextInput.js';
 
@@ -40,7 +40,7 @@ function resolvePropertyType(
   value?: JsonValue,
 ): string {
   if (!prop) return 'string';
-  const effective = rootSchema ? resolveExampleSchema(prop, rootSchema, value) : prop;
+  const effective = rootSchema ? resolveSchemaForValue(prop, rootSchema, value) : prop;
   const refType = findRefType(effective.$ref);
   if (refType !== null) return refType.id;
   const declaredTypes: readonly string[] = Array.isArray(effective.type)
@@ -264,7 +264,7 @@ export function renderExampleForm(
     return html` <div class="dc-form-empty">Define a schema first to create examples.</div> `;
   }
 
-  const effectiveSchema = resolveExampleSchema(schema, schema, data);
+  const effectiveSchema = resolveSchemaForValue(schema, schema, data);
   if (!effectiveSchema.properties || Object.keys(effectiveSchema.properties).length === 0) {
     return html` <div class="dc-form-empty">Define a schema first to create examples.</div> `;
   }
@@ -308,7 +308,7 @@ function renderFormField(
   readOnly: boolean,
 ): unknown {
   const value = getNestedValue(rootData, path);
-  const effectiveSchema = resolveExampleSchema(propSchema, rootSchema, value);
+  const effectiveSchema = resolveSchemaForValue(propSchema, rootSchema, value);
   const type = resolvePropertyType(effectiveSchema, rootSchema, value);
   const fieldError = errors.get(path);
   const fieldId = fieldIdFromPath(path);
@@ -661,7 +661,7 @@ function renderArrayField(
   const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : [];
   const itemSchema = propSchema.items;
   const effectiveItemSchema = itemSchema
-    ? resolveExampleSchema(itemSchema, rootSchema, items[0])
+    ? resolveSchemaForValue(itemSchema, rootSchema, items[0])
     : undefined;
   const itemType = resolvePropertyType(effectiveItemSchema, rootSchema, items[0]);
 
@@ -834,7 +834,7 @@ function renderArrayOfObjects(
         ${items.map((item, index) => {
           const itemPath = `${path}.${index}`;
           const itemHasErrors = hasChildErrors(itemPath, errors);
-          const effectiveItemSchema = resolveExampleSchema(itemSchema, rootSchema, item);
+          const effectiveItemSchema = resolveSchemaForValue(itemSchema, rootSchema, item);
           const nestedRequired = new Set(effectiveItemSchema.required ?? []);
           return html`
             <details
@@ -1155,7 +1155,7 @@ function getDefaultValueForType(
       const obj: Record<string, JsonValue> = {};
       for (const [key, propSchema] of Object.entries(schema.properties)) {
         const effectiveProperty = rootSchema
-          ? resolveExampleSchema(propSchema, rootSchema)
+          ? resolveSchemaForValue(propSchema, rootSchema)
           : propSchema;
         obj[key] = getDefaultValueForType(
           resolvePropertyType(effectiveProperty, rootSchema),

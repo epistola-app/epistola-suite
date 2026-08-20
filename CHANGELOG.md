@@ -23,7 +23,10 @@
   mode while their examples stay editable. UI imports, draft commands, publishing, and catalog
   imports now reject arbitrary JSON objects: a data contract must be a valid JSON Schema that
   guarantees object-shaped data at its root. The demo catalog includes an **Advanced Data Contract**
-  template with these schema shapes and representative examples for hands-on verification. Bundled
+  template with these schema shapes and representative examples for hands-on verification. Those
+  advanced schemas now also expose referenced, composed, union-branch, nullable, and nested-array
+  fields in the template expression picker. Schema resolution is shared between that picker and the
+  example editor, while recursive and unresolved references remain safe leaf fields. Bundled
   catalog upgrades now fully reconcile on restart: newly added or otherwise missing resources are
   installed, changed resources are updated, and removed resources—including code lists and fonts—
   are safely deleted unless they remain in use.
