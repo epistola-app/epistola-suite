@@ -19,6 +19,9 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -1276,6 +1279,55 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(contractVersion).isNotNull
                 assertThat(contractVersion!!.dataExamples).hasSize(1)
                 assertThat(contractVersion.dataExamples[0].id).isEqualTo("example-2")
+            }
+        }
+
+        @Test
+        fun `DELETE data-example creates a draft from the published contract before deleting`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            lateinit var templateId: TemplateId
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))
+
+                CreateContractVersion(templateId = templateId).execute()
+                UpdateContractVersion(
+                    templateId = templateId,
+                    dataExamples = listOf(
+                        DataExample(
+                            id = "example-1",
+                            name = "Example 1",
+                            data = objectMapper.createObjectNode(),
+                        ),
+                        DataExample(
+                            id = "example-2",
+                            name = "Example 2",
+                            data = objectMapper.createObjectNode(),
+                        ),
+                    ),
+                ).execute()
+                PublishContractVersion(templateId = templateId, confirmed = true).execute()
+            }
+
+            whenever {
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    HttpMethod.DELETE,
+                    null,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+
+                val contractVersion = mediator.query(GetLatestContractVersion(templateId = templateId))
+                assertThat(contractVersion!!.status.name).isEqualTo("DRAFT")
+                assertThat(contractVersion.dataExamples.map { it.id }).containsExactly("example-2")
             }
         }
 

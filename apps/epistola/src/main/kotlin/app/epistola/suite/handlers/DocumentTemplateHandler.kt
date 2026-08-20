@@ -43,6 +43,7 @@ import app.epistola.suite.templates.commands.DeleteDataExample
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
@@ -655,6 +656,11 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
+
+        // The editor can show examples from the latest published contract when no draft exists yet.
+        // Materialize that published contract as a draft before applying the deletion.
+        CreateContractVersion(templateId = templateId).execute()
+            ?: return ServerResponse.notFound().build()
 
         val result = try {
             DeleteDataExample(

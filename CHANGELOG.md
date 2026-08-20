@@ -8,6 +8,8 @@
   Saving or publishing without an example is rejected with an actionable validation error, the
   editor highlights the requirement, and the final example can no longer be deleted. Existing
   empty contract versions remain readable and importable.
+- **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
+  The editor now starts a draft automatically before applying the deletion.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack
