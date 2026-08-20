@@ -631,6 +631,20 @@
     }
   }
 
+  .dc-tree-input::placeholder,
+  .dc-array-item-input::placeholder {
+    color: var(--ep-stone-400);
+    font-style: italic;
+    opacity: 1;
+  }
+
+  .dc-tree-input:placeholder-shown:not(:disabled),
+  .dc-array-item-input:placeholder-shown:not(:disabled) {
+    background: var(--ep-white);
+    border-color: var(--ep-terracotta-200);
+    box-shadow: inset 3px 0 0 var(--ep-terracotta-100);
+  }
+
   /* Rich-text input: wraps a ProseMirror editor in place of a single-line input. */
   epistola-rich-text-input {
     display: block;
@@ -643,6 +657,7 @@
     }
 
     .dc-rich-text-container {
+      position: relative;
       min-height: var(--ep-h-9);
       font-size: var(--ep-text-sm);
       padding: var(--ep-space-1-5) var(--ep-space-3);
@@ -663,6 +678,21 @@
         ol {
           padding-left: 1.25em;
         }
+      }
+
+      &.has-placeholder[data-empty]::before {
+        content: attr(data-placeholder);
+        position: absolute;
+        inset: var(--ep-space-1-5) var(--ep-space-3) auto;
+        color: var(--ep-stone-400);
+        font-style: italic;
+        pointer-events: none;
+      }
+
+      &.has-placeholder[data-empty] {
+        background: var(--ep-white);
+        border-color: var(--ep-terracotta-200);
+        box-shadow: inset 3px 0 0 var(--ep-terracotta-100);
       }
     }
 
@@ -1091,6 +1121,7 @@
       display: flex;
       align-items: center;
       gap: var(--ep-space-1);
+      flex-wrap: wrap;
     }
 
     & .dc-example-toolbar-btn {
@@ -1120,6 +1151,16 @@
       &:focus-visible {
         outline: none;
         box-shadow: var(--ep-ring);
+      }
+    }
+
+    & .dc-example-generate-btn {
+      color: var(--ep-primary-strong);
+      background: var(--ep-terracotta-50);
+
+      &:hover:not(:disabled) {
+        color: var(--ep-primary-strong);
+        background: var(--ep-terracotta-100);
       }
     }
   }

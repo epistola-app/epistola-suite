@@ -54,7 +54,11 @@ describe('ExamplesSection required example state', () => {
 
     expect(actions?.textContent).toContain('Undo');
     expect(actions?.textContent).toContain('Redo');
+    expect(actions?.textContent).toContain('Autofill');
     expect(actions?.textContent).not.toContain('Save');
+    expect(container.querySelector('.dc-example-generate-btn')?.getAttribute('aria-label')).toBe(
+      'Autofill missing example values from schema',
+    );
   });
 
   it('explains the requirement and offers to add the first example', () => {
