@@ -4,6 +4,7 @@
 
 import { findRefType } from '../ref-types.js';
 import type { JsonArray, JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
+import { resolveExampleSchema } from './exampleSchemaResolver.js';
 import type { ExampleField, ExampleValueProvider } from './exampleValueProvider.js';
 
 const GENERATED_DATE = '2024-01-01';
@@ -86,7 +87,11 @@ function completeValue(
     return present ? structuredClone(existing as JsonValue) : refType.defaultValue();
   }
 
-  const schema = resolveLocalRef(originalSchema, rootSchema) ?? originalSchema;
+  const schema = resolveExampleSchema(
+    originalSchema,
+    rootSchema,
+    present ? existing : null,
+  ) as SchemaNode;
   const type = resolveType(schema);
 
   if (present) {
@@ -266,17 +271,6 @@ function resolveType(schema: SchemaNode): string {
   if (schema.properties) return 'object';
   if (schema.items) return 'array';
   return types[0] ?? 'string';
-}
-
-function resolveLocalRef(schema: SchemaNode, rootSchema: JsonObject): SchemaNode | null {
-  if (!schema.$ref?.startsWith('#/')) return null;
-  let current: unknown = rootSchema;
-  for (const encodedSegment of schema.$ref.slice(2).split('/')) {
-    if (!isJsonObject(current)) return null;
-    const segment = encodedSegment.replace(/~1/g, '/').replace(/~0/g, '~');
-    current = current[segment];
-  }
-  return isJsonObject(current) ? (current as SchemaNode) : null;
 }
 
 function isJsonObject(value: unknown): value is JsonObject {

@@ -36,8 +36,10 @@
   profile, and unconstrained arrays receive a seeded two or three items rather than an
   unrepresentative single item. Each object in an array receives its own coherent fictional profile,
   and generated fallback and formatted values such as names and email addresses are distinct
-  between items. Authored values are preserved and the complete operation can be undone in one
-  step. Empty example fields now render their existing placeholder hints with muted italic text and
+  between items. Autofill resolves the same local references, compositions, and union variants as
+  the example form, so advanced nested schemas are completed consistently. Authored values are
+  preserved and the complete operation can be undone in one step. Empty example fields now render
+  their existing placeholder hints with muted italic text and
   a subtle accent edge, including rich-text fields, so hints cannot be mistaken for stored test data
   or disabled controls.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer

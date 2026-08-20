@@ -159,6 +159,94 @@ describe('completeExampleFromSchema', () => {
     expect(generated.introduction).toMatchObject({ type: 'doc' });
   });
 
+  it('completes referenced compositions and unions in advanced nested schemas', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        contactDetails: {
+          type: 'object',
+          properties: {
+            email: { type: 'string', format: 'email' },
+            phoneNumber: { type: 'string' },
+          },
+        },
+        person: {
+          type: 'object',
+          allOf: [{ $ref: '#/$defs/contactDetails' }],
+          properties: {
+            firstName: { type: 'string' },
+            address: {
+              type: 'object',
+              properties: { city: { type: 'string' } },
+            },
+          },
+        },
+      },
+      properties: {
+        applicant: { $ref: '#/$defs/person' },
+        subject: {
+          oneOf: [
+            { $ref: '#/$defs/person' },
+            {
+              type: 'object',
+              properties: { organizationName: { type: 'string' } },
+            },
+          ],
+        },
+        alternateSubjects: {
+          type: 'array',
+          minItems: 2,
+          items: {
+            oneOf: [
+              { $ref: '#/$defs/person' },
+              {
+                type: 'object',
+                properties: { organizationName: { type: 'string' } },
+              },
+            ],
+          },
+        },
+        correspondenceAddress: {
+          anyOf: [
+            { type: 'null' },
+            {
+              type: 'object',
+              properties: { city: { type: 'string' } },
+            },
+          ],
+        },
+      },
+    };
+
+    const generated = complete(schema, {
+      applicant: { firstName: 'Authored name' },
+    });
+
+    expect(generated.applicant).toMatchObject({
+      firstName: 'Authored name',
+      email: expect.stringMatching(/@example\./),
+      phoneNumber: expect.any(String),
+      address: { city: expect.any(String) },
+    });
+    expect(generated.subject).toMatchObject({
+      firstName: expect.any(String),
+      email: expect.stringMatching(/@example\./),
+      phoneNumber: expect.any(String),
+      address: { city: expect.any(String) },
+    });
+    expect(generated.alternateSubjects).toHaveLength(2);
+    for (const item of generated.alternateSubjects as JsonObject[]) {
+      expect(item).toMatchObject({
+        firstName: expect.any(String),
+        email: expect.stringMatching(/@example\./),
+        phoneNumber: expect.any(String),
+        address: { city: expect.any(String) },
+      });
+    }
+    expect(generated.correspondenceAddress).toMatchObject({ city: expect.any(String) });
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
+  });
+
   it('honors array minimum and maximum constraints', () => {
     const schema: JsonSchema = {
       type: 'object',
