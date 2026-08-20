@@ -14,6 +14,19 @@
   versions remain readable and importable.
 - **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
   The editor now starts a draft automatically before applying the deletion.
+- **[user]** feat(data-contracts): **Example data can be completed from its schema.** A new
+  per-example **Autofill** action fills missing values with seeded, realistic Dutch test data inferred from
+  field names, titles, and descriptions, alongside defaults, enums, formats, numeric constraints,
+  and nested object/array structure. Common municipal roles, communication methods, references,
+  and identifiers receive domain-shaped values; unknown strings get a numbered, field-specific
+  fallback instead of a repeated generic placeholder. Related fields share a coherent fictional
+  profile, and unconstrained arrays receive a seeded two or three items rather than an
+  unrepresentative single item. Each object in an array receives its own coherent fictional profile,
+  and generated fallback and formatted values such as names and email addresses are distinct
+  between items. Authored values are preserved and the complete operation can be undone in one
+  step. Empty example fields now render their existing placeholder hints with muted italic text and
+  a subtle accent edge, including rich-text fields, so hints cannot be mistaken for stored test data
+  or disabled controls.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack
