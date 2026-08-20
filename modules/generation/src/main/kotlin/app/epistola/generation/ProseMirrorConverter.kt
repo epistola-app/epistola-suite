@@ -81,8 +81,8 @@ class ProseMirrorConverter(
         return when (type) {
             "paragraph" -> convertParagraph(node, data, loopContext, fontCache, resolvedStyles, face)
             "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles, bookmarkCollector, face)
-            "bulletList", "bullet_list" -> listOf(convertBulletList(node, data, loopContext, fontCache, face))
-            "orderedList", "ordered_list" -> listOf(convertOrderedList(node, data, loopContext, fontCache, face))
+            "bulletList", "bullet_list" -> listOf(convertBulletList(node, data, loopContext, fontCache, resolvedStyles, face))
+            "orderedList", "ordered_list" -> listOf(convertOrderedList(node, data, loopContext, fontCache, resolvedStyles, face))
             else -> emptyList()
         }
     }
@@ -291,6 +291,7 @@ class ProseMirrorConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any>,
         face: FaceContext,
     ): List {
         @Suppress("UNCHECKED_CAST")
@@ -313,11 +314,10 @@ class ProseMirrorConverter(
         @Suppress("UNCHECKED_CAST")
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
-        for (item in items) {
-            if (item["type"] == "listItem" || item["type"] == "list_item") {
-                val listItem = convertListItem(item, data, loopContext, fontCache, face)
-                list.add(listItem)
-            }
+        val validItems = items.filter { it["type"] == "listItem" || it["type"] == "list_item" }
+        for ((index, item) in validItems.withIndex()) {
+            val listItem = convertListItem(item, data, loopContext, fontCache, resolvedStyles, face, index, validItems.lastIndex)
+            list.add(listItem)
         }
 
         return list
@@ -328,6 +328,7 @@ class ProseMirrorConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any>,
         face: FaceContext,
     ): List {
         @Suppress("UNCHECKED_CAST")
@@ -351,11 +352,10 @@ class ProseMirrorConverter(
         @Suppress("UNCHECKED_CAST")
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
-        for (item in items) {
-            if (item["type"] == "listItem" || item["type"] == "list_item") {
-                val listItem = convertListItem(item, data, loopContext, fontCache, face)
-                list.add(listItem)
-            }
+        val validItems = items.filter { it["type"] == "listItem" || it["type"] == "list_item" }
+        for ((index, item) in validItems.withIndex()) {
+            val listItem = convertListItem(item, data, loopContext, fontCache, resolvedStyles, face, index, validItems.lastIndex)
+            list.add(listItem)
         }
 
         return list
@@ -366,10 +366,17 @@ class ProseMirrorConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any>,
         face: FaceContext,
+        itemIndex: Int,
+        lastItemIndex: Int,
     ): ListItem {
         val listItem = ListItem()
-        listItem.setMarginBottom(renderingDefaults.listItemMarginBottom)
+        val spacing = (resolvedStyles["listItemSpacing"] as? Number)?.toFloat()
+            ?: renderingDefaults.listItemMarginBottom
+        listItem.setMarginBottom(
+            if (!renderingDefaults.listItemSpacingBetweenOnly || itemIndex < lastItemIndex) spacing else 0f,
+        )
 
         @Suppress("UNCHECKED_CAST")
         val content = item["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
@@ -384,12 +391,15 @@ class ProseMirrorConverter(
                     val paragraphContent = child["content"] as? kotlin.collections.List<Map<String, Any>>
                     if (paragraphContent != null) {
                         val paragraph = Paragraph()
+                        applyTextStyles(paragraph, resolvedStyles)
+                        paragraph.setMarginTop(0f)
+                        paragraph.setMarginBottom(0f)
                         addInlineContent(paragraph, paragraphContent, data, loopContext, fontCache, face)
                         listItem.add(paragraph)
                     }
                 }
-                "bulletList", "bullet_list" -> listItem.add(convertBulletList(child, data, loopContext, fontCache, face))
-                "orderedList", "ordered_list" -> listItem.add(convertOrderedList(child, data, loopContext, fontCache, face))
+                "bulletList", "bullet_list" -> listItem.add(convertBulletList(child, data, loopContext, fontCache, resolvedStyles, face))
+                "orderedList", "ordered_list" -> listItem.add(convertOrderedList(child, data, loopContext, fontCache, resolvedStyles, face))
             }
         }
 
