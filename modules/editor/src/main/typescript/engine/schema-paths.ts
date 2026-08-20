@@ -17,8 +17,9 @@
  * their layer rather than baking that knowledge in here.
  */
 
-import { scalarFromJsonSchema } from '../data-contract/field-types.js';
+import { scalarFromJsonSchema } from '../json-schema/scalar-type.js';
 import {
+  type JsonSchemaNode,
   type ResolvedSchemaVariant,
   resolveSchemaVariants,
 } from '../json-schema/schema-resolution.js';
@@ -54,7 +55,7 @@ const MAX_DEPTH = 5;
  * For arrays with `items`, appends `[]` at each array level and continues into
  * object items. Union branches are deduplicated in declaration order.
  */
-export function extractFieldPaths(schema: object): FieldPath[] {
+export function extractFieldPaths(schema: JsonSchemaNode): FieldPath[] {
   const fields = new Map<string, FieldPath>();
   for (const variant of resolveSchemaVariants(schema, schema)) {
     walkProperties(variant, schema, '', 0, fields);
@@ -64,7 +65,7 @@ export function extractFieldPaths(schema: object): FieldPath[] {
 
 function walkProperties(
   variant: ResolvedSchemaVariant,
-  rootSchema: object,
+  rootSchema: JsonSchemaNode,
   prefix: string,
   depth: number,
   fields: Map<string, FieldPath>,
@@ -95,7 +96,7 @@ function walkProperties(
 
 function walkContainer(
   variant: ResolvedSchemaVariant,
-  rootSchema: object,
+  rootSchema: JsonSchemaNode,
   path: string,
   depth: number,
   fields: Map<string, FieldPath>,
@@ -121,11 +122,7 @@ function walkContainer(
   }
 }
 
-function addField(
-  fields: Map<string, FieldPath>,
-  path: string,
-  schema: Record<string, unknown>,
-): void {
+function addField(fields: Map<string, FieldPath>, path: string, schema: JsonSchemaNode): void {
   const type = displayType(schema);
   const ref = typeof schema.$ref === 'string' ? schema.$ref : undefined;
   const existing = fields.get(path);
@@ -139,7 +136,7 @@ function addField(
   if (!existing.ref && ref) existing.ref = ref;
 }
 
-function displayType(schema: Record<string, unknown>): string {
+function displayType(schema: JsonSchemaNode): string {
   const types = schemaTypes(schema).filter((type) => type !== 'null');
   let type = types[0] ?? inferType(schema);
   for (const candidate of types.slice(1)) type = mergeTypes(type, candidate);
@@ -148,7 +145,7 @@ function displayType(schema: Record<string, unknown>): string {
   return scalarFromJsonSchema(type, format) ?? type;
 }
 
-function inferType(schema: Record<string, unknown>): string {
+function inferType(schema: JsonSchemaNode): string {
   if (Object.keys(objectRecord(schema.properties)).length > 0) return 'object';
   if (isObject(schema.items)) return 'array';
   return 'unknown';
@@ -162,24 +159,22 @@ function mergeTypes(left: string, right: string): string {
   return 'unknown';
 }
 
-function isNullOnly(schema: Record<string, unknown>): boolean {
+function isNullOnly(schema: JsonSchemaNode): boolean {
   const types = schemaTypes(schema);
   return types.length === 1 && types[0] === 'null';
 }
 
-function schemaTypes(schema: Record<string, unknown>): string[] {
+function schemaTypes(schema: JsonSchemaNode): string[] {
   if (typeof schema.type === 'string') return [schema.type];
   return Array.isArray(schema.type)
     ? schema.type.filter((type): type is string => typeof type === 'string')
     : [];
 }
 
-function objectRecord(value: unknown): Record<string, Record<string, unknown>> {
+function objectRecord(value: unknown): Record<string, JsonSchemaNode> {
   if (!isObject(value)) return {};
   return Object.fromEntries(
-    Object.entries(value).filter((entry): entry is [string, Record<string, unknown>] =>
-      isObject(entry[1]),
-    ),
+    Object.entries(value).filter((entry): entry is [string, JsonSchemaNode] => isObject(entry[1])),
   );
 }
 

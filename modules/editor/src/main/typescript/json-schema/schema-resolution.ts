@@ -11,23 +11,63 @@
  * unresolved references remain intact so callers can handle them as safe leaves.
  */
 
-type SchemaNode = Record<string, unknown>;
+export type JsonSchemaValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonSchemaValue[]
+  | { [key: string]: JsonSchemaValue };
+
+export interface JsonSchemaNode {
+  $ref?: string;
+  type?: string | string[];
+  format?: string;
+  title?: string;
+  description?: string;
+  properties?: Record<string, JsonSchemaNode>;
+  items?: JsonSchemaNode;
+  required?: string[];
+  allOf?: JsonSchemaNode[];
+  oneOf?: JsonSchemaNode[];
+  anyOf?: JsonSchemaNode[];
+  enum?: JsonSchemaValue[];
+  const?: JsonSchemaValue;
+  default?: JsonSchemaValue;
+  minimum?: number;
+  maximum?: number;
+  minItems?: number;
+  maxItems?: number;
+  minLength?: number;
+  maxLength?: number;
+  multipleOf?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  additionalProperties?: boolean | JsonSchemaNode;
+  $defs?: Record<string, JsonSchemaNode>;
+  definitions?: Record<string, JsonSchemaNode>;
+}
+
+/** Prevent hostile or accidental composition graphs from growing exponentially. */
+export const MAX_RESOLVED_SCHEMA_VARIANTS = 256;
+
+const INCOMPATIBLE_SCORE = Number.NEGATIVE_INFINITY;
+const MAX_MATCH_DEPTH = 20;
 
 export interface ResolvedSchemaVariant {
-  schema: SchemaNode;
+  schema: JsonSchemaNode;
   /** References active on the route to this variant, used to stop recursive schemas. */
   resolvingRefs: ReadonlySet<string>;
 }
 
 /** Resolve the single effective schema that best matches an existing value. */
-export function resolveSchemaForValue<TSchema extends object>(
-  schema: TSchema,
-  rootSchema: object,
+export function resolveSchemaForValue(
+  schema: JsonSchemaNode,
+  rootSchema: JsonSchemaNode,
   value?: unknown,
-): TSchema;
-export function resolveSchemaForValue(schema: object, rootSchema: object, value?: unknown): object {
+): JsonSchemaNode {
   const variants = resolveSchemaVariants(schema, rootSchema);
-  const selected = selectVariant(variants, value);
+  const selected = selectVariant(variants, rootSchema, value);
   return selected?.schema ?? schema;
 }
 
@@ -39,17 +79,16 @@ export function resolveSchemaForValue(schema: object, rootSchema: object, value?
  * recurse into child properties can stop cycles without losing useful fields.
  */
 export function resolveSchemaVariants(
-  schema: object,
-  rootSchema: object,
+  schema: JsonSchemaNode,
+  rootSchema: JsonSchemaNode,
   resolvingRefs: ReadonlySet<string> = new Set(),
 ): ResolvedSchemaVariant[] {
-  if (!isObject(schema) || !isObject(rootSchema)) return [];
   return resolveVariants(schema, rootSchema, resolvingRefs);
 }
 
 function resolveVariants(
-  schema: SchemaNode,
-  rootSchema: SchemaNode,
+  schema: JsonSchemaNode,
+  rootSchema: JsonSchemaNode,
   resolvingRefs: ReadonlySet<string>,
 ): ResolvedSchemaVariant[] {
   const reference = typeof schema.$ref === 'string' ? schema.$ref : undefined;
@@ -73,8 +112,8 @@ function resolveVariants(
 }
 
 function expandCompositions(
-  schema: SchemaNode,
-  rootSchema: SchemaNode,
+  schema: JsonSchemaNode,
+  rootSchema: JsonSchemaNode,
   resolvingRefs: ReadonlySet<string>,
 ): ResolvedSchemaVariant[] {
   let variants: ResolvedSchemaVariant[] = [{ schema: withoutCompositions(schema), resolvingRefs }];
@@ -84,12 +123,15 @@ function expandCompositions(
     variants = combineVariants(variants, memberVariants);
   }
 
-  const alternatives = schemaArray(schema.oneOf ?? schema.anyOf);
-  if (alternatives.length > 0) {
-    const alternativeVariants = alternatives.flatMap((alternative) =>
-      resolveVariants(alternative, rootSchema, resolvingRefs),
-    );
-    variants = combineVariants(variants, alternativeVariants);
+  for (const alternatives of [schemaArray(schema.oneOf), schemaArray(schema.anyOf)]) {
+    if (alternatives.length > 0) {
+      const alternativeVariants = collectAlternativeVariants(
+        alternatives,
+        rootSchema,
+        resolvingRefs,
+      );
+      variants = combineVariants(variants, alternativeVariants);
+    }
   }
 
   return variants;
@@ -99,59 +141,123 @@ function combineVariants(
   bases: ResolvedSchemaVariant[],
   extensions: ResolvedSchemaVariant[],
 ): ResolvedSchemaVariant[] {
-  return bases.flatMap((base) =>
-    extensions.map((extension) => ({
-      schema: mergeSchemas(base.schema, extension.schema),
-      resolvingRefs: new Set([...base.resolvingRefs, ...extension.resolvingRefs]),
-    })),
-  );
+  const combined: ResolvedSchemaVariant[] = [];
+  const seen = new Set<string>();
+  for (const base of bases) {
+    for (const extension of extensions) {
+      const variant = {
+        schema: mergeSchemas(base.schema, extension.schema),
+        resolvingRefs: new Set([...base.resolvingRefs, ...extension.resolvingRefs]),
+      };
+      const key = variantKey(variant);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      combined.push(variant);
+      if (combined.length >= MAX_RESOLVED_SCHEMA_VARIANTS) return combined;
+    }
+  }
+  return combined;
+}
+
+function collectAlternativeVariants(
+  alternatives: JsonSchemaNode[],
+  rootSchema: JsonSchemaNode,
+  resolvingRefs: ReadonlySet<string>,
+): ResolvedSchemaVariant[] {
+  const variants: ResolvedSchemaVariant[] = [];
+  const seen = new Set<string>();
+  for (const alternative of alternatives) {
+    for (const variant of resolveVariants(alternative, rootSchema, resolvingRefs)) {
+      const key = variantKey(variant);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      variants.push(variant);
+      if (variants.length >= MAX_RESOLVED_SCHEMA_VARIANTS) return variants;
+    }
+  }
+  return variants;
+}
+
+function variantKey(variant: ResolvedSchemaVariant): string {
+  return `${JSON.stringify(variant.schema)}|${[...variant.resolvingRefs].toSorted().join(',')}`;
 }
 
 function selectVariant(
   variants: ResolvedSchemaVariant[],
+  rootSchema: JsonSchemaNode,
   value: unknown,
 ): ResolvedSchemaVariant | undefined {
-  if (variants.length <= 1 || value === undefined) return variants[0];
+  if (variants.length <= 1) return variants[0];
 
-  if (value === null) {
-    const editable = variants.find(({ schema }) =>
-      schemaTypes(schema).some((type) => type !== 'null'),
-    );
+  if (value === null || value === undefined) {
+    const editable = variants.find(({ schema }) => !isNullOnly(schema));
     if (editable) return editable;
   }
 
-  const exact = variants.find(({ schema }) => schemaMatchesValue(schema, value));
-  if (exact) return exact;
-
-  // Required fields make partially authored objects fail every exact match.
-  // Prefer the branch with the largest overlap with keys already present.
-  if (isObject(value)) {
-    const scored = variants
-      .map((variant, index) => ({
-        variant,
-        index,
-        score: Object.keys(value).filter((key) => key in schemaProperties(variant.schema)).length,
-      }))
-      .toSorted((left, right) => right.score - left.score || left.index - right.index);
-    if (scored[0]?.score > 0) return scored[0].variant;
-  }
-
-  return variants[0];
+  return variants
+    .map((variant, index) => ({
+      variant,
+      index,
+      score: scoreSchemaMatch(variant.schema, rootSchema, value, variant.resolvingRefs, 0),
+    }))
+    .toSorted((left, right) => right.score - left.score || left.index - right.index)[0]?.variant;
 }
 
-function schemaMatchesValue(schema: SchemaNode, value: unknown): boolean {
-  if (schema.const !== undefined && !sameJson(schema.const, value)) return false;
+function scoreSchemaMatch(
+  schema: JsonSchemaNode,
+  rootSchema: JsonSchemaNode,
+  value: unknown,
+  resolvingRefs: ReadonlySet<string>,
+  depth: number,
+): number {
+  if (depth > MAX_MATCH_DEPTH) return 0;
+  if (schema.const !== undefined && !sameJson(schema.const, value)) return INCOMPATIBLE_SCORE;
   if (Array.isArray(schema.enum) && !schema.enum.some((candidate) => sameJson(candidate, value))) {
-    return false;
+    return INCOMPATIBLE_SCORE;
   }
 
-  const types = schemaTypes(schema);
-  if (types.length > 0 && !types.some((type) => valueMatchesType(value, type))) return false;
-
-  if (isObject(value) && Array.isArray(schema.required)) {
-    return schema.required.every((name) => typeof name === 'string' && Object.hasOwn(value, name));
+  const types = inferredSchemaTypes(schema);
+  if (types.length > 0 && !types.some((type) => valueMatchesType(value, type))) {
+    return INCOMPATIBLE_SCORE;
   }
-  return true;
+
+  let score = 1;
+  if (isObject(value)) {
+    const properties = schemaProperties(schema);
+    for (const [name, propertyValue] of Object.entries(value)) {
+      const propertySchema = properties[name];
+      if (!propertySchema) continue;
+      score += 4;
+      const childVariants = resolveSchemaVariants(propertySchema, rootSchema, resolvingRefs);
+      const childScore = Math.max(
+        ...childVariants.map((variant) =>
+          scoreSchemaMatch(
+            variant.schema,
+            rootSchema,
+            propertyValue,
+            variant.resolvingRefs,
+            depth + 1,
+          ),
+        ),
+      );
+      score += childScore === INCOMPATIBLE_SCORE ? -8 : Math.min(childScore, 8);
+    }
+    for (const name of schema.required ?? []) {
+      score += Object.hasOwn(value, name) ? 2 : -1;
+    }
+  }
+
+  if (Array.isArray(value) && schema.items) {
+    for (const item of value.slice(0, 5)) {
+      const itemVariants = resolveSchemaVariants(schema.items, rootSchema, resolvingRefs);
+      score += Math.max(
+        ...itemVariants.map((variant) =>
+          scoreSchemaMatch(variant.schema, rootSchema, item, variant.resolvingRefs, depth + 1),
+        ),
+      );
+    }
+  }
+  return score;
 }
 
 function valueMatchesType(value: unknown, type: string): boolean {
@@ -171,7 +277,7 @@ function valueMatchesType(value: unknown, type: string): boolean {
   }
 }
 
-function mergeSchemas(base: SchemaNode, extension: SchemaNode): SchemaNode {
+function mergeSchemas(base: JsonSchemaNode, extension: JsonSchemaNode): JsonSchemaNode {
   const baseProperties = schemaProperties(base);
   const extensionProperties = schemaProperties(extension);
   const hasProperties =
@@ -186,12 +292,15 @@ function mergeSchemas(base: SchemaNode, extension: SchemaNode): SchemaNode {
   };
 }
 
-function withoutCompositions(schema: SchemaNode): SchemaNode {
+function withoutCompositions(schema: JsonSchemaNode): JsonSchemaNode {
   const { allOf: _allOf, anyOf: _anyOf, oneOf: _oneOf, ...rest } = schema;
   return rest;
 }
 
-function resolveLocalReference(rootSchema: SchemaNode, reference: string): SchemaNode | null {
+function resolveLocalReference(
+  rootSchema: JsonSchemaNode,
+  reference: string,
+): JsonSchemaNode | null {
   let current: unknown = rootSchema;
   for (const encodedSegment of reference.slice(2).split('/')) {
     if (!isObject(current)) return null;
@@ -201,22 +310,35 @@ function resolveLocalReference(rootSchema: SchemaNode, reference: string): Schem
   return isObject(current) ? current : null;
 }
 
-function schemaTypes(schema: SchemaNode): string[] {
+function schemaTypes(schema: JsonSchemaNode): string[] {
   if (typeof schema.type === 'string') return [schema.type];
   return stringArray(schema.type);
 }
 
-function schemaProperties(schema: SchemaNode): Record<string, SchemaNode> {
+function inferredSchemaTypes(schema: JsonSchemaNode): string[] {
+  const types = schemaTypes(schema);
+  if (types.length > 0) return types;
+  if (schema.properties) return ['object'];
+  if (schema.items) return ['array'];
+  return [];
+}
+
+function isNullOnly(schema: JsonSchemaNode): boolean {
+  const types = schemaTypes(schema);
+  return types.length === 1 && types[0] === 'null';
+}
+
+function schemaProperties(schema: JsonSchemaNode): Record<string, JsonSchemaNode> {
   if (!isObject(schema.properties)) return {};
   return Object.fromEntries(
-    Object.entries(schema.properties).filter((entry): entry is [string, SchemaNode] =>
-      isObject(entry[1]),
+    Object.entries(schema.properties).filter((entry): entry is [string, JsonSchemaNode] =>
+      isSchemaNode(entry[1]),
     ),
   );
 }
 
-function schemaArray(value: unknown): SchemaNode[] {
-  return Array.isArray(value) ? value.filter(isObject) : [];
+function schemaArray(value: unknown): JsonSchemaNode[] {
+  return Array.isArray(value) ? value.filter(isSchemaNode) : [];
 }
 
 function stringArray(value: unknown): string[] {
@@ -229,6 +351,10 @@ function sameJson(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function isObject(value: unknown): value is SchemaNode {
+function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isSchemaNode(value: unknown): value is JsonSchemaNode {
+  return isObject(value);
 }

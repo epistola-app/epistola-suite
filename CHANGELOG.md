@@ -26,7 +26,8 @@
   template with these schema shapes and representative examples for hands-on verification. Those
   advanced schemas now also expose referenced, composed, union-branch, nullable, and nested-array
   fields in the template expression picker. Schema resolution is shared between that picker and the
-  example editor, while recursive and unresolved references remain safe leaf fields. Bundled
+  example editor, selects union branches using nested values, and bounds combinatorial schema
+  expansion. Recursive and unresolved references remain safe leaf fields. Bundled
   catalog upgrades now fully reconcile on restart: newly added or otherwise missing resources are
   installed, changed resources are updated, and removed resources—including code lists and fonts—
   are safely deleted unless they remain in use.

@@ -143,7 +143,8 @@ export interface VisualSchema {
 
 /** JSON Schema property type */
 export interface JsonSchemaProperty {
-  type?: SchemaFieldType | SchemaFieldType[];
+  /** JSON Schema types, including advanced values such as `null`. */
+  type?: string | string[];
   $ref?: string;
   title?: string;
   format?: string;
