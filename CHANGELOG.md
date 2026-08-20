@@ -18,7 +18,8 @@
   form resolves local schema references, object compositions, nullable unions, per-item union
   variants, and arrays nested directly inside arrays. Edits, additions, and removals continue to
   target the exact nested JSON path. The demo catalog includes an **Advanced Data Contract**
-  template with these schema shapes and representative examples for hands-on verification.
+  template with these schema shapes and representative examples for hands-on verification. Bundled
+  catalog upgrades now also reconcile newly added or otherwise missing resources on restart.
 - **[user]** feat(data-contracts): **Example data can be completed from its schema.** A new
   per-example **Autofill** action fills missing values with seeded, realistic Dutch test data inferred from
   field names, titles, and descriptions, alongside defaults, enums, formats, numeric constraints,

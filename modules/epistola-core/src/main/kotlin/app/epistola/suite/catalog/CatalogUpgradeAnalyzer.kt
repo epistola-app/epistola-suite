@@ -31,30 +31,35 @@ class CatalogUpgradeAnalyzer(
     private val jdbi: Jdbi,
 ) {
 
+    private companion object {
+        val STALE_PRUNED_RESOURCE_TYPES = setOf("template", "theme", "stencil", "attribute", "asset")
+    }
+
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /** All resources installed under `(tenant, catalog)`, grouped by type. */
-    fun installedByType(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, List<InstalledResource>> = jdbi.withHandle<Map<String, List<InstalledResource>>, Exception> { handle ->
-        val resources = mutableListOf<InstalledResource>()
-
-        data class TableType(val type: String, val table: String)
-
-        val tables = listOf(
-            TableType("template", "document_templates"),
-            TableType("theme", "themes"),
-            TableType("stencil", "stencils"),
-            TableType("attribute", "variant_attribute_definitions"),
-            TableType("asset", "assets"),
+    /** Every resource installed under `(tenant, catalog)`, including resource types not subject to stale pruning. */
+    fun installedResources(tenantKey: TenantKey, catalogKey: CatalogKey): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT 'template' AS type, id::text AS slug FROM document_templates WHERE tenant_key = :t AND catalog_key = :c
+            UNION ALL SELECT 'theme', id::text FROM themes WHERE tenant_key = :t AND catalog_key = :c
+            UNION ALL SELECT 'stencil', id::text FROM stencils WHERE tenant_key = :t AND catalog_key = :c
+            UNION ALL SELECT 'attribute', id::text FROM variant_attribute_definitions WHERE tenant_key = :t AND catalog_key = :c
+            UNION ALL SELECT 'asset', id::text FROM assets WHERE tenant_key = :t AND catalog_key = :c
+            UNION ALL SELECT 'codeList', slug::text FROM code_lists WHERE tenant_key = :t AND catalog_key = :c
+            UNION ALL SELECT 'font', slug::text FROM fonts WHERE tenant_key = :t AND catalog_key = :c
+            """,
         )
-
-        for ((type, table) in tables) {
-            handle.createQuery("SELECT id FROM $table WHERE tenant_key = :t AND catalog_key = :c")
-                .bind("t", tenantKey).bind("c", catalogKey).mapTo(String::class.java).list()
-                .forEach { resources.add(InstalledResource(type, it)) }
-        }
-
-        resources.groupBy { it.type }
+            .bind("t", tenantKey)
+            .bind("c", catalogKey)
+            .map { rs, _ -> InstalledResource(rs.getString("type"), rs.getString("slug")) }
+            .set()
     }
+
+    /** Resources handled by the upgrade analyzer, grouped by type. */
+    fun installedByType(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, List<InstalledResource>> = installedResources(tenantKey, catalogKey)
+        .filter { it.type in STALE_PRUNED_RESOURCE_TYPES }
+        .groupBy { it.type }
 
     /** Installed resources whose `(type, slug)` is no longer in the manifest. */
     fun computeStale(

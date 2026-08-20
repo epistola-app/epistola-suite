@@ -8,6 +8,8 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
+import app.epistola.suite.catalog.InstalledResource
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -22,8 +24,8 @@ import org.springframework.stereotype.Component
 /**
  * Idempotently brings a SUBSCRIBED catalog (identified by its manifest slug at
  * [sourceUrl]) to the bundled/remote content: registers + installs it on first
- * sight, no-ops when the installed content fingerprint already matches, and
- * upgrades when it drifted. The single state machine shared by the system
+ * sight, no-ops when the installed content fingerprint and resource set match,
+ * and reconciles when either drifted. The single state machine shared by the system
  * catalog installer ([InstallSystemCatalog][app.epistola.suite.catalog.system.InstallSystemCatalog])
  * and the demo loader — previously duplicated in both.
  *
@@ -54,13 +56,14 @@ data class EnsureSubscribedCatalogResult(
 @Component
 class EnsureSubscribedCatalogHandler(
     private val catalogClient: CatalogClient,
+    private val upgradeAnalyzer: CatalogUpgradeAnalyzer,
 ) : CommandHandler<EnsureSubscribedCatalog, EnsureSubscribedCatalogResult> {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: EnsureSubscribedCatalog): EnsureSubscribedCatalogResult = CatalogImportContext.runAsImport {
-        // The manifest's content fingerprint is the gate that decides
-        // install / upgrade / no-op (version is for humans).
+        // The manifest's content fingerprint and complete resource set decide
+        // install / reconcile / no-op (version is for humans).
         val manifest = catalogClient.fetchManifest(command.sourceUrl, command.authType, command.authCredential)
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
         val bundledVersion = manifest.release.version
@@ -90,10 +93,10 @@ class EnsureSubscribedCatalogHandler(
             return@runAsImport EnsureSubscribedCatalogResult(EnsureCatalogStatus.INSTALLED, catalogKey, null, bundledVersion)
         }
 
-        // Fingerprint is the change gate. A manifest without a fingerprint
+        // Fingerprint is the content-change gate. A manifest without a fingerprint
         // (legacy / hand-rolled external) can't be drift-detected, so fall
         // back to the version string instead of re-upgrading on every boot.
-        val alreadyCurrent = if (bundledFingerprint != null) {
+        val contentCurrent = if (bundledFingerprint != null) {
             existing.installedFingerprint == bundledFingerprint
         } else {
             log.warn(
@@ -103,6 +106,9 @@ class EnsureSubscribedCatalogHandler(
             )
             existing.installedReleaseVersion == bundledVersion
         }
+        val installedResources = upgradeAnalyzer.installedResources(command.tenantKey, catalogKey)
+        val allResourcesInstalled = manifest.resources.all { InstalledResource(it.type, it.slug) in installedResources }
+        val alreadyCurrent = contentCurrent && allResourcesInstalled
         if (alreadyCurrent) {
             return@runAsImport EnsureSubscribedCatalogResult(
                 EnsureCatalogStatus.ALREADY_CURRENT,
@@ -113,7 +119,11 @@ class EnsureSubscribedCatalogHandler(
         }
 
         val previousVersion = existing.installedReleaseVersion
-        val upgrade = UpgradeCatalog(tenantKey = command.tenantKey, catalogKey = existing.id).execute()
+        val upgrade = UpgradeCatalog(
+            tenantKey = command.tenantKey,
+            catalogKey = existing.id,
+            includeNewSlugs = manifest.resources.map { it.slug },
+        ).execute()
         if (upgrade.aborted) {
             // Loud + self-retrying: SystemCatalogBootstrap's catch counts this
             // as failed; the version stayed put so the next boot retries.

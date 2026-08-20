@@ -60,6 +60,39 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `missing resource is installed even when catalog fingerprint is current`() {
+        val tenant = createTenant("Ensure Missing")
+
+        withMediator {
+            EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
+        }
+
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                DELETE FROM document_templates
+                WHERE tenant_key = :tenant AND catalog_key = 'epistola-demo' AND id = 'advanced-data-contract'
+                """,
+            ).bind("tenant", tenant.id).execute()
+        }
+
+        withMediator {
+            val result = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
+            assertThat(result.status).isEqualTo(EnsureCatalogStatus.UPGRADED)
+        }
+
+        val installed = jdbi.withHandle<Int, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT COUNT(*) FROM document_templates
+                WHERE tenant_key = :tenant AND catalog_key = 'epistola-demo' AND id = 'advanced-data-contract'
+                """,
+            ).bind("tenant", tenant.id).mapTo(Int::class.java).one()
+        }
+        assertThat(installed).isOne()
+    }
+
+    @Test
     fun `manifest without fingerprint falls back to version compare (no re-upgrade loop)`() {
         // dependency-test's manifest has release.version "1.0" and NO
         // release.fingerprint — the legacy/hand-rolled case.
