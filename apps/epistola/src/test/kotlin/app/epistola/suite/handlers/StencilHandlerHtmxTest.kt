@@ -712,7 +712,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute().withRequiredDataExample()
+        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
         val variantKey = VariantKey.INITIAL
         UpdateDraft(
             variantId = VariantId(variantKey, templateId),
