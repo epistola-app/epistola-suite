@@ -70,4 +70,33 @@ describe('resolveExampleSchema', () => {
       properties: { companyName: { type: 'string' } },
     });
   });
+
+  it('keeps a partially filled object on the union branch with matching fields', () => {
+    const union: JsonSchemaProperty = {
+      oneOf: [
+        {
+          type: 'object',
+          properties: { personName: { type: 'string' }, email: { type: 'string' } },
+          required: ['personName', 'email'],
+        },
+        {
+          type: 'object',
+          properties: {
+            companyName: { type: 'string' },
+            registrationNumber: { type: 'string' },
+          },
+          required: ['companyName', 'registrationNumber'],
+        },
+      ],
+    };
+
+    expect(
+      resolveExampleSchema(union, { type: 'object' }, { companyName: 'Epistola' }),
+    ).toMatchObject({
+      properties: {
+        companyName: { type: 'string' },
+        registrationNumber: { type: 'string' },
+      },
+    });
+  });
 });

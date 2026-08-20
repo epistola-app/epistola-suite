@@ -4,6 +4,7 @@
 
 import { findRefType } from '../ref-types.js';
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
+import { resolveExampleSchema } from './exampleSchemaResolver.js';
 
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,7 +52,11 @@ export function validateDataAgainstSchema(
     return { valid: true, errors: [] };
   }
 
-  const jsonSchema = schema as JsonSchema;
+  const jsonSchema = resolveExampleSchema(
+    schema as JsonSchemaProperty,
+    schema as JsonSchema,
+    data,
+  ) as JsonSchema;
   if (jsonSchema.type !== 'object') {
     return { valid: true, errors: [] };
   }
@@ -72,7 +77,7 @@ export function validateDataAgainstSchema(
   if (jsonSchema.properties) {
     for (const [name, propSchema] of Object.entries(jsonSchema.properties)) {
       if (name in data) {
-        const propErrors = validateProperty(data[name], propSchema, `$.${name}`);
+        const propErrors = validateProperty(data[name], propSchema, `$.${name}`, jsonSchema);
         errors.push(...propErrors);
       }
     }
@@ -97,8 +102,9 @@ function isEmptyValue(value: JsonValue | undefined): boolean {
  */
 function validateProperty(
   value: JsonValue,
-  schema: JsonSchemaProperty,
+  originalSchema: JsonSchemaProperty,
   path: string,
+  rootSchema: JsonSchema,
 ): SchemaValidationError[] {
   const errors: SchemaValidationError[] = [];
 
@@ -109,12 +115,14 @@ function validateProperty(
 
   // Ref-based values: defer to the registered type's shallow shape check.
   // (Backend's networknt validator does the rigorous deep check via the IRI.)
-  const refType = findRefType(schema.$ref);
+  const refType = findRefType(originalSchema.$ref);
   if (refType !== null) {
     const reason = refType.shallowShapeCheck(value);
     if (reason !== null) errors.push({ path, message: reason });
     return errors;
   }
+
+  const schema = resolveExampleSchema(originalSchema, rootSchema, value);
 
   if (schema.type === undefined) {
     return errors;
@@ -149,12 +157,15 @@ function validateProperty(
     if (schema.format === 'uri' && !URI_RE.test(value)) {
       errors.push({ path, message: 'must be a valid URI' });
     }
+    if (schema.format === 'email' && !/^\S+@\S+\.\S+$/.test(value)) {
+      errors.push({ path, message: 'must be a valid email address' });
+    }
   }
 
   // Validate array items
   if (expectedType === 'array' && Array.isArray(value) && schema.items) {
     for (let i = 0; i < value.length; i++) {
-      const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`);
+      const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`, rootSchema);
       errors.push(...itemErrors);
     }
   }
@@ -179,7 +190,12 @@ function validateProperty(
     if (schema.properties) {
       for (const [name, propSchema] of Object.entries(schema.properties)) {
         if (name in objValue) {
-          const propErrors = validateProperty(objValue[name], propSchema, `${path}.${name}`);
+          const propErrors = validateProperty(
+            objValue[name],
+            propSchema,
+            `${path}.${name}`,
+            rootSchema,
+          );
           errors.push(...propErrors);
         }
       }

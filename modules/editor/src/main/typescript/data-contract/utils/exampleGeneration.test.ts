@@ -169,17 +169,21 @@ describe('completeExampleFromSchema', () => {
             email: { type: 'string', format: 'email' },
             phoneNumber: { type: 'string' },
           },
+          required: ['email'],
         },
         person: {
           type: 'object',
           allOf: [{ $ref: '#/$defs/contactDetails' }],
           properties: {
             firstName: { type: 'string' },
+            lastName: { type: 'string' },
             address: {
               type: 'object',
               properties: { city: { type: 'string' } },
+              required: ['city'],
             },
           },
+          required: ['firstName', 'lastName', 'address'],
         },
       },
       properties: {
@@ -189,7 +193,11 @@ describe('completeExampleFromSchema', () => {
             { $ref: '#/$defs/person' },
             {
               type: 'object',
-              properties: { organizationName: { type: 'string' } },
+              properties: {
+                organizationName: { type: 'string' },
+                registrationNumber: { type: 'string' },
+              },
+              required: ['organizationName', 'registrationNumber'],
             },
           ],
         },
@@ -201,7 +209,11 @@ describe('completeExampleFromSchema', () => {
               { $ref: '#/$defs/person' },
               {
                 type: 'object',
-                properties: { organizationName: { type: 'string' } },
+                properties: {
+                  organizationName: { type: 'string' },
+                  registrationNumber: { type: 'string' },
+                },
+                required: ['organizationName', 'registrationNumber'],
               },
             ],
           },
@@ -219,20 +231,27 @@ describe('completeExampleFromSchema', () => {
     };
 
     const generated = complete(schema, {
-      applicant: { firstName: 'Authored name' },
+      applicant: {
+        firstName: 'Authored name',
+        lastName: '',
+        email: '',
+        phoneNumber: null,
+        address: { city: '' },
+      },
+      subject: { organizationName: 'Authored organization', registrationNumber: '' },
+      correspondenceAddress: null,
     });
 
     expect(generated.applicant).toMatchObject({
       firstName: 'Authored name',
+      lastName: expect.any(String),
       email: expect.stringMatching(/@example\./),
       phoneNumber: expect.any(String),
       address: { city: expect.any(String) },
     });
     expect(generated.subject).toMatchObject({
-      firstName: expect.any(String),
-      email: expect.stringMatching(/@example\./),
-      phoneNumber: expect.any(String),
-      address: { city: expect.any(String) },
+      organizationName: 'Authored organization',
+      registrationNumber: expect.any(String),
     });
     expect(generated.alternateSubjects).toHaveLength(2);
     for (const item of generated.alternateSubjects as JsonObject[]) {
@@ -243,7 +262,7 @@ describe('completeExampleFromSchema', () => {
         address: { city: expect.any(String) },
       });
     }
-    expect(generated.correspondenceAddress).toMatchObject({ city: expect.any(String) });
+    expect(generated.correspondenceAddress).toBeNull();
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 

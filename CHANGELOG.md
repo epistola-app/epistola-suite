@@ -37,8 +37,11 @@
   unrepresentative single item. Each object in an array receives its own coherent fictional profile,
   and generated fallback and formatted values such as names and email addresses are distinct
   between items. Autofill resolves the same local references, compositions, and union variants as
-  the example form, so advanced nested schemas are completed consistently. Authored values are
-  preserved and the complete operation can be undone in one step. Empty example fields now render
+  the example form, keeps partially authored union objects on the matching variant, and replaces
+  empty required values while preserving meaningful authored values. Advanced nested schemas are
+  therefore completed consistently. The complete operation can be undone in one step. Invalid
+  examples now produce an actionable 400 response with the example name and failing JSON paths
+  instead of an internal-server error. Empty example fields now render
   their existing placeholder hints with muted italic text and
   a subtle accent edge, including rich-text fields, so hints cannot be mistaken for stored test data
   or disabled controls.

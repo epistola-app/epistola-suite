@@ -195,6 +195,53 @@ describe('validateDataAgainstSchema', () => {
     expect(result.errors[0].path).toBe('$.level1.level2.value');
   });
 
+  it('validates required fields through references, compositions, and partial unions', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        contact: {
+          type: 'object',
+          properties: { email: { type: 'string', format: 'email' } },
+          required: ['email'],
+        },
+        organization: {
+          type: 'object',
+          allOf: [{ $ref: '#/$defs/contact' }],
+          properties: {
+            organizationName: { type: 'string' },
+            registrationNumber: { type: 'string' },
+          },
+          required: ['organizationName', 'registrationNumber'],
+        },
+      },
+      properties: {
+        subject: {
+          oneOf: [
+            {
+              type: 'object',
+              properties: { firstName: { type: 'string' } },
+              required: ['firstName'],
+            },
+            { $ref: '#/$defs/organization' },
+          ],
+        },
+      },
+    };
+
+    const result = validateDataAgainstSchema(
+      { subject: { organizationName: 'Epistola', registrationNumber: '', email: '' } },
+      schema,
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '$.subject.registrationNumber' }),
+        expect.objectContaining({ path: '$.subject.email' }),
+      ]),
+    );
+  });
+
   it('allows null values for non-required fields', () => {
     const schema: JsonSchema = {
       type: 'object',

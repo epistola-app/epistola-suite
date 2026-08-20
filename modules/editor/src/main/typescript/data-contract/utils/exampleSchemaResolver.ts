@@ -74,11 +74,26 @@ function selectAlternative(
     if (editableAlternative) return editableAlternative;
   }
 
-  return (
-    alternatives.find((candidate) =>
-      schemaMatchesValue(resolveExampleSchema(candidate, rootSchema, value, resolvingRefs), value),
-    ) ?? alternatives[0]
+  const exactMatch = alternatives.find((candidate) =>
+    schemaMatchesValue(resolveExampleSchema(candidate, rootSchema, value, resolvingRefs), value),
   );
+  if (exactMatch) return exactMatch;
+
+  // A partially authored object commonly fails every alternative's `required`
+  // check. Keep its intended variant by selecting the schema whose declared
+  // properties overlap most with the keys already present.
+  if (isObject(value)) {
+    const scored = alternatives
+      .map((candidate, index) => {
+        const resolved = resolveExampleSchema(candidate, rootSchema, value, resolvingRefs);
+        const score = Object.keys(value).filter((key) => key in (resolved.properties ?? {})).length;
+        return { candidate, index, score };
+      })
+      .sort((left, right) => right.score - left.score || left.index - right.index);
+    if (scored[0]?.score > 0) return scored[0].candidate;
+  }
+
+  return alternatives[0];
 }
 
 function schemaMatchesValue(schema: JsonSchemaProperty, value: JsonValue): boolean {
