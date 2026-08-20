@@ -419,6 +419,13 @@ export class EpistolaDataContractEditor extends LitElement {
       canUndo: this._exampleCanUndo,
       canRedo: this._exampleCanRedo,
       readOnly: this._readOnly,
+      saving: this._saving,
+      canSave: state.isDirty && !this._hasExampleErrors && this._hasRequiredExample,
+      saveTooltip: !this._hasRequiredExample
+        ? 'Add at least one test data example before saving'
+        : this._hasExampleErrors
+          ? 'Fix example validation errors before saving'
+          : '',
     };
 
     const callbacks: ExamplesSectionCallbacks = {
@@ -429,6 +436,7 @@ export class EpistolaDataContractEditor extends LitElement {
       onUpdateExampleData: (id, path, value) => this._updateExampleData(id, path, value),
       onUndo: () => this._undoExampleData(),
       onRedo: () => this._redoExampleData(),
+      onSave: () => this._saveAll(),
     };
 
     return renderExamplesSection(state, uiState, callbacks);
