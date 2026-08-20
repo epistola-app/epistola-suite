@@ -14,10 +14,13 @@
   versions remain readable and importable.
 - **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
   The editor now starts a draft automatically before applying the deletion.
-- **[user]** fix(data contracts): **Advanced nested example data remains editable.** The example
+- **[user]** fix(data-contracts): **Advanced nested example data remains editable.** The example
   form resolves local schema references, object compositions, nullable unions, per-item union
   variants, and arrays nested directly inside arrays. Edits, additions, and removals continue to
-  target the exact nested JSON path. The demo catalog includes an **Advanced Data Contract**
+  target the exact nested JSON path. UI schema imports now inline local references and flatten
+  compatible object compositions when that conversion is lossless, making the resulting schema
+  visually editable; schemas requiring a lossy conversion remain unchanged in JSON-only schema
+  mode while their examples stay editable. The demo catalog includes an **Advanced Data Contract**
   template with these schema shapes and representative examples for hands-on verification. Bundled
   catalog upgrades now fully reconcile on restart: newly added or otherwise missing resources are
   installed, changed resources are updated, and removed resources—including code lists and fonts—

@@ -45,6 +45,10 @@ import {
 } from './utils/schemaMigration.js';
 import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
 import { checkSchemaCompatibility, type CompatibilityIssue } from './utils/schemaCompatibility.js';
+import {
+  normalizeSchemaForVisualEditor,
+  type SchemaNormalizationChange,
+} from './utils/schemaNormalizer.js';
 import { detectBreakingChanges, type BreakingChange } from './utils/schemaBreakingChanges.js';
 import {
   renderSchemaSection,
@@ -93,6 +97,7 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _selectedFieldId: string | null = null;
   @state() private _jsonPanelOpen = false;
   @state() private _compatibilityIssues: CompatibilityIssue[] = [];
+  @state() private _normalizationChanges: SchemaNormalizationChange[] = [];
 
   // Import dialog state
   @state() private _showImportDialog = false;
@@ -151,17 +156,19 @@ export class EpistolaDataContractEditor extends LitElement {
     readOnly = false,
   ): void {
     this._readOnly = readOnly;
+    this._normalizationChanges = [];
     this.contractState = new DataContractState(initialSchema, initialExamples, callbacks);
 
     this.contractState.addEventListener('change', () => {
       this.requestUpdate();
     });
 
-    // Check compatibility and set editing mode
+    // Schemas supplied through REST or catalogs remain unchanged. Advanced
+    // schemas use JSON-only schema mode while their examples stay editable.
     if (initialSchema) {
-      const compat = checkSchemaCompatibility(initialSchema);
-      this._compatibilityIssues = compat.issues;
-      if (!compat.compatible) {
+      const compatibility = checkSchemaCompatibility(initialSchema);
+      this._compatibilityIssues = compatibility.issues;
+      if (!compatibility.compatible) {
         this.contractState.setRawJsonSchema(initialSchema, 'json-only', true);
       }
     }
@@ -300,7 +307,8 @@ export class EpistolaDataContractEditor extends LitElement {
           : nothing}
         <!-- Page content: schema then examples -->
         <div class="dc-page-content">
-          ${this._renderSchemaSection()} ${this._renderExamplesSection()}
+          ${this._renderNormalizationNotice()} ${this._renderSchemaSection()}
+          ${this._renderExamplesSection()}
         </div>
       </div>
 
@@ -377,6 +385,32 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
   // Schema section
   // ---------------------------------------------------------------------------
+
+  private _renderNormalizationNotice(): unknown {
+    if (this._normalizationChanges.length === 0) return nothing;
+
+    return html`
+      <div class="dc-compat-banner" role="status">
+        <div class="dc-compat-banner-header">
+          Schema normalized for visual editing — ${this._normalizationChanges.length}
+          conversion${this._normalizationChanges.length === 1 ? '' : 's'} applied
+        </div>
+        <details class="dc-compat-details">
+          <summary class="dc-compat-details-summary">Show conversion details</summary>
+          <ul class="dc-compat-issue-list">
+            ${this._normalizationChanges.map(
+              (change) => html`
+                <li>
+                  <code>${change.path}</code>
+                  ${change.description}
+                </li>
+              `,
+            )}
+          </ul>
+        </details>
+      </div>
+    `;
+  }
 
   private _renderSchemaSection(): unknown {
     const state = this.contractState!;
@@ -1085,23 +1119,25 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _importSchema(schema: Record<string, unknown>): void {
-    const result = checkSchemaCompatibility(schema);
-    this._compatibilityIssues = result.issues;
+    const normalization = normalizeSchemaForVisualEditor(schema);
+    this._compatibilityIssues = normalization.issues;
+    this._normalizationChanges = normalization.schema ? normalization.changes : [];
 
     const state = this.contractState!;
 
     // Snapshot current state for undo before applying import
     this._commandHistory.snapshotForImport(this._visualSchema);
 
-    if (result.compatible) {
-      // Convert to VisualSchema and load into visual editor
-      const visualSchema = jsonSchemaToVisualSchema(schema as unknown as JsonSchema);
+    if (normalization.schema) {
+      // Convert the normalized schema to the canonical visual representation.
+      const visualSchema = jsonSchemaToVisualSchema(normalization.schema);
       this._visualSchema = visualSchema;
       state.setRawJsonSchema(null, 'visual');
       this._syncVisualSchemaToState();
       this._selectedFieldId = visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null;
     } else {
-      // Store raw schema, disable visual editor
+      // Preserve advanced schemas that cannot be normalized without changing
+      // their semantics. Their examples remain editable in JSON-only mode.
       state.setRawJsonSchema(schema, 'json-only');
     }
 

@@ -176,7 +176,13 @@ function checkProperty(
   }
 
   // Check type
-  if ('type' in prop) {
+  if (!('type' in prop) && !('$ref' in prop)) {
+    issues.push({
+      path: `${path}.type`,
+      feature: 'missing-type',
+      description: 'A property type is required by the visual editor',
+    });
+  } else if ('type' in prop) {
     if (Array.isArray(prop.type)) {
       issues.push({
         path: `${path}.type`,
@@ -221,6 +227,14 @@ function checkProperty(
 
   // Recurse into items (for array type)
   if (prop.items && typeof prop.items === 'object' && !Array.isArray(prop.items)) {
+    const item = prop.items as Record<string, unknown>;
+    if (prop.type === 'array' && item.type === 'array') {
+      issues.push({
+        path: `${path}.items.type`,
+        feature: 'nested-array',
+        description: 'Arrays directly containing arrays are not supported',
+      });
+    }
     checkProperty(prop.items as Record<string, unknown>, `${path}.items`, issues);
   }
 
