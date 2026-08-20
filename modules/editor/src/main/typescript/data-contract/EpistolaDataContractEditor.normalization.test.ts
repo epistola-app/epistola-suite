@@ -148,4 +148,44 @@ describe('schema normalization', () => {
     expect(editor.textContent).toContain('Visual editor is disabled');
     expect(editor.contractState?.isSchemaDirty).toBe(true);
   });
+
+  it('rejects a catalog template resource instead of storing its wrapper as the schema', async () => {
+    const originalSchema: JsonSchema = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    };
+    const editor = new EpistolaDataContractEditor();
+    editor.init(
+      originalSchema,
+      [{ id: 'example-1', name: 'Example 1', data: { name: 'Ada' } }],
+      {},
+    );
+    document.body.append(editor);
+    await editor.updateComplete;
+
+    editor.querySelector<HTMLButtonElement>('button[title="Import a JSON Schema"]')!.click();
+    await editor.updateComplete;
+
+    const textarea = editor.querySelector<HTMLTextAreaElement>('#dc-import-textarea')!;
+    textarea.value = JSON.stringify({
+      schemaVersion: 5,
+      resource: {
+        type: 'template',
+        slug: 'advanced-data-contract',
+        dataModel: {
+          type: 'object',
+          properties: { caseReference: { type: 'string' } },
+        },
+      },
+    });
+    editor.querySelector<HTMLButtonElement>('.dc-import-dialog .ep-btn-primary')!.click();
+    await editor.updateComplete;
+
+    expect(editor.querySelector('.dc-import-error')?.textContent).toContain(
+      'catalog template resource',
+    );
+    expect(editor.querySelector('.dc-import-error')?.textContent).toContain('resource.dataModel');
+    expect(editor.contractState?.schema).toEqual(originalSchema);
+    expect(editor.contractState?.isSchemaDirty).toBe(false);
+  });
 });

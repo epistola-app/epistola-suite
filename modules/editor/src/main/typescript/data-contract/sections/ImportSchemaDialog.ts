@@ -28,7 +28,9 @@ export function renderImportSchemaDialog(
       <p class="dc-dialog-hint">
         Paste a JSON Schema or upload a <code>.json</code> file. Compatible references and
         compositions are normalized for visual editing. Schemas that require a lossy conversion are
-        imported unchanged in read-only schema mode; their examples remain editable.
+        imported unchanged in read-only schema mode; their examples remain editable. Catalog
+        template resource files are not schemas; import their
+        <code>resource.dataModel</code> object.
       </p>
 
       <!-- Error display -->

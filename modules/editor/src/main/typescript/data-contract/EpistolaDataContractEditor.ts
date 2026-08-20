@@ -1119,6 +1119,12 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _importSchema(schema: Record<string, unknown>): void {
+    if (isCatalogTemplateResource(schema)) {
+      this._importParseError =
+        'This file is an Epistola catalog template resource, not a JSON Schema. Import the object at "resource.dataModel" instead.';
+      return;
+    }
+
     const normalization = normalizeSchemaForVisualEditor(schema);
     this._compatibilityIssues = normalization.issues;
     this._normalizationChanges = normalization.schema ? normalization.changes : [];
@@ -1179,6 +1185,20 @@ export class EpistolaDataContractEditor extends LitElement {
       this.requestUpdate();
     }, 3000);
   }
+}
+
+function isCatalogTemplateResource(value: Record<string, unknown>): boolean {
+  const resource = value.resource;
+  return (
+    typeof value.schemaVersion === 'number' &&
+    isObjectRecord(resource) &&
+    resource.type === 'template' &&
+    isObjectRecord(resource.dataModel)
+  );
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 declare global {

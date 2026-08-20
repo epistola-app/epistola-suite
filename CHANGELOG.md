@@ -20,7 +20,9 @@
   target the exact nested JSON path. UI schema imports now inline local references and flatten
   compatible object compositions when that conversion is lossless, making the resulting schema
   visually editable; schemas requiring a lossy conversion remain unchanged in JSON-only schema
-  mode while their examples stay editable. The demo catalog includes an **Advanced Data Contract**
+  mode while their examples stay editable. Catalog template resource files are rejected with
+  guidance to import their nested `resource.dataModel` instead of accidentally storing the wrapper
+  as a schema. The demo catalog includes an **Advanced Data Contract**
   template with these schema shapes and representative examples for hands-on verification. Bundled
   catalog upgrades now fully reconcile on restart: newly added or otherwise missing resources are
   installed, changed resources are updated, and removed resources—including code lists and fonts—
