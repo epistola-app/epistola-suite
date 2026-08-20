@@ -638,10 +638,11 @@
     opacity: 1;
   }
 
-  .dc-tree-input:placeholder-shown,
-  .dc-array-item-input:placeholder-shown {
-    background: var(--ep-stone-50);
-    border-style: dashed;
+  .dc-tree-input:placeholder-shown:not(:disabled),
+  .dc-array-item-input:placeholder-shown:not(:disabled) {
+    background: var(--ep-white);
+    border-color: var(--ep-terracotta-200);
+    box-shadow: inset 3px 0 0 var(--ep-terracotta-100);
   }
 
   /* Rich-text input: wraps a ProseMirror editor in place of a single-line input. */
@@ -689,8 +690,9 @@
       }
 
       &.has-placeholder[data-empty] {
-        background: var(--ep-stone-50);
-        border-style: dashed;
+        background: var(--ep-white);
+        border-color: var(--ep-terracotta-200);
+        box-shadow: inset 3px 0 0 var(--ep-terracotta-100);
       }
     }
 

@@ -164,7 +164,7 @@ export function renderExamplesSection(
                     ?disabled=${!uiState.canGenerate || uiState.readOnly}
                     @click=${() => callbacks.onGenerateExample(selectedExample.id)}
                     title="Fill missing values from the current schema; existing values are kept"
-                    aria-label="Fill missing example values from schema"
+                    aria-label="Autofill missing example values from schema"
                   >
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                       <path
@@ -174,7 +174,7 @@ export function renderExamplesSection(
                         stroke-linejoin="round"
                       />
                     </svg>
-                    Fill from schema
+                    Autofill
                   </button>
                   <button
                     class="dc-example-toolbar-btn"
