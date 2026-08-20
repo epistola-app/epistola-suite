@@ -145,6 +145,7 @@ export interface VisualSchema {
 export interface JsonSchemaProperty {
   type?: SchemaFieldType | SchemaFieldType[];
   $ref?: string;
+  title?: string;
   format?: string;
   description?: string;
   items?: JsonSchemaProperty;

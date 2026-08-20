@@ -116,6 +116,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   // Per-example undo/redo stacks
   private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>();
+  private _generatingExampleIds = new Set<string>();
   @state() private _exampleCanUndo = false;
   @state() private _exampleCanRedo = false;
 
@@ -476,7 +477,7 @@ export class EpistolaDataContractEditor extends LitElement {
       onDeleteExample: (id) => this._deleteExample(id),
       onUpdateExampleName: (id, name) => this._updateExampleName(id, name),
       onUpdateExampleData: (id, path, value) => this._updateExampleData(id, path, value),
-      onGenerateExample: (id) => this._generateExampleData(id),
+      onGenerateExample: (id) => void this._generateExampleData(id),
       onUndo: () => this._undoExampleData(),
       onRedo: () => this._redoExampleData(),
     };
@@ -879,19 +880,39 @@ export class EpistolaDataContractEditor extends LitElement {
     this._syncExampleUndoRedoState();
   }
 
-  private _generateExampleData(id: string): void {
+  private async _generateExampleData(id: string): Promise<void> {
     const state = this.contractState!;
-    const example = state.dataExamples.find((candidate) => candidate.id === id);
-    if (!example || !state.schema) return;
+    if (
+      this._generatingExampleIds.has(id) ||
+      !state.schema ||
+      !state.dataExamples.some((candidate) => candidate.id === id)
+    ) {
+      return;
+    }
 
-    const completedData = completeExampleFromSchema(state.schema, example.data);
-    if (JSON.stringify(completedData) === JSON.stringify(example.data)) return;
+    this._generatingExampleIds.add(id);
+    try {
+      const { createSemanticExampleValues } = await import('./utils/semanticExampleValues.js');
+      if (this.contractState !== state) return;
 
-    this._getExampleHistory(id).push(example.data);
-    state.updateDraftExample(id, { data: completedData });
-    this._clearSaveStatus();
-    this._validateAllExamples();
-    this._syncExampleUndoRedoState();
+      const example = state.dataExamples.find((candidate) => candidate.id === id);
+      if (!example || !state.schema) return;
+
+      const completedData = completeExampleFromSchema(
+        state.schema,
+        example.data,
+        createSemanticExampleValues(id),
+      );
+      if (JSON.stringify(completedData) === JSON.stringify(example.data)) return;
+
+      this._getExampleHistory(id).push(example.data);
+      state.updateDraftExample(id, { data: completedData });
+      this._clearSaveStatus();
+      this._validateAllExamples();
+      this._syncExampleUndoRedoState();
+    } finally {
+      this._generatingExampleIds.delete(id);
+    }
   }
 
   private _undoExampleData(): void {

@@ -3,11 +3,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { RICH_TEXT_INLINE_SCHEMA_REF, type JsonSchema } from '../types.js';
+import { RICH_TEXT_INLINE_SCHEMA_REF, type JsonObject, type JsonSchema } from '../types.js';
 import { validateDataAgainstSchema } from './schemaValidation.js';
 import { completeExampleFromSchema } from './exampleGeneration.js';
+import { createSemanticExampleValues } from './semanticExampleValues.js';
+
+function complete(schema: JsonSchema, existing: JsonObject) {
+  return completeExampleFromSchema(schema, existing, createSemanticExampleValues('test-example'));
+}
 
 describe('completeExampleFromSchema', () => {
+  it('keeps generic schema completion independent from semantic providers', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { name: { type: 'string' }, active: { type: 'boolean' } },
+    };
+
+    expect(completeExampleFromSchema(schema, {})).toEqual({
+      name: 'Example value',
+      active: false,
+    });
+  });
+
   it('generates deterministic values that respect schema hints and constraints', () => {
     const schema: JsonSchema = {
       type: 'object',
@@ -26,20 +43,22 @@ describe('completeExampleFromSchema', () => {
       },
     };
 
-    const generated = completeExampleFromSchema(schema, {});
+    const generated = complete(schema, {});
 
-    expect(generated).toEqual({
-      name: 'Example valuexx',
+    expect(generated.name).not.toBe('Example valuexx');
+    expect((generated.name as string).length).toBeGreaterThanOrEqual(15);
+    expect(generated).toMatchObject({
       status: 'draft',
       country: 'NL',
       createdOn: '2024-01-01',
       updatedAt: '2024-01-01T12:00:00Z',
-      email: 'example@example.com',
-      website: 'https://example.com',
-      amount: 2.5,
+      amount: 125.5,
       count: 4,
-      active: false,
+      active: true,
     });
+    expect(generated.email).toMatch(/@example\.(com|net|org)$/);
+    expect(() => new URL(generated.website as string)).not.toThrow();
+    expect(complete(schema, {})).toEqual(generated);
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 
@@ -71,7 +90,7 @@ describe('completeExampleFromSchema', () => {
       },
     };
 
-    const generated = completeExampleFromSchema(schema, {
+    const generated = complete(schema, {
       name: 'Authored name',
       address: { city: 'Amsterdam' },
       contacts: [{ label: 'Personal' }],
@@ -80,7 +99,7 @@ describe('completeExampleFromSchema', () => {
 
     expect(generated).toEqual({
       name: 'Authored name',
-      address: { street: 'Example value', city: 'Amsterdam' },
+      address: { street: expect.any(String), city: 'Amsterdam' },
       contacts: [
         { label: 'Personal', preferred: false },
         { label: 'Example value', preferred: false },
@@ -105,7 +124,7 @@ describe('completeExampleFromSchema', () => {
       },
     };
 
-    expect(completeExampleFromSchema(schema, {})).toEqual({
+    expect(complete(schema, {})).toEqual({
       settings: { locale: 'nl-NL', notifications: false },
     });
   });
@@ -126,9 +145,9 @@ describe('completeExampleFromSchema', () => {
       },
     };
 
-    const generated = completeExampleFromSchema(schema, {});
+    const generated = complete(schema, {});
 
-    expect(generated.address).toEqual({ city: 'Example value' });
+    expect(generated.address).toEqual({ city: expect.any(String) });
     expect(generated.introduction).toMatchObject({ type: 'doc' });
   });
 
@@ -140,6 +159,26 @@ describe('completeExampleFromSchema', () => {
       },
     };
 
-    expect(completeExampleFromSchema(schema, {})).toEqual({ values: [] });
+    expect(complete(schema, {})).toEqual({ values: [] });
+  });
+
+  it('keeps explicit schema formats and numeric constraints authoritative', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        phoneNumber: { type: 'string', format: 'email' },
+        website: { type: 'string', format: 'date' },
+        amount: { type: 'number', maximum: 100 },
+        age: { type: 'integer', minimum: 50 },
+      },
+    };
+
+    const generated = complete(schema, {});
+
+    expect(generated.phoneNumber).toBe('example@example.com');
+    expect(generated.website).toBe('2024-01-01');
+    expect(generated.amount).toBe(100);
+    expect(generated.age).toBe(50);
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 });

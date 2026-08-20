@@ -12,6 +12,24 @@ type SchemaNode = JsonSchemaProperty & {
   type?: string | string[];
 };
 
+export interface ExampleField {
+  name: string;
+  title?: string;
+  description?: string;
+}
+
+export interface ExampleValueProvider {
+  string(field: ExampleField): string | undefined;
+  number(field: ExampleField): number | undefined;
+  boolean(field: ExampleField): boolean | undefined;
+}
+
+const NO_SEMANTIC_VALUES: ExampleValueProvider = {
+  string: () => undefined,
+  number: () => undefined,
+  boolean: () => undefined,
+};
+
 /**
  * Complete example data from a JSON Schema without replacing authored values.
  * Missing nested properties and array items are filled recursively.
@@ -19,14 +37,16 @@ type SchemaNode = JsonSchemaProperty & {
 export function completeExampleFromSchema(
   schema: JsonSchema | JsonObject,
   existing: JsonObject,
+  semanticValues: ExampleValueProvider = NO_SEMANTIC_VALUES,
 ): JsonObject {
-  return completeObject(schema as SchemaNode, schema as JsonObject, existing, 0);
+  return completeObject(schema as SchemaNode, schema as JsonObject, existing, semanticValues, 0);
 }
 
 function completeObject(
   schema: SchemaNode,
   rootSchema: JsonObject,
   existing: JsonObject,
+  semanticValues: ExampleValueProvider,
   depth: number,
 ): JsonObject {
   if (depth > 20) return structuredClone(existing);
@@ -39,6 +59,8 @@ function completeObject(
       rootSchema,
       existing[name],
       present,
+      { name, title: propertySchema.title, description: propertySchema.description },
+      semanticValues,
       depth + 1,
     );
   }
@@ -50,6 +72,8 @@ function completeValue(
   rootSchema: JsonObject,
   existing: JsonValue | undefined,
   present: boolean,
+  field: ExampleField,
+  semanticValues: ExampleValueProvider,
   depth: number,
 ): JsonValue {
   if (depth > 20) return present ? structuredClone(existing as JsonValue) : null;
@@ -64,10 +88,10 @@ function completeValue(
 
   if (present) {
     if (type === 'object' && isJsonObject(existing)) {
-      return completeObject(schema, rootSchema, existing, depth);
+      return completeObject(schema, rootSchema, existing, semanticValues, depth);
     }
     if (type === 'array' && Array.isArray(existing)) {
-      return completeArray(schema, rootSchema, existing, depth);
+      return completeArray(schema, rootSchema, existing, field, semanticValues, depth);
     }
     return structuredClone(existing as JsonValue);
   }
@@ -76,7 +100,14 @@ function completeValue(
     return structuredClone(schema.const as JsonValue);
   }
   if (Object.prototype.hasOwnProperty.call(schema, 'default')) {
-    return completeGeneratedContainer(schema, rootSchema, schema.default as JsonValue, depth);
+    return completeGeneratedContainer(
+      schema,
+      rootSchema,
+      schema.default as JsonValue,
+      field,
+      semanticValues,
+      depth,
+    );
   }
   if (schema.enum && schema.enum.length > 0) {
     return structuredClone(schema.enum[0]);
@@ -84,20 +115,20 @@ function completeValue(
 
   switch (type) {
     case 'object':
-      return completeObject(schema, rootSchema, {}, depth);
+      return completeObject(schema, rootSchema, {}, semanticValues, depth);
     case 'array':
-      return completeArray(schema, rootSchema, [], depth);
+      return completeArray(schema, rootSchema, [], field, semanticValues, depth);
     case 'boolean':
-      return false;
+      return semanticValues.boolean(field) ?? false;
     case 'integer':
-      return generateNumber(schema, true);
+      return generateNumber(schema, true, semanticValues.number(field));
     case 'number':
-      return generateNumber(schema, false);
+      return generateNumber(schema, false, semanticValues.number(field));
     case 'null':
       return null;
     case 'string':
     default:
-      return generateString(schema);
+      return generateString(schema, semanticValues.string(field));
   }
 }
 
@@ -105,14 +136,16 @@ function completeGeneratedContainer(
   schema: SchemaNode,
   rootSchema: JsonObject,
   generated: JsonValue,
+  field: ExampleField,
+  semanticValues: ExampleValueProvider,
   depth: number,
 ): JsonValue {
   const type = resolveType(schema);
   if (type === 'object' && isJsonObject(generated)) {
-    return completeObject(schema, rootSchema, generated, depth);
+    return completeObject(schema, rootSchema, generated, semanticValues, depth);
   }
   if (type === 'array' && Array.isArray(generated)) {
-    return completeArray(schema, rootSchema, generated, depth);
+    return completeArray(schema, rootSchema, generated, field, semanticValues, depth);
   }
   return structuredClone(generated);
 }
@@ -121,6 +154,8 @@ function completeArray(
   schema: SchemaNode,
   rootSchema: JsonObject,
   existing: JsonArray,
+  field: ExampleField,
+  semanticValues: ExampleValueProvider,
   depth: number,
 ): JsonArray {
   const result = structuredClone(existing);
@@ -132,6 +167,8 @@ function completeArray(
       rootSchema,
       result[index],
       true,
+      field,
+      semanticValues,
       depth + 1,
     );
   }
@@ -139,26 +176,38 @@ function completeArray(
   const minimum = Math.max(0, schema.minItems ?? (result.length === 0 ? 1 : 0));
   const target = schema.maxItems === undefined ? minimum : Math.min(minimum, schema.maxItems);
   while (result.length < target) {
-    result.push(completeValue(schema.items as SchemaNode, rootSchema, undefined, false, depth + 1));
+    result.push(
+      completeValue(
+        schema.items as SchemaNode,
+        rootSchema,
+        undefined,
+        false,
+        field,
+        semanticValues,
+        depth + 1,
+      ),
+    );
   }
   return result;
 }
 
-function generateString(schema: SchemaNode): string {
-  let value = 'Example value';
+function generateString(schema: SchemaNode, semanticValue?: string): string {
+  let value: string;
   switch (schema.format) {
     case 'date':
-      value = GENERATED_DATE;
+      value = semanticValue?.match(/^\d{4}-\d{2}-\d{2}$/) ? semanticValue : GENERATED_DATE;
       break;
     case 'date-time':
       value = GENERATED_DATE_TIME;
       break;
     case 'email':
-      value = 'example@example.com';
+      value = semanticValue?.includes('@') ? semanticValue : 'example@example.com';
       break;
     case 'uri':
-      value = 'https://example.com';
+      value = semanticValue?.startsWith('http') ? semanticValue : 'https://example.com';
       break;
+    default:
+      value = semanticValue ?? 'Example value';
   }
 
   const minimum = Math.max(0, schema.minLength ?? 0);
@@ -167,9 +216,9 @@ function generateString(schema: SchemaNode): string {
   return value;
 }
 
-function generateNumber(schema: SchemaNode, integer: boolean): number {
-  let value = 0;
-  if (schema.minimum !== undefined) value = schema.minimum;
+function generateNumber(schema: SchemaNode, integer: boolean, semanticValue?: number): number {
+  let value = semanticValue ?? 0;
+  if (schema.minimum !== undefined) value = Math.max(value, schema.minimum);
   if (schema.exclusiveMinimum !== undefined) {
     value = Math.max(value, schema.exclusiveMinimum + (integer ? 1 : 0.01));
   }

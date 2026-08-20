@@ -4,7 +4,7 @@
 
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JsonSchema } from './types.js';
 import { EpistolaDataContractEditor } from './EpistolaDataContractEditor.js';
 
@@ -45,12 +45,14 @@ describe('example generation', () => {
     const generate = editor.querySelector<HTMLButtonElement>('.dc-example-generate-btn')!;
 
     generate.click();
+    generate.click();
+    await vi.waitFor(() => expect(editor.contractState!.dataExamples[0].data.active).toBe(true));
     await editor.updateComplete;
 
-    expect(editor.contractState!.dataExamples[0].data).toEqual({
+    expect(editor.contractState!.dataExamples[0].data).toMatchObject({
       name: 'Authored',
-      active: false,
-      address: { city: 'Example value' },
+      active: true,
+      address: { city: expect.any(String) },
     });
     expect(editor.querySelector('.dc-validation-success')?.textContent).toContain('Valid');
 
