@@ -4,7 +4,11 @@
 
 ## [Unreleased]
 
-- **[developer]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
+- **[user]** fix(catalog,pdf): **Catalog exchange preserves each template's PDF/A setting.**
+  Export, ZIP import, URL installation, and upgrades now retain templates that explicitly disable
+  PDF/A; older catalog resources without the setting continue to default to PDF/A output.
+
+- **[dev]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
   wire-version constants are sourced from the contract so catalog v6 exports, imports, and
   validation cannot drift from the published catalog implementation.
 

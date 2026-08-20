@@ -132,13 +132,21 @@ class CatalogContentBuilder(
     }
 
     private fun loadTemplates(tenantKey: TenantKey, catalogKey: CatalogKey): List<TemplateResource> {
-        data class TemplateRow(val id: String, val name: String, val themeKey: String?, val themeCatalogKey: String?, val dataModel: String?, val dataExamples: String?)
+        data class TemplateRow(
+            val id: String,
+            val name: String,
+            val themeKey: String?,
+            val themeCatalogKey: String?,
+            val pdfaEnabled: Boolean,
+            val dataModel: String?,
+            val dataExamples: String?,
+        )
         data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: TemplateDocument?, val isDefault: Boolean)
 
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT dt.id, dt.name, dt.theme_key, dt.theme_catalog_key,
+                SELECT dt.id, dt.name, dt.theme_key, dt.theme_catalog_key, dt.pdfa_enabled,
                        cv.data_model::text, cv.data_examples::text
                 FROM document_templates dt
                 LEFT JOIN LATERAL (
@@ -158,6 +166,7 @@ class CatalogContentBuilder(
                         name = rs.getString("name"),
                         themeKey = rs.getString("theme_key"),
                         themeCatalogKey = rs.getString("theme_catalog_key"),
+                        pdfaEnabled = rs.getBoolean("pdfa_enabled"),
                         dataModel = rs.getString("data_model"),
                         dataExamples = rs.getString("data_examples"),
                     )
@@ -206,6 +215,7 @@ class CatalogContentBuilder(
                 name = template.name,
                 themeId = template.themeKey,
                 themeCatalogKey = template.themeCatalogKey,
+                pdfaEnabled = template.pdfaEnabled,
                 dataModel = template.dataModel?.let {
                     objectMapper.readValue<Map<String, Any?>>(
                         it,
