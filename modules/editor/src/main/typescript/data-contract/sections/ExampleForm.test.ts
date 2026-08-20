@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
+// @vitest-environment happy-dom
+
 import { describe, expect, it } from 'vitest';
+import { render } from 'lit';
 import {
   validationPathToFormPath,
   buildFieldErrorMap,
@@ -10,8 +13,69 @@ import {
   toDateTimeLocal,
   dateTimeOffset,
   combineDateTime,
+  renderExampleForm,
 } from './ExampleForm.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
+import type { JsonSchema } from '../types.js';
+
+describe('example form placeholders', () => {
+  it('renders field-name hints without assigning field values', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        emailadres: { type: 'string' },
+        aantal: { type: 'integer' },
+      },
+    };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(schema, {}, () => {}),
+      container,
+    );
+
+    const email = container.querySelector<HTMLInputElement>('#dc-field-emailadres')!;
+    const count = container.querySelector<HTMLInputElement>('#dc-field-aantal')!;
+    expect(email.value).toBe('');
+    expect(email.placeholder).toBe('emailadres');
+    expect(count.value).toBe('');
+    expect(count.placeholder).toBe('aantal');
+  });
+
+  it('renders placeholders at nested object and array depths', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        arr: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              arr: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { name: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(schema, { arr: [{ arr: [{}] }] }, () => {}),
+      container,
+    );
+
+    const nestedName = container.querySelector<HTMLInputElement>('#dc-field-arr-0-arr-0-name')!;
+    expect(nestedName.value).toBe('');
+    expect(nestedName.placeholder).toBe('name');
+    expect(nestedName.classList.contains('dc-tree-input')).toBe(true);
+  });
+});
 
 describe('toDateTimeLocal', () => {
   it('keeps a zoneless local date-time for the picker', () => {

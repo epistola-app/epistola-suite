@@ -21,7 +21,8 @@
   and identifiers receive domain-shaped values; unknown strings get a field-specific Dutch
   fallback instead of a repeated generic placeholder. Related fields share a coherent fictional
   profile, while authored values are preserved and the complete operation can be undone in one
-  step.
+  step. Empty example fields now render their existing placeholder hints with a muted, italic,
+  dashed treatment, including rich-text fields, so hints cannot be mistaken for stored test data.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack

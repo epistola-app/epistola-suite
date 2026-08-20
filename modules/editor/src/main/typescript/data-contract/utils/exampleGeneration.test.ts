@@ -181,4 +181,35 @@ describe('completeExampleFromSchema', () => {
     expect(generated.age).toBe(50);
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
+
+  it('generates through recursively nested arrays and objects', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        arr: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              arr: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { name: { type: 'string' } },
+                  required: ['name'],
+                },
+              },
+            },
+            required: ['arr'],
+          },
+        },
+      },
+      required: ['arr'],
+    };
+
+    const generated = complete(schema, {});
+
+    expect(generated).toEqual({ arr: [{ arr: [{ name: expect.any(String) }] }] });
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
+  });
 });
