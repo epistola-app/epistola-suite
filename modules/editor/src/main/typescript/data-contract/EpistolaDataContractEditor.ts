@@ -789,7 +789,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private async _deleteExample(id: string): Promise<void> {
     const state = this.contractState!;
-    if (state.dataExamples.length <= 1) return;
+    if (!state.canDeleteExample(id)) return;
 
     const result = await state.deleteSingleExample(id);
     if (result.success) {

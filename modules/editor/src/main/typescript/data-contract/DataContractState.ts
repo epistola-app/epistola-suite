@@ -60,6 +60,19 @@ export class DataContractState extends EventTarget {
     return this._draftExamples;
   }
 
+  isExampleCommitted(exampleId: string): boolean {
+    return this._committedExamples.some((example) => example.id === exampleId);
+  }
+
+  canDeleteExample(exampleId: string): boolean {
+    if (!this._draftExamples.some((example) => example.id === exampleId)) return false;
+    if (this._draftExamples.length <= 1) return false;
+    if (!this.isExampleCommitted(exampleId)) return true;
+    return this._draftExamples.some(
+      (example) => example.id !== exampleId && this.isExampleCommitted(example.id),
+    );
+  }
+
   get schemaEditMode(): SchemaEditMode {
     return this._schemaEditMode;
   }
@@ -223,6 +236,15 @@ export class DataContractState extends EventTarget {
   }
 
   async deleteSingleExample(exampleId: string): Promise<{ success: boolean }> {
+    if (!this.canDeleteExample(exampleId)) {
+      return { success: false };
+    }
+
+    if (!this.isExampleCommitted(exampleId)) {
+      this.deleteDraftExample(exampleId);
+      return { success: true };
+    }
+
     if (!this._callbacks.onDeleteDataExample) {
       return { success: false };
     }
@@ -231,7 +253,8 @@ export class DataContractState extends EventTarget {
       const result = await this._callbacks.onDeleteDataExample(exampleId);
       if (result.success) {
         this._draftExamples = this._draftExamples.filter((e) => e.id !== exampleId);
-        this._markExamplesCommitted();
+        this._committedExamples = this._committedExamples.filter((e) => e.id !== exampleId);
+        this._fireChange();
       }
       return result;
     } catch {

@@ -44,6 +44,11 @@ export function renderExamplesSection(
   const selectedExample = uiState.editingId
     ? examples.find((e) => e.id === uiState.editingId)
     : null;
+  const canDeleteSelected = selectedExample ? state.canDeleteExample(selectedExample.id) : false;
+  const deleteRequirement =
+    selectedExample && examples.length > 1 && state.isExampleCommitted(selectedExample.id)
+      ? 'Save another example before deleting this one. At least one saved test data example is required.'
+      : 'This example cannot be deleted because at least one test data example is required.';
 
   return html`
     <section class="dc-section dc-examples-section">
@@ -119,12 +124,8 @@ export function renderExamplesSection(
                     }}
                   />
                 </div>
-                ${examples.length <= 1
-                  ? html`
-                      <span class="dc-example-delete-requirement">
-                        This is the only example. At least one test data example is required.
-                      </span>
-                    `
+                ${!canDeleteSelected
+                  ? html` <span class="dc-example-delete-requirement">${deleteRequirement}</span> `
                   : html`
                       <button
                         class="dc-example-delete-btn"

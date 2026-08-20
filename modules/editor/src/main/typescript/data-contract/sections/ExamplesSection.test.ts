@@ -21,8 +21,12 @@ const callbacks: ExamplesSectionCallbacks = {
 };
 
 function renderSection(examples: DataExample[], editingId: string | null = null): HTMLElement {
-  const container = document.createElement('div');
   const state = new DataContractState(null, examples, {});
+  return renderState(state, editingId);
+}
+
+function renderState(state: DataContractState, editingId: string | null = null): HTMLElement {
+  const container = document.createElement('div');
   render(
     renderExamplesSection(
       state,
@@ -57,8 +61,12 @@ describe('ExamplesSection required example state', () => {
     const container = renderSection([example], example.id);
 
     expect(container.querySelector('.dc-example-delete-btn')).toBeNull();
-    expect(container.querySelector('.dc-example-delete-requirement')?.textContent).toContain(
-      'This is the only example. At least one test data example is required.',
+    const requirement = container
+      .querySelector('.dc-example-delete-requirement')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim();
+    expect(requirement).toBe(
+      'This example cannot be deleted because at least one test data example is required.',
     );
   });
 
@@ -68,6 +76,32 @@ describe('ExamplesSection required example state', () => {
       { id: 'two', name: 'Example 2', data: {} },
     ];
     const container = renderSection(examples, examples[0].id);
+
+    expect(container.querySelector<HTMLButtonElement>('.dc-example-delete-btn')?.disabled).toBe(
+      false,
+    );
+  });
+
+  it('keeps a saved example protected while its alternative is unsaved', () => {
+    const savedExample = { id: 'saved', name: 'Saved example', data: {} };
+    const state = new DataContractState(null, [savedExample], {});
+    state.addDraftExample({ id: 'new', name: 'New example', data: {} });
+
+    const container = renderState(state, savedExample.id);
+
+    expect(container.querySelector('.dc-example-delete-btn')).toBeNull();
+    expect(container.querySelector('.dc-example-delete-requirement')?.textContent).toContain(
+      'Save another example before deleting this one.',
+    );
+  });
+
+  it('allows an unsaved example to be removed locally', () => {
+    const savedExample = { id: 'saved', name: 'Saved example', data: {} };
+    const newExample = { id: 'new', name: 'New example', data: {} };
+    const state = new DataContractState(null, [savedExample], {});
+    state.addDraftExample(newExample);
+
+    const container = renderState(state, newExample.id);
 
     expect(container.querySelector<HTMLButtonElement>('.dc-example-delete-btn')?.disabled).toBe(
       false,
