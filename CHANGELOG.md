@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- **[user]** feat(data contracts): **Every authored data contract keeps at least one example.**
+  Saving or publishing without an example is rejected with an actionable validation error, the
+  editor highlights the requirement, and replaces the final example's delete action with an
+  explanation of why it must remain. Unsaved examples are removed locally and do not make saved
+  examples prematurely deletable. A sticky contract action bar keeps **Save draft**, editing,
+  publishing, usage, and history controls visible, and identifies whether schema or examples have
+  unsaved changes without conflating their separate undo histories. Existing empty contract
+  versions remain readable and importable.
+- **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
+  The editor now starts a draft automatically before applying the deletion.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack

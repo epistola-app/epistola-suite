@@ -37,6 +37,7 @@ import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
@@ -640,7 +641,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         stencilVersion: Int,
     ) {
         val templateId = TemplateId(TemplateKey.of(slug), catalogId)
-        CreateDocumentTemplate(id = templateId, name = name).execute()
+        CreateDocumentTemplate(id = templateId, name = name).execute().withRequiredDataExample()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         UpdateDraft(
             variantId = variantId,

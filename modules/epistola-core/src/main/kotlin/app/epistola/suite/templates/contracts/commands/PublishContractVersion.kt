@@ -22,6 +22,7 @@ import app.epistola.suite.templates.contracts.queries.CheckContractPublishImpact
 import app.epistola.suite.templates.contracts.queries.ContractPublishImpact
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.SchemaValidationResult
+import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -100,6 +101,7 @@ class PublishContractVersionHandler(
                 .orElse(null) ?: return@inTransaction null
 
             // 2. Validate schema and examples
+            requireAtLeastOneDataExample(draft.dataExamples)
             if (draft.dataModel != null) {
                 val schemaValidation = jsonSchemaValidator.validateSchema(objectMapper.writeValueAsString(draft.dataModel))
                 require(schemaValidation is SchemaValidationResult.Valid) {

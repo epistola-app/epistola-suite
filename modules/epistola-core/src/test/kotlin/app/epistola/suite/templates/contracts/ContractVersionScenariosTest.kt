@@ -33,6 +33,7 @@ import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -66,7 +67,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
         val catalogId = CatalogId.default(tenantId)
         templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "scenario-template").execute()
+            CreateDocumentTemplate(id = templateId, name = "scenario-template").execute().withRequiredDataExample()
         }
         defaultVariantId = VariantId(
             VariantKey.INITIAL,
@@ -125,6 +126,13 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
                 UpdateContractVersion(
                     templateId = templateId,
                     dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"},"amount":{"type":"number"}},"required":["name"]}"""),
+                    dataExamples = listOf(
+                        app.epistola.suite.templates.model.DataExample(
+                            id = "example-1",
+                            name = "Example 1",
+                            data = schema("""{"name":"Ada","amount":42}"""),
+                        ),
+                    ),
                 ).execute()
             }
 

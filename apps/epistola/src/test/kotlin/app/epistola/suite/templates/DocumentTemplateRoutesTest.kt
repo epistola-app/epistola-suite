@@ -19,6 +19,9 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -76,6 +79,21 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 .bind("dataExamples", dataExamples)
                 .execute()
         }
+    }
+
+    private fun createDraftContractWithExample(tenant: Tenant, template: DocumentTemplate) = withMediator {
+        val templateId = TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))
+        CreateContractVersion(templateId = templateId).execute()
+        UpdateContractVersion(
+            templateId = templateId,
+            dataExamples = listOf(
+                DataExample(
+                    id = "example-1",
+                    name = "Example 1",
+                    data = objectMapper.createObjectNode(),
+                ),
+            ),
+        ).execute()
     }
 
     private fun pdfPageCount(pdfBytes: ByteArray): Int = Regex("""/Type\s*/Page\b""")
@@ -1280,6 +1298,103 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         @Test
+        fun `DELETE data-example creates a draft from the published contract before deleting`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            lateinit var templateId: TemplateId
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))
+
+                CreateContractVersion(templateId = templateId).execute()
+                UpdateContractVersion(
+                    templateId = templateId,
+                    dataExamples = listOf(
+                        DataExample(
+                            id = "example-1",
+                            name = "Example 1",
+                            data = objectMapper.createObjectNode(),
+                        ),
+                        DataExample(
+                            id = "example-2",
+                            name = "Example 2",
+                            data = objectMapper.createObjectNode(),
+                        ),
+                    ),
+                ).execute()
+                PublishContractVersion(templateId = templateId, confirmed = true).execute()
+            }
+
+            whenever {
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    HttpMethod.DELETE,
+                    null,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+
+                val contractVersion = mediator.query(GetLatestContractVersion(templateId = templateId))
+                assertThat(contractVersion!!.status.name).isEqualTo("DRAFT")
+                assertThat(contractVersion.dataExamples.map { it.id }).containsExactly("example-2")
+            }
+        }
+
+        @Test
+        fun `DELETE data-example rejects removing the last example`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "example-1",
+                                name = "Example 1",
+                                data = objectMapper.createObjectNode(),
+                            ),
+                        ),
+                    ),
+                )
+            }
+
+            whenever {
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    HttpMethod.DELETE,
+                    null,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON)
+                assertThat(response.body).contains("/data-example-required")
+                assertThat(response.body).contains("At least one data example is required")
+
+                val contractVersion = mediator.query(
+                    GetLatestContractVersion(
+                        templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
+                    ),
+                )
+                assertThat(contractVersion!!.dataExamples).hasSize(1)
+            }
+        }
+
+        @Test
         fun `DELETE data-example returns 404 for non-existent example`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
@@ -1338,6 +1453,102 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            }
+        }
+    }
+
+    @Nested
+    inner class DataContractPageTest {
+
+        @Test
+        fun `GET data contract edit mode renders the sticky save controls host`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Data Contract Edit Tenant")
+                template = template(testTenant, "Data Contract Edit Template")
+                createDraftContractWithExample(testTenant, template)
+            }
+
+            whenever {
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-contract?edit=true",
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("class=\"contract-status-bar\"")
+                assertThat(response.body).contains("id=\"contract-save-controls\"")
+                assertThat(response.body).contains("Done editing")
+                assertThat(response.body).contains("contract/status-bar?edit=true")
+            }
+        }
+
+        @Test
+        fun `GET contract status bar preserves edit mode during HTMX refresh`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Status Bar Edit Tenant")
+                template = template(testTenant, "Status Bar Edit Template")
+                createDraftContractWithExample(testTenant, template)
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar?edit=true",
+                    HttpMethod.GET,
+                    HttpEntity<Unit>(headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("id=\"contract-save-controls\"")
+                assertThat(response.body).contains("Done editing")
+                assertThat(response.body).doesNotContain(">Publish</button>")
+                assertThat(response.body).doesNotContain(">Edit</a>")
+            }
+        }
+
+        @Test
+        fun `GET contract status bar keeps publish and edit actions in view mode`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Status Bar View Tenant")
+                template = template(testTenant, "Status Bar View Template")
+                createDraftContractWithExample(testTenant, template)
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar",
+                    HttpMethod.GET,
+                    HttpEntity<Unit>(headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("Publish")
+                assertThat(response.body).contains("Edit")
+                assertThat(response.body).doesNotContain("id=\"contract-save-controls\"")
+                assertThat(response.body).doesNotContain("Done editing")
             }
         }
     }

@@ -19,7 +19,7 @@
  * chip-level badges.
  */
 
-import { LitElement, html, nothing } from 'lit';
+import { LitElement, html, nothing, render as renderLit } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { nanoid } from 'nanoid';
 import { DataContractState } from './DataContractState.js';
@@ -60,6 +60,7 @@ import { renderMigrationDialog, migrationKey } from './sections/MigrationAssista
 import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
+import { renderContractSaveControls } from './sections/ContractSaveBar.js';
 
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
@@ -110,6 +111,7 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _saveSuccess = false;
   @state() private _saveError: string | null = null;
   @state() private _canForceSave = false;
+  private _saveControlsContainer: HTMLElement | null = null;
 
   // Per-example undo/redo stacks
   private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>();
@@ -191,11 +193,25 @@ export class EpistolaDataContractEditor extends LitElement {
     window.addEventListener('keydown', this._boundKeyDown);
   }
 
+  override updated(): void {
+    this._renderExternalSaveControls();
+  }
+
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('beforeunload', this._boundBeforeUnload);
     window.removeEventListener('keydown', this._boundKeyDown);
     if (this._successTimer) clearTimeout(this._successTimer);
+    this._clearExternalSaveControls();
+  }
+
+  setSaveControlsContainer(container: HTMLElement | null): void {
+    if (this._saveControlsContainer === container) return;
+
+    this._clearExternalSaveControls();
+    this._saveControlsContainer = container;
+    this._renderExternalSaveControls();
+    this.requestUpdate();
   }
 
   // ---------------------------------------------------------------------------
@@ -207,6 +223,52 @@ export class EpistolaDataContractEditor extends LitElement {
       if (errors.length > 0) return true;
     }
     return false;
+  }
+
+  private get _hasRequiredExample(): boolean {
+    return (this.contractState?.dataExamples.length ?? 0) > 0;
+  }
+
+  private get _saveBlockedReason(): string | null {
+    if (!this._hasRequiredExample) return 'Add at least one test data example before saving';
+    if (this._hasExampleErrors) return 'Fix example validation errors before saving';
+    return null;
+  }
+
+  private _saveControlsState() {
+    return {
+      schemaDirty: this.contractState?.isSchemaDirty ?? false,
+      examplesDirty: this.contractState?.isExamplesDirty ?? false,
+      saving: this._saving,
+      saveSuccess: this._saveSuccess,
+      saveError: this._saveError,
+      canForceSave: this._canForceSave,
+      blockedReason: this._saveBlockedReason,
+    };
+  }
+
+  private _saveControlsCallbacks() {
+    return {
+      onSave: () => this._saveAll(),
+      onForceSave: () => this._executeForceSave(),
+    };
+  }
+
+  private _renderExternalSaveControls(): void {
+    if (!this._saveControlsContainer) return;
+
+    renderLit(
+      this._readOnly
+        ? nothing
+        : renderContractSaveControls(this._saveControlsState(), this._saveControlsCallbacks()),
+      this._saveControlsContainer,
+    );
+  }
+
+  private _clearExternalSaveControls(): void {
+    if (this._saveControlsContainer) {
+      renderLit(nothing, this._saveControlsContainer);
+    }
   }
 
   override render() {
@@ -234,7 +296,6 @@ export class EpistolaDataContractEditor extends LitElement {
               </div>
             `
           : nothing}
-
         <!-- Page content: schema then examples -->
         <div class="dc-page-content">
           ${this._renderSchemaSection()} ${this._renderExamplesSection()}
@@ -342,12 +403,6 @@ export class EpistolaDataContractEditor extends LitElement {
       selectedFieldId: this._selectedFieldId,
       readOnly: this._readOnly,
       jsonPanelOpen: this._jsonPanelOpen,
-      saving: this._saving,
-      canSave: state.isDirty && !this._hasExampleErrors,
-      saveSuccess: this._saveSuccess,
-      saveError: this._saveError,
-      canForceSave: this._canForceSave,
-      saveTooltip: this._hasExampleErrors ? 'Fix example validation errors before saving' : '',
     };
 
     const callbacks: SchemaSectionCallbacks = {
@@ -361,8 +416,6 @@ export class EpistolaDataContractEditor extends LitElement {
       onToggleJson: () => {
         this._jsonPanelOpen = !this._jsonPanelOpen;
       },
-      onSave: () => this._saveAll(),
-      onForceSave: () => this._executeForceSave(),
     };
 
     return html`
@@ -568,6 +621,7 @@ export class EpistolaDataContractEditor extends LitElement {
   private async _saveAll(): Promise<void> {
     const state = this.contractState!;
     if (this._saving) return;
+    if (!this._hasRequiredExample) return;
     if (this._hasExampleErrors) return;
 
     // Confirm breaking changes before saving
@@ -608,6 +662,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private async _executeSave(forceUpdate: boolean): Promise<void> {
     const state = this.contractState!;
+    if (!this._hasRequiredExample) return;
     this._saving = true;
     this._saveSuccess = false;
     this._saveError = null;
@@ -779,6 +834,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private async _deleteExample(id: string): Promise<void> {
     const state = this.contractState!;
+    if (!state.canDeleteExample(id)) return;
 
     const result = await state.deleteSingleExample(id);
     if (result.success) {
@@ -914,7 +970,12 @@ export class EpistolaDataContractEditor extends LitElement {
     // Ctrl+S: save
     if (e.key === 's') {
       e.preventDefault();
-      if (!this._saving && this.contractState?.isDirty && !this._hasExampleErrors) {
+      if (
+        !this._saving &&
+        this.contractState?.isDirty &&
+        this._hasRequiredExample &&
+        !this._hasExampleErrors
+      ) {
         this._saveAll();
       }
       return;

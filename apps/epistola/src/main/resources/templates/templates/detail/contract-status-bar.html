@@ -3,16 +3,8 @@
 <body>
     <th:block th:fragment="content">
         <div id="contract-status-bar"
-             th:data-status-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/status-bar(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-             class="ep-row ep-gap-3" style="padding: var(--ep-space-2) var(--ep-space-3); margin-bottom: var(--ep-space-3); border: 1px solid var(--ep-stone-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm);">
-
-            <!-- Edit mode: Done button -->
-            <th:block th:if="${editMode}">
-                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-                   class="ep-btn ep-btn-ghost ep-btn-sm" hx-boost="false">
-                    &larr; Done Editing
-                </a>
-            </th:block>
+             th:data-status-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/status-bar(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=${editMode})}"
+             class="contract-status-bar">
 
             <!-- Version + status -->
             <span th:if="${contractVersionId != null}">
@@ -20,6 +12,19 @@
                 <span th:if="${contractVersionStatus == 'draft'}" class="badge badge-primary" style="margin-left: var(--ep-space-1);">Draft</span>
                 <span th:if="${contractVersionStatus == 'published'}" class="badge badge-success" style="margin-left: var(--ep-space-1);">Published</span>
             </span>
+
+            <!-- Editor-owned save state and actions are rendered here. -->
+            <div th:if="${editMode && editable}" id="contract-save-controls" hx-preserve
+                 class="contract-status-save-controls" role="region"
+                 aria-label="Data contract save controls"></div>
+
+            <!-- Edit mode: leave editing without publishing. -->
+            <th:block th:if="${editMode}">
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                   class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
+                    Done editing
+                </a>
+            </th:block>
 
             <!-- View mode actions -->
             <th:block th:if="${!editMode}">
@@ -42,7 +47,7 @@
                 </th:block>
             </th:block>
 
-            <span style="flex: 1;"></span>
+            <span class="contract-status-spacer"></span>
 
             <!-- Usage + History (always visible) -->
             <th:block th:if="${hasOutdatedVersions}">

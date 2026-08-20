@@ -47,10 +47,59 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Header bar
+   * Contract-wide save controls
    * ---------------------------------------------------------------------- */
 
-  /* (header bar removed — save button lives in the schema toolbar) */
+  .dc-contract-save-controls {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ep-space-3);
+    min-width: 0;
+  }
+
+  .dc-contract-save-summary,
+  .dc-contract-save-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .dc-contract-save-summary {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .dc-contract-save-actions {
+    flex-shrink: 0;
+  }
+
+  .dc-contract-save-state {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-stone-700);
+  }
+
+  .dc-contract-save-state-muted {
+    font-weight: 500;
+    color: var(--ep-stone-600);
+  }
+
+  .dc-contract-change-badge {
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-terracotta-700);
+    background: var(--ep-terracotta-50);
+    border: 1px solid var(--ep-terracotta-200);
+    border-radius: var(--ep-radius-full);
+  }
+
+  .dc-contract-save-blocked {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
+  }
 
   .dc-page-content {
     display: flex;
@@ -72,6 +121,10 @@
     font-weight: 600;
     color: var(--ep-stone-700);
     margin: 0 0 var(--ep-space-2) 0;
+  }
+
+  .dc-required-indicator {
+    color: var(--ep-color-danger, #c53030);
   }
 
   .dc-section-hint {
@@ -371,18 +424,6 @@
    * Status bar (save state)
    * ---------------------------------------------------------------------- */
 
-  .dc-status-bar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--ep-space-3);
-    padding: var(--ep-space-2) var(--ep-space-3);
-    border-top: 1px solid var(--ep-stone-200);
-    background: var(--ep-stone-50);
-    border-radius: var(--ep-radius-sm);
-    margin-top: var(--ep-space-4);
-  }
-
   .dc-status-success {
     font-size: var(--ep-text-xs);
     color: var(--ep-green-700);
@@ -405,6 +446,18 @@
     &:hover:not(:disabled) {
       background: var(--ep-amber-50);
       border-color: var(--ep-amber-500);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .dc-contract-save-controls {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .dc-contract-save-actions {
+      width: 100%;
+      justify-content: flex-end;
     }
   }
 
@@ -1007,6 +1060,15 @@
       outline: none;
       box-shadow: var(--ep-ring);
     }
+  }
+
+  .dc-example-delete-requirement {
+    max-width: 220px;
+    margin-top: auto;
+    font-size: var(--ep-text-xs);
+    line-height: 1.4;
+    color: var(--ep-stone-600);
+    text-align: right;
   }
 
   /* --------------------------------------------------------------------------

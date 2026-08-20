@@ -17,6 +17,7 @@ import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,7 +40,7 @@ class DiscardDraftRoutesTest : BaseIntegrationTest() {
 
         given {
             testTenant = tenant("Discard Test")
-            val template = template(testTenant, "Invoice Template")
+            val template = template(testTenant, "Invoice Template").withRequiredDataExample()
             templateId = template.id.value
             val tplId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))
             variantKey = VariantKey.INITIAL.value

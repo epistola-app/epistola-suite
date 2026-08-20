@@ -44,10 +44,17 @@ export function renderExamplesSection(
   const selectedExample = uiState.editingId
     ? examples.find((e) => e.id === uiState.editingId)
     : null;
+  const canDeleteSelected = selectedExample ? state.canDeleteExample(selectedExample.id) : false;
+  const deleteRequirement =
+    selectedExample && examples.length > 1 && state.isExampleCommitted(selectedExample.id)
+      ? 'Save another example before deleting this one. At least one saved test data example is required.'
+      : 'This example cannot be deleted because at least one test data example is required.';
 
   return html`
     <section class="dc-section dc-examples-section">
-      <h3 class="dc-section-label">Test Data Examples</h3>
+      <h3 class="dc-section-label">
+        Test Data Examples <span class="dc-required-indicator" aria-label="required">*</span>
+      </h3>
       <p class="dc-section-hint">
         Create example data sets to test your templates. Each example must conform to the schema.
       </p>
@@ -117,30 +124,34 @@ export function renderExamplesSection(
                     }}
                   />
                 </div>
-                <button
-                  class="dc-example-delete-btn"
-                  ?disabled=${uiState.readOnly}
-                  @click=${() => callbacks.onDeleteExample(selectedExample.id)}
-                  title="Delete this example"
-                  aria-label="Delete example"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4H12z"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
+                ${!canDeleteSelected
+                  ? html` <span class="dc-example-delete-requirement">${deleteRequirement}</span> `
+                  : html`
+                      <button
+                        class="dc-example-delete-btn"
+                        ?disabled=${uiState.readOnly}
+                        @click=${() => callbacks.onDeleteExample(selectedExample.id)}
+                        title="Delete this example"
+                        aria-label="Delete example"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4H12z"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    `}
               </div>
 
               <!-- Floating Toolbar -->
@@ -259,8 +270,17 @@ export function renderExamplesSection(
                     />
                   </svg>
                 </div>
-                <p>No test data examples yet</p>
-                <span class="dc-empty-state-hint">Click "+ New" to create your first example</span>
+                <p>At least one test data example is required</p>
+                <span class="dc-empty-state-hint">
+                  Add an example before saving or publishing this data contract.
+                </span>
+                <button
+                  class="ep-btn ep-btn-primary ep-btn-sm"
+                  ?disabled=${uiState.readOnly}
+                  @click=${() => callbacks.onAddExample()}
+                >
+                  Add first example
+                </button>
               </div>
             `
           : html`

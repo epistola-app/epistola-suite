@@ -315,12 +315,57 @@ describe('DataContractState', () => {
   describe('deleteSingleExample', () => {
     it('calls onDeleteDataExample and removes on success', async () => {
       const onDeleteDataExample = vi.fn().mockResolvedValue({ success: true });
-      const state = createState(testSchema, testExamples, { onDeleteDataExample });
+      const state = createState(
+        testSchema,
+        [...testExamples, { id: '2', name: 'Example 2', data: {} }],
+        { onDeleteDataExample },
+      );
 
       const result = await state.deleteSingleExample('1');
 
       expect(result.success).toBe(true);
-      expect(state.dataExamples).toHaveLength(0);
+      expect(state.dataExamples).toHaveLength(1);
+      expect(state.isExamplesDirty).toBe(false);
+    });
+
+    it('removes an unsaved example locally without calling the backend', async () => {
+      const onDeleteDataExample = vi.fn();
+      const state = createState(testSchema, testExamples, { onDeleteDataExample });
+      state.addDraftExample({ id: 'new', name: 'New example', data: {} });
+
+      const result = await state.deleteSingleExample('new');
+
+      expect(result.success).toBe(true);
+      expect(onDeleteDataExample).not.toHaveBeenCalled();
+      expect(state.dataExamples).toEqual(testExamples);
+      expect(state.isExamplesDirty).toBe(false);
+    });
+
+    it('does not delete the only saved example while its alternative is unsaved', async () => {
+      const onDeleteDataExample = vi.fn();
+      const state = createState(testSchema, testExamples, { onDeleteDataExample });
+      state.addDraftExample({ id: 'new', name: 'New example', data: {} });
+
+      const result = await state.deleteSingleExample('1');
+
+      expect(result.success).toBe(false);
+      expect(onDeleteDataExample).not.toHaveBeenCalled();
+      expect(state.dataExamples).toHaveLength(2);
+    });
+
+    it('does not report success for an unknown example', async () => {
+      const onDeleteDataExample = vi.fn();
+      const state = createState(
+        testSchema,
+        [...testExamples, { id: '2', name: 'Example 2', data: {} }],
+        { onDeleteDataExample },
+      );
+
+      const result = await state.deleteSingleExample('unknown');
+
+      expect(result.success).toBe(false);
+      expect(onDeleteDataExample).not.toHaveBeenCalled();
+      expect(state.dataExamples).toHaveLength(2);
     });
 
     it('does not remove on failure', async () => {
@@ -334,12 +379,16 @@ describe('DataContractState', () => {
 
     it('handles exceptions', async () => {
       const onDeleteDataExample = vi.fn().mockRejectedValue(new Error('Fail'));
-      const state = createState(testSchema, testExamples, { onDeleteDataExample });
+      const state = createState(
+        testSchema,
+        [...testExamples, { id: '2', name: 'Example 2', data: {} }],
+        { onDeleteDataExample },
+      );
 
       const result = await state.deleteSingleExample('1');
 
       expect(result.success).toBe(false);
-      expect(state.dataExamples).toHaveLength(1);
+      expect(state.dataExamples).toHaveLength(2);
     });
   });
 
