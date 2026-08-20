@@ -156,6 +156,7 @@ class InstallFromCatalogHandler(
                 )
             },
             publishTo = emptyList(),
+            pdfaEnabled = resource.pdfaEnabled,
         )
 
         val results = ImportTemplates(

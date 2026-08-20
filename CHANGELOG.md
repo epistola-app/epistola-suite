@@ -43,6 +43,10 @@
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while
   preserving genuine audit history.
+- **[user]** fix(catalog): **A template's PDF/A setting survives catalog export and re-import.**
+  Import previously hardcoded PDF/A to enabled and never updated it on re-import, and export never
+  emitted it at all — so disabling PDF/A on a template was silently reverted the next time its
+  catalog was imported or upgraded. The setting now round-trips both ways.
 
 ## [1.0.1] - 2026-08-04
 

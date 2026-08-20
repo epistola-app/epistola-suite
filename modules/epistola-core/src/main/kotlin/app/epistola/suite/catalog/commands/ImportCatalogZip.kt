@@ -636,6 +636,7 @@ class ImportCatalogZipHandler(
                     )
                 },
                 publishTo = emptyList(),
+                pdfaEnabled = resource.pdfaEnabled,
             )
             val results = ImportTemplates(
                 tenantId = tenantId,
