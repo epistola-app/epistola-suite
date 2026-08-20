@@ -60,6 +60,7 @@ import { renderMigrationDialog, migrationKey } from './sections/MigrationAssista
 import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
+import { renderContractSaveBar } from './sections/ContractSaveBar.js';
 
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
@@ -213,6 +214,12 @@ export class EpistolaDataContractEditor extends LitElement {
     return (this.contractState?.dataExamples.length ?? 0) > 0;
   }
 
+  private get _saveBlockedReason(): string | null {
+    if (!this._hasRequiredExample) return 'Add at least one test data example before saving';
+    if (this._hasExampleErrors) return 'Fix example validation errors before saving';
+    return null;
+  }
+
   override render() {
     if (!this.contractState) {
       return html`<div class="dc-empty-state">No data contract loaded.</div>`;
@@ -238,6 +245,23 @@ export class EpistolaDataContractEditor extends LitElement {
               </div>
             `
           : nothing}
+        ${this._readOnly
+          ? nothing
+          : renderContractSaveBar(
+              {
+                schemaDirty: this.contractState.isSchemaDirty,
+                examplesDirty: this.contractState.isExamplesDirty,
+                saving: this._saving,
+                saveSuccess: this._saveSuccess,
+                saveError: this._saveError,
+                canForceSave: this._canForceSave,
+                blockedReason: this._saveBlockedReason,
+              },
+              {
+                onSave: () => this._saveAll(),
+                onForceSave: () => this._executeForceSave(),
+              },
+            )}
 
         <!-- Page content: schema then examples -->
         <div class="dc-page-content">
@@ -346,16 +370,6 @@ export class EpistolaDataContractEditor extends LitElement {
       selectedFieldId: this._selectedFieldId,
       readOnly: this._readOnly,
       jsonPanelOpen: this._jsonPanelOpen,
-      saving: this._saving,
-      canSave: state.isDirty && !this._hasExampleErrors && this._hasRequiredExample,
-      saveSuccess: this._saveSuccess,
-      saveError: this._saveError,
-      canForceSave: this._canForceSave,
-      saveTooltip: !this._hasRequiredExample
-        ? 'Add at least one test data example before saving'
-        : this._hasExampleErrors
-          ? 'Fix example validation errors before saving'
-          : '',
     };
 
     const callbacks: SchemaSectionCallbacks = {
@@ -369,8 +383,6 @@ export class EpistolaDataContractEditor extends LitElement {
       onToggleJson: () => {
         this._jsonPanelOpen = !this._jsonPanelOpen;
       },
-      onSave: () => this._saveAll(),
-      onForceSave: () => this._executeForceSave(),
     };
 
     return html`
@@ -419,13 +431,6 @@ export class EpistolaDataContractEditor extends LitElement {
       canUndo: this._exampleCanUndo,
       canRedo: this._exampleCanRedo,
       readOnly: this._readOnly,
-      saving: this._saving,
-      canSave: state.isDirty && !this._hasExampleErrors && this._hasRequiredExample,
-      saveTooltip: !this._hasRequiredExample
-        ? 'Add at least one test data example before saving'
-        : this._hasExampleErrors
-          ? 'Fix example validation errors before saving'
-          : '',
     };
 
     const callbacks: ExamplesSectionCallbacks = {
@@ -436,7 +441,6 @@ export class EpistolaDataContractEditor extends LitElement {
       onUpdateExampleData: (id, path, value) => this._updateExampleData(id, path, value),
       onUndo: () => this._undoExampleData(),
       onRedo: () => this._redoExampleData(),
-      onSave: () => this._saveAll(),
     };
 
     return renderExamplesSection(state, uiState, callbacks);

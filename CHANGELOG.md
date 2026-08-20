@@ -8,9 +8,9 @@
   Saving or publishing without an example is rejected with an actionable validation error, the
   editor highlights the requirement, and replaces the final example's delete action with an
   explanation of why it must remain. Unsaved examples are removed locally and do not make saved
-  examples prematurely deletable. A save action beside the example undo/redo controls avoids
-  scrolling back to the schema toolbar. Existing empty contract versions remain readable and
-  importable.
+  examples prematurely deletable. A sticky contract-wide save bar identifies whether schema or
+  examples have unsaved changes without conflating their separate undo histories. Existing empty
+  contract versions remain readable and importable.
 - **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
   The editor now starts a draft automatically before applying the deletion.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer

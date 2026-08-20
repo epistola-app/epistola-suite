@@ -8,13 +8,7 @@ import { render } from 'lit';
 import { describe, expect, it, vi } from 'vitest';
 import { DataContractState } from '../DataContractState.js';
 import type { DataExample } from '../types.js';
-import {
-  renderExamplesSection,
-  type ExamplesSectionCallbacks,
-  type ExamplesUiState,
-} from './ExamplesSection.js';
-
-const onSave = vi.fn();
+import { renderExamplesSection, type ExamplesSectionCallbacks } from './ExamplesSection.js';
 
 const callbacks: ExamplesSectionCallbacks = {
   onSelectExample: vi.fn(),
@@ -24,7 +18,6 @@ const callbacks: ExamplesSectionCallbacks = {
   onUpdateExampleData: vi.fn(),
   onUndo: vi.fn(),
   onRedo: vi.fn(),
-  onSave,
 };
 
 function renderSection(examples: DataExample[], editingId: string | null = null): HTMLElement {
@@ -32,11 +25,7 @@ function renderSection(examples: DataExample[], editingId: string | null = null)
   return renderState(state, editingId);
 }
 
-function renderState(
-  state: DataContractState,
-  editingId: string | null = null,
-  uiOverrides: Partial<ExamplesUiState> = {},
-): HTMLElement {
+function renderState(state: DataContractState, editingId: string | null = null): HTMLElement {
   const container = document.createElement('div');
   render(
     renderExamplesSection(
@@ -49,10 +38,6 @@ function renderState(
         canUndo: false,
         canRedo: false,
         readOnly: false,
-        saving: false,
-        canSave: false,
-        saveTooltip: '',
-        ...uiOverrides,
       },
       callbacks,
     ),
@@ -62,22 +47,14 @@ function renderState(
 }
 
 describe('ExamplesSection required example state', () => {
-  it('renders a save action directly beside example undo and redo', () => {
+  it('keeps example undo and redo local without a section-specific save action', () => {
     const example = { id: 'one', name: 'Example 1', data: {} };
-    const state = new DataContractState(null, [example], {});
-    state.updateDraftExample(example.id, { name: 'Updated' });
-    const container = renderState(state, example.id, { canSave: true });
+    const container = renderSection([example], example.id);
     const actions = container.querySelector('.dc-example-toolbar-actions');
-    onSave.mockClear();
 
     expect(actions?.textContent).toContain('Undo');
     expect(actions?.textContent).toContain('Redo');
-    expect(actions?.textContent).toContain('Save');
-    const saveButton = actions?.querySelector<HTMLButtonElement>('.dc-example-save-btn');
-    expect(saveButton?.disabled).toBe(false);
-
-    saveButton?.click();
-    expect(onSave).toHaveBeenCalledOnce();
+    expect(actions?.textContent).not.toContain('Save');
   });
 
   it('explains the requirement and offers to add the first example', () => {

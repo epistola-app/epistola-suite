@@ -23,9 +23,6 @@ export interface ExamplesUiState {
   canUndo: boolean;
   canRedo: boolean;
   readOnly: boolean;
-  saving: boolean;
-  canSave: boolean;
-  saveTooltip: string;
 }
 
 export interface ExamplesSectionCallbacks {
@@ -36,7 +33,6 @@ export interface ExamplesSectionCallbacks {
   onUpdateExampleData: (id: string, path: string, value: JsonValue) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onSave: () => void;
 }
 
 export function renderExamplesSection(
@@ -196,14 +192,6 @@ export function renderExamplesSection(
                       />
                     </svg>
                     Redo
-                  </button>
-                  <button
-                    class="ep-btn ep-btn-primary ep-btn-sm dc-example-save-btn"
-                    ?disabled=${uiState.readOnly || uiState.saving || !uiState.canSave}
-                    @click=${() => callbacks.onSave()}
-                    title=${uiState.saveTooltip}
-                  >
-                    ${uiState.saving ? 'Saving...' : 'Save'}
                   </button>
                 </div>
 

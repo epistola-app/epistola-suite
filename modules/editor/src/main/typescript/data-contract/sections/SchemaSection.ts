@@ -38,13 +38,6 @@ export interface SchemaUiState {
   selectedFieldId: string | null;
   readOnly: boolean;
   jsonPanelOpen: boolean;
-  // Save state
-  saving: boolean;
-  canSave: boolean;
-  saveSuccess: boolean;
-  saveError: string | null;
-  canForceSave: boolean;
-  saveTooltip: string;
 }
 
 export interface SchemaSectionCallbacks {
@@ -56,8 +49,6 @@ export interface SchemaSectionCallbacks {
   onAddField: () => void;
   onImport: () => void;
   onToggleJson: () => void;
-  onSave: () => void;
-  onForceSave: () => void;
 }
 
 // =============================================================================
@@ -152,28 +143,6 @@ export function renderSchemaSection(
             />
           </svg>
           Redo
-        </button>
-
-        ${uiState.saveSuccess ? html`<span class="dc-status-success">Saved</span>` : nothing}
-        ${uiState.saveError
-          ? html`<span class="dc-status-error">${uiState.saveError}</span>`
-          : nothing}
-        ${uiState.canForceSave
-          ? html`<button
-              class="ep-btn ep-btn-outline ep-btn-sm dc-force-save-btn"
-              ?disabled=${uiState.saving}
-              @click=${() => callbacks.onForceSave()}
-            >
-              Save Anyway
-            </button>`
-          : nothing}
-        <button
-          class="ep-btn ep-btn-primary ep-btn-sm dc-save-btn"
-          ?disabled=${uiState.readOnly || uiState.saving || !uiState.canSave}
-          @click=${() => callbacks.onSave()}
-          title=${uiState.saveTooltip}
-        >
-          ${uiState.saving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
