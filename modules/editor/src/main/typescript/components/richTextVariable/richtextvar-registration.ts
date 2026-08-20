@@ -35,7 +35,7 @@ export function createRichTextVariableDefinition(): ComponentDefinition {
         pathDisabled: richTextVariablePathDisabled,
       },
     ],
-    defaultStyles: { marginBottom: '1.5sp' },
+    defaultStyles: { marginBottom: '1.5sp', listItemSpacing: '0.5sp' },
     defaultProps: { binding: '' },
     renderCanvas: ({ node, engine: eng }) => {
       const binding = (node.props?.binding as string | undefined) ?? '';

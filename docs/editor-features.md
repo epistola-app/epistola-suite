@@ -102,6 +102,12 @@ Ordered lists support multiple numbering formats, and bullet lists support multi
 
 **Nesting (sub-lists):** inside a list, **Tab** sinks the current item one level deeper (creating a nested sub-list), **Shift-Tab** lifts it back out, and **Enter** starts a new sibling item. Outside a list these keys keep their default behaviour. Wired in `plugins.ts` via `sinkListItem` / `liftListItem` / `splitListItem` (prosemirror-schema-list).
 
+**Item spacing:** Text, Rich Text Block, and Data List share the inheritable
+`listItemSpacing` style. It accepts `sp` or `pt`, defaults to `0.5sp`, and adds space only
+between sibling items. It does not change list indentation or the space before or after a list.
+The style follows the regular cascade, so a theme preset can set it globally and a block can
+override it.
+
 **PDF rendering:** `ProseMirrorConverter` maps `listType` attribute to iText `ListNumberingType` for ordered lists, and `listStyle` attribute to the content-font `setListSymbol()` for bullet lists. Nested lists recurse through `convertListItem`.
 
 ## Page Components
@@ -216,6 +222,9 @@ A block that loops over a data expression and renders items as a formatted list.
 | indexAlias  | text       | —       | Variable name for current index                   |
 | listType    | select     | bullet  | List format                                       |
 | bulletStyle | select     | disc    | Bullet glyph (only shown when `listType: bullet`) |
+
+The Styles section also exposes **List Item Spacing** (`listItemSpacing`, default `0.5sp`).
+It uses the same cascade and sibling-only behavior as lists authored in Text and Rich Text Block.
 
 **List types:** bullet, decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none
 

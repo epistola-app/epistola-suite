@@ -262,7 +262,7 @@
           "id": "n-summary",
           "type": "text",
           "slots": [],
-          "styles": { "marginTop": "4sp" },
+          "styles": { "marginTop": "4sp", "listItemSpacing": "0sp" },
           "props": {
             "content": {
               "type": "doc",
@@ -322,6 +322,7 @@
           "id": "n-attachments-list",
           "type": "datalist",
           "slots": ["s-attachments-list-template"],
+          "styles": { "listItemSpacing": "1sp" },
           "props": {
             "expression": { "raw": "attachments", "language": "jsonata" },
             "itemAlias": "attachment",
@@ -368,7 +369,7 @@
           "id": "n-notes",
           "type": "richTextVariable",
           "slots": [],
-          "styles": { "marginTop": "1sp" },
+          "styles": { "marginTop": "1sp", "listItemSpacing": "0.5sp" },
           "props": { "binding": "notes" }
         },
         "n-footer": {

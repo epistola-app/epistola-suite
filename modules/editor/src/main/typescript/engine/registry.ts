@@ -685,7 +685,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'none' },
     applicableStyles: 'all',
     inspector: [],
-    defaultStyles: { marginBottom: '1.5sp' },
+    defaultStyles: { marginBottom: '1.5sp', listItemSpacing: '0.5sp' },
     defaultProps: { content: null },
     examples: [
       {
@@ -1067,7 +1067,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'logic',
     slots: [{ name: 'item-template' }],
     allowedChildren: { mode: 'all' },
-    applicableStyles: LAYOUT_STYLES,
+    applicableStyles: [...LAYOUT_STYLES, 'listItemSpacing'],
     inspector: [
       { key: 'expression.raw', label: 'Data Source', type: 'expression' },
       { key: 'itemAlias', label: 'Item Variable', type: 'text', defaultValue: 'item' },
@@ -1109,6 +1109,7 @@ export function createDefaultRegistry(): ComponentRegistry {
       listType: 'bullet',
       bulletStyle: 'disc',
     },
+    defaultStyles: { listItemSpacing: '0.5sp' },
     scopeProvider: buildIterationScope,
     examples: [
       {
@@ -1216,6 +1217,7 @@ export function createDefaultRegistry(): ComponentRegistry {
                 listType: 'bullet',
                 bulletStyle: 'dash',
               },
+              styles: { listItemSpacing: '1sp' },
             },
             'n-datalist-styled-item': {
               id: 'n-datalist-styled-item',
