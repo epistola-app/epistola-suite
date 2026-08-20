@@ -39,6 +39,7 @@ data class EnsureSubscribedCatalog(
     val sourceUrl: String,
     val authType: AuthType = AuthType.NONE,
     val authCredential: String? = null,
+    val preserveResourceTypes: Set<String> = emptySet(),
 ) : Command<EnsureSubscribedCatalogResult>,
     SystemInternal,
     // Fetches the remote catalog over HTTP mid-command.
@@ -122,7 +123,8 @@ class EnsureSubscribedCatalogHandler(
         val upgrade = UpgradeCatalog(
             tenantKey = command.tenantKey,
             catalogKey = existing.id,
-            includeNewSlugs = manifest.resources.map { it.slug },
+            mode = CatalogUpgradeMode.FULL,
+            preserveResourceTypes = command.preserveResourceTypes,
         ).execute()
         if (upgrade.aborted) {
             // Loud + self-retrying: SystemCatalogBootstrap's catch counts this

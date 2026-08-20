@@ -34,17 +34,22 @@ import tools.jackson.databind.ObjectMapper
  * stencils embedded in other template models, etc.), the entire upgrade
  * is rejected with a [CatalogUpgradeConflictException].
  *
- * Only resources that are already installed locally are upgraded — new
- * resources in the manifest are not automatically installed, **unless** their
- * slug is listed in [includeNewSlugs] (the opt-in "also install new resources"
- * path, wired from the upgrade preview's ADDED bucket — same slug semantics as
- * `InstallFromCatalog.resourceSlugs`). Empty = the default by-design
- * behaviour (upgrade-in-place only).
+ * [mode] defaults to [CatalogUpgradeMode.SELECTIVE]: only resources already
+ * installed locally are upgraded, plus new resources explicitly listed in
+ * [includeNewSlugs]. Managed bundled catalogs use [CatalogUpgradeMode.FULL]
+ * to reconcile every manifest resource. Keeping the default selective
+ * preserves the regular subscribed-catalog flow until issue #850 intentionally
+ * removes it. [preserveResourceTypes] is reserved for resources explicitly
+ * managed outside the manifest, such as the separately seeded system fonts.
  */
+enum class CatalogUpgradeMode { SELECTIVE, FULL }
+
 data class UpgradeCatalog(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val includeNewSlugs: List<String> = emptyList(),
+    val mode: CatalogUpgradeMode = CatalogUpgradeMode.SELECTIVE,
+    val preserveResourceTypes: Set<String> = emptySet(),
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission,
     // Re-fetches the remote catalog over HTTP mid-command.
@@ -114,6 +119,7 @@ class UpgradeCatalogHandler(
 
         // 3. Compute what would be removed
         val staleResources = analyzer.computeStale(installedSlugs, manifestSlugs)
+            .filterNot { it.type in command.preserveResourceTypes }
 
         // 4. Validate: fail if any stale resource is still referenced
         if (staleResources.isNotEmpty()) {
@@ -123,11 +129,14 @@ class UpgradeCatalogHandler(
             }
         }
 
-        // 5. Install/update previously installed resources, plus any opted-in
-        //    new resources (filtered to slugs the new manifest actually ships).
+        // 5. Selective upgrades preserve the locally chosen subset. Full
+        //    reconciliation installs/updates every resource in the manifest.
         val manifestSlugSet = manifest.resources.map { it.slug }.toSet()
         val newSlugs = command.includeNewSlugs.filter { it in manifestSlugSet }
-        val slugsToUpgrade = (installedSlugs.values.flatten().map { it.slug } + newSlugs).distinct()
+        val slugsToUpgrade = when (command.mode) {
+            CatalogUpgradeMode.SELECTIVE -> installedSlugs.values.flatten().map { it.slug } + newSlugs
+            CatalogUpgradeMode.FULL -> manifest.resources.map { it.slug }
+        }.distinct()
         val installResults = if (slugsToUpgrade.isNotEmpty()) {
             InstallFromCatalog(
                 tenantKey = command.tenantKey,
