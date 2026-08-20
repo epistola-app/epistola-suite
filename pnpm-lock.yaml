@@ -69,6 +69,9 @@ importers:
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
+      '@faker-js/faker':
+        specifier: ^10.5.0
+        version: 10.5.0
       '@floating-ui/dom':
         specifier: ^1.7.5
         version: 1.8.0
@@ -407,6 +410,10 @@ packages:
 
   '@epistola.app/epistola-catalog@1.0.1':
     resolution: {integrity: sha512-2eARsOzqUwXttP8RnJBylDthw/qBy5Kwo8h3p7g9kIILhMlj1SI8Vh7eaFb0ooE9V51+CjH9fihim1SqLkFhdQ==}
+
+  '@faker-js/faker@10.5.0':
+    resolution: {integrity: sha512-bsxD8WLS5lIj7aaoCx1YJkktqYj5vlBUE6HWzu2Q51ksrGJ0H737ECCKlFU7Yf8Br45z9t99frBp/J7kzbMPAg==}
+    engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -3802,6 +3809,8 @@ snapshots:
     optional: true
 
   '@epistola.app/epistola-catalog@1.0.1': {}
+
+  '@faker-js/faker@10.5.0': {}
 
   '@floating-ui/core@1.8.0':
     dependencies:
