@@ -1013,6 +1013,15 @@
     }
   }
 
+  .dc-example-delete-requirement {
+    max-width: 220px;
+    margin-top: auto;
+    font-size: var(--ep-text-xs);
+    line-height: 1.4;
+    color: var(--ep-stone-600);
+    text-align: right;
+  }
+
   /* --------------------------------------------------------------------------
    * Floating toolbar (compact nested syntax)
    * ---------------------------------------------------------------------- */

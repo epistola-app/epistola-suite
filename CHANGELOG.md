@@ -6,8 +6,9 @@
 
 - **[user]** feat(data contracts): **Every authored data contract keeps at least one example.**
   Saving or publishing without an example is rejected with an actionable validation error, the
-  editor highlights the requirement, and the final example can no longer be deleted. Existing
-  empty contract versions remain readable and importable.
+  editor highlights the requirement, and replaces the final example's delete action with an
+  explanation of why it must remain. Existing empty contract versions remain readable and
+  importable.
 - **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
   The editor now starts a draft automatically before applying the deletion.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer

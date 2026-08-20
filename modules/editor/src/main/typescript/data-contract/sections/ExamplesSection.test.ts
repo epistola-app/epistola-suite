@@ -52,13 +52,14 @@ describe('ExamplesSection required example state', () => {
     );
   });
 
-  it('disables deleting the last example', () => {
+  it('hides deletion and explains why for the last example', () => {
     const example = { id: 'one', name: 'Example 1', data: {} };
     const container = renderSection([example], example.id);
 
-    const deleteButton = container.querySelector<HTMLButtonElement>('.dc-example-delete-btn');
-    expect(deleteButton?.disabled).toBe(true);
-    expect(deleteButton?.title).toBe('At least one test data example is required');
+    expect(container.querySelector('.dc-example-delete-btn')).toBeNull();
+    expect(container.querySelector('.dc-example-delete-requirement')?.textContent).toContain(
+      'This is the only example. At least one test data example is required.',
+    );
   });
 
   it('allows deleting when another example remains', () => {
