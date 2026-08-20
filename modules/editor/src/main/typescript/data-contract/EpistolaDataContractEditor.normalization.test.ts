@@ -149,7 +149,7 @@ describe('schema normalization', () => {
     expect(editor.contractState?.isSchemaDirty).toBe(true);
   });
 
-  it('rejects a catalog template resource instead of storing its wrapper as the schema', async () => {
+  it('rejects an arbitrary JSON object instead of storing it as the schema', async () => {
     const originalSchema: JsonSchema = {
       type: 'object',
       properties: { name: { type: 'string' } },
@@ -182,9 +182,8 @@ describe('schema normalization', () => {
     await editor.updateComplete;
 
     expect(editor.querySelector('.dc-import-error')?.textContent).toContain(
-      'catalog template resource',
+      'must require an object at its root',
     );
-    expect(editor.querySelector('.dc-import-error')?.textContent).toContain('resource.dataModel');
     expect(editor.contractState?.schema).toEqual(originalSchema);
     expect(editor.contractState?.isSchemaDirty).toBe(false);
   });

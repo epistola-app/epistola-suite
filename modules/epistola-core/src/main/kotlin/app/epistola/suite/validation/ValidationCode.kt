@@ -25,6 +25,7 @@ enum class ValidationCode(val wire: String) {
 
     // Data contract authoring.
     DATA_EXAMPLE_REQUIRED("DATA_EXAMPLE_REQUIRED"),
+    DATA_CONTRACT_SCHEMA_INVALID("DATA_CONTRACT_SCHEMA_INVALID"),
 
     // Node parameter bindings (cross-document + structural shape).
     NODE_PARAMETER_BINDING_UNKNOWN("NODE_PARAMETER_BINDING_UNKNOWN"),

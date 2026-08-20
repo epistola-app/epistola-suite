@@ -23,6 +23,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
+import app.epistola.suite.templates.validation.requireValidDataContractSchema
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
@@ -198,6 +199,7 @@ class ImportTemplatesHandler(
 
         // Validate property names in the schema
         if (input.dataModel != null) {
+            jsonSchemaValidator.requireValidDataContractSchema(input.dataModel)
             val invalidNames = jsonSchemaValidator.validatePropertyNames(input.dataModel)
             if (invalidNames.isNotEmpty()) {
                 error("Template '${input.slug}': invalid property names in schema: ${invalidNames.joinToString()}")

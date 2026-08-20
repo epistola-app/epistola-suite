@@ -152,6 +152,21 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
         }
 
         @Test
+        fun `rejects arbitrary JSON as a data contract schema`() {
+            assertThatThrownBy {
+                withMediator {
+                    UpdateContractVersion(
+                        templateId = templateId,
+                        dataModel = schema("""{"schemaVersion":5,"resource":{"type":"template"}}"""),
+                    ).execute()
+                }
+            }
+                .isInstanceOf(app.epistola.suite.validation.ValidationException::class.java)
+                .hasValidationCode(ValidationCode.DATA_CONTRACT_SCHEMA_INVALID)
+                .hasMessageContaining("must require an object at its root")
+        }
+
+        @Test
         fun `rejects an update without an example`() {
             assertThatThrownBy {
                 withMediator {

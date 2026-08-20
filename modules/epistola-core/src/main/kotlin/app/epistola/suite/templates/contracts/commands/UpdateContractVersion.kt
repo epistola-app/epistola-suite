@@ -16,6 +16,7 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
+import app.epistola.suite.templates.validation.requireValidDataContractSchema
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -77,6 +78,7 @@ class UpdateContractVersionHandler(
             val effectiveDataModel = command.dataModel ?: draft.dataModel
 
             if (command.dataModel != null) {
+                jsonSchemaValidator.requireValidDataContractSchema(command.dataModel)
                 // Validate property names
                 val invalidNames = jsonSchemaValidator.validatePropertyNames(command.dataModel)
                 if (invalidNames.isNotEmpty()) {

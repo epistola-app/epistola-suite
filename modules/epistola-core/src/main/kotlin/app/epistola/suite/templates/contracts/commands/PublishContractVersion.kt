@@ -21,12 +21,11 @@ import app.epistola.suite.templates.contracts.model.ContractVersionStatus
 import app.epistola.suite.templates.contracts.queries.CheckContractPublishImpact
 import app.epistola.suite.templates.contracts.queries.ContractPublishImpact
 import app.epistola.suite.templates.validation.JsonSchemaValidator
-import app.epistola.suite.templates.validation.SchemaValidationResult
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
+import app.epistola.suite.templates.validation.requireValidDataContractSchema
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * Publishes the draft contract version for a template.
@@ -72,7 +71,6 @@ data class IncompatibleVersion(
 @Component
 class PublishContractVersionHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val mediator: Mediator,
 ) : CommandHandler<PublishContractVersion, PublishContractVersionResult?> {
@@ -103,10 +101,7 @@ class PublishContractVersionHandler(
             // 2. Validate schema and examples
             requireAtLeastOneDataExample(draft.dataExamples)
             if (draft.dataModel != null) {
-                val schemaValidation = jsonSchemaValidator.validateSchema(objectMapper.writeValueAsString(draft.dataModel))
-                require(schemaValidation is SchemaValidationResult.Valid) {
-                    "Invalid JSON Schema: ${(schemaValidation as SchemaValidationResult.Invalid).message}"
-                }
+                jsonSchemaValidator.requireValidDataContractSchema(draft.dataModel)
 
                 val invalidNames = jsonSchemaValidator.validatePropertyNames(draft.dataModel)
                 require(invalidNames.isEmpty()) { "Invalid property names: ${invalidNames.joinToString()}" }

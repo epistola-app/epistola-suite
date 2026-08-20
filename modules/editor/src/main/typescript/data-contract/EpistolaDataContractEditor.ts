@@ -49,6 +49,7 @@ import {
   normalizeSchemaForVisualEditor,
   type SchemaNormalizationChange,
 } from './utils/schemaNormalizer.js';
+import { validateDataContractSchema } from './utils/dataContractSchema.js';
 import { detectBreakingChanges, type BreakingChange } from './utils/schemaBreakingChanges.js';
 import {
   renderSchemaSection,
@@ -1119,9 +1120,9 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _importSchema(schema: Record<string, unknown>): void {
-    if (isCatalogTemplateResource(schema)) {
-      this._importParseError =
-        'This file is an Epistola catalog template resource, not a JSON Schema. Import the object at "resource.dataModel" instead.';
+    const validation = validateDataContractSchema(schema);
+    if (!validation.valid) {
+      this._importParseError = validation.error ?? 'Invalid data contract JSON Schema';
       return;
     }
 
@@ -1185,20 +1186,6 @@ export class EpistolaDataContractEditor extends LitElement {
       this.requestUpdate();
     }, 3000);
   }
-}
-
-function isCatalogTemplateResource(value: Record<string, unknown>): boolean {
-  const resource = value.resource;
-  return (
-    typeof value.schemaVersion === 'number' &&
-    isObjectRecord(resource) &&
-    resource.type === 'template' &&
-    isObjectRecord(resource.dataModel)
-  );
-}
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 declare global {
