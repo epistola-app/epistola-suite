@@ -1,0 +1,339 @@
+{
+  "schemaVersion": 5,
+  "resource": {
+    "type": "template",
+    "slug": "advanced-data-contract",
+    "name": "Advanced Data Contract",
+    "themeId": "corporate",
+    "dataModel": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "$defs": {
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": {
+              "type": "string",
+              "description": "Street and house number"
+            },
+            "postalCode": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": ["street", "postalCode", "city"]
+        },
+        "contactDetails": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email"
+            },
+            "phoneNumber": {
+              "type": "string"
+            }
+          },
+          "required": ["email"]
+        },
+        "person": {
+          "type": "object",
+          "allOf": [
+            {
+              "$ref": "#/$defs/contactDetails"
+            }
+          ],
+          "properties": {
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            },
+            "address": {
+              "$ref": "#/$defs/address"
+            }
+          },
+          "required": ["firstName", "lastName", "address"]
+        },
+        "organization": {
+          "type": "object",
+          "allOf": [
+            {
+              "$ref": "#/$defs/contactDetails"
+            }
+          ],
+          "properties": {
+            "organizationName": {
+              "type": "string"
+            },
+            "registrationNumber": {
+              "type": "string"
+            },
+            "address": {
+              "$ref": "#/$defs/address"
+            }
+          },
+          "required": ["organizationName", "registrationNumber", "address"]
+        }
+      },
+      "properties": {
+        "caseReference": {
+          "type": "string",
+          "description": "Reference shown on the case"
+        },
+        "applicant": {
+          "$ref": "#/$defs/person"
+        },
+        "subject": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/person"
+            },
+            {
+              "$ref": "#/$defs/organization"
+            }
+          ]
+        },
+        "alternateSubjects": {
+          "type": "array",
+          "description": "Different union variants in one collection",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/person"
+              },
+              {
+                "$ref": "#/$defs/organization"
+              }
+            ]
+          },
+          "minItems": 1
+        },
+        "correspondenceAddress": {
+          "description": "An optional address represented as an anyOf nullable union",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/address"
+            }
+          ]
+        },
+        "deliveryRoutes": {
+          "type": "array",
+          "description": "Routes containing ordered groups of addresses",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/address"
+            }
+          }
+        }
+      },
+      "required": [
+        "caseReference",
+        "applicant",
+        "subject",
+        "alternateSubjects",
+        "deliveryRoutes"
+      ]
+    },
+    "dataExamples": [
+      {
+        "name": "Mixed nested structures",
+        "data": {
+          "caseReference": "ZAAK-2026-843",
+          "applicant": {
+            "firstName": "Mila",
+            "lastName": "de Vries",
+            "email": "mila.devries@example.com",
+            "phoneNumber": "+31 6 12345678",
+            "address": {
+              "street": "Markt 1",
+              "postalCode": "6211 CK",
+              "city": "Maastricht"
+            }
+          },
+          "subject": {
+            "organizationName": "Voorbeeld Organisatie B.V.",
+            "registrationNumber": "12345678",
+            "email": "contact@example.org",
+            "address": {
+              "street": "Stationsplein 10",
+              "postalCode": "3511 ED",
+              "city": "Utrecht"
+            }
+          },
+          "alternateSubjects": [
+            {
+              "firstName": "Noah",
+              "lastName": "Jansen",
+              "email": "noah.jansen@example.net",
+              "address": {
+                "street": "Coolsingel 40",
+                "postalCode": "3011 AD",
+                "city": "Rotterdam"
+              }
+            },
+            {
+              "organizationName": "Gemeente Voorbeeldstad",
+              "registrationNumber": "87654321",
+              "email": "loket@example.com",
+              "address": {
+                "street": "Raadhuisstraat 1",
+                "postalCode": "1016 DD",
+                "city": "Amsterdam"
+              }
+            }
+          ],
+          "correspondenceAddress": {
+            "street": "Bezuidenhoutseweg 30",
+            "postalCode": "2594 AV",
+            "city": "Den Haag"
+          },
+          "deliveryRoutes": [
+            [
+              {
+                "street": "Grote Markt 1",
+                "postalCode": "9712 HN",
+                "city": "Groningen"
+              },
+              {
+                "street": "Waagplein 2",
+                "postalCode": "1811 JP",
+                "city": "Alkmaar"
+              }
+            ],
+            [
+              {
+                "street": "Vrijthof 3",
+                "postalCode": "6211 LE",
+                "city": "Maastricht"
+              }
+            ]
+          ]
+        }
+      },
+      {
+        "name": "Nullable correspondence",
+        "data": {
+          "caseReference": "ZAAK-2026-844",
+          "applicant": {
+            "firstName": "Sophie",
+            "lastName": "Bakker",
+            "email": "sophie.bakker@example.com",
+            "address": {
+              "street": "Nieuwe Gracht 12",
+              "postalCode": "3512 LR",
+              "city": "Utrecht"
+            }
+          },
+          "subject": {
+            "firstName": "Daan",
+            "lastName": "Smit",
+            "email": "daan.smit@example.org",
+            "address": {
+              "street": "Kerkstraat 8",
+              "postalCode": "5611 GK",
+              "city": "Eindhoven"
+            }
+          },
+          "alternateSubjects": [
+            {
+              "organizationName": "Stichting Testdata",
+              "registrationNumber": "11223344",
+              "email": "info@example.net",
+              "address": {
+                "street": "Singel 20",
+                "postalCode": "1015 AB",
+                "city": "Amsterdam"
+              }
+            }
+          ],
+          "correspondenceAddress": null,
+          "deliveryRoutes": [[]]
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-heading": {
+          "id": "n-heading",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Advanced data contract"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-description": {
+          "id": "n-description",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Open the data contract to exercise references, compositions, nullable values, and deeply nested arrays."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-heading", "n-description"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Default",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      }
+    ]
+  }
+}

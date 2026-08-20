@@ -45,7 +45,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.name).isEqualTo("Epistola Demo Catalog")
             assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
-            assertThat(catalog.installedReleaseVersion).isEqualTo("5.16.5")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("5.17.0")
         }
     }
 
@@ -75,7 +75,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).query()
 
-            assertThat(result.resources).hasSize(10)
+            assertThat(result.resources).hasSize(11)
             assertThat(result.resources.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute"))
             assertThat(result.resources).allMatch { it.status == ResourceStatus.AVAILABLE }
         }
@@ -93,14 +93,21 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).execute()
 
-            assertThat(results).hasSize(10)
+            assertThat(results).hasSize(11)
             val successful = results.filter { it.status != InstallStatus.FAILED }
-            assertThat(successful).hasSize(10)
+            assertThat(successful).hasSize(11)
 
             // Verify templates were created
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
             assertThat(templates.map { it.id.value })
-                .containsExactlyInAnyOrder("hello-world", "simple-letter", "demo-invoice", "officiele-snelheidsbekeuring", "quality-showcase")
+                .containsExactlyInAnyOrder(
+                    "hello-world",
+                    "advanced-data-contract",
+                    "simple-letter",
+                    "demo-invoice",
+                    "officiele-snelheidsbekeuring",
+                    "quality-showcase",
+                )
 
             // Verify resource type distribution
             assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute", "asset"))
@@ -180,7 +187,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
-            assertThat(results).hasSize(10)
+            assertThat(results).hasSize(11)
             assertThat(results).allMatch { it.status == InstallStatus.INSTALLED }
         }
     }

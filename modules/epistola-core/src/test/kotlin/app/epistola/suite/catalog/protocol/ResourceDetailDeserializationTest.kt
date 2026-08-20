@@ -4,12 +4,14 @@
 
 package app.epistola.catalog.protocol
 
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.ResourceLoader
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
@@ -18,6 +20,9 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var resourceLoader: ResourceLoader
+
+    @Autowired
+    private lateinit var jsonSchemaValidator: JsonSchemaValidator
 
     @Test
     fun `deserialize template resource detail`() {
@@ -31,6 +36,25 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         assertThat(template.slug).isEqualTo("hello-world")
         assertThat(template.name).isEqualTo("Hello World")
         assertThat(template.variants).isNotEmpty()
+    }
+
+    @Test
+    fun `advanced data contract demo contains valid complex examples`() {
+        val json = resourceLoader
+            .getResource("classpath:epistola/catalogs/demo/resources/templates/advanced-data-contract.json")
+            .contentAsByteArray
+        val root = objectMapper.readTree(json)
+        val dataModel = root.at("/resource/dataModel") as ObjectNode
+        val dataExamples = root.at("/resource/dataExamples")
+
+        assertThat(dataModel.has("\$defs")).isTrue()
+        assertThat(dataExamples).hasSize(2)
+        dataExamples.forEach { example ->
+            val errors = jsonSchemaValidator.validate(dataModel, example.get("data") as ObjectNode)
+            assertThat(errors)
+                .describedAs("Demo example '%s' must match the advanced schema", example.get("name").asString())
+                .isEmpty()
+        }
     }
 
     @Test
