@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "catalog": {
     "slug": "epistola-demo",
     "name": "Epistola Demo Catalog",
@@ -12,7 +12,7 @@
   "release": {
     "version": "5.16.6",
     "releasedAt": "2026-07-31T00:00:00Z",
-    "fingerprint": "e1855332e1077163757e3c059e3905633c4ba1cdb045d7582e4f38a9e568cf02"
+    "fingerprint": "81ea59f770841ac1d2ddaa08ed42b0c396d81fa287aea3224860b9dadd48c204"
   },
   "resources": [
     {

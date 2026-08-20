@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[developer]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
+  wire-version constants are sourced from the contract so catalog v6 exports, imports, and
+  validation cannot drift from the published catalog implementation.
+
 - **[user]** feat(editor,pdf): **List item spacing is consistent and configurable.** Text,
   Rich Text Block, and Data List now share an inheritable List Item Spacing style with a `0.5sp`
   default. Spacing applies only between sibling items, with matching editor and PDF behavior;
