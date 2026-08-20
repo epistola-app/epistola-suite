@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
@@ -120,6 +121,36 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             assertThat(diff.unchanged).hasSize(5)
             assertThat(diff.conflicts).isEmpty()
             assertThat(diff.hasChanges).isTrue()
+        }
+    }
+
+    @Test
+    fun `publisher-changed metadata previews as catalog changes`(@TempDir tmp: Path) {
+        val sourceUrl = copyFixture(tmp)
+        val tenant = createTenant("Preview Metadata")
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+
+            rewriteJson(tmp.resolve("catalog.json")) { manifest ->
+                (manifest.get("catalog") as ObjectNode)
+                    .put("name", "Publisher Renamed Catalog")
+                    .set("keywords", objectMapper.createArrayNode().add("NewKeyword"))
+            }
+
+            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+
+            assertThat(diff.added).isEmpty()
+            assertThat(diff.removed).isEmpty()
+            assertThat(diff.changed).isEmpty()
+            assertThat(diff.metadataChanges)
+                .containsExactly(CatalogMetadataSection.IDENTITY, CatalogMetadataSection.KEYWORDS)
+            assertThat(diff.hasChanges).isTrue()
+
+            UpgradeCatalog(tenant.id, depKey).execute()
+            val upgraded = GetCatalog(tenant.id, depKey).query()!!
+            assertThat(upgraded.name).isEqualTo("Publisher Renamed Catalog")
+            assertThat(upgraded.portableMetadata.keywords).containsExactly("NewKeyword")
         }
     }
 

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalog): **Catalog discovery metadata survives every catalog workflow.**
+  Qualified attributes, case-preserving keywords, ordered presentation images, and license details
+  now round-trip through export, ZIP import, URL registration, upgrades, snapshots, and release
+  fingerprints. Metadata-only publisher changes appear in upgrade previews, and subscribed exports
+  omit presentation references to assets that have not been installed locally.
+
 - **[user]** fix(catalog,pdf): **Catalog exchange preserves each template's PDF/A setting.**
   Export, ZIP import, URL installation, and upgrades now retain templates that explicitly disable
   PDF/A; older catalog resources without the setting continue to default to PDF/A output.

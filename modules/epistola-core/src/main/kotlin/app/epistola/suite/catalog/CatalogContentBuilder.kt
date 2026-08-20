@@ -123,7 +123,12 @@ class CatalogContentBuilder(
         }
 
         return CatalogContent(
-            catalog = CatalogInfo(slug = catalogKey.value, name = catalog.name, description = catalog.description),
+            catalog = catalog.portableMetadata.toCatalogInfo(
+                slug = catalogKey.value,
+                name = catalog.name,
+                description = catalog.description,
+                availableAssetSlugs = if (catalog.type == CatalogType.SUBSCRIBED) assets.mapTo(mutableSetOf()) { it.slug } else null,
+            ),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
             dependencies = findCrossCatalogDependencies(templates, attributes, themes, resourceEntries, catalogKey.value),
