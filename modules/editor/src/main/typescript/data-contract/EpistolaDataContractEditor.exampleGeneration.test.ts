@@ -73,4 +73,84 @@ describe('example generation', () => {
       true,
     );
   });
+
+  it('renders generated addresses and alternate subjects for a partial advanced union', async () => {
+    const advancedSchema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        address: {
+          type: 'object',
+          properties: {
+            street: { type: 'string' },
+            postalCode: { type: 'string' },
+            city: { type: 'string' },
+          },
+          required: ['street', 'postalCode', 'city'],
+        },
+        organization: {
+          type: 'object',
+          properties: {
+            organizationName: { type: 'string' },
+            registrationNumber: { type: 'string' },
+            address: { $ref: '#/$defs/address' },
+          },
+          required: ['organizationName', 'registrationNumber', 'address'],
+        },
+        person: {
+          type: 'object',
+          properties: {
+            firstName: { type: 'string' },
+            address: { $ref: '#/$defs/address' },
+          },
+          required: ['firstName', 'address'],
+        },
+      },
+      properties: {
+        subject: {
+          oneOf: [{ $ref: '#/$defs/person' }, { $ref: '#/$defs/organization' }],
+        },
+        alternateSubjects: {
+          type: 'array',
+          minItems: 2,
+          items: {
+            oneOf: [{ $ref: '#/$defs/person' }, { $ref: '#/$defs/organization' }],
+          },
+        },
+      },
+      required: ['subject', 'alternateSubjects'],
+    };
+    const editor = new EpistolaDataContractEditor();
+    editor.init(
+      advancedSchema,
+      [
+        {
+          id: 'partial-example',
+          name: 'Partial example',
+          data: {
+            subject: 'Example subject 1',
+            alternateSubjects: ['Example alternateSubjects 1'],
+          },
+        },
+      ],
+      {},
+    );
+    document.body.append(editor);
+    await editor.updateComplete;
+
+    editor.querySelector<HTMLButtonElement>('.dc-example-generate-btn')!.click();
+    await vi.waitFor(() => {
+      const generated = editor.contractState!.dataExamples[0].data;
+      expect(generated.subject).toMatchObject({ address: { city: expect.any(String) } });
+      expect((generated.alternateSubjects as unknown[]).length).toBeGreaterThanOrEqual(2);
+    });
+    await editor.updateComplete;
+
+    expect(
+      editor.querySelector<HTMLInputElement>('#dc-field-subject-address-city')?.value,
+    ).not.toBe('');
+    expect(
+      editor.querySelector<HTMLInputElement>('#dc-field-alternateSubjects-0-address-city')?.value,
+    ).not.toBe('');
+    expect(editor.querySelector('.dc-validation-success')?.textContent).toContain('Valid');
+  });
 });

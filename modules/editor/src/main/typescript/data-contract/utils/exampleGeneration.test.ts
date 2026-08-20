@@ -253,7 +253,8 @@ describe('completeExampleFromSchema', () => {
       organizationName: 'Authored organization',
       registrationNumber: expect.any(String),
     });
-    expect(generated.alternateSubjects).toHaveLength(2);
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeGreaterThanOrEqual(2);
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeLessThanOrEqual(3);
     for (const item of generated.alternateSubjects as JsonObject[]) {
       expect(item).toMatchObject({
         firstName: expect.any(String),
@@ -263,6 +264,54 @@ describe('completeExampleFromSchema', () => {
       });
     }
     expect(generated.correspondenceAddress).toBeNull();
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
+  });
+
+  it('repairs primitive values left by earlier autofill for object unions', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        address: {
+          type: 'object',
+          properties: { city: { type: 'string' } },
+          required: ['city'],
+        },
+        person: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            address: { $ref: '#/$defs/address' },
+          },
+          required: ['name', 'address'],
+        },
+      },
+      properties: {
+        subject: { oneOf: [{ $ref: '#/$defs/person' }] },
+        alternateSubjects: {
+          type: 'array',
+          minItems: 2,
+          items: { oneOf: [{ $ref: '#/$defs/person' }] },
+        },
+      },
+    };
+
+    const generated = complete(schema, {
+      subject: 'Example subject 1',
+      alternateSubjects: ['Example alternateSubjects 1'],
+    });
+
+    expect(generated.subject).toMatchObject({
+      name: expect.any(String),
+      address: { city: expect.any(String) },
+    });
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeGreaterThanOrEqual(2);
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeLessThanOrEqual(3);
+    for (const subject of generated.alternateSubjects as JsonObject[]) {
+      expect(subject).toMatchObject({
+        name: expect.any(String),
+        address: { city: expect.any(String) },
+      });
+    }
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 

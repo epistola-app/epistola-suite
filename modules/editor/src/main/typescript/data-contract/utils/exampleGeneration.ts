@@ -82,14 +82,14 @@ function completeValue(
 ): JsonValue {
   if (depth > 20) return present ? structuredClone(existing as JsonValue) : null;
 
-  const hasUsableExistingValue =
-    present &&
-    existing !== '' &&
-    (existing !== null || schemaAllowsNull(originalSchema, rootSchema, new Set()));
-
   const refType = findRefType(originalSchema.$ref);
   if (refType) {
-    return hasUsableExistingValue ? structuredClone(existing as JsonValue) : refType.defaultValue();
+    const hasUsableRefValue =
+      present &&
+      existing !== '' &&
+      existing !== null &&
+      refType.shallowShapeCheck(existing as JsonValue) === null;
+    return hasUsableRefValue ? structuredClone(existing as JsonValue) : refType.defaultValue();
   }
 
   const schema = resolveExampleSchema(
@@ -98,6 +98,12 @@ function completeValue(
     present ? existing : null,
   ) as SchemaNode;
   const type = resolveType(schema);
+  const hasUsableExistingValue =
+    present &&
+    existing !== '' &&
+    (existing === null
+      ? schemaAllowsNull(originalSchema, rootSchema, new Set())
+      : valueMatchesSchemaType(existing as JsonValue, type));
 
   if (hasUsableExistingValue) {
     if (type === 'object' && isJsonObject(existing)) {
@@ -284,6 +290,23 @@ function resolveType(schema: SchemaNode): string {
 
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function valueMatchesSchemaType(value: JsonValue, type: string): boolean {
+  switch (type) {
+    case 'object':
+      return isJsonObject(value);
+    case 'array':
+      return Array.isArray(value);
+    case 'integer':
+      return typeof value === 'number' && Number.isInteger(value);
+    case 'number':
+      return typeof value === 'number';
+    case 'null':
+      return value === null;
+    default:
+      return typeof value === type;
+  }
 }
 
 function schemaAllowsNull(
