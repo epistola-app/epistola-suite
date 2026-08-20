@@ -76,9 +76,18 @@ class CatalogCanonicalizerTest {
     @Test
     fun `fingerprint changes when catalog identity changes`() {
         val details = linkedMapOf("theme/x" to theme("x", 4f))
+        val renamedCatalog = CatalogInfo.create(
+            slug = catalog.slug,
+            name = "Renamed",
+            description = catalog.description,
+            attributes = catalog.attributes,
+            keywords = catalog.keywords,
+            presentation = catalog.presentation,
+            license = catalog.license,
+        )
         assertNotEquals(
             canonicalizer.fingerprint(catalog, details, null) { null },
-            canonicalizer.fingerprint(catalog.copy(name = "Renamed"), details, null) { null },
+            canonicalizer.fingerprint(renamedCatalog, details, null) { null },
         )
     }
 

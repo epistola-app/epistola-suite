@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.system
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -98,7 +99,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         // lives on the resource detail inside the zip, not the manifest.
         val mapper = JsonMapper.builder().build()
         val manifest = mapper.readTree(readZipEntry(zip.zipBytes, "catalog.json"))
-        assertThat(manifest["schemaVersion"].asInt()).isEqualTo(5)
+        assertThat(manifest["schemaVersion"].asInt()).isEqualTo(CATALOG_SCHEMA_VERSION)
         val dependency = manifest["dependencies"].single()
         assertThat(dependency["type"].asString()).isEqualTo("codeList")
         assertThat(dependency["catalogKey"].asString()).isEqualTo("system")

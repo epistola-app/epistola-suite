@@ -37,6 +37,7 @@ object StyleApplicator {
         "lineHeight",
         "letterSpacing",
         "textAlign",
+        "listItemSpacing",
     )
 
     /**

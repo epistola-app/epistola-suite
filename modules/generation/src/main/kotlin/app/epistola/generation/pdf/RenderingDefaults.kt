@@ -46,6 +46,8 @@ data class RenderingDefaults(
     val listMarginBottom: Float,
     val listMarginLeft: Float,
     val listItemMarginBottom: Float,
+    val listItemSpacingDefault: String,
+    val listItemSpacingBetweenOnly: Boolean,
     val bulletMarkers: Map<String, String>,
 
     // -- Tables --
@@ -116,6 +118,8 @@ data class RenderingDefaults(
             listMarginBottom = 4f, // 1sp
             listMarginLeft = 20f, // 5sp
             listItemMarginBottom = 2f, // 0.5sp
+            listItemSpacingDefault = "0.5sp",
+            listItemSpacingBetweenOnly = false,
             bulletMarkers = mapOf(
                 "disc" to "•  ",
                 "circle" to "○  ",
@@ -134,11 +138,24 @@ data class RenderingDefaults(
             pageFooterHeight = 60f,
         )
 
+        /**
+         * V2: list item spacing is configurable and is applied between sibling items only.
+         *
+         * The list bottom margin grows by the former final-item margin so the space after a
+         * list remains identical to V1. All other V1 defaults remain unchanged.
+         */
+        val V2 = V1.copy(
+            version = 2,
+            listMarginBottom = 6f,
+            listItemSpacingBetweenOnly = true,
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V1
+        val CURRENT = V2
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
+            2 to V2,
         )
 
         /**

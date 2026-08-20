@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- **[developer]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
+  wire-version constants are sourced from the contract so catalog v6 exports, imports, and
+  validation cannot drift from the published catalog implementation.
+
+- **[user]** feat(editor,pdf): **List item spacing is consistent and configurable.** Text,
+  Rich Text Block, and Data List now share an inheritable List Item Spacing style with a `0.5sp`
+  default. Spacing applies only between sibling items, with matching editor and PDF behavior;
+  authored text also respects its configured line height inside the WYSIWYG editor, and previously
+  published templates retain their versioned rendering defaults.
+
 - **[user]** fix(auth): **The session-expiry login popup closes automatically after SSO.**
   Popup mode is now stored in the JDBC-backed Spring Session used by OAuth2, so the callback reaches
   the dedicated success page, not the application overview. The popup then notifies the original

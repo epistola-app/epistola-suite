@@ -24,6 +24,11 @@ class RenderingDefaultsTest {
     }
 
     @Test
+    fun `forVersion returns V2 for version 2`() {
+        assertSame(RenderingDefaults.V2, RenderingDefaults.forVersion(2))
+    }
+
+    @Test
     fun `forVersion throws for unknown version`() {
         assertFailsWith<IllegalArgumentException> {
             RenderingDefaults.forVersion(999)
@@ -31,8 +36,8 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `CURRENT is V1`() {
-        assertSame(RenderingDefaults.V1, RenderingDefaults.CURRENT)
+    fun `CURRENT is V2`() {
+        assertSame(RenderingDefaults.V2, RenderingDefaults.CURRENT)
     }
 
     // -----------------------------------------------------------------------
@@ -129,6 +134,19 @@ class RenderingDefaultsTest {
         assertEquals(0f, RenderingDefaults.V1.listMarginBottom % baseUnit, "listMarginBottom not grid-aligned")
         assertEquals(0f, RenderingDefaults.V1.listMarginLeft % baseUnit, "listMarginLeft not grid-aligned")
         assertEquals(0f, RenderingDefaults.V1.listItemMarginBottom % (baseUnit / 2f), "listItemMarginBottom not grid-aligned")
+    }
+
+    @Test
+    fun `V2 moves the legacy final item margin to the list without changing trailing space`() {
+        assertEquals(2f, RenderingDefaults.V1.listItemMarginBottom)
+        assertEquals(4f, RenderingDefaults.V1.listMarginBottom)
+        assertEquals(false, RenderingDefaults.V1.listItemSpacingBetweenOnly)
+        assertEquals("0.5sp", RenderingDefaults.V2.listItemSpacingDefault)
+        assertEquals(true, RenderingDefaults.V2.listItemSpacingBetweenOnly)
+        assertEquals(
+            RenderingDefaults.V1.listMarginBottom + RenderingDefaults.V1.listItemMarginBottom,
+            RenderingDefaults.V2.listMarginBottom,
+        )
     }
 
     @Test

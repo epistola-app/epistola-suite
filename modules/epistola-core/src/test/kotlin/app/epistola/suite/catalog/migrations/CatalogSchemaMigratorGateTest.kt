@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.migrations
 
+import app.epistola.catalog.migration.CatalogWireSchema
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -13,15 +14,15 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `current manifest binds through portable migrator`() {
-        val migrated = migrator.migrateAndBindManifest(manifest(5))
+        val migrated = migrator.migrateAndBindManifest(manifest(CatalogWireSchema.CURRENT_VERSION))
 
         assertThat(migrated.manifest.catalog.slug).isEqualTo("demo")
-        assertThat(migrated.catalog.sourceVersion).isEqualTo(5)
+        assertThat(migrated.catalog.sourceVersion).isEqualTo(CatalogWireSchema.CURRENT_VERSION)
     }
 
     @Test
     fun `newer manifest retains Suite exception presentation`() {
-        assertThatThrownBy { migrator.migrateAndBindManifest(manifest(6)) }
+        assertThatThrownBy { migrator.migrateAndBindManifest(manifest(CatalogWireSchema.CURRENT_VERSION + 1)) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
             .hasMessageContaining("newer than this instance supports")
     }

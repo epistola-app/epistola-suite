@@ -12,10 +12,14 @@ import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
 import com.itextpdf.layout.element.Div
+import com.itextpdf.layout.element.ListItem
+import com.itextpdf.layout.properties.Property
+import com.itextpdf.layout.properties.UnitValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.itextpdf.layout.element.List as PdfList
 
 class RichTextVariableRendererTest {
     private val evaluator = CompositeExpressionEvaluator(jsonataEvaluator = JsonataEvaluator())
@@ -61,6 +65,7 @@ class RichTextVariableRendererTest {
             type = "richTextVariable",
             slots = emptyList(),
             props = mapOf("binding" to "bio"),
+            styles = mapOf("listItemSpacing" to "1sp"),
         )
         val doc = docWith(node)
         val data: Map<String, Any?> = mapOf(
@@ -76,17 +81,17 @@ class RichTextVariableRendererTest {
                     ),
                     mapOf(
                         "type" to "bullet_list",
-                        "content" to listOf(
+                        "content" to listOf("first", "second").map { value ->
                             mapOf(
                                 "type" to "list_item",
                                 "content" to listOf(
                                     mapOf(
                                         "type" to "paragraph",
-                                        "content" to listOf(mapOf("type" to "text", "text" to "item")),
+                                        "content" to listOf(mapOf("type" to "text", "text" to value)),
                                     ),
                                 ),
-                            ),
-                        ),
+                            )
+                        },
                     ),
                 ),
             ),
@@ -97,6 +102,11 @@ class RichTextVariableRendererTest {
         val div = assertIs<Div>(result[0])
         // Expect a paragraph and a list (2 block children) under the Div.
         assertEquals(2, div.children.size, "expected paragraph + list inside Div")
+        val list = assertIs<PdfList>(div.children[1])
+        val margins = list.children.map {
+            assertIs<ListItem>(it).getProperty<UnitValue>(Property.MARGIN_BOTTOM).value
+        }
+        assertEquals(listOf(4f, 0f), margins)
     }
 
     @Test

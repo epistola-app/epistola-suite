@@ -64,8 +64,8 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
       '@epistola.app/epistola-catalog':
-        specifier: 1.0.1
-        version: 1.0.1
+        specifier: 1.1.0
+        version: 1.1.0
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -408,8 +408,8 @@ packages:
   '@emnapi/wasi-threads@1.2.2':
     resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
 
-  '@epistola.app/epistola-catalog@1.0.1':
-    resolution: {integrity: sha512-2eARsOzqUwXttP8RnJBylDthw/qBy5Kwo8h3p7g9kIILhMlj1SI8Vh7eaFb0ooE9V51+CjH9fihim1SqLkFhdQ==}
+  '@epistola.app/epistola-catalog@1.1.0':
+    resolution: {integrity: sha512-2/J9ImGeeoTDg35yYenV0pYIsk9ohaHwwrtxF5TuQOKyLk03T4C5/W8Bn+v9Iv+l8c2ap4z24Br1YP+vOWCx6w==}
 
   '@faker-js/faker@10.5.0':
     resolution: {integrity: sha512-bsxD8WLS5lIj7aaoCx1YJkktqYj5vlBUE6HWzu2Q51ksrGJ0H737ECCKlFU7Yf8Br45z9t99frBp/J7kzbMPAg==}
@@ -3808,7 +3808,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@epistola.app/epistola-catalog@1.0.1': {}
+  '@epistola.app/epistola-catalog@1.1.0': {}
 
   '@faker-js/faker@10.5.0': {}
 

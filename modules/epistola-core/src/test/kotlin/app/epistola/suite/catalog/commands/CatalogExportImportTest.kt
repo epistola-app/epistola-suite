@@ -14,6 +14,7 @@ import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
@@ -678,7 +679,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             zip.write(
                 """
                 {
-                  "schemaVersion": 5,
+                  "schemaVersion": $CATALOG_SCHEMA_VERSION,
                   "catalog": {
                     "slug": "needs-missing",
                     "name": "Needs Missing Dep",

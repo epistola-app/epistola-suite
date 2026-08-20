@@ -95,7 +95,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         val unsigned = rawZip(refreshed)
         val read = CatalogArchiveReader.read(ByteArrayInputStream(unsigned))
         val archive = read.archive ?: return unsigned
-        val fingerprint = archive.use { PortableCatalogCanonicalizer.fingerprint(it).value }
+        val fingerprint = archive.use { PortableCatalogCanonicalizer.currentFingerprint(it).value }
         (manifest.get("release") as ObjectNode).put("fingerprint", fingerprint)
         refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
         return rawZip(refreshed)

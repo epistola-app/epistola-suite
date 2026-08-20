@@ -27,7 +27,7 @@
   .prosemirror-container .ProseMirror {
     outline: none;
     min-height: 1.5rem;
-    line-height: 1.6;
+    line-height: var(--ep-line-height, 1.6);
   }
 
   .prosemirror-container .ProseMirror p {
@@ -66,7 +66,15 @@
   }
 
   .prosemirror-container .ProseMirror li {
-    margin-bottom: 0.15em;
+    margin-bottom: 0;
+  }
+
+  .prosemirror-container .ProseMirror li:not(:last-child) {
+    margin-bottom: var(--ep-list-item-spacing, 2pt);
+  }
+
+  .prosemirror-container .ProseMirror li > p {
+    margin-bottom: 0;
   }
 
   .prosemirror-container .ProseMirror u {
