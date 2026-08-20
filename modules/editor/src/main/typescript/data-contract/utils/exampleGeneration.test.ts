@@ -102,7 +102,7 @@ describe('completeExampleFromSchema', () => {
       address: { street: expect.any(String), city: 'Amsterdam' },
       contacts: [
         { label: 'Personal', preferred: false },
-        { label: 'Example value', preferred: false },
+        { label: 'Voorbeeld voor label', preferred: false },
       ],
       custom: 'keep me',
     });

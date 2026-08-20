@@ -30,15 +30,28 @@ describe('createSemanticExampleValues', () => {
     expect(values.number({ name: 'field_3', description: 'Leeftijd van de aanvrager' })).toBe(42);
   });
 
-  it('recognizes semantic numbers and booleans without claiming unknown fields', () => {
+  it('recognizes semantic numbers and booleans and labels unknown string fields clearly', () => {
     const values = createSemanticExampleValues();
 
     expect(values.number({ name: 'amount' })).toBe(125.5);
     expect(values.number({ name: 'aantalItems' })).toBe(3);
     expect(values.boolean({ name: 'isActive' })).toBe(true);
-    expect(values.string({ name: 'opaqueValue' })).toBeUndefined();
+    expect(values.string({ name: 'opaqueValue' })).toBe('Voorbeeld voor opaque value');
     expect(values.number({ name: 'opaqueValue' })).toBeUndefined();
     expect(values.boolean({ name: 'opaqueValue' })).toBeUndefined();
+  });
+
+  it('covers common fields from Dutch municipal contracts', () => {
+    const values = createSemanticExampleValues('municipal-example');
+
+    expect(values.string({ name: 'beklaagde' })).not.toContain('Voorbeeld voor');
+    expect(values.string({ name: 'contactfunctionaris' })).not.toContain('Voorbeeld voor');
+    expect(values.string({ name: 'team' })).toMatch(/^Team /);
+    expect(['e-mail', 'telefoon', 'brief']).toContain(values.string({ name: 'communicatie' }));
+    expect(values.string({ name: 'kenmerk_intern' })).toMatch(/^Z\/\d{2}\/\d{6}$/);
+    expect(values.string({ name: 'kenmerk_extern' })).toMatch(/^EXT-\d{4}$/);
+    expect(values.string({ name: 'bsn' })).toBe('111222333');
+    expect(values.string({ name: 'licenceplate' })).toMatch(/^[A-Z]{2}-\d{2}-[A-Z]{2}$/);
   });
 
   it('reproduces the same generated profile for the same seed', () => {

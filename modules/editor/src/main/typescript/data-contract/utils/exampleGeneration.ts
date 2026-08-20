@@ -200,6 +200,12 @@ function generateString(schema: SchemaNode, semanticValue?: string): string {
     case 'date-time':
       value = GENERATED_DATE_TIME;
       break;
+    case 'time':
+      value = '12:00:00';
+      break;
+    case 'uuid':
+      value = '00000000-0000-4000-8000-000000000000';
+      break;
     case 'email':
       value = semanticValue?.includes('@') ? semanticValue : 'example@example.com';
       break;
