@@ -163,17 +163,24 @@ export interface JsonSchemaProperty {
   enum?: JsonValue[];
   const?: JsonValue;
   default?: JsonValue;
+  allOf?: JsonSchemaProperty[];
+  anyOf?: JsonSchemaProperty[];
+  oneOf?: JsonSchemaProperty[];
 }
 
 /** JSON Schema (subset supported by the visual editor) */
 export interface JsonSchema {
   $schema?: string;
+  $ref?: string;
   type: 'object';
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
   additionalProperties?: boolean;
   $defs?: Record<string, JsonSchemaProperty>;
   definitions?: Record<string, JsonSchemaProperty>;
+  allOf?: JsonSchemaProperty[];
+  anyOf?: JsonSchemaProperty[];
+  oneOf?: JsonSchemaProperty[];
 }
 
 // =============================================================================

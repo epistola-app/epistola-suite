@@ -14,9 +14,10 @@ import {
   dateTimeOffset,
   combineDateTime,
   renderExampleForm,
+  setNestedValue,
 } from './ExampleForm.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
-import type { JsonSchema } from '../types.js';
+import type { JsonObject, JsonSchema, JsonSchemaProperty } from '../types.js';
 
 describe('example form placeholders', () => {
   it('renders field-name hints without assigning field values', () => {
@@ -74,6 +75,217 @@ describe('example form placeholders', () => {
     expect(nestedName.value).toBe('');
     expect(nestedName.placeholder).toBe('name');
     expect(nestedName.classList.contains('dc-tree-input')).toBe(true);
+  });
+});
+
+describe('advanced nested example schemas', () => {
+  it('resolves local refs for objects nested in arrays and updates the exact path', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        contacts: {
+          type: 'array',
+          items: { $ref: '#/$defs/contact' },
+        },
+      },
+      $defs: {
+        contact: {
+          type: 'object',
+          properties: { email: { type: 'string', format: 'email' } },
+          required: ['email'],
+        },
+      },
+    };
+    let data: JsonObject = { contacts: [{ email: 'first@example.com' }] };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(schema, data, (path, value) => {
+        data = setNestedValue(data, path, value);
+      }),
+      container,
+    );
+
+    const input = container.querySelector<HTMLInputElement>('#dc-field-contacts-0-email')!;
+    expect(input.value).toBe('first@example.com');
+    input.value = 'updated@example.com';
+    input.dispatchEvent(new Event('change'));
+    expect(data).toEqual({ contacts: [{ email: 'updated@example.com' }] });
+  });
+
+  it('renders and edits arrays nested directly inside arrays', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        matrix: {
+          type: 'array',
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { name: { type: 'string' } },
+            },
+          },
+        },
+      },
+    };
+    let data: JsonObject = { matrix: [[{ name: 'before' }]] };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(schema, data, (path, value) => {
+        data = setNestedValue(data, path, value);
+      }),
+      container,
+    );
+
+    const input = container.querySelector<HTMLInputElement>('#dc-field-matrix-0-0-name')!;
+    expect(input.value).toBe('before');
+    input.value = 'after';
+    input.dispatchEvent(new Event('change'));
+    expect(data).toEqual({ matrix: [[{ name: 'after' }]] });
+
+    const innerGroup = container.querySelector<HTMLElement>(
+      'details[aria-label="matrix[0] array of objects"]',
+    )!;
+    innerGroup.querySelector<HTMLButtonElement>('.dc-array-item-remove')!.click();
+    expect(data).toEqual({ matrix: [[]] });
+
+    render(
+      renderExampleForm(schema, data, (path, value) => {
+        data = setNestedValue(data, path, value);
+      }),
+      container,
+    );
+    container
+      .querySelector<HTMLElement>('details[aria-label="matrix[0] array of objects"]')!
+      .querySelector<HTMLButtonElement>('.dc-array-add-btn')!
+      .click();
+    expect(data).toEqual({ matrix: [[{ name: '' }]] });
+  });
+
+  it('renders the composition branch matching the current data', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        subject: {
+          oneOf: [
+            {
+              type: 'object',
+              properties: { personName: { type: 'string' } },
+              required: ['personName'],
+            },
+            {
+              type: 'object',
+              properties: { companyName: { type: 'string' } },
+              required: ['companyName'],
+            },
+          ],
+        },
+      },
+    };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(schema, { subject: { companyName: 'Epistola' } }, () => {}),
+      container,
+    );
+
+    expect(container.querySelector('#dc-field-subject-companyName')).not.toBeNull();
+    expect(container.querySelector('#dc-field-subject-personName')).toBeNull();
+  });
+
+  it('uses the non-null type from nullable imported schemas', () => {
+    const nullableObject = {
+      type: ['null', 'object'],
+      properties: { city: { type: 'string' } },
+    } as unknown as JsonSchemaProperty;
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { address: nullableObject },
+    };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(schema, { address: { city: 'Amsterdam' } }, () => {}),
+      container,
+    );
+
+    expect(container.querySelector<HTMLInputElement>('#dc-field-address-city')?.value).toBe(
+      'Amsterdam',
+    );
+  });
+
+  it('renders an editable branch when a nullable composition currently contains null', () => {
+    const nullableMember = { type: 'null' } as unknown as JsonSchemaProperty;
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        address: {
+          anyOf: [
+            nullableMember,
+            {
+              type: 'object',
+              properties: { city: { type: 'string' } },
+            },
+          ],
+        },
+      },
+    };
+    let data: JsonObject = { address: null };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(schema, data, (path, value) => {
+        data = setNestedValue(data, path, value);
+      }),
+      container,
+    );
+
+    const city = container.querySelector<HTMLInputElement>('#dc-field-address-city')!;
+    city.value = 'Utrecht';
+    city.dispatchEvent(new Event('change'));
+    expect(data).toEqual({ address: { city: 'Utrecht' } });
+  });
+
+  it('resolves object union schemas separately for every array item', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        subjects: {
+          type: 'array',
+          items: {
+            oneOf: [
+              {
+                type: 'object',
+                properties: { personName: { type: 'string' } },
+                required: ['personName'],
+              },
+              {
+                type: 'object',
+                properties: { companyName: { type: 'string' } },
+                required: ['companyName'],
+              },
+            ],
+          },
+        },
+      },
+    };
+    const container = document.createElement('div');
+
+    render(
+      renderExampleForm(
+        schema,
+        { subjects: [{ personName: 'Sander' }, { companyName: 'Epistola' }] },
+        () => {},
+      ),
+      container,
+    );
+
+    expect(container.querySelector('#dc-field-subjects-0-personName')).not.toBeNull();
+    expect(container.querySelector('#dc-field-subjects-0-companyName')).toBeNull();
+    expect(container.querySelector('#dc-field-subjects-1-personName')).toBeNull();
+    expect(container.querySelector('#dc-field-subjects-1-companyName')).not.toBeNull();
   });
 });
 

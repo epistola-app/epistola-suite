@@ -14,6 +14,10 @@
   versions remain readable and importable.
 - **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
   The editor now starts a draft automatically before applying the deletion.
+- **[user]** fix(data contracts): **Advanced nested example data remains editable.** The example
+  form resolves local schema references, object compositions, nullable unions, per-item union
+  variants, and arrays nested directly inside arrays. Edits, additions, and removals continue to
+  target the exact nested JSON path.
 - **[user]** feat(data-contracts): **Example data can be completed from its schema.** A new
   per-example **Autofill** action fills missing values with seeded, realistic Dutch test data inferred from
   field names, titles, and descriptions, alongside defaults, enums, formats, numeric constraints,
