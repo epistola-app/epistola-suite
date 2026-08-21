@@ -64,6 +64,11 @@ epistola-suite-modules/
 
 - **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers)
 - **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config). **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, bundled demo/system catalogs, and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
+- **Resource references**: tenant-wide reference discovery and traversal live in
+  `catalog/graph/` and are documented in [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
+  New catalog-resource reference shapes must be added to this graph authority with resolution and
+  lifecycle evidence. Existing deletion and upgrade scanners remain independent until deliberately
+  migrated and parity-tested.
 - **modules/generation**: Pure PDF rendering (no business logic)
 - **modules/rest-api**: OpenAPI specifications
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
