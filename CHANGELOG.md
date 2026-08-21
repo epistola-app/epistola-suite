@@ -15,8 +15,9 @@
   copied partial schemas and flattened type metadata. The demo catalog includes nested delivery
   route loops for hands-on verification.
 - **[user]** fix(editor): **Text containing expressions can be copied and pasted.** Rich-text
-  selections now preserve editable expression chips when pasted within Epistola and expose
-  expressions as `{{expression}}` when pasted as plain text into another application.
+  selections can include expression chips, preserve them as editable expressions when pasted
+  within Epistola, and expose them as `{{expression}}` when pasted as plain text into another
+  application. Expressions retain their existing single-click editing behavior.
 - **[dev]** refactor(catalog): Catalog contract metadata now uses the clearer `catalog_metadata`
   database and application terminology instead of `portable_metadata`.
 

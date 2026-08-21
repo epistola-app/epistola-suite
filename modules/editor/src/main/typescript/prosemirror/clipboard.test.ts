@@ -6,7 +6,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { DOMParser } from 'prosemirror-model';
-import { AllSelection, EditorState } from 'prosemirror-state';
+import { AllSelection, EditorState, NodeSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { ExpressionNodeView } from './ExpressionNodeView.js';
 import { epistolaSchema } from './schema.js';
@@ -55,7 +55,24 @@ describe('expression clipboard behavior', () => {
     expect(expression?.attrs.expression).toBe('customer.name');
   });
 
-  it('lets ProseMirror handle clipboard events originating in the chip', () => {
+  it('copies an individually selected expression atom', () => {
+    const doc = expressionDocument();
+    const state = EditorState.create({
+      doc,
+      selection: NodeSelection.create(doc, 7),
+    });
+    const mount = document.body.appendChild(document.createElement('div'));
+    const view = new EditorView(mount, { state });
+    mountedViews.push(view);
+
+    const serialized = view.serializeForClipboard(state.selection.content());
+
+    expect(state.selection.node.type.name).toBe('expression');
+    expect(serialized.text).toBe('{{customer.name}}');
+    expect(serialized.dom.innerHTML).toContain('data-expression="customer.name"');
+  });
+
+  it('lets ProseMirror handle pointer selection and clipboard events from the chip', () => {
     const node = epistolaSchema.nodes.expression.create({
       expression: 'customer.name',
       isNew: false,
@@ -64,6 +81,8 @@ describe('expression clipboard behavior', () => {
       getFieldPaths: () => [],
     });
 
+    expect(nodeView.stopEvent(new Event('mousedown'))).toBe(false);
+    expect(nodeView.stopEvent(new Event('mouseup'))).toBe(false);
     expect(nodeView.stopEvent(new Event('copy'))).toBe(false);
     expect(nodeView.stopEvent(new Event('cut'))).toBe(false);
     expect(nodeView.stopEvent(new Event('paste'))).toBe(false);

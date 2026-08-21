@@ -125,7 +125,7 @@
     cursor: pointer;
     vertical-align: baseline;
     white-space: nowrap;
-    user-select: none;
+    user-select: text;
     transition:
       background-color var(--ep-transition-fast),
       box-shadow var(--ep-transition-fast);

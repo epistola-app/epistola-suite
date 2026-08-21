@@ -113,7 +113,8 @@ describe('EpistolaTextEditor expression scope callbacks', () => {
     editor.content = EXPRESSION_CONTENT;
     await editor.updateComplete;
 
-    editor.querySelector<HTMLElement>('.expression-chip')!.click();
+    const expressionChip = editor.querySelector<HTMLElement>('.expression-chip')!;
+    expressionChip.click();
 
     await vi.waitFor(() => {
       expect(document.querySelector('ep-expression-dialog')).not.toBeNull();

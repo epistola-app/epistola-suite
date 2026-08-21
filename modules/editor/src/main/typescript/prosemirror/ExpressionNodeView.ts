@@ -9,7 +9,8 @@
  * - The resolved value from the current data example (e.g., "John Doe")
  * - The raw expression as fallback (e.g., `{{customer.name}}`)
  *
- * Click opens the shared expression dialog.
+ * Click opens the shared expression dialog. Drag selections can include the
+ * expression atom so expression-rich text can be copied and pasted.
  *
  * - Enter → save expression
  * - Escape → cancel (delete if isNew, else close)
@@ -95,7 +96,8 @@ export class ExpressionNodeView implements NodeView {
     this.dom.append(this._leftBrace, this._content, this._rightBrace);
     this._updateDisplay();
 
-    // Click → open dialog
+    // Click → open dialog. ProseMirror already received the preceding
+    // mousedown, which keeps drag selection working without changing this UX.
     this.dom.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -123,10 +125,10 @@ export class ExpressionNodeView implements NodeView {
     this._displayGeneration++; // invalidate any in-flight async resolution
   }
 
-  // Keep chip interactions isolated while still letting ProseMirror serialize
-  // and parse selections whose clipboard event originates inside this NodeView.
+  // Let ProseMirror own pointer selection and clipboard handling while keeping
+  // the chip's click-to-edit interaction isolated in the listener above.
   stopEvent(event: Event): boolean {
-    return !['copy', 'cut', 'paste'].includes(event.type);
+    return !['mousedown', 'mouseup', 'copy', 'cut', 'paste'].includes(event.type);
   }
 
   ignoreMutation(): boolean {
