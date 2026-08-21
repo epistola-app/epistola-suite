@@ -34,6 +34,13 @@ This matters for regulated industries (finance, healthcare, government) and any 
 
 The setting takes effect immediately for new batch/API generations. Preview rendering in the editor always uses standard PDF for speed.
 
+### Catalog exchange
+
+Catalog schema v6 carries `pdfaEnabled` on each template resource. Export,
+ZIP import, URL installation, and catalog upgrades preserve the explicit value.
+When the field is absent (including catalogs produced before contract 1.1.0),
+it defaults to `true` for backward compatibility.
+
 ### Per template (API)
 
 ```http

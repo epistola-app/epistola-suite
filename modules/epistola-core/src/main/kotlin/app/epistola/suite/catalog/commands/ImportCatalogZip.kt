@@ -23,6 +23,7 @@ import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogImportSchemaAction
+import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogType
@@ -418,6 +419,7 @@ class ImportCatalogZipHandler(
         }
 
         val anyFailed = results.any { it.status == InstallStatus.FAILED }
+        val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
 
         if (command.catalogType == CatalogType.SUBSCRIBED) {
             // A ZIP import of a SUBSCRIBED catalog IS its upgrade — same
@@ -445,8 +447,20 @@ class ImportCatalogZipHandler(
                 objectMapper.writeValueAsString(subscribedPerResourceFingerprints(manifest, entries)),
                 manifest.catalog.name,
                 manifest.catalog.description,
+                catalogMetadataJson,
             )
-        } else if (existingCatalog == null &&
+        } else if (!anyFailed) {
+            updateAuthoredMetadata(
+                command.tenantKey,
+                catalogKey,
+                manifest.catalog.name,
+                manifest.catalog.description,
+                catalogMetadataJson,
+            )
+        }
+
+        if (command.catalogType == CatalogType.AUTHORED &&
+            existingCatalog == null &&
             manifest.release.fingerprint != null &&
             SemVer.parseOrNull(manifest.release.version) != null &&
             !anyFailed
@@ -563,6 +577,7 @@ class ImportCatalogZipHandler(
         resourceFingerprintsJson: String,
         name: String,
         description: String?,
+        catalogMetadataJson: String,
     ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -570,7 +585,8 @@ class ImportCatalogZipHandler(
                 UPDATE catalogs
                 SET installed_release_version = :version, installed_fingerprint = :fingerprint,
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
-                    name = :name, description = :description, updated_at = NOW()
+                    name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
+                    content_updated_at = NOW(), updated_at = NOW()
                 WHERE tenant_key = :t AND id = :c
                 """,
             )
@@ -581,6 +597,32 @@ class ImportCatalogZipHandler(
                 .bind("resourceFingerprints", resourceFingerprintsJson)
                 .bind("name", name)
                 .bind("description", description)
+                .bind("catalogMetadata", catalogMetadataJson)
+                .execute()
+        }
+    }
+
+    private fun updateAuthoredMetadata(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        name: String,
+        description: String?,
+        catalogMetadataJson: String,
+    ) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE catalogs
+                SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
+                    content_updated_at = NOW(), updated_at = NOW()
+                WHERE tenant_key = :t AND id = :c
+                """,
+            )
+                .bind("t", tenantKey)
+                .bind("c", catalogKey)
+                .bind("name", name)
+                .bind("description", description)
+                .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
         }
     }
@@ -621,6 +663,7 @@ class ImportCatalogZipHandler(
                 version = version,
                 themeId = resource.themeId,
                 themeCatalogKey = if (resource.themeId != null) resource.themeCatalogKey ?: catalogKey.value else null,
+                pdfaEnabled = resource.pdfaEnabled,
                 dataModel = protocolMapper.toObjectNode(resource.dataModel),
                 dataExamples = resource.dataExamples?.map {
                     DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!)

@@ -141,6 +141,7 @@ class InstallFromCatalogHandler(
             version = releaseVersion,
             themeId = resource.themeId,
             themeCatalogKey = if (resource.themeId != null) resource.themeCatalogKey ?: command.catalogKey.value else null,
+            pdfaEnabled = resource.pdfaEnabled,
             dataModel = protocolMapper.toObjectNode(resource.dataModel),
             dataExamples = resource.dataExamples?.map {
                 DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!)

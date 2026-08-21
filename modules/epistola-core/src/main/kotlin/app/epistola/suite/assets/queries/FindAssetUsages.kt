@@ -15,7 +15,8 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * Finds template versions (draft or published) that reference a given asset.
+ * Finds template versions (draft or published) and catalog presentations that
+ * reference a given asset.
  */
 data class FindAssetUsages(
     val tenantId: TenantKey,
@@ -34,14 +35,32 @@ class FindAssetUsagesHandler(
     override fun handle(query: FindAssetUsages): List<AssetUsage> = jdbi.withHandle<List<AssetUsage>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT DISTINCT dt.name AS template_name, tv.title AS variant_title
-                FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
-                CROSS JOIN LATERAL jsonb_each(ver.template_model -> 'nodes') AS n(key, value)
-                WHERE ver.tenant_key = :tenantId
-                  AND ver.status IN ('draft', 'published')
-                  AND n.value -> 'props' ->> 'assetId' = :assetId
+                SELECT DISTINCT usage_name AS template_name, variant_title
+                FROM (
+                    SELECT dt.name AS usage_name, tv.title AS variant_title
+                    FROM template_versions ver
+                    JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key
+                        AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
+                    JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key
+                        AND dt.id = tv.template_key
+                    CROSS JOIN LATERAL jsonb_each(ver.template_model -> 'nodes') AS n(key, value)
+                    WHERE ver.tenant_key = :tenantId
+                      AND ver.status IN ('draft', 'published')
+                      AND n.value -> 'props' ->> 'assetId' = :assetId
+
+                    UNION ALL
+
+                    SELECT 'Catalog: ' || c.name, NULL
+                    FROM catalogs c
+                    WHERE c.tenant_key = :tenantId
+                      AND (
+                          c.catalog_metadata #>> '{presentation,iconAssetSlug}' = :assetId
+                          OR jsonb_exists(
+                              COALESCE(c.catalog_metadata #> '{presentation,imageAssetSlugs}', '[]'::jsonb),
+                              :assetId
+                          )
+                      )
+                ) usages
                 ORDER BY template_name, variant_title
                 """,
         )
