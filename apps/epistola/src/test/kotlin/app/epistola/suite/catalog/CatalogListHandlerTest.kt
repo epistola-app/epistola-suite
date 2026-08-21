@@ -635,7 +635,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `authored catalog metadata can be edited from the browse page`() = fixture {
+    fun `authored catalog metadata sections can be edited independently from the browse page`() = fixture {
         lateinit var t: Tenant
         given {
             t = tenant("Catalog Metadata")
@@ -653,9 +653,14 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(browseResponse.body)
                 .contains("id=\"dialog-mount\"")
                 .contains("hx-target=\"#dialog-mount\"")
+                .contains("section=details")
+                .contains("section=attributes")
+                .contains("section=keywords")
+                .contains("section=presentation")
+                .contains("section=license")
 
             val formResponse = restTemplate.exchange(
-                "/tenants/${t.id}/catalogs/metadata/metadata",
+                "/tenants/${t.id}/catalogs/metadata/metadata?section=details",
                 HttpMethod.GET,
                 HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
                 String::class.java,
@@ -663,17 +668,51 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(formResponse.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(formResponse.body).contains("id=\"catalog-metadata-dialog\"")
             assertThat(formResponse.body).doesNotContain("class=\"ep-dialog ep-dialog-lg\" open")
+            assertThat(formResponse.body).contains("name=\"name\"").doesNotContain("name=\"keywords\"")
+            assertThat(formResponse.body).contains("hx-target=\"#dialog-mount\"")
 
-            val payload = LinkedMultiValueMap<String, String>()
-            payload.add("name", "Discoverable catalog")
-            payload.add("description", "Metadata shown to catalog consumers")
-            payload.add("keywords", "Letters\nDutch")
-            payload.add("licenseName", "Creative Commons Attribution 4.0")
-            payload.add("licenseSpdx", "CC-BY-4.0")
-            payload.add("licenseUrl", "https://creativecommons.org/licenses/by/4.0/")
+            val details = LinkedMultiValueMap<String, String>()
+            details.add("section", "details")
+            details.add("name", "Discoverable catalog")
+            details.add("description", "Metadata shown to catalog consumers")
+            val detailsResponse = restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(details, htmxForm()),
+                String::class.java,
+            )
+            assertThat(detailsResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+
+            val duplicateKeywords = LinkedMultiValueMap<String, String>()
+            duplicateKeywords.add("section", "keywords")
+            duplicateKeywords.add("keywords", "Letters\nLetters")
+            val invalidKeywordsResponse = restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(duplicateKeywords, htmxForm()),
+                String::class.java,
+            )
+            assertThat(invalidKeywordsResponse.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(invalidKeywordsResponse.body)
+                .contains("Keywords must be unique")
+                .contains("name=\"section\" value=\"keywords\"")
+
+            val keywords = LinkedMultiValueMap<String, String>()
+            keywords.add("section", "keywords")
+            keywords.add("keywords", "Letters\nDutch")
+            val keywordsResponse = restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(keywords, htmxForm()),
+                String::class.java,
+            )
+            assertThat(keywordsResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+
+            val license = LinkedMultiValueMap<String, String>()
+            license.add("section", "license")
+            license.add("licenseName", "Creative Commons Attribution 4.0")
+            license.add("licenseSpdx", "CC-BY-4.0")
+            license.add("licenseUrl", "https://creativecommons.org/licenses/by/4.0/")
             restTemplate.postForEntity(
                 "/tenants/${t.id}/catalogs/metadata/metadata",
-                HttpEntity(payload, htmxForm()),
+                HttpEntity(license, htmxForm()),
                 String::class.java,
             )
         }

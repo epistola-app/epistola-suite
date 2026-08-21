@@ -520,56 +520,38 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
-        return ServerResponse.ok().render("catalogs/metadata :: dialog", catalogMetadataModel(tenantId.key, catalogKey))
+        val section = CatalogMetadataSection.from(request.param("section").orElse(CatalogMetadataSection.DETAILS.value))
+        return ServerResponse.ok().render("catalogs/metadata :: dialog", catalogMetadataModel(tenantId.key, catalogKey, section))
     }
 
     fun updateMetadata(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        val section = CatalogMetadataSection.from(request.servletRequest().getParameter("section").orEmpty())
         val params = request.servletRequest().parameterMap
 
         return try {
-            val attributeAssignments = params.entries
-                .filter { (key, values) -> key.startsWith("attribute_") && values.firstOrNull().orEmpty().isNotBlank() }
-                .map { (key, values) ->
-                    val qualified = key.removePrefix("attribute_")
-                    AttributeAssignment(qualified.substringBefore('.'), qualified.substringAfter('.'), values.first().trim())
-                }
-            val keywordLines = request.servletRequest().getParameter("keywords").orEmpty()
-                .lines().map(String::trim).filter(String::isNotEmpty)
-            require(keywordLines.distinct().size == keywordLines.size) { "Keywords must be unique (case is significant)." }
-            val imageAssetSlugs = request.servletRequest().getParameterValues("imageAssetSlugs")
-                ?.map(String::trim)?.filter(String::isNotEmpty).orEmpty()
-            val iconAssetSlug = request.servletRequest().getParameter("iconAssetSlug")?.trim()?.ifBlank { null }
-            val presentation = if (iconAssetSlug != null || imageAssetSlugs.isNotEmpty()) {
-                CatalogPresentation(iconAssetSlug, imageAssetSlugs)
-            } else {
-                null
-            }
-            val licenseName = request.servletRequest().getParameter("licenseName")?.trim().orEmpty()
-            val license = if (licenseName.isNotEmpty() ||
-                listOf("licenseSpdx", "licenseUrl", "licenseCopyright").any { !request.servletRequest().getParameter(it).isNullOrBlank() }
-            ) {
-                CatalogLicense(
-                    name = licenseName,
-                    spdxExpression = request.servletRequest().getParameter("licenseSpdx")?.trim()?.ifBlank { null },
-                    url = request.servletRequest().getParameter("licenseUrl")?.trim()?.ifBlank { null },
-                    copyrightText = request.servletRequest().getParameter("licenseCopyright")?.trim()?.ifBlank { null },
-                )
-            } else {
-                null
-            }
+            val catalog = catalogForMetadata(tenantId.key, catalogKey)
+            val current = catalog.portableMetadata
 
             UpdateCatalogMetadata(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
-                name = request.servletRequest().getParameter("name").orEmpty(),
-                description = request.servletRequest().getParameter("description")?.trim()?.ifBlank { null },
-                attributes = attributeAssignments,
-                keywords = LinkedHashSet(keywordLines),
-                presentation = presentation,
-                license = license,
+                name = if (section == CatalogMetadataSection.DETAILS) {
+                    request.servletRequest().getParameter("name").orEmpty()
+                } else {
+                    catalog.name
+                },
+                description = if (section == CatalogMetadataSection.DETAILS) {
+                    request.servletRequest().getParameter("description")?.trim()?.ifBlank { null }
+                } else {
+                    catalog.description
+                },
+                attributes = if (section == CatalogMetadataSection.ATTRIBUTES) parseMetadataAttributes(params) else current.attributes,
+                keywords = if (section == CatalogMetadataSection.KEYWORDS) parseMetadataKeywords(request) else current.keywords,
+                presentation = if (section == CatalogMetadataSection.PRESENTATION) parseCatalogPresentation(request) else current.presentation,
+                license = if (section == CatalogMetadataSection.LICENSE) parseCatalogLicense(request) else current.license,
             ).execute()
 
             ServerResponse.noContent()
@@ -579,18 +561,59 @@ class CatalogHandler {
             logger.warn("Failed to update catalog metadata: {}", e.message)
             ServerResponse.status(422).render(
                 "catalogs/metadata :: dialog",
-                catalogMetadataModel(tenantId.key, catalogKey) + ("error" to (e.message ?: "Failed to save catalog metadata.")),
+                catalogMetadataModel(tenantId.key, catalogKey, section) +
+                    ("error" to (e.message ?: "Failed to save catalog metadata.")),
             )
+        }
+    }
+
+    private fun parseMetadataAttributes(params: Map<String, Array<String>>): List<AttributeAssignment> = params.entries
+        .filter { (key, values) -> key.startsWith("attribute_") && values.firstOrNull().orEmpty().isNotBlank() }
+        .map { (key, values) ->
+            val qualified = key.removePrefix("attribute_")
+            AttributeAssignment(qualified.substringBefore('.'), qualified.substringAfter('.'), values.first().trim())
+        }
+
+    private fun parseMetadataKeywords(request: ServerRequest): Set<String> {
+        val keywords = request.servletRequest().getParameter("keywords").orEmpty()
+            .lines().map(String::trim).filter(String::isNotEmpty)
+        require(keywords.distinct().size == keywords.size) { "Keywords must be unique (case is significant)." }
+        return LinkedHashSet(keywords)
+    }
+
+    private fun parseCatalogPresentation(request: ServerRequest): CatalogPresentation? {
+        val imageAssetSlugs = request.servletRequest().getParameterValues("imageAssetSlugs")
+            ?.map(String::trim)?.filter(String::isNotEmpty).orEmpty()
+        val iconAssetSlug = request.servletRequest().getParameter("iconAssetSlug")?.trim()?.ifBlank { null }
+        return if (iconAssetSlug != null || imageAssetSlugs.isNotEmpty()) {
+            CatalogPresentation(iconAssetSlug, imageAssetSlugs)
+        } else {
+            null
+        }
+    }
+
+    private fun parseCatalogLicense(request: ServerRequest): CatalogLicense? {
+        val licenseName = request.servletRequest().getParameter("licenseName")?.trim().orEmpty()
+        return if (licenseName.isNotEmpty() ||
+            listOf("licenseSpdx", "licenseUrl", "licenseCopyright").any { !request.servletRequest().getParameter(it).isNullOrBlank() }
+        ) {
+            CatalogLicense(
+                name = licenseName,
+                spdxExpression = request.servletRequest().getParameter("licenseSpdx")?.trim()?.ifBlank { null },
+                url = request.servletRequest().getParameter("licenseUrl")?.trim()?.ifBlank { null },
+                copyrightText = request.servletRequest().getParameter("licenseCopyright")?.trim()?.ifBlank { null },
+            )
+        } else {
+            null
         }
     }
 
     private fun catalogMetadataModel(
         tenantKey: app.epistola.suite.common.ids.TenantKey,
         catalogKey: CatalogKey,
+        section: CatalogMetadataSection,
     ): Map<String, Any?> {
-        val catalog = GetCatalog(tenantKey, catalogKey).query()
-            ?: throw IllegalArgumentException("Catalog not found: ${catalogKey.value}")
-        require(catalog.type == CatalogType.AUTHORED) { "Subscribed catalog metadata is read-only." }
+        val catalog = catalogForMetadata(tenantKey, catalogKey)
         val currentAttributes = catalog.portableMetadata.attributes.associate { "${it.catalog}.${it.key}" to it.value }
         val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey)).query())
         val images = ListAssets(tenantKey, catalogKey = catalogKey).query()
@@ -600,10 +623,33 @@ class CatalogHandler {
         return mapOf(
             "tenantId" to tenantKey,
             "catalog" to catalog,
+            "section" to section.value,
+            "sectionTitle" to section.title,
             "attributeFields" to descriptors.map { CatalogMetadataAttributeField(it, currentAttributes[it.qualifiedKey]) },
             "images" to images,
             "gallerySlugs" to (gallery + ""),
         )
+    }
+
+    private fun catalogForMetadata(
+        tenantKey: app.epistola.suite.common.ids.TenantKey,
+        catalogKey: CatalogKey,
+    ) = GetCatalog(tenantKey, catalogKey).query()
+        ?.also { require(it.type == CatalogType.AUTHORED) { "Subscribed catalog metadata is read-only." } }
+        ?: throw IllegalArgumentException("Catalog not found: ${catalogKey.value}")
+
+    private enum class CatalogMetadataSection(val value: String, val title: String) {
+        DETAILS("details", "General details"),
+        ATTRIBUTES("attributes", "Discovery attributes"),
+        KEYWORDS("keywords", "Keywords"),
+        PRESENTATION("presentation", "Presentation"),
+        LICENSE("license", "License"),
+        ;
+
+        companion object {
+            fun from(value: String): CatalogMetadataSection = entries.firstOrNull { it.value == value }
+                ?: throw IllegalArgumentException("Unknown catalog metadata section: $value")
+        }
     }
 
     data class CatalogMetadataAttributeField(val descriptor: AttributeDescriptor, val value: String?)

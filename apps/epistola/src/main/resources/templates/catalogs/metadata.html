@@ -3,25 +3,28 @@
 <body>
 <dialog th:fragment="dialog" id="catalog-metadata-dialog" class="ep-dialog ep-dialog-lg">
     <div class="ep-dialog-header">
-        <h3>Catalog settings</h3>
+        <h3 th:text="${sectionTitle}">Catalog settings</h3>
     </div>
     <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id})}"
-          hx-target="#catalog-metadata-dialog" hx-swap="outerHTML">
+          hx-target="#dialog-mount" hx-swap="innerHTML">
+        <input type="hidden" name="section" th:value="${section}" />
         <div class="ep-dialog-body">
             <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
 
-            <div class="form-group">
-                <label class="ep-label" for="catalog-metadata-name">Name</label>
-                <input id="catalog-metadata-name" class="ep-input" name="name" required maxlength="100"
-                       th:value="${catalog.name}" />
-            </div>
-            <div class="form-group">
-                <label class="ep-label" for="catalog-metadata-description">Description</label>
-                <textarea id="catalog-metadata-description" class="ep-input" name="description" rows="3"
-                          th:text="${catalog.description}"></textarea>
-            </div>
+            <th:block th:if="${section == 'details'}">
+                <div class="form-group">
+                    <label class="ep-label" for="catalog-metadata-name">Name</label>
+                    <input id="catalog-metadata-name" class="ep-input" name="name" required maxlength="100"
+                           th:value="${catalog.name}" />
+                </div>
+                <div class="form-group">
+                    <label class="ep-label" for="catalog-metadata-description">Description</label>
+                    <textarea id="catalog-metadata-description" class="ep-input" name="description" rows="3"
+                              th:text="${catalog.description}"></textarea>
+                </div>
+            </th:block>
 
-            <fieldset class="form-group">
+            <fieldset th:if="${section == 'attributes'}" class="form-group">
                 <legend class="ep-label">Discovery attributes</legend>
                 <p class="form-hint">Only attributes with a value are published.</p>
                 <div th:each="field : ${attributeFields}" style="margin-top: var(--ep-space-2);">
@@ -42,14 +45,14 @@
                 <p th:if="${attributeFields.isEmpty()}" class="text-muted">No catalog attributes are defined for this tenant.</p>
             </fieldset>
 
-            <div class="form-group">
+            <div th:if="${section == 'keywords'}" class="form-group">
                 <label class="ep-label" for="catalog-keywords">Keywords</label>
                 <textarea id="catalog-keywords" class="ep-input" name="keywords" rows="4"
                           th:text="${#strings.listJoin(catalog.portableMetadata.keywords, '&#10;')}"></textarea>
                 <span class="form-hint">One keyword per line. Case is preserved.</span>
             </div>
 
-            <fieldset class="form-group">
+            <fieldset th:if="${section == 'presentation'}" class="form-group">
                 <legend class="ep-label">Presentation</legend>
                 <label class="ep-label" for="catalog-icon">Icon</label>
                 <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
@@ -77,7 +80,7 @@
                 </div>
             </fieldset>
 
-            <fieldset class="form-group">
+            <fieldset th:if="${section == 'license'}" class="form-group">
                 <legend class="ep-label">License</legend>
                 <label class="ep-label" for="catalog-license-name">Name</label>
                 <input id="catalog-license-name" class="ep-input" name="licenseName"
@@ -95,7 +98,7 @@
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="catalog-metadata-dialog">Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary">Save settings</button>
+            <button type="submit" class="ep-btn ep-btn-primary">Save changes</button>
         </div>
     </form>
 </dialog>
