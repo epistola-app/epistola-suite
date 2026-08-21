@@ -114,14 +114,7 @@ describe('EpistolaTextEditor expression scope callbacks', () => {
     await editor.updateComplete;
 
     const expressionChip = editor.querySelector<HTMLElement>('.expression-chip')!;
-    const chipRange = document.createRange();
-    chipRange.selectNodeContents(expressionChip);
-    document.getSelection()!.removeAllRanges();
-    document.getSelection()!.addRange(chipRange);
-    expect(document.getSelection()!.toString()).not.toBe('');
-
     expressionChip.click();
-    expect(document.getSelection()!.toString()).toBe('');
 
     await vi.waitFor(() => {
       expect(document.querySelector('ep-expression-dialog')).not.toBeNull();

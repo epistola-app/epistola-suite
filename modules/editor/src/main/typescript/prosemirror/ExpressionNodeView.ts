@@ -101,7 +101,6 @@ export class ExpressionNodeView implements NodeView {
     this.dom.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this._clearOwnDomSelection();
       this._openDialog();
     });
 
@@ -224,16 +223,6 @@ export class ExpressionNodeView implements NodeView {
   // ---------------------------------------------------------------------------
   // Dialog
   // ---------------------------------------------------------------------------
-
-  private _clearOwnDomSelection(): void {
-    const selection = this.dom.ownerDocument.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-
-    const range = selection.getRangeAt(0);
-    if (this.dom.contains(range.startContainer) && this.dom.contains(range.endContainer)) {
-      selection.removeAllRanges();
-    }
-  }
 
   private _openDialog(): void {
     if (this._dialogOpen) return;
