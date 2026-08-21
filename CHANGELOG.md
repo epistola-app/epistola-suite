@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** docs(data-contracts): **Data contract behavior and support boundaries are documented.**
+  A new guide explains schema dialects and root requirements, visual and JSON-only editing, safe UI
+  import normalization, examples and Autofill, expression field discovery, validation, publishing,
+  and which advanced JSON Schema constructs each part of the application understands.
 - **[dev]** refactor(data-contracts): **Schema and example logic is grouped by feature.**
   The editor's former utility grab bag is split into colocated `schema` and `examples` modules with
   consistent kebab-case filenames, making ownership and dependencies easier to follow.

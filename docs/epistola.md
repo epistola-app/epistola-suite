@@ -22,7 +22,9 @@ In all cases the workflow is the same: define a template once in the visual edit
 
 Templates are the central concept. Each template defines:
 
-- **Data contract** — A JSON Schema (Draft 2020-12) describing the data the template expects, plus named data examples for testing.
+- **Data contract** — A JSON Schema describing the data the template expects, plus named data
+  examples for testing. Editor-created schemas use Draft 7; schemas without an explicit dialect
+  default to Draft 2020-12. See [Data Contracts](data-contracts.md) for editing and support details.
 - **Variants** — Presentation variations of the same template, tagged by language, brand, or audience (e.g. `en`, `nl`, `corporate`).
 - **Versions** — Each variant has immutable, numbered versions (1–200) with a three-state lifecycle:
   - `DRAFT` — Editable work-in-progress (at most one per variant).
@@ -222,6 +224,7 @@ Each `Node` references its child `Slot` IDs; each `Slot` references its parent `
 | [CHANGELOG.md](../CHANGELOG.md)          | Release history                         |
 | [Roadmap](roadmap.md)                    | Development phases and planned features |
 | [Generation Architecture](generation.md) | PDF rendering pipeline details          |
+| [Data Contracts](data-contracts.md)      | Schema editing, examples, and support   |
 | [Editor Features](editor-features.md)    | Editor feature overview                 |
 | [Visual Styleguide](brandguide.md)       | UI design system and colour palette     |
 | [Testing](testing.md)                    | Test strategy and conventions           |
