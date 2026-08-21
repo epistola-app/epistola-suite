@@ -54,7 +54,9 @@ export class EpistolaCanvas extends LitElement {
     if (this._isInLockedSlot(nodeId)) return;
     e.stopPropagation();
     this.engine?.selectNode(nodeId);
-    this._maybeFocusTextEditor(nodeId);
+    const target = e.target;
+    const clickedRichText = target instanceof Element && target.closest('.ProseMirror') !== null;
+    this._maybeFocusTextEditor(nodeId, !clickedRichText);
   }
 
   private _handleCanvasClick() {
@@ -85,7 +87,7 @@ export class EpistolaCanvas extends LitElement {
     return isSlotLocked(this.doc, parentSlotId, this.engine.indexes, this.engine.registry);
   }
 
-  private _maybeFocusTextEditor(nodeId: NodeId) {
+  private _maybeFocusTextEditor(nodeId: NodeId, collapseSelection = false) {
     const doc = this.doc;
     if (!doc) return;
     const node = doc.nodes[nodeId];
@@ -95,8 +97,12 @@ export class EpistolaCanvas extends LitElement {
       const blockEl = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
       const textEditor = blockEl?.querySelector<HTMLElement>('epistola-text-editor');
       if (!textEditor) return;
-      const focusEditor = (textEditor as { focusEditor?: () => void }).focusEditor;
-      focusEditor?.call(textEditor);
+      const focusEditor = (
+        textEditor as {
+          focusEditor?: (options?: { collapseSelection?: boolean }) => void;
+        }
+      ).focusEditor;
+      focusEditor?.call(textEditor, { collapseSelection });
     });
   }
 

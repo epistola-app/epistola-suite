@@ -17,7 +17,8 @@
 - **[user]** fix(editor): **Text containing expressions can be copied and pasted.** Rich-text
   selections can include expression chips, preserve them as editable expressions when pasted
   within Epistola, and expose them as `{{expression}}` when pasted as plain text into another
-  application. Expressions retain their existing single-click editing behavior.
+  application. Expressions retain their existing single-click editing behavior, and clicking
+  anywhere in the text component clears the active text selection.
 - **[dev]** refactor(catalog): Catalog contract metadata now uses the clearer `catalog_metadata`
   database and application terminology instead of `portable_metadata`.
 

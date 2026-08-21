@@ -5,6 +5,8 @@
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AllSelection } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { EditorEngine } from '../engine/EditorEngine.js';
 import { createDefaultRegistry } from '../engine/registry.js';
 import { createStencilDefinition } from '../components/stencil/stencil-registration.js';
@@ -114,7 +116,12 @@ describe('EpistolaTextEditor expression scope callbacks', () => {
     await editor.updateComplete;
 
     const expressionChip = editor.querySelector<HTMLElement>('.expression-chip')!;
+    const view = (editor as unknown as { _pmView: EditorView })._pmView;
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    expect(view.state.selection.empty).toBe(false);
+
     expressionChip.click();
+    expect(view.state.selection.empty).toBe(true);
 
     await vi.waitFor(() => {
       expect(document.querySelector('ep-expression-dialog')).not.toBeNull();

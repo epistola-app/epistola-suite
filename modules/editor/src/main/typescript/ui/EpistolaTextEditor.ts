@@ -30,7 +30,7 @@
 import { LitElement, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, Selection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { undo, redo, undoDepth } from 'prosemirror-history';
 import { Node as ProsemirrorNode } from 'prosemirror-model';
@@ -331,8 +331,14 @@ export class EpistolaTextEditor extends LitElement {
   }
 
   /** Move keyboard focus into the rich-text surface after its block is selected. */
-  focusEditor(): void {
-    this._pmView?.focus();
+  focusEditor(options: { collapseSelection?: boolean } = {}): void {
+    if (!this._pmView) return;
+
+    if (options.collapseSelection && !this._pmView.state.selection.empty) {
+      const selection = Selection.near(this._pmView.state.selection.$head);
+      this._pmView.dispatch(this._pmView.state.tr.setSelection(selection));
+    }
+    this._pmView.focus();
   }
 
   // ---------------------------------------------------------------------------
