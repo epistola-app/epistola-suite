@@ -81,7 +81,7 @@ describe('extractFieldPaths', () => {
 
     const paths = extractFieldPaths(schema);
     expect(paths).toEqual([
-      { path: 'items', type: 'array', arrayItemType: 'object' },
+      { path: 'items', type: 'array' },
       { path: 'items[].name', type: 'string' },
       { path: 'items[].price', type: 'number' },
     ]);
@@ -99,7 +99,7 @@ describe('extractFieldPaths', () => {
     };
 
     const paths = extractFieldPaths(schema);
-    expect(paths).toEqual([{ path: 'tags', type: 'array', arrayItemType: 'string' }]);
+    expect(paths).toEqual([{ path: 'tags', type: 'array' }]);
   });
 
   it('respects depth limit', () => {
@@ -306,7 +306,7 @@ describe('extractFieldPaths', () => {
     expect(extractFieldPaths(schema)).toEqual([
       { path: 'correspondenceAddress', type: 'object' },
       { path: 'correspondenceAddress.city', type: 'string' },
-      { path: 'deliveryRoutes', type: 'array', arrayItemType: 'array' },
+      { path: 'deliveryRoutes', type: 'array' },
       { path: 'deliveryRoutes[][].destination', type: 'string' },
     ]);
   });
@@ -329,12 +329,10 @@ describe('extractFieldPaths', () => {
     };
 
     expect(extractFieldPaths(schema)).toEqual([
-      { path: 'amounts', type: 'array', arrayItemType: 'number' },
+      { path: 'amounts', type: 'array' },
       {
         path: 'richTextItems',
         type: 'array',
-        arrayItemType: 'unknown',
-        arrayItemRef: 'https://epistola.app/schemas/richtext-inline-v1.json',
       },
     ]);
   });

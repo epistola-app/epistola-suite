@@ -13,7 +13,6 @@
  * each component's `scopeProvider` — no hard-coded component types here.
  */
 
-import type { FieldPath } from './schema-paths.js';
 import type { Node } from '../types/index.js';
 import type { ScopeDeclaration, ScopeProviderContext } from './registry.js';
 
@@ -38,12 +37,7 @@ export function buildIterationScope(
   const itemAlias = (props.itemAlias as string) || 'item';
   const indexAlias = props.indexAlias as string | undefined;
 
-  const variables = buildAliasedFieldPaths(
-    itemAlias,
-    indexAlias,
-    arrayExpression,
-    ctx.schemaFieldPaths,
-  );
+  const variables = buildIterationMetadata(itemAlias, indexAlias);
   const evaluationData = buildLoopEvaluationData(
     itemAlias,
     indexAlias,
@@ -51,7 +45,19 @@ export function buildIterationScope(
     ctx.evaluationContext,
   );
 
-  return { variables, evaluationData };
+  return {
+    variables,
+    schemaBindings: [
+      {
+        alias: itemAlias,
+        source: { kind: 'array-item-expression', expression: arrayExpression },
+        scopeKind: 'iteration',
+        description: 'Current iteration item',
+        includeAlias: true,
+      },
+    ],
+    evaluationData,
+  };
 }
 
 /**
@@ -59,46 +65,11 @@ export function buildIterationScope(
  *
  * Maps array item sub-paths to aliased paths and adds metadata fields.
  */
-function buildAliasedFieldPaths(
+function buildIterationMetadata(
   itemAlias: string,
   indexAlias: string | undefined,
-  arrayExpression: string,
-  schemaFieldPaths: FieldPath[],
-): FieldPath[] {
-  const paths: FieldPath[] = [];
-  const arrayItemPath = `${arrayExpression}[]`;
-  const sourceArray = schemaFieldPaths.find(
-    (field) => field.path === arrayExpression && field.type === 'array',
-  );
-  const itemType = sourceArray?.arrayItemType ?? inferItemType(arrayItemPath, schemaFieldPaths);
-  const nestedArrayItemType =
-    itemType === 'array' ? inferItemType(`${arrayItemPath}[]`, schemaFieldPaths) : undefined;
-
-  // Add the item alias itself (for simple arrays and direct reference), carrying
-  // the source array's item metadata into any nested iteration scope.
-  paths.push({
-    path: itemAlias,
-    type: itemType,
-    ...(sourceArray?.arrayItemRef ? { ref: sourceArray.arrayItemRef } : {}),
-    ...(nestedArrayItemType ? { arrayItemType: nestedArrayItemType } : {}),
-    scope: itemAlias,
-    scopeKind: 'iteration',
-    description: 'Current iteration item',
-  });
-
-  // Map array item sub-properties to aliased paths (for object arrays)
-  for (const fp of schemaFieldPaths) {
-    if (fp.path.startsWith(arrayItemPath)) {
-      const suffix = fp.path.slice(arrayItemPath.length);
-      if (!suffix.startsWith('.') && !suffix.startsWith('[]')) continue;
-      paths.push({
-        ...fp,
-        path: `${itemAlias}${suffix}`,
-        scope: itemAlias,
-        scopeKind: 'iteration',
-      });
-    }
-  }
+): ScopeDeclaration['variables'] {
+  const paths: ScopeDeclaration['variables'] = [];
 
   // Add loop metadata fields
   paths.push(
@@ -136,16 +107,6 @@ function buildAliasedFieldPaths(
   }
 
   return paths;
-}
-
-function inferItemType(arrayItemPath: string, schemaFieldPaths: FieldPath[]): string {
-  if (schemaFieldPaths.some((field) => field.path.startsWith(`${arrayItemPath}.`))) {
-    return 'object';
-  }
-  if (schemaFieldPaths.some((field) => field.path.startsWith(`${arrayItemPath}[]`))) {
-    return 'array';
-  }
-  return 'unknown';
 }
 
 /**

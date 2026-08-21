@@ -9,7 +9,9 @@
   padding configured on the component continues to apply.
 - **[user]** fix(editor): **Nested loops expose correctly typed item fields.** Inner loops can use
   arrays from an outer item and retain schema types for their item alias and child fields,
-  including arrays nested directly inside arrays. The demo catalog now includes nested delivery
+  including arrays nested directly inside arrays and list-valued stencil parameters. Components
+  declare their scope bindings while the editor navigates one canonical schema internally, avoiding
+  copied partial schemas and flattened type metadata. The demo catalog includes nested delivery
   route loops for hands-on verification.
 - **[user]** fix(editor): **Text containing expressions can be copied and pasted.** Rich-text
   selections now preserve editable expression chips when pasted within Epistola and expose

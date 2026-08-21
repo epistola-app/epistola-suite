@@ -15,6 +15,7 @@ import type {
   SlotId,
   PageSettings,
   EditorTheme,
+  Node,
 } from '../types/index.js';
 import { type FieldPath, extractFieldPaths } from './schema-paths.js';
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
@@ -26,7 +27,10 @@ import type { Change, ChangeContext } from './change.js';
 import { CommandChange } from './command-change.js';
 import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
-import { type ComponentRegistry, isAnchoredPageBlock } from './registry.js';
+import { type ComponentRegistry, type ScopeDeclaration, isAnchoredPageBlock } from './registry.js';
+import type { JsonSchemaNode } from '../json-schema/schema-node.js';
+import { type SchemaCursor, schemaRootCursor } from './schema-navigator.js';
+import { materializeScopeDeclaration, type SchemaScopeEnvironment } from './schema-scopes.js';
 import type { EditorFeatures, EditorFeatureFlag } from './feature-flags.js';
 import { DEFAULT_LOCALE } from './locale.js';
 import { deepFreeze } from './freeze.js';
@@ -61,6 +65,7 @@ export class EditorEngine {
   private _dataExamples: object[] | undefined;
   private _currentExampleIndex: number = 0;
   private _fieldPathsCache: FieldPath[] | undefined;
+  private _dataSchemaRoot: SchemaCursor | undefined;
 
   /**
    * Resolved feature state forwarded by the host. The contract is the
@@ -110,6 +115,9 @@ export class EditorEngine {
     this._undoStack = new UndoStack(options?.undoDepth ?? 100);
     this._inheritableKeys = getInheritableKeys(this.styleRegistry);
     this._dataModel = options?.dataModel;
+    this._dataSchemaRoot = options?.dataModel
+      ? schemaRootCursor(options.dataModel as JsonSchemaNode)
+      : undefined;
     this._dataExamples = options?.dataExamples;
     this.features = Object.freeze({ ...options?.features });
     this.locale =
@@ -243,7 +251,7 @@ export class EditorEngine {
    */
   getAvailableVariablesAt(nodeId: NodeId): FieldPath[] {
     const dataFields = this._dataModel ? extractFieldPaths(this._dataModel) : [];
-    const scopedFields = this._collectAncestorScopes(nodeId);
+    const scopedFields = this._collectAncestorScopeState(nodeId).fields;
     const inPageBlock = this._isInsidePageBlock(nodeId);
     const sysParams = inPageBlock
       ? SYSTEM_PARAMETER_PATHS
@@ -259,28 +267,19 @@ export class EditorEngine {
    * its parents, enabling inner scopes to reference outer scope variables.
    */
   getEvaluationContextAt(nodeId: NodeId): Record<string, unknown> {
-    let data = this.getExampleData();
-    const schemaFieldPaths = [...this.fieldPaths];
+    return this._collectAncestorScopeState(nodeId, this.getExampleData()).evaluationContext ?? {};
+  }
 
-    // Walk ancestors root-to-node so inner scopes can reference outer values
-    const ancestors = this._getAncestorsRootToNode(nodeId);
-    for (const ancestorId of ancestors) {
-      const node = this._doc.nodes[ancestorId];
-      if (!node) continue;
-      const def = this.registry.get(node.type);
-      const scope = def?.scopeProvider?.(node, {
-        schemaFieldPaths,
-        evaluationContext: data,
-      });
-      if (scope) {
-        schemaFieldPaths.push(...scope.variables);
-      }
-      if (scope?.evaluationData) {
-        data = { ...data, ...scope.evaluationData };
-      }
-    }
+  /** Materialize a node's declarative scope against the real ancestor environment. */
+  getScopeDeclarationAt(nodeId: NodeId, nodeOverride?: Node): ScopeDeclaration | null {
+    const node = nodeOverride ?? this._doc.nodes[nodeId];
+    if (!node) return null;
+    const declaration = this.registry.get(node.type)?.scopeProvider?.(node, {});
+    if (!declaration) return null;
 
-    return data;
+    const ancestorState = this._collectAncestorScopeState(nodeId);
+    const materialized = materializeScopeDeclaration(declaration, ancestorState.environment);
+    return { ...declaration, variables: materialized.variables };
   }
 
   /** Check if a node is inside a page header or footer (or is one itself). */
@@ -296,22 +295,36 @@ export class EditorEngine {
     return false;
   }
 
-  /** Collect scoped variables from ancestor scope providers. */
-  private _collectAncestorScopes(nodeId: NodeId): FieldPath[] {
+  /** Collect scoped fields, schema bindings and preview data from all ancestors. */
+  private _collectAncestorScopeState(
+    nodeId: NodeId,
+    evaluationContext?: Record<string, unknown>,
+  ): {
+    fields: FieldPath[];
+    environment: SchemaScopeEnvironment;
+    evaluationContext?: Record<string, unknown>;
+  } {
     const fields: FieldPath[] = [];
-    const schemaFieldPaths = [...this.fieldPaths];
+    let environment: SchemaScopeEnvironment = {
+      dataRoot: this._dataSchemaRoot,
+      bindings: {},
+    };
+    let data = evaluationContext;
+
     for (const ancestorId of this._getAncestorsRootToNode(nodeId)) {
       const node = this._doc.nodes[ancestorId];
       if (node) {
         const def = this.registry.get(node.type);
-        const scope = def?.scopeProvider?.(node, { schemaFieldPaths });
+        const scope = def?.scopeProvider?.(node, { evaluationContext: data });
         if (scope) {
-          fields.push(...scope.variables);
-          schemaFieldPaths.push(...scope.variables);
+          const materialized = materializeScopeDeclaration(scope, environment);
+          fields.push(...materialized.variables);
+          environment = materialized.environment;
+          if (scope.evaluationData) data = { ...data, ...scope.evaluationData };
         }
       }
     }
-    return fields;
+    return { fields, environment, evaluationContext: data };
   }
 
   /** Get ancestors of nodeId ordered root-to-node (excluding nodeId itself). */
