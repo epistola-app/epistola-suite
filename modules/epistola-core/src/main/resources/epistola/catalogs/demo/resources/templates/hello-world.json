@@ -4,6 +4,7 @@
     "type": "template",
     "slug": "hello-world",
     "name": "Hello World",
+    "pdfaEnabled": false,
     "themeId": "corporate",
     "dataModel": {
       "type": "object",

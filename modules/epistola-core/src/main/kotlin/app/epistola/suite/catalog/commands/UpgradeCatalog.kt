@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
@@ -189,6 +190,7 @@ class UpgradeCatalogHandler(
             resourceFingerprintsJson,
             manifest.catalog.name,
             manifest.catalog.description,
+            objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
         )
 
         val newVersion = manifest.release.version
@@ -222,6 +224,7 @@ class UpgradeCatalogHandler(
         resourceFingerprintsJson: String,
         name: String,
         description: String?,
+        catalogMetadataJson: String,
     ) {
         // #692: bound the re-fetched manifest name to catalogs.name VARCHAR(255).
         validateCatalogNameLength(name)
@@ -231,7 +234,8 @@ class UpgradeCatalogHandler(
                 UPDATE catalogs
                 SET installed_release_version = :version, installed_fingerprint = :fingerprint,
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
-                    name = :name, description = :description, updated_at = NOW()
+                    name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
+                    content_updated_at = NOW(), updated_at = NOW()
                 WHERE tenant_key = :t AND id = :c
                 """,
             )
@@ -242,6 +246,7 @@ class UpgradeCatalogHandler(
                 .bind("resourceFingerprints", resourceFingerprintsJson)
                 .bind("name", name)
                 .bind("description", description)
+                .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
         }
     }

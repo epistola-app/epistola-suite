@@ -16,6 +16,30 @@
   types in a consistent read transaction, classifies runtime, authoring, and provenance edges, and
   exposes bounded graph traversal to internal UI handlers. See
   [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
+- **[dev]** refactor(catalog): Catalog contract metadata now uses the clearer `catalog_metadata`
+  database and application terminology instead of `portable_metadata`.
+
+- **[user]** fix(catalog-ui): Catalog details stay readable while focused, visually flat **Change**
+  dialogs edit general details, locale, keywords, presentation, or license independently. Catalog authors
+  can advertise only the system locale for now, and malformed SPDX license expressions are rejected.
+
+- **[user]** feat(catalog-ui): **Catalogs can be described and presented as discoverable products.**
+  Authored catalog settings now cover qualified discovery attributes, keywords, an icon, an ordered
+  image gallery, and license details. Subscribed catalogs show the same metadata read-only, with
+  clear placeholders for presentation media that has not been installed. MCP catalog discovery and
+  upgrade previews expose the metadata too. The bundled demo catalog illustrates every new field.
+
+- **[user]** feat(catalog): **Catalog discovery metadata survives every catalog workflow.**
+  Qualified attributes, case-preserving keywords, ordered presentation images, and license details
+  now round-trip through export, ZIP import, URL registration, upgrades, snapshots, and release
+  fingerprints. Metadata-only publisher changes appear in upgrade previews, and subscribed exports
+  omit presentation references to assets that have not been installed locally.
+
+- **[user]** fix(catalog,pdf): **Catalog exchange preserves each template's PDF/A setting.**
+  Export, ZIP import, URL installation, and upgrades now retain templates that explicitly disable
+  PDF/A; older catalog resources without the setting continue to default to PDF/A output.
+
+- **[dev]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
 - **[user]** feat(data-contracts): **Schema fields can be added where authors are working.**
   The visual contract editor offers contextual child and sibling actions with full schema paths,
   keeps nested parents expanded, selects the new field name for immediate typing, and preserves a

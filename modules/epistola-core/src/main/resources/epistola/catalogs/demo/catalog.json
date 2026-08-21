@@ -3,16 +3,37 @@
   "catalog": {
     "slug": "epistola-demo",
     "name": "Epistola Demo Catalog",
-    "description": "Sample templates, themes, stencils, and attributes for getting started with Epistola."
+    "description": "Sample templates, themes, stencils, and attributes for getting started with Epistola.",
+    "attributes": [
+      {
+        "catalog": "system",
+        "key": "locale",
+        "value": "nl-NL"
+      }
+    ],
+    "keywords": ["Letters", "Dutch", "Getting Started"],
+    "presentation": {
+      "iconAssetSlug": "01966a00-0000-7000-8000-000000000001",
+      "imageAssetSlugs": [
+        "01966a00-0000-7000-8000-000000000001",
+        "01966a00-0000-7000-8000-000000000002"
+      ]
+    },
+    "license": {
+      "name": "Creative Commons Attribution 4.0 International",
+      "spdxExpression": "CC-BY-4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "copyrightText": "Copyright Epistola Nederland B.V."
+    }
   },
   "publisher": {
     "name": "Epistola",
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.17.0",
-    "releasedAt": "2026-08-20T00:00:00Z",
-    "fingerprint": "bb29f02a64287ef9d94771f87e3aefc580b4fbaa3f999993800804d2e7a52209"
+    "version": "5.17.1",
+    "releasedAt": "2026-08-21T00:00:00Z",
+    "fingerprint": "174d64ffcea537ca8245c9ff98c996d3ee90d6c4f11b152e1a17342d5b3c48d4"
   },
   "resources": [
     {
@@ -22,6 +43,14 @@
       "description": "Small brand logo for use in templates.",
       "updatedAt": "2026-04-10T00:00:00Z",
       "detailUrl": "./resources/assets/epistola-logo.json"
+    },
+    {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000002",
+      "name": "Epistola Catalog Preview",
+      "description": "Preview illustration for the demo catalog gallery.",
+      "updatedAt": "2026-08-20T00:00:00Z",
+      "detailUrl": "./resources/assets/catalog-preview.json"
     },
     {
       "type": "attribute",

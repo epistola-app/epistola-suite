@@ -4,6 +4,13 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.catalog.protocol.AttributeAssignment
+import app.epistola.catalog.protocol.CatalogLicense
+import app.epistola.catalog.protocol.CatalogPresentation
+import app.epistola.suite.assets.Asset
+import app.epistola.suite.assets.AssetMediaCategory
+import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
@@ -22,6 +29,7 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.StencilVersionImportConflictsException
 import app.epistola.suite.catalog.commands.UnregisterCatalog
+import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
@@ -52,6 +60,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+
+private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
 
 @Component
 class CatalogHandler {
@@ -468,6 +478,9 @@ class CatalogHandler {
             val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usageCounts = usages.mapValues { it.value.size }
+            val images = ListAssets(tenantId.key, catalogKey = catalogKey).query()
+                .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
+            val imagesBySlug = images.associateBy { it.id.value.toString() }
             // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
             // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
             // the browse view to flag stencils that block export — mirrors the precheck
@@ -492,11 +505,170 @@ class CatalogHandler {
                 "resources" to result.resources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
+                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                    CatalogPresentationAssetView(it, imagesBySlug[it])
+                }
+                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
+                    CatalogPresentationAssetView(it, imagesBySlug[it])
+                }
             }
         } catch (e: Exception) {
             logger.warn("Failed to browse catalog: ${e.message}", e)
             listWithError(request, "Failed to fetch catalog. The remote server may be unavailable or the URL may be incorrect.")
         }
+    }
+
+    fun metadataForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        val section = CatalogMetadataSection.from(request.param("section").orElse(CatalogMetadataSection.DETAILS.value))
+        return ServerResponse.ok().render("catalogs/metadata :: dialog", catalogMetadataModel(tenantId.key, catalogKey, section))
+    }
+
+    fun updateMetadata(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        val section = CatalogMetadataSection.from(request.servletRequest().getParameter("section").orEmpty())
+        val params = request.servletRequest().parameterMap
+
+        return try {
+            val catalog = catalogForMetadata(tenantId.key, catalogKey)
+            val current = catalog.catalogMetadata
+
+            UpdateCatalogMetadata(
+                tenantKey = tenantId.key,
+                catalogKey = catalogKey,
+                name = if (section == CatalogMetadataSection.DETAILS) {
+                    request.servletRequest().getParameter("name").orEmpty()
+                } else {
+                    catalog.name
+                },
+                description = if (section == CatalogMetadataSection.DETAILS) {
+                    request.servletRequest().getParameter("description")?.trim()?.ifBlank { null }
+                } else {
+                    catalog.description
+                },
+                attributes = if (section == CatalogMetadataSection.ATTRIBUTES) {
+                    parseLocaleMetadataAttribute(params, current.attributes)
+                } else {
+                    current.attributes
+                },
+                keywords = if (section == CatalogMetadataSection.KEYWORDS) parseMetadataKeywords(request) else current.keywords,
+                presentation = if (section == CatalogMetadataSection.PRESENTATION) parseCatalogPresentation(request) else current.presentation,
+                license = if (section == CatalogMetadataSection.LICENSE) parseCatalogLicense(request) else current.license,
+            ).execute()
+
+            ServerResponse.noContent()
+                .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (e: Exception) {
+            logger.warn("Failed to update catalog metadata: {}", e.message)
+            ServerResponse.status(422).render(
+                "catalogs/metadata :: dialog",
+                catalogMetadataModel(tenantId.key, catalogKey, section) +
+                    ("error" to (e.message ?: "Failed to save catalog metadata.")),
+            )
+        }
+    }
+
+    private fun parseLocaleMetadataAttribute(
+        params: Map<String, Array<String>>,
+        current: List<AttributeAssignment>,
+    ): List<AttributeAssignment> {
+        val fieldName = "attribute_$CATALOG_LOCALE_ATTRIBUTE"
+        require(params.keys.none { it.startsWith("attribute_") && it != fieldName }) {
+            "Only the locale discovery attribute can be changed."
+        }
+        val preserved = current.filterNot { "${it.catalog}.${it.key}" == CATALOG_LOCALE_ATTRIBUTE }
+        val locale = params[fieldName]?.firstOrNull()?.trim()?.ifBlank { null }
+        return if (locale == null) preserved else preserved + AttributeAssignment("system", "locale", locale)
+    }
+
+    private fun parseMetadataKeywords(request: ServerRequest): Set<String> {
+        val keywords = request.servletRequest().getParameter("keywords").orEmpty()
+            .lines().map(String::trim).filter(String::isNotEmpty)
+        require(keywords.distinct().size == keywords.size) { "Keywords must be unique (case is significant)." }
+        return LinkedHashSet(keywords)
+    }
+
+    private fun parseCatalogPresentation(request: ServerRequest): CatalogPresentation? {
+        val imageAssetSlugs = request.servletRequest().getParameterValues("imageAssetSlugs")
+            ?.map(String::trim)?.filter(String::isNotEmpty).orEmpty()
+        val iconAssetSlug = request.servletRequest().getParameter("iconAssetSlug")?.trim()?.ifBlank { null }
+        return if (iconAssetSlug != null || imageAssetSlugs.isNotEmpty()) {
+            CatalogPresentation(iconAssetSlug, imageAssetSlugs)
+        } else {
+            null
+        }
+    }
+
+    private fun parseCatalogLicense(request: ServerRequest): CatalogLicense? {
+        val licenseName = request.servletRequest().getParameter("licenseName")?.trim().orEmpty()
+        return if (licenseName.isNotEmpty() ||
+            listOf("licenseSpdx", "licenseUrl", "licenseCopyright").any { !request.servletRequest().getParameter(it).isNullOrBlank() }
+        ) {
+            CatalogLicense(
+                name = licenseName,
+                spdxExpression = request.servletRequest().getParameter("licenseSpdx")?.trim()?.ifBlank { null },
+                url = request.servletRequest().getParameter("licenseUrl")?.trim()?.ifBlank { null },
+                copyrightText = request.servletRequest().getParameter("licenseCopyright")?.trim()?.ifBlank { null },
+            )
+        } else {
+            null
+        }
+    }
+
+    private fun catalogMetadataModel(
+        tenantKey: app.epistola.suite.common.ids.TenantKey,
+        catalogKey: CatalogKey,
+        section: CatalogMetadataSection,
+    ): Map<String, Any?> {
+        val catalog = catalogForMetadata(tenantKey, catalogKey)
+        val currentAttributes = catalog.catalogMetadata.attributes.associate { "${it.catalog}.${it.key}" to it.value }
+        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey)).query())
+            .filter { it.qualifiedKey == CATALOG_LOCALE_ATTRIBUTE }
+        val images = ListAssets(tenantKey, catalogKey = catalogKey).query()
+            .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
+        val gallery = catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty()
+
+        return mapOf(
+            "tenantId" to tenantKey,
+            "catalog" to catalog,
+            "section" to section.value,
+            "sectionTitle" to section.title,
+            "attributeFields" to descriptors.map { CatalogMetadataAttributeField(it, currentAttributes[it.qualifiedKey]) },
+            "images" to images,
+            "gallerySlugs" to (gallery + ""),
+        )
+    }
+
+    private fun catalogForMetadata(
+        tenantKey: app.epistola.suite.common.ids.TenantKey,
+        catalogKey: CatalogKey,
+    ) = GetCatalog(tenantKey, catalogKey).query()
+        ?.also { require(it.type == CatalogType.AUTHORED) { "Subscribed catalog metadata is read-only." } }
+        ?: throw IllegalArgumentException("Catalog not found: ${catalogKey.value}")
+
+    private enum class CatalogMetadataSection(val value: String, val title: String) {
+        DETAILS("details", "General details"),
+        ATTRIBUTES("attributes", "Locale"),
+        KEYWORDS("keywords", "Keywords"),
+        PRESENTATION("presentation", "Presentation"),
+        LICENSE("license", "License"),
+        ;
+
+        companion object {
+            fun from(value: String): CatalogMetadataSection = entries.firstOrNull { it.value == value }
+                ?: throw IllegalArgumentException("Unknown catalog metadata section: $value")
+        }
+    }
+
+    data class CatalogMetadataAttributeField(val descriptor: AttributeDescriptor, val value: String?)
+
+    data class CatalogPresentationAssetView(val slug: String, val asset: Asset?) {
+        val available: Boolean get() = asset != null
     }
 
     fun resourceUsages(request: ServerRequest): ServerResponse {
@@ -594,6 +766,9 @@ class CatalogHandler {
     ): ServerResponse {
         val tenantId = request.tenantId()
         val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
+        val imagesBySlug = ListAssets(tenantId.key, catalogKey = catalogKey).query()
+            .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
+            .associateBy { it.id.value.toString() }
 
         return request.htmx {
             fragment("catalogs/browse", "resource-rows") {
@@ -605,6 +780,16 @@ class CatalogHandler {
                 if (successMessage != null) "successMessage" to successMessage
                 if (errorMessage != null) "errorMessage" to errorMessage
             }
+            oob("catalogs/browse", "metadata-card") {
+                "tenantId" to tenantId.key
+                "catalog" to result.catalog
+                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                    CatalogPresentationAssetView(it, imagesBySlug[it])
+                }
+                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
+                    CatalogPresentationAssetView(it, imagesBySlug[it])
+                }
+            }
             trigger("installComplete")
             onNonHtmx {
                 page("catalogs/browse") {
@@ -613,6 +798,13 @@ class CatalogHandler {
                     "activeNavSection" to "catalogs"
                     "catalog" to result.catalog
                     "resources" to result.resources
+                    "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                        CatalogPresentationAssetView(it, imagesBySlug[it])
+                    }
+                    "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
+                        CatalogPresentationAssetView(it, imagesBySlug[it])
+                    }
+                    if (successMessage != null) "successMessage" to successMessage
                     if (errorMessage != null) "error" to errorMessage
                 }
             }
