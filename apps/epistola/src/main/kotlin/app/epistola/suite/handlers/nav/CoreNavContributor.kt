@@ -45,6 +45,9 @@ class CoreNavContributor : NavContributor {
             add(NavItem("resources", "attributes", "Attributes", "attributes", 40))
             add(NavItem("resources", "code-lists", "Code lists", "code-lists", 50))
         }
+        if (context.hasPermission(Permission.CATALOG_VIEW)) {
+            add(NavItem("resources", "resource-graph", "Resource graph", "resource-graph", 60))
+        }
 
         // Operations — per-item permissions
         if (context.hasPermission(Permission.DOCUMENT_VIEW)) {

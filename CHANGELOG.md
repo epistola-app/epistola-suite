@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs): **Catalog resource relationships are visible as an interactive graph.**
+  Search across a tenant, explore incoming and outgoing references up to three levels deep, filter
+  by catalog, resource type, and reference semantics, inspect exact version/JSON-path evidence, and
+  optionally include archived history. Missing and ambiguous references remain visible so catalog
+  maintenance can be planned safely.
+- **[dev]** feat(catalogs): **A canonical tenant resource-reference query is available in
+  core.** It extracts relational and versioned-JSON references for all seven catalog resource
+  types in a consistent read transaction, classifies runtime, authoring, and provenance edges, and
+  exposes bounded graph traversal to internal UI handlers. See
+  [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
 - **[user]** feat(data-contracts): **Schema fields can be added where authors are working.**
   The visual contract editor offers contextual child and sibling actions with full schema paths,
   keeps nested parents expanded, selects the new field name for immediate typing, and preserves a
