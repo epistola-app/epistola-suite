@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(data-contracts): **Schema and example logic is grouped by feature.**
+  The editor's former utility grab bag is split into colocated `schema` and `examples` modules with
+  consistent kebab-case filenames, making ownership and dependencies easier to follow.
 - **[user]** feat(data contracts): **Every authored data contract keeps at least one example.**
   Saving or publishing without an example is rejected with an actionable validation error, the
   editor highlights the requirement, and replaces the final example's delete action with an

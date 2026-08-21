@@ -30,7 +30,7 @@ import {
 import { findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
 import { scalarFromJsonSchema } from '../field-types.js';
 import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
-import type { SchemaValidationError } from '../utils/schemaValidation.js';
+import type { SchemaValidationError } from '../schema/validation.js';
 import './EpistolaRichTextInput.js';
 
 /** Resolve a JSON Schema property to a simple type label, including ref types. */

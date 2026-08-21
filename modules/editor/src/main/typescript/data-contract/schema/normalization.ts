@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import type { JsonSchema } from '../types.js';
-import { checkSchemaCompatibility, type CompatibilityIssue } from './schemaCompatibility.js';
+import { checkSchemaCompatibility, type CompatibilityIssue } from './compatibility.js';
 
 type SchemaNode = Record<string, unknown>;
 

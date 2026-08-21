@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { detectBreakingChanges } from './schemaBreakingChanges.js';
+import { detectBreakingChanges } from './breaking-changes.js';
 import type { SchemaField } from '../types.js';
 
 describe('detectBreakingChanges', () => {

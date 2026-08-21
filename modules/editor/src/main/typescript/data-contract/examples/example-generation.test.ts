@@ -9,9 +9,9 @@ import {
   type JsonSchema,
   type JsonValue,
 } from '../types.js';
-import { validateDataAgainstSchema } from './schemaValidation.js';
-import { completeExampleFromSchema } from './exampleGeneration.js';
-import { createSemanticExampleValues } from './semanticExampleValues.js';
+import { validateDataAgainstSchema } from '../schema/validation.js';
+import { completeExampleFromSchema } from './example-generation.js';
+import { createSemanticExampleValues } from './semantic-example-values.js';
 
 function complete(schema: JsonSchema, existing: JsonObject) {
   return completeExampleFromSchema(schema, existing, createSemanticExampleValues('test-example'));

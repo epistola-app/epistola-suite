@@ -32,25 +32,25 @@ import type {
   SchemaField,
   VisualSchema,
 } from './types.js';
-import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
-import type { SchemaCommand } from './utils/schemaCommands.js';
-import { SchemaCommandHistory } from './utils/schemaCommandHistory.js';
-import { findFieldPath } from './utils/schemaCommands.js';
-import { SnapshotHistory } from './utils/snapshotHistory.js';
+import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './schema/conversion.js';
+import type { SchemaCommand } from './schema/commands.js';
+import { SchemaCommandHistory } from './schema/command-history.js';
+import { findFieldPath } from './schema/commands.js';
+import { SnapshotHistory } from './schema/snapshot-history.js';
 import {
   detectMigrations,
   applyAllMigrations,
   renameExampleKey,
   type MigrationSuggestion,
-} from './utils/schemaMigration.js';
-import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
-import { checkSchemaCompatibility, type CompatibilityIssue } from './utils/schemaCompatibility.js';
+} from './schema/migration.js';
+import { validateDataAgainstSchema, type SchemaValidationError } from './schema/validation.js';
+import { checkSchemaCompatibility, type CompatibilityIssue } from './schema/compatibility.js';
 import {
   normalizeSchemaForVisualEditor,
   type SchemaNormalizationChange,
-} from './utils/schemaNormalizer.js';
-import { validateDataContractSchema } from './utils/dataContractSchema.js';
-import { detectBreakingChanges, type BreakingChange } from './utils/schemaBreakingChanges.js';
+} from './schema/normalization.js';
+import { validateDataContractSchema } from './schema/contract-schema.js';
+import { detectBreakingChanges, type BreakingChange } from './schema/breaking-changes.js';
 import {
   renderSchemaSection,
   type SchemaUiState,
@@ -66,7 +66,7 @@ import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
 import { renderContractSaveControls } from './sections/ContractSaveBar.js';
-import { completeExampleFromSchema } from './utils/exampleGeneration.js';
+import { completeExampleFromSchema } from './examples/example-generation.js';
 
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
@@ -927,7 +927,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     this._generatingExampleIds.add(id);
     try {
-      const { createSemanticExampleValues } = await import('./utils/semanticExampleValues.js');
+      const { createSemanticExampleValues } = await import('./examples/semantic-example-values.js');
       if (this.contractState !== state) return;
 
       const example = state.dataExamples.find((candidate) => candidate.id === id);

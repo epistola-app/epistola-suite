@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'lit';
 import { formatValue, migrationKey, renderMigrationDialog } from './MigrationAssistant.js';
-import type { MigrationSuggestion } from '../utils/schemaMigration.js';
+import type { MigrationSuggestion } from '../schema/migration.js';
 
 describe('formatValue', () => {
   it('null -> "null"', () => {

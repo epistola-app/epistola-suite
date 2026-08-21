@@ -16,7 +16,7 @@ import {
   renderExampleForm,
   setNestedValue,
 } from './ExampleForm.js';
-import type { SchemaValidationError } from '../utils/schemaValidation.js';
+import type { SchemaValidationError } from '../schema/validation.js';
 import type { JsonObject, JsonSchema, JsonSchemaProperty } from '../types.js';
 
 describe('example form placeholders', () => {

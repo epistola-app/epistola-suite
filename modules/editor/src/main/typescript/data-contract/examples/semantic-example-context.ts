@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { base, en, Faker, nl } from '@faker-js/faker';
-import type { ExampleField } from './exampleValueProvider.js';
+import type { ExampleField } from './example-value-provider.js';
 
 const DEFAULT_SEED = 20_260_820;
 

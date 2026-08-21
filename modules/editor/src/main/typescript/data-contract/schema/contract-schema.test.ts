@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { validateDataContractSchema } from './dataContractSchema.js';
+import { validateDataContractSchema } from './contract-schema.js';
 
 describe('validateDataContractSchema', () => {
   it('accepts an object schema', () => {

@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { checkSchemaCompatibility } from './schemaCompatibility.js';
-import { normalizeSchemaForVisualEditor } from './schemaNormalizer.js';
+import { checkSchemaCompatibility } from './compatibility.js';
+import { normalizeSchemaForVisualEditor } from './normalization.js';
 
 describe('normalizeSchemaForVisualEditor', () => {
   it('inlines nested local references and removes definitions', () => {

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { formatValidationErrors, validateDataAgainstSchema } from './schemaValidation.js';
+import { formatValidationErrors, validateDataAgainstSchema } from './validation.js';
 import { RICH_TEXT_BLOCK_SCHEMA_REF, RICH_TEXT_INLINE_SCHEMA_REF } from '../types.js';
 import type { JsonObject, JsonSchema } from '../types.js';
 

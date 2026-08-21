@@ -11,7 +11,7 @@
  */
 
 import type { SchemaField, SchemaFieldUpdate, VisualSchema } from '../types.js';
-import { applyFieldUpdate, createEmptyField } from './schemaUtils.js';
+import { applyFieldUpdate, createEmptyField } from './conversion.js';
 
 // =============================================================================
 // Command types

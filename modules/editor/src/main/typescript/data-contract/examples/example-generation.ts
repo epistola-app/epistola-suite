@@ -5,7 +5,7 @@
 import { findRefType } from '../ref-types.js';
 import type { JsonArray, JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
 import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
-import type { ExampleField, ExampleValueProvider } from './exampleValueProvider.js';
+import type { ExampleField, ExampleValueProvider } from './example-value-provider.js';
 
 const GENERATED_DATE = '2024-01-01';
 const GENERATED_DATE_TIME = '2024-01-01T12:00:00Z';

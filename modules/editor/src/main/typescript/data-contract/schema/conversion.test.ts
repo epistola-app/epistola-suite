@@ -12,7 +12,7 @@ import {
   isValidFieldName,
   jsonSchemaToVisualSchema,
   visualSchemaToJsonSchema,
-} from './schemaUtils.js';
+} from './conversion.js';
 import { RICH_TEXT_BLOCK_SCHEMA_REF, RICH_TEXT_INLINE_SCHEMA_REF } from '../types.js';
 import type { JsonSchema, PrimitiveField, SchemaField, VisualSchema } from '../types.js';
 

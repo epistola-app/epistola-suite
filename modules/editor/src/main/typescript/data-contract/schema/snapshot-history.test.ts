@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { SnapshotHistory } from './snapshotHistory.js';
+import { SnapshotHistory } from './snapshot-history.js';
 
 interface TestState {
   value: number;

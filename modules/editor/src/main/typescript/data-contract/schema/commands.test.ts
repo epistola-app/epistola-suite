@@ -10,7 +10,7 @@ import {
   executeSchemaCommand,
   findFieldPath,
   updateFieldInTree,
-} from './schemaCommands.js';
+} from './commands.js';
 
 // =============================================================================
 // Test fixtures
