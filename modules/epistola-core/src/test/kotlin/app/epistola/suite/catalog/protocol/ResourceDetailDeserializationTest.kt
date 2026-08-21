@@ -5,8 +5,8 @@
 package app.epistola.catalog.protocol
 
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
