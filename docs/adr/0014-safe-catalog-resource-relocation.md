@@ -30,6 +30,7 @@ scope.
 - A move is previewable, deterministic, atomic, and safe under concurrent edits.
 - Shared dependencies must not be swept into a move merely because they are reachable.
 - Every reference rewrite is typed and explicit; generic JSON string replacement is forbidden.
+- Existing relational integrity remains database-enforced throughout a move.
 - Subscribed and system catalogs retain their read-only guarantees.
 - Failed or stale plans leave no partial move behind.
 - The result remains portable through catalog export rather than depending silently on local state.
@@ -97,13 +98,23 @@ resolve through the alias.
 subsequent moves without duplicating resources.
 
 **Cons:** all resource resolution paths must understand aliases; aliases need collision, chaining,
-export, and retention rules. This is more infrastructure than a direct update.
+export, and retention rules. Because catalog keys are embedded in current composite primary and
+foreign keys, aliases alone cannot move relational data. Relative references in immutable content
+also need a preserved resolution base or must block the move. This is substantially more
+infrastructure than a direct update.
 
 ## Candidate decision
 
-Adopt **Option E** with a two-step **preview then execute** protocol. The first implementation is an
-alpha capability and supports only moves between two different `AUTHORED` catalogs in the same
-tenant.
+Adopt **Option E** as the long-term model, with a two-step **preview then execute** protocol. This
+recommendation is conditional on first making relational key updates safe and defining historical
+relative-reference resolution. The first implementation is an alpha capability, supports only
+moves between two different `AUTHORED` catalogs in the same tenant, and blocks every move whose
+relational or immutable-reference shape is not yet supported.
+
+Option D remains the lower-cost alternative if the desired product semantics are that old
+references intentionally see a frozen snapshot. It is not chosen because the primary requirement
+is that old and new addresses continue to identify one logical resource, and because retaining
+frozen resources prevents a catalog reorganization from becoming clean in storage and export.
 
 ### Resource identity
 
@@ -115,6 +126,13 @@ not create a new logical resource:
 - stable internal IDs and version numbers are preserved where the domain has them;
 - the target address must not already be occupied by either a resource or an alias;
 - source and target catalogs must both exist, differ, and be `AUTHORED`.
+
+Most current resource rows do not have a catalog-independent database identity. Their primary keys
+contain `catalog_key`, for example `(tenant_key, catalog_key, id)` for templates, themes, stencils,
+and assets and `(tenant_key, catalog_key, slug)` for fonts and code lists. "Preserve stable internal
+identity" therefore means preserving the domain key, version history, and audit continuity while
+changing the composite database key. It does not imply that a universal immutable resource UUID
+already exists.
 
 System and `SUBSCRIBED` resources cannot be moved. References owned by those catalogs may continue
 to resolve through an alias, but their stored content is never rewritten locally.
@@ -157,6 +175,86 @@ The graph resolves an aliased reference to the canonical node while retaining th
 its evidence and marking the edge as `resolvedViaAlias`. This makes compatibility visible instead
 of hiding it.
 
+### Central address resolution
+
+Central resolution canonicalizes an address; it does not become a universal repository that loads
+every resource type. A shared `ResourceAddressResolver` accepts a tenant and fully qualified
+`(type, catalogKey, key)` and returns both the requested and canonical address:
+
+```text
+stored reference
+      │
+      ▼
+qualify relative or unqualified reference using its resolution context
+      │
+      ▼
+ResourceAddressResolver
+      ├─ canonical resource exists ──────────────┐
+      └─ old address is an alias ──▶ canonical ─┤
+                                                ▼
+                                    domain-specific loader
+```
+
+Runtime rendering, graph resolution, dependency scanning, and export use the canonical result
+before calling the existing theme, stencil, asset, font, attribute, code-list, or template loader.
+The result includes `requested`, `canonical`, and `resolvedViaAlias`, so callers do not lose
+diagnostic evidence. Mutation commands accept only canonical addresses; a write through an alias
+returns a conflict containing the canonical address.
+
+Aliases reserve their source address, point directly to the latest canonical address, and are
+flattened after later moves. Tenant-global candidate discovery considers canonical resources only;
+aliases do not create extra candidates or make an otherwise unique lookup ambiguous. An explicit
+historical address may follow its alias after qualification.
+
+Because the alias target is polymorphic across seven separate resource tables, a single ordinary
+foreign key cannot enforce its existence. The relocation command validates the canonical target in
+the same transaction, while deletion and subsequent relocation commands treat aliases as incoming
+references. Introducing a central resource registry with immutable UUIDs could provide a generic
+foreign-key target later, but is not required for the initial design.
+
+### Composite keys and foreign keys
+
+PostgreSQL does not use the address resolver when checking a foreign key. Changing `catalog_key`
+changes a resource's composite primary key, so the current constraints reject a parent update while
+dependent rows still contain the old key. Relocation therefore needs explicit schema support in
+addition to aliases.
+
+The important current relationships include:
+
+| Moved resource | Relational dependants                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| Template       | Variants, versions, contracts, activations, generation history, quality findings, and load tests |
+| Theme          | Template default-theme columns and the tenant default theme                                      |
+| Stencil        | Stencil versions                                                                                 |
+| Code list      | Code-list entries and bound attribute definitions                                                |
+| Font           | Font variants                                                                                    |
+| Asset          | Asset-backed font variants                                                                       |
+| Attribute      | Primarily JSON variant assignments rather than relational foreign keys                           |
+
+Structural ownership constraints should use `ON UPDATE CASCADE` where changing the parent's
+catalog must move the whole owned hierarchy. This includes template → variants → versions and
+contracts, stencil → versions, code list → entries, and font → variants. The template chain crosses
+module boundaries into generation history, quality findings, and load-test records; all those
+constraints must participate before template moves can be enabled.
+
+Semantic foreign keys either cascade or are updated by their typed rewrite strategy in the same
+transaction. Examples are template and tenant default-theme references and attribute → code-list
+bindings. Constraints involved in a multi-resource move may need to be deferrable so PostgreSQL
+validates the completed selected set rather than an invalid intermediate statement order.
+
+One current relationship cannot represent the desired post-move state: `font_variants.catalog_key`
+identifies both the owning font and its backing asset. An asset cannot move away from its font, or a
+font away from its asset, while that column serves both roles. Before supporting those independent
+moves, add a separate `asset_catalog_key` to the asset foreign key. Until then the planner must
+require the font and backing assets to move together and block selections that cannot satisfy that
+co-location constraint.
+
+Adding a catalog-independent surrogate resource UUID and migrating all relational references to it
+would make future moves cheaper, but it is a much broader schema and API change. The candidate
+direction instead uses cascades, deferrable constraints, and narrowly separated semantic catalog
+columns. If implementing those changes proves more invasive than the surrogate model, this ADR must
+be revisited before execution work starts.
+
 ### Reference rewriting
 
 The graph discovers references; it does not authorize generic writes. Each movable edge kind must
@@ -177,6 +275,30 @@ During a move:
 After applying the strategies, the executor rebuilds the affected graph and verifies that every
 previously resolved edge still resolves to the same logical target. The transaction is rolled back
 if that invariant does not hold.
+
+### Relative references in immutable content
+
+Alias lookup starts only after a reference has a fully qualified address. Moving a referenced
+target is straightforward when immutable content already stores its old catalog: that explicit old
+address follows the alias. Moving the resource that owns a relative reference is harder. For
+example, if a published template moves from `catalog-a` to `catalog-b` while its relative
+`theme-x` dependency stays behind, resolving relative to the template's new catalog would search
+for `catalog-b/theme-x` and never encounter an alias for `catalog-a/theme-x`.
+
+Mutable drafts can be rewritten to an explicit canonical address. Published and archived payloads
+cannot. A move of an immutable reference owner is therefore allowed only when the planner can prove
+one of the following:
+
+- the stored reference is already explicitly catalog-qualified;
+- every relative target moves with the owner and retains the same relative meaning;
+- immutable version metadata preserves the original reference-base catalog and runtime resolution
+  uses that base without changing the payload.
+
+Otherwise the relative reference is a preview blocker. For future publications, reference shapes
+should be canonicalized to explicit catalog addresses where the model permits. Where relative
+semantics must remain part of the format, template and stencil versions need an immutable
+`reference_base_catalog_key` (or equivalent resolution snapshot) that does not change when their
+owning resource moves. Existing immutable versions require a safe backfill or remain non-movable.
 
 ### Published templates and dependency semantics
 
@@ -238,9 +360,10 @@ fingerprint. In one database transaction it:
 2. rebuilds the plan from authoritative data;
 3. rejects the request as stale if the fingerprint differs;
 4. applies canonical resource moves, aliases, and typed mutable rewrites;
-5. validates graph equivalence for previously resolved references;
-6. records one audit summary with per-resource old and new addresses;
-7. commits all changes together.
+5. lets cascades and typed relational updates move every dependent composite key;
+6. validates foreign keys and graph equivalence for previously resolved references;
+7. records one audit summary with per-resource old and new addresses;
+8. commits all changes together.
 
 There is no persisted move plan or background job initially. A database or validation failure rolls
 back the whole operation. A completed move is reversed only by previewing and executing another
@@ -264,19 +387,30 @@ until the alpha workflow and error model have settled.
 - Target collisions, alias collisions, cycles, missing references, ambiguous references, and
   unsupported rewrites are explicit preview blockers.
 - Drafts and new exports contain canonical addresses; old immutable versions work through aliases.
+- All relational dependants carry the canonical composite key after commit; no foreign key is
+  weakened or dropped to make a move succeed.
+- An immutable relative reference either retains a proven resolution base or blocks the move.
+- Font and backing-asset moves obey the schema's co-location rule until `asset_catalog_key` is
+  separated.
 - Preview and execute integration tests create all domain state through production commands or the
   shared fixture/scenario DSL, never direct SQL setup.
 
 ## Delivery sequence
 
-1. Make every runtime and export resolver use one alias-aware resource-address resolver, with parity
+1. Inventory every ownership and semantic foreign key per resource type, including constraints in
+   feature modules, and add move-shaped integration tests before changing the schema.
+2. Add safe `ON UPDATE CASCADE`/deferrable behavior and separate catalog columns where one column
+   currently represents two relationships, starting with `font_variants.asset_catalog_key`.
+3. Define immutable relative-reference context and conservatively block historical shapes that
+   cannot preserve resolution.
+4. Make every runtime and export resolver use one alias-aware resource-address resolver, with parity
    tests against existing specialized resolution paths.
-2. Add alias persistence, collision rules, graph evidence, and read/write behavior.
-3. Add typed rewrite strategies and graph-equivalence validation one resource/reference kind at a
-   time.
-4. Add preview and execute commands with optimistic plan validation and transactional tests.
-5. Add the alpha UI impact review and execution flow.
-6. Consider alias cleanup, convenience dependency selection, REST, or MCP only after production
+5. Add alias persistence, collision rules, graph evidence, and read/write behavior.
+6. Add typed rewrite strategies and graph/foreign-key equivalence validation one resource/reference
+   kind at a time.
+7. Add preview and execute commands with optimistic plan validation and transactional tests.
+8. Add the alpha UI impact review and execution flow.
+9. Consider alias cleanup, convenience dependency selection, REST, or MCP only after production
    behavior is understood.
 
 ## Consequences
@@ -285,6 +419,12 @@ until the alpha workflow and error model have settled.
 - The old address remains reserved, potentially for a long time, in exchange for preserving
   immutable history and subscribed references.
 - Resource lookup is slightly more complex and must be centralized before relocation is enabled.
+- Composite-key updates cascade through potentially large historical hierarchies, so template moves
+  are materially more expensive and risky than moving a leaf resource.
+- Some independent moves require schema normalization first; aliases cannot bypass relational
+  co-location constraints.
+- Existing immutable relative references reduce the initially supported move set unless their
+  historical base catalog is preserved explicitly.
 - Catalogs affected indirectly by rewritten or canonicalized references acquire unreleased changes.
 - The graph remains derived from authoritative domain data; the move feature adds only alias and
   audit state, not a separately persisted graph.
