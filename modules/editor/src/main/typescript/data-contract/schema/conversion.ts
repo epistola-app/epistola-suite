@@ -18,8 +18,8 @@ import {
 import { classifyValue, findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
 import { isScalarFieldType, scalarFromJsonSchema, scalarToJsonSchema } from '../field-types.js';
 
-// Re-exported so existing importers keep their `schemaUtils` import path; the
-// labels themselves are defined once in the field-type registry.
+// Re-exported for schema UI consumers; the labels themselves are defined once
+// in the field-type registry.
 export { FIELD_TYPE_LABELS } from '../field-types.js';
 
 /** True when a SchemaFieldType is one of the registered ref-typed field types. */

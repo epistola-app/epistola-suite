@@ -10,11 +10,11 @@
  * richTextBlock). Validates that required/optional-only changes do NOT
  * trigger false TYPE_MISMATCH for any type.
  *
- * Run: npx vitest run SchemaMigrationComprehensive.test
+ * Run: npx vitest run migration-comprehensive.test
  */
 
 import { describe, expect, it } from 'vitest';
-import { detectMigrations, type MigrationSuggestion } from './schemaMigration.js';
+import { detectMigrations, type MigrationSuggestion } from './migration.js';
 import type { DataExample, JsonObject, JsonSchema } from '../types.js';
 import { RICH_TEXT_BLOCK_SCHEMA_REF, RICH_TEXT_INLINE_SCHEMA_REF } from '../types.js';
 import { formatValue } from '../sections/MigrationAssistant.js';
@@ -49,7 +49,7 @@ function dump(m: MigrationSuggestion): string {
 }
 
 // ===========================================================================
-// G. Edge cases — uncovered lines in schemaMigration.ts
+// G. Edge cases — uncovered lines in migration.ts
 // ===========================================================================
 
 describe('Edge cases for coverage', () => {

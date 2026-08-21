@@ -8,9 +8,8 @@ import {
   addFieldToTree,
   deleteFieldFromTree,
   executeSchemaCommand,
-  findFieldPath,
   updateFieldInTree,
-} from './schemaCommands.js';
+} from './commands.js';
 
 // =============================================================================
 // Test fixtures
@@ -250,6 +249,30 @@ describe('executeSchemaCommand', () => {
       const address = result.fields[2] as SchemaField & { type: 'object' };
       expect(address.nestedFields).toHaveLength(3);
     });
+
+    it('uses the first available generated name in the target object', () => {
+      const schema: VisualSchema = {
+        fields: [
+          { id: 'one', name: 'field1', type: 'string', required: false },
+          { id: 'three', name: 'field3', type: 'string', required: false },
+        ],
+      };
+
+      const result = executeSchemaCommand(schema, { type: 'addField', parentFieldId: null });
+
+      expect(result.fields[2].name).toBe('field2');
+    });
+
+    it('scopes generated names to the receiving object', () => {
+      const schema = makeSchema();
+      const result = executeSchemaCommand(schema, {
+        type: 'addField',
+        parentFieldId: 'field:address',
+      });
+
+      const address = result.fields[2] as SchemaField & { type: 'object' };
+      expect(address.nestedFields![2].name).toBe('field1');
+    });
   });
 
   describe('deleteField', () => {
@@ -306,50 +329,5 @@ describe('executeSchemaCommand', () => {
     executeSchemaCommand(schema, { type: 'deleteField', fieldId: 'field:name' });
 
     expect(schema).toEqual(original);
-  });
-});
-
-// =============================================================================
-// findFieldPath
-// =============================================================================
-
-describe('findFieldPath', () => {
-  it('finds root-level field with empty path', () => {
-    const schema = makeSchema();
-    const result = findFieldPath(schema.fields, 'field:name');
-
-    expect(result?.path).toEqual([]);
-    expect(result?.field.name).toBe('name');
-  });
-
-  it('finds nested field with parent path', () => {
-    const schema = makeSchema();
-    const result = findFieldPath(schema.fields, 'field:address.street');
-
-    expect(result?.path).toEqual(['address']);
-    expect(result?.field.name).toBe('street');
-  });
-
-  it('finds deeply nested field', () => {
-    const schema = makeDeeplyNestedSchema();
-    const result = findFieldPath(schema.fields, 'field:company.hq.address.zip');
-
-    expect(result?.path).toEqual(['company', 'hq', 'address']);
-    expect(result?.field.name).toBe('zip');
-  });
-
-  it('returns null for nonexistent field', () => {
-    const schema = makeSchema();
-    const result = findFieldPath(schema.fields, 'nonexistent');
-
-    expect(result).toBeNull();
-  });
-
-  it('finds the object field itself', () => {
-    const schema = makeSchema();
-    const result = findFieldPath(schema.fields, 'field:address');
-
-    expect(result?.path).toEqual([]);
-    expect(result?.field.name).toBe('address');
   });
 });

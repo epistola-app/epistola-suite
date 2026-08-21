@@ -4,7 +4,8 @@
 
 import { findRefType } from '../ref-types.js';
 import type { JsonArray, JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
-import type { ExampleField, ExampleValueProvider } from './exampleValueProvider.js';
+import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
+import type { ExampleField, ExampleValueProvider } from './example-value-provider.js';
 
 const GENERATED_DATE = '2024-01-01';
 const GENERATED_DATE_TIME = '2024-01-01T12:00:00Z';
@@ -83,13 +84,28 @@ function completeValue(
 
   const refType = findRefType(originalSchema.$ref);
   if (refType) {
-    return present ? structuredClone(existing as JsonValue) : refType.defaultValue();
+    const hasUsableRefValue =
+      present &&
+      existing !== '' &&
+      existing !== null &&
+      refType.shallowShapeCheck(existing as JsonValue) === null;
+    return hasUsableRefValue ? structuredClone(existing as JsonValue) : refType.defaultValue();
   }
 
-  const schema = resolveLocalRef(originalSchema, rootSchema) ?? originalSchema;
+  const schema = resolveSchemaForValue(
+    originalSchema,
+    rootSchema,
+    present ? existing : null,
+  ) as SchemaNode;
   const type = resolveType(schema);
+  const hasUsableExistingValue =
+    present &&
+    existing !== '' &&
+    (existing === null
+      ? schemaAllowsNull(originalSchema, rootSchema, new Set())
+      : valueMatchesSchemaType(existing as JsonValue, type));
 
-  if (present) {
+  if (hasUsableExistingValue) {
     if (type === 'object' && isJsonObject(existing)) {
       return completeObject(schema, rootSchema, existing, semanticValues, depth, field.path ?? []);
     }
@@ -260,7 +276,11 @@ function generateNumber(schema: SchemaNode, integer: boolean, semanticValue?: nu
 }
 
 function resolveType(schema: SchemaNode): string {
-  const types = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : [];
+  const types: readonly string[] = Array.isArray(schema.type)
+    ? schema.type
+    : schema.type
+      ? [schema.type]
+      : [];
   const nonNullType = types.find((type) => type !== 'null');
   if (nonNullType) return nonNullType;
   if (schema.properties) return 'object';
@@ -268,17 +288,79 @@ function resolveType(schema: SchemaNode): string {
   return types[0] ?? 'string';
 }
 
-function resolveLocalRef(schema: SchemaNode, rootSchema: JsonObject): SchemaNode | null {
-  if (!schema.$ref?.startsWith('#/')) return null;
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function valueMatchesSchemaType(value: JsonValue, type: string): boolean {
+  switch (type) {
+    case 'object':
+      return isJsonObject(value);
+    case 'array':
+      return Array.isArray(value);
+    case 'integer':
+      return typeof value === 'number' && Number.isInteger(value);
+    case 'number':
+      return typeof value === 'number';
+    case 'null':
+      return value === null;
+    default:
+      return typeof value === type;
+  }
+}
+
+function schemaAllowsNull(
+  schema: SchemaNode,
+  rootSchema: JsonObject,
+  resolvingRefs: ReadonlySet<string>,
+): boolean {
+  if (Object.prototype.hasOwnProperty.call(schema, 'const')) return schema.const === null;
+  if (schema.enum) return schema.enum.includes(null);
+
+  const types: readonly string[] = Array.isArray(schema.type)
+    ? schema.type
+    : schema.type
+      ? [schema.type]
+      : [];
+  const baseAllowsNull = types.length === 0 || types.includes('null');
+  if (!baseAllowsNull) return false;
+
+  if (schema.$ref) {
+    if (!schema.$ref.startsWith('#/') || resolvingRefs.has(schema.$ref)) return false;
+    const target = resolveNullableLocalReference(rootSchema, schema.$ref);
+    if (!target) return false;
+    const nextRefs = new Set(resolvingRefs);
+    nextRefs.add(schema.$ref);
+    if (!schemaAllowsNull(target, rootSchema, nextRefs)) return false;
+  }
+
+  if (
+    schema.allOf?.some(
+      (member) => !schemaAllowsNull(member as SchemaNode, rootSchema, resolvingRefs),
+    )
+  ) {
+    return false;
+  }
+
+  const alternatives = schema.oneOf ?? schema.anyOf;
+  if (alternatives) {
+    return alternatives.some((member) =>
+      schemaAllowsNull(member as SchemaNode, rootSchema, resolvingRefs),
+    );
+  }
+
+  return true;
+}
+
+function resolveNullableLocalReference(
+  rootSchema: JsonObject,
+  reference: string,
+): SchemaNode | null {
   let current: unknown = rootSchema;
-  for (const encodedSegment of schema.$ref.slice(2).split('/')) {
+  for (const encodedSegment of reference.slice(2).split('/')) {
     if (!isJsonObject(current)) return null;
     const segment = encodedSegment.replace(/~1/g, '/').replace(/~0/g, '~');
     current = current[segment];
   }
   return isJsonObject(current) ? (current as SchemaNode) : null;
-}
-
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

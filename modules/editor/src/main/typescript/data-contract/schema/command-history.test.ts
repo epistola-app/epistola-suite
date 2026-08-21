@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { VisualSchema } from '../types.js';
-import { SchemaCommandHistory } from './schemaCommandHistory.js';
+import { SchemaCommandHistory } from './command-history.js';
 
 function makeSchema(): VisualSchema {
   return {

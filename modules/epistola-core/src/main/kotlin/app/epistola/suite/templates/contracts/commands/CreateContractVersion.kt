@@ -15,6 +15,8 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExamples
+import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.requireValidDataContractSchema
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -44,6 +46,7 @@ data class CreateContractVersion(
 class CreateContractVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<CreateContractVersion, ContractVersion?> {
     override fun handle(command: CreateContractVersion): ContractVersion? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
@@ -126,6 +129,8 @@ class CreateContractVersionHandler(
             val effectiveSchema = command.schema ?: latestPublished?.schema
             val effectiveDataModel = command.dataModel ?: latestPublished?.dataModel
             val effectiveDataExamples = if (command.dataExamples.isNotEmpty()) command.dataExamples else (latestPublished?.dataExamples ?: DataExamples.EMPTY)
+
+            effectiveDataModel?.let(jsonSchemaValidator::requireValidDataContractSchema)
 
             val schemaJson = effectiveSchema?.let { objectMapper.writeValueAsString(it) }
             val dataModelJson = effectiveDataModel?.let { objectMapper.writeValueAsString(it) }

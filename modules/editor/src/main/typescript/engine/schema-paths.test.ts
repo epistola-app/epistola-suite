@@ -198,4 +198,157 @@ describe('extractFieldPaths', () => {
       { path: 'email', type: 'string' },
     ]);
   });
+
+  it('resolves local refs and allOf compositions', () => {
+    const schema = {
+      type: 'object',
+      $defs: {
+        contact: {
+          allOf: [
+            {
+              type: 'object',
+              properties: { email: { type: 'string', format: 'email' } },
+            },
+            {
+              type: 'object',
+              properties: { phoneNumber: { type: 'string' } },
+            },
+          ],
+        },
+      },
+      definitions: {
+        address: {
+          type: 'object',
+          properties: { city: { type: 'string' } },
+        },
+      },
+      properties: {
+        contact: { $ref: '#/$defs/contact' },
+        address: { $ref: '#/definitions/address' },
+      },
+    };
+
+    expect(extractFieldPaths(schema)).toEqual([
+      { path: 'contact', type: 'object' },
+      { path: 'contact.email', type: 'string' },
+      { path: 'contact.phoneNumber', type: 'string' },
+      { path: 'address', type: 'object' },
+      { path: 'address.city', type: 'string' },
+    ]);
+  });
+
+  it('includes fields from every oneOf branch and merges duplicate path types', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        subject: {
+          oneOf: [
+            {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                dateOfBirth: { type: 'string', format: 'date' },
+                identifier: { type: 'string' },
+              },
+            },
+            {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                registrationNumber: { type: 'integer' },
+                identifier: { type: 'boolean' },
+              },
+            },
+            {
+              type: 'object',
+              properties: { registrationNumber: { type: 'number' } },
+            },
+          ],
+        },
+      },
+    };
+
+    expect(extractFieldPaths(schema)).toEqual([
+      { path: 'subject', type: 'object' },
+      { path: 'subject.name', type: 'string' },
+      { path: 'subject.dateOfBirth', type: 'date' },
+      { path: 'subject.identifier', type: 'unknown' },
+      { path: 'subject.registrationNumber', type: 'number' },
+    ]);
+  });
+
+  it('walks nullable objects and arrays nested directly inside arrays', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        correspondenceAddress: {
+          anyOf: [
+            { type: 'null' },
+            {
+              type: 'object',
+              properties: { city: { type: 'string' } },
+            },
+          ],
+        },
+        deliveryRoutes: {
+          type: 'array',
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { destination: { type: 'string' } },
+            },
+          },
+        },
+      },
+    };
+
+    expect(extractFieldPaths(schema)).toEqual([
+      { path: 'correspondenceAddress', type: 'object' },
+      { path: 'correspondenceAddress.city', type: 'string' },
+      { path: 'deliveryRoutes', type: 'array' },
+      { path: 'deliveryRoutes[][].destination', type: 'string' },
+    ]);
+  });
+
+  it('keeps external and unresolved refs as safe leaves', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        richText: { $ref: 'https://epistola.app/schemas/richtext-inline-v1.json' },
+        missing: { $ref: '#/$defs/missing' },
+      },
+    };
+
+    expect(extractFieldPaths(schema)).toEqual([
+      {
+        path: 'richText',
+        type: 'unknown',
+        ref: 'https://epistola.app/schemas/richtext-inline-v1.json',
+      },
+      { path: 'missing', type: 'unknown', ref: '#/$defs/missing' },
+    ]);
+  });
+
+  it('stops recursive refs after exposing the recursive field', () => {
+    const schema = {
+      type: 'object',
+      $defs: {
+        node: {
+          type: 'object',
+          properties: {
+            value: { type: 'string' },
+            child: { $ref: '#/$defs/node' },
+          },
+        },
+      },
+      properties: { tree: { $ref: '#/$defs/node' } },
+    };
+
+    expect(extractFieldPaths(schema)).toEqual([
+      { path: 'tree', type: 'object' },
+      { path: 'tree.value', type: 'string' },
+      { path: 'tree.child', type: 'unknown', ref: '#/$defs/node' },
+    ]);
+  });
 });

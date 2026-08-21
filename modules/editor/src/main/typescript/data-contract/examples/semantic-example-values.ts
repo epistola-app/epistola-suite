@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import type { ExampleField, ExampleValueProvider } from './exampleValueProvider.js';
-import { createSemanticExampleContext, fullName } from './semanticExampleContext.js';
+import type { ExampleField, ExampleValueProvider } from './example-value-provider.js';
+import { createSemanticExampleContext, fullName } from './semantic-example-context.js';
 
 /**
  * Creates one generation-scoped provider. Related values share a fictional

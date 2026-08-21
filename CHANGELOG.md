@@ -21,6 +21,24 @@
   PDF/A; older catalog resources without the setting continue to default to PDF/A output.
 
 - **[dev]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
+- **[user]** feat(data-contracts): **Schema fields can be added where authors are working.**
+  The visual contract editor offers contextual child and sibling actions with full schema paths,
+  keeps nested parents expanded, selects the new field name for immediate typing, and preserves a
+  nearby selection through delete, undo, and redo operations.
+- **[user]** feat(data-contracts): **Example array actions identify their destination.** Add-item
+  controls now show the complete field path, including human-readable item numbers for nested
+  arrays, while retaining their full context for assistive technology and narrow layouts.
+- **[user]** feat(data-contracts): **Complex examples start with a compact overview.** Object and
+  array properties are collapsed by default, with per-example actions to expand or collapse the
+  complete property tree at once.
+- **[user]** docs(data-contracts): **Data contract behavior and support boundaries are documented.**
+  A new guide explains schema dialects and root requirements, visual and JSON-only editing, safe UI
+  import normalization, examples and Autofill, expression field discovery, validation, publishing,
+  and which advanced JSON Schema constructs each part of the application understands.
+- **[dev]** refactor(data-contracts): **Schema and example logic is grouped by feature.**
+  The editor's former utility grab bag is split into colocated `schema` and `examples` modules with
+  consistent kebab-case filenames, making ownership and dependencies easier to follow.
+- **[developer]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
   wire-version constants are sourced from the contract so catalog v6 exports, imports, and
   validation cannot drift from the published catalog implementation.
 
@@ -44,6 +62,23 @@
   versions remain readable and importable.
 - **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
   The editor now starts a draft automatically before applying the deletion.
+- **[user]** fix(data-contracts): **Advanced nested example data remains editable.** The example
+  form resolves local schema references, object compositions, nullable unions, per-item union
+  variants, and arrays nested directly inside arrays. Edits, additions, and removals continue to
+  target the exact nested JSON path. UI schema imports now inline local references and flatten
+  compatible object compositions when that conversion is lossless, making the resulting schema
+  visually editable; schemas requiring a lossy conversion remain unchanged in JSON-only schema
+  mode while their examples stay editable. UI imports, draft commands, publishing, and catalog
+  imports now reject arbitrary JSON objects: a data contract must be a valid JSON Schema that
+  guarantees object-shaped data at its root. The demo catalog includes an **Advanced Data Contract**
+  template with these schema shapes and representative examples for hands-on verification. Those
+  advanced schemas now also expose referenced, composed, union-branch, nullable, and nested-array
+  fields in the template expression picker. Schema resolution is shared between that picker and the
+  example editor, selects union branches using nested values, and bounds combinatorial schema
+  expansion. Recursive and unresolved references remain safe leaf fields. Bundled
+  catalog upgrades now fully reconcile on restart: newly added or otherwise missing resources are
+  installed, changed resources are updated, and removed resources—including code lists and fonts—
+  are safely deleted unless they remain in use.
 - **[user]** feat(data-contracts): **Example data can be completed from its schema.** A new
   per-example **Autofill** action fills missing values with seeded, realistic Dutch test data inferred from
   field names, titles, and descriptions, alongside defaults, enums, formats, numeric constraints,
@@ -53,8 +88,15 @@
   profile, and unconstrained arrays receive a seeded two or three items rather than an
   unrepresentative single item. Each object in an array receives its own coherent fictional profile,
   and generated fallback and formatted values such as names and email addresses are distinct
-  between items. Authored values are preserved and the complete operation can be undone in one
-  step. Empty example fields now render their existing placeholder hints with muted italic text and
+  between items. Autofill resolves the same local references, compositions, and union variants as
+  the example form, keeps partially authored union objects on the matching variant, and replaces
+  empty required values while preserving meaningful authored values. Incorrect primitive values
+  produced for object unions by earlier Autofill versions are repaired into complete objects,
+  including nested addresses and array items. Advanced nested schemas are therefore completed
+  consistently. The complete operation can be undone in one step. Invalid
+  examples now produce an actionable 400 response with the example name and failing JSON paths
+  instead of an internal-server error. Empty example fields now render
+  their existing placeholder hints with muted italic text and
   a subtle accent edge, including rich-text fields, so hints cannot be mistaken for stored test data
   or disabled controls.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer

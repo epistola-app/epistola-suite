@@ -4,6 +4,9 @@
 
 Template data contracts (the JSON Schema defining what data a template accepts) are versioned separately from the template's visual content. Each template has a history of contract versions with a draft/published lifecycle, and each template version is linked to a specific contract version.
 
+For the author-facing workflow, visual editor support, examples, Autofill, and known limitations,
+see [Data Contracts](data-contracts.md). This document describes the versioning architecture.
+
 ## Package Structure
 
 ```

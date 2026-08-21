@@ -5,6 +5,8 @@
 package app.epistola.suite.templates.validation
 
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import com.networknt.schema.InputFormat
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
@@ -58,6 +60,57 @@ class JsonSchemaValidator(
             SchemaValidationResult.Valid
         } catch (e: Exception) {
             SchemaValidationResult.Invalid("Invalid JSON Schema: ${e.message}")
+        }
+    }
+
+    /**
+     * Validates the JSON Schema profile used by Epistola data contracts.
+     *
+     * JSON Schema's open vocabulary makes any JSON object (including an object
+     * containing only unknown keywords) a technically valid schema. A data
+     * contract is narrower: its root must guarantee object-shaped example data.
+     */
+    fun validateDataContractSchema(schema: ObjectNode): SchemaValidationResult {
+        val syntaxResult = validateSchema(objectMapper.writeValueAsString(schema))
+        if (syntaxResult is SchemaValidationResult.Invalid) return syntaxResult
+
+        return if (requiresObjectAtRoot(schema, schema, emptySet())) {
+            SchemaValidationResult.Valid
+        } else {
+            SchemaValidationResult.Invalid(
+                "A data contract JSON Schema must require an object at its root",
+            )
+        }
+    }
+
+    private fun requiresObjectAtRoot(
+        schema: ObjectNode,
+        root: ObjectNode,
+        resolvingReferences: Set<String>,
+    ): Boolean {
+        val type = schema.get("type")
+        if (type?.isString == true && type.asString() == "object") return true
+
+        val reference = schema.get("\$ref")?.takeIf(JsonNode::isString)?.asString()
+        if (reference != null && reference.startsWith("#/") && reference !in resolvingReferences) {
+            val target = root.at(reference.removePrefix("#")) as? ObjectNode
+            if (target != null && !target.isMissingNode) {
+                if (requiresObjectAtRoot(target, root, resolvingReferences + reference)) return true
+            }
+        }
+
+        val allOf = schema.get("allOf") as? ArrayNode
+        if (allOf?.any { it is ObjectNode && requiresObjectAtRoot(it, root, resolvingReferences) } == true) {
+            return true
+        }
+
+        return listOf("oneOf", "anyOf").any { keyword ->
+            val members = schema.get(keyword) as? ArrayNode
+            members != null &&
+                members.size() > 0 &&
+                members.all {
+                    it is ObjectNode && requiresObjectAtRoot(it, root, resolvingReferences)
+                }
         }
     }
 
@@ -408,4 +461,14 @@ class JsonSchemaValidator(
 sealed class SchemaValidationResult {
     data object Valid : SchemaValidationResult()
     data class Invalid(val message: String) : SchemaValidationResult()
+}
+
+fun JsonSchemaValidator.requireValidDataContractSchema(
+    schema: ObjectNode,
+    field: String = "dataModel",
+) {
+    val result = validateDataContractSchema(schema)
+    if (result is SchemaValidationResult.Invalid) {
+        throw ValidationException(field, result.message, ValidationCode.DATA_CONTRACT_SCHEMA_INVALID)
+    }
 }

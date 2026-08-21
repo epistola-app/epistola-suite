@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { describe, expect, it } from 'vitest';
-import { createSemanticExampleValues } from './semanticExampleValues.js';
+import { createSemanticExampleValues } from './semantic-example-values.js';
 
 describe('createSemanticExampleValues', () => {
   it('creates a coherent fictional person from Dutch and English field names', () => {

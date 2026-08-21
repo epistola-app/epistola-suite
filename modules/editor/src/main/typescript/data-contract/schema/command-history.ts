@@ -11,8 +11,8 @@
  */
 
 import type { VisualSchema } from '../types.js';
-import { type SchemaCommand, executeSchemaCommand } from './schemaCommands.js';
-import { SnapshotHistory } from './snapshotHistory.js';
+import { type SchemaCommand, executeSchemaCommand } from './commands.js';
+import { SnapshotHistory } from './snapshot-history.js';
 
 export class SchemaCommandHistory {
   private _history = new SnapshotHistory<VisualSchema>();

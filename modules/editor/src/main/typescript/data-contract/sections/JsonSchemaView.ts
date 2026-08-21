@@ -12,7 +12,7 @@
 
 import { html, nothing } from 'lit';
 import { icon } from '../../ui/icons.js';
-import type { CompatibilityIssue } from '../utils/schemaCompatibility.js';
+import type { CompatibilityIssue } from '../schema/compatibility.js';
 
 export interface JsonSchemaViewCallbacks {
   onCopyToClipboard: () => void;

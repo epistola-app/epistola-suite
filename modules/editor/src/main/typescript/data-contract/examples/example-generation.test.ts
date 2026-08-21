@@ -9,9 +9,9 @@ import {
   type JsonSchema,
   type JsonValue,
 } from '../types.js';
-import { validateDataAgainstSchema } from './schemaValidation.js';
-import { completeExampleFromSchema } from './exampleGeneration.js';
-import { createSemanticExampleValues } from './semanticExampleValues.js';
+import { validateDataAgainstSchema } from '../schema/validation.js';
+import { completeExampleFromSchema } from './example-generation.js';
+import { createSemanticExampleValues } from './semantic-example-values.js';
 
 function complete(schema: JsonSchema, existing: JsonObject) {
   return completeExampleFromSchema(schema, existing, createSemanticExampleValues('test-example'));
@@ -157,6 +157,162 @@ describe('completeExampleFromSchema', () => {
 
     expect(generated.address).toEqual({ city: expect.any(String) });
     expect(generated.introduction).toMatchObject({ type: 'doc' });
+  });
+
+  it('completes referenced compositions and unions in advanced nested schemas', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        contactDetails: {
+          type: 'object',
+          properties: {
+            email: { type: 'string', format: 'email' },
+            phoneNumber: { type: 'string' },
+          },
+          required: ['email'],
+        },
+        person: {
+          type: 'object',
+          allOf: [{ $ref: '#/$defs/contactDetails' }],
+          properties: {
+            firstName: { type: 'string' },
+            lastName: { type: 'string' },
+            address: {
+              type: 'object',
+              properties: { city: { type: 'string' } },
+              required: ['city'],
+            },
+          },
+          required: ['firstName', 'lastName', 'address'],
+        },
+      },
+      properties: {
+        applicant: { $ref: '#/$defs/person' },
+        subject: {
+          oneOf: [
+            { $ref: '#/$defs/person' },
+            {
+              type: 'object',
+              properties: {
+                organizationName: { type: 'string' },
+                registrationNumber: { type: 'string' },
+              },
+              required: ['organizationName', 'registrationNumber'],
+            },
+          ],
+        },
+        alternateSubjects: {
+          type: 'array',
+          minItems: 2,
+          items: {
+            oneOf: [
+              { $ref: '#/$defs/person' },
+              {
+                type: 'object',
+                properties: {
+                  organizationName: { type: 'string' },
+                  registrationNumber: { type: 'string' },
+                },
+                required: ['organizationName', 'registrationNumber'],
+              },
+            ],
+          },
+        },
+        correspondenceAddress: {
+          anyOf: [
+            { type: 'null' },
+            {
+              type: 'object',
+              properties: { city: { type: 'string' } },
+            },
+          ],
+        },
+      },
+    };
+
+    const generated = complete(schema, {
+      applicant: {
+        firstName: 'Authored name',
+        lastName: '',
+        email: '',
+        phoneNumber: null,
+        address: { city: '' },
+      },
+      subject: { organizationName: 'Authored organization', registrationNumber: '' },
+      correspondenceAddress: null,
+    });
+
+    expect(generated.applicant).toMatchObject({
+      firstName: 'Authored name',
+      lastName: expect.any(String),
+      email: expect.stringMatching(/@example\./),
+      phoneNumber: expect.any(String),
+      address: { city: expect.any(String) },
+    });
+    expect(generated.subject).toMatchObject({
+      organizationName: 'Authored organization',
+      registrationNumber: expect.any(String),
+    });
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeGreaterThanOrEqual(2);
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeLessThanOrEqual(3);
+    for (const item of generated.alternateSubjects as JsonObject[]) {
+      expect(item).toMatchObject({
+        firstName: expect.any(String),
+        email: expect.stringMatching(/@example\./),
+        phoneNumber: expect.any(String),
+        address: { city: expect.any(String) },
+      });
+    }
+    expect(generated.correspondenceAddress).toBeNull();
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
+  });
+
+  it('repairs primitive values left by earlier autofill for object unions', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        address: {
+          type: 'object',
+          properties: { city: { type: 'string' } },
+          required: ['city'],
+        },
+        person: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            address: { $ref: '#/$defs/address' },
+          },
+          required: ['name', 'address'],
+        },
+      },
+      properties: {
+        subject: { oneOf: [{ $ref: '#/$defs/person' }] },
+        alternateSubjects: {
+          type: 'array',
+          minItems: 2,
+          items: { oneOf: [{ $ref: '#/$defs/person' }] },
+        },
+      },
+    };
+
+    const generated = complete(schema, {
+      subject: 'Example subject 1',
+      alternateSubjects: ['Example alternateSubjects 1'],
+    });
+
+    expect(generated.subject).toMatchObject({
+      name: expect.any(String),
+      address: { city: expect.any(String) },
+    });
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeGreaterThanOrEqual(2);
+    expect((generated.alternateSubjects as JsonObject[]).length).toBeLessThanOrEqual(3);
+    for (const subject of generated.alternateSubjects as JsonObject[]) {
+      expect(subject).toMatchObject({
+        name: expect.any(String),
+        address: { city: expect.any(String) },
+      });
+    }
+    expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
   });
 
   it('honors array minimum and maximum constraints', () => {
