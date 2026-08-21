@@ -1,7 +1,9 @@
 # Resource reference graph
 
 The resource reference graph is a tenant-wide, read-only view of how catalog resources depend on
-one another. Open **Resources → Resource graph**, search for a resource, and traverse the resources
+one another. It is an alpha feature, disabled by default; a tenant administrator can enable
+**Resource graph** under **Settings → Features**. Then open **Resources → Resource graph**, search
+for a resource, and traverse the resources
 it uses, the resources that use it, or both. The initial view is deliberately focused rather than a
 whole-tenant “hairball”; traversal depth is limited to one through three hops.
 

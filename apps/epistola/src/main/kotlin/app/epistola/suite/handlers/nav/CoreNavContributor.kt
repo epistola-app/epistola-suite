@@ -4,10 +4,14 @@
 
 package app.epistola.suite.handlers.nav
 
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.KnownFeatures.FeatureStage
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
 import app.epistola.suite.htmx.nav.NavItem
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import org.springframework.stereotype.Component
 
@@ -45,8 +49,20 @@ class CoreNavContributor : NavContributor {
             add(NavItem("resources", "attributes", "Attributes", "attributes", 40))
             add(NavItem("resources", "code-lists", "Code lists", "code-lists", 50))
         }
-        if (context.hasPermission(Permission.CATALOG_VIEW)) {
-            add(NavItem("resources", "resource-graph", "Resource graph", "resource-graph", 60))
+        if (
+            context.hasPermission(Permission.CATALOG_VIEW) &&
+            ResolveFeatureToggles(context.tenantKey).query()[KnownFeatures.RESOURCE_GRAPH] == true
+        ) {
+            add(
+                NavItem(
+                    "resources",
+                    "resource-graph",
+                    "Resource graph",
+                    "resource-graph",
+                    60,
+                    stage = KnownFeatures.metadata[KnownFeatures.RESOURCE_GRAPH]?.stage ?: FeatureStage.STABLE,
+                ),
+            )
         }
 
         // Operations — per-item permissions

@@ -8,7 +8,8 @@
   Search across a tenant, explore incoming and outgoing references up to three levels deep, filter
   by catalog, resource type, and reference semantics, inspect exact version/JSON-path evidence, and
   optionally include archived history. Missing and ambiguous references remain visible so catalog
-  maintenance can be planned safely.
+  maintenance can be planned safely. The alpha feature is off by default and can be enabled per
+  tenant from Settings → Features.
 - **[dev]** feat(catalogs): **A canonical tenant resource-reference query is available in
   core.** It extracts relational and versioned-JSON references for all seven catalog resource
   types in a consistent read transaction, classifies runtime, authoring, and provenance edges, and

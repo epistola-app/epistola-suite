@@ -14,6 +14,8 @@ import app.epistola.suite.catalog.graph.TenantResourceGraph
 import app.epistola.suite.catalog.graph.TraversalDirection
 import app.epistola.suite.catalog.graph.traverse
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.http.MediaType
@@ -24,6 +26,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class ResourceGraphHandler {
     fun page(request: ServerRequest): ServerResponse {
+        if (!request.resourceGraphEnabled()) return ServerResponse.notFound().build()
         val tenantKey = request.tenantKey()
         return ServerResponse.ok().render(
             "layout/shell",
@@ -38,6 +41,7 @@ class ResourceGraphHandler {
     }
 
     fun nodes(request: ServerRequest): ServerResponse {
+        if (!request.resourceGraphEnabled()) return ServerResponse.notFound().build()
         val graph = loadGraph(request)
         val search = request.param("q").orElse("").trim().lowercase()
         val catalog = request.param("catalog").orElse("").trim()
@@ -58,6 +62,7 @@ class ResourceGraphHandler {
     }
 
     fun subgraph(request: ServerRequest): ServerResponse {
+        if (!request.resourceGraphEnabled()) return ServerResponse.notFound().build()
         val type = resourceType(request.requiredParam("type"))
         val focus = ResourceAddress(type, request.requiredParam("catalog"), request.requiredParam("key"))
         val direction = runCatching { TraversalDirection.valueOf(request.param("direction").orElse("BOTH").uppercase()) }
@@ -76,6 +81,7 @@ class ResourceGraphHandler {
     }
 
     fun evidence(request: ServerRequest): ServerResponse {
+        if (!request.resourceGraphEnabled()) return ServerResponse.notFound().build()
         val edgeId = request.requiredParam("edgeId")
         val page = request.param("page").orElse("1").toIntOrNull()?.coerceAtLeast(1) ?: 1
         val edge = loadGraph(request).edges.singleOrNull { it.id == edgeId }
@@ -153,6 +159,7 @@ class ResourceGraphHandler {
         ?: throw IllegalArgumentException("Unknown resource type: $value")
 
     private fun ServerRequest.tenantKey() = TenantKey.of(pathVariable("tenantId"))
+    private fun ServerRequest.resourceGraphEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_GRAPH] == true
     private fun ServerRequest.requiredParam(name: String) = param(name).orElseThrow { IllegalArgumentException("Missing query parameter: $name") }
 
     private fun json(body: Any) = ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(body)

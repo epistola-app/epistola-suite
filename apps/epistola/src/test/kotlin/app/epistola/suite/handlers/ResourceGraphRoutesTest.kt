@@ -5,6 +5,9 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
+import app.epistola.suite.mediator.execute
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,8 +23,18 @@ class ResourceGraphRoutesTest : BaseIntegrationTest() {
     private lateinit var objectMapper: ObjectMapper
 
     @Test
-    fun `page renders the standalone graph explorer`() {
+    fun `feature is unavailable by default`() {
         val tenant = createTenant("Graph Routes")
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id}/resource-graph", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
+    @Test
+    fun `enabled feature renders the standalone graph explorer`() {
+        val tenant = createTenant("Graph Routes")
+        withMediator { SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute() }
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id}/resource-graph", String::class.java)
 
@@ -32,6 +45,7 @@ class ResourceGraphRoutesTest : BaseIntegrationTest() {
     @Test
     fun `nodes endpoint searches resources through the UI route`() {
         val tenant = createTenant("Graph Search")
+        withMediator { SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute() }
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id}/resource-graph/nodes?q=inter&type=font", String::class.java)
 
