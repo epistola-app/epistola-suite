@@ -66,7 +66,27 @@ Create a second resource in the target catalog and rewrite mutable references op
 Changes can diverge, dependency analysis becomes ambiguous, and the operation is a copy rather than
 a move.
 
-### Option D — Canonical move with address aliases and typed rewrites (candidate)
+### Option D — Copy to the target and freeze the original
+
+Copy the resource to the target catalog, then mark the original as read-only and moved. Existing
+references continue to use the frozen original while new and mutable references use the target
+copy. The original is hidden from normal authoring but remains available to runtime resolution and
+historical export.
+
+**Pros:** published and archived references remain untouched; historical rendering does not need
+alias-aware lookup; and an old catalog can remain self-contained when exported.
+
+**Cons:** the resource's identity and future behavior split at move time. References using the old
+address see a frozen snapshot, while references using the new address see subsequent changes. Two
+copies also complicate tenant-global resolution, storage, audit history, deletion of the source
+catalog, and deciding which version history is canonical.
+
+If the read-only original redirects to the target instead of serving frozen content, it is not a
+copy: it is an address alias represented as a resource placeholder. Because resource types live in
+different domain tables with different constraints, a shared alias model expresses that behavior
+more consistently than adding a placeholder state to every resource type.
+
+### Option E — Canonical move with address aliases and typed rewrites (candidate)
 
 Move the canonical resource to the target catalog, preserve its stable internal identity and
 version history, and record a tenant-local alias from its old address to its new address. Rewrite
@@ -81,7 +101,7 @@ export, and retention rules. This is more infrastructure than a direct update.
 
 ## Candidate decision
 
-Adopt **Option D** with a two-step **preview then execute** protocol. The first implementation is an
+Adopt **Option E** with a two-step **preview then execute** protocol. The first implementation is an
 alpha capability and supports only moves between two different `AUTHORED` catalogs in the same
 tenant.
 
