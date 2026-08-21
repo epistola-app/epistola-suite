@@ -4,14 +4,21 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.protocol.AttributeAssignment
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -637,10 +644,36 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     @Test
     fun `authored catalog metadata sections can be edited independently from the browse page`() = fixture {
         lateinit var t: Tenant
+        lateinit var otherCatalogImageSlug: String
         given {
             t = tenant("Catalog Metadata")
             withMediator {
-                CreateCatalog(tenantKey = t.id, id = CatalogKey.of("metadata"), name = "Before").execute()
+                val catalogKey = CatalogKey.of("metadata")
+                CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Before").execute()
+                CreateAttributeDefinition(
+                    id = AttributeId(AttributeKey.of("audience"), CatalogId(catalogKey, TenantId(t.id))),
+                    displayName = "Audience",
+                    allowedValues = listOf("municipalities"),
+                ).execute()
+                UpdateCatalogMetadata(
+                    tenantKey = t.id,
+                    catalogKey = catalogKey,
+                    name = "Before",
+                    description = null,
+                    attributes = listOf(AttributeAssignment("metadata", "audience", "municipalities")),
+                ).execute()
+
+                val otherCatalogKey = CatalogKey.of("other-images")
+                CreateCatalog(tenantKey = t.id, id = otherCatalogKey, name = "Other images").execute()
+                otherCatalogImageSlug = UploadAsset(
+                    tenantId = t.id,
+                    name = "Other catalog image",
+                    mediaType = AssetMediaType.SVG,
+                    content = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".toByteArray(),
+                    width = null,
+                    height = null,
+                    catalogKey = otherCatalogKey,
+                ).execute().id.value.toString()
             }
         }
 
@@ -682,6 +715,38 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             )
             assertThat(detailsResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
+            val attributesFormResponse = restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/metadata/metadata?section=attributes",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+            assertThat(attributesFormResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(attributesFormResponse.body)
+                .contains("name=\"attribute_system.locale\"")
+                .doesNotContain("attribute_metadata.audience")
+
+            val unsupportedAttribute = LinkedMultiValueMap<String, String>()
+            unsupportedAttribute.add("section", "attributes")
+            unsupportedAttribute.add("attribute_metadata.audience", "municipalities")
+            val unsupportedAttributeResponse = restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(unsupportedAttribute, htmxForm()),
+                String::class.java,
+            )
+            assertThat(unsupportedAttributeResponse.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(unsupportedAttributeResponse.body).contains("Only the locale discovery attribute can be changed")
+
+            val locale = LinkedMultiValueMap<String, String>()
+            locale.add("section", "attributes")
+            locale.add("attribute_system.locale", "nl-NL")
+            val localeResponse = restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(locale, htmxForm()),
+                String::class.java,
+            )
+            assertThat(localeResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+
             val duplicateKeywords = LinkedMultiValueMap<String, String>()
             duplicateKeywords.add("section", "keywords")
             duplicateKeywords.add("keywords", "Letters\nLetters")
@@ -705,6 +770,39 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             )
             assertThat(keywordsResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
+            val presentationFormResponse = restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/metadata/metadata?section=presentation",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+            assertThat(presentationFormResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(presentationFormResponse.body).doesNotContain("Other catalog image")
+
+            val crossCatalogPresentation = LinkedMultiValueMap<String, String>()
+            crossCatalogPresentation.add("section", "presentation")
+            crossCatalogPresentation.add("iconAssetSlug", otherCatalogImageSlug)
+            val crossCatalogPresentationResponse = restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(crossCatalogPresentation, htmxForm()),
+                String::class.java,
+            )
+            assertThat(crossCatalogPresentationResponse.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(crossCatalogPresentationResponse.body)
+                .contains("Presentation assets must be installed images from this catalog")
+
+            val invalidLicense = LinkedMultiValueMap<String, String>()
+            invalidLicense.add("section", "license")
+            invalidLicense.add("licenseName", "Invalid")
+            invalidLicense.add("licenseSpdx", "MIT OR")
+            val invalidLicenseResponse = restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/metadata/metadata",
+                HttpEntity(invalidLicense, htmxForm()),
+                String::class.java,
+            )
+            assertThat(invalidLicenseResponse.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(invalidLicenseResponse.body).contains("SPDX expression has invalid syntax")
+
             val license = LinkedMultiValueMap<String, String>()
             license.add("section", "license")
             license.add("licenseName", "Creative Commons Attribution 4.0")
@@ -725,6 +823,11 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
             val catalog = withMediator { GetCatalog(t.id, CatalogKey.of("metadata")).query() }!!
             assertThat(catalog.name).isEqualTo("Discoverable catalog")
+            assertThat(catalog.portableMetadata.attributes)
+                .containsExactlyInAnyOrder(
+                    AttributeAssignment("metadata", "audience", "municipalities"),
+                    AttributeAssignment("system", "locale", "nl-NL"),
+                )
             assertThat(catalog.portableMetadata.keywords).containsExactlyInAnyOrder("Letters", "Dutch")
             assertThat(catalog.portableMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
         }

@@ -84,6 +84,11 @@ data class UpdateCatalogMetadata(
                     "Optional license fields cannot be blank or start or end with whitespace."
                 }
             }
+            it.spdxExpression?.let { expression ->
+                validate("license", SpdxExpressionSyntax.isValid(expression)) {
+                    "SPDX expression has invalid syntax."
+                }
+            }
             it.url?.let { url ->
                 val uri = runCatching { URI(url) }.getOrNull()
                 validate("license", url == url.trim() && uri?.isAbsolute == true && uri.scheme.lowercase() in setOf("http", "https")) {
@@ -91,6 +96,101 @@ data class UpdateCatalogMetadata(
                 }
             }
         }
+    }
+}
+
+/** Lightweight syntax validation for SPDX license expressions without loading the SPDX object model. */
+private object SpdxExpressionSyntax {
+    private val identifier = Regex("[A-Za-z0-9][A-Za-z0-9.-]*\\+?")
+    private val documentLicenseRef = Regex("DocumentRef-[A-Za-z0-9][A-Za-z0-9.-]*:LicenseRef-[A-Za-z0-9][A-Za-z0-9.-]*")
+
+    fun isValid(expression: String): Boolean {
+        val tokens = tokenize(expression) ?: return false
+        return Parser(tokens).parse()
+    }
+
+    private fun tokenize(expression: String): List<String>? {
+        val tokens = mutableListOf<String>()
+        var offset = 0
+        while (offset < expression.length) {
+            if (expression[offset].isWhitespace()) {
+                offset++
+                continue
+            }
+            if (expression[offset] == '(' || expression[offset] == ')') {
+                tokens += expression[offset].toString()
+                offset++
+                continue
+            }
+            val end = expression.indexOfFirstFrom(offset) { it.isWhitespace() || it == '(' || it == ')' }
+            val token = expression.substring(offset, if (end == -1) expression.length else end)
+            if (token !in setOf("AND", "OR", "WITH") && !identifier.matches(token) && !documentLicenseRef.matches(token)) {
+                return null
+            }
+            tokens += token
+            offset = if (end == -1) expression.length else end
+        }
+        return tokens.takeIf { it.isNotEmpty() }
+    }
+
+    private fun String.indexOfFirstFrom(start: Int, predicate: (Char) -> Boolean): Int {
+        for (index in start until length) if (predicate(this[index])) return index
+        return -1
+    }
+
+    private class Parser(private val tokens: List<String>) {
+        private var position = 0
+
+        fun parse(): Boolean = parseOr() != null && position == tokens.size
+
+        private fun parseOr(): Term? {
+            var term = parseAnd() ?: return null
+            while (consume("OR")) {
+                parseAnd() ?: return null
+                term = Term(compound = true)
+            }
+            return term
+        }
+
+        private fun parseAnd(): Term? {
+            var term = parseWith() ?: return null
+            while (consume("AND")) {
+                parseWith() ?: return null
+                term = Term(compound = true)
+            }
+            return term
+        }
+
+        private fun parseWith(): Term? {
+            val term = parsePrimary() ?: return null
+            if (!consume("WITH")) return term
+            if (term.compound) return null
+            val exception = tokens.getOrNull(position) ?: return null
+            if (!identifier.matches(exception) || exception.startsWith("LicenseRef-")) return null
+            position++
+            return Term(compound = true)
+        }
+
+        private fun parsePrimary(): Term? {
+            val token = tokens.getOrNull(position) ?: return null
+            if (token == "(") {
+                position++
+                parseOr() ?: return null
+                if (!consume(")")) return null
+                return Term(compound = true)
+            }
+            if (token in setOf("AND", "OR", "WITH", ")")) return null
+            position++
+            return Term(compound = false)
+        }
+
+        private fun consume(expected: String): Boolean {
+            if (tokens.getOrNull(position) != expected) return false
+            position++
+            return true
+        }
+
+        private data class Term(val compound: Boolean)
     }
 }
 

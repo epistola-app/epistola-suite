@@ -61,6 +61,8 @@ import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
+private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
+
 @Component
 class CatalogHandler {
 
@@ -548,7 +550,11 @@ class CatalogHandler {
                 } else {
                     catalog.description
                 },
-                attributes = if (section == CatalogMetadataSection.ATTRIBUTES) parseMetadataAttributes(params) else current.attributes,
+                attributes = if (section == CatalogMetadataSection.ATTRIBUTES) {
+                    parseLocaleMetadataAttribute(params, current.attributes)
+                } else {
+                    current.attributes
+                },
                 keywords = if (section == CatalogMetadataSection.KEYWORDS) parseMetadataKeywords(request) else current.keywords,
                 presentation = if (section == CatalogMetadataSection.PRESENTATION) parseCatalogPresentation(request) else current.presentation,
                 license = if (section == CatalogMetadataSection.LICENSE) parseCatalogLicense(request) else current.license,
@@ -567,12 +573,18 @@ class CatalogHandler {
         }
     }
 
-    private fun parseMetadataAttributes(params: Map<String, Array<String>>): List<AttributeAssignment> = params.entries
-        .filter { (key, values) -> key.startsWith("attribute_") && values.firstOrNull().orEmpty().isNotBlank() }
-        .map { (key, values) ->
-            val qualified = key.removePrefix("attribute_")
-            AttributeAssignment(qualified.substringBefore('.'), qualified.substringAfter('.'), values.first().trim())
+    private fun parseLocaleMetadataAttribute(
+        params: Map<String, Array<String>>,
+        current: List<AttributeAssignment>,
+    ): List<AttributeAssignment> {
+        val fieldName = "attribute_$CATALOG_LOCALE_ATTRIBUTE"
+        require(params.keys.none { it.startsWith("attribute_") && it != fieldName }) {
+            "Only the locale discovery attribute can be changed."
         }
+        val preserved = current.filterNot { "${it.catalog}.${it.key}" == CATALOG_LOCALE_ATTRIBUTE }
+        val locale = params[fieldName]?.firstOrNull()?.trim()?.ifBlank { null }
+        return if (locale == null) preserved else preserved + AttributeAssignment("system", "locale", locale)
+    }
 
     private fun parseMetadataKeywords(request: ServerRequest): Set<String> {
         val keywords = request.servletRequest().getParameter("keywords").orEmpty()
@@ -616,6 +628,7 @@ class CatalogHandler {
         val catalog = catalogForMetadata(tenantKey, catalogKey)
         val currentAttributes = catalog.portableMetadata.attributes.associate { "${it.catalog}.${it.key}" to it.value }
         val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey)).query())
+            .filter { it.qualifiedKey == CATALOG_LOCALE_ATTRIBUTE }
         val images = ListAssets(tenantKey, catalogKey = catalogKey).query()
             .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
         val gallery = catalog.portableMetadata.presentation?.imageAssetSlugs.orEmpty()
@@ -640,7 +653,7 @@ class CatalogHandler {
 
     private enum class CatalogMetadataSection(val value: String, val title: String) {
         DETAILS("details", "General details"),
-        ATTRIBUTES("attributes", "Discovery attributes"),
+        ATTRIBUTES("attributes", "Locale"),
         KEYWORDS("keywords", "Keywords"),
         PRESENTATION("presentation", "Presentation"),
         LICENSE("license", "License"),
