@@ -572,10 +572,7 @@ function renderFormField(
   }
 }
 
-/**
- * Render a collapsible object field with nested properties.
- * Top-level objects open by default; deeper nesting collapsed.
- */
+/** Render a collapsible object field with nested properties. */
 function renderObjectField(
   name: string,
   propSchema: JsonSchemaProperty,
@@ -603,12 +600,10 @@ function renderObjectField(
 
   const nestedRequired = new Set(propSchema.required ?? []);
   const groupHasErrors = hasChildErrors(path, errors);
-  const isTopLevel = depth === 0;
 
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${isTopLevel}
       aria-label="${name} properties"
     >
       <summary class="dc-tree-group-header">
@@ -718,7 +713,6 @@ function renderArrayField(
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${items.length > 0}
       aria-label="${name} array"
     >
       <summary class="dc-tree-group-header">
@@ -776,17 +770,7 @@ function renderArrayField(
             </div>
           `;
         })}
-        <button class="dc-array-add-btn" ?disabled=${readOnly} @click=${() => addItem()}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M8 3v10M3 8h10"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </svg>
-          Add ${itemType} item
-        </button>
+        ${renderAddArrayItemButton(path, addItem, readOnly)}
       </div>
     </details>
   `;
@@ -815,7 +799,6 @@ function renderArrayOfObjects(
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${items.length > 0}
       aria-label="${name} array of objects"
     >
       <summary class="dc-tree-group-header">
@@ -839,7 +822,6 @@ function renderArrayOfObjects(
           return html`
             <details
               class="dc-array-object-item ${itemHasErrors ? 'dc-tree-group-has-errors' : ''}"
-              open
               role="listitem"
               aria-label="Item ${index + 1}"
             >
@@ -892,17 +874,7 @@ function renderArrayOfObjects(
             </details>
           `;
         })}
-        <button class="dc-array-add-btn" ?disabled=${readOnly} @click=${() => addItem()}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M8 3v10M3 8h10"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </svg>
-          Add object item
-        </button>
+        ${renderAddArrayItemButton(path, addItem, readOnly)}
       </div>
     </details>
   `;
@@ -929,7 +901,6 @@ function renderArrayOfArrays(
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${items.length > 0}
       aria-label="${name} nested arrays"
     >
       <summary class="dc-tree-group-header">
@@ -983,19 +954,48 @@ function renderArrayOfArrays(
             </div>
           `;
         })}
-        <button class="dc-array-add-btn" ?disabled=${readOnly} @click=${() => addItem()}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M8 3v10M3 8h10"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </svg>
-          Add array item
-        </button>
+        ${renderAddArrayItemButton(path, addItem, readOnly)}
       </div>
     </details>
+  `;
+}
+
+interface ArrayTargetLabel {
+  visible: string;
+  accessible: string;
+}
+
+/** Turn a data path into an author-facing destination for an array action. */
+export function arrayTargetLabel(path: string): ArrayTargetLabel {
+  const segments = path.split('.').map((segment) => {
+    const index = Number(segment);
+    return Number.isInteger(index) && index >= 0 && String(index) === segment
+      ? `item ${index + 1}`
+      : segment;
+  });
+  return {
+    visible: segments.join(' › '),
+    accessible: segments.join(', '),
+  };
+}
+
+function renderAddArrayItemButton(path: string, addItem: () => void, readOnly: boolean): unknown {
+  const target = arrayTargetLabel(path);
+  const accessibleLabel = `Add item to ${target.accessible}`;
+  return html`
+    <button
+      class="dc-array-add-btn"
+      ?disabled=${readOnly}
+      @click=${addItem}
+      aria-label=${accessibleLabel}
+      title=${accessibleLabel}
+    >
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span aria-hidden="true">Add item to</span>
+      <span class="dc-array-add-target" aria-hidden="true">${target.visible}</span>
+    </button>
   `;
 }
 

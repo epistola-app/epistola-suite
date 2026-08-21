@@ -11,6 +11,7 @@
  */
 
 import { html } from 'lit';
+import { keyed } from 'lit/directives/keyed.js';
 import type { DataContractState } from '../DataContractState.js';
 import type { JsonValue } from '../types.js';
 import { renderExampleForm } from './ExampleForm.js';
@@ -212,6 +213,23 @@ export function renderExamplesSection(
                     </svg>
                     Redo
                   </button>
+                  <span class="dc-example-toolbar-divider" aria-hidden="true"></span>
+                  <button
+                    class="dc-example-toolbar-btn dc-example-expand-all-btn"
+                    @click=${(event: Event) => setExampleGroupsOpen(event, true)}
+                    title="Expand all properties in this example"
+                    aria-label="Expand all example properties"
+                  >
+                    Expand all
+                  </button>
+                  <button
+                    class="dc-example-toolbar-btn dc-example-collapse-all-btn"
+                    @click=${(event: Event) => setExampleGroupsOpen(event, false)}
+                    title="Collapse all properties in this example"
+                    aria-label="Collapse all example properties"
+                  >
+                    Collapse all
+                  </button>
                 </div>
 
                 ${uiState.validationErrorCount > 0
@@ -261,12 +279,15 @@ export function renderExamplesSection(
 
               <!-- Form -->
               <div class="dc-example-form-container">
-                ${renderExampleForm(
-                  state.schema,
-                  selectedExample.data,
-                  (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
-                  uiState.fieldErrorMap,
-                  uiState.readOnly,
+                ${keyed(
+                  selectedExample.id,
+                  renderExampleForm(
+                    state.schema,
+                    selectedExample.data,
+                    (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
+                    uiState.fieldErrorMap,
+                    uiState.readOnly,
+                  ),
                 )}
               </div>
             </div>
@@ -325,4 +346,14 @@ export function renderExamplesSection(
             `}
     </section>
   `;
+}
+
+function setExampleGroupsOpen(event: Event, open: boolean): void {
+  if (!(event.currentTarget instanceof HTMLElement)) return;
+  const card = event.currentTarget.closest('.dc-example-card');
+  for (const group of card?.querySelectorAll<HTMLDetailsElement>(
+    '.dc-example-form-container details',
+  ) ?? []) {
+    group.open = open;
+  }
 }

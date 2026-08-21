@@ -14,6 +14,16 @@
 - **[user]** fix(editor): **Text containing expressions can be copied and pasted.** Rich-text
   selections now preserve editable expression chips when pasted within Epistola and expose
   expressions as `{{expression}}` when pasted as plain text into another application.
+- **[user]** feat(data-contracts): **Schema fields can be added where authors are working.**
+  The visual contract editor offers contextual child and sibling actions with full schema paths,
+  keeps nested parents expanded, selects the new field name for immediate typing, and preserves a
+  nearby selection through delete, undo, and redo operations.
+- **[user]** feat(data-contracts): **Example array actions identify their destination.** Add-item
+  controls now show the complete field path, including human-readable item numbers for nested
+  arrays, while retaining their full context for assistive technology and narrow layouts.
+- **[user]** feat(data-contracts): **Complex examples start with a compact overview.** Object and
+  array properties are collapsed by default, with per-example actions to expand or collapse the
+  complete property tree at once.
 - **[user]** docs(data-contracts): **Data contract behavior and support boundaries are documented.**
   A new guide explains schema dialects and root requirements, visual and JSON-only editing, safe UI
   import normalization, examples and Autofill, expression field discovery, validation, publishing,

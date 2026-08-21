@@ -40,6 +40,7 @@ export function renderSchemaFieldListItem(
   return html`
     <div
       class="dc-field-list-item ${isSelected ? 'dc-field-list-item-selected' : ''}"
+      data-field-id=${field.id}
       style=${nestStyle ?? nothing}
       @click=${(e: Event) => {
         e.stopPropagation();

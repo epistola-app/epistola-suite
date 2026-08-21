@@ -122,3 +122,45 @@ describe('ExamplesSection required example state', () => {
     );
   });
 });
+
+describe('ExamplesSection property disclosure actions', () => {
+  it('expands and collapses every nested property group in the selected example', () => {
+    const example = {
+      id: 'one',
+      name: 'Example 1',
+      data: { customer: { address: {} }, contacts: [{ name: 'Ada' }] },
+    };
+    const state = new DataContractState(
+      {
+        type: 'object',
+        properties: {
+          customer: {
+            type: 'object',
+            properties: {
+              address: {
+                type: 'object',
+                properties: { city: { type: 'string' } },
+              },
+            },
+          },
+          contacts: {
+            type: 'array',
+            items: { type: 'object', properties: { name: { type: 'string' } } },
+          },
+        },
+      },
+      [example],
+      {},
+    );
+    const container = renderState(state, example.id);
+    const groups = [...container.querySelectorAll<HTMLDetailsElement>('details')];
+    expect(groups).toHaveLength(4);
+    expect(groups.every((group) => !group.open)).toBe(true);
+
+    container.querySelector<HTMLButtonElement>('.dc-example-expand-all-btn')!.click();
+    expect(groups.every((group) => group.open)).toBe(true);
+
+    container.querySelector<HTMLButtonElement>('.dc-example-collapse-all-btn')!.click();
+    expect(groups.every((group) => !group.open)).toBe(true);
+  });
+});

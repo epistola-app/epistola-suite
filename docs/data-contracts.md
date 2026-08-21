@@ -47,6 +47,13 @@ The visual editor supports object contracts composed from:
 - `minItems` for arrays;
 - Epistola's registered inline and block rich-text `$ref` types.
 
+Select a field to add another field in context. Container fields offer a primary child action and
+a secondary sibling action; scalar fields offer a sibling action. Each action shows the complete
+destination path, such as `customer › address` or `customer › recipients items`. The new field is
+selected immediately with its generated name ready to replace, so nested fields can be created
+without first navigating back to their parent object. Press Enter to confirm a name or Escape to
+restore it. Delete, undo, and redo keep the closest remaining field selected.
+
 The visual editor currently cannot represent every valid JSON Schema keyword. Among other things,
 multi-value type unions, multi-branch compositions, tuple arrays, arrays directly containing
 arrays, `additionalProperties: false`, arbitrary references, `enum`, `const`, `default`,
@@ -107,6 +114,14 @@ The example form supports the same nested projection used for field discovery: l
 compositions, nullable unions, union branches selected from the current value, objects, object
 arrays, and directly nested arrays. For constructs it cannot interpret, use a valid example
 supplied through an import or API and rely on backend validation.
+
+Array add actions show where the new item will be inserted. Nested numeric path segments are
+written as item numbers, for example `groups › item 1 › members`, so similarly named arrays remain
+distinguishable even in deeply nested examples.
+
+Object and array properties start collapsed to keep large examples scannable. Use **Expand all** or
+**Collapse all** in the example toolbar to change the complete property tree at once; individual
+groups can still be opened independently.
 
 Empty controls show placeholder hints. Placeholders are presentation only and are never included
 in saved JSON. **Autofill** writes actual test values into missing or unusable fields while

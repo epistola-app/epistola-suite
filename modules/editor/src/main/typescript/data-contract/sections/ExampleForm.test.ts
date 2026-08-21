@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'lit';
 import {
+  arrayTargetLabel,
   validationPathToFormPath,
   buildFieldErrorMap,
   hasChildErrors,
@@ -75,6 +76,144 @@ describe('example form placeholders', () => {
     expect(nestedName.value).toBe('');
     expect(nestedName.placeholder).toBe('name');
     expect(nestedName.classList.contains('dc-tree-input')).toBe(true);
+  });
+});
+
+describe('example property disclosure', () => {
+  const schema: JsonSchema = {
+    type: 'object',
+    properties: {
+      customer: {
+        type: 'object',
+        properties: {
+          address: {
+            type: 'object',
+            properties: { city: { type: 'string' } },
+          },
+        },
+      },
+      contacts: {
+        type: 'array',
+        items: { type: 'object', properties: { name: { type: 'string' } } },
+      },
+    },
+  };
+
+  it('starts every object, array, and array item collapsed', () => {
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(
+        schema,
+        { customer: { address: {} }, contacts: [{ name: 'Ada' }] },
+        () => {},
+      ),
+      container,
+    );
+
+    const groups = [...container.querySelectorAll<HTMLDetailsElement>('details')];
+    expect(groups).toHaveLength(4);
+    expect(groups.every((group) => !group.open)).toBe(true);
+  });
+
+  it('keeps a manually opened group open when example data rerenders', () => {
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(schema, { customer: { address: {} } }, () => {}),
+      container,
+    );
+    const customer = container.querySelector<HTMLDetailsElement>(
+      'details[aria-label="customer properties"]',
+    )!;
+    customer.open = true;
+
+    render(
+      renderExampleForm(schema, { customer: { address: { city: 'Utrecht' } } }, () => {}),
+      container,
+    );
+
+    expect(customer.open).toBe(true);
+  });
+});
+
+describe('array item actions', () => {
+  const schema: JsonSchema = {
+    type: 'object',
+    properties: {
+      tags: { type: 'array', items: { type: 'string' } },
+      contacts: {
+        type: 'array',
+        items: { type: 'object', properties: { name: { type: 'string' } } },
+      },
+      matrix: {
+        type: 'array',
+        items: {
+          type: 'array',
+          items: { type: 'object', properties: { name: { type: 'string' } } },
+        },
+      },
+    },
+  };
+
+  it('formats nested array paths with human-readable item numbers', () => {
+    expect(arrayTargetLabel('groups.0.members.11')).toEqual({
+      visible: 'groups › item 1 › members › item 12',
+      accessible: 'groups, item 1, members, item 12',
+    });
+  });
+
+  it('shows the destination for primitive, object, and nested-array actions', () => {
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(schema, { matrix: [[]] }, () => {}),
+      container,
+    );
+
+    const labels = [...container.querySelectorAll<HTMLButtonElement>('.dc-array-add-btn')].map(
+      (button) => button.getAttribute('aria-label'),
+    );
+    expect(labels).toEqual([
+      'Add item to tags',
+      'Add item to contacts',
+      'Add item to matrix, item 1',
+      'Add item to matrix',
+    ]);
+
+    const nestedButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add item to matrix, item 1"]',
+    )!;
+    expect(nestedButton.title).toBe('Add item to matrix, item 1');
+    expect(nestedButton.querySelector('.dc-array-add-target')?.textContent).toBe('matrix › item 1');
+  });
+
+  it('retains the existing add behavior behind the contextual action', () => {
+    let data: JsonObject = { contacts: [] };
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(schema, data, (path, value) => {
+        data = setNestedValue(data, path, value);
+      }),
+      container,
+    );
+
+    container
+      .querySelector<HTMLButtonElement>('button[aria-label="Add item to contacts"]')!
+      .click();
+
+    expect(data).toEqual({ contacts: [{ name: '' }] });
+  });
+
+  it('disables contextual array actions in read-only mode', () => {
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(schema, { matrix: [[]] }, () => {}, new Map(), true),
+      container,
+    );
+
+    expect(
+      [...container.querySelectorAll<HTMLButtonElement>('.dc-array-add-btn')].every(
+        (button) => button.disabled,
+      ),
+    ).toBe(true);
   });
 });
 
