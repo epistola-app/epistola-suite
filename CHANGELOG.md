@@ -5,8 +5,9 @@
 ## [Unreleased]
 
 - **[user]** fix(editor): **Column content aligns with neighboring components.** The Columns
-  component no longer adds editor-only horizontal inset around its column contents, while explicit
-  padding configured on the component continues to apply.
+  component no longer adds an implicit inset around its column contents in the editor or newly
+  published PDFs, while explicit padding configured on the component continues to apply. Existing
+  published templates retain their original versioned PDF layout.
 - **[user]** fix(editor): **Nested loops expose correctly typed item fields.** Inner loops can use
   arrays from an outer item and retain schema types for their item alias and child fields,
   including arrays nested directly inside arrays and list-valued stencil parameters. Components
