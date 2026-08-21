@@ -115,6 +115,10 @@ compositions, nullable unions, union branches selected from the current value, o
 arrays, and directly nested arrays. For constructs it cannot interpret, use a valid example
 supplied through an import or API and rely on backend validation.
 
+Array add actions show where the new item will be inserted. Nested numeric path segments are
+written as item numbers, for example `groups › item 1 › members`, so similarly named arrays remain
+distinguishable even in deeply nested examples.
+
 Empty controls show placeholder hints. Placeholders are presentation only and are never included
 in saved JSON. **Autofill** writes actual test values into missing or unusable fields while
 preserving meaningful values already entered. It uses, in order where applicable:

@@ -1016,6 +1016,8 @@
     align-items: center;
     justify-content: center;
     gap: var(--ep-space-1-5);
+    max-width: 100%;
+    min-width: 0;
     padding: var(--ep-space-2) var(--ep-space-3);
     font-size: var(--ep-text-xs);
     font-weight: 500;
@@ -1036,6 +1038,18 @@
       outline: none;
       box-shadow: var(--ep-ring);
     }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.5;
+    }
+  }
+
+  .dc-array-add-target {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* --------------------------------------------------------------------------
