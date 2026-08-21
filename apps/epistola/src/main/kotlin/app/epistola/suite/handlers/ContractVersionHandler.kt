@@ -23,6 +23,7 @@ import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.contracts.queries.ListContractVersions
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -87,6 +88,21 @@ class ContractVersionHandler(
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(e.toValidationProblemBody(request.servletRequest()))
+        } catch (e: DataModelValidationException) {
+            val detail = e.validationErrors.entries.joinToString("; ") { (exampleName, errors) ->
+                errors.joinToString("; ") { error ->
+                    val location = error.path.ifBlank { "root" }
+                    "$exampleName at $location: ${error.message}"
+                }
+            }
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "detail" to "Example data does not match the schema. $detail",
+                        "errors" to e.validationErrors,
+                    ),
+                )
         }
 
         val response = mutableMapOf<String, Any?>(

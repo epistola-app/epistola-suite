@@ -11,7 +11,7 @@
  */
 
 import { html, nothing } from 'lit';
-import type { MigrationSuggestion, MigrationIssueType } from '../utils/schemaMigration.js';
+import type { MigrationSuggestion, MigrationIssueType } from '../schema/migration.js';
 import { classifyValue } from '../ref-types.js';
 
 export interface MigrationDialogCallbacks {

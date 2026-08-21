@@ -12,7 +12,7 @@
 
 import { html, nothing } from 'lit';
 import type { SchemaField } from '../types.js';
-import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
+import { FIELD_TYPE_LABELS } from '../schema/conversion.js';
 
 /** Check if a field supports nested fields */
 function supportsNestedFields(field: SchemaField): boolean {

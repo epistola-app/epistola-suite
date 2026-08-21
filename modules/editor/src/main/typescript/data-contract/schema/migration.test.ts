@@ -10,7 +10,7 @@ import {
   stripOrphanedKeys,
   renameExampleKey,
   type MigrationSuggestion,
-} from './schemaMigration.js';
+} from './migration.js';
 import type { DataExample, JsonObject, JsonSchema } from '../types.js';
 
 describe('detectMigrations', () => {

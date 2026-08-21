@@ -21,8 +21,8 @@ import type {
   StringFormat,
   VisualSchema,
 } from '../types.js';
-import type { SchemaCommand } from '../utils/schemaCommands.js';
-import { isValidFieldName } from '../utils/schemaUtils.js';
+import type { SchemaCommand } from '../schema/commands.js';
+import { isValidFieldName } from '../schema/conversion.js';
 import {
   ARRAY_ITEM_FIELD_TYPES as ARRAY_ITEM_TYPES,
   CONTRACT_FIELD_TYPES as FIELD_TYPES,

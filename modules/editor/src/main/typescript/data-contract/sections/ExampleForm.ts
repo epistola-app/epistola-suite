@@ -29,15 +29,26 @@ import {
 } from '../types.js';
 import { findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
 import { scalarFromJsonSchema } from '../field-types.js';
-import type { SchemaValidationError } from '../utils/schemaValidation.js';
+import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
+import type { SchemaValidationError } from '../schema/validation.js';
 import './EpistolaRichTextInput.js';
 
 /** Resolve a JSON Schema property to a simple type label, including ref types. */
-function resolvePropertyType(prop: JsonSchemaProperty | null | undefined): string {
+function resolvePropertyType(
+  prop: JsonSchemaProperty | null | undefined,
+  rootSchema?: JsonSchema,
+  value?: JsonValue,
+): string {
   if (!prop) return 'string';
-  const refType = findRefType(prop.$ref);
+  const effective = rootSchema ? resolveSchemaForValue(prop, rootSchema, value) : prop;
+  const refType = findRefType(effective.$ref);
   if (refType !== null) return refType.id;
-  const raw = Array.isArray(prop.type) ? prop.type[0] : prop.type;
+  const declaredTypes: readonly string[] = Array.isArray(effective.type)
+    ? effective.type
+    : effective.type
+      ? [effective.type]
+      : [];
+  const raw = declaredTypes.find((type) => type !== 'null') ?? declaredTypes[0];
   if (raw === undefined) return 'string';
   // Collapse scalars (incl. date / date-time) via the registry; non-scalars
   // (containers, email/uri strings) keep their raw type.
@@ -249,20 +260,26 @@ export function renderExampleForm(
   errors: Map<string, string> = NO_ERRORS,
   readOnly = false,
 ): unknown {
-  if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
+  if (!schema) {
     return html` <div class="dc-form-empty">Define a schema first to create examples.</div> `;
   }
 
-  const requiredSet = new Set(schema.required ?? []);
+  const effectiveSchema = resolveSchemaForValue(schema, schema, data);
+  if (!effectiveSchema.properties || Object.keys(effectiveSchema.properties).length === 0) {
+    return html` <div class="dc-form-empty">Define a schema first to create examples.</div> `;
+  }
+
+  const requiredSet = new Set(effectiveSchema.required ?? []);
 
   return html`
     <div class="dc-tree">
-      ${Object.entries(schema.properties).map(([name, propSchema]) =>
+      ${Object.entries(effectiveSchema.properties).map(([name, propSchema]) =>
         renderFormField(
           name,
           propSchema,
           name,
           data,
+          schema,
           requiredSet.has(name),
           onChange,
           0,
@@ -283,14 +300,16 @@ function renderFormField(
   propSchema: JsonSchemaProperty,
   path: string,
   rootData: JsonObject,
+  rootSchema: JsonSchema,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
   depth: number,
   errors: Map<string, string>,
   readOnly: boolean,
 ): unknown {
-  const type = resolvePropertyType(propSchema);
   const value = getNestedValue(rootData, path);
+  const effectiveSchema = resolveSchemaForValue(propSchema, rootSchema, value);
+  const type = resolvePropertyType(effectiveSchema, rootSchema, value);
   const fieldError = errors.get(path);
   const fieldId = fieldIdFromPath(path);
 
@@ -504,9 +523,10 @@ function renderFormField(
     case 'object':
       return renderObjectField(
         name,
-        propSchema,
+        effectiveSchema,
         path,
         rootData,
+        rootSchema,
         isRequired,
         onChange,
         depth,
@@ -517,9 +537,10 @@ function renderFormField(
     case 'array':
       return renderArrayField(
         name,
-        propSchema,
+        effectiveSchema,
         path,
         rootData,
+        rootSchema,
         isRequired,
         onChange,
         depth,
@@ -560,6 +581,7 @@ function renderObjectField(
   propSchema: JsonSchemaProperty,
   path: string,
   rootData: JsonObject,
+  rootSchema: JsonSchema,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
   depth: number,
@@ -607,6 +629,7 @@ function renderObjectField(
             nestedProp,
             `${path}.${nestedName}`,
             rootData,
+            rootSchema,
             nestedRequired.has(nestedName),
             onChange,
             depth + 1,
@@ -627,6 +650,7 @@ function renderArrayField(
   propSchema: JsonSchemaProperty,
   path: string,
   rootData: JsonObject,
+  rootSchema: JsonSchema,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
   depth: number,
@@ -636,10 +660,13 @@ function renderArrayField(
   const currentValue = getNestedValue(rootData, path);
   const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : [];
   const itemSchema = propSchema.items;
-  const itemType = resolvePropertyType(itemSchema);
+  const effectiveItemSchema = itemSchema
+    ? resolveSchemaForValue(itemSchema, rootSchema, items[0])
+    : undefined;
+  const itemType = resolvePropertyType(effectiveItemSchema, rootSchema, items[0]);
 
   const addItem = () => {
-    const defaultValue = getDefaultValueForType(itemType, itemSchema);
+    const defaultValue = getDefaultValueForType(itemType, effectiveItemSchema, rootSchema);
     const newItems = [...items, defaultValue];
     onChange(path, newItems);
   };
@@ -649,13 +676,32 @@ function renderArrayField(
     onChange(path, newItems);
   };
 
-  if (itemType === 'object' && itemSchema?.properties) {
+  if (itemType === 'object' && effectiveItemSchema?.properties && itemSchema) {
     return renderArrayOfObjects(
       name,
       itemSchema,
       path,
       items,
       rootData,
+      rootSchema,
+      isRequired,
+      onChange,
+      addItem,
+      removeItem,
+      depth,
+      errors,
+      readOnly,
+    );
+  }
+
+  if (itemType === 'array' && effectiveItemSchema) {
+    return renderArrayOfArrays(
+      name,
+      effectiveItemSchema,
+      path,
+      items,
+      rootData,
+      rootSchema,
       isRequired,
       onChange,
       addItem,
@@ -755,6 +801,7 @@ function renderArrayOfObjects(
   path: string,
   items: JsonValue[],
   rootData: JsonObject,
+  rootSchema: JsonSchema,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
   addItem: () => void,
@@ -763,7 +810,6 @@ function renderArrayOfObjects(
   errors: Map<string, string>,
   readOnly: boolean,
 ): unknown {
-  const nestedRequired = new Set(itemSchema.required ?? []);
   const groupHasErrors = hasChildErrors(path, errors);
 
   return html`
@@ -785,9 +831,11 @@ function renderArrayOfObjects(
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>
       <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
-        ${items.map((_item, index) => {
+        ${items.map((item, index) => {
           const itemPath = `${path}.${index}`;
           const itemHasErrors = hasChildErrors(itemPath, errors);
+          const effectiveItemSchema = resolveSchemaForValue(itemSchema, rootSchema, item);
+          const nestedRequired = new Set(effectiveItemSchema.required ?? []);
           return html`
             <details
               class="dc-array-object-item ${itemHasErrors ? 'dc-tree-group-has-errors' : ''}"
@@ -824,13 +872,14 @@ function renderArrayOfObjects(
                 </button>
               </summary>
               <div class="dc-array-object-content">
-                ${itemSchema.properties
-                  ? Object.entries(itemSchema.properties).map(([nestedName, nestedProp]) =>
+                ${effectiveItemSchema.properties
+                  ? Object.entries(effectiveItemSchema.properties).map(([nestedName, nestedProp]) =>
                       renderFormField(
                         nestedName,
                         nestedProp,
                         `${path}.${index}.${nestedName}`,
                         rootData,
+                        rootSchema,
                         nestedRequired.has(nestedName),
                         onChange,
                         depth + 1,
@@ -853,6 +902,97 @@ function renderArrayOfObjects(
             />
           </svg>
           Add object item
+        </button>
+      </div>
+    </details>
+  `;
+}
+
+/** Render imported schemas that contain arrays nested directly inside arrays. */
+function renderArrayOfArrays(
+  name: string,
+  itemSchema: JsonSchemaProperty,
+  path: string,
+  items: JsonValue[],
+  rootData: JsonObject,
+  rootSchema: JsonSchema,
+  isRequired: boolean,
+  onChange: (path: string, value: JsonValue) => void,
+  addItem: () => void,
+  removeItem: (index: number) => void,
+  depth: number,
+  errors: Map<string, string>,
+  readOnly: boolean,
+): unknown {
+  const groupHasErrors = hasChildErrors(path, errors);
+
+  return html`
+    <details
+      class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
+      ?open=${items.length > 0}
+      aria-label="${name} nested arrays"
+    >
+      <summary class="dc-tree-group-header">
+        <span class="dc-tree-group-title">
+          ${name}${isRequired
+            ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
+            : nothing}
+        </span>
+        ${groupHasErrors
+          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+          : nothing}
+        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">array[]</span>
+        <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
+      </summary>
+      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
+        ${items.map((_item, index) => {
+          const itemPath = `${path}.${index}`;
+          return html`
+            <div class="dc-array-item-row dc-array-item-row-nested" role="listitem">
+              <span class="dc-array-item-number" aria-hidden="true">${index + 1}</span>
+              <div class="dc-array-item-content">
+                ${renderFormField(
+                  `${name}[${index}]`,
+                  itemSchema,
+                  itemPath,
+                  rootData,
+                  rootSchema,
+                  true,
+                  onChange,
+                  depth + 1,
+                  errors,
+                  readOnly,
+                )}
+              </div>
+              <button
+                class="dc-array-item-remove"
+                title="Remove item"
+                aria-label="Remove item ${index + 1}"
+                ?disabled=${readOnly}
+                @click=${() => removeItem(index)}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M4 4l8 8M12 4l-8 8"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          `;
+        })}
+        <button class="dc-array-add-btn" ?disabled=${readOnly} @click=${() => addItem()}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          Add array item
         </button>
       </div>
     </details>
@@ -994,7 +1134,11 @@ function renderPrimitiveInput(
 /**
  * Get a sensible default value for a given JSON Schema type.
  */
-function getDefaultValueForType(type: string, schema?: JsonSchemaProperty | null): JsonValue {
+function getDefaultValueForType(
+  type: string,
+  schema?: JsonSchemaProperty | null,
+  rootSchema?: JsonSchema,
+): JsonValue {
   switch (type) {
     case 'string':
       return '';
@@ -1010,7 +1154,14 @@ function getDefaultValueForType(type: string, schema?: JsonSchemaProperty | null
       if (!schema?.properties) return {};
       const obj: Record<string, JsonValue> = {};
       for (const [key, propSchema] of Object.entries(schema.properties)) {
-        obj[key] = getDefaultValueForType(resolvePropertyType(propSchema), propSchema);
+        const effectiveProperty = rootSchema
+          ? resolveSchemaForValue(propSchema, rootSchema)
+          : propSchema;
+        obj[key] = getDefaultValueForType(
+          resolvePropertyType(effectiveProperty, rootSchema),
+          effectiveProperty,
+          rootSchema,
+        );
       }
       return obj;
     }
