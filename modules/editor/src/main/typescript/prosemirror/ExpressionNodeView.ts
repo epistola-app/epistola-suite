@@ -123,9 +123,10 @@ export class ExpressionNodeView implements NodeView {
     this._displayGeneration++; // invalidate any in-flight async resolution
   }
 
-  // Prevent ProseMirror from handling events inside the chip
-  stopEvent(): boolean {
-    return true;
+  // Keep chip interactions isolated while still letting ProseMirror serialize
+  // and parse selections whose clipboard event originates inside this NodeView.
+  stopEvent(event: Event): boolean {
+    return !['copy', 'cut', 'paste'].includes(event.type);
   }
 
   ignoreMutation(): boolean {

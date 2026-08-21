@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(editor): **Text containing expressions can be copied and pasted.** Rich-text
+  selections now preserve editable expression chips when pasted within Epistola and expose
+  expressions as `{{expression}}` when pasted as plain text into another application.
 - **[user]** docs(data-contracts): **Data contract behavior and support boundaries are documented.**
   A new guide explains schema dialects and root requirements, visual and JSON-only editing, safe UI
   import normalization, examples and Autofill, expression field discovery, validation, publishing,
