@@ -24,8 +24,7 @@
                 </div>
             </th:block>
 
-            <fieldset th:if="${section == 'attributes'}" class="form-group">
-                <legend class="ep-label">Discovery attributes</legend>
+            <div th:if="${section == 'attributes'}">
                 <p class="form-hint">Only attributes with a value are published.</p>
                 <div th:each="field : ${attributeFields}" style="margin-top: var(--ep-space-2);">
                     <label class="ep-label"
@@ -43,7 +42,7 @@
                            th:name="${'attribute_' + field.descriptor.qualifiedKey}" th:value="${field.value}" />
                 </div>
                 <p th:if="${attributeFields.isEmpty()}" class="text-muted">No catalog attributes are defined for this tenant.</p>
-            </fieldset>
+            </div>
 
             <div th:if="${section == 'keywords'}" class="form-group">
                 <label class="ep-label" for="catalog-keywords">Keywords</label>
@@ -52,8 +51,7 @@
                 <span class="form-hint">One keyword per line. Case is preserved.</span>
             </div>
 
-            <fieldset th:if="${section == 'presentation'}" class="form-group">
-                <legend class="ep-label">Presentation</legend>
+            <div th:if="${section == 'presentation'}">
                 <label class="ep-label" for="catalog-icon">Icon</label>
                 <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
                     <option value="">No icon</option>
@@ -78,10 +76,9 @@
                     <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top: var(--ep-space-2);"
                             data-gallery-add>Add image</button>
                 </div>
-            </fieldset>
+            </div>
 
-            <fieldset th:if="${section == 'license'}" class="form-group">
-                <legend class="ep-label">License</legend>
+            <div th:if="${section == 'license'}" class="ep-stack ep-gap-2">
                 <label class="ep-label" for="catalog-license-name">Name</label>
                 <input id="catalog-license-name" class="ep-input" name="licenseName"
                        th:value="${catalog.portableMetadata.license?.name}" />
@@ -94,7 +91,7 @@
                 <label class="ep-label" for="catalog-license-copyright">Copyright</label>
                 <textarea id="catalog-license-copyright" class="ep-input" name="licenseCopyright" rows="2"
                           th:text="${catalog.portableMetadata.license?.copyrightText}"></textarea>
-            </fieldset>
+            </div>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="catalog-metadata-dialog">Cancel</button>

@@ -4,8 +4,8 @@
 
 ## [Unreleased]
 
-- **[user]** fix(catalog-ui): Catalog details stay readable while focused **Change** dialogs edit
-  general details, discovery attributes, keywords, presentation, or license independently.
+- **[user]** fix(catalog-ui): Catalog details stay readable while focused, visually flat **Change**
+  dialogs edit general details, discovery attributes, keywords, presentation, or license independently.
 
 - **[user]** feat(catalog-ui): **Catalogs can be described and presented as discoverable products.**
   Authored catalog settings now cover qualified discovery attributes, keywords, an icon, an ordered
