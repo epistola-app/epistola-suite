@@ -11,6 +11,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.transaction.TransactionIsolationLevel
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -29,7 +30,7 @@ class GetTenantResourceGraphHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<GetTenantResourceGraph, TenantResourceGraph> {
 
-    override fun handle(query: GetTenantResourceGraph): TenantResourceGraph = jdbi.inTransaction<TenantResourceGraph, Exception> { handle ->
+    override fun handle(query: GetTenantResourceGraph): TenantResourceGraph = jdbi.inTransaction<TenantResourceGraph, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
         val nodes = loadNodes(handle, query.tenantKey)
         val occurrences = buildList {
             addAll(loadRelationalReferences(handle, query.tenantKey))
