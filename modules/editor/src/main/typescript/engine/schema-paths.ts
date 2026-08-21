@@ -34,6 +34,10 @@ export interface FieldPath {
    * field). Domain-specific consumers map known URLs to logical types.
    */
   ref?: string;
+  /** Item type for array fields, used when projecting iteration aliases. */
+  arrayItemType?: string;
+  /** Raw `$ref` of an array item schema when one is present. */
+  arrayItemRef?: string;
   /** Whether this is a system parameter (injected by the rendering engine). */
   system?: boolean;
   /** Human-readable description (used for system parameter tooltips). */
@@ -88,7 +92,7 @@ function walkProperties(
       nonNullVariants.length > 0 ? nonNullVariants : resolvedPropertyVariants;
 
     for (const propertyVariant of propertyVariants) {
-      addField(fields, path, propertyVariant.schema);
+      addField(fields, path, propertyVariant, rootSchema);
       walkContainer(propertyVariant, rootSchema, path, depth + 1, fields);
     }
   }
@@ -122,18 +126,71 @@ function walkContainer(
   }
 }
 
-function addField(fields: Map<string, FieldPath>, path: string, schema: JsonSchemaNode): void {
+function addField(
+  fields: Map<string, FieldPath>,
+  path: string,
+  variant: ResolvedSchemaVariant,
+  rootSchema: JsonSchemaNode,
+): void {
+  const schema = variant.schema;
   const type = displayType(schema);
   const ref = typeof schema.$ref === 'string' ? schema.$ref : undefined;
+  const itemMetadata = arrayItemMetadata(variant, rootSchema);
   const existing = fields.get(path);
 
   if (!existing) {
-    fields.set(path, ref ? { path, type, ref } : { path, type });
+    fields.set(path, {
+      path,
+      type,
+      ...(ref ? { ref } : {}),
+      ...itemMetadata,
+    });
     return;
   }
 
   existing.type = mergeTypes(existing.type, type);
   if (!existing.ref && ref) existing.ref = ref;
+  if (itemMetadata.arrayItemType) {
+    existing.arrayItemType = existing.arrayItemType
+      ? mergeTypes(existing.arrayItemType, itemMetadata.arrayItemType)
+      : itemMetadata.arrayItemType;
+  }
+  if (!existing.arrayItemRef && itemMetadata.arrayItemRef) {
+    existing.arrayItemRef = itemMetadata.arrayItemRef;
+  }
+}
+
+function arrayItemMetadata(
+  variant: ResolvedSchemaVariant,
+  rootSchema: JsonSchemaNode,
+): Pick<FieldPath, 'arrayItemType' | 'arrayItemRef'> {
+  const items = variant.schema.items;
+  if (!isObject(items)) return {};
+
+  const itemVariants = resolveSchemaVariants(items, rootSchema, variant.resolvingRefs).filter(
+    (itemVariant) => !isNullOnly(itemVariant.schema),
+  );
+  if (itemVariants.length === 0) return {};
+
+  let arrayItemType = displayType(itemVariants[0].schema);
+  for (const itemVariant of itemVariants.slice(1)) {
+    arrayItemType = mergeTypes(arrayItemType, displayType(itemVariant.schema));
+  }
+
+  const rawRef = typeof items.$ref === 'string' ? items.$ref : undefined;
+  const variantRefs = [
+    ...new Set(
+      itemVariants
+        .map((itemVariant) => itemVariant.schema.$ref)
+        .filter((ref): ref is string => typeof ref === 'string'),
+    ),
+  ];
+  const arrayItemRef = rawRef ?? (variantRefs.length === 1 ? variantRefs[0] : undefined);
+
+  return {
+    arrayItemType,
+    ...(arrayItemRef ? { arrayItemRef } : {}),
+  };
 }
 
 function displayType(schema: JsonSchemaNode): string {

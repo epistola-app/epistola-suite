@@ -81,7 +81,7 @@ describe('extractFieldPaths', () => {
 
     const paths = extractFieldPaths(schema);
     expect(paths).toEqual([
-      { path: 'items', type: 'array' },
+      { path: 'items', type: 'array', arrayItemType: 'object' },
       { path: 'items[].name', type: 'string' },
       { path: 'items[].price', type: 'number' },
     ]);
@@ -99,7 +99,7 @@ describe('extractFieldPaths', () => {
     };
 
     const paths = extractFieldPaths(schema);
-    expect(paths).toEqual([{ path: 'tags', type: 'array' }]);
+    expect(paths).toEqual([{ path: 'tags', type: 'array', arrayItemType: 'string' }]);
   });
 
   it('respects depth limit', () => {
@@ -306,8 +306,36 @@ describe('extractFieldPaths', () => {
     expect(extractFieldPaths(schema)).toEqual([
       { path: 'correspondenceAddress', type: 'object' },
       { path: 'correspondenceAddress.city', type: 'string' },
-      { path: 'deliveryRoutes', type: 'array' },
+      { path: 'deliveryRoutes', type: 'array', arrayItemType: 'array' },
       { path: 'deliveryRoutes[][].destination', type: 'string' },
+    ]);
+  });
+
+  it('merges nullable and union array item metadata', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        amounts: {
+          type: 'array',
+          items: {
+            oneOf: [{ type: 'null' }, { type: 'integer' }, { type: 'number' }],
+          },
+        },
+        richTextItems: {
+          type: 'array',
+          items: { $ref: 'https://epistola.app/schemas/richtext-inline-v1.json' },
+        },
+      },
+    };
+
+    expect(extractFieldPaths(schema)).toEqual([
+      { path: 'amounts', type: 'array', arrayItemType: 'number' },
+      {
+        path: 'richTextItems',
+        type: 'array',
+        arrayItemType: 'unknown',
+        arrayItemRef: 'https://epistola.app/schemas/richtext-inline-v1.json',
+      },
     ]);
   });
 

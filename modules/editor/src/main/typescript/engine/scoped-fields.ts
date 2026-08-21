@@ -66,12 +66,21 @@ function buildAliasedFieldPaths(
   schemaFieldPaths: FieldPath[],
 ): FieldPath[] {
   const paths: FieldPath[] = [];
-  const arrayPathPrefix = `${arrayExpression}[].`;
+  const arrayItemPath = `${arrayExpression}[]`;
+  const sourceArray = schemaFieldPaths.find(
+    (field) => field.path === arrayExpression && field.type === 'array',
+  );
+  const itemType = sourceArray?.arrayItemType ?? inferItemType(arrayItemPath, schemaFieldPaths);
+  const nestedArrayItemType =
+    itemType === 'array' ? inferItemType(`${arrayItemPath}[]`, schemaFieldPaths) : undefined;
 
-  // Add the item alias itself (for simple arrays and direct reference)
+  // Add the item alias itself (for simple arrays and direct reference), carrying
+  // the source array's item metadata into any nested iteration scope.
   paths.push({
     path: itemAlias,
-    type: 'string',
+    type: itemType,
+    ...(sourceArray?.arrayItemRef ? { ref: sourceArray.arrayItemRef } : {}),
+    ...(nestedArrayItemType ? { arrayItemType: nestedArrayItemType } : {}),
     scope: itemAlias,
     scopeKind: 'iteration',
     description: 'Current iteration item',
@@ -79,11 +88,12 @@ function buildAliasedFieldPaths(
 
   // Map array item sub-properties to aliased paths (for object arrays)
   for (const fp of schemaFieldPaths) {
-    if (fp.path.startsWith(arrayPathPrefix)) {
-      const subPath = fp.path.slice(arrayPathPrefix.length);
+    if (fp.path.startsWith(arrayItemPath)) {
+      const suffix = fp.path.slice(arrayItemPath.length);
+      if (!suffix.startsWith('.') && !suffix.startsWith('[]')) continue;
       paths.push({
-        path: `${itemAlias}.${subPath}`,
-        type: fp.type,
+        ...fp,
+        path: `${itemAlias}${suffix}`,
         scope: itemAlias,
         scopeKind: 'iteration',
       });
@@ -126,6 +136,16 @@ function buildAliasedFieldPaths(
   }
 
   return paths;
+}
+
+function inferItemType(arrayItemPath: string, schemaFieldPaths: FieldPath[]): string {
+  if (schemaFieldPaths.some((field) => field.path.startsWith(`${arrayItemPath}.`))) {
+    return 'object';
+  }
+  if (schemaFieldPaths.some((field) => field.path.startsWith(`${arrayItemPath}[]`))) {
+    return 'array';
+  }
+  return 'unknown';
 }
 
 /**

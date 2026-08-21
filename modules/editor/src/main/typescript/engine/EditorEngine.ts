@@ -260,6 +260,7 @@ export class EditorEngine {
    */
   getEvaluationContextAt(nodeId: NodeId): Record<string, unknown> {
     let data = this.getExampleData();
+    const schemaFieldPaths = [...this.fieldPaths];
 
     // Walk ancestors root-to-node so inner scopes can reference outer values
     const ancestors = this._getAncestorsRootToNode(nodeId);
@@ -268,9 +269,12 @@ export class EditorEngine {
       if (!node) continue;
       const def = this.registry.get(node.type);
       const scope = def?.scopeProvider?.(node, {
-        schemaFieldPaths: this.fieldPaths,
+        schemaFieldPaths,
         evaluationContext: data,
       });
+      if (scope) {
+        schemaFieldPaths.push(...scope.variables);
+      }
       if (scope?.evaluationData) {
         data = { ...data, ...scope.evaluationData };
       }
@@ -295,15 +299,17 @@ export class EditorEngine {
   /** Collect scoped variables from ancestor scope providers. */
   private _collectAncestorScopes(nodeId: NodeId): FieldPath[] {
     const fields: FieldPath[] = [];
-    let current: NodeId | undefined = this._indexes.parentNodeByNodeId.get(nodeId);
-    while (current !== undefined) {
-      const node = this._doc.nodes[current];
+    const schemaFieldPaths = [...this.fieldPaths];
+    for (const ancestorId of this._getAncestorsRootToNode(nodeId)) {
+      const node = this._doc.nodes[ancestorId];
       if (node) {
         const def = this.registry.get(node.type);
-        const scope = def?.scopeProvider?.(node, { schemaFieldPaths: this.fieldPaths });
-        if (scope) fields.push(...scope.variables);
+        const scope = def?.scopeProvider?.(node, { schemaFieldPaths });
+        if (scope) {
+          fields.push(...scope.variables);
+          schemaFieldPaths.push(...scope.variables);
+        }
       }
-      current = this._indexes.parentNodeByNodeId.get(current);
     }
     return fields;
   }

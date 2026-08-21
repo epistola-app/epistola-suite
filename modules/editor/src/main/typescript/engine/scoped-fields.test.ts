@@ -14,13 +14,13 @@ import { nodeId } from './test-helpers.js';
 
 const schemaFieldPaths: FieldPath[] = [
   { path: 'name', type: 'string' },
-  { path: 'items', type: 'array' },
+  { path: 'items', type: 'array', arrayItemType: 'object' },
   { path: 'items[].name', type: 'string' },
   { path: 'items[].price', type: 'number' },
   { path: 'items[].date', type: 'date' },
-  { path: 'orders', type: 'array' },
+  { path: 'orders', type: 'array', arrayItemType: 'object' },
   { path: 'orders[].id', type: 'string' },
-  { path: 'orders[].lines', type: 'array' },
+  { path: 'orders[].lines', type: 'array', arrayItemType: 'object' },
   { path: 'orders[].lines[].product', type: 'string' },
   { path: 'orders[].lines[].qty', type: 'integer' },
 ];
@@ -76,6 +76,9 @@ describe('buildIterationScope', () => {
 
     const indexField = scope.variables.find((fp) => fp.path === 'item_index');
     expect(indexField?.type).toBe('integer');
+
+    const itemField = scope.variables.find((fp) => fp.path === 'item');
+    expect(itemField?.type).toBe('object');
   });
 
   it('sets scope on all variables', () => {
@@ -120,6 +123,64 @@ describe('buildIterationScope', () => {
 
     const paths = scope.variables.map((fp) => fp.path);
     expect(paths).toEqual(['expensive', 'expensive_index', 'expensive_first', 'expensive_last']);
+    expect(scope.variables[0].type).toBe('unknown');
+  });
+
+  it('uses outer projected fields to type a nested loop and its children', () => {
+    const outer = buildIterationScope(makeLoopNode('order', 'orders'), {
+      schemaFieldPaths,
+    })!;
+    const inner = buildIterationScope(makeLoopNode('line', 'order.lines'), {
+      schemaFieldPaths: [...schemaFieldPaths, ...outer.variables],
+    })!;
+
+    expect(outer.variables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'order', type: 'object' }),
+        expect.objectContaining({
+          path: 'order.lines',
+          type: 'array',
+          arrayItemType: 'object',
+        }),
+      ]),
+    );
+    expect(inner.variables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'line', type: 'object' }),
+        expect.objectContaining({ path: 'line.product', type: 'string' }),
+        expect.objectContaining({ path: 'line.qty', type: 'integer' }),
+      ]),
+    );
+  });
+
+  it('projects nested array items for a loop inside a loop', () => {
+    const fields: FieldPath[] = [
+      { path: 'deliveryRoutes', type: 'array', arrayItemType: 'array' },
+      { path: 'deliveryRoutes[][].destination', type: 'string' },
+    ];
+    const outer = buildIterationScope(makeLoopNode('route', 'deliveryRoutes'), {
+      schemaFieldPaths: fields,
+    })!;
+    const inner = buildIterationScope(makeLoopNode('stop', 'route'), {
+      schemaFieldPaths: [...fields, ...outer.variables],
+    })!;
+
+    expect(outer.variables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'route',
+          type: 'array',
+          arrayItemType: 'object',
+        }),
+        expect.objectContaining({ path: 'route[].destination', type: 'string' }),
+      ]),
+    );
+    expect(inner.variables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'stop', type: 'object' }),
+        expect.objectContaining({ path: 'stop.destination', type: 'string' }),
+      ]),
+    );
   });
 
   it('returns evaluation data with first array item', () => {

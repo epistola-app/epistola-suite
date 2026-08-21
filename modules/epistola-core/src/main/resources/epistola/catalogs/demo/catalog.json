@@ -10,9 +10,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.17.0",
-    "releasedAt": "2026-08-20T00:00:00Z",
-    "fingerprint": "bb29f02a64287ef9d94771f87e3aefc580b4fbaa3f999993800804d2e7a52209"
+    "version": "5.17.1",
+    "releasedAt": "2026-08-21T00:00:00Z",
+    "fingerprint": "3aab03a518f06a4a6b3f671967b13f46d5f5bdea5b36c2ea9cc2f8fcf936da0c"
   },
   "resources": [
     {
@@ -67,8 +67,8 @@
       "type": "template",
       "slug": "advanced-data-contract",
       "name": "Advanced Data Contract",
-      "description": "A focused test template for editing local references, schema compositions, nullable unions, mixed object variants, and deeply nested arrays in the data contract editor.",
-      "updatedAt": "2026-08-20T00:00:00Z",
+      "description": "A focused test template for editing local references, schema compositions, nullable unions, mixed object variants, deeply nested arrays, and nested-loop expression scopes.",
+      "updatedAt": "2026-08-21T00:00:00Z",
       "detailUrl": "./resources/templates/advanced-data-contract.json"
     },
     {
