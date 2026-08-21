@@ -365,6 +365,11 @@
                         <div class="form-group" th:if="${diff.hasChanges}">
                             <span class="ep-label">Changes</span>
                             <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                                <li th:if="${!diff.metadataChanges.isEmpty()}">
+                                    Catalog metadata changed
+                                    <span class="form-hint"
+                                          th:text="${'(' + #strings.listJoin(diff.metadataChanges, ', ') + ')'}"></span>
+                                </li>
                                 <li th:if="${!diff.changed.isEmpty()}">
                                     <strong th:text="${diff.changed.size()}"></strong> changed
                                     <span class="form-hint"

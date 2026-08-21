@@ -4,7 +4,12 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.protocol.AttributeAssignment
+import app.epistola.catalog.protocol.CatalogLicense
+import app.epistola.catalog.protocol.CatalogPresentation
+import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
@@ -80,6 +85,71 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jsonSchemaValidator: JsonSchemaValidator
+
+    @Test
+    fun `catalog metadata survives export and import into another tenant`() {
+        val source = createTenant("Metadata Source")
+        val target = createTenant("Metadata Target")
+        val catalogKey = CatalogKey.of("metadata-catalog")
+
+        val export = withMediator {
+            CreateCatalog(source.id, catalogKey, "Metadata Catalog").execute()
+            CreateAttributeDefinition(
+                id = AttributeId(AttributeKey.of("audience"), CatalogId(catalogKey, TenantId(source.id))),
+                displayName = "Audience",
+                allowedValues = listOf("municipalities"),
+            ).execute()
+            val image = UploadAsset(
+                tenantId = source.id,
+                name = "Catalog cover",
+                mediaType = AssetMediaType.PNG,
+                content = createMinimalPng(),
+                width = 1,
+                height = 1,
+                catalogKey = catalogKey,
+            ).execute()
+            val imageSlug = image.id.value.toString()
+
+            UpdateCatalogMetadata(
+                tenantKey = source.id,
+                catalogKey = catalogKey,
+                name = "Metadata Catalog Renamed",
+                description = "Portable discovery metadata",
+                attributes = listOf(AttributeAssignment(catalogKey.value, "audience", "municipalities")),
+                keywords = linkedSetOf("Letters", "Municipal"),
+                presentation = CatalogPresentation(imageSlug, listOf(imageSlug)),
+                license = CatalogLicense(
+                    name = "Creative Commons Attribution 4.0",
+                    spdxExpression = "CC-BY-4.0",
+                    url = "https://creativecommons.org/licenses/by/4.0/",
+                    copyrightText = "Copyright Epistola",
+                ),
+            ).execute()
+
+            val exported = ExportCatalogZip(source.id, catalogKey).execute()
+            assertThatThrownBy { DeleteAsset(source.id, image.id).execute() }
+                .isInstanceOf(AssetInUseException::class.java)
+                .hasMessageContaining("Catalog: Metadata Catalog Renamed")
+            exported
+        }
+
+        withMediator {
+            ImportCatalogZip(target.id, export.zipBytes, CatalogType.AUTHORED).execute()
+            val imported = GetCatalog(target.id, catalogKey).query()!!
+
+            assertThat(imported.name).isEqualTo("Metadata Catalog Renamed")
+            assertThat(imported.description).isEqualTo("Portable discovery metadata")
+            assertThat(imported.catalogMetadata.attributes)
+                .containsExactly(AttributeAssignment(catalogKey.value, "audience", "municipalities"))
+            assertThat(imported.catalogMetadata.keywords).containsExactlyInAnyOrder("Letters", "Municipal")
+            assertThat(imported.catalogMetadata.presentation?.iconAssetSlug).isNotNull()
+            assertThat(imported.catalogMetadata.presentation?.imageAssetSlugs)
+                .containsExactly(imported.catalogMetadata.presentation?.iconAssetSlug)
+            assertThat(imported.catalogMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
+            assertThat(imported.catalogMetadata.license?.url)
+                .isEqualTo("https://creativecommons.org/licenses/by/4.0/")
+        }
+    }
 
     @Test
     fun `export and import round-trip preserves all resources`() {

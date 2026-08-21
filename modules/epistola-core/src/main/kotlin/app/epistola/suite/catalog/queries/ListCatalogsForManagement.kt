@@ -79,7 +79,8 @@ class ListCatalogsForManagementHandler(
         handle.createQuery(
             """
             WITH activity(catalog_key, ts) AS (
-                SELECT catalog_key, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_key
+                SELECT id, content_updated_at         FROM catalogs                      WHERE tenant_key = :t
+                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM template_variants    WHERE tenant_key = :t GROUP BY catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM themes               WHERE tenant_key = :t GROUP BY catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_key
