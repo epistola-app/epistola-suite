@@ -178,19 +178,52 @@ After applying the strategies, the executor rebuilds the affected graph and veri
 previously resolved edge still resolves to the same logical target. The transaction is rolled back
 if that invariant does not hold.
 
+### Published templates and dependency semantics
+
+A move does not edit a published or archived template version. For example, a published template
+that stores `catalog-a/corporate-theme` keeps those exact bytes after the theme moves to
+`catalog-b/corporate-theme`. At runtime the shared resolver follows the old address through the
+alias to the canonical theme. The graph reports the edge as alias-resolved, and a future draft
+created from that published version is canonicalized to the new address.
+
+This preserves **logical identity**, not a snapshot at move time. If the referenced resource is a
+live dependency and changes after moving, the old published template observes that change under the
+same rules it did before the move. References that already pin a version or carry a resolved
+snapshot remain pinned or snapshotted. If product semantics require every old reference to keep
+seeing the resource exactly as it was at move time, Option D's frozen original is the appropriate
+model instead of an alias.
+
 ### Published catalogs and portability
 
 Aliases are a local compatibility mechanism, not part of the catalog wire format. New drafts are
 canonicalized when created from published content. Export materialization resolves aliases and
 emits canonical catalog addresses without mutating the stored published version.
 
-A move marks the source catalog, target catalog, and every authored catalog whose effective export
-changes as having unreleased changes. Their next release fingerprints the canonical export. ZIPs
-and remote releases produced before the move remain immutable historical artifacts.
+A regular `ExportCatalogZip` after a move therefore behaves as follows:
+
+- the source catalog no longer exports the moved resource;
+- the target catalog exports the resource under its canonical address;
+- an affected referencing catalog emits the canonical target address and corresponding
+  cross-catalog dependency;
+- no tenant-local alias or historical address is written into the ZIP;
+- the fingerprint is computed from those actual canonicalized export bytes.
+
+Today `ExportCatalogZip` always rebuilds the current working copy. It does not serve the immutable
+content captured at an earlier release boundary. A move therefore marks the source catalog, target
+catalog, and every authored catalog whose effective export changes as having unreleased changes.
+Exporting one of those catalogs again produces `<latest-version>-dev` with a new fingerprint until
+the author cuts a new release. The next release fingerprints the canonical export.
+
+This is consistent with the existing catalog export drift policy, but it means "export again" is
+not "download the old release again." ZIPs already produced before the move remain immutable
+historical artifacts. If exact re-download of an earlier release becomes a requirement, Epistola
+must retain and serve an immutable, self-contained release archive (including asset bytes) rather
+than reconstruct it from the current database or from aliases. That release-artifact decision is
+independent of resource relocation.
 
 The move must not ship until export/import round-trip tests demonstrate that a tenant without the
-local alias table receives a self-contained catalog with canonical references. If a reference shape
-cannot be canonicalized during export, that reference blocks the move.
+local alias table receives canonical references and explicit portable dependencies. If a reference
+shape cannot be canonicalized during export, that reference blocks the move.
 
 ### Preview, concurrency, and execution
 
