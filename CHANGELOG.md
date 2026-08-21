@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalog-ui): Catalog metadata settings now open correctly from the catalog browse page.
+
 - **[user]** feat(catalog-ui): **Catalogs can be described and presented as discoverable products.**
   Authored catalog settings now cover qualified discovery attributes, keywords, an icon, an ordered
   image gallery, and license details. Subscribed catalogs show the same metadata read-only, with

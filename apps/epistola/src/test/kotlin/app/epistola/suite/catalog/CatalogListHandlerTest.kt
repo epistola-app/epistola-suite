@@ -645,6 +645,15 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         }
 
         whenever {
+            val browseResponse = restTemplate.getForEntity(
+                "/tenants/${t.id}/catalogs/metadata/browse",
+                String::class.java,
+            )
+            assertThat(browseResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(browseResponse.body)
+                .contains("id=\"dialog-mount\"")
+                .contains("hx-target=\"#dialog-mount\"")
+
             val formResponse = restTemplate.exchange(
                 "/tenants/${t.id}/catalogs/metadata/metadata",
                 HttpMethod.GET,
