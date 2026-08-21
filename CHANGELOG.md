@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs): **Catalog resource relationships are visible as an interactive graph.**
+  Search across a tenant, explore incoming and outgoing references up to three levels deep, filter
+  by catalog, resource type, and reference semantics, inspect exact version/JSON-path evidence, and
+  optionally include archived history. Missing and ambiguous references remain visible so catalog
+  maintenance can be planned safely. The alpha feature is off by default and can be enabled per
+  tenant from Settings → Features. Resource selection uses an explicit search and stays closed
+  until a query is submitted.
+- **[dev]** feat(catalogs): **A canonical tenant resource-reference query is available in
+  core.** It extracts relational and versioned-JSON references for all seven catalog resource
+  types in a consistent read transaction, classifies runtime, authoring, and provenance edges, and
+  exposes bounded graph traversal to internal UI handlers. See
+  [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
 - **[dev]** refactor(catalog): Catalog contract metadata now uses the clearer `catalog_metadata`
   database and application terminology instead of `portable_metadata`.
 

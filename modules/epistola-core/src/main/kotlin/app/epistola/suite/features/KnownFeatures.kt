@@ -34,6 +34,7 @@ object KnownFeatures {
      */
     val QUALITY = FeatureKey.of("quality")
     val AI_CHAT = FeatureKey.of("ai-chat")
+    val RESOURCE_GRAPH = FeatureKey.of("resource-graph")
 
     /**
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
@@ -46,7 +47,7 @@ object KnownFeatures {
      */
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
-    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY, AI_CHAT, EDITOR_WALKTHROUGH)
+    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY, AI_CHAT, EDITOR_WALKTHROUGH, RESOURCE_GRAPH)
 
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
@@ -116,6 +117,12 @@ object KnownFeatures {
             "Editor walkthrough",
             "Enables a guided, in-editor tour of the template editor for people opening it for the " +
                 "first time. Purely a client-side onboarding aid — no data is read or sent.",
+            stage = FeatureStage.ALPHA,
+        ),
+        RESOURCE_GRAPH to FeatureMetadata(
+            "Resource graph",
+            "Enables the tenant-wide catalog resource reference explorer. It exposes runtime, " +
+                "authoring, and provenance relationships, including missing and ambiguous references.",
             stage = FeatureStage.ALPHA,
         ),
     )
