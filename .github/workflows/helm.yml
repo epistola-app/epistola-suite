@@ -31,13 +31,13 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
-          version: "v4.2.3"
+          version: "v4.2.4"
 
       - name: Lint Helm chart
         run: helm lint charts/${{ matrix.chart }}
 
       - name: Scan Helm chart for misconfigurations
-        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           scan-type: "config"
           scan-ref: "charts/${{ matrix.chart }}"
@@ -62,7 +62,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
-          version: "v4.2.3"
+          version: "v4.2.4"
 
       - name: Publish the tagged chart
         env:
