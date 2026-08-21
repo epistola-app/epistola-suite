@@ -9,7 +9,6 @@ import {
   RESOURCE_TYPES,
   displayType,
   type EvidenceResponse,
-  type ReferenceSemantics,
   type ResourceEdge,
   type ResourceNode,
   type ResourceType,
@@ -25,6 +24,38 @@ const NODE_COLORS: Record<ResourceType, string> = {
   font: '#4f46e5',
   asset: '#15803d',
 };
+
+const DIRECTIONS = ['incoming', 'outgoing', 'both'] as const;
+
+function nodeColor(value: unknown): string {
+  return isResourceType(value) ? NODE_COLORS[value] : '#64748b';
+}
+
+function isResourceType(value: unknown): value is ResourceType {
+  return typeof value === 'string' && RESOURCE_TYPES.some((type) => type.value === value);
+}
+
+function isDirection(value: unknown): value is (typeof DIRECTIONS)[number] {
+  return typeof value === 'string' && DIRECTIONS.some((direction) => direction === value);
+}
+
+function isResourceNode(value: unknown): value is ResourceNode {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ResourceNode>;
+  return (
+    typeof candidate.id === 'string' &&
+    isResourceType(candidate.type) &&
+    typeof candidate.catalogKey === 'string' &&
+    typeof candidate.key === 'string' &&
+    typeof candidate.name === 'string'
+  );
+}
+
+function isResourceEdge(value: unknown): value is ResourceEdge {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ResourceEdge>;
+  return typeof candidate.id === 'string' && typeof candidate.source === 'string';
+}
 
 @customElement('ep-resource-graph')
 export class ResourceGraphExplorer extends LitElement {
@@ -250,10 +281,12 @@ export class ResourceGraphExplorer extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     const params = new URLSearchParams(window.location.search);
-    this.direction = (params.get('direction') as typeof this.direction) ?? 'both';
+    const requestedDirection = params.get('direction');
+    this.direction = isDirection(requestedDirection) ? requestedDirection : 'both';
     this.depth = Number(params.get('depth') ?? 1);
     this.includeHistory = params.get('history') === 'true';
-    const type = params.get('type') as ResourceType | null;
+    const requestedType = params.get('type');
+    const type = isResourceType(requestedType) ? requestedType : undefined;
     const catalog = params.get('catalog');
     const key = params.get('key');
     void this.loadNodes();
@@ -392,8 +425,7 @@ export class ResourceGraphExplorer extends LitElement {
         {
           selector: 'node',
           style: {
-            'background-color': (element) =>
-              NODE_COLORS[element.data('type') as ResourceType] ?? '#64748b',
+            'background-color': (element) => nodeColor(element.data('type')),
             label: 'data(label)',
             color: '#172033',
             'font-size': 10,
@@ -434,14 +466,13 @@ export class ResourceGraphExplorer extends LitElement {
       ],
     });
     this.cy.on('tap', 'node', (event) => {
-      const node = event.target.data('node') as ResourceNode | undefined;
-      if (node) void this.focusResource(node);
+      const node: unknown = event.target.data('node');
+      if (isResourceNode(node)) void this.focusResource(node);
     });
-    this.cy.on(
-      'tap',
-      'edge',
-      (event) => void this.selectEdge(event.target.data('edge') as ResourceEdge),
-    );
+    this.cy.on('tap', 'edge', (event) => {
+      const edge: unknown = event.target.data('edge');
+      if (isResourceEdge(edge)) void this.selectEdge(edge);
+    });
   }
 
   private async selectEdge(edge: ResourceEdge, page = 1): Promise<void> {
@@ -474,7 +505,8 @@ export class ResourceGraphExplorer extends LitElement {
             .value=${this.search}
             placeholder="Name, key, or catalog"
             @input=${(event: InputEvent) => {
-              this.search = (event.target as HTMLInputElement).value;
+              if (!(event.currentTarget instanceof HTMLInputElement)) return;
+              this.search = event.currentTarget.value;
               void this.loadNodes();
             }}
             @focus=${() => void this.loadNodes()}
@@ -502,7 +534,9 @@ export class ResourceGraphExplorer extends LitElement {
           >Direction<select
             .value=${this.direction}
             @change=${(event: Event) => {
-              this.direction = (event.target as HTMLSelectElement).value as typeof this.direction;
+              if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+              if (!isDirection(event.currentTarget.value)) return;
+              this.direction = event.currentTarget.value;
               void this.reload();
             }}
           >
@@ -515,7 +549,8 @@ export class ResourceGraphExplorer extends LitElement {
           >Depth<select
             .value=${String(this.depth)}
             @change=${(event: Event) => {
-              this.depth = Number((event.target as HTMLSelectElement).value);
+              if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+              this.depth = Number(event.currentTarget.value);
               void this.reload();
             }}
           >
@@ -528,7 +563,8 @@ export class ResourceGraphExplorer extends LitElement {
           >Resource type<select
             .value=${this.typeFilter}
             @change=${(event: Event) => {
-              this.typeFilter = (event.target as HTMLSelectElement).value;
+              if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+              this.typeFilter = event.currentTarget.value;
               void this.loadNodes();
               void this.reload();
             }}
@@ -543,7 +579,8 @@ export class ResourceGraphExplorer extends LitElement {
           >Catalog<select
             .value=${this.catalogFilter}
             @change=${(event: Event) => {
-              this.catalogFilter = (event.target as HTMLSelectElement).value;
+              if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+              this.catalogFilter = event.currentTarget.value;
               void this.loadNodes();
               void this.reload();
             }}
@@ -556,9 +593,10 @@ export class ResourceGraphExplorer extends LitElement {
           >Reference<select
             .value=${this.semanticsFilter}
             @change=${(event: Event) => {
-              this.semanticsFilter = (event.target as HTMLSelectElement).value as
-                | ReferenceSemantics
-                | '';
+              if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+              const value = event.currentTarget.value;
+              this.semanticsFilter =
+                value === 'runtime' || value === 'authoring' || value === 'provenance' ? value : '';
               void this.reload();
             }}
           >
@@ -573,7 +611,8 @@ export class ResourceGraphExplorer extends LitElement {
             type="checkbox"
             .checked=${this.includeHistory}
             @change=${(event: Event) => {
-              this.includeHistory = (event.target as HTMLInputElement).checked;
+              if (!(event.currentTarget instanceof HTMLInputElement)) return;
+              this.includeHistory = event.currentTarget.checked;
               void this.reload();
             }}
           />
@@ -649,7 +688,9 @@ export class ResourceGraphExplorer extends LitElement {
   }
 
   private renderEvidence() {
-    const edge = this.selectedEdge!;
+    const edge = this.selectedEdge;
+    if (!edge) return nothing;
+    const evidence = this.evidence;
     return html`<button
         type="button"
         @click=${() => {
@@ -669,8 +710,8 @@ export class ResourceGraphExplorer extends LitElement {
         ${edge.target ?? `${edge.targetSelector.catalogKey ?? '*'}:${edge.targetSelector.key}`}
       </p>
       <h3>Evidence (${edge.evidenceCount})</h3>
-      ${this.evidence
-        ? html`${this.evidence.items.map(
+      ${evidence
+        ? html`${evidence.items.map(
             (item) =>
               html`<div class="evidence">
                 <strong>${item.owner}</strong> ${item.status
@@ -681,20 +722,20 @@ export class ResourceGraphExplorer extends LitElement {
                   ? html`<br />pinned stencil v${item.pinnedVersion}`
                   : nothing}
               </div>`,
-          )}${this.evidence.totalPages > 1
+          )}${evidence.totalPages > 1
             ? html`<p>
                 <button
                   type="button"
-                  ?disabled=${this.evidence.page <= 1}
-                  @click=${() => void this.selectEdge(edge, this.evidence!.page - 1)}
+                  ?disabled=${evidence.page <= 1}
+                  @click=${() => void this.selectEdge(edge, evidence.page - 1)}
                 >
                   Previous
                 </button>
-                <span>Page ${this.evidence.page} of ${this.evidence.totalPages}</span>
+                <span>Page ${evidence.page} of ${evidence.totalPages}</span>
                 <button
                   type="button"
-                  ?disabled=${this.evidence.page >= this.evidence.totalPages}
-                  @click=${() => void this.selectEdge(edge, this.evidence!.page + 1)}
+                  ?disabled=${evidence.page >= evidence.totalPages}
+                  @click=${() => void this.selectEdge(edge, evidence.page + 1)}
                 >
                   Next
                 </button>
