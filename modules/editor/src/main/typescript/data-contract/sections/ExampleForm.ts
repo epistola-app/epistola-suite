@@ -572,10 +572,7 @@ function renderFormField(
   }
 }
 
-/**
- * Render a collapsible object field with nested properties.
- * Top-level objects open by default; deeper nesting collapsed.
- */
+/** Render a collapsible object field with nested properties. */
 function renderObjectField(
   name: string,
   propSchema: JsonSchemaProperty,
@@ -603,12 +600,10 @@ function renderObjectField(
 
   const nestedRequired = new Set(propSchema.required ?? []);
   const groupHasErrors = hasChildErrors(path, errors);
-  const isTopLevel = depth === 0;
 
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${isTopLevel}
       aria-label="${name} properties"
     >
       <summary class="dc-tree-group-header">
@@ -718,7 +713,6 @@ function renderArrayField(
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${items.length > 0}
       aria-label="${name} array"
     >
       <summary class="dc-tree-group-header">
@@ -805,7 +799,6 @@ function renderArrayOfObjects(
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${items.length > 0}
       aria-label="${name} array of objects"
     >
       <summary class="dc-tree-group-header">
@@ -829,7 +822,6 @@ function renderArrayOfObjects(
           return html`
             <details
               class="dc-array-object-item ${itemHasErrors ? 'dc-tree-group-has-errors' : ''}"
-              open
               role="listitem"
               aria-label="Item ${index + 1}"
             >
@@ -909,7 +901,6 @@ function renderArrayOfArrays(
   return html`
     <details
       class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      ?open=${items.length > 0}
       aria-label="${name} nested arrays"
     >
       <summary class="dc-tree-group-header">

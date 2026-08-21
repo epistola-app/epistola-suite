@@ -11,6 +11,9 @@
 - **[user]** feat(data-contracts): **Example array actions identify their destination.** Add-item
   controls now show the complete field path, including human-readable item numbers for nested
   arrays, while retaining their full context for assistive technology and narrow layouts.
+- **[user]** feat(data-contracts): **Complex examples start with a compact overview.** Object and
+  array properties are collapsed by default, with per-example actions to expand or collapse the
+  complete property tree at once.
 - **[user]** docs(data-contracts): **Data contract behavior and support boundaries are documented.**
   A new guide explains schema dialects and root requirements, visual and JSON-only editing, safe UI
   import normalization, examples and Autofill, expression field discovery, validation, publishing,

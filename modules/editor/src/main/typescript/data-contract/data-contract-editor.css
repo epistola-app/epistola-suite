@@ -1203,6 +1203,13 @@
       }
     }
 
+    & .dc-example-toolbar-divider {
+      width: 1px;
+      height: var(--ep-space-4);
+      margin: 0 var(--ep-space-1);
+      background: var(--ep-stone-200);
+    }
+
     & .dc-example-generate-btn {
       color: var(--ep-primary-strong);
       background: var(--ep-terracotta-50);

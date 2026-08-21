@@ -119,6 +119,10 @@ Array add actions show where the new item will be inserted. Nested numeric path 
 written as item numbers, for example `groups › item 1 › members`, so similarly named arrays remain
 distinguishable even in deeply nested examples.
 
+Object and array properties start collapsed to keep large examples scannable. Use **Expand all** or
+**Collapse all** in the example toolbar to change the complete property tree at once; individual
+groups can still be opened independently.
+
 Empty controls show placeholder hints. Placeholders are presentation only and are never included
 in saved JSON. **Autofill** writes actual test values into missing or unusable fields while
 preserving meaningful values already entered. It uses, in order where applicable:

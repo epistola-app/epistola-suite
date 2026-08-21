@@ -79,6 +79,62 @@ describe('example form placeholders', () => {
   });
 });
 
+describe('example property disclosure', () => {
+  const schema: JsonSchema = {
+    type: 'object',
+    properties: {
+      customer: {
+        type: 'object',
+        properties: {
+          address: {
+            type: 'object',
+            properties: { city: { type: 'string' } },
+          },
+        },
+      },
+      contacts: {
+        type: 'array',
+        items: { type: 'object', properties: { name: { type: 'string' } } },
+      },
+    },
+  };
+
+  it('starts every object, array, and array item collapsed', () => {
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(
+        schema,
+        { customer: { address: {} }, contacts: [{ name: 'Ada' }] },
+        () => {},
+      ),
+      container,
+    );
+
+    const groups = [...container.querySelectorAll<HTMLDetailsElement>('details')];
+    expect(groups).toHaveLength(4);
+    expect(groups.every((group) => !group.open)).toBe(true);
+  });
+
+  it('keeps a manually opened group open when example data rerenders', () => {
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(schema, { customer: { address: {} } }, () => {}),
+      container,
+    );
+    const customer = container.querySelector<HTMLDetailsElement>(
+      'details[aria-label="customer properties"]',
+    )!;
+    customer.open = true;
+
+    render(
+      renderExampleForm(schema, { customer: { address: { city: 'Utrecht' } } }, () => {}),
+      container,
+    );
+
+    expect(customer.open).toBe(true);
+  });
+});
+
 describe('array item actions', () => {
   const schema: JsonSchema = {
     type: 'object',
