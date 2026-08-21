@@ -662,6 +662,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             )
             assertThat(formResponse.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(formResponse.body).contains("id=\"catalog-metadata-dialog\"")
+            assertThat(formResponse.body).doesNotContain("class=\"ep-dialog ep-dialog-lg\" open")
 
             val payload = LinkedMultiValueMap<String, String>()
             payload.add("name", "Discoverable catalog")
