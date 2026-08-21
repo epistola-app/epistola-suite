@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test
 class ColumnsLayoutPlaywrightUiTest : BasePlaywrightTest() {
 
     @Test
-    fun `first column content aligns with a sibling component`() {
+    fun `column content retains its editor inset`() {
         val editorUrl = withMediator { setupTemplateWithColumns() }
 
         gotoAndReady(editorUrl)
@@ -46,9 +46,10 @@ class ColumnsLayoutPlaywrightUiTest : BasePlaywrightTest() {
         ) as Number
         val siblingBox = requireNotNull(siblingContent.boundingBox())
         val firstColumnBox = requireNotNull(firstColumnContent.boundingBox())
-        assertThat(columnsPaddingLeft.toDouble()).isZero()
-        // The remaining pixel is the editor chrome's border, not content padding.
-        assertThat(firstColumnBox.x).isCloseTo(siblingBox.x, within(1.5))
+        assertThat(columnsPaddingLeft.toDouble()).isPositive()
+        // The extra pixel is the editor chrome's border around the columns content area.
+        assertThat(firstColumnBox.x - siblingBox.x)
+            .isCloseTo(columnsPaddingLeft.toDouble() + 1.0, within(1.5))
     }
 
     private fun setupTemplateWithColumns(): String {

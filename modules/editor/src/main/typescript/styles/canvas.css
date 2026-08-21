@@ -121,10 +121,6 @@
     &.text-type {
       min-height: 2rem;
     }
-
-    &.columns-type {
-      padding-inline: 0;
-    }
   }
 
   .canvas-leaf-text {
