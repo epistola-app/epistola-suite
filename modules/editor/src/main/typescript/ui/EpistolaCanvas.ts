@@ -42,6 +42,7 @@ export class EpistolaCanvas extends LitElement {
   private _dndCleanup: (() => void) | null = null;
   private _unsubComponentState?: () => void;
   private _subscribedEngine?: EditorEngine;
+  private _textPointerDown: { nodeId: NodeId; x: number; y: number } | null = null;
 
   private get _spacingUnit(): number {
     return this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
@@ -54,9 +55,20 @@ export class EpistolaCanvas extends LitElement {
     if (this._isInLockedSlot(nodeId)) return;
     e.stopPropagation();
     this.engine?.selectNode(nodeId);
-    const target = e.target;
-    const clickedRichText = target instanceof Element && target.closest('.ProseMirror') !== null;
-    this._maybeFocusTextEditor(nodeId, !clickedRichText);
+    const mouseEvent = e as MouseEvent;
+    const pointerDown = this._textPointerDown;
+    const wasTextDrag =
+      pointerDown?.nodeId === nodeId &&
+      (Math.abs(mouseEvent.clientX - pointerDown.x) > 4 ||
+        Math.abs(mouseEvent.clientY - pointerDown.y) > 4);
+    this._textPointerDown = null;
+    this._maybeFocusTextEditor(nodeId, !wasTextDrag);
+  }
+
+  private _handleTextPointerDown(e: MouseEvent, nodeId: NodeId): void {
+    if (e.button !== 0 || this._isInLockedSlot(nodeId)) return;
+    if (this.doc?.nodes[nodeId]?.type !== 'text') return;
+    this._textPointerDown = { nodeId, x: e.clientX, y: e.clientY };
   }
 
   private _handleCanvasClick() {
@@ -435,6 +447,7 @@ export class EpistolaCanvas extends LitElement {
         data-node-id=${nodeId}
         data-block-label=${label}
         tabindex=${isInLockedSlot ? nothing : '0'}
+        @mousedown=${(e: MouseEvent) => this._handleTextPointerDown(e, nodeId)}
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
         @focus=${() => this._handleFocus(nodeId)}
       >

@@ -171,6 +171,29 @@ describe('EpistolaCanvas — read-only blocks are not user-focusable', () => {
     expect(document.activeElement).toBe(view.dom);
   });
 
+  it('preserves a text range created by dragging inside the text component', async () => {
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    const block = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-toplevel"]',
+    )!;
+    const content = block.querySelector<HTMLElement>('.canvas-block-content')!;
+    const textEditor = block.querySelector('epistola-text-editor')!;
+    const view = (textEditor as unknown as { _pmView: EditorView })._pmView;
+
+    content.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 10, clientY: 10 }),
+    );
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    content.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, button: 0, clientX: 30, clientY: 10 }),
+    );
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(view.state.selection.empty).toBe(false);
+  });
+
   it('blocks inside the locked stencil children slot have no tabindex (out of tab cycle and click cycle)', async () => {
     const engine = setupEngine(true);
     await renderCanvas(container, engine);
