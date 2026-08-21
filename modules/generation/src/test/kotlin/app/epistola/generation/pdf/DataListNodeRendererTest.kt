@@ -4,12 +4,21 @@
 
 package app.epistola.generation.pdf
 
+import app.epistola.generation.ProseMirrorConverter
+import app.epistola.generation.expression.CompositeExpressionEvaluator
+import app.epistola.generation.expression.JsonataEvaluator
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.layout.element.ListItem
+import com.itextpdf.layout.properties.Property
+import com.itextpdf.layout.properties.UnitValue
 import java.io.ByteArrayOutputStream
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.itextpdf.layout.element.List as PdfList
 
 class DataListNodeRendererTest {
 
@@ -140,5 +149,36 @@ class DataListNodeRendererTest {
         )
         val pdf = renderToPdf(doc, data)
         assertTrue(pdf.isNotEmpty())
+    }
+
+    @Test
+    fun `applies configured spacing between data list items only`() {
+        val (doc, data) = documentWithDataList(
+            listProps = mapOf(
+                "expression" to mapOf("raw" to "items", "language" to "simple_path"),
+                "itemAlias" to "item",
+                "listType" to "bullet",
+            ),
+            data = mapOf("items" to listOf("Alpha", "Beta", "Gamma")),
+        )
+        val node = doc.nodes.getValue("datalist").copy(styles = mapOf("listItemSpacing" to "1sp"))
+        val evaluator = CompositeExpressionEvaluator(jsonataEvaluator = JsonataEvaluator())
+        val context = RenderContext(
+            data = data,
+            expressionEvaluator = evaluator,
+            proseMirrorConverter = ProseMirrorConverter(evaluator),
+            fontCache = FontCache(),
+            document = doc,
+        )
+
+        val list = assertIs<PdfList>(
+            DataListNodeRenderer()
+                .render(node, doc, context, NodeRendererRegistry(mapOf("text" to TextNodeRenderer())))
+                .single(),
+        )
+        val margins = list.children.map {
+            assertIs<ListItem>(it).getProperty<UnitValue>(Property.MARGIN_BOTTOM).value
+        }
+        assertEquals(listOf(4f, 4f, 0f), margins)
     }
 }

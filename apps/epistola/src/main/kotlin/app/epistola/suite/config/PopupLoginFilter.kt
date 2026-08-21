@@ -9,8 +9,8 @@ import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler.Compan
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
+import org.springframework.session.web.http.SessionRepositoryFilter
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
@@ -23,9 +23,12 @@ import org.springframework.web.filter.OncePerRequestFilter
  * This filter checks for popup=true on OAuth2 authorization requests and saves the
  * state to the session. The PopupAwareAuthenticationSuccessHandler then reads this
  * state after successful authentication.
+ *
+ * It must run after [SessionRepositoryFilter], otherwise `request.session` refers to
+ * the servlet container session instead of Epistola's JDBC-backed Spring Session.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE) // Run very early
+@Order(SessionRepositoryFilter.DEFAULT_ORDER + 1)
 class PopupLoginFilter : OncePerRequestFilter() {
 
     override fun doFilterInternal(
@@ -35,8 +38,8 @@ class PopupLoginFilter : OncePerRequestFilter() {
     ) {
         // Only the login / OAuth2 authorization entry points carry popup=true, so
         // gate the getParameter() call behind this path check. Reading a request
-        // parameter forces the servlet to parse the body, and this filter runs at
-        // HIGHEST_PRECEDENCE; doing that eagerly on every request is wasteful and
+        // parameter forces the servlet to parse the body, and this filter still runs
+        // very early; doing that eagerly on every request is wasteful and
         // historically also locked form bodies to ISO-8859-1 (mangling diacritics
         // like `Café`) when it parsed before the encoding was set. The container
         // default is now pinned to UTF-8 up front (see RequestEncodingConfig), so

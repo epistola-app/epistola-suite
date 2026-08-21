@@ -64,4 +64,28 @@ describe('toStyleMap', () => {
   it('falls back to the default base unit when none is given', () => {
     expect(toStyleMap({ marginTop: '2sp' })).toEqual({ 'margin-top': '8pt' });
   });
+
+  it('maps list item spacing to a non-negative semantic custom property', () => {
+    expect(toStyleMap({ listItemSpacing: '0.5sp' }, 4)).toEqual({
+      '--ep-list-item-spacing': '2pt',
+    });
+    expect(toStyleMap({ listItemSpacing: '-2pt' })).toEqual({
+      '--ep-list-item-spacing': '0pt',
+    });
+  });
+
+  it('drops invalid list item spacing values so CSS uses its fallback', () => {
+    expect(toStyleMap({ listItemSpacing: 'wide' })).toEqual({});
+  });
+
+  it('forwards line height to nested editor content including zero', () => {
+    expect(toStyleMap({ lineHeight: 0 })).toEqual({
+      'line-height': '0',
+      '--ep-line-height': '0',
+    });
+    expect(toStyleMap({ lineHeight: 1.25 })).toEqual({
+      'line-height': '1.25',
+      '--ep-line-height': '1.25',
+    });
+  });
 });

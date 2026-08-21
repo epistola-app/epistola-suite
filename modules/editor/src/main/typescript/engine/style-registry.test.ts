@@ -10,13 +10,14 @@ import {
   defaultStyleRegistry,
   isEditorStyleApplicable,
 } from './style-registry.js';
+import { createDefaultRegistry } from './registry.js';
 
 describe('editor style registry', () => {
   it('replaces spacing longhands with the compound margin and padding controls', () => {
     const spacing = defaultStyleRegistry.groups.find((group) => group.label === 'Spacing');
     const keys = spacing?.properties.map((property) => property.key);
 
-    expect(keys).toEqual(['padding', 'margin']);
+    expect(keys).toEqual(['padding', 'margin', 'listItemSpacing']);
   });
 
   it('replaces border longhands with the compound border control', () => {
@@ -56,5 +57,18 @@ describe('editor style registry', () => {
     expect(isEditorStyleApplicable('padding', ['paddingLeft'])).toBe(true);
     expect(isEditorStyleApplicable('border', ['borderBottom'])).toBe(true);
     expect(isEditorStyleApplicable('margin', ['paddingTop'])).toBe(false);
+  });
+
+  it('exposes the shared list item spacing default for every list-producing component', () => {
+    const registry = createDefaultRegistry();
+
+    for (const type of ['text', 'richTextVariable', 'datalist']) {
+      const component = registry.getOrThrow(type);
+      expect(component.defaultStyles?.listItemSpacing).toBe('0.5sp');
+      expect(
+        component.applicableStyles === 'all' ||
+          component.applicableStyles.includes('listItemSpacing'),
+      ).toBe(true);
+    }
   });
 });

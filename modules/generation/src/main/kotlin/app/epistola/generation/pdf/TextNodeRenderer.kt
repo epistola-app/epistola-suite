@@ -55,6 +55,7 @@ class TextNodeRenderer : NodeRenderer {
             rawStyles["fontFamily"]?.let { put("fontFamily", it) }
             rawStyles["fontWeight"]?.let { put("fontWeight", it) }
             rawStyles["fontStyle"]?.let { put("fontStyle", it) }
+            put("listItemSpacing", resolveListItemSpacing(node, context))
         }
 
         // Convert ProseMirror content to iText elements
