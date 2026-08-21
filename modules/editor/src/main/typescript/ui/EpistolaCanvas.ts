@@ -476,7 +476,11 @@ export class EpistolaCanvas extends LitElement {
           ? nothing
           : html`
               <div
-                class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
+                class="canvas-block-content ${node.type === 'text'
+                  ? 'text-type'
+                  : node.type === 'columns'
+                    ? 'columns-type'
+                    : ''}"
                 style=${styleMap(contentStyle)}
               >
                 ${this._renderBlockContent(nodeId)}

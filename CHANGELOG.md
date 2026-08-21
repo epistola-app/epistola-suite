@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(editor): **Column content aligns with neighboring components.** The Columns
+  component no longer adds editor-only horizontal inset around its column contents, while explicit
+  padding configured on the component continues to apply.
 - **[user]** fix(editor): **Nested loops expose correctly typed item fields.** Inner loops can use
   arrays from an outer item and retain schema types for their item alias and child fields,
   including arrays nested directly inside arrays. The demo catalog now includes nested delivery
