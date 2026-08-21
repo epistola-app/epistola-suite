@@ -62,6 +62,8 @@ export class ResourceGraphExplorer extends LitElement {
   @property({ attribute: 'data-base-url' }) baseUrl = '';
   @state() private search = '';
   @state() private searchResults: ResourceNode[] = [];
+  @state() private searchResultsVisible = false;
+  @state() private searching = false;
   @state() private catalogOptions: Array<[string, string]> = [];
   @state() private graph?: SubgraphResponse;
   @state() private selectedEdge?: ResourceEdge;
@@ -95,6 +97,12 @@ export class ResourceGraphExplorer extends LitElement {
       border: 1px solid var(--ep-color-border, #d8dee9);
       border-radius: 0.5rem;
       background: var(--ep-color-surface, white);
+    }
+    .resource-search {
+      position: relative;
+      display: flex;
+      gap: 0.5rem;
+      align-items: end;
     }
     label {
       display: grid;
@@ -137,6 +145,8 @@ export class ResourceGraphExplorer extends LitElement {
     }
     .results {
       position: absolute;
+      top: calc(100% + 0.25rem);
+      left: 0;
       z-index: 5;
       width: min(32rem, 85vw);
       max-height: 20rem;
@@ -148,6 +158,10 @@ export class ResourceGraphExplorer extends LitElement {
       border-radius: 0.4rem;
       background: white;
       box-shadow: 0 0.5rem 1.5rem rgb(15 23 42 / 15%);
+    }
+    .results-empty {
+      padding: 0.75rem;
+      color: #667085;
     }
     .results button {
       width: 100%;
@@ -289,7 +303,7 @@ export class ResourceGraphExplorer extends LitElement {
     const type = isResourceType(requestedType) ? requestedType : undefined;
     const catalog = params.get('catalog');
     const key = params.get('key');
-    void this.loadNodes();
+    void this.loadNodes(false);
     if (type && catalog && key)
       void this.focusResource({
         id: `${type}:${catalog}:${key}`,
@@ -312,11 +326,12 @@ export class ResourceGraphExplorer extends LitElement {
     if (changed.has('graph')) this.renderCanvas();
   }
 
-  private async loadNodes(): Promise<void> {
+  private async loadNodes(showResults: boolean): Promise<void> {
     const sequence = ++this.searchSequence;
     const params = new URLSearchParams({ q: this.search });
     if (this.typeFilter) params.set('type', this.typeFilter);
     if (this.catalogFilter) params.set('catalog', this.catalogFilter);
+    if (showResults) this.searching = true;
     try {
       const response = await fetch(`${this.baseUrl}/nodes?${params}`);
       if (!response.ok) throw new Error(`Could not load resources (${response.status})`);
@@ -325,12 +340,28 @@ export class ResourceGraphExplorer extends LitElement {
         catalogs: Array<{ key: string; name: string }>;
       };
       if (sequence === this.searchSequence) {
-        this.searchResults = body.nodes;
         this.catalogOptions = body.catalogs.map((catalog) => [catalog.key, catalog.name]);
+        if (showResults) {
+          this.searchResults = body.nodes;
+          this.searchResultsVisible = true;
+        }
       }
     } catch (error) {
       this.error = error instanceof Error ? error.message : 'Could not load resources';
+    } finally {
+      if (sequence === this.searchSequence) this.searching = false;
     }
+  }
+
+  private searchResources(event: SubmitEvent): void {
+    event.preventDefault();
+    this.search = this.search.trim();
+    if (!this.search) {
+      this.searchResults = [];
+      this.searchResultsVisible = false;
+      return;
+    }
+    void this.loadNodes(true);
   }
 
   private async focusResource(node: ResourceNode): Promise<void> {
@@ -338,6 +369,7 @@ export class ResourceGraphExplorer extends LitElement {
     this.error = '';
     this.search = node.name;
     this.searchResults = [];
+    this.searchResultsVisible = false;
     const params = new URLSearchParams({
       type: node.type,
       catalog: node.catalogKey,
@@ -498,38 +530,61 @@ export class ResourceGraphExplorer extends LitElement {
     const incoming = this.graph?.edges.filter((edge) => edge.target === this.graph?.focus.id) ?? [];
     return html`
       <div class="toolbar">
-        <label
-          >Find a resource
-          <input
-            type="search"
-            .value=${this.search}
-            placeholder="Name, key, or catalog"
-            @input=${(event: InputEvent) => {
-              if (!(event.currentTarget instanceof HTMLInputElement)) return;
-              this.search = event.currentTarget.value;
-              void this.loadNodes();
-            }}
-            @focus=${() => void this.loadNodes()}
-            aria-label="Find a resource"
-          />
-          ${this.searchResults.length
-            ? html`<ul class="results">
-                ${this.searchResults.map(
-                  (node) =>
-                    html`<li>
-                      <button type="button" @click=${() => void this.focusResource(node)}>
-                        <span class="badge">${displayType(node.type)}</span
-                        ><span
-                          ><strong>${node.name}</strong><br /><span class="result-meta"
-                            >${node.catalogName} · ${node.key}</span
-                          ></span
-                        >
-                      </button>
-                    </li>`,
-                )}
+        <form
+          class="resource-search"
+          role="search"
+          @submit=${(event: SubmitEvent) => this.searchResources(event)}
+          @focusout=${(event: FocusEvent) => {
+            if (!(event.currentTarget instanceof HTMLFormElement)) return;
+            if (
+              event.relatedTarget instanceof Node &&
+              event.currentTarget.contains(event.relatedTarget)
+            )
+              return;
+            this.searchResultsVisible = false;
+          }}
+        >
+          <label
+            >Find a resource
+            <input
+              type="search"
+              .value=${this.search}
+              placeholder="Name, key, or catalog"
+              @input=${(event: InputEvent) => {
+                if (!(event.currentTarget instanceof HTMLInputElement)) return;
+                this.search = event.currentTarget.value;
+                this.searchResults = [];
+                this.searchResultsVisible = false;
+              }}
+              @keydown=${(event: KeyboardEvent) => {
+                if (event.key === 'Escape') this.searchResultsVisible = false;
+              }}
+              aria-label="Find a resource"
+            />
+          </label>
+          <button type="submit" ?disabled=${this.searching || !this.search.trim()}>
+            ${this.searching ? 'Searching…' : 'Search'}
+          </button>
+          ${this.searchResultsVisible
+            ? html`<ul class="results" aria-label="Resource search results">
+                ${this.searchResults.length
+                  ? this.searchResults.map(
+                      (node) =>
+                        html`<li>
+                          <button type="button" @click=${() => void this.focusResource(node)}>
+                            <span class="badge">${displayType(node.type)}</span
+                            ><span
+                              ><strong>${node.name}</strong><br /><span class="result-meta"
+                                >${node.catalogName} · ${node.key}</span
+                              ></span
+                            >
+                          </button>
+                        </li>`,
+                    )
+                  : html`<li class="results-empty">No resources found.</li>`}
               </ul>`
             : nothing}
-        </label>
+        </form>
         <label
           >Direction<select
             .value=${this.direction}
@@ -565,7 +620,7 @@ export class ResourceGraphExplorer extends LitElement {
             @change=${(event: Event) => {
               if (!(event.currentTarget instanceof HTMLSelectElement)) return;
               this.typeFilter = event.currentTarget.value;
-              void this.loadNodes();
+              this.searchResultsVisible = false;
               void this.reload();
             }}
           >
@@ -581,7 +636,7 @@ export class ResourceGraphExplorer extends LitElement {
             @change=${(event: Event) => {
               if (!(event.currentTarget instanceof HTMLSelectElement)) return;
               this.catalogFilter = event.currentTarget.value;
-              void this.loadNodes();
+              this.searchResultsVisible = false;
               void this.reload();
             }}
           >

@@ -9,7 +9,8 @@
   by catalog, resource type, and reference semantics, inspect exact version/JSON-path evidence, and
   optionally include archived history. Missing and ambiguous references remain visible so catalog
   maintenance can be planned safely. The alpha feature is off by default and can be enabled per
-  tenant from Settings → Features.
+  tenant from Settings → Features. Resource selection uses an explicit search and stays closed
+  until a query is submitted.
 - **[dev]** feat(catalogs): **A canonical tenant resource-reference query is available in
   core.** It extracts relational and versioned-JSON references for all seven catalog resource
   types in a consistent read transaction, classifies runtime, authoring, and provenance edges, and
