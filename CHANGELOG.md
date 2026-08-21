@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** feat(data-contracts): **Schema fields can be added where authors are working.**
+  The visual contract editor offers contextual child and sibling actions with full schema paths,
+  keeps nested parents expanded, selects the new field name for immediate typing, and preserves a
+  nearby selection through delete, undo, and redo operations.
 - **[user]** docs(data-contracts): **Data contract behavior and support boundaries are documented.**
   A new guide explains schema dialects and root requirements, visual and JSON-only editing, safe UI
   import normalization, examples and Autofill, expression field discovery, validation, publishing,

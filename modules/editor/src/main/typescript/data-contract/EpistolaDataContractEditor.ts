@@ -35,7 +35,11 @@ import type {
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './schema/conversion.js';
 import type { SchemaCommand } from './schema/commands.js';
 import { SchemaCommandHistory } from './schema/command-history.js';
-import { findFieldPath } from './schema/commands.js';
+import {
+  fieldTargetAncestorIds,
+  findFieldPath,
+  reconcileFieldSelection,
+} from './schema/field-location.js';
 import { SnapshotHistory } from './schema/snapshot-history.js';
 import {
   detectMigrations,
@@ -96,6 +100,7 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _schemaWarnings: Array<{ path: string; message: string }> = [];
   @state() private _expandedFields = new Set<string>();
   @state() private _selectedFieldId: string | null = null;
+  private _pendingFieldNameFocus: { fieldId: string; selectAll: boolean } | null = null;
   @state() private _jsonPanelOpen = false;
   @state() private _compatibilityIssues: CompatibilityIssue[] = [];
   @state() private _normalizationChanges: SchemaNormalizationChange[] = [];
@@ -205,6 +210,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   override updated(): void {
     this._renderExternalSaveControls();
+    this._applyPendingFieldNameFocus();
   }
 
   override disconnectedCallback() {
@@ -448,7 +454,9 @@ export class EpistolaDataContractEditor extends LitElement {
       onSelectField: (fieldId) => this._selectField(fieldId),
       onUndo: () => this._undo(),
       onRedo: () => this._redo(),
-      onAddField: () => this._executeCommand({ type: 'addField', parentFieldId: null }),
+      onAddField: (parentFieldId) => this._addSchemaField(parentFieldId),
+      onRequestFieldNameFocus: (fieldId, selectAll) =>
+        this._queueFieldNameFocus(fieldId, selectAll),
       onImport: () => this._openImportDialog(),
       onToggleJson: () => {
         this._jsonPanelOpen = !this._jsonPanelOpen;
@@ -524,8 +532,9 @@ export class EpistolaDataContractEditor extends LitElement {
   // Schema operations (command-based)
   // ---------------------------------------------------------------------------
 
-  private _executeCommand(command: SchemaCommand): void {
+  private _executeCommand(command: SchemaCommand): string | null {
     const prevSchema = this._visualSchema;
+    const previousSelection = this._selectedFieldId;
     this._visualSchema = this._commandHistory.execute(command, this._visualSchema);
     this._syncVisualSchemaToState();
     this._clearSaveStatus();
@@ -534,12 +543,17 @@ export class EpistolaDataContractEditor extends LitElement {
     if (command.type === 'addField') {
       const newFieldId = this._findNewFieldId(prevSchema.fields, this._visualSchema.fields);
       if (newFieldId) this._selectedFieldId = newFieldId;
+      this._validateAllExamples();
+      this._updateBreakingChanges();
+      return newFieldId;
     }
 
-    // Clear selection if deleted field was selected
-    if (command.type === 'deleteField' && this._selectedFieldId === command.fieldId) {
-      this._selectedFieldId =
-        this._visualSchema.fields.length > 0 ? this._visualSchema.fields[0].id : null;
+    if (command.type === 'deleteField') {
+      this._selectedFieldId = reconcileFieldSelection(
+        prevSchema.fields,
+        this._visualSchema.fields,
+        previousSelection,
+      );
     }
 
     // Auto-rename example data keys when a field is renamed
@@ -556,6 +570,20 @@ export class EpistolaDataContractEditor extends LitElement {
     // Re-validate examples and recompute breaking changes
     this._validateAllExamples();
     this._updateBreakingChanges();
+    return null;
+  }
+
+  private _addSchemaField(parentFieldId: string | null): void {
+    const expandedIds =
+      parentFieldId === null
+        ? []
+        : fieldTargetAncestorIds(this._visualSchema.fields, parentFieldId);
+    if (expandedIds.length > 0) {
+      this._expandedFields = new Set([...this._expandedFields, ...expandedIds]);
+    }
+
+    const newFieldId = this._executeCommand({ type: 'addField', parentFieldId });
+    if (newFieldId) this._queueFieldNameFocus(newFieldId, true);
   }
 
   /** Recompute live breaking changes by diffing committed vs current visual schema. */
@@ -613,9 +641,15 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _undo(): void {
-    const prev = this._commandHistory.undo(this._visualSchema);
+    const current = this._visualSchema;
+    const prev = this._commandHistory.undo(current);
     if (prev) {
       this._visualSchema = prev;
+      this._selectedFieldId = reconcileFieldSelection(
+        current.fields,
+        prev.fields,
+        this._selectedFieldId,
+      );
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
       this._validateAllExamples();
@@ -624,9 +658,15 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _redo(): void {
-    const next = this._commandHistory.redo(this._visualSchema);
+    const current = this._visualSchema;
+    const next = this._commandHistory.redo(current);
     if (next) {
       this._visualSchema = next;
+      this._selectedFieldId = reconcileFieldSelection(
+        current.fields,
+        next.fields,
+        this._selectedFieldId,
+      );
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
       this._validateAllExamples();
@@ -657,6 +697,28 @@ export class EpistolaDataContractEditor extends LitElement {
       newSet.add(fieldId);
     }
     this._expandedFields = newSet;
+  }
+
+  private _queueFieldNameFocus(fieldId: string, selectAll: boolean): void {
+    this._pendingFieldNameFocus = { fieldId, selectAll };
+    this.requestUpdate();
+  }
+
+  private _applyPendingFieldNameFocus(): void {
+    const pending = this._pendingFieldNameFocus;
+    if (!pending) return;
+    this._pendingFieldNameFocus = null;
+
+    const input = this.querySelector<HTMLInputElement>(`#dc-schema-field-name-${pending.fieldId}`);
+    if (!input) return;
+
+    input.focus();
+    if (pending.selectAll) {
+      input.select();
+    } else {
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    }
   }
 
   private async _saveAll(): Promise<void> {

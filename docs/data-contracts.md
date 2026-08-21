@@ -47,6 +47,13 @@ The visual editor supports object contracts composed from:
 - `minItems` for arrays;
 - Epistola's registered inline and block rich-text `$ref` types.
 
+Select a field to add another field in context. Container fields offer a primary child action and
+a secondary sibling action; scalar fields offer a sibling action. Each action shows the complete
+destination path, such as `customer › address` or `customer › recipients items`. The new field is
+selected immediately with its generated name ready to replace, so nested fields can be created
+without first navigating back to their parent object. Press Enter to confirm a name or Escape to
+restore it. Delete, undo, and redo keep the closest remaining field selected.
+
 The visual editor currently cannot represent every valid JSON Schema keyword. Among other things,
 multi-value type unions, multi-branch compositions, tuple arrays, arrays directly containing
 arrays, `additionalProperties: false`, arbitrary references, `enum`, `const`, `default`,
