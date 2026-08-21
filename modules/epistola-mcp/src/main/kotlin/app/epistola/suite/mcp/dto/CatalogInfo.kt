@@ -46,14 +46,14 @@ data class CatalogInfo(
                 id = catalog.id.value,
                 name = catalog.name,
                 description = catalog.description,
-                attributes = catalog.portableMetadata.attributes.map {
+                attributes = catalog.catalogMetadata.attributes.map {
                     CatalogAttributeInfo(catalog = it.catalog, key = it.key, value = it.value)
                 },
-                keywords = catalog.portableMetadata.keywords,
-                presentation = catalog.portableMetadata.presentation?.let {
+                keywords = catalog.catalogMetadata.keywords,
+                presentation = catalog.catalogMetadata.presentation?.let {
                     CatalogPresentationInfo(iconAssetSlug = it.iconAssetSlug, imageAssetSlugs = it.imageAssetSlugs)
                 },
-                license = catalog.portableMetadata.license?.let {
+                license = catalog.catalogMetadata.license?.let {
                     CatalogLicenseInfo(it.name, it.spdxExpression, it.url, it.copyrightText)
                 },
                 type = catalog.type.name,

@@ -11,8 +11,8 @@ import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogNotFoundException
-import app.epistola.suite.catalog.CatalogPortableMetadata
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeKey
@@ -45,7 +45,7 @@ data class UpdateCatalogMetadata(
     RequiresPermission {
     override val permission get() = Permission.CATALOG_MANAGE
 
-    val portableMetadata = CatalogPortableMetadata(attributes, keywords, presentation, license)
+    val catalogMetadata = CatalogMetadata(attributes, keywords, presentation, license)
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
@@ -213,17 +213,17 @@ class UpdateCatalogMetadataHandler(
 
         if (existing.name == command.name &&
             existing.description == command.description &&
-            existing.portableMetadata == command.portableMetadata
+            existing.catalogMetadata == command.catalogMetadata
         ) {
             return existing
         }
 
-        val portableMetadataJson = objectMapper.writeValueAsString(command.portableMetadata)
+        val catalogMetadataJson = objectMapper.writeValueAsString(command.catalogMetadata)
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE catalogs
-                SET name = :name, description = :description, portable_metadata = :portableMetadata::jsonb,
+                SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     content_updated_at = NOW(), updated_at = NOW()
                 WHERE tenant_key = :tenantKey AND id = :catalogKey
                 """,
@@ -232,7 +232,7 @@ class UpdateCatalogMetadataHandler(
                 .bind("catalogKey", command.catalogKey)
                 .bind("name", command.name)
                 .bind("description", command.description)
-                .bind("portableMetadata", portableMetadataJson)
+                .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
 
             handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, command.catalogKey.value)!!

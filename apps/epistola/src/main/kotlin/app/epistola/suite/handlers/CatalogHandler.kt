@@ -505,10 +505,10 @@ class CatalogHandler {
                 "resources" to result.resources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
-                "presentationImages" to result.catalog.portableMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
-                "presentationIcon" to result.catalog.portableMetadata.presentation?.iconAssetSlug?.let {
+                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
             }
@@ -535,7 +535,7 @@ class CatalogHandler {
 
         return try {
             val catalog = catalogForMetadata(tenantId.key, catalogKey)
-            val current = catalog.portableMetadata
+            val current = catalog.catalogMetadata
 
             UpdateCatalogMetadata(
                 tenantKey = tenantId.key,
@@ -626,12 +626,12 @@ class CatalogHandler {
         section: CatalogMetadataSection,
     ): Map<String, Any?> {
         val catalog = catalogForMetadata(tenantKey, catalogKey)
-        val currentAttributes = catalog.portableMetadata.attributes.associate { "${it.catalog}.${it.key}" to it.value }
+        val currentAttributes = catalog.catalogMetadata.attributes.associate { "${it.catalog}.${it.key}" to it.value }
         val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey)).query())
             .filter { it.qualifiedKey == CATALOG_LOCALE_ATTRIBUTE }
         val images = ListAssets(tenantKey, catalogKey = catalogKey).query()
             .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-        val gallery = catalog.portableMetadata.presentation?.imageAssetSlugs.orEmpty()
+        val gallery = catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty()
 
         return mapOf(
             "tenantId" to tenantKey,
@@ -783,10 +783,10 @@ class CatalogHandler {
             oob("catalogs/browse", "metadata-card") {
                 "tenantId" to tenantId.key
                 "catalog" to result.catalog
-                "presentationImages" to result.catalog.portableMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
-                "presentationIcon" to result.catalog.portableMetadata.presentation?.iconAssetSlug?.let {
+                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
             }
@@ -798,10 +798,10 @@ class CatalogHandler {
                     "activeNavSection" to "catalogs"
                     "catalog" to result.catalog
                     "resources" to result.resources
-                    "presentationImages" to result.catalog.portableMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                    "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                         CatalogPresentationAssetView(it, imagesBySlug[it])
                     }
-                    "presentationIcon" to result.catalog.portableMetadata.presentation?.iconAssetSlug?.let {
+                    "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
                         CatalogPresentationAssetView(it, imagesBySlug[it])
                     }
                     if (successMessage != null) "successMessage" to successMessage

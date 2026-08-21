@@ -150,7 +150,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             UpgradeCatalog(tenant.id, depKey).execute()
             val upgraded = GetCatalog(tenant.id, depKey).query()!!
             assertThat(upgraded.name).isEqualTo("Publisher Renamed Catalog")
-            assertThat(upgraded.portableMetadata.keywords).containsExactly("NewKeyword")
+            assertThat(upgraded.catalogMetadata.keywords).containsExactly("NewKeyword")
         }
     }
 

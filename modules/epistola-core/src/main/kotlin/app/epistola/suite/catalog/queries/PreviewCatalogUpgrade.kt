@@ -125,10 +125,10 @@ class PreviewCatalogUpgradeHandler(
             if (catalog.name != manifest.catalog.name || catalog.description != manifest.catalog.description) {
                 add(CatalogMetadataSection.IDENTITY)
             }
-            if (catalog.portableMetadata.attributes != manifest.catalog.attributes) add(CatalogMetadataSection.ATTRIBUTES)
-            if (catalog.portableMetadata.keywords != manifest.catalog.keywords) add(CatalogMetadataSection.KEYWORDS)
-            if (catalog.portableMetadata.presentation != manifest.catalog.presentation) add(CatalogMetadataSection.PRESENTATION)
-            if (catalog.portableMetadata.license != manifest.catalog.license) add(CatalogMetadataSection.LICENSE)
+            if (catalog.catalogMetadata.attributes != manifest.catalog.attributes) add(CatalogMetadataSection.ATTRIBUTES)
+            if (catalog.catalogMetadata.keywords != manifest.catalog.keywords) add(CatalogMetadataSection.KEYWORDS)
+            if (catalog.catalogMetadata.presentation != manifest.catalog.presentation) add(CatalogMetadataSection.PRESENTATION)
+            if (catalog.catalogMetadata.license != manifest.catalog.license) add(CatalogMetadataSection.LICENSE)
         }
 
         // Same conflict logic UpgradeCatalog throws on, on the same set it would

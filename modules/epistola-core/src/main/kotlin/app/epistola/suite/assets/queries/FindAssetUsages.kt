@@ -54,9 +54,9 @@ class FindAssetUsagesHandler(
                     FROM catalogs c
                     WHERE c.tenant_key = :tenantId
                       AND (
-                          c.portable_metadata #>> '{presentation,iconAssetSlug}' = :assetId
+                          c.catalog_metadata #>> '{presentation,iconAssetSlug}' = :assetId
                           OR jsonb_exists(
-                              COALESCE(c.portable_metadata #> '{presentation,imageAssetSlugs}', '[]'::jsonb),
+                              COALESCE(c.catalog_metadata #> '{presentation,imageAssetSlugs}', '[]'::jsonb),
                               :assetId
                           )
                       )

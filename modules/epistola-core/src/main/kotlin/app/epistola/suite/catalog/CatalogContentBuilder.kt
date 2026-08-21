@@ -123,7 +123,7 @@ class CatalogContentBuilder(
         }
 
         return CatalogContent(
-            catalog = catalog.portableMetadata.toCatalogInfo(
+            catalog = catalog.catalogMetadata.toCatalogInfo(
                 slug = catalogKey.value,
                 name = catalog.name,
                 description = catalog.description,

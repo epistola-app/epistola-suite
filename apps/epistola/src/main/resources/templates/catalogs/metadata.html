@@ -46,7 +46,7 @@
 
             <div th:if="${section == 'keywords'}" class="form-group">
                 <textarea id="catalog-keywords" class="ep-input" name="keywords" rows="4" aria-label="Keywords"
-                          th:text="${#strings.listJoin(catalog.portableMetadata.keywords, '&#10;')}"></textarea>
+                          th:text="${#strings.listJoin(catalog.catalogMetadata.keywords, '&#10;')}"></textarea>
                 <span class="form-hint">One keyword per line. Case is preserved.</span>
             </div>
 
@@ -55,7 +55,7 @@
                 <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
                     <option value="">No icon</option>
                     <option th:each="image : ${images}" th:value="${image.id}" th:text="${image.name}"
-                            th:selected="${catalog.portableMetadata.presentation != null and image.id.toString() == catalog.portableMetadata.presentation.iconAssetSlug}"></option>
+                            th:selected="${catalog.catalogMetadata.presentation != null and image.id.toString() == catalog.catalogMetadata.presentation.iconAssetSlug}"></option>
                 </select>
 
                 <div style="margin-top: var(--ep-space-3);">
@@ -80,17 +80,17 @@
             <div th:if="${section == 'license'}" class="ep-stack ep-gap-2">
                 <label class="ep-label" for="catalog-license-name">Name</label>
                 <input id="catalog-license-name" class="ep-input" name="licenseName"
-                       th:value="${catalog.portableMetadata.license?.name}" />
+                       th:value="${catalog.catalogMetadata.license?.name}" />
                 <label class="ep-label" for="catalog-license-spdx">SPDX expression</label>
                 <input id="catalog-license-spdx" class="ep-input" name="licenseSpdx"
-                       th:value="${catalog.portableMetadata.license?.spdxExpression}" placeholder="CC-BY-4.0" />
+                       th:value="${catalog.catalogMetadata.license?.spdxExpression}" placeholder="CC-BY-4.0" />
                 <span class="form-hint">For example: CC-BY-4.0 or MIT OR Apache-2.0.</span>
                 <label class="ep-label" for="catalog-license-url">License URL</label>
                 <input id="catalog-license-url" class="ep-input" type="url" name="licenseUrl"
-                       th:value="${catalog.portableMetadata.license?.url}" />
+                       th:value="${catalog.catalogMetadata.license?.url}" />
                 <label class="ep-label" for="catalog-license-copyright">Copyright</label>
                 <textarea id="catalog-license-copyright" class="ep-input" name="licenseCopyright" rows="2"
-                          th:text="${catalog.portableMetadata.license?.copyrightText}"></textarea>
+                          th:text="${catalog.catalogMetadata.license?.copyrightText}"></textarea>
             </div>
         </div>
         <div class="ep-dialog-footer">

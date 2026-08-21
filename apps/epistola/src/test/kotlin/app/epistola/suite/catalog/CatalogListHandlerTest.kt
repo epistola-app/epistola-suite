@@ -823,13 +823,13 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
             val catalog = withMediator { GetCatalog(t.id, CatalogKey.of("metadata")).query() }!!
             assertThat(catalog.name).isEqualTo("Discoverable catalog")
-            assertThat(catalog.portableMetadata.attributes)
+            assertThat(catalog.catalogMetadata.attributes)
                 .containsExactlyInAnyOrder(
                     AttributeAssignment("metadata", "audience", "municipalities"),
                     AttributeAssignment("system", "locale", "nl-NL"),
                 )
-            assertThat(catalog.portableMetadata.keywords).containsExactlyInAnyOrder("Letters", "Dutch")
-            assertThat(catalog.portableMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
+            assertThat(catalog.catalogMetadata.keywords).containsExactlyInAnyOrder("Letters", "Dutch")
+            assertThat(catalog.catalogMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
         }
     }
 

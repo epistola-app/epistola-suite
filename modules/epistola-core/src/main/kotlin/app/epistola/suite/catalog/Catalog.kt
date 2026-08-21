@@ -32,7 +32,7 @@ data class Catalog(
      * Never publisher-authored; null for AUTHORED catalogs.
      */
     @Json val installedResourceFingerprints: Map<String, String>? = null,
-    @Json val portableMetadata: CatalogPortableMetadata = CatalogPortableMetadata(),
+    @Json val catalogMetadata: CatalogMetadata = CatalogMetadata(),
     val installedAt: OffsetDateTime? = null,
     val releasedVersion: String? = null,
     val releasedFingerprint: String? = null,
@@ -52,7 +52,7 @@ data class Catalog(
 )
 
 /** Catalog metadata that is part of the portable catalog manifest. */
-data class CatalogPortableMetadata(
+data class CatalogMetadata(
     val attributes: List<AttributeAssignment> = emptyList(),
     val keywords: Set<String> = emptySet(),
     val presentation: CatalogPresentation? = null,
@@ -86,7 +86,7 @@ data class CatalogPortableMetadata(
     }
 
     companion object {
-        fun from(info: CatalogInfo): CatalogPortableMetadata = CatalogPortableMetadata(
+        fun from(info: CatalogInfo): CatalogMetadata = CatalogMetadata(
             attributes = info.attributes,
             keywords = info.keywords,
             presentation = info.presentation,

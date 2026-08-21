@@ -9,7 +9,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogPortableMetadata
+import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.crypto.Secret
@@ -64,18 +64,18 @@ class RegisterCatalogHandler(
                 command.authCredential,
             ),
         )
-        val portableMetadataJson = objectMapper.writeValueAsString(CatalogPortableMetadata.from(manifest.catalog))
+        val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
 
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, portable_metadata, created_at, updated_at)
-                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, :portableMetadata::jsonb, NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, catalog_metadata, created_at, updated_at)
+                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, :catalogMetadata::jsonb, NOW(), NOW())
                 ON CONFLICT (tenant_key, id) DO UPDATE
                 SET name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
                     source_auth_credential = :authCredential, installed_release_version = :releaseVersion,
                     installed_fingerprint = :fingerprint, installed_resource_fingerprints = :resourceFingerprints::jsonb,
-                    portable_metadata = :portableMetadata::jsonb, content_updated_at = NOW(), updated_at = NOW()
+                    catalog_metadata = :catalogMetadata::jsonb, content_updated_at = NOW(), updated_at = NOW()
                 """,
             )
                 .bind("id", catalogKey)
@@ -88,7 +88,7 @@ class RegisterCatalogHandler(
                 .bind("releaseVersion", manifest.release.version)
                 .bind("fingerprint", manifest.release.fingerprint)
                 .bind("resourceFingerprints", resourceFingerprintsJson)
-                .bind("portableMetadata", portableMetadataJson)
+                .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
 
             handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, catalogKey.value)!!

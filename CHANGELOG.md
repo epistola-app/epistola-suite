@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(catalog): Catalog contract metadata now uses the clearer `catalog_metadata`
+  database and application terminology instead of `portable_metadata`.
+
 - **[user]** fix(catalog-ui): Catalog details stay readable while focused, visually flat **Change**
   dialogs edit general details, locale, keywords, presentation, or license independently. Catalog authors
   can advertise only the system locale for now, and malformed SPDX license expressions are rejected.

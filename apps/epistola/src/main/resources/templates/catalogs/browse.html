@@ -36,11 +36,11 @@
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
                         <div style="min-width: 0;">
                             <h3 style="margin: 0 0 var(--ep-space-2);">Discovery attributes</h3>
-                            <div th:if="${!catalog.portableMetadata.attributes.isEmpty()}" class="ep-row ep-gap-2" style="flex-wrap: wrap;">
-                                <span th:each="attribute : ${catalog.portableMetadata.attributes}" class="badge badge-default"
+                            <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="ep-row ep-gap-2" style="flex-wrap: wrap;">
+                                <span th:each="attribute : ${catalog.catalogMetadata.attributes}" class="badge badge-default"
                                       th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
                             </div>
-                            <p th:if="${catalog.portableMetadata.attributes.isEmpty()}" class="text-muted" style="margin: 0;">No discovery attributes.</p>
+                            <p th:if="${catalog.catalogMetadata.attributes.isEmpty()}" class="text-muted" style="margin: 0;">No discovery attributes.</p>
                         </div>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='attributes')}"
@@ -52,10 +52,10 @@
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
                         <div style="min-width: 0;">
                             <h3 style="margin: 0 0 var(--ep-space-2);">Keywords</h3>
-                            <div th:if="${!catalog.portableMetadata.keywords.isEmpty()}" class="ep-row ep-gap-2" style="flex-wrap: wrap;">
-                                <span th:each="keyword : ${catalog.portableMetadata.keywords}" class="badge badge-info" th:text="${keyword}"></span>
+                            <div th:if="${!catalog.catalogMetadata.keywords.isEmpty()}" class="ep-row ep-gap-2" style="flex-wrap: wrap;">
+                                <span th:each="keyword : ${catalog.catalogMetadata.keywords}" class="badge badge-info" th:text="${keyword}"></span>
                             </div>
-                            <p th:if="${catalog.portableMetadata.keywords.isEmpty()}" class="text-muted" style="margin: 0;">No keywords.</p>
+                            <p th:if="${catalog.catalogMetadata.keywords.isEmpty()}" class="text-muted" style="margin: 0;">No keywords.</p>
                         </div>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='keywords')}"
@@ -104,19 +104,19 @@
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
                         <div>
                             <h3 style="margin: 0 0 var(--ep-space-2);">License</h3>
-                            <p th:if="${catalog.portableMetadata.license == null}" class="text-muted" style="margin: 0;">No license information.</p>
-                            <th:block th:if="${catalog.portableMetadata.license != null}">
+                            <p th:if="${catalog.catalogMetadata.license == null}" class="text-muted" style="margin: 0;">No license information.</p>
+                            <th:block th:if="${catalog.catalogMetadata.license != null}">
                                 <p style="margin: 0;">
-                                    <a th:if="${catalog.portableMetadata.license.url != null}"
-                                       th:href="${catalog.portableMetadata.license.url}" rel="noopener noreferrer"
-                                       th:text="${catalog.portableMetadata.license.name}"></a>
-                                    <span th:unless="${catalog.portableMetadata.license.url != null}"
-                                          th:text="${catalog.portableMetadata.license.name}"></span>
-                                    <code th:if="${catalog.portableMetadata.license.spdxExpression != null}"
-                                          th:text="${catalog.portableMetadata.license.spdxExpression}"></code>
+                                    <a th:if="${catalog.catalogMetadata.license.url != null}"
+                                       th:href="${catalog.catalogMetadata.license.url}" rel="noopener noreferrer"
+                                       th:text="${catalog.catalogMetadata.license.name}"></a>
+                                    <span th:unless="${catalog.catalogMetadata.license.url != null}"
+                                          th:text="${catalog.catalogMetadata.license.name}"></span>
+                                    <code th:if="${catalog.catalogMetadata.license.spdxExpression != null}"
+                                          th:text="${catalog.catalogMetadata.license.spdxExpression}"></code>
                                 </p>
-                                <p th:if="${catalog.portableMetadata.license.copyrightText != null}" class="text-muted text-sm"
-                                   style="margin: var(--ep-space-1) 0 0;" th:text="${catalog.portableMetadata.license.copyrightText}"></p>
+                                <p th:if="${catalog.catalogMetadata.license.copyrightText != null}" class="text-muted text-sm"
+                                   style="margin: var(--ep-space-1) 0 0;" th:text="${catalog.catalogMetadata.license.copyrightText}"></p>
                             </th:block>
                         </div>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
@@ -174,7 +174,7 @@
                                 <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
                                 <span th:if="${resource.type == 'codeList'}" class="badge badge-default">code list</span>
                                 <span th:if="${resource.type == 'font'}" class="badge badge-default">font</span>
-                                <span th:if="${resource.type == 'asset' and catalog.portableMetadata.presentation != null and (resource.slug == catalog.portableMetadata.presentation.iconAssetSlug or catalog.portableMetadata.presentation.imageAssetSlugs.contains(resource.slug))}"
+                                <span th:if="${resource.type == 'asset' and catalog.catalogMetadata.presentation != null and (resource.slug == catalog.catalogMetadata.presentation.iconAssetSlug or catalog.catalogMetadata.presentation.imageAssetSlugs.contains(resource.slug))}"
                                       class="badge badge-info" title="Used in the catalog presentation">presentation</span>
                             </td>
                             <td th:title="${resource.name}">

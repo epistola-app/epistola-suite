@@ -139,14 +139,14 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
             assertThat(imported.name).isEqualTo("Metadata Catalog Renamed")
             assertThat(imported.description).isEqualTo("Portable discovery metadata")
-            assertThat(imported.portableMetadata.attributes)
+            assertThat(imported.catalogMetadata.attributes)
                 .containsExactly(AttributeAssignment(catalogKey.value, "audience", "municipalities"))
-            assertThat(imported.portableMetadata.keywords).containsExactlyInAnyOrder("Letters", "Municipal")
-            assertThat(imported.portableMetadata.presentation?.iconAssetSlug).isNotNull()
-            assertThat(imported.portableMetadata.presentation?.imageAssetSlugs)
-                .containsExactly(imported.portableMetadata.presentation?.iconAssetSlug)
-            assertThat(imported.portableMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
-            assertThat(imported.portableMetadata.license?.url)
+            assertThat(imported.catalogMetadata.keywords).containsExactlyInAnyOrder("Letters", "Municipal")
+            assertThat(imported.catalogMetadata.presentation?.iconAssetSlug).isNotNull()
+            assertThat(imported.catalogMetadata.presentation?.imageAssetSlugs)
+                .containsExactly(imported.catalogMetadata.presentation?.iconAssetSlug)
+            assertThat(imported.catalogMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
+            assertThat(imported.catalogMetadata.license?.url)
                 .isEqualTo("https://creativecommons.org/licenses/by/4.0/")
         }
     }
