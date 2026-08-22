@@ -49,7 +49,7 @@ class ListStencilSummariesHandler(
                            MAX(CASE WHEN v.status = 'published' THEN v.id END) AS latest_published_version,
                            MAX(v.id) AS latest_version
                     FROM stencils s
-                    LEFT JOIN stencil_versions v ON v.tenant_key = s.tenant_key AND v.catalog_key = s.catalog_key AND v.stencil_key = s.id
+                    LEFT JOIN stencil_versions v ON v.stencil_resource_id = s.resource_id
                     WHERE s.tenant_key = :tenantId
                     """,
             )

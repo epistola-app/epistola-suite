@@ -40,7 +40,19 @@ export interface ResourceEdge {
   semantics: ReferenceSemantics;
   qualification: string;
   resolution: Resolution;
+  resolvedViaAlias: boolean;
   evidenceCount: number;
+}
+
+export interface ResourceMovePreview {
+  source: ResourceAddress;
+  target: ResourceAddress;
+  resourceId: string | null;
+  mutableRewriteCount: number;
+  immutableReferenceCount: number;
+  blockers: Array<{ code: string; message: string }>;
+  planFingerprint: string;
+  executable: boolean;
 }
 
 export interface SubgraphResponse {

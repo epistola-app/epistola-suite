@@ -13,9 +13,15 @@ import app.epistola.suite.catalog.graph.ResourceNode
 import app.epistola.suite.catalog.graph.TenantResourceGraph
 import app.epistola.suite.catalog.graph.TraversalDirection
 import app.epistola.suite.catalog.graph.traverse
+import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.relocation.CatalogResourceMoveBlockedException
+import app.epistola.suite.catalog.relocation.MoveCatalogResource
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.StaleCatalogResourceMovePlanException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.http.MediaType
@@ -36,6 +42,7 @@ class ResourceGraphHandler {
                 "tenantId" to tenantKey.value,
                 "tenant" to GetTenant(tenantKey).query(),
                 "activeNavSection" to "resource-graph",
+                "resourceRelocationEnabled" to request.resourceRelocationEnabled(),
             ),
         )
     }
@@ -55,10 +62,44 @@ class ResourceGraphHandler {
             .take(50)
             .map(::nodeDto)
             .toList()
-        val catalogs = graph.nodes.distinctBy { it.address.catalogKey }.map {
-            mapOf("key" to it.address.catalogKey, "name" to it.catalogName)
-        }.sortedBy { it["name"] }
+        val catalogs = ListCatalogs(request.tenantKey()).query().map {
+            mapOf("key" to it.id.value, "name" to it.name, "type" to it.type.name.lowercase())
+        }
         return json(mapOf("nodes" to nodes, "total" to matches.size, "catalogs" to catalogs))
+    }
+
+    fun movePreview(request: ServerRequest): ServerResponse {
+        if (!request.resourceGraphEnabled() || !request.resourceRelocationEnabled()) return ServerResponse.notFound().build()
+        val source = ResourceAddress(
+            resourceType(request.requiredParam("type")),
+            request.requiredParam("catalog"),
+            request.requiredParam("key"),
+        )
+        val preview = PreviewCatalogResourceMove(
+            request.tenantKey(),
+            source,
+            app.epistola.suite.catalog.CatalogKey.of(request.requiredParam("targetCatalog")),
+        ).query()
+        return json(preview)
+    }
+
+    fun move(request: ServerRequest): ServerResponse {
+        if (!request.resourceGraphEnabled() || !request.resourceRelocationEnabled()) return ServerResponse.notFound().build()
+        val body = request.body(MoveResourceRequest::class.java)
+        val source = ResourceAddress(resourceType(body.type), body.catalog, body.key)
+        return try {
+            val result = MoveCatalogResource(
+                request.tenantKey(),
+                source,
+                app.epistola.suite.catalog.CatalogKey.of(body.targetCatalog),
+                body.planFingerprint,
+            ).execute()
+            json(result)
+        } catch (_: StaleCatalogResourceMovePlanException) {
+            conflict(mapOf("code" to "stale-plan", "message" to "The move preview is stale; preview it again"))
+        } catch (exception: CatalogResourceMoveBlockedException) {
+            conflict(mapOf("code" to "move-blocked", "blockers" to exception.blockers))
+        }
     }
 
     fun subgraph(request: ServerRequest): ServerResponse {
@@ -145,6 +186,7 @@ class ResourceGraphHandler {
         "semantics" to edge.semantics.name.lowercase(),
         "qualification" to edge.qualification.name.lowercase(),
         "resolution" to edge.resolution.name.lowercase(),
+        "resolvedViaAlias" to edge.resolvedViaAlias,
         "evidenceCount" to edge.evidenceCount,
     )
 
@@ -160,7 +202,17 @@ class ResourceGraphHandler {
 
     private fun ServerRequest.tenantKey() = TenantKey.of(pathVariable("tenantId"))
     private fun ServerRequest.resourceGraphEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_GRAPH] == true
+    private fun ServerRequest.resourceRelocationEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_RELOCATION] == true
     private fun ServerRequest.requiredParam(name: String) = param(name).orElseThrow { IllegalArgumentException("Missing query parameter: $name") }
 
     private fun json(body: Any) = ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(body)
+    private fun conflict(body: Any) = ServerResponse.status(409).contentType(MediaType.APPLICATION_JSON).body(body)
 }
+
+private data class MoveResourceRequest(
+    val type: String,
+    val catalog: String,
+    val key: String,
+    val targetCatalog: String,
+    val planFingerprint: String,
+)

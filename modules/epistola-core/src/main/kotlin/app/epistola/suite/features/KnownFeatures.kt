@@ -35,6 +35,7 @@ object KnownFeatures {
     val QUALITY = FeatureKey.of("quality")
     val AI_CHAT = FeatureKey.of("ai-chat")
     val RESOURCE_GRAPH = FeatureKey.of("resource-graph")
+    val RESOURCE_RELOCATION = FeatureKey.of("resource-relocation")
 
     /**
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
@@ -47,7 +48,16 @@ object KnownFeatures {
      */
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
-    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY, AI_CHAT, EDITOR_WALKTHROUGH, RESOURCE_GRAPH)
+    val all: List<FeatureKey> = listOf(
+        SUPPORT_FEEDBACK,
+        SUPPORT_BACKUPS,
+        SUPPORT_COMPATIBILITY_CHECK,
+        QUALITY,
+        AI_CHAT,
+        EDITOR_WALKTHROUGH,
+        RESOURCE_GRAPH,
+        RESOURCE_RELOCATION,
+    )
 
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
@@ -123,6 +133,12 @@ object KnownFeatures {
             "Resource graph",
             "Enables the tenant-wide catalog resource reference explorer. It exposes runtime, " +
                 "authoring, and provenance relationships, including missing and ambiguous references.",
+            stage = FeatureStage.ALPHA,
+        ),
+        RESOURCE_RELOCATION to FeatureMetadata(
+            "Resource relocation",
+            "Enables previewing and moving authored catalog resources while preserving old references " +
+                "through stable identities and aliases. The first alpha supports stencils only.",
             stage = FeatureStage.ALPHA,
         ),
     )

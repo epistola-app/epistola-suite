@@ -6,7 +6,8 @@
     <p class="ep-text-muted" style="margin-top: 0; margin-bottom: var(--ep-space-4);">
         Explore which catalog resources use each other. Arrows point from a resource to the resource it uses.
     </p>
-    <ep-resource-graph th:attr="data-base-url=@{/tenants/{tenantId}/resource-graph(tenantId=${tenantId})}">
+    <ep-resource-graph
+            th:attr="data-base-url=@{/tenants/{tenantId}/resource-graph(tenantId=${tenantId})},data-relocation-enabled=${resourceRelocationEnabled}">
         <div class="ep-panel" style="padding: var(--ep-space-6);">Loading resource graph…</div>
     </ep-resource-graph>
 </th:block>

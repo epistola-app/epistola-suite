@@ -11,6 +11,7 @@ CREATE TABLE catalog_resource_aliases (
     PRIMARY KEY (tenant_key, resource_type, catalog_key, resource_key),
     FOREIGN KEY (tenant_key, target_resource_id, resource_type)
         REFERENCES catalog_resources(tenant_key, resource_id, resource_type)
+        ON DELETE CASCADE
 );
 
 COMMENT ON TABLE catalog_resource_aliases IS
