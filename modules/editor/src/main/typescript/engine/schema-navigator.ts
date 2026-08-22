@@ -15,17 +15,23 @@ import {
 } from '../json-schema/schema-resolution.js';
 import { scalarFromJsonSchema } from '../json-schema/scalar-type.js';
 
-export type SchemaCursorSegment = { kind: 'property'; name: string } | { kind: 'items' };
+type SchemaCursorSegment = { kind: 'property'; name: string } | { kind: 'items' };
 
 interface SchemaSource {
   root: JsonSchemaNode;
   variantsByPath: Map<string, ResolvedSchemaVariant[]>;
 }
 
-/** Opaque logical location inside one canonical JSON Schema root. */
-export interface SchemaCursor {
+interface SchemaCursorState {
   readonly source: SchemaSource;
   readonly segments: readonly SchemaCursorSegment[];
+}
+
+const SCHEMA_CURSOR_STATE: unique symbol = Symbol('SchemaCursor.state');
+
+/** Opaque logical location inside one canonical JSON Schema root. */
+export interface SchemaCursor {
+  readonly [SCHEMA_CURSOR_STATE]: SchemaCursorState;
 }
 
 export type SchemaBindings = Readonly<Record<string, SchemaCursor>>;
@@ -45,7 +51,7 @@ export function schemaRootCursor(root: JsonSchemaNode): SchemaCursor {
     source = { root, variantsByPath: new Map() };
     sources.set(root, source);
   }
-  return { source, segments: [] };
+  return createCursor(source, []);
 }
 
 /** Resolve a simple dotted data expression from aliases first, then the data root. */
@@ -87,12 +93,13 @@ export function itemCursor(cursor: SchemaCursor): SchemaCursor | null {
 
 /** All effective schema variants at a logical cursor. Results are cached per root/path. */
 export function schemaVariantsAt(cursor: SchemaCursor): ResolvedSchemaVariant[] {
-  const key = cursorKey(cursor.segments);
-  const cached = cursor.source.variantsByPath.get(key);
+  const { source, segments } = cursor[SCHEMA_CURSOR_STATE];
+  const key = cursorKey(segments);
+  const cached = source.variantsByPath.get(key);
   if (cached) return cached;
 
-  let variants = resolveSchemaVariants(cursor.source.root, cursor.source.root);
-  for (const segment of cursor.segments) {
+  let variants = resolveSchemaVariants(source.root, source.root);
+  for (const segment of segments) {
     const next: ResolvedSchemaVariant[] = [];
     const seen = new Set<string>();
     for (const variant of variants) {
@@ -104,11 +111,7 @@ export function schemaVariantsAt(cursor: SchemaCursor): ResolvedSchemaVariant[] 
             : undefined;
       if (!child) continue;
 
-      for (const resolved of resolveSchemaVariants(
-        child,
-        cursor.source.root,
-        variant.resolvingRefs,
-      )) {
+      for (const resolved of resolveSchemaVariants(child, source.root, variant.resolvingRefs)) {
         const variantKey = `${JSON.stringify(resolved.schema)}|${[
           ...resolved.resolvingRefs,
         ].toSorted()}`;
@@ -123,7 +126,7 @@ export function schemaVariantsAt(cursor: SchemaCursor): ResolvedSchemaVariant[] 
     if (variants.length === 0) break;
   }
 
-  cursor.source.variantsByPath.set(key, variants);
+  source.variantsByPath.set(key, variants);
   return variants;
 }
 
@@ -146,7 +149,16 @@ export function describeSchemaCursor(cursor: SchemaCursor): SchemaCursorDescript
 }
 
 function append(cursor: SchemaCursor, segment: SchemaCursorSegment): SchemaCursor {
-  return { source: cursor.source, segments: [...cursor.segments, segment] };
+  const { source, segments } = cursor[SCHEMA_CURSOR_STATE];
+  return createCursor(source, [...segments, segment]);
+}
+
+function createCursor(
+  source: SchemaSource,
+  segments: readonly SchemaCursorSegment[],
+): SchemaCursor {
+  const state = Object.freeze({ source, segments: Object.freeze([...segments]) });
+  return Object.freeze({ [SCHEMA_CURSOR_STATE]: state });
 }
 
 function cursorKey(segments: readonly SchemaCursorSegment[]): string {

@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(editor): **Expression selection and schema navigation boundaries tightened.**
+  ProseMirror selection collapsing is centralized behind a typed text-editor interaction, while
+  schema cursors now keep their canonical schema pointer and traversal path opaque.
 - **[user]** fix(pdf): **Column content aligns with neighboring components in generated PDFs.**
   Newly published PDFs no longer add implicit cell padding around Columns content, while explicit
   component padding continues to apply and the editor retains its authoring inset. Existing

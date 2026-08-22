@@ -18,7 +18,6 @@
  */
 
 import type { Node as ProsemirrorNode } from 'prosemirror-model';
-import { Selection } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import type { FieldPath } from '../engine/schema-paths.js';
 import { evaluateExpression, formatResolvedValue } from '../engine/resolve-expression.js';
@@ -26,6 +25,7 @@ import { DEFAULT_LOCALE } from '../engine/locale.js';
 import { inlineExpressionPathDisabled } from '../data-contract/binding-compatibility.js';
 import { isRichTextDoc, renderInlineRichText } from './inline-rich-text-rendering.js';
 import { openExpressionDialog } from '../ui/expression-dialog.js';
+import { collapseEditorSelection } from './selection.js';
 
 export interface ExpressionNodeViewOptions {
   getFieldPaths: () => FieldPath[];
@@ -102,7 +102,7 @@ export class ExpressionNodeView implements NodeView {
     this.dom.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this._collapseEditorSelection();
+      collapseEditorSelection(this._view);
       this._openDialog();
     });
 
@@ -225,13 +225,6 @@ export class ExpressionNodeView implements NodeView {
   // ---------------------------------------------------------------------------
   // Dialog
   // ---------------------------------------------------------------------------
-
-  private _collapseEditorSelection(): void {
-    const selection = this._view.state.selection;
-    if (selection.empty) return;
-
-    this._view.dispatch(this._view.state.tr.setSelection(Selection.near(selection.$head)));
-  }
 
   private _openDialog(): void {
     if (this._dialogOpen) return;
