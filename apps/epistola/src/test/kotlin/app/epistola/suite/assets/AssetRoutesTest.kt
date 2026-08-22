@@ -64,4 +64,46 @@ class AssetRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
     }
+
+    @Test
+    fun `POST assets returns validation error for a filename containing markup`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Asset Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.MULTIPART_FORM_DATA
+            headers.accept = listOf(MediaType.APPLICATION_JSON)
+
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource("not-an-image".toByteArray()) {
+                        override fun getFilename(): String = "evil<img src=x onerror=alert(1)>.png"
+                    },
+                    HttpHeaders().apply {
+                        contentType = MediaType.IMAGE_PNG
+                    },
+                ),
+            )
+            payload.add("catalog", "default")
+
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/images",
+                HttpEntity(payload, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_JSON)
+            assertThat(response.body).contains("Name must not contain")
+        }
+    }
 }

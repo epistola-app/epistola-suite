@@ -104,6 +104,33 @@ class EpistolaAssetsApiIT : IntegrationTestBase() {
         assertThat(delete.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
     }
 
+    @Test
+    fun `asset upload rejects a filename containing markup`() {
+        // #644: with no explicit name, the raw filename becomes the asset name.
+        // UploadAsset must reject markup so the stored value can never carry a
+        // payload, and the REST layer must surface that as 400, not 500.
+        val (tenantKey, key) = seedTenantAndKey()
+        val payload = LinkedMultiValueMap<String, Any>().apply {
+            add(
+                "file",
+                object : ByteArrayResource("asset-api-bytes".toByteArray()) {
+                    override fun getFilename() = "evil<img src=x onerror=alert(1)>.png"
+                },
+            )
+            add("mediaType", "image/png")
+        }
+
+        val upload = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/assets",
+            HttpMethod.POST,
+            HttpEntity(payload, multipartHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(upload.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(upload.body).contains("Name must not contain")
+    }
+
     private fun multipartHeaders(apiKey: String): HttpHeaders = baseHeaders(apiKey).apply {
         contentType = MediaType.MULTIPART_FORM_DATA
     }

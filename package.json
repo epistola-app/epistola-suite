@@ -17,6 +17,9 @@
     "license:headers": "python3 scripts/license-headers.py --fix",
     "license:headers:check": "python3 scripts/license-headers.py --check",
     "license:check": "pnpm license:headers:check && mise exec -- reuse --no-multiprocessing lint",
+    "vulnerabilities:check": "python3 -m unittest scripts/test_vulnerability_advisories.py && python3 scripts/vulnerability_advisories.py check",
+    "vulnerabilities:render": "python3 scripts/vulnerability_advisories.py render",
+    "vulnerabilities:export": "python3 scripts/vulnerability_advisories.py export-osv build/osv",
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "dependencies": {
