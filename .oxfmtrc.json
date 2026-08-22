@@ -13,6 +13,13 @@
       "options": {
         "singleQuote": false
       }
+    },
+    {
+      "files": ["vulnerabilities/*.md"],
+      "options": {
+        "embeddedLanguageFormatting": "off",
+        "singleQuote": false
+      }
     }
   ],
   "ignorePatterns": [

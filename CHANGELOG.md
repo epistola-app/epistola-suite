@@ -4,9 +4,9 @@
 
 ## [Unreleased]
 
-- **[dev]** docs(security): **Versioned vulnerability history added.** A dedicated security ledger
-  records affected-code, demonstrated-exposure, and patched-release ranges without conflating a
-  browser-policy mitigation with removal of the vulnerable sink.
+- **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
+  records combine machine-readable OSV metadata with full descriptions, generate the vulnerability
+  index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror.
 - **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
   crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
   or control characters are now rejected at upload. (#644)
