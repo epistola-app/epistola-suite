@@ -109,7 +109,9 @@ Adopt **Option E** as the long-term product behavior, with a two-step **preview 
 protocol. Implement it using **E2 — a shared surrogate resource registry**, described under
 [Composite keys and foreign keys](#composite-keys-and-foreign-keys). The first implementation is an
 alpha capability, supports only moves between two different `AUTHORED` catalogs in the same tenant,
-and blocks every move whose relational or immutable-reference shape is not yet supported.
+and blocks every move whose relational, immutable-reference, exchange, or release-upgrade shape is
+not yet supported. In particular, moving a resource that has crossed a release or subscription
+boundary is not enabled until the exchange format can carry a relocation handoff between catalogs.
 
 These are two different decision axes. Options A–E define what a move means to authors and existing
 references. Suboptions E1–E3 define how Option E's stable identity and relational integrity are
@@ -172,6 +174,8 @@ an asset alias can never resolve a theme.
   canonical address.
 - Cycles are rejected.
 - An old address cannot be reused while an alias exists.
+- Alias source addresses remain resolvable even if the former source catalog is later removed;
+  resolution must not require that catalog row to exist first.
 - Aliases are retained while any published, archived, subscribed, or released evidence can refer
   to them. Automatic alias deletion is deferred until safe retention can be proven.
 
@@ -273,9 +277,17 @@ Address aliases map an old typed address to `(tenant_key, resource_id)`. The reg
 identity and current catalog membership only: resource content remains in its domain table, and the
 reference graph remains derived rather than separately persisted.
 
+Only the seven movable top-level resource types receive registry rows. Owned entities such as
+template variants, template versions, stencil versions, code-list entries, and font variants are
+not independently movable resources. Their ownership keys migrate from catalog-qualified parent
+keys to the parent's stable `resource_id`; their own slug or sequence number remains unchanged.
+
 Surrogate IDs are internal. Public URLs, commands, and catalog import/export continue to use typed
 addresses. Import allocates local identities and resolves wire-format addresses to them; it never
-requires IDs to be portable between tenants.
+requires IDs to be portable between tenants. A slug URL resolves
+`(tenant, type, catalogKey, resourceKey)` through the registry and then loads the typed domain row.
+An old GET URL may redirect to the canonical slug URL after alias resolution, but UUIDs never appear
+in URLs or wire data.
 
 **Pros:** catalog membership becomes an attribute rather than part of relational identity. Moves
 do not cascade through historical ownership rows, aliases have a real foreign-key target, audit
@@ -375,9 +387,11 @@ model instead of an alias.
 
 ### Published catalogs and portability
 
-Aliases are a local compatibility mechanism, not part of the catalog wire format. New drafts are
-canonicalized when created from published content. Export materialization resolves aliases and
-emits canonical catalog addresses without mutating the stored published version.
+Alias rows are a local compatibility mechanism and are not copied verbatim into the catalog wire
+format. New drafts are canonicalized when created from published content. Export materialization
+resolves aliases and emits canonical catalog addresses without mutating the stored published
+version. A released relocation handoff, discussed below, is different: it is portable migration
+metadata from which a subscriber creates its own local alias and preserves its existing identity.
 
 A regular `ExportCatalogZip` after a move therefore behaves as follows:
 
@@ -405,11 +419,79 @@ The move must not ship until export/import round-trip tests demonstrate that a t
 local alias table receives canonical references and explicit portable dependencies. If a reference
 shape cannot be canonicalized during export, that reference blocks the move.
 
+### Scenario analysis and compatibility boundaries
+
+Relocation affects more than direct reference resolution. The preview and implementation must cover
+the following scenarios explicitly:
+
+| Scenario                                                     | Required behavior or blocker                                                                                                                                            |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mutable reference in the source or another authored catalog  | Rewrite it to the canonical target address and mark its owning catalog as changed.                                                                                      |
+| Published or archived reference with an explicit old address | Preserve its bytes and resolve it through the local alias.                                                                                                              |
+| Published or archived owner with a relative reference        | Preserve an immutable reference base or block the move, as described above.                                                                                             |
+| Export the source catalog                                    | Omit the moved resource; canonicalize remaining references and declare new cross-catalog dependencies.                                                                  |
+| Export the target catalog                                    | Include the moved resource under its canonical target address and compute a new fingerprint.                                                                            |
+| Export a third catalog that references the moved resource    | Emit the target address and dependency even if its stored published bytes still contain the old address.                                                                |
+| Import only a referencing catalog                            | Require the canonical dependency to exist first; never import an alias as a hidden substitute.                                                                          |
+| Install an old ZIP in a fresh tenant                         | Reproduce that old release's original layout. It has no knowledge of a later relocation and must not be mixed silently with incompatible newer catalog releases.        |
+| Tenant snapshot after a move                                 | Recreate canonical resources and references with new local surrogate IDs; aliases are unnecessary only if every exported historical reference was canonicalized safely. |
+| Move introduces a catalog dependency cycle                   | Block while snapshot restore and other import orchestration require a dependency DAG.                                                                                   |
+| Delete or recreate the source catalog                        | Keep historical alias addresses resolvable and reserved, even if their former catalog row is gone; recreating the catalog must not reclaim an aliased address.          |
+| Delete the target catalog or moved resource                  | Block while retained aliases or other references target its stable identity.                                                                                            |
+| Cached lookup, browser URL, or bookmark                      | Invalidate both old-address and canonical-address caches; reads may redirect to the canonical slug URL, while writes through the alias remain conflicts.                |
+| Audit or generation history                                  | Store the stable resource ID and the address observed at event time, so reports can distinguish historical location from current location.                              |
+
+#### Released and subscribed catalogs require a relocation handoff
+
+Canonical export solves a fresh import, but it does not by itself solve an upgrade. Consider a
+publisher that moves stencil `header` from catalog A to catalog B. A subscriber may already have:
+
+- the stencil installed under A with a locally allocated `resource_id`;
+- published content in A that still stores the old address;
+- a locally authored catalog C that references A's stencil.
+
+Installing B's next release as an ordinary addition allocates another local identity. Upgrading A's
+next release then sees the old stencil as stale. Current stale-prune protection either blocks on the
+references from A or C, or deletion would break them. The publisher's internal UUID and alias cannot
+help because neither is portable, and upgrading A and B is not one atomic operation.
+
+Released-resource relocation therefore needs an explicit exchange-level handoff, for example a
+typed declaration in A's release saying that `(STENCIL, A, header)` continues as
+`(STENCIL, B, header)`. Consumer-side orchestration must then:
+
+1. require a compatible B release before applying A's removal;
+2. reconcile B's incoming resource with A's existing local `resource_id` instead of creating a
+   second logical resource;
+3. create the consumer-local alias from the old address;
+4. preserve incoming references from locally authored and older subscribed content;
+5. advance both catalogs' installed state only through a retry-safe, deterministic protocol.
+
+The exact wire shape and whether coordinated catalog upgrades must be atomic are a separate decision
+before released-catalog moves are enabled. Until then, the planner blocks a resource that is present
+in a release boundary or whose move would need to propagate to subscribers. Option D's frozen
+original remains the simpler alternative when independent catalog upgrades are a hard requirement.
+
+#### Resource-specific exchange gaps
+
+Not every current reference shape can express the dependency created by a move:
+
+- stencil, theme, font, and code-list dependencies can carry a catalog key;
+- asset references can carry a catalog key in document JSON, but the current catalog dependency
+  entry treats the asset UUID as tenant-global and does not identify the owning catalog or a
+  compatible release;
+- variant attribute assignments contain attribute keys, while the current dependency model has no
+  catalog-qualified attribute dependency.
+
+The alpha planner must block moves that create a dependency the current wire format cannot represent
+unambiguously. Extending and migrating that wire format is required before those resource/reference
+kinds are enabled.
+
 ### Preview, concurrency, and execution
 
 `PreviewCatalogResourceMove` is a read-only query. It returns the proposed resources, aliases,
-rewrites, unchanged cross-catalog dependencies, blockers, affected catalogs, and a deterministic
-plan fingerprint. The UI presents this impact report before enabling execution.
+rewrites, dependency additions and removals, release/subscription handoffs, affected fingerprints,
+catalog dependency cycles, blockers, affected catalogs, and a deterministic plan fingerprint. The
+UI presents this impact report before enabling execution.
 
 `MoveCatalogResources` accepts the explicit selection, target catalog, and expected plan
 fingerprint. In one database transaction it:
@@ -445,6 +527,12 @@ until the alpha workflow and error model have settled.
 - Target collisions, alias collisions, cycles, missing references, ambiguous references, and
   unsupported rewrites are explicit preview blockers.
 - Drafts and new exports contain canonical addresses; old immutable versions work through aliases.
+- A fresh export/import resolves without access to the publisher's internal resource IDs or aliases.
+- A released resource is not relocated until subscribers can reconcile the old and new catalog
+  entries as one local identity through an explicit, retry-safe handoff.
+- A move does not introduce a catalog dependency cycle while snapshot restore requires topological
+  ordering.
+- Historical alias addresses remain reserved across source-catalog deletion and recreation.
 - All relational dependants still reference the same stable resource IDs after commit; no foreign
   key is weakened or dropped to make a move succeed.
 - An immutable relative reference either retains a proven resolution base or blocks the move.
@@ -467,9 +555,13 @@ until the alpha workflow and error model have settled.
 6. Add alias persistence, collision rules, graph evidence, and read/write behavior.
 7. Add typed rewrite strategies and graph/foreign-key equivalence validation one resource/reference
    kind at a time.
-8. Add preview and execute commands with optimistic plan validation and transactional tests.
-9. Add the alpha UI impact review and execution flow.
-10. Consider alias cleanup, convenience dependency selection, REST, or MCP only after production
+8. Extend exchange dependencies for resource types that cannot yet express a canonical
+   cross-catalog reference, and add export/import/snapshot round-trip tests.
+9. Design the released-catalog relocation handoff and coordinated subscriber-upgrade behavior;
+   keep released resources blocked until it is implemented.
+10. Add preview and execute commands with optimistic plan validation and transactional tests.
+11. Add the alpha UI impact review and execution flow.
+12. Consider alias cleanup, convenience dependency selection, REST, or MCP only after production
     behavior is understood.
 
 ## Consequences
@@ -485,6 +577,12 @@ until the alpha workflow and error model have settled.
 - Existing immutable relative references reduce the initially supported move set unless their
   historical base catalog is preserved explicitly.
 - Catalogs affected indirectly by rewritten or canonicalized references acquire unreleased changes.
+- Moving a resource across catalog boundaries can introduce new dependency edges, release-ordering
+  requirements, or cycles; it is not only a storage operation.
+- Tenant-local surrogate IDs make moves cheap inside one tenant but do not establish identity across
+  exports. Released relocation requires explicit portable handoff metadata and upgrade orchestration.
+- Current subscriber stale-prune protection correctly blocks a removal that still has incoming
+  references; relocation must integrate with it rather than bypass it.
 - The graph remains derived from authoritative domain data; the move feature adds only alias and
   audit state, not a separately persisted graph.
 - Initial delivery is deliberately synchronous and conservative. Unsupported reference shapes are

@@ -19,7 +19,8 @@
 - **[dev]** docs(catalogs): **Safe catalog-resource relocation semantics are proposed.** ADR 0014
   describes explicit move selection, preview/execute planning, alias-backed historical compatibility,
   stable surrogate resource identities, typed reference rewriting, canonical exports, optimistic
-  concurrency, and atomic execution.
+  concurrency, atomic execution, and the release/subscriber handoff required to preserve identity
+  across independently upgraded catalogs.
 
 - **[dev]** refactor(catalog): Catalog contract metadata now uses the clearer `catalog_metadata`
   database and application terminology instead of `portable_metadata`.
