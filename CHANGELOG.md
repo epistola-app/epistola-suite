@@ -8,7 +8,8 @@
   at the repository root while remaining available through GitHub's Security tab.
 - **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
   records combine machine-readable OSV metadata with full descriptions, generate the vulnerability
-  index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror.
+  index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror. The
+  tooling documents its inputs, outputs, local commands, and CI usage directly in each script.
 - **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
   crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
   or control characters are now rejected at upload. (#644)
