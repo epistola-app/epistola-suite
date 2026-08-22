@@ -91,7 +91,14 @@ BEGIN
 
     IF TG_OP = 'INSERT' THEN
         INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_key, resource_key)
-        VALUES (NEW.tenant_key, NEW.resource_id, resource_type_value, NEW.catalog_key, resource_key_value);
+        VALUES (NEW.tenant_key, NEW.resource_id, resource_type_value, NEW.catalog_key, resource_key_value)
+        ON CONFLICT (tenant_key, resource_id) DO UPDATE
+        SET catalog_key = EXCLUDED.catalog_key,
+            resource_key = EXCLUDED.resource_key
+        WHERE catalog_resources.resource_type = EXCLUDED.resource_type;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource_id type does not match its domain row';
+        END IF;
     ELSE
         IF NEW.resource_id <> OLD.resource_id THEN
             RAISE EXCEPTION 'catalog resource_id is immutable';
