@@ -667,9 +667,9 @@ export class EpistolaInspector extends LitElement {
     // Validate scope conflicts if this component provides scoped variables
     if (def?.scopeProvider) {
       const tempNode = { ...node, props: newProps };
-      const proposed = def.scopeProvider(tempNode, { schemaFieldPaths: this.engine.fieldPaths });
+      const proposed = this.engine.getScopeDeclarationAt(this.selectedNodeId, tempNode);
       if (proposed) {
-        const conflict = this._findScopeConflict(node, def, proposed);
+        const conflict = this._findScopeConflict(node, proposed);
         if (conflict) {
           // TODO: show inline validation error in the inspector
           return;
@@ -699,18 +699,14 @@ export class EpistolaInspector extends LitElement {
    * Check if proposed scope variables conflict with any existing variable in scope.
    * Returns the conflicting variable path, or null if no conflict.
    */
-  private _findScopeConflict(
-    node: Node,
-    def: ComponentDefinition,
-    proposed: ScopeDeclaration,
-  ): string | null {
+  private _findScopeConflict(node: Node, proposed: ScopeDeclaration): string | null {
     if (!this.engine || !this.selectedNodeId) return null;
 
     // Get all visible variables at this position
     const existing = this.engine.getAvailableVariablesAt(this.selectedNodeId);
 
     // Exclude the current node's own scope (it's being replaced)
-    const currentScope = def.scopeProvider?.(node, { schemaFieldPaths: this.engine.fieldPaths });
+    const currentScope = this.engine.getScopeDeclarationAt(this.selectedNodeId, node);
     const currentScopePaths = new Set(currentScope?.variables.map((v) => v.path) ?? []);
     const existingWithoutSelf = existing.filter((f) => !currentScopePaths.has(f.path));
 

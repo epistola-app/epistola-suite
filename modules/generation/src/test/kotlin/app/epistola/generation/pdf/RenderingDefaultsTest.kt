@@ -29,6 +29,11 @@ class RenderingDefaultsTest {
     }
 
     @Test
+    fun `forVersion returns V3 for version 3`() {
+        assertSame(RenderingDefaults.V3, RenderingDefaults.forVersion(3))
+    }
+
+    @Test
     fun `forVersion throws for unknown version`() {
         assertFailsWith<IllegalArgumentException> {
             RenderingDefaults.forVersion(999)
@@ -36,8 +41,8 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `CURRENT is V2`() {
-        assertSame(RenderingDefaults.V2, RenderingDefaults.CURRENT)
+    fun `CURRENT is V3`() {
+        assertSame(RenderingDefaults.V3, RenderingDefaults.CURRENT)
     }
 
     // -----------------------------------------------------------------------
@@ -154,6 +159,14 @@ class RenderingDefaultsTest {
         val baseUnit = SpacingScale.DEFAULT_BASE_UNIT
         assertEquals(0f, RenderingDefaults.V1.tableCellPadding % baseUnit, "tableCellPadding not grid-aligned")
         assertEquals(0f, RenderingDefaults.V1.columnGap % baseUnit, "columnGap not grid-aligned")
+    }
+
+    @Test
+    fun `V3 removes implicit column padding without changing older versions`() {
+        assertEquals(2f, RenderingDefaults.V1.columnCellPadding)
+        assertEquals(2f, RenderingDefaults.V2.columnCellPadding)
+        assertEquals(0f, RenderingDefaults.V3.columnCellPadding)
+        assertEquals(RenderingDefaults.V2.columnGap, RenderingDefaults.V3.columnGap)
     }
 
     // -----------------------------------------------------------------------

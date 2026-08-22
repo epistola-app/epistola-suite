@@ -13,7 +13,6 @@
  * each component's `scopeProvider` — no hard-coded component types here.
  */
 
-import type { FieldPath } from './schema-paths.js';
 import type { Node } from '../types/index.js';
 import type { ScopeDeclaration, ScopeProviderContext } from './registry.js';
 
@@ -38,12 +37,7 @@ export function buildIterationScope(
   const itemAlias = (props.itemAlias as string) || 'item';
   const indexAlias = props.indexAlias as string | undefined;
 
-  const variables = buildAliasedFieldPaths(
-    itemAlias,
-    indexAlias,
-    arrayExpression,
-    ctx.schemaFieldPaths,
-  );
+  const variables = buildIterationMetadata(itemAlias, indexAlias);
   const evaluationData = buildLoopEvaluationData(
     itemAlias,
     indexAlias,
@@ -51,7 +45,19 @@ export function buildIterationScope(
     ctx.evaluationContext,
   );
 
-  return { variables, evaluationData };
+  return {
+    variables,
+    schemaBindings: [
+      {
+        alias: itemAlias,
+        source: { kind: 'array-item-expression', expression: arrayExpression },
+        scopeKind: 'iteration',
+        description: 'Current iteration item',
+        includeAlias: true,
+      },
+    ],
+    evaluationData,
+  };
 }
 
 /**
@@ -59,36 +65,11 @@ export function buildIterationScope(
  *
  * Maps array item sub-paths to aliased paths and adds metadata fields.
  */
-function buildAliasedFieldPaths(
+function buildIterationMetadata(
   itemAlias: string,
   indexAlias: string | undefined,
-  arrayExpression: string,
-  schemaFieldPaths: FieldPath[],
-): FieldPath[] {
-  const paths: FieldPath[] = [];
-  const arrayPathPrefix = `${arrayExpression}[].`;
-
-  // Add the item alias itself (for simple arrays and direct reference)
-  paths.push({
-    path: itemAlias,
-    type: 'string',
-    scope: itemAlias,
-    scopeKind: 'iteration',
-    description: 'Current iteration item',
-  });
-
-  // Map array item sub-properties to aliased paths (for object arrays)
-  for (const fp of schemaFieldPaths) {
-    if (fp.path.startsWith(arrayPathPrefix)) {
-      const subPath = fp.path.slice(arrayPathPrefix.length);
-      paths.push({
-        path: `${itemAlias}.${subPath}`,
-        type: fp.type,
-        scope: itemAlias,
-        scopeKind: 'iteration',
-      });
-    }
-  }
+): ScopeDeclaration['variables'] {
+  const paths: ScopeDeclaration['variables'] = [];
 
   // Add loop metadata fields
   paths.push(

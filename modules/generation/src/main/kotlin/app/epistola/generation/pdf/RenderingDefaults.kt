@@ -58,6 +58,7 @@ data class RenderingDefaults(
 
     // -- Columns --
     val columnGap: Float,
+    val columnCellPadding: Float,
 
     // -- Unit conversion --
     val baseFontSizePt: Float,
@@ -131,6 +132,7 @@ data class RenderingDefaults(
             tableCellPadding = 0f, // 0pt (0sp) — cells render flush; padding via per-cell styles
             datatableDefaultColumnWidthPercent = 33f,
             columnGap = 8f, // 2sp
+            columnCellPadding = 2f, // iText's historical implicit cell padding
             baseFontSizePt = 12f,
             pageHeaderPadding = 20f, // 5sp
             pageHeaderHeight = 60f,
@@ -150,12 +152,22 @@ data class RenderingDefaults(
             listItemSpacingBetweenOnly = true,
         )
 
+        /**
+         * V3: column cells no longer add iText's implicit padding around their content.
+         * Explicit component padding and the configured inter-column gap are unchanged.
+         */
+        val V3 = V2.copy(
+            version = 3,
+            columnCellPadding = 0f,
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V2
+        val CURRENT = V3
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
             2 to V2,
+            3 to V3,
         )
 
         /**

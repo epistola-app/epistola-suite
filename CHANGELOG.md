@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(editor): **Expression selection and schema navigation boundaries tightened.**
+  ProseMirror selection collapsing is centralized behind a typed text-editor interaction, while
+  schema cursors now keep their canonical schema pointer and traversal path opaque.
+- **[user]** fix(pdf): **Column content aligns with neighboring components in generated PDFs.**
+  Newly published PDFs no longer add implicit cell padding around Columns content, while explicit
+  component padding continues to apply and the editor retains its authoring inset. Existing
+  published templates keep their original versioned PDF layout.
+- **[user]** fix(editor): **Nested loops expose correctly typed item fields.** Inner loops can use
+  arrays from an outer item and retain schema types for their item alias and child fields,
+  including arrays nested directly inside arrays and list-valued stencil parameters. Components
+  declare their scope bindings while the editor navigates one canonical schema internally, avoiding
+  copied partial schemas and flattened type metadata. The demo catalog includes nested delivery
+  route loops for hands-on verification.
+- **[user]** fix(editor): **Text containing expressions can be copied and pasted.** Rich-text
+  selections can include expression chips, preserve them as editable expressions when pasted
+  within Epistola, and expose them as `{{expression}}` when pasted as plain text into another
+  application. Expressions retain their existing single-click editing behavior, and clicking
+  anywhere in the text component clears the active text selection.
 - **[user]** feat(catalogs): **Catalog resource relationships are visible as an interactive graph.**
   Search across a tenant, explore incoming and outgoing references up to three levels deep, filter
   by catalog, resource type, and reference semantics, inspect exact version/JSON-path evidence, and

@@ -311,6 +311,32 @@ describe('extractFieldPaths', () => {
     ]);
   });
 
+  it('merges nullable and union array item metadata', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        amounts: {
+          type: 'array',
+          items: {
+            oneOf: [{ type: 'null' }, { type: 'integer' }, { type: 'number' }],
+          },
+        },
+        richTextItems: {
+          type: 'array',
+          items: { $ref: 'https://epistola.app/schemas/richtext-inline-v1.json' },
+        },
+      },
+    };
+
+    expect(extractFieldPaths(schema)).toEqual([
+      { path: 'amounts', type: 'array' },
+      {
+        path: 'richTextItems',
+        type: 'array',
+      },
+    ]);
+  });
+
   it('keeps external and unresolved refs as safe leaves', () => {
     const schema = {
       type: 'object',

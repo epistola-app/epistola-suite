@@ -308,7 +308,101 @@
                   "content": [
                     {
                       "type": "text",
-                      "text": "Open the data contract to exercise references, compositions, nullable values, and deeply nested arrays."
+                      "text": "Open the data contract to exercise references, compositions, nullable values, and deeply nested arrays. The routes below demonstrate schema-aware nested loops."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-routes-heading": {
+          "id": "n-routes-heading",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Delivery routes"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-routes-loop": {
+          "id": "n-routes-loop",
+          "type": "loop",
+          "slots": ["s-routes-loop-body"],
+          "props": {
+            "expression": {
+              "raw": "deliveryRoutes",
+              "language": "jsonata"
+            },
+            "itemAlias": "route"
+          }
+        },
+        "n-route-addresses-loop": {
+          "id": "n-route-addresses-loop",
+          "type": "loop",
+          "slots": ["s-route-addresses-loop-body"],
+          "props": {
+            "expression": {
+              "raw": "route",
+              "language": "jsonata"
+            },
+            "itemAlias": "address"
+          }
+        },
+        "n-route-address": {
+          "id": "n-route-address",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "address.street",
+                        "isNew": false
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": ", "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "address.postalCode",
+                        "isNew": false
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "address.city",
+                        "isNew": false
+                      }
                     }
                   ]
                 }
@@ -322,7 +416,19 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-heading", "n-description"]
+          "children": ["n-heading", "n-description", "n-routes-heading", "n-routes-loop"]
+        },
+        "s-routes-loop-body": {
+          "id": "s-routes-loop-body",
+          "nodeId": "n-routes-loop",
+          "name": "body",
+          "children": ["n-route-addresses-loop"]
+        },
+        "s-route-addresses-loop-body": {
+          "id": "s-route-addresses-loop-body",
+          "nodeId": "n-route-addresses-loop",
+          "name": "body",
+          "children": ["n-route-address"]
         }
       }
     },
