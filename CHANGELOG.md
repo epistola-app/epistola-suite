@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** feat(catalogs): **Catalog resources have stable tenant-local identities.** A shared
+  registry now assigns internal UUIDs to all seven top-level resource types, preserves typed public
+  slug addresses, and provides typed alias storage; stencil versions are the first owned hierarchy
+  linked to their parent's stable identity.
 - **[dev]** refactor(editor): **Expression selection and schema navigation boundaries tightened.**
   ProseMirror selection collapsing is centralized behind a typed text-editor interaction, while
   schema cursors now keep their canonical schema pointer and traversal path opaque.
