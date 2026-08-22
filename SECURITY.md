@@ -18,7 +18,8 @@ We take security seriously. If you discover a security vulnerability, please rep
 
 **Please use GitHub's private vulnerability reporting feature:**
 
-1. Go to the [Security tab](../../security) of this repository
+1. Open the repository's
+   [private vulnerability reporting form](https://github.com/epistola-app/epistola-suite/security/advisories/new)
 2. Click "Report a vulnerability"
 3. Fill out the form with details about the vulnerability
 

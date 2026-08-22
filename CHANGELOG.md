@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(security): **The security policy is easier to discover.** `SECURITY.md` now lives
+  at the repository root while remaining available through GitHub's Security tab.
 - **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
   records combine machine-readable OSV metadata with full descriptions, generate the vulnerability
   index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror.

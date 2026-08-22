@@ -357,7 +357,7 @@ Every PR should include:
 
 ### Security Policy
 
-Located at `.github/SECURITY.md`.
+Located at [`SECURITY.md`](../SECURITY.md) in the repository root.
 
 **Supported versions:** The two most recently released minor release lines are
 supported and patched. As long as fewer than two minor release lines have been
@@ -558,6 +558,6 @@ Recommended settings:
 | `.github/ISSUE_TEMPLATE/feature_request.yml` | Feature request form               |
 | `.github/ISSUE_TEMPLATE/documentation.yml`   | Documentation issue form           |
 | `.github/PULL_REQUEST_TEMPLATE.md`           | PR template                        |
-| `.github/SECURITY.md`                        | Security policy                    |
+| `SECURITY.md`                                | Security policy                    |
 | `CODE_OF_CONDUCT.md`                         | Community guidelines               |
 | `CONTRIBUTING.md`                            | Contribution guide                 |
