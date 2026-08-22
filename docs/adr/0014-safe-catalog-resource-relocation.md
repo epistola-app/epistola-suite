@@ -105,11 +105,15 @@ infrastructure than a direct update.
 
 ## Candidate decision
 
-Adopt **Option E** as the long-term model, with a two-step **preview then execute** protocol. This
-recommendation is conditional on first making relational key updates safe and defining historical
-relative-reference resolution. The first implementation is an alpha capability, supports only
-moves between two different `AUTHORED` catalogs in the same tenant, and blocks every move whose
-relational or immutable-reference shape is not yet supported.
+Adopt **Option E** as the long-term product behavior, with a two-step **preview then execute**
+protocol. Implement it using **E2 — a shared surrogate resource registry**, described under
+[Composite keys and foreign keys](#composite-keys-and-foreign-keys). The first implementation is an
+alpha capability, supports only moves between two different `AUTHORED` catalogs in the same tenant,
+and blocks every move whose relational or immutable-reference shape is not yet supported.
+
+These are two different decision axes. Options A–E define what a move means to authors and existing
+references. Suboptions E1–E3 define how Option E's stable identity and relational integrity are
+represented in the database. Choosing E2 does not introduce a sixth product behavior.
 
 Option D remains the lower-cost alternative if the desired product semantics are that old
 references intentionally see a frozen snapshot. It is not chosen because the primary requirement
@@ -123,16 +127,16 @@ not create a new logical resource:
 
 - `type` and `key` are unchanged;
 - the canonical `catalogKey` changes from source to target;
-- stable internal IDs and version numbers are preserved where the domain has them;
+- a new stable internal `resourceId` and existing version numbers are preserved;
 - the target address must not already be occupied by either a resource or an alias;
 - source and target catalogs must both exist, differ, and be `AUTHORED`.
 
 Most current resource rows do not have a catalog-independent database identity. Their primary keys
 contain `catalog_key`, for example `(tenant_key, catalog_key, id)` for templates, themes, stencils,
-and assets and `(tenant_key, catalog_key, slug)` for fonts and code lists. "Preserve stable internal
-identity" therefore means preserving the domain key, version history, and audit continuity while
-changing the composite database key. It does not imply that a universal immutable resource UUID
-already exists.
+and assets and `(tenant_key, catalog_key, slug)` for fonts and code lists. The stable `resourceId`
+is therefore new infrastructure that must be backfilled before relocation is enabled. Public URLs,
+commands, and catalog wire data continue to use resource addresses; the surrogate identity is an
+internal relational key and is not exported.
 
 System and `SUBSCRIBED` resources cannot be moved. References owned by those catalogs may continue
 to resolve through an alias, but their stored content is never rewritten locally.
@@ -206,11 +210,10 @@ flattened after later moves. Tenant-global candidate discovery considers canonic
 aliases do not create extra candidates or make an otherwise unique lookup ambiguous. An explicit
 historical address may follow its alias after qualification.
 
-Because the alias target is polymorphic across seven separate resource tables, a single ordinary
-foreign key cannot enforce its existence. The relocation command validates the canonical target in
-the same transaction, while deletion and subsequent relocation commands treat aliases as incoming
-references. Introducing a central resource registry with immutable UUIDs could provide a generic
-foreign-key target later, but is not required for the initial design.
+Aliases point to the shared registry by `(tenant_key, resource_id)`, so their canonical target is
+protected by an ordinary foreign key even though resources live in seven domain tables. Deletion
+and subsequent relocation commands still treat aliases as incoming references because foreign-key
+existence alone does not decide whether an old address may be retired.
 
 ### Composite keys and foreign keys
 
@@ -231,29 +234,84 @@ The important current relationships include:
 | Asset          | Asset-backed font variants                                                                       |
 | Attribute      | Primarily JSON variant assignments rather than relational foreign keys                           |
 
-Structural ownership constraints should use `ON UPDATE CASCADE` where changing the parent's
-catalog must move the whole owned hierarchy. This includes template → variants → versions and
-contracts, stencil → versions, code list → entries, and font → variants. The template chain crosses
-module boundaries into generation history, quality findings, and load-test records; all those
-constraints must participate before template moves can be enabled.
+Three implementation strategies were considered for Option E.
 
-Semantic foreign keys either cascade or are updated by their typed rewrite strategy in the same
-transaction. Examples are template and tenant default-theme references and attribute → code-list
-bindings. Constraints involved in a multi-resource move may need to be deferrable so PostgreSQL
-validates the completed selected set rather than an invalid intermediate statement order.
+#### E1 — Update composite keys with cascades
 
-One current relationship cannot represent the desired post-move state: `font_variants.catalog_key`
-identifies both the owning font and its backing asset. An asset cannot move away from its font, or a
-font away from its asset, while that column serves both roles. Before supporting those independent
-moves, add a separate `asset_catalog_key` to the asset foreign key. Until then the planner must
-require the font and backing assets to move together and block selections that cannot satisfy that
-co-location constraint.
+Keep each domain table's current catalog-qualified key and make the relevant constraints
+`ON UPDATE CASCADE` or deferrable. Typed strategies update semantic references in the same
+transaction.
 
-Adding a catalog-independent surrogate resource UUID and migrating all relational references to it
-would make future moves cheaper, but it is a much broader schema and API change. The candidate
-direction instead uses cascades, deferrable constraints, and narrowly separated semantic catalog
-columns. If implementing those changes proves more invasive than the surrogate model, this ADR must
-be revisited before execution work starts.
+**Pros:** preserves the current table identities and can be introduced relationship by
+relationship.
+
+**Cons:** a template move cascades through variants, versions, contracts, activations, generation
+history, quality findings, and load tests. Every present and future module that references a
+resource becomes coupled to relocation mechanics. Historical relational rows are physically
+rewritten even though their logical subject did not change, and the polymorphic alias target still
+cannot have one ordinary foreign key.
+
+#### E2 — Shared surrogate resource registry (chosen)
+
+Introduce one tenant-scoped identity row per logical resource. Conceptually:
+
+```text
+catalog_resources
+  tenant_key
+  resource_id UUID
+  resource_type
+  catalog_key
+  resource_key
+  PRIMARY KEY (tenant_key, resource_id)
+  UNIQUE (tenant_key, resource_type, catalog_key, resource_key)
+  FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs
+```
+
+Domain rows and structural or semantic relational references migrate to stable resource IDs. A
+move changes the registry row's `catalog_key`; it does not change the identity used by dependants.
+Address aliases map an old typed address to `(tenant_key, resource_id)`. The registry stores
+identity and current catalog membership only: resource content remains in its domain table, and the
+reference graph remains derived rather than separately persisted.
+
+Surrogate IDs are internal. Public URLs, commands, and catalog import/export continue to use typed
+addresses. Import allocates local identities and resolves wire-format addresses to them; it never
+requires IDs to be portable between tenants.
+
+**Pros:** catalog membership becomes an attribute rather than part of relational identity. Moves
+do not cascade through historical ownership rows, aliases have a real foreign-key target, audit
+records can retain one logical identity across moves, and future modules can reference resources
+without depending on catalog relocation.
+
+**Cons:** this is the largest forward migration. Every resource needs a backfilled registry row,
+all relational references must migrate safely, and all address-based entry points need a reliable
+address-to-ID boundary. Tenant isolation remains part of every key. A generic registry foreign key
+proves that a resource exists but not that it has the expected type, so type correctness still
+needs type-specific foreign keys where possible or explicit database/application validation.
+
+The current `font_variants.catalog_key` represents both the owning font and its backing asset.
+Under E2 those become separate stable `font_resource_id` and `asset_resource_id` relationships,
+which removes the accidental same-catalog constraint and permits either resource to move
+independently.
+
+#### E3 — Domain-specific surrogate IDs without a shared registry
+
+Give each resource table its own catalog-independent ID and migrate references directly to the
+corresponding domain table.
+
+**Pros:** migration can proceed per resource type, and type-specific relationships retain ordinary
+foreign keys.
+
+**Cons:** aliases and central address resolution still need seven polymorphic target paths, there
+is no common foreign-key or uniqueness boundary for a resource identity, and generic graph,
+authorization, audit, and relocation code keeps branching by resource type.
+
+#### Identity implementation decision
+
+Choose E2. E1 distributes relocation coupling across historical and future tables, while E3 omits
+the main benefits of central identity. E2 has a higher up-front migration cost, but makes later
+moves small and preserves database-enforced identity across all resource types. It does not solve
+relative references in immutable payloads; their resolution context remains a separate requirement
+described below.
 
 ### Reference rewriting
 
@@ -359,8 +417,8 @@ fingerprint. In one database transaction it:
 1. acquires a tenant-scoped relocation lock;
 2. rebuilds the plan from authoritative data;
 3. rejects the request as stale if the fingerprint differs;
-4. applies canonical resource moves, aliases, and typed mutable rewrites;
-5. lets cascades and typed relational updates move every dependent composite key;
+4. updates canonical catalog membership in the resource registry and creates aliases;
+5. applies typed relational and mutable JSON rewrites while stable foreign keys remain unchanged;
 6. validates foreign keys and graph equivalence for previously resolved references;
 7. records one audit summary with per-resource old and new addresses;
 8. commits all changes together.
@@ -387,11 +445,11 @@ until the alpha workflow and error model have settled.
 - Target collisions, alias collisions, cycles, missing references, ambiguous references, and
   unsupported rewrites are explicit preview blockers.
 - Drafts and new exports contain canonical addresses; old immutable versions work through aliases.
-- All relational dependants carry the canonical composite key after commit; no foreign key is
-  weakened or dropped to make a move succeed.
+- All relational dependants still reference the same stable resource IDs after commit; no foreign
+  key is weakened or dropped to make a move succeed.
 - An immutable relative reference either retains a proven resolution base or blocks the move.
-- Font and backing-asset moves obey the schema's co-location rule until `asset_catalog_key` is
-  separated.
+- Font variants use distinct stable font and asset relationships before independent moves are
+  enabled.
 - Preview and execute integration tests create all domain state through production commands or the
   shared fixture/scenario DSL, never direct SQL setup.
 
@@ -399,19 +457,20 @@ until the alpha workflow and error model have settled.
 
 1. Inventory every ownership and semantic foreign key per resource type, including constraints in
    feature modules, and add move-shaped integration tests before changing the schema.
-2. Add safe `ON UPDATE CASCADE`/deferrable behavior and separate catalog columns where one column
-   currently represents two relationships, starting with `font_variants.asset_catalog_key`.
-3. Define immutable relative-reference context and conservatively block historical shapes that
+2. Add the shared resource registry and backfill a stable identity for every resource.
+3. Migrate relational foreign keys to stable identities, including distinct font and backing-asset
+   relationships, without weakening tenant or type integrity.
+4. Define immutable relative-reference context and conservatively block historical shapes that
    cannot preserve resolution.
-4. Make every runtime and export resolver use one alias-aware resource-address resolver, with parity
+5. Make every runtime and export resolver use one alias-aware resource-address resolver, with parity
    tests against existing specialized resolution paths.
-5. Add alias persistence, collision rules, graph evidence, and read/write behavior.
-6. Add typed rewrite strategies and graph/foreign-key equivalence validation one resource/reference
+6. Add alias persistence, collision rules, graph evidence, and read/write behavior.
+7. Add typed rewrite strategies and graph/foreign-key equivalence validation one resource/reference
    kind at a time.
-7. Add preview and execute commands with optimistic plan validation and transactional tests.
-8. Add the alpha UI impact review and execution flow.
-9. Consider alias cleanup, convenience dependency selection, REST, or MCP only after production
-   behavior is understood.
+8. Add preview and execute commands with optimistic plan validation and transactional tests.
+9. Add the alpha UI impact review and execution flow.
+10. Consider alias cleanup, convenience dependency selection, REST, or MCP only after production
+    behavior is understood.
 
 ## Consequences
 
@@ -419,10 +478,10 @@ until the alpha workflow and error model have settled.
 - The old address remains reserved, potentially for a long time, in exchange for preserving
   immutable history and subscribed references.
 - Resource lookup is slightly more complex and must be centralized before relocation is enabled.
-- Composite-key updates cascade through potentially large historical hierarchies, so template moves
-  are materially more expensive and risky than moving a leaf resource.
-- Some independent moves require schema normalization first; aliases cannot bypass relational
-  co-location constraints.
+- Adopting stable identities requires a large forward migration and changes many foreign keys, but
+  subsequent moves do not rewrite historical ownership hierarchies.
+- The shared registry is foundational identity metadata, not a replacement for domain resource
+  tables and not a separately persisted reference graph.
 - Existing immutable relative references reduce the initially supported move set unless their
   historical base catalog is preserved explicitly.
 - Catalogs affected indirectly by rewritten or canonicalized references acquire unreleased changes.
