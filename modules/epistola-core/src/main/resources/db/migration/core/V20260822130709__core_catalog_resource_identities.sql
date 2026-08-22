@@ -80,6 +80,7 @@ DECLARE
     resource_type_value TEXT := TG_ARGV[0];
     key_column TEXT := TG_ARGV[1];
     resource_key_value TEXT;
+    existing_resource_id UUID;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         DELETE FROM catalog_resources
@@ -90,6 +91,17 @@ BEGIN
     resource_key_value := to_jsonb(NEW) ->> key_column;
 
     IF TG_OP = 'INSERT' THEN
+        -- Domain imports use INSERT .. ON CONFLICT DO UPDATE. PostgreSQL still runs this BEFORE
+        -- INSERT trigger for that path, so retain the identity already registered at the public
+        -- address instead of attempting to register the row's fresh column default.
+        SELECT resource_id INTO existing_resource_id
+        FROM catalog_resources
+        WHERE tenant_key = NEW.tenant_key
+          AND resource_type = resource_type_value
+          AND catalog_key = NEW.catalog_key
+          AND resource_key = resource_key_value;
+        NEW.resource_id := COALESCE(existing_resource_id, NEW.resource_id, gen_random_uuid());
+
         INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_key, resource_key)
         VALUES (NEW.tenant_key, NEW.resource_id, resource_type_value, NEW.catalog_key, resource_key_value)
         ON CONFLICT (tenant_key, resource_id) DO UPDATE
