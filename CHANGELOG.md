@@ -49,6 +49,11 @@ plus a session-expiry popup that now closes automatically after SSO.
   tags.** The same stored-XSS class in the stencil picker is fixed; stencil names and tags with
   markup or control characters are now rejected at the command boundary (descriptions escape on
   render but stay free text). (#644)
+- **[user]** feat(catalogs): **Authored stencils can be moved between catalogs in alpha.**
+  The resource graph previews affected draft and published references before moving, rewrites
+  mutable references, preserves published references through a stable identity and typed alias,
+  and exports aliases as canonical cross-catalog references. The independent alpha toggle is off
+  by default; released source catalogs and non-stencil resources remain blocked in this first cut.
 - **[dev]** feat(catalogs): **Catalog resources have stable tenant-local identities.** A shared
   registry now assigns internal UUIDs to all seven top-level resource types, preserves typed public
   slug addresses, and provides typed alias storage; stencil versions are the first owned hierarchy

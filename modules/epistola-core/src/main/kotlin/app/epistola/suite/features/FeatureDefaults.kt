@@ -38,6 +38,8 @@ data class FeatureDefaults(
     val editorWalkthrough: Boolean = false,
     /** Tenant-wide catalog resource-reference explorer. Off while the feature is ALPHA. */
     val resourceGraph: Boolean = false,
+    /** Moving resources between authored catalogs. Off while the feature is ALPHA. */
+    val resourceRelocation: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
@@ -45,6 +47,7 @@ data class FeatureDefaults(
         KnownFeatures.AI_CHAT -> aiChat
         KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough
         KnownFeatures.RESOURCE_GRAPH -> resourceGraph
+        KnownFeatures.RESOURCE_RELOCATION -> resourceRelocation
         else -> false
     }
 }

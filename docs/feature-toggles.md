@@ -143,5 +143,7 @@ rule in `components.css`.
 | `quality`                     | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
 | `ai-chat`                     | AI chat panel in the template editor                                  | Alpha  | `false` |
 | `editor-walkthrough`          | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `false` |
+| `resource-graph`              | Tenant-wide catalog resource-reference explorer                       | Alpha  | `false` |
+| `resource-relocation`         | Preview and move authored catalog resources (stencils first)          | Alpha  | `false` |
 
 \* Hub-only features (`KnownFeatures.HUB_ONLY`) default to `epistola.support.enabled` — see above.

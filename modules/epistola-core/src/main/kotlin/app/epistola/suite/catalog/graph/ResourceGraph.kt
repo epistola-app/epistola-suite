@@ -78,6 +78,7 @@ data class ResourceEdge(
     val qualification: ReferenceQualification,
     val resolution: ReferenceResolution,
     val evidence: List<ReferenceEvidence>,
+    val resolvedViaAlias: Boolean = false,
 ) {
     val evidenceCount: Int get() = evidence.size
 }

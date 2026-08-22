@@ -32,14 +32,34 @@ class GetTenantResourceGraphHandler(
 
     override fun handle(query: GetTenantResourceGraph): TenantResourceGraph = jdbi.inTransaction<TenantResourceGraph, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
         val nodes = loadNodes(handle, query.tenantKey)
+        val aliases = loadAliases(handle, query.tenantKey)
         val occurrences = buildList {
             addAll(loadRelationalReferences(handle, query.tenantKey))
             addAll(loadThemeReferences(handle, query.tenantKey))
             addAll(loadTemplateReferences(handle, query.tenantKey, query.includeHistory))
             addAll(loadStencilReferences(handle, query.tenantKey, query.includeHistory))
         }
-        TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences))
+        TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences, aliases))
     }
+
+    private fun loadAliases(handle: Handle, tenantKey: TenantKey): Map<ResourceAddress, ResourceAddress> = handle.createQuery(
+        """
+        SELECT aliases.resource_type, aliases.catalog_key::text, aliases.resource_key,
+               resources.catalog_key::text canonical_catalog_key, resources.resource_key canonical_resource_key
+        FROM catalog_resource_aliases aliases
+        JOIN catalog_resources resources
+          ON resources.tenant_key = aliases.tenant_key
+         AND resources.resource_id = aliases.target_resource_id
+         AND resources.resource_type = aliases.resource_type
+        WHERE aliases.tenant_key = :tenantKey
+        """,
+    )
+        .bind("tenantKey", tenantKey)
+        .map { rs, _ ->
+            val type = resourceType(rs.getString("resource_type"))
+            ResourceAddress(type, rs.getString("catalog_key"), rs.getString("resource_key")) to
+                ResourceAddress(type, rs.getString("canonical_catalog_key"), rs.getString("canonical_resource_key"))
+        }.list().toMap()
 
     private fun loadNodes(handle: Handle, tenantKey: TenantKey): List<ResourceNode> = handle.createQuery(
         """
@@ -249,12 +269,17 @@ class GetTenantResourceGraphHandler(
         )
     }
 
-    private fun resolveAndAggregate(nodes: List<ResourceNode>, occurrences: List<Occurrence>): List<ResourceEdge> {
+    private fun resolveAndAggregate(
+        nodes: List<ResourceNode>,
+        occurrences: List<Occurrence>,
+        aliases: Map<ResourceAddress, ResourceAddress>,
+    ): List<ResourceEdge> {
         val byAddress = nodes.associateBy { it.address }
         val byTypeAndKey = nodes.groupBy { it.address.type to it.address.key }
         return occurrences.groupBy { occurrence ->
             val candidates = if (occurrence.selector.catalogKey != null) {
-                listOfNotNull(byAddress[ResourceAddress(occurrence.selector.type, occurrence.selector.catalogKey, occurrence.selector.key)])
+                val requested = ResourceAddress(occurrence.selector.type, occurrence.selector.catalogKey, occurrence.selector.key)
+                listOfNotNull(byAddress[requested] ?: aliases[requested]?.let(byAddress::get))
             } else {
                 byTypeAndKey[occurrence.selector.type to occurrence.selector.key].orEmpty()
             }.map { it.address }.sortedBy { it.id }
@@ -271,11 +296,26 @@ class GetTenantResourceGraphHandler(
                 qualification = occurrence.qualification,
                 candidates = candidates,
                 resolution = resolution,
+                resolvedViaAlias = occurrence.selector.catalogKey?.let {
+                    ResourceAddress(occurrence.selector.type, it, occurrence.selector.key) in aliases
+                } == true,
             )
         }.map { (key, grouped) ->
             val target = key.candidates.singleOrNull()
             val id = listOf(key.source.id, key.kind, key.selector.type.wireName, key.selector.catalogKey.orEmpty(), key.selector.key).joinToString("|")
-            ResourceEdge(id, key.source, target, key.selector, key.candidates, key.kind, key.semantics, key.qualification, key.resolution, grouped.map { it.evidence }.distinct())
+            ResourceEdge(
+                id,
+                key.source,
+                target,
+                key.selector,
+                key.candidates,
+                key.kind,
+                key.semantics,
+                key.qualification,
+                key.resolution,
+                grouped.map { it.evidence }.distinct(),
+                key.resolvedViaAlias,
+            )
         }.sortedBy { it.id }
     }
 
@@ -301,5 +341,6 @@ class GetTenantResourceGraphHandler(
         val qualification: ReferenceQualification,
         val candidates: List<ResourceAddress>,
         val resolution: ReferenceResolution,
+        val resolvedViaAlias: Boolean,
     )
 }

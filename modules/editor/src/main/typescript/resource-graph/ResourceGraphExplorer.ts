@@ -10,6 +10,7 @@ import {
   displayType,
   type EvidenceResponse,
   type ResourceEdge,
+  type ResourceMovePreview,
   type ResourceNode,
   type ResourceType,
   type SubgraphResponse,
@@ -39,6 +40,11 @@ function isDirection(value: unknown): value is (typeof DIRECTIONS)[number] {
   return typeof value === 'string' && DIRECTIONS.some((direction) => direction === value);
 }
 
+function csrfToken(): string {
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
 function isResourceNode(value: unknown): value is ResourceNode {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<ResourceNode>;
@@ -60,11 +66,12 @@ function isResourceEdge(value: unknown): value is ResourceEdge {
 @customElement('ep-resource-graph')
 export class ResourceGraphExplorer extends LitElement {
   @property({ attribute: 'data-base-url' }) baseUrl = '';
+  @property({ attribute: 'data-relocation-enabled' }) relocationEnabled = 'false';
   @state() private search = '';
   @state() private searchResults: ResourceNode[] = [];
   @state() private searchResultsVisible = false;
   @state() private searching = false;
-  @state() private catalogOptions: Array<[string, string]> = [];
+  @state() private catalogOptions: Array<{ key: string; name: string; type: string }> = [];
   @state() private graph?: SubgraphResponse;
   @state() private selectedEdge?: ResourceEdge;
   @state() private evidence?: EvidenceResponse;
@@ -76,6 +83,9 @@ export class ResourceGraphExplorer extends LitElement {
   @state() private semanticsFilter = '';
   @state() private loading = false;
   @state() private error = '';
+  @state() private moveTarget = '';
+  @state() private movePreview?: ResourceMovePreview;
+  @state() private moving = false;
   private cy?: Core;
   private searchSequence = 0;
 
@@ -337,10 +347,10 @@ export class ResourceGraphExplorer extends LitElement {
       if (!response.ok) throw new Error(`Could not load resources (${response.status})`);
       const body = (await response.json()) as {
         nodes: ResourceNode[];
-        catalogs: Array<{ key: string; name: string }>;
+        catalogs: Array<{ key: string; name: string; type: string }>;
       };
       if (sequence === this.searchSequence) {
-        this.catalogOptions = body.catalogs.map((catalog) => [catalog.key, catalog.name]);
+        this.catalogOptions = body.catalogs;
         if (showResults) {
           this.searchResults = body.nodes;
           this.searchResultsVisible = true;
@@ -392,6 +402,8 @@ export class ResourceGraphExplorer extends LitElement {
       this.graph = (await response.json()) as SubgraphResponse;
       this.selectedEdge = undefined;
       this.evidence = undefined;
+      this.moveTarget = '';
+      this.movePreview = undefined;
       const url = new URL(window.location.href);
       for (const [key, value] of [
         ['type', node.type],
@@ -525,6 +537,64 @@ export class ResourceGraphExplorer extends LitElement {
     return node?.name ?? edge.targetSelector.key;
   }
 
+  private async previewResourceMove(): Promise<void> {
+    if (!this.graph || !this.moveTarget) return;
+    this.moving = true;
+    this.error = '';
+    this.movePreview = undefined;
+    const params = new URLSearchParams({
+      type: this.graph.focus.type,
+      catalog: this.graph.focus.catalogKey,
+      key: this.graph.focus.key,
+      targetCatalog: this.moveTarget,
+    });
+    try {
+      const response = await fetch(`${this.baseUrl}/move-preview?${params}`);
+      if (!response.ok) throw new Error(`Could not preview move (${response.status})`);
+      this.movePreview = (await response.json()) as ResourceMovePreview;
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'Could not preview move';
+    } finally {
+      this.moving = false;
+    }
+  }
+
+  private async executeResourceMove(): Promise<void> {
+    const graph = this.graph;
+    const preview = this.movePreview;
+    if (!graph || !preview?.executable) return;
+    this.moving = true;
+    this.error = '';
+    try {
+      const response = await fetch(`${this.baseUrl}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
+        body: JSON.stringify({
+          type: graph.focus.type,
+          catalog: graph.focus.catalogKey,
+          key: graph.focus.key,
+          targetCatalog: this.moveTarget,
+          planFingerprint: preview.planFingerprint,
+        }),
+      });
+      if (!response.ok) throw new Error(`Could not move resource (${response.status})`);
+      await this.loadNodes(false);
+      await this.focusResource({
+        id: `${graph.focus.type}:${this.moveTarget}:${graph.focus.key}`,
+        type: graph.focus.type,
+        catalogKey: this.moveTarget,
+        key: graph.focus.key,
+        name: graph.nodes.find((node) => node.id === graph.focus.id)?.name ?? graph.focus.key,
+        catalogName: this.moveTarget,
+        catalogType: 'authored',
+      });
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'Could not move resource';
+    } finally {
+      this.moving = false;
+    }
+  }
+
   protected render() {
     const outgoing = this.graph?.edges.filter((edge) => edge.source === this.graph?.focus.id) ?? [];
     const incoming = this.graph?.edges.filter((edge) => edge.target === this.graph?.focus.id) ?? [];
@@ -645,7 +715,9 @@ export class ResourceGraphExplorer extends LitElement {
             }}
           >
             <option value="">All catalogs</option>
-            ${this.catalogOptions.map(([key, name]) => html`<option value=${key}>${name}</option>`)}
+            ${this.catalogOptions.map(
+              (catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`,
+            )}
           </select></label
         >
         <label
@@ -745,7 +817,63 @@ export class ResourceGraphExplorer extends LitElement {
       <h3>Uses</h3>
       ${list(outgoing)}
       <h3>Used by</h3>
-      ${list(incoming)}`;
+      ${list(incoming)} ${this.renderMoveResource()}`;
+  }
+
+  private renderMoveResource() {
+    if (this.relocationEnabled !== 'true' || this.graph?.focus.type !== 'stencil') return nothing;
+    const targets = this.catalogOptions.filter(
+      (catalog) => catalog.type === 'authored' && catalog.key !== this.graph?.focus.catalogKey,
+    );
+    return html`<h3>Move resource <span class="badge">Alpha</span></h3>
+      <label
+        >Target catalog
+        <input
+          type="search"
+          list="relocation-catalogs"
+          placeholder="Search catalogs"
+          .value=${this.moveTarget}
+          @input=${(event: InputEvent) => {
+            if (!(event.currentTarget instanceof HTMLInputElement)) return;
+            this.moveTarget = event.currentTarget.value;
+            this.movePreview = undefined;
+          }}
+        />
+      </label>
+      <datalist id="relocation-catalogs">
+        ${targets.map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
+      </datalist>
+      <p>
+        <button
+          type="button"
+          ?disabled=${this.moving || !targets.some((catalog) => catalog.key === this.moveTarget)}
+          @click=${() => void this.previewResourceMove()}
+        >
+          ${this.moving ? 'Checking…' : 'Preview move'}
+        </button>
+      </p>
+      ${this.movePreview
+        ? html`<div class="evidence">
+            <strong>${this.movePreview.executable ? 'Ready to move' : 'Move is blocked'}</strong>
+            <p>
+              ${this.movePreview.mutableRewriteCount} draft reference(s) will be rewritten;<br />
+              ${this.movePreview.immutableReferenceCount} published reference(s) will resolve
+              through the alias.
+            </p>
+            ${this.movePreview.blockers.map(
+              (blocker) => html`<p class="error">${blocker.message}</p>`,
+            )}
+            ${this.movePreview.executable
+              ? html`<button
+                  type="button"
+                  ?disabled=${this.moving}
+                  @click=${() => void this.executeResourceMove()}
+                >
+                  Move to ${this.moveTarget}
+                </button>`
+              : nothing}
+          </div>`
+        : nothing}`;
   }
 
   private renderEvidence() {
