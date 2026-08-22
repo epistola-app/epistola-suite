@@ -108,8 +108,12 @@ class CreateStencilHandler(
                     val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
                     handle.createUpdate(
                         """
-                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, created_at, created_by)
-                        VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy)
+                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, stencil_resource_id, content, parameter_schema, status, created_at, created_by)
+                        VALUES (
+                            :id, :tenantId, :catalogKey, :stencilId,
+                            (SELECT resource_id FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :stencilId),
+                            :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy
+                        )
                         """,
                     )
                         .bind("id", VersionKey.of(1))

@@ -211,8 +211,12 @@ class ImportStencilHandler(
     ) {
         handle.createUpdate(
             """
-            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, published_at, created_at, created_by)
-            VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, :parameterSchema::jsonb, 'published', NOW(), NOW(), :createdBy)
+            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, stencil_resource_id, content, parameter_schema, status, published_at, created_at, created_by)
+            VALUES (
+                :id, :tenantKey, :catalogKey, :stencilKey,
+                (SELECT resource_id FROM stencils WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :stencilKey),
+                :content::jsonb, :parameterSchema::jsonb, 'published', NOW(), NOW(), :createdBy
+            )
             """,
         )
             .bind("id", VersionKey.of(version))

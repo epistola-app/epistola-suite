@@ -49,6 +49,10 @@ plus a session-expiry popup that now closes automatically after SSO.
   tags.** The same stored-XSS class in the stencil picker is fixed; stencil names and tags with
   markup or control characters are now rejected at the command boundary (descriptions escape on
   render but stay free text). (#644)
+- **[dev]** feat(catalogs): **Catalog resources have stable tenant-local identities.** A shared
+  registry now assigns internal UUIDs to all seven top-level resource types, preserves typed public
+  slug addresses, and provides typed alias storage; stencil versions are the first owned hierarchy
+  linked to their parent's stable identity.
 - **[dev]** refactor(editor): **Expression selection and schema navigation boundaries tightened.**
   ProseMirror selection collapsing is centralized behind a typed text-editor interaction, while
   schema cursors now keep their canonical schema pointer and traversal path opaque.
