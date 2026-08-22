@@ -15,6 +15,7 @@ import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
+import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -73,6 +74,7 @@ class PreviewContractUpdateHandler(
         val base = draft ?: published
         val effectiveDataModel = query.dataModel ?: base?.dataModel
         val effectiveExamples = query.dataExamples ?: base?.dataExamples?.toList() ?: emptyList()
+        requireAtLeastOneDataExample(effectiveExamples)
 
         val exampleValidationErrors = if (effectiveDataModel != null && effectiveExamples.isNotEmpty()) {
             jsonSchemaValidator.validateExamples(effectiveDataModel, effectiveExamples)

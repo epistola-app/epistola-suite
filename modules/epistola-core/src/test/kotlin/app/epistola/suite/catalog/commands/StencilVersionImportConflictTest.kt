@@ -8,6 +8,7 @@ import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
@@ -36,6 +37,7 @@ import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -452,7 +454,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
     private fun publishTemplateReferencingStencil(catalogId: CatalogId, templateSlug: String, stencilKey: StencilKey, stencilVersion: Int) {
         val templateKey = TemplateKey.of(templateSlug)
         val templateId = TemplateId(templateKey, catalogId)
-        CreateDocumentTemplate(id = templateId, name = templateSlug).execute()
+        CreateDocumentTemplate(id = templateId, name = templateSlug).execute().withRequiredDataExample()
 
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         UpdateDraft(
@@ -557,7 +559,15 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         val manifest = objectMapper.readValue(entries.getValue("catalog.json"), CatalogManifest::class.java)
             .let {
                 it.copy(
-                    catalog = it.catalog.copy(slug = newSlug),
+                    catalog = app.epistola.catalog.protocol.CatalogInfo.create(
+                        slug = newSlug,
+                        name = it.catalog.name,
+                        description = it.catalog.description,
+                        attributes = it.catalog.attributes,
+                        keywords = it.catalog.keywords,
+                        presentation = it.catalog.presentation,
+                        license = it.catalog.license,
+                    ),
                     release = it.release.copy(fingerprint = null),
                 )
             }
@@ -565,7 +575,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
 
         val unsigned = rawZip(entries)
         val fingerprint = CatalogArchiveReader.read(ByteArrayInputStream(unsigned)).archive.use { archive ->
-            PortableCatalogCanonicalizer.fingerprint(requireNotNull(archive)).value
+            PortableCatalogCanonicalizer.currentFingerprint(requireNotNull(archive)).value
         }
         entries["catalog.json"] = objectMapper.writeValueAsBytes(
             manifest.copy(release = manifest.release.copy(fingerprint = fingerprint)),
@@ -590,7 +600,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         stencil: StencilResource,
         template: TemplateDocument? = null,
         /** Wire version stamped on the *template* detail — used to exercise the version gate. */
-        templateDetailSchemaVersion: Int = 5,
+        templateDetailSchemaVersion: Int = CATALOG_SCHEMA_VERSION,
     ): ByteArray {
         val resources = mutableListOf<app.epistola.catalog.protocol.ResourceEntry>()
         resources.add(
@@ -616,7 +626,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         }
 
         val manifest = CatalogManifest(
-            schemaVersion = 5,
+            schemaVersion = CATALOG_SCHEMA_VERSION,
             catalog = app.epistola.catalog.protocol.CatalogInfo(catalogSlug, "Manual", null),
             publisher = app.epistola.catalog.protocol.PublisherInfo("Test"),
             release = app.epistola.catalog.protocol.ReleaseInfo("0.0.0-dev", null, null),
@@ -630,7 +640,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             zos.write(objectMapper.writeValueAsBytes(manifest))
             zos.closeEntry()
             zos.putNextEntry(ZipEntry("resources/stencil/${stencil.slug}.json"))
-            zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 5, resource = stencil)))
+            zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = CATALOG_SCHEMA_VERSION, resource = stencil)))
             zos.closeEntry()
             if (template != null) {
                 val variantKey = "${templateKey!!.value}-default"

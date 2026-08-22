@@ -28,6 +28,7 @@ import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -153,7 +154,7 @@ class ExportBlocksMultipleStencilVersionsTest : IntegrationTestBase() {
     ) {
         val templateKey = TemplateKey.of(templateSlug)
         val templateId = TemplateId(templateKey, catalogId)
-        CreateDocumentTemplate(id = templateId, name = templateSlug).execute()
+        CreateDocumentTemplate(id = templateId, name = templateSlug).execute().withRequiredDataExample()
 
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)

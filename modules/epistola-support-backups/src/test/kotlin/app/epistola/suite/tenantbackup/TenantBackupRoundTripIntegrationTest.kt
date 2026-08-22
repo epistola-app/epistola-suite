@@ -24,6 +24,7 @@ import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -50,7 +51,7 @@ class TenantBackupRoundTripIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = main, name = "Main").execute()
-            CreateDocumentTemplate(id = TemplateId(templateKey, catalogId), name = "Invoice").execute()
+            CreateDocumentTemplate(id = TemplateId(templateKey, catalogId), name = "Invoice").execute().withRequiredDataExample()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalogId), name = "Brand").execute()
             SetTenantDefaultTheme(tenantId = tenant.id, themeId = ThemeKey.of("brand"), catalogKey = main).execute()
 

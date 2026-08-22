@@ -319,6 +319,13 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
                         tools.jackson.databind.node.ObjectNode::class.java,
                     ),
+                    dataExamples = listOf(
+                        app.epistola.suite.templates.model.DataExample(
+                            "example-1",
+                            "Example 1",
+                            objectMapper.createObjectNode().put("name", "Ada"),
+                        ),
+                    ),
                 ).execute()
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
@@ -633,6 +640,13 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     dataModel = objectMapper.readValue(
                         """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
                         tools.jackson.databind.node.ObjectNode::class.java,
+                    ),
+                    dataExamples = listOf(
+                        app.epistola.suite.templates.model.DataExample(
+                            "example-1",
+                            "Example 1",
+                            objectMapper.createObjectNode().put("name", "Ada"),
+                        ),
                     ),
                 ).execute()
                 app.epistola.suite.templates.contracts.commands.PublishContractVersion(

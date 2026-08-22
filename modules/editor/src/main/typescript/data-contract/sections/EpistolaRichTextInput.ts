@@ -188,6 +188,7 @@ export class EpistolaRichTextInput extends LitElement {
       plugins: this._buildPlugins(),
     });
     this._lastEmittedJson = JSON.stringify(doc.toJSON());
+    this._syncPlaceholderState(doc);
     this._view = new EditorView(this._container, {
       state,
       editable: () => !this.readOnly,
@@ -195,6 +196,7 @@ export class EpistolaRichTextInput extends LitElement {
         if (!this._view) return;
         const newState = this._view.state.apply(tr);
         this._view.updateState(newState);
+        this._syncPlaceholderState(newState.doc);
         if (tr.docChanged) {
           const json = newState.doc.toJSON();
           const serialized = JSON.stringify(json);
@@ -219,11 +221,16 @@ export class EpistolaRichTextInput extends LitElement {
     const next = JSON.stringify(doc.toJSON());
     if (next === this._lastEmittedJson) return;
     this._lastEmittedJson = next;
+    this._syncPlaceholderState(doc);
     const newState = EditorState.create({
       doc,
       plugins: this._view.state.plugins,
     });
     this._view.updateState(newState);
+  }
+
+  private _syncPlaceholderState(doc: ProsemirrorNode): void {
+    this._container?.toggleAttribute('data-empty', doc.textContent.length === 0);
   }
 
   private _docFromValue(value: JsonValue | null): ProsemirrorNode {

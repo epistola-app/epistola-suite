@@ -21,8 +21,14 @@ import type {
   StringFormat,
   VisualSchema,
 } from '../types.js';
-import type { SchemaCommand } from '../utils/schemaCommands.js';
-import { isValidFieldName } from '../utils/schemaUtils.js';
+import type { SchemaCommand } from '../schema/commands.js';
+import { isValidFieldName } from '../schema/conversion.js';
+import {
+  type FieldLocation,
+  fieldTargetLabel,
+  findFieldLocation,
+  supportsNestedFields,
+} from '../schema/field-location.js';
 import {
   ARRAY_ITEM_FIELD_TYPES as ARRAY_ITEM_TYPES,
   CONTRACT_FIELD_TYPES as FIELD_TYPES,
@@ -38,13 +44,6 @@ export interface SchemaUiState {
   selectedFieldId: string | null;
   readOnly: boolean;
   jsonPanelOpen: boolean;
-  // Save state
-  saving: boolean;
-  canSave: boolean;
-  saveSuccess: boolean;
-  saveError: string | null;
-  canForceSave: boolean;
-  saveTooltip: string;
 }
 
 export interface SchemaSectionCallbacks {
@@ -53,11 +52,10 @@ export interface SchemaSectionCallbacks {
   onSelectField: (fieldId: string) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onAddField: () => void;
+  onAddField: (parentFieldId: string | null) => void;
+  onRequestFieldNameFocus: (fieldId: string, selectAll: boolean) => void;
   onImport: () => void;
   onToggleJson: () => void;
-  onSave: () => void;
-  onForceSave: () => void;
 }
 
 // =============================================================================
@@ -73,7 +71,7 @@ export function renderSchemaSection(
   const fields = visualSchema.fields;
   const hasFields = fields.length > 0;
   const selectedField = uiState.selectedFieldId
-    ? findFieldById(fields, uiState.selectedFieldId)
+    ? findFieldLocation(fields, uiState.selectedFieldId)
     : null;
 
   return html`
@@ -88,10 +86,11 @@ export function renderSchemaSection(
       <div class="dc-toolbar">
         <button
           class="ep-btn ep-btn-outline ep-btn-sm dc-add-field-btn"
-          @click=${() => callbacks.onAddField()}
+          @click=${() => callbacks.onAddField(null)}
           ?disabled=${uiState.readOnly}
+          aria-label="Add field to data contract"
         >
-          + Add Field
+          + Add field to data contract
         </button>
 
         <button
@@ -153,28 +152,6 @@ export function renderSchemaSection(
           </svg>
           Redo
         </button>
-
-        ${uiState.saveSuccess ? html`<span class="dc-status-success">Saved</span>` : nothing}
-        ${uiState.saveError
-          ? html`<span class="dc-status-error">${uiState.saveError}</span>`
-          : nothing}
-        ${uiState.canForceSave
-          ? html`<button
-              class="ep-btn ep-btn-outline ep-btn-sm dc-force-save-btn"
-              ?disabled=${uiState.saving}
-              @click=${() => callbacks.onForceSave()}
-            >
-              Save Anyway
-            </button>`
-          : nothing}
-        <button
-          class="ep-btn ep-btn-primary ep-btn-sm dc-save-btn"
-          ?disabled=${uiState.readOnly || uiState.saving || !uiState.canSave}
-          @click=${() => callbacks.onSave()}
-          title=${uiState.saveTooltip}
-        >
-          ${uiState.saving ? 'Saving...' : 'Save'}
-        </button>
       </div>
 
       <!-- Validation warnings -->
@@ -185,10 +162,12 @@ export function renderSchemaSection(
         ? html`
             <div class="dc-schema-layout">
               ${renderFieldList(fields, uiState, callbacks, expandedFields)}
-              ${renderDetailPanel(selectedField, uiState, callbacks)}
+              ${renderDetailPanel(selectedField, fields, uiState, callbacks)}
             </div>
           `
-        : html`<div class="dc-empty-state">No fields defined yet. Add a field below.</div>`}
+        : html`<div class="dc-empty-state">
+            No fields defined yet. Use Add field to data contract above.
+          </div>`}
     </section>
   `;
 }
@@ -239,11 +218,12 @@ const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
 ];
 
 function renderDetailPanel(
-  field: SchemaField | null,
+  location: FieldLocation | null,
+  fields: readonly SchemaField[],
   uiState: SchemaUiState,
   callbacks: SchemaSectionCallbacks,
 ): unknown {
-  if (!field) {
+  if (!location) {
     return html`
       <div class="dc-detail-panel">
         <div class="dc-detail-empty">Select a field to edit its properties</div>
@@ -251,12 +231,24 @@ function renderDetailPanel(
     `;
   }
 
+  const field = location.field;
+
   const emitUpdate = (updates: SchemaFieldUpdate) => {
     callbacks.onCommand({ type: 'updateField', fieldId: field.id, updates });
   };
 
-  const canHaveNested =
-    field.type === 'object' || (field.type === 'array' && field.arrayItemType === 'object');
+  const canHaveNested = supportsNestedFields(field);
+  const childTarget = canHaveNested ? fieldTargetLabel(fields, field.id) : null;
+  const siblingTarget = fieldTargetLabel(fields, location.parentFieldId);
+
+  const commitName = (input: HTMLInputElement): void => {
+    const value = input.value.trim();
+    if (!value || !isValidFieldName(value)) {
+      input.value = field.name;
+      return;
+    }
+    if (value !== field.name) emitUpdate({ name: value });
+  };
 
   return html`
     <div class="dc-detail-panel">
@@ -269,6 +261,8 @@ function renderDetailPanel(
           <input
             type="text"
             class="ep-input dc-detail-input"
+            id="dc-schema-field-name-${field.id}"
+            data-schema-field-name
             .value=${field.name}
             placeholder="Field name"
             title="Letters, digits, and underscores only. Must start with a letter or underscore."
@@ -283,9 +277,18 @@ function renderDetailPanel(
               }
             }}
             @change=${(e: Event) => {
-              const value = (e.target as HTMLInputElement).value.trim();
-              if (value && value !== field.name && isValidFieldName(value)) {
-                emitUpdate({ name: value });
+              commitName(e.target as HTMLInputElement);
+            }}
+            @keydown=${(e: KeyboardEvent) => {
+              const input = e.currentTarget as HTMLInputElement;
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitName(input);
+                callbacks.onRequestFieldNameFocus(field.id, false);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                input.value = field.name;
+                input.focus();
               }
             }}
           />
@@ -377,20 +380,18 @@ function renderDetailPanel(
 
         <!-- Actions -->
         <div class="dc-detail-actions">
-          ${canHaveNested
-            ? html`
-                <button
-                  class="ep-btn ep-btn-outline ep-btn-sm"
-                  @click=${() => {
-                    callbacks.onCommand({ type: 'addField', parentFieldId: field.id });
-                    callbacks.onToggleFieldExpand(field.id);
-                  }}
-                  ?disabled=${uiState.readOnly}
-                >
-                  + Add Nested Field
-                </button>
-              `
-            : nothing}
+          <div class="dc-detail-add-actions">
+            ${childTarget
+              ? renderAddFieldAction(field.id, childTarget, true, uiState.readOnly, callbacks)
+              : nothing}
+            ${renderAddFieldAction(
+              location.parentFieldId,
+              siblingTarget,
+              !childTarget,
+              uiState.readOnly,
+              callbacks,
+            )}
+          </div>
 
           <div class="dc-toolbar-spacer"></div>
 
@@ -404,6 +405,30 @@ function renderDetailPanel(
         </div>
       </div>
     </div>
+  `;
+}
+
+function renderAddFieldAction(
+  parentFieldId: string | null,
+  target: { visible: string; accessible: string },
+  primary: boolean,
+  readOnly: boolean,
+  callbacks: SchemaSectionCallbacks,
+): unknown {
+  const accessibleLabel = `Add field to ${target.accessible}`;
+  return html`
+    <button
+      class="ep-btn ${primary
+        ? 'ep-btn-primary'
+        : 'ep-btn-outline'} ep-btn-sm dc-context-add-field-btn"
+      @click=${() => callbacks.onAddField(parentFieldId)}
+      ?disabled=${readOnly}
+      aria-label=${accessibleLabel}
+      title=${accessibleLabel}
+    >
+      <span aria-hidden="true">+ Add field to</span>
+      <span class="dc-context-target" aria-hidden="true">${target.visible}</span>
+    </button>
   `;
 }
 
@@ -530,24 +555,4 @@ function renderArrayConstraints(
       />
     </div>
   `;
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-/** Find a field by ID in a nested field tree. */
-function findFieldById(fields: SchemaField[], id: string): SchemaField | null {
-  for (const field of fields) {
-    if (field.id === id) return field;
-    if (field.type === 'object' && field.nestedFields) {
-      const found = findFieldById(field.nestedFields, id);
-      if (found) return found;
-    }
-    if (field.type === 'array' && field.nestedFields) {
-      const found = findFieldById(field.nestedFields, id);
-      if (found) return found;
-    }
-  }
-  return null;
 }

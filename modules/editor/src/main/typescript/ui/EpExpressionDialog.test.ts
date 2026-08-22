@@ -3,10 +3,26 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EpExpressionDialog } from './EpExpressionDialog.js';
 import * as resolveExpression from '../engine/resolve-expression.js';
 import type { FieldPath } from '../engine/schema-paths.js';
+import { EditorEngine } from '../engine/EditorEngine.js';
+import { createTestDocument, testRegistry } from '../engine/test-helpers.js';
+
+const ADVANCED_DATA_CONTRACT_PATH = resolvePath(
+  process.cwd(),
+  '../epistola-core/src/main/resources/epistola/catalogs/demo/resources/templates/advanced-data-contract.json',
+);
+
+function loadAdvancedDataModel(): object {
+  const catalogResource = JSON.parse(readFileSync(ADVANCED_DATA_CONTRACT_PATH, 'utf8')) as {
+    resource: { dataModel: object };
+  };
+  return catalogResource.resource.dataModel;
+}
 
 type ExpressionResult = { ok: true; value: unknown } | { ok: false; error: string };
 
@@ -374,6 +390,44 @@ describe('EpExpressionDialog builder mode', () => {
         values: expect.arrayContaining(['params.recipientName']),
       }),
     );
+    component.close(null);
+  });
+
+  it('offers the catalog advanced schema through EditorEngine in Builder and Code', async () => {
+    const engine = new EditorEngine(createTestDocument(), testRegistry(), {
+      dataModel: loadAdvancedDataModel(),
+    });
+    component.fieldPaths = engine.fieldPaths;
+
+    const dialog = component.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    component.show();
+    await component.updateComplete;
+
+    const builderValues = Array.from(
+      component.querySelectorAll<HTMLOptionElement>('.expression-dialog-field-select option'),
+    ).map((option) => option.value);
+    expect(builderValues).toEqual(
+      expect.arrayContaining([
+        'subject.firstName',
+        'subject.organizationName',
+        'subject.email',
+        'correspondenceAddress.city',
+      ]),
+    );
+    expect(builderValues).not.toContain('alternateSubjects[].firstName');
+
+    component.querySelector<HTMLButtonElement>('.expression-dialog-builder-hint-link')?.click();
+    await component.updateComplete;
+
+    const codePaths = Array.from(
+      component.querySelectorAll<HTMLElement>('.expression-dialog-path-item'),
+    ).map((item) => item.textContent ?? '');
+    expect(codePaths.some((text) => text.includes('alternateSubjects[].firstName'))).toBe(true);
+    expect(codePaths.some((text) => text.includes('alternateSubjects[].organizationName'))).toBe(
+      true,
+    );
+    expect(codePaths.some((text) => text.includes('deliveryRoutes[][].city'))).toBe(true);
     component.close(null);
   });
 

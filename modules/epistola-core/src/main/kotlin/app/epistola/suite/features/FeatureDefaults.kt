@@ -36,12 +36,15 @@ data class FeatureDefaults(
      * explicitly rather than riding the `else` branch below, so enabling it later is a deliberate edit.
      */
     val editorWalkthrough: Boolean = false,
+    /** Tenant-wide catalog resource-reference explorer. Off while the feature is ALPHA. */
+    val resourceGraph: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
         KnownFeatures.QUALITY -> quality
         KnownFeatures.AI_CHAT -> aiChat
         KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough
+        KnownFeatures.RESOURCE_GRAPH -> resourceGraph
         else -> false
     }
 }

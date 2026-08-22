@@ -49,3 +49,46 @@ document.addEventListener('click', function (event) {
   const input = document.getElementById('release-version');
   if (input) input.value = btn.getAttribute('data-version');
 });
+
+// ── Catalog presentation gallery ordering ─────────────────────────────────
+// Repeated selects preserve their DOM order in the submitted parameter list.
+// Rows are cloned from the final blank picker so this also works after HTMX
+// replaces the settings dialog.
+document.addEventListener('click', function (event) {
+  const add = event.target.closest && event.target.closest('[data-gallery-add]');
+  if (add) {
+    const gallery = add.parentElement.querySelector('[data-catalog-gallery]');
+    const source = gallery && gallery.querySelector('[data-catalog-gallery-row]:last-child');
+    if (!source) return;
+    const row = source.cloneNode(true);
+    const select = row.querySelector('select');
+    if (select) select.value = '';
+    gallery.appendChild(row);
+    return;
+  }
+
+  const remove = event.target.closest && event.target.closest('[data-gallery-remove]');
+  if (remove) {
+    const row = remove.closest('[data-catalog-gallery-row]');
+    const gallery = row && row.parentElement;
+    if (!row || !gallery) return;
+    if (gallery.querySelectorAll('[data-catalog-gallery-row]').length === 1) {
+      const select = row.querySelector('select');
+      if (select) select.value = '';
+    } else {
+      row.remove();
+    }
+    return;
+  }
+
+  const move = event.target.closest && event.target.closest('[data-gallery-move]');
+  if (!move) return;
+  const row = move.closest('[data-catalog-gallery-row]');
+  if (!row) return;
+  if (move.getAttribute('data-gallery-move') === 'up' && row.previousElementSibling) {
+    row.parentElement.insertBefore(row, row.previousElementSibling);
+  }
+  if (move.getAttribute('data-gallery-move') === 'down' && row.nextElementSibling) {
+    row.parentElement.insertBefore(row.nextElementSibling, row);
+  }
+});

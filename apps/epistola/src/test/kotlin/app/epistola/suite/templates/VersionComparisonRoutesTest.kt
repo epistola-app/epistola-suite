@@ -20,6 +20,7 @@ import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -46,7 +47,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
 
             given {
                 testTenant = tenant("Test Tenant")
-                val template = template(testTenant, "Invoice Template")
+                val template = template(testTenant, "Invoice Template").withRequiredDataExample()
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
@@ -153,7 +154,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
 
             given {
                 testTenant = tenant("Test Tenant")
-                val template = template(testTenant, "Invoice Template")
+                val template = template(testTenant, "Invoice Template").withRequiredDataExample()
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value

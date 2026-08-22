@@ -28,6 +28,7 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -41,7 +42,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
         val variantId = VariantId(variant.id, templateId)
@@ -82,7 +83,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
         val variantId = VariantId(variant.id, templateId)
@@ -128,7 +129,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
         val variantId = VariantId(variant.id, templateId)
@@ -166,7 +167,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
         val variantId = VariantId(variant.id, templateId)
@@ -191,7 +192,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
         val variantId = VariantId(variant.id, templateId)
@@ -234,7 +235,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
         val variantId = VariantId(variant.id, templateId)
@@ -308,7 +309,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
         val variantId = VariantId(variant.id, templateId)

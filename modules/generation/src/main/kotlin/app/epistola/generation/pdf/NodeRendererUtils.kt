@@ -163,6 +163,32 @@ internal fun parseNodeStyleSize(node: Node?, key: String, context: RenderContext
 }
 
 /**
+ * Resolves the semantic spacing between list items using the normal style cascade.
+ * Invalid values fall back to the versioned rendering default.
+ */
+internal fun resolveListItemSpacing(node: Node, context: RenderContext): Float {
+    val styles = buildMap<String, Any> {
+        putAll(context.inheritedStyles)
+        StyleApplicator.resolveBlockStyles(
+            context.blockStylePresets,
+            node.stylePreset,
+            node.styles?.filterNonNullValues(),
+        )?.let { putAll(it) }
+    }
+    val fallback = StyleApplicator.parseSize(
+        context.renderingDefaults.listItemSpacingDefault,
+        context.renderingDefaults.baseFontSizePt,
+        context.spacingUnit,
+    ) ?: context.renderingDefaults.listItemMarginBottom
+    val raw = styles["listItemSpacing"]?.toString() ?: return fallback
+    return StyleApplicator.parseSize(
+        raw,
+        context.renderingDefaults.baseFontSizePt,
+        context.spacingUnit,
+    ) ?: fallback
+}
+
+/**
  * Resolves the effective page-edge margin for a given side, in absolute
  * points, by walking the cascade:
  *

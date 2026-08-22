@@ -338,9 +338,12 @@
     const statusBar = document.getElementById('contract-status-bar');
     const statusBarUrl = statusBar && statusBar.dataset ? statusBar.dataset.statusUrl : undefined;
 
-    function refreshStatusBar() {
+    async function refreshStatusBar() {
       if (statusBarUrl && typeof htmx !== 'undefined') {
-        htmx.ajax('GET', statusBarUrl, { target: '#contract-status-bar', swap: 'outerHTML' });
+        await htmx.ajax('GET', statusBarUrl, {
+          target: '#contract-status-bar',
+          swap: 'outerHTML',
+        });
       }
     }
 
@@ -357,6 +360,7 @@
       initialSchema: initialSchema,
       initialExamples: initialExamples,
       readonly: readonly,
+      saveControlsContainer: document.getElementById('contract-save-controls'),
       callbacks: readonly
         ? {}
         : {
@@ -371,10 +375,14 @@
                 });
                 if (!response.ok) {
                   const err = await response.json();
-                  return { success: false, error: err.message, warnings: err.warnings };
+                  return {
+                    success: false,
+                    error: err.detail ?? err.message,
+                    warnings: err.warnings,
+                  };
                 }
                 const result = await response.json();
-                refreshStatusBar();
+                await refreshStatusBar();
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false, error: e.message };
@@ -389,10 +397,14 @@
                 });
                 if (!response.ok) {
                   const err = await response.json();
-                  return { success: false, warnings: err.warnings };
+                  return {
+                    success: false,
+                    error: err.detail ?? err.message,
+                    warnings: err.warnings,
+                  };
                 }
                 const result = await response.json();
-                refreshStatusBar();
+                await refreshStatusBar();
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false };

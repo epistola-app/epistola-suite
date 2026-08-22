@@ -21,6 +21,9 @@ const expressionNode: NodeSpec = {
   group: 'inline',
   inline: true,
   atom: true,
+  leafText(node) {
+    return `{{${node.attrs.expression}}}`;
+  },
   attrs: {
     expression: { default: '' },
     isNew: { default: false },
@@ -32,7 +35,7 @@ const expressionNode: NodeSpec = {
         class: 'expression-chip',
         'data-expression': node.attrs.expression,
       },
-      node.attrs.expression || '\u200B',
+      node.attrs.expression ? `{{${node.attrs.expression}}}` : '\u200B',
     ];
   },
   parseDOM: [

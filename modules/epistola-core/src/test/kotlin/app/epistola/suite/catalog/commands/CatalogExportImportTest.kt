@@ -4,7 +4,12 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.protocol.AttributeAssignment
+import app.epistola.catalog.protocol.CatalogLicense
+import app.epistola.catalog.protocol.CatalogPresentation
+import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
@@ -14,6 +19,7 @@ import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
@@ -49,6 +55,7 @@ import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -56,6 +63,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
@@ -77,6 +85,71 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jsonSchemaValidator: JsonSchemaValidator
+
+    @Test
+    fun `catalog metadata survives export and import into another tenant`() {
+        val source = createTenant("Metadata Source")
+        val target = createTenant("Metadata Target")
+        val catalogKey = CatalogKey.of("metadata-catalog")
+
+        val export = withMediator {
+            CreateCatalog(source.id, catalogKey, "Metadata Catalog").execute()
+            CreateAttributeDefinition(
+                id = AttributeId(AttributeKey.of("audience"), CatalogId(catalogKey, TenantId(source.id))),
+                displayName = "Audience",
+                allowedValues = listOf("municipalities"),
+            ).execute()
+            val image = UploadAsset(
+                tenantId = source.id,
+                name = "Catalog cover",
+                mediaType = AssetMediaType.PNG,
+                content = createMinimalPng(),
+                width = 1,
+                height = 1,
+                catalogKey = catalogKey,
+            ).execute()
+            val imageSlug = image.id.value.toString()
+
+            UpdateCatalogMetadata(
+                tenantKey = source.id,
+                catalogKey = catalogKey,
+                name = "Metadata Catalog Renamed",
+                description = "Portable discovery metadata",
+                attributes = listOf(AttributeAssignment(catalogKey.value, "audience", "municipalities")),
+                keywords = linkedSetOf("Letters", "Municipal"),
+                presentation = CatalogPresentation(imageSlug, listOf(imageSlug)),
+                license = CatalogLicense(
+                    name = "Creative Commons Attribution 4.0",
+                    spdxExpression = "CC-BY-4.0",
+                    url = "https://creativecommons.org/licenses/by/4.0/",
+                    copyrightText = "Copyright Epistola",
+                ),
+            ).execute()
+
+            val exported = ExportCatalogZip(source.id, catalogKey).execute()
+            assertThatThrownBy { DeleteAsset(source.id, image.id).execute() }
+                .isInstanceOf(AssetInUseException::class.java)
+                .hasMessageContaining("Catalog: Metadata Catalog Renamed")
+            exported
+        }
+
+        withMediator {
+            ImportCatalogZip(target.id, export.zipBytes, CatalogType.AUTHORED).execute()
+            val imported = GetCatalog(target.id, catalogKey).query()!!
+
+            assertThat(imported.name).isEqualTo("Metadata Catalog Renamed")
+            assertThat(imported.description).isEqualTo("Portable discovery metadata")
+            assertThat(imported.catalogMetadata.attributes)
+                .containsExactly(AttributeAssignment(catalogKey.value, "audience", "municipalities"))
+            assertThat(imported.catalogMetadata.keywords).containsExactlyInAnyOrder("Letters", "Municipal")
+            assertThat(imported.catalogMetadata.presentation?.iconAssetSlug).isNotNull()
+            assertThat(imported.catalogMetadata.presentation?.imageAssetSlugs)
+                .containsExactly(imported.catalogMetadata.presentation?.iconAssetSlug)
+            assertThat(imported.catalogMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
+            assertThat(imported.catalogMetadata.license?.url)
+                .isEqualTo("https://creativecommons.org/licenses/by/4.0/")
+        }
+    }
 
     @Test
     fun `export and import round-trip preserves all resources`() {
@@ -134,6 +207,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
             UpdateContractVersion(
                 templateId = templateId,
                 dataModel = contractSchema,
+                dataExamples = listOf(
+                    DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
+                ),
             ).execute()
             PublishContractVersion(templateId = templateId).execute()
 
@@ -369,6 +445,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
             UpdateContractVersion(
                 templateId = templateId,
                 dataModel = contractSchema,
+                dataExamples = listOf(
+                    DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
+                ),
             ).execute()
             PublishContractVersion(templateId = templateId).execute()
 
@@ -636,7 +715,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             // its owning catalog (the cross-catalog reference shape the picker writes).
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, sourceCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute().withRequiredDataExample()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             app.epistola.suite.templates.commands.versions.UpdateDraft(
@@ -670,7 +749,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             zip.write(
                 """
                 {
-                  "schemaVersion": 5,
+                  "schemaVersion": $CATALOG_SCHEMA_VERSION,
                   "catalog": {
                     "slug": "needs-missing",
                     "name": "Needs Missing Dep",
@@ -879,7 +958,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
             // Template embedding the stencil with a binding + snapshot, published.
             val templateId = TemplateId(templateKey, sourceCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+            CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
             val variantId = VariantId(variantKey, templateId)
             app.epistola.suite.templates.commands.versions.UpdateDraft(
                 variantId = variantId,

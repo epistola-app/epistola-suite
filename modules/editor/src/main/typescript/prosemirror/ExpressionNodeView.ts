@@ -9,7 +9,8 @@
  * - The resolved value from the current data example (e.g., "John Doe")
  * - The raw expression as fallback (e.g., `{{customer.name}}`)
  *
- * Click opens the shared expression dialog.
+ * Click opens the shared expression dialog. Drag selections can include the
+ * expression atom so expression-rich text can be copied and pasted.
  *
  * - Enter → save expression
  * - Escape → cancel (delete if isNew, else close)
@@ -24,6 +25,7 @@ import { DEFAULT_LOCALE } from '../engine/locale.js';
 import { inlineExpressionPathDisabled } from '../data-contract/binding-compatibility.js';
 import { isRichTextDoc, renderInlineRichText } from './inline-rich-text-rendering.js';
 import { openExpressionDialog } from '../ui/expression-dialog.js';
+import { collapseEditorSelection } from './selection.js';
 
 export interface ExpressionNodeViewOptions {
   getFieldPaths: () => FieldPath[];
@@ -95,10 +97,12 @@ export class ExpressionNodeView implements NodeView {
     this.dom.append(this._leftBrace, this._content, this._rightBrace);
     this._updateDisplay();
 
-    // Click → open dialog
+    // Click → open dialog. ProseMirror already received the preceding
+    // mousedown, which keeps drag selection working without changing this UX.
     this.dom.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      collapseEditorSelection(this._view);
       this._openDialog();
     });
 
@@ -123,9 +127,10 @@ export class ExpressionNodeView implements NodeView {
     this._displayGeneration++; // invalidate any in-flight async resolution
   }
 
-  // Prevent ProseMirror from handling events inside the chip
-  stopEvent(): boolean {
-    return true;
+  // Let ProseMirror own pointer selection and clipboard handling while keeping
+  // the chip's click-to-edit interaction isolated in the listener above.
+  stopEvent(event: Event): boolean {
+    return !['mousedown', 'mouseup', 'copy', 'cut', 'paste'].includes(event.type);
   }
 
   ignoreMutation(): boolean {

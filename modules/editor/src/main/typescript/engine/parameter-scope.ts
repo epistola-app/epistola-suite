@@ -32,9 +32,8 @@
  * renders as raw text in the editor.
  */
 import type { JsonSchema, JsonSchemaProperty } from '../data-contract/types.js';
-import { scalarFromJsonSchema } from '../data-contract/field-types.js';
+import type { JsonSchemaNode } from '../json-schema/schema-node.js';
 import type { ScopeDeclaration, ScopeProviderContext } from './registry.js';
-import type { FieldPath } from './schema-paths.js';
 import { evaluateParamAsync, getCachedParamValue } from './parameter-evaluation-cache.js';
 import type { Node } from '../types/index.js';
 
@@ -48,14 +47,6 @@ export function buildParameterScope(
   const alias = (typeof props.paramsAlias === 'string' && props.paramsAlias.trim()) || 'params';
   const bindings = (props.parameterBindings ?? {}) as Record<string, string>;
 
-  const variables: FieldPath[] = Object.entries(schema.properties).map(([name, propSchema]) => ({
-    path: `${alias}.${name}`,
-    type: typeFromSchema(propSchema),
-    scope: alias,
-    scopeKind: 'stencil-parameter',
-    description: propSchema?.description,
-  }));
-
   const params: Record<string, unknown> = {};
   const outer = ctx.evaluationContext;
   for (const [name, propSchema] of Object.entries(schema.properties)) {
@@ -63,7 +54,15 @@ export function buildParameterScope(
   }
 
   return {
-    variables,
+    variables: [],
+    schemaBindings: [
+      {
+        alias,
+        source: { kind: 'schema-root', schema: schema as JsonSchemaNode },
+        scopeKind: 'stencil-parameter',
+        includeAlias: false,
+      },
+    ],
     evaluationData: { [alias]: params },
   };
 }
@@ -90,11 +89,4 @@ function resolveValue(
   // Synthetic placeholder so authors see something while editing a draft
   // (no bindings yet) and consumers see an obvious flag for unbound params.
   return `<${name}>`;
-}
-
-function typeFromSchema(prop: JsonSchemaProperty | undefined): string {
-  if (!prop) return 'string';
-  const t = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-  // Collapse date / date-time via the shared registry; non-scalars keep raw type.
-  return scalarFromJsonSchema(t, prop.format) ?? t ?? 'string';
 }

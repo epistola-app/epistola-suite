@@ -6,6 +6,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, html } from 'lit';
+import { AllSelection } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { EditorEngine } from '../engine/EditorEngine.js';
 import { createDefaultRegistry } from '../engine/registry.js';
 import { createStencilDefinition } from '../components/stencil/stencil-registration.js';
@@ -148,6 +150,48 @@ describe('EpistolaCanvas — read-only blocks are not user-focusable', () => {
 
     expect(engine.selectedNodeId).toBe('text-toplevel');
     expect(document.activeElement?.classList.contains('ProseMirror')).toBe(true);
+  });
+
+  it('clears a text range when the text component padding is clicked', async () => {
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    const block = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-toplevel"]',
+    )!;
+    const textEditor = block.querySelector('epistola-text-editor')!;
+    const view = (textEditor as unknown as { _pmView: EditorView })._pmView;
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    expect(view.state.selection.empty).toBe(false);
+
+    block.querySelector<HTMLElement>('.canvas-block-content')!.click();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(view.state.selection.empty).toBe(true);
+    expect(document.activeElement).toBe(view.dom);
+  });
+
+  it('preserves a text range created by dragging inside the text component', async () => {
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    const block = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="text-toplevel"]',
+    )!;
+    const content = block.querySelector<HTMLElement>('.canvas-block-content')!;
+    const textEditor = block.querySelector('epistola-text-editor')!;
+    const view = (textEditor as unknown as { _pmView: EditorView })._pmView;
+
+    content.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 10, clientY: 10 }),
+    );
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    content.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, button: 0, clientX: 30, clientY: 10 }),
+    );
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(view.state.selection.empty).toBe(false);
   });
 
   it('blocks inside the locked stencil children slot have no tabindex (out of tab cycle and click cycle)', async () => {

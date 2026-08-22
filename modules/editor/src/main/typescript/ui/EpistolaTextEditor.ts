@@ -44,8 +44,13 @@ import type { NodeId } from '../types/index.js';
 import { type DocumentIndexes, isAncestor } from '../engine/indexes.js';
 import { rewriteExpressionsInContent } from '../engine/alias-rewrite.js';
 import { DEFAULT_LOCALE } from '../engine/locale.js';
+import { collapseEditorSelection } from '../prosemirror/selection.js';
 
 const DEBOUNCE_MS = 300;
+
+export interface TextEditorFocusOptions {
+  collapseSelection?: boolean;
+}
 
 @customElement('epistola-text-editor')
 export class EpistolaTextEditor extends LitElement {
@@ -331,8 +336,11 @@ export class EpistolaTextEditor extends LitElement {
   }
 
   /** Move keyboard focus into the rich-text surface after its block is selected. */
-  focusEditor(): void {
-    this._pmView?.focus();
+  focusEditor(options: TextEditorFocusOptions = {}): void {
+    if (!this._pmView) return;
+
+    if (options.collapseSelection) collapseEditorSelection(this._pmView);
+    this._pmView.focus();
   }
 
   // ---------------------------------------------------------------------------

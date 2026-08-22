@@ -96,6 +96,7 @@ class RichTextVariableRenderer : NodeRenderer {
             rawStyles["fontFamily"]?.let { put("fontFamily", it) }
             rawStyles["fontWeight"]?.let { put("fontWeight", it) }
             rawStyles["fontStyle"]?.let { put("fontStyle", it) }
+            put("listItemSpacing", resolveListItemSpacing(node, context))
         }
 
         val elements = context.proseMirrorConverter.convert(

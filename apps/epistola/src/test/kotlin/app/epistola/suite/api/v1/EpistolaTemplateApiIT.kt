@@ -202,7 +202,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val patch = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity("""{"dataModel": $dataModel}""", baseHeaders(key)),
+            HttpEntity(
+                """{"dataModel": $dataModel, "dataExamples": [{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                baseHeaders(key),
+            ),
             String::class.java,
         )
         assertThat(patch.statusCode).isEqualTo(HttpStatus.OK)
@@ -217,6 +220,33 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(get.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(get.body!!, "$.dataModel.type")).isEqualTo("object")
         assertThat(JsonPath.read<String>(get.body!!, "$.dataModel.properties.name.type")).isEqualTo("string")
+    }
+
+    @Test
+    fun `update template contract without an example returns required example problem`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "required-example-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Required Example"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity("""{"dataModel":{"type":"object"}}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        assertThat(JsonPath.read<String>(response.body!!, "$.type"))
+            .isEqualTo("https://epistola.app/errors/data-example-required")
+        assertThat(JsonPath.read<String>(response.body!!, "$.detail"))
+            .isEqualTo("At least one data example is required")
     }
 
     @Test
@@ -291,12 +321,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            HttpEntity(
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                baseHeaders(key),
+            ),
             String::class.java,
         )
 
         // Change name:string -> name:integer is a breaking type change.
-        val breaking = """{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}}"""
+        val breaking =
+            """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":42}}]}"""
         val rejected = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
@@ -333,11 +367,15 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            HttpEntity(
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                baseHeaders(key),
+            ),
             String::class.java,
         )
 
-        val breaking = """{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}, "forceUpdate": true}"""
+        val breaking =
+            """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":42}}],"forceUpdate":true}"""
         val response = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
@@ -367,7 +405,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"string"}}}}""", baseHeaders(key)),
+            HttpEntity(
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                baseHeaders(key),
+            ),
             String::class.java,
         )
 
@@ -375,7 +416,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val rejected = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity("""{"dataModel": {"type":"object","properties":{"name":{"type":"integer"}}}}""", baseHeaders(key)),
+            HttpEntity(
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":42}}]}""",
+                baseHeaders(key),
+            ),
             String::class.java,
         )
         assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
@@ -707,6 +751,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
         val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
         val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+
+        val contractUpdate = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/draft",
+            HttpMethod.PATCH,
+            HttpEntity(
+                """{"dataExamples":[{"id":"ex1","name":"Example 1","data":{}}]}""",
+                baseHeaders(key),
+            ),
+            String::class.java,
+        )
+        assertThat(contractUpdate.statusCode).isEqualTo(HttpStatus.OK)
 
         val publish = restTemplate.exchange(
             "$draftUrl/publish",
@@ -1054,6 +1109,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
                     HttpStatus.NO_CONTENT,
                     HttpStatus.NOT_FOUND,
                     HttpStatus.CONFLICT,
+                    HttpStatus.BAD_REQUEST,
                 )
             }
         } finally {
@@ -1097,7 +1153,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val updateDraft = restTemplate.exchange(
             contractDraftUrl,
             HttpMethod.PATCH,
-            HttpEntity("""{"dataModel": $dataModel}""", baseHeaders(key)),
+            HttpEntity(
+                """{"dataModel": $dataModel, "dataExamples": [{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                baseHeaders(key),
+            ),
             String::class.java,
         )
         assertThat(updateDraft.statusCode).isEqualTo(HttpStatus.OK)

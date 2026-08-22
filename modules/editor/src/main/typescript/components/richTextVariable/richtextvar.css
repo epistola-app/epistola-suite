@@ -30,5 +30,23 @@
     p {
       word-break: break-word;
     }
+
+    ul,
+    ol {
+      padding-left: 1.5em;
+      margin: 0.3em 0;
+    }
+
+    li {
+      margin-bottom: 0;
+    }
+
+    li:not(:last-child) {
+      margin-bottom: var(--ep-list-item-spacing, 2pt);
+    }
+
+    li > p {
+      margin-bottom: 0;
+    }
   }
 }
