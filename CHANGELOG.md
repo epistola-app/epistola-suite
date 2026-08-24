@@ -11,6 +11,7 @@
   index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror. The
   tooling documents its inputs, outputs, local commands, and CI usage directly in each script;
   embargoed fixes use draft GitHub advisories and temporary private forks until a patch is ready.
+  The initial picker-injection record is rated Medium with an explicit CVSS 3.1 vector.
 - **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
   crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
   or control characters are now rejected at upload. (#644)

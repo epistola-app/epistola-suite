@@ -13,7 +13,7 @@ assignment.
 
 | Published  | ID                                                           | Severity | Affected releases   | Patched release | Summary                                          |
 | ---------- | ------------------------------------------------------------ | -------- | ------------------- | --------------- | ------------------------------------------------ |
-| 2026-06-25 | [EPIS-2026-001](vulnerabilities/2026-06-25-epis-2026-001.md) | High     | 0.0.0 through 1.0.1 | Unreleased      | Stored HTML injection in editor resource pickers |
+| 2026-06-25 | [EPIS-2026-001](vulnerabilities/2026-06-25-epis-2026-001.md) | Medium   | 0.0.0 through 1.0.1 | Unreleased      | Stored HTML injection in editor resource pickers |
 
 To validate the records and generated index, run `pnpm vulnerabilities:check`. To
 regenerate this index, run `pnpm vulnerabilities:render`.
