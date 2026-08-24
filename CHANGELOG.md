@@ -9,7 +9,8 @@
 - **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
   records combine machine-readable OSV metadata with full descriptions, generate the vulnerability
   index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror. The
-  tooling documents its inputs, outputs, local commands, and CI usage directly in each script.
+  tooling documents its inputs, outputs, local commands, and CI usage directly in each script;
+  embargoed fixes use draft GitHub advisories and temporary private forks until a patch is ready.
 - **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
   crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
   or control characters are now rejected at upload. (#644)
