@@ -5,8 +5,8 @@
 ## [Unreleased]
 
 - **[user]** fix(themes): **A concurrently deleted template theme is rejected cleanly.** The
-  settings selector now returns to its persisted value and reports an actionable client error
-  instead of leaving a stale selection visible after a foreign-key failure.
+  settings selector now returns to its persisted value and displays an actionable error beside
+  the control instead of leaving a stale selection visible after a foreign-key failure.
 - **[dev]** docs(pdfa): **Preview PDF/A behavior is documented accurately.** Preview rendering
   honors the template's PDF/A setting to match final-output fonts and pagination, while retaining
   its visible preview watermark.

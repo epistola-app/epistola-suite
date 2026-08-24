@@ -135,7 +135,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `a theme deleted after page load is rejected and the selector reverts`() {
+    fun `a theme deleted after page load shows an error and the selector reverts`() {
         val (tenant, template, staleTheme) = withMediator {
             val seeded = createPublishedTemplateWithDraft()
             val tenantId = TenantId(seeded.first.id)
@@ -162,6 +162,9 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         select.selectOption("default/stale-theme")
 
         assertThat(select).hasValue("default/current-theme")
+        val error = page.locator("#theme-select-error")
+        assertThat(error).isVisible()
+        assertThat(error).containsText("The selected theme 'default/stale-theme' no longer exists")
     }
 
     /** Makes the endpoint answer 500 so the control's error path runs. */

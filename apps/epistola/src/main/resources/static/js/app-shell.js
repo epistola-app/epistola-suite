@@ -243,9 +243,17 @@ document.addEventListener('htmx:beforeSwap', function (event) {
   }
 });
 
-// Clear a form's global error slot whenever the form issues a new request.
+// Clear a control's explicit error target and its form's global error slot
+// whenever it issues a new request.
 document.addEventListener('htmx:beforeRequest', function (event) {
   var elt = event.detail.elt;
+  var errorTarget = elt && elt.getAttribute ? elt.getAttribute('data-error-target') : null;
+  var controlError = errorTarget ? document.querySelector(errorTarget) : null;
+  if (controlError) {
+    controlError.hidden = true;
+    controlError.textContent = '';
+  }
+
   var form = elt && elt.closest ? elt.closest('form') : null;
   if (!form) return;
   form.querySelectorAll('[data-form-error]').forEach(function (el) {
@@ -285,10 +293,15 @@ document.addEventListener('htmx:responseError', function (event) {
     message = detail || 'The request failed. Please try again.';
   }
 
-  // Prefer the issuing form's global error slot over the page banner.
-  var sourceForm =
-    event.detail.elt && event.detail.elt.closest ? event.detail.elt.closest('form') : null;
-  var slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
+  // An explicitly targeted control error belongs closest to the action that
+  // failed. Fall back to the issuing form's global error slot.
+  var source = event.detail.elt;
+  var errorTarget = source && source.getAttribute ? source.getAttribute('data-error-target') : null;
+  var slot = errorTarget ? document.querySelector(errorTarget) : null;
+  if (!slot) {
+    var sourceForm = source && source.closest ? source.closest('form') : null;
+    slot = sourceForm ? sourceForm.querySelector('[data-form-error]') : null;
+  }
   if (slot) {
     slot.textContent = message;
     slot.hidden = false;

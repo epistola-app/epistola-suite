@@ -43,6 +43,7 @@
                     <div class="form-group" style="margin-bottom: 0;">
                         <select id="theme-select" name="themeId" class="ep-select"
                                 th:disabled="${!editable}" data-revert-on-error
+                                data-error-target="#theme-select-error" aria-describedby="theme-select-error"
                                 th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/theme(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                                 hx-trigger="change" hx-target="#theme-section" hx-swap="outerHTML">
                             <option value="">No theme (use variant defaults)</option>
@@ -55,6 +56,8 @@
                                 </optgroup>
                             </th:block>
                         </select>
+                        <div id="theme-select-error" class="alert alert-error control-error"
+                             role="alert" hidden></div>
                     </div>
                 </div>
             </div>
