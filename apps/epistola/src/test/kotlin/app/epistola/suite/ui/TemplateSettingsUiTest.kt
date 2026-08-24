@@ -10,6 +10,8 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
@@ -26,6 +28,8 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.DeleteTheme
 import com.microsoft.playwright.Route
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
@@ -128,6 +132,36 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         toggle.click()
 
         assertThat(toggle).not().isChecked()
+    }
+
+    @Test
+    fun `a theme deleted after page load is rejected and the selector reverts`() {
+        val (tenant, template, staleTheme) = withMediator {
+            val seeded = createPublishedTemplateWithDraft()
+            val tenantId = TenantId(seeded.first.id)
+            val catalogId = CatalogId.default(tenantId)
+            val currentTheme = ThemeId(ThemeKey.of("current-theme"), catalogId)
+            val staleTheme = ThemeId(ThemeKey.of("stale-theme"), catalogId)
+            CreateTheme(id = currentTheme, name = "Current Theme").execute()
+            CreateTheme(id = staleTheme, name = "Soon Deleted Theme").execute()
+            UpdateDocumentTemplate(
+                id = TemplateId(seeded.second.id, catalogId),
+                themeId = currentTheme.key,
+                themeCatalogKey = currentTheme.catalogKey,
+            ).execute()
+            Triple(seeded.first, seeded.second, staleTheme)
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        val select = page.locator("#theme-select")
+        assertThat(select).hasValue("default/current-theme")
+
+        // The page still offers this option, but another user/tab removes it
+        // before the selection reaches the server.
+        withMediator { DeleteTheme(staleTheme).execute() }
+        select.selectOption("default/stale-theme")
+
+        assertThat(select).hasValue("default/current-theme")
     }
 
     /** Makes the endpoint answer 500 so the control's error path runs. */

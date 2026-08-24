@@ -42,7 +42,7 @@
                 <div class="form-row">
                     <div class="form-group" style="margin-bottom: 0;">
                         <select id="theme-select" name="themeId" class="ep-select"
-                                th:disabled="${!editable}"
+                                th:disabled="${!editable}" data-revert-on-error
                                 th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/theme(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                                 hx-trigger="change" hx-target="#theme-section" hx-swap="outerHTML">
                             <option value="">No theme (use variant defaults)</option>

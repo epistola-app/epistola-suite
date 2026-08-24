@@ -185,6 +185,59 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `PATCH theme with a deleted value returns actionable 400 and keeps the assignment`() = fixture {
+        lateinit var tenant: Tenant
+        var templateKey = ""
+
+        given {
+            val seed = withMediator {
+                val t = createTenant("Settings Patch Theme Deleted")
+                val tenantId = TenantId(t.id)
+                val currentTheme = ThemeKey.of("current-theme")
+                CreateTheme(
+                    id = ThemeId(currentTheme, CatalogId.default(tenantId)),
+                    name = "Current Theme",
+                ).execute()
+                val tplKey = TestIdHelpers.nextTemplateId()
+                val templateId = TemplateId(tplKey, CatalogId.default(tenantId))
+                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                UpdateDocumentTemplate(
+                    id = templateId,
+                    themeId = currentTheme,
+                    themeCatalogKey = CatalogKey.DEFAULT,
+                ).execute()
+                t to tplKey.value
+            }
+            tenant = seed.first
+            templateKey = seed.second
+        }
+
+        whenever {
+            patchForm(
+                "/tenants/${tenant.id}/templates/default/$templateKey/theme",
+                "themeId" to "default/deleted-theme",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON)
+            assertThat(response.body)
+                .contains("selected theme")
+                .contains("no longer exists")
+                .contains("themeId")
+
+            val updated = withMediator {
+                GetDocumentTemplate(
+                    id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                ).query()
+            }
+            assertThat(updated!!.themeKey).isEqualTo(ThemeKey.of("current-theme"))
+        }
+    }
+
+    @Test
     fun `PATCH name renames and returns the input fragment plus the OOB title sync`() = fixture {
         lateinit var tenant: Tenant
         var templateKey = ""

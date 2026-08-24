@@ -590,12 +590,18 @@ class DocumentTemplateHandler(
             themeKey = runCatching { ThemeKey.of(themePart) }
                 .getOrElse { return ServerResponse.badRequest().build() }
         }
-        val updated = UpdateDocumentTemplate(
-            id = templateId,
-            themeId = themeKey,
-            themeCatalogKey = themeCatalogKey,
-            clearThemeId = selected.isBlank(),
-        ).execute() ?: return ServerResponse.notFound().build()
+        val updated = try {
+            UpdateDocumentTemplate(
+                id = templateId,
+                themeId = themeKey,
+                themeCatalogKey = themeCatalogKey,
+                clearThemeId = selected.isBlank(),
+            ).execute() ?: return ServerResponse.notFound().build()
+        } catch (e: ValidationException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(e.toValidationProblemBody(request.servletRequest()))
+        }
 
         // Load available themes for the fragment
         val themes = ListThemes(tenantId = tenantId).query()
