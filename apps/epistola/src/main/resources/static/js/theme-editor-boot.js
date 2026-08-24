@@ -59,8 +59,8 @@ async function mount(container) {
       const result = await response.json();
       if (result.name) {
         document.title = result.name + ' - Epistola';
-        const h1 = document.querySelector('.page-header h1');
-        if (h1) h1.textContent = result.name;
+        const titleEl = document.getElementById('page-title-text');
+        if (titleEl) titleEl.textContent = result.name;
       }
     },
   });

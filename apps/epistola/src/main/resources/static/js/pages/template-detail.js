@@ -10,21 +10,15 @@
 // later by HTMX (the shell uses hx-boost, so page navigation is a body swap).
 //
 // Hooks (declared by templates/templates/** and fragments/version-comparison.html):
-//   [data-template-name-input]   settings: inline-editable template name; PATCHes
-//                                data-patch-url, Enter commits, Escape reverts to
-//                                data-original-name
-//   [data-theme-select]          settings: default-theme select; PATCHes data-patch-url
-//                                and swaps the returned fragment into #theme-section
-//   [data-pdfa-toggle]           settings: PDF/A checkbox; PATCHes data-patch-url,
-//                                reverts the checkbox on failure
+//   [data-template-name-input]   settings: keyboard UX for the rename input (Enter
+//                                commits, Escape reverts); the rename itself is a
+//                                native hx-patch in the template
 //   [data-confirm-submit]        handled by /js/behaviors.js (confirm-then-submit)
 //   [data-add-attr-button]       variant dialogs: reveals the [data-attr-row] chosen in
 //                                the sibling [data-add-attr-select] within the closest
 //                                [data-attr-rows] scope
 //   select[data-filter-key]      variants tab (#variant-filter-bar): attribute filter
 //                                for the variant card grid
-//   [data-compare-url]           opens the version-comparison dialog and HTMX-loads the
-//                                comparison UI from that URL
 //   [data-compare-versions]      version-comparison dialog: runs the side-by-side compare
 //   [data-show-dialog-on-swap]   after an HTMX swap targets this element, its
 //                                enclosing <dialog> is opened — handled app-wide
@@ -39,87 +33,24 @@
     return typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
   }
 
-  // ── Settings: inline-editable template name ───────────────────────────────
-  document.addEventListener('focusout', function (event) {
-    const input = event.target.closest && event.target.closest('[data-template-name-input]');
-    if (!input) return;
-    const newName = input.value.trim();
-    if (!newName || newName === input.dataset.originalName) {
-      input.value = input.dataset.originalName;
-      return;
-    }
-    fetch(input.dataset.patchUrl, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-      body: JSON.stringify({ name: newName }),
-    }).then(function (r) {
-      if (r.ok) {
-        input.dataset.originalName = newName;
-        const h1 = document.querySelector('.page-header h1');
-        if (h1) h1.textContent = newName;
-      } else {
-        input.value = input.dataset.originalName;
-      }
-    });
-  });
-
+  // ── Settings: template name keyboard UX ───────────────────────────────────
+  // The rename itself is a native HTMX control (hx-patch on change, see
+  // templates/detail/settings.html). This only adds keyboard affordances:
+  // Enter commits (blur fires the change event), Escape reverts to the
+  // server-rendered value (defaultValue = the value attribute) — reverted
+  // means no change event, so no request.
   document.addEventListener('keydown', function (event) {
     const input = event.target.closest && event.target.closest('[data-template-name-input]');
     if (!input) return;
     if (event.key === 'Enter') input.blur();
     if (event.key === 'Escape') {
-      input.value = input.dataset.originalName;
+      input.value = input.defaultValue;
       input.blur();
     }
   });
 
-  // ── Settings: default theme select ─────────────────────────────────────────
-  document.addEventListener('change', function (event) {
-    const select = event.target.closest && event.target.closest('[data-theme-select]');
-    if (!select) return;
-    const raw = select.value;
-    const clearThemeId = !raw;
-    let themeId = null;
-    let themeCatalogKey = null;
-    if (raw) {
-      const slash = raw.indexOf('/');
-      themeCatalogKey = raw.substring(0, slash);
-      themeId = raw.substring(slash + 1);
-    }
-    fetch(select.dataset.patchUrl, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-XSRF-TOKEN': csrfToken(),
-        'HX-Request': 'true',
-      },
-      body: JSON.stringify({
-        themeId: themeId,
-        themeCatalogKey: themeCatalogKey,
-        clearThemeId: clearThemeId,
-      }),
-    })
-      .then(function (r) {
-        return r.text();
-      })
-      .then(function (html) {
-        document.getElementById('theme-section').outerHTML = html;
-      });
-  });
-
-  // ── Settings: PDF/A output toggle ──────────────────────────────────────────
-  document.addEventListener('change', function (event) {
-    const toggle = event.target.closest && event.target.closest('[data-pdfa-toggle]');
-    if (!toggle) return;
-    const enabled = toggle.checked;
-    fetch(toggle.dataset.patchUrl, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-      body: JSON.stringify({ pdfaEnabled: enabled }),
-    }).then(function (r) {
-      if (!r.ok) toggle.checked = !enabled;
-    });
-  });
+  // The settings theme select and PDF/A toggle are native HTMX controls
+  // (hx-patch in templates/detail/settings.html) — no JS here.
 
   // ── Variant dialogs: "Add attribute" picker ────────────────────────────────
   // Works for both the create dialog (rendered with the page) and the edit
@@ -195,15 +126,9 @@
     comparisonBlobUrls = [];
   }
 
-  document.addEventListener('click', function (event) {
-    const button = event.target.closest && event.target.closest('[data-compare-url]');
-    if (!button) return;
-    const container = document.getElementById('version-comparison-dialog-body');
-    const dialog = document.getElementById('version-comparison-dialog');
-    if (!container || !dialog) return;
-    htmx.ajax('GET', button.dataset.compareUrl, { target: container, swap: 'innerHTML' });
-    dialog.showModal();
-  });
+  // Opening the comparison dialog is plain HTMX (hx-get on the trigger) plus
+  // the app-wide data-open-dialog hook in behaviors.js — no JS here. Running
+  // the compare stays below: the previews are PDF blobs, which HTMX can't swap.
 
   document.addEventListener('click', function (event) {
     const button = event.target.closest && event.target.closest('[data-compare-versions]');

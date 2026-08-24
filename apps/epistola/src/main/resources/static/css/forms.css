@@ -91,6 +91,14 @@
   margin-top: var(--ep-space-1);
 }
 
+.control-error {
+  margin-top: var(--ep-space-3);
+}
+
+.control-error[hidden] {
+  display: none;
+}
+
 .form-hint {
   display: block;
   font-size: var(--ep-text-xs);

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+- **[user]** fix(themes): **A concurrently deleted template theme is rejected cleanly.** The
+  settings selector now returns to its persisted value and displays an actionable error beside
+  the control instead of leaving a stale selection visible after a foreign-key failure.
+- **[dev]** docs(pdfa): **Preview PDF/A behavior is documented accurately.** Preview rendering
+  honors the template's PDF/A setting to match final-output fonts and pagination, while retaining
+  its visible preview watermark.
 - **[dev]** docs(security): **The security policy is easier to discover.** `SECURITY.md` now lives
   at the repository root while remaining available through GitHub's Security tab.
 - **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
@@ -172,6 +178,13 @@
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while
   preserving genuine audit history.
+- **[dev]** refactor(ui): **Hand-rolled HTMX converted to native HTMX.** The template
+  settings controls (theme select, rename, PDF/A toggle) and the version-comparison dialog
+  trigger reimplemented HTMX by hand — `fetch()` calls with manual swaps, a hand-set
+  `HX-Request` header, and programmatic `htmx.ajax()`. They are now plain `hx-*` attributes
+  backed by focused fragment endpoints (`PATCH …/name`, `…/pdfa`, form-encoded `…/theme`);
+  the JSON `PATCH /tenants/…/templates/{catalogId}/{id}` UI route and the orphaned
+  `static/js/modules/api-client.js` are removed. Behavior is unchanged.
 
 ## [1.0.1] - 2026-08-04
 
