@@ -18,11 +18,16 @@ We take security seriously. If you discover a security vulnerability, please rep
 
 **Please use GitHub's private vulnerability reporting feature:**
 
-1. Go to the [Security tab](../../security) of this repository
+1. Open the repository's
+   [private vulnerability reporting form](https://github.com/epistola-app/epistola-suite/security/advisories/new)
 2. Click "Report a vulnerability"
 3. Fill out the form with details about the vulnerability
 
 This ensures your report remains private until we can address it.
+
+Do not open a public issue or pull request, and do not push proof-of-concept or
+fix commits to a public fork. Public activity can disclose the vulnerability
+before users have a patched release available.
 
 ### What to Include
 
@@ -40,9 +45,16 @@ This ensures your report remains private until we can address it.
 ### What to Expect
 
 1. We will acknowledge your report within 48 hours
-2. We will investigate and keep you informed of progress
-3. Once fixed, we will coordinate disclosure timing with you
-4. We will credit you in the release notes (unless you prefer anonymity)
+2. We will triage the report in a draft GitHub Security Advisory
+3. We will develop and review the fix in the advisory's temporary private fork
+4. We will test the fix and prepare a patched release before public disclosure
+5. We will coordinate disclosure timing and keep you informed of progress
+6. We will credit you in the advisory and release notes unless you prefer anonymity
+
+Published vulnerability information is kept in this repository's
+[`vulnerabilities/`](vulnerabilities/) directory. The repository record is the
+canonical public record; GitHub Security Advisories provide private coordination
+before disclosure and a synchronized publication mirror afterward.
 
 ### Scope
 

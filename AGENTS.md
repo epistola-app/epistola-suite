@@ -15,3 +15,7 @@ shared fixture/scenario DSL. Do not use direct SQL for test setup: it bypasses v
 authorization, and other domain invariants, and couples tests to the storage schema. Direct SQL is
 only appropriate when the test's explicit subject is database infrastructure, persistence mapping,
 or a migration.
+
+Vulnerability-record authoring and publication rules are maintained in the **Vulnerability
+records** item under **When Making Changes** in [`CLAUDE.md`](CLAUDE.md). Follow that canonical
+workflow instead of adding parallel instructions here.

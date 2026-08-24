@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(security): **The security policy is easier to discover.** `SECURITY.md` now lives
+  at the repository root while remaining available through GitHub's Security tab.
+- **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
+  records combine machine-readable OSV metadata with full descriptions, generate the vulnerability
+  index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror. The
+  tooling documents its inputs, outputs, local commands, and CI usage directly in each script;
+  embargoed fixes use draft GitHub advisories and temporary private forks until a patch is ready.
+  The initial picker-injection record is rated Medium with an explicit CVSS 3.1 vector.
+- **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
+  crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
+  or control characters are now rejected at upload. (#644)
+- **[user]** fix(editor,stencils): **Stencil picker escapes stencil names, descriptions, and
+  tags.** The same stored-XSS class in the stencil picker is fixed; stencil names and tags with
+  markup or control characters are now rejected at the command boundary (descriptions escape on
+  render but stay free text). (#644)
 - **[dev]** refactor(editor): **Expression selection and schema navigation boundaries tightened.**
   ProseMirror selection collapsing is centralized behind a typed text-editor interaction, while
   schema cursors now keep their canonical schema pointer and traversal path opaque.

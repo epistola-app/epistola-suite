@@ -48,12 +48,19 @@ data class CreateStencil(
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        // Load-bearing for the stencil-picker stored-XSS fix — don't relax without reading it.
+        validate("name", name.none { it == '<' || it == '>' || it.isISOControl() }) {
+            "Name must not contain '<', '>', or control characters"
+        }
         description?.let {
             validate("description", it.length <= 1000) { "Description must be 1000 characters or less" }
         }
         validate("tags", tags.size <= 20) { "Maximum 20 tags allowed" }
         tags.forEachIndexed { i, tag ->
             validate("tags[$i]", tag.length <= 50) { "Tag must be 50 characters or less" }
+            validate("tags[$i]", tag.none { it == '<' || it == '>' || it.isISOControl() }) {
+                "Tag must not contain '<', '>', or control characters"
+            }
         }
     }
 }

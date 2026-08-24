@@ -12,7 +12,9 @@
 > configuration, and architecture follow SemVer compatibility. Explicitly labelled alpha and beta
 > features remain experimental and may change in a minor release. Review the
 > [changelog](CHANGELOG.md) before updating and see the
-> [Release & Support Policy](SUPPORT_POLICY.md) for supported versions and upgrades.
+> [Release & Support Policy](SUPPORT_POLICY.md) for supported versions and upgrades. Published
+> security issues and their affected releases are listed in the
+> [vulnerability history](VULNERABILITIES.md).
 
 A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 
