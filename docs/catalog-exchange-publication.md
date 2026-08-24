@@ -28,23 +28,23 @@ into a Suite subscription remain separate product work. MCP is unchanged.
 
 Publication is resolved from four controls, from broadest to narrowest:
 
-| Level | Setting | Default | Effect |
-| --- | --- | --- | --- |
-| Deployment | `epistola.exchange.enabled` | `false` | Hard network and UI gate. When false, no enrollment, credential maintenance, or publication traffic runs. |
-| Tenant feature | `catalog-publishing` | `false` (Alpha) | Enables publication behavior for one tenant. Turning it off pauses that tenant's unaccepted queued work. |
-| Tenant default | `publishCatalogsByDefault` | `false` | Supplies the default for catalogs using `INHERIT`. It does not authorize network traffic by itself. |
-| Catalog policy | `INHERIT`, `ALWAYS`, `DEFAULT_YES`, `DEFAULT_NO`, `NEVER` | `INHERIT` | Sets the catalog's default and whether a release-time override is allowed. |
+| Level          | Setting                                                   | Default         | Effect                                                                                                    |
+| -------------- | --------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------- |
+| Deployment     | `epistola.exchange.enabled`                               | `false`         | Hard network and UI gate. When false, no enrollment, credential maintenance, or publication traffic runs. |
+| Tenant feature | `catalog-publishing`                                      | `false` (Alpha) | Enables publication behavior for one tenant. Turning it off pauses that tenant's unaccepted queued work.  |
+| Tenant default | `publishCatalogsByDefault`                                | `false`         | Supplies the default for catalogs using `INHERIT`. It does not authorize network traffic by itself.       |
+| Catalog policy | `INHERIT`, `ALWAYS`, `DEFAULT_YES`, `DEFAULT_NO`, `NEVER` | `INHERIT`       | Sets the catalog's default and whether a release-time override is allowed.                                |
 
 The release dialog is the final decision point for policies that permit an
 override:
 
-| Catalog policy | Normal release default | Release checkbox | Meaning |
-| --- | --- | --- | --- |
-| `INHERIT` | Tenant default | Available | Follow the tenant unless this release says otherwise. |
-| `ALWAYS` | Publish | Not available | Every new release is queued. |
-| `DEFAULT_YES` | Publish | Available | Publish unless this release opts out. |
-| `DEFAULT_NO` | Do not publish | Available | Do not publish unless this release opts in. |
-| `NEVER` | Do not publish | Not available | Publication is forbidden, including “Publish current release”. |
+| Catalog policy | Normal release default | Release checkbox | Meaning                                                        |
+| -------------- | ---------------------- | ---------------- | -------------------------------------------------------------- |
+| `INHERIT`      | Tenant default         | Available        | Follow the tenant unless this release says otherwise.          |
+| `ALWAYS`       | Publish                | Not available    | Every new release is queued.                                   |
+| `DEFAULT_YES`  | Publish                | Available        | Publish unless this release opts out.                          |
+| `DEFAULT_NO`   | Do not publish         | Available        | Do not publish unless this release opts in.                    |
+| `NEVER`        | Do not publish         | Not available    | Publication is forbidden, including “Publish current release”. |
 
 The deployment gate and tenant feature must both be on before any policy can
 queue work. Existing releases are not backfilled when either switch is enabled.
@@ -180,15 +180,15 @@ catalog policy permits it.
 
 ## Worker state machine
 
-| Local state | Meaning | Archive retained? | Next action |
-| --- | --- | --- | --- |
-| `WAITING_SETUP` | Enrollment/default namespace is incomplete. | Yes | Recheck setup without failing the release. |
-| `READY` | Namespace and archive are ready to submit. | Yes | Submit with the stored idempotency key. |
-| `SUBMITTED` | Exchange accepted the request but has not made a terminal decision. | Yes | Poll the remote submission. |
-| `RETRY` | A transient local/network call failed. | Yes | Retry with exponential backoff, capped at one hour. |
-| `ACCEPTED` | Exchange validation/scanning/publication accepted the release. | No | Terminal success. |
-| `REJECTED` | Exchange made a terminal content/policy rejection. | No | Terminal; publish a corrected new version. |
-| `FAILED` | Exchange's processing attempt failed operationally. | Yes | Terminal until an administrator selects **Retry publication**. |
+| Local state     | Meaning                                                             | Archive retained? | Next action                                                    |
+| --------------- | ------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------- |
+| `WAITING_SETUP` | Enrollment/default namespace is incomplete.                         | Yes               | Recheck setup without failing the release.                     |
+| `READY`         | Namespace and archive are ready to submit.                          | Yes               | Submit with the stored idempotency key.                        |
+| `SUBMITTED`     | Exchange accepted the request but has not made a terminal decision. | Yes               | Poll the remote submission.                                    |
+| `RETRY`         | A transient local/network call failed.                              | Yes               | Retry with exponential backoff, capped at one hour.            |
+| `ACCEPTED`      | Exchange validation/scanning/publication accepted the release.      | No                | Terminal success.                                              |
+| `REJECTED`      | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                     |
+| `FAILED`        | Exchange's processing attempt failed operationally.                 | Yes               | Terminal until an administrator selects **Retry publication**. |
 
 The worker is a single-owner cluster scheduled task and also uses
 `FOR UPDATE SKIP LOCKED` plus expiring `claimed_at` leases. Those two layers make processing
