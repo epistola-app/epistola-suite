@@ -4,6 +4,162 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(security): **The security policy is easier to discover.** `SECURITY.md` now lives
+  at the repository root while remaining available through GitHub's Security tab.
+- **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
+  records combine machine-readable OSV metadata with full descriptions, generate the vulnerability
+  index and portable OSV JSON, and optionally synchronize to GitHub as a publication mirror. The
+  tooling documents its inputs, outputs, local commands, and CI usage directly in each script;
+  embargoed fixes use draft GitHub advisories and temporary private forks until a patch is ready.
+  The initial picker-injection record is rated Medium with an explicit CVSS 3.1 vector and is
+  mirrored by draft GitHub advisory `GHSA-69jx-3ffj-pjw9`. Advisory synchronization is an explicit
+  maintainer action; CI validates and exports records without storing an advisory credential or
+  mutating GitHub advisories.
+- **[user]** fix(editor,assets): **Asset picker escapes uploaded filenames.** Stored XSS via
+  crafted upload filenames rendered through `innerHTML` is fixed; asset names containing markup
+  or control characters are now rejected at upload. (#644)
+- **[user]** fix(editor,stencils): **Stencil picker escapes stencil names, descriptions, and
+  tags.** The same stored-XSS class in the stencil picker is fixed; stencil names and tags with
+  markup or control characters are now rejected at the command boundary (descriptions escape on
+  render but stay free text). (#644)
+- **[dev]** refactor(editor): **Expression selection and schema navigation boundaries tightened.**
+  ProseMirror selection collapsing is centralized behind a typed text-editor interaction, while
+  schema cursors now keep their canonical schema pointer and traversal path opaque.
+- **[user]** fix(pdf): **Column content aligns with neighboring components in generated PDFs.**
+  Newly published PDFs no longer add implicit cell padding around Columns content, while explicit
+  component padding continues to apply and the editor retains its authoring inset. Existing
+  published templates keep their original versioned PDF layout.
+- **[user]** fix(editor): **Nested loops expose correctly typed item fields.** Inner loops can use
+  arrays from an outer item and retain schema types for their item alias and child fields,
+  including arrays nested directly inside arrays and list-valued stencil parameters. Components
+  declare their scope bindings while the editor navigates one canonical schema internally, avoiding
+  copied partial schemas and flattened type metadata. The demo catalog includes nested delivery
+  route loops for hands-on verification.
+- **[user]** fix(editor): **Text containing expressions can be copied and pasted.** Rich-text
+  selections can include expression chips, preserve them as editable expressions when pasted
+  within Epistola, and expose them as `{{expression}}` when pasted as plain text into another
+  application. Expressions retain their existing single-click editing behavior, and clicking
+  anywhere in the text component clears the active text selection.
+- **[user]** feat(catalogs): **Catalog resource relationships are visible as an interactive graph.**
+  Search across a tenant, explore incoming and outgoing references up to three levels deep, filter
+  by catalog, resource type, and reference semantics, inspect exact version/JSON-path evidence, and
+  optionally include archived history. Missing and ambiguous references remain visible so catalog
+  maintenance can be planned safely. The alpha feature is off by default and can be enabled per
+  tenant from Settings → Features. Resource selection uses an explicit search and stays closed
+  until a query is submitted.
+- **[dev]** feat(catalogs): **A canonical tenant resource-reference query is available in
+  core.** It extracts relational and versioned-JSON references for all seven catalog resource
+  types in a consistent read transaction, classifies runtime, authoring, and provenance edges, and
+  exposes bounded graph traversal to internal UI handlers. See
+  [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
+- **[dev]** docs(catalogs): **Safe catalog-resource relocation semantics are proposed.** ADR 0014
+  describes explicit move selection, preview/execute planning, alias-backed historical compatibility,
+  stable surrogate resource identities, typed reference rewriting, canonical exports, optimistic
+  concurrency, atomic execution, and the release/subscriber handoff required to preserve identity
+  across independently upgraded catalogs.
+
+- **[dev]** refactor(catalog): Catalog contract metadata now uses the clearer `catalog_metadata`
+  database and application terminology instead of `portable_metadata`.
+
+- **[user]** fix(catalog-ui): Catalog details stay readable while focused, visually flat **Change**
+  dialogs edit general details, locale, keywords, presentation, or license independently. Catalog authors
+  can advertise only the system locale for now, and malformed SPDX license expressions are rejected.
+
+- **[user]** feat(catalog-ui): **Catalogs can be described and presented as discoverable products.**
+  Authored catalog settings now cover qualified discovery attributes, keywords, an icon, an ordered
+  image gallery, and license details. Subscribed catalogs show the same metadata read-only, with
+  clear placeholders for presentation media that has not been installed. MCP catalog discovery and
+  upgrade previews expose the metadata too. The bundled demo catalog illustrates every new field.
+
+- **[user]** feat(catalog): **Catalog discovery metadata survives every catalog workflow.**
+  Qualified attributes, case-preserving keywords, ordered presentation images, and license details
+  now round-trip through export, ZIP import, URL registration, upgrades, snapshots, and release
+  fingerprints. Metadata-only publisher changes appear in upgrade previews, and subscribed exports
+  omit presentation references to assets that have not been installed locally.
+
+- **[user]** fix(catalog,pdf): **Catalog exchange preserves each template's PDF/A setting.**
+  Export, ZIP import, URL installation, and upgrades now retain templates that explicitly disable
+  PDF/A; older catalog resources without the setting continue to default to PDF/A output.
+
+- **[dev]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
+- **[user]** feat(data-contracts): **Schema fields can be added where authors are working.**
+  The visual contract editor offers contextual child and sibling actions with full schema paths,
+  keeps nested parents expanded, selects the new field name for immediate typing, and preserves a
+  nearby selection through delete, undo, and redo operations.
+- **[user]** feat(data-contracts): **Example array actions identify their destination.** Add-item
+  controls now show the complete field path, including human-readable item numbers for nested
+  arrays, while retaining their full context for assistive technology and narrow layouts.
+- **[user]** feat(data-contracts): **Complex examples start with a compact overview.** Object and
+  array properties are collapsed by default, with per-example actions to expand or collapse the
+  complete property tree at once.
+- **[user]** docs(data-contracts): **Data contract behavior and support boundaries are documented.**
+  A new guide explains schema dialects and root requirements, visual and JSON-only editing, safe UI
+  import normalization, examples and Autofill, expression field discovery, validation, publishing,
+  and which advanced JSON Schema constructs each part of the application understands.
+- **[dev]** refactor(data-contracts): **Schema and example logic is grouped by feature.**
+  The editor's former utility grab bag is split into colocated `schema` and `examples` modules with
+  consistent kebab-case filenames, making ownership and dependencies easier to follow.
+- **[developer]** build(catalog): **The suite now consumes epistola-contract 1.1.0.** Catalog
+  wire-version constants are sourced from the contract so catalog v6 exports, imports, and
+  validation cannot drift from the published catalog implementation.
+
+- **[user]** feat(editor,pdf): **List item spacing is consistent and configurable.** Text,
+  Rich Text Block, and Data List now share an inheritable List Item Spacing style with a `0.5sp`
+  default. Spacing applies only between sibling items, with matching editor and PDF behavior;
+  authored text also respects its configured line height inside the WYSIWYG editor, and previously
+  published templates retain their versioned rendering defaults.
+
+- **[user]** fix(auth): **The session-expiry login popup closes automatically after SSO.**
+  Popup mode is now stored in the JDBC-backed Spring Session used by OAuth2, so the callback reaches
+  the dedicated success page, not the application overview. The popup then notifies the original
+  window, closes itself, and dismisses the expired-session dialog without manual cleanup.
+- **[user]** feat(data contracts): **Every authored data contract keeps at least one example.**
+  Saving or publishing without an example is rejected with an actionable validation error, the
+  editor highlights the requirement, and replaces the final example's delete action with an
+  explanation of why it must remain. Unsaved examples are removed locally and do not make saved
+  examples prematurely deletable. A sticky contract action bar keeps **Save draft**, editing,
+  publishing, usage, and history controls visible, and identifies whether schema or examples have
+  unsaved changes without conflating their separate undo histories. Existing empty contract
+  versions remain readable and importable.
+- **[user]** fix(data contracts): **Examples can be deleted directly from a published contract.**
+  The editor now starts a draft automatically before applying the deletion.
+- **[user]** fix(data-contracts): **Advanced nested example data remains editable.** The example
+  form resolves local schema references, object compositions, nullable unions, per-item union
+  variants, and arrays nested directly inside arrays. Edits, additions, and removals continue to
+  target the exact nested JSON path. UI schema imports now inline local references and flatten
+  compatible object compositions when that conversion is lossless, making the resulting schema
+  visually editable; schemas requiring a lossy conversion remain unchanged in JSON-only schema
+  mode while their examples stay editable. UI imports, draft commands, publishing, and catalog
+  imports now reject arbitrary JSON objects: a data contract must be a valid JSON Schema that
+  guarantees object-shaped data at its root. The demo catalog includes an **Advanced Data Contract**
+  template with these schema shapes and representative examples for hands-on verification. Those
+  advanced schemas now also expose referenced, composed, union-branch, nullable, and nested-array
+  fields in the template expression picker. Schema resolution is shared between that picker and the
+  example editor, selects union branches using nested values, and bounds combinatorial schema
+  expansion. Recursive and unresolved references remain safe leaf fields. Bundled
+  catalog upgrades now fully reconcile on restart: newly added or otherwise missing resources are
+  installed, changed resources are updated, and removed resources—including code lists and fonts—
+  are safely deleted unless they remain in use.
+- **[user]** feat(data-contracts): **Example data can be completed from its schema.** A new
+  per-example **Autofill** action fills missing values with seeded, realistic Dutch test data inferred from
+  field names, titles, and descriptions, alongside defaults, enums, formats, numeric constraints,
+  and nested object/array structure. Common municipal roles, communication methods, references,
+  and identifiers receive domain-shaped values; unknown strings get a numbered, field-specific
+  fallback instead of a repeated generic placeholder. Related fields share a coherent fictional
+  profile, and unconstrained arrays receive a seeded two or three items rather than an
+  unrepresentative single item. Each object in an array receives its own coherent fictional profile,
+  and generated fallback and formatted values such as names and email addresses are distinct
+  between items. Autofill resolves the same local references, compositions, and union variants as
+  the example form, keeps partially authored union objects on the matching variant, and replaces
+  empty required values while preserving meaningful authored values. Incorrect primitive values
+  produced for object unions by earlier Autofill versions are repaired into complete objects,
+  including nested addresses and array items. Advanced nested schemas are therefore completed
+  consistently. The complete operation can be undone in one step. Invalid
+  examples now produce an actionable 400 response with the example name and failing JSON paths
+  instead of an internal-server error. Empty example fields now render
+  their existing placeholder hints with muted italic text and
+  a subtle accent edge, including rich-text fields, so hints cannot be mistaken for stored test data
+  or disabled controls.
 - **[dev]** feat(logging): **Application logs support structured JSON.** Suite and PDF renderer
   processes can emit newline-delimited Logstash, ECS, or GELF output through
   `LOGGING_STRUCTURED_FORMAT_CONSOLE`, including tenant context when available and bounded stack

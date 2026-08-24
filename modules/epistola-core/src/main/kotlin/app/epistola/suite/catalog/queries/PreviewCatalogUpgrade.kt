@@ -50,6 +50,14 @@ data class PreviewCatalogUpgrade(
 
 data class UpgradeResourceChange(val type: String, val slug: String)
 
+enum class CatalogMetadataSection {
+    IDENTITY,
+    ATTRIBUTES,
+    KEYWORDS,
+    PRESENTATION,
+    LICENSE,
+}
+
 data class UpgradeDiff(
     val catalogKey: CatalogKey,
     val previousVersion: String?,
@@ -58,11 +66,13 @@ data class UpgradeDiff(
     val removed: List<UpgradeResourceChange>,
     val changed: List<UpgradeResourceChange>,
     val unchanged: List<UpgradeResourceChange>,
+    /** Portable manifest sections changed by the publisher. */
+    val metadataChanges: List<CatalogMetadataSection> = emptyList(),
     /** Human-readable cross-catalog conflicts blocking the REMOVED set. */
     val conflicts: List<String>,
 ) {
     /** ADDED/REMOVED/CHANGED — UNCHANGED alone means "already current". */
-    val hasChanges: Boolean get() = added.isNotEmpty() || removed.isNotEmpty() || changed.isNotEmpty()
+    val hasChanges: Boolean get() = added.isNotEmpty() || removed.isNotEmpty() || changed.isNotEmpty() || metadataChanges.isNotEmpty()
     val hasConflicts: Boolean get() = conflicts.isNotEmpty()
 }
 
@@ -111,6 +121,15 @@ class PreviewCatalogUpgradeHandler(
         val shared = incoming.keys intersect installed.keys
         val changed = shared.filter { incoming[it] != installed[it] }.sorted().map(::parse)
         val unchanged = shared.filter { incoming[it] == installed[it] }.sorted().map(::parse)
+        val metadataChanges = buildList {
+            if (catalog.name != manifest.catalog.name || catalog.description != manifest.catalog.description) {
+                add(CatalogMetadataSection.IDENTITY)
+            }
+            if (catalog.catalogMetadata.attributes != manifest.catalog.attributes) add(CatalogMetadataSection.ATTRIBUTES)
+            if (catalog.catalogMetadata.keywords != manifest.catalog.keywords) add(CatalogMetadataSection.KEYWORDS)
+            if (catalog.catalogMetadata.presentation != manifest.catalog.presentation) add(CatalogMetadataSection.PRESENTATION)
+            if (catalog.catalogMetadata.license != manifest.catalog.license) add(CatalogMetadataSection.LICENSE)
+        }
 
         // Same conflict logic UpgradeCatalog throws on, on the same set it would
         // delete — so a blocking conflict is visible before Apply, not after.
@@ -128,6 +147,7 @@ class PreviewCatalogUpgradeHandler(
             removed = removed,
             changed = changed,
             unchanged = unchanged,
+            metadataChanges = metadataChanges,
             conflicts = conflicts,
         )
     }

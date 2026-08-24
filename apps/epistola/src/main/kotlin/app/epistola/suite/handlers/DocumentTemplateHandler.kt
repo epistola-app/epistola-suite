@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
@@ -42,6 +43,7 @@ import app.epistola.suite.templates.commands.DeleteDataExample
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
@@ -59,6 +61,7 @@ import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.PageSettings
 import org.springframework.http.MediaType
@@ -698,10 +701,21 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
-        val result = DeleteDataExample(
-            templateId = templateId,
-            exampleId = exampleId,
-        ).execute() ?: return ServerResponse.notFound().build()
+        // The editor can show examples from the latest published contract when no draft exists yet.
+        // Materialize that published contract as a draft before applying the deletion.
+        CreateContractVersion(templateId = templateId).execute()
+            ?: return ServerResponse.notFound().build()
+
+        val result = try {
+            DeleteDataExample(
+                templateId = templateId,
+                exampleId = exampleId,
+            ).execute() ?: return ServerResponse.notFound().build()
+        } catch (e: ValidationException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(e.toValidationProblemBody(request.servletRequest()))
+        }
 
         return if (result.deleted) {
             ServerResponse.noContent().build()

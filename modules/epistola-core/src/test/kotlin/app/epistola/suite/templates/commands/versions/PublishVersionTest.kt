@@ -42,6 +42,7 @@ import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.ThemeRef
@@ -83,7 +84,7 @@ class PublishVersionTest : IntegrationTestBase() {
         val catalogId = CatalogId.default(tenantId)
         templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "publish-version-test").execute()
+            CreateDocumentTemplate(id = templateId, name = "publish-version-test").execute().withRequiredDataExample()
         }
         defaultVariantId = VariantId(
             VariantKey.INITIAL,

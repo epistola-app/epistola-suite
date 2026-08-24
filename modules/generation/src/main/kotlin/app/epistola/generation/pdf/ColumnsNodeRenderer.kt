@@ -83,6 +83,7 @@ class ColumnsNodeRenderer : NodeRenderer {
         for ((index, slot) in columnSlots.withIndex()) {
             val cell = Cell()
             cell.setBorder(com.itextpdf.layout.borders.Border.NO_BORDER)
+            cell.setPadding(context.renderingDefaults.columnCellPadding)
 
             // Add horizontal padding for gap effect
             if (index > 0) {

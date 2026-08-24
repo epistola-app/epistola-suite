@@ -23,6 +23,19 @@ import type { FieldPath } from '../../engine/schema-paths.js';
 import { renderBindingRow } from './binding-row.js';
 import { missingRequiredParameters } from './parameter-requirements.js';
 
+const HTML_ENTITIES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+/** Escape author-controlled text for HTML element-content interpolation. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => HTML_ENTITIES[c] ?? c);
+}
+
 export type StencilPickerResult =
   | { action: 'create-new'; ref: StencilRef; version: number }
   | {
@@ -196,7 +209,9 @@ export async function openStencilPickerDialog(
 
         const tags =
           stencil.tags.length > 0
-            ? stencil.tags.map((t) => `<span class="stencil-picker-tag">${t}</span>`).join('')
+            ? stencil.tags
+                .map((t) => `<span class="stencil-picker-tag">${escapeHtml(t)}</span>`)
+                .join('')
             : '';
         const versionLabel = stencil.latestPublishedVersion
           ? `v${stencil.latestPublishedVersion}`
@@ -213,12 +228,12 @@ export async function openStencilPickerDialog(
           : '';
 
         card.innerHTML = `
-          <div class="stencil-picker-card-name">${stencil.name} ${catalogBadge}${recursionBadge}</div>
+          <div class="stencil-picker-card-name">${escapeHtml(stencil.name)} ${catalogBadge}${recursionBadge}</div>
           <div class="stencil-picker-card-meta">
             <span class="stencil-picker-card-version">${versionLabel}</span>
             ${tags ? `<span class="stencil-picker-card-tags">${tags}</span>` : ''}
           </div>
-          ${stencil.description ? `<div class="stencil-picker-card-desc">${stencil.description}</div>` : ''}
+          ${stencil.description ? `<div class="stencil-picker-card-desc">${escapeHtml(stencil.description)}</div>` : ''}
         `;
 
         if (!isRecursive) {

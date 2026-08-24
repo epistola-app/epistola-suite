@@ -4,12 +4,15 @@
 
 package app.epistola.catalog.protocol
 
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.ResourceLoader
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
@@ -19,12 +22,15 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var resourceLoader: ResourceLoader
 
+    @Autowired
+    private lateinit var jsonSchemaValidator: JsonSchemaValidator
+
     @Test
     fun `deserialize template resource detail`() {
         val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/templates/hello-world.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(5)
+        assertThat(detail.schemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
         assertThat(detail.resource).isInstanceOf(TemplateResource::class.java)
 
         val template = detail.resource as TemplateResource
@@ -34,11 +40,30 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `advanced data contract demo contains valid complex examples`() {
+        val json = resourceLoader
+            .getResource("classpath:epistola/catalogs/demo/resources/templates/advanced-data-contract.json")
+            .contentAsByteArray
+        val root = objectMapper.readTree(json)
+        val dataModel = root.at("/resource/dataModel") as ObjectNode
+        val dataExamples = root.at("/resource/dataExamples")
+
+        assertThat(dataModel.has("\$defs")).isTrue()
+        assertThat(dataExamples).hasSize(2)
+        dataExamples.forEach { example ->
+            val errors = jsonSchemaValidator.validate(dataModel, example.get("data") as ObjectNode)
+            assertThat(errors)
+                .describedAs("Demo example '%s' must match the advanced schema", example.get("name").asString())
+                .isEmpty()
+        }
+    }
+
+    @Test
     fun `deserialize theme resource detail`() {
         val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/themes/corporate.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(5)
+        assertThat(detail.schemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
         assertThat(detail.resource).isInstanceOf(ThemeResource::class.java)
 
         val theme = detail.resource as ThemeResource
@@ -53,8 +78,8 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         // Catalog-wide wire version: every detail carries the bundle's
-        // schemaVersion (5), not an independent per-resource number (ADR 0007).
-        assertThat(detail.schemaVersion).isEqualTo(5)
+        // schemaVersion, not an independent per-resource number (ADR 0007).
+        assertThat(detail.schemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
         assertThat(detail.resource).isInstanceOf(AttributeResource::class.java)
 
         val attr = detail.resource as AttributeResource
@@ -69,7 +94,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/stencils/company-header.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(5)
+        assertThat(detail.schemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
         assertThat(detail.resource).isInstanceOf(StencilResource::class.java)
 
         val stencil = detail.resource as StencilResource

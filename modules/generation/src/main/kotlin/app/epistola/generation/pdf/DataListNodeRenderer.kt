@@ -66,6 +66,7 @@ class DataListNodeRenderer : NodeRenderer {
         // WinAnsi-safe and ignore this symbol.
         val contentFont = StyleApplicator.resolveFont(inheritedContext.inheritedStyles, context.fontCache)
         val bulletSymbol = context.fontCache.listMarker(context.renderingDefaults.bulletMarker(bulletStyle), contentFont)
+        val listItemSpacing = resolveListItemSpacing(node, context)
 
         val list = createList(listType, bulletSymbol)
         list.setMarginBottom(context.renderingDefaults.listMarginBottom)
@@ -98,7 +99,13 @@ class DataListNodeRenderer : NodeRenderer {
             val childElements = registry.renderSlots(node, document, childContext)
 
             val listItem = ListItem()
-            listItem.setMarginBottom(context.renderingDefaults.listItemMarginBottom)
+            listItem.setMarginBottom(
+                if (!context.renderingDefaults.listItemSpacingBetweenOnly || index < iterable.lastIndex) {
+                    listItemSpacing
+                } else {
+                    0f
+                },
+            )
             for (element in childElements) {
                 when (element) {
                     is IBlockElement -> listItem.add(element)

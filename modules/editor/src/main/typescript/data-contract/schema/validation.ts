@@ -1,0 +1,239 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import { findRefType } from '../ref-types.js';
+import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
+import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
+
+/** ISO date pattern: YYYY-MM-DD */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * ISO date-time pattern: YYYY-MM-DDThh:mm with optional seconds, fractional
+ * seconds, and timezone offset. Seconds are optional to match the backend
+ * validator (`JsonSchemaValidator.LENIENT_DATE_TIME_PATTERN`) and the renderer
+ * (`JsonataEvaluator.parseDateTime`), both of which accept seconds-less values;
+ * an over-strict editor regex would reject values those two accept.
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
+
+/** URI pattern: scheme://... */
+const URI_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/.+$/;
+
+/**
+ * Validation error for a specific path.
+ */
+export interface SchemaValidationError {
+  path: string;
+  message: string;
+}
+
+/**
+ * Result of schema validation.
+ */
+export interface SchemaValidationResult {
+  valid: boolean;
+  errors: SchemaValidationError[];
+}
+
+/**
+ * Validate data against a JSON Schema.
+ * This is a simplified validator that handles the subset of JSON Schema
+ * supported by the visual editor.
+ */
+export function validateDataAgainstSchema(
+  data: JsonObject,
+  schema: JsonSchema | JsonObject | null,
+): SchemaValidationResult {
+  const errors: SchemaValidationError[] = [];
+
+  if (!schema) {
+    return { valid: true, errors: [] };
+  }
+
+  const jsonSchema = resolveSchemaForValue(
+    schema as JsonSchemaProperty,
+    schema as JsonSchema,
+    data,
+  ) as JsonSchema;
+  if (jsonSchema.type !== 'object') {
+    return { valid: true, errors: [] };
+  }
+
+  // Validate required fields
+  if (jsonSchema.required) {
+    for (const field of jsonSchema.required) {
+      if (!(field in data) || isEmptyValue(data[field])) {
+        errors.push({
+          path: `$.${field}`,
+          message: `is required`,
+        });
+      }
+    }
+  }
+
+  // Validate properties
+  if (jsonSchema.properties) {
+    for (const [name, propSchema] of Object.entries(jsonSchema.properties)) {
+      if (name in data) {
+        const propErrors = validateProperty(data[name], propSchema, `$.${name}`, jsonSchema);
+        errors.push(...propErrors);
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Check if a value is effectively empty (missing, null, or empty string).
+ * Used by the required field check — these values mean "not provided" in the form.
+ */
+function isEmptyValue(value: JsonValue | undefined): boolean {
+  return value === undefined || value === null || value === '';
+}
+
+/**
+ * Validate a single property against its schema.
+ */
+function validateProperty(
+  value: JsonValue,
+  originalSchema: JsonSchemaProperty,
+  path: string,
+  rootSchema: JsonSchema,
+): SchemaValidationError[] {
+  const errors: SchemaValidationError[] = [];
+
+  if (value === null || value === undefined) {
+    // Null/undefined skip type validation — required check handles these separately
+    return errors;
+  }
+
+  // Ref-based values: defer to the registered type's shallow shape check.
+  // (Backend's networknt validator does the rigorous deep check via the IRI.)
+  const refType = findRefType(originalSchema.$ref);
+  if (refType !== null) {
+    const reason = refType.shallowShapeCheck(value);
+    if (reason !== null) errors.push({ path, message: reason });
+    return errors;
+  }
+
+  const schema = resolveSchemaForValue(originalSchema, rootSchema, value);
+
+  if (schema.type === undefined) {
+    return errors;
+  }
+
+  const expectedTypes = Array.isArray(schema.type) ? schema.type : [schema.type];
+
+  // Type checking
+  const actualType = getValueType(value);
+  const matchesAnyType = expectedTypes.some((expectedType) =>
+    typeMatches(actualType, expectedType),
+  );
+  if (!matchesAnyType) {
+    errors.push({
+      path,
+      message: `must be ${expectedTypes.join(' or ')}, got ${actualType}`,
+    });
+    return errors; // Don't continue validating if type is wrong
+  }
+
+  // Use the first matching type for further validation
+  const expectedType = expectedTypes.find((t) => typeMatches(actualType, t)) || expectedTypes[0];
+
+  // Validate string formats
+  if (expectedType === 'string' && typeof value === 'string' && schema.format) {
+    if (schema.format === 'date' && !ISO_DATE_RE.test(value)) {
+      errors.push({ path, message: 'must be a valid date (YYYY-MM-DD)' });
+    }
+    if (schema.format === 'date-time' && !ISO_DATETIME_RE.test(value)) {
+      errors.push({ path, message: 'must be a valid date-time (ISO 8601)' });
+    }
+    if (schema.format === 'uri' && !URI_RE.test(value)) {
+      errors.push({ path, message: 'must be a valid URI' });
+    }
+    if (schema.format === 'email' && !/^\S+@\S+\.\S+$/.test(value)) {
+      errors.push({ path, message: 'must be a valid email address' });
+    }
+  }
+
+  // Validate array items
+  if (expectedType === 'array' && Array.isArray(value) && schema.items) {
+    for (let i = 0; i < value.length; i++) {
+      const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`, rootSchema);
+      errors.push(...itemErrors);
+    }
+  }
+
+  // Validate object properties
+  if (expectedType === 'object' && typeof value === 'object' && !Array.isArray(value)) {
+    const objValue = value;
+
+    // Check required nested fields
+    if (schema.required) {
+      for (const field of schema.required) {
+        if (!(field in objValue) || isEmptyValue(objValue[field])) {
+          errors.push({
+            path: `${path}.${field}`,
+            message: `is required`,
+          });
+        }
+      }
+    }
+
+    // Validate nested properties
+    if (schema.properties) {
+      for (const [name, propSchema] of Object.entries(schema.properties)) {
+        if (name in objValue) {
+          const propErrors = validateProperty(
+            objValue[name],
+            propSchema,
+            `${path}.${name}`,
+            rootSchema,
+          );
+          errors.push(...propErrors);
+        }
+      }
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Get the JSON Schema type of a value.
+ */
+function getValueType(value: JsonValue): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? 'integer' : 'number';
+  }
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'object') return 'object';
+  return 'unknown';
+}
+
+/**
+ * Check if actual type matches expected type.
+ * Allows integer to match number.
+ */
+function typeMatches(actual: string, expected: string): boolean {
+  if (actual === expected) return true;
+  // Integer is also a valid number
+  if (expected === 'number' && actual === 'integer') return true;
+  return false;
+}
+
+/**
+ * Format validation errors for display.
+ */
+export function formatValidationErrors(errors: SchemaValidationError[]): string[] {
+  return errors.map((e) => `${e.path}: ${e.message}`);
+}

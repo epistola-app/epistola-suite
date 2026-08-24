@@ -59,6 +59,10 @@ data class UploadAsset(
         // Column ceiling (#692): assets.name is VARCHAR(255). The blank check stays in
         // the handler; this bounds length so an over-long name never overflows the column.
         validate("name", name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
+        // Load-bearing for the stored-XSS fix (#644) — don't relax without reading it.
+        validate("name", name.none { it == '<' || it == '>' || it.isISOControl() }) {
+            "Name must not contain '<', '>', or control characters"
+        }
     }
 
     override fun equals(other: Any?): Boolean {

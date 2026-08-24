@@ -357,7 +357,7 @@ Every PR should include:
 
 ### Security Policy
 
-Located at `.github/SECURITY.md`.
+Located at [`SECURITY.md`](../SECURITY.md) in the repository root.
 
 **Supported versions:** The two most recently released minor release lines are
 supported and patched. As long as fewer than two minor release lines have been
@@ -378,6 +378,24 @@ Do NOT create public issues for security vulnerabilities.
 GitHub's private vulnerability reporting must be enabled in repository settings:
 
 - Settings → Security → Private vulnerability reporting → Enable
+
+### Private Remediation and Coordinated Disclosure
+
+Accepted reports become draft repository Security Advisories. Maintainers use
+the advisory's **Start a temporary private fork** action and develop the fix
+there; an ordinary fork of this public repository is public and must not be used
+for embargoed work.
+
+1. Triage privately, assign the internal advisory ID, and limit collaborators
+2. Create the temporary private fork and add a regression test and fix
+3. Run all required checks locally because normal PR status checks do not run in the temporary fork
+4. Establish affected versions, CVSS vector, fixed commit, patched version, and disclosure timing
+5. Use **Merge pull request(s)** in the draft advisory when the release is ready
+6. Release the patch immediately, publish the canonical repository record, and then publish the GitHub advisory
+
+Do not push the advisory record, proof of concept, or fix to any public branch
+before a patched release is ready. GitHub deletes the temporary private fork
+when the advisory is published.
 
 ### Docker Image Signing
 
@@ -558,6 +576,6 @@ Recommended settings:
 | `.github/ISSUE_TEMPLATE/feature_request.yml` | Feature request form               |
 | `.github/ISSUE_TEMPLATE/documentation.yml`   | Documentation issue form           |
 | `.github/PULL_REQUEST_TEMPLATE.md`           | PR template                        |
-| `.github/SECURITY.md`                        | Security policy                    |
+| `SECURITY.md`                                | Security policy                    |
 | `CODE_OF_CONDUCT.md`                         | Community guidelines               |
 | `CONTRIBUTING.md`                            | Contribution guide                 |

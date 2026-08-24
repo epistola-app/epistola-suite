@@ -34,6 +34,7 @@ class StyleApplicatorTest {
             "lineHeight",
             "letterSpacing",
             "textAlign",
+            "listItemSpacing",
         )
         assertEquals(expected, StyleApplicator.INHERITABLE_KEYS)
     }

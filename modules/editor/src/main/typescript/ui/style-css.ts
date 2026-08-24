@@ -56,6 +56,18 @@ export function toStyleMap(
       if (css) result['font-family'] = css;
       continue;
     }
+    if (key === 'listItemSpacing') {
+      const converted = convertSpToPt(String(value), baseUnitPt);
+      const match = converted.match(/^(-?\d+(?:\.\d+)?)pt$/);
+      if (match) result['--ep-list-item-spacing'] = `${Math.max(0, Number(match[1]))}pt`;
+      continue;
+    }
+    if (key === 'lineHeight') {
+      const cssValue = String(value);
+      result['line-height'] = cssValue;
+      result['--ep-line-height'] = cssValue;
+      continue;
+    }
     result[camelToKebab(key)] = convertSpToPt(String(value), baseUnitPt);
   }
   return result;

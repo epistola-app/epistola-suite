@@ -2353,6 +2353,111 @@ describe('getAvailableVariablesAt', () => {
     expect(vars.find((v) => v.path === 'sys.pages.current')).toBeDefined();
     expect(vars.find((v) => v.path === 'sys.pages.total')).toBeDefined();
   });
+
+  it('accumulates typed schema paths through nested iteration scopes', () => {
+    const rootId = nodeId('root');
+    const outerId = nodeId('outer');
+    const innerId = nodeId('inner');
+    const textId = nodeId('text');
+    const rootSlotId = slotId('root-slot');
+    const outerSlotId = slotId('outer-slot');
+    const innerSlotId = slotId('inner-slot');
+    const doc: TemplateDocument = {
+      modelVersion: 1,
+      root: rootId,
+      nodes: {
+        [rootId]: { id: rootId, type: 'root', slots: [rootSlotId] },
+        [outerId]: {
+          id: outerId,
+          type: 'loop',
+          slots: [outerSlotId],
+          props: {
+            expression: { raw: 'orders', language: 'jsonata' },
+            itemAlias: 'order',
+          },
+        },
+        [innerId]: {
+          id: innerId,
+          type: 'loop',
+          slots: [innerSlotId],
+          props: {
+            expression: { raw: 'order.lines', language: 'jsonata' },
+            itemAlias: 'line',
+          },
+        },
+        [textId]: { id: textId, type: 'text', slots: [] },
+      },
+      slots: {
+        [rootSlotId]: {
+          id: rootSlotId,
+          nodeId: rootId,
+          name: 'children',
+          children: [outerId],
+        },
+        [outerSlotId]: {
+          id: outerSlotId,
+          nodeId: outerId,
+          name: 'body',
+          children: [innerId],
+        },
+        [innerSlotId]: {
+          id: innerSlotId,
+          nodeId: innerId,
+          name: 'body',
+          children: [textId],
+        },
+      },
+      themeRef: { type: 'inherit' },
+    };
+    const dataModel = {
+      type: 'object',
+      properties: {
+        orders: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              lines: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    product: { type: 'string' },
+                    quantity: { type: 'integer' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+    const dataExamples = [
+      {
+        orders: [{ id: 'ORDER-1', lines: [{ product: 'Widget', quantity: 2 }] }],
+      },
+    ];
+    const engine = new EditorEngine(doc, testRegistry(), { dataModel, dataExamples });
+
+    const variables = engine.getAvailableVariablesAt(textId);
+    expect(variables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'order', type: 'object' }),
+        expect.objectContaining({ path: 'order.lines', type: 'array' }),
+        expect.objectContaining({ path: 'line', type: 'object' }),
+        expect.objectContaining({ path: 'line.product', type: 'string' }),
+        expect.objectContaining({ path: 'line.quantity', type: 'integer' }),
+      ]),
+    );
+    expect(variables.findIndex((field) => field.path === 'order')).toBeLessThan(
+      variables.findIndex((field) => field.path === 'line'),
+    );
+    expect(engine.getEvaluationContextAt(textId)).toMatchObject({
+      order: dataExamples[0].orders[0],
+      line: dataExamples[0].orders[0].lines[0],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

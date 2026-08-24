@@ -23,6 +23,10 @@ enum class ValidationCode(val wire: String) {
     /** No specific domain code — generic command/field validation failure. */
     GENERIC("VALIDATION_ERROR"),
 
+    // Data contract authoring.
+    DATA_EXAMPLE_REQUIRED("DATA_EXAMPLE_REQUIRED"),
+    DATA_CONTRACT_SCHEMA_INVALID("DATA_CONTRACT_SCHEMA_INVALID"),
+
     // Node parameter bindings (cross-document + structural shape).
     NODE_PARAMETER_BINDING_UNKNOWN("NODE_PARAMETER_BINDING_UNKNOWN"),
     NODE_PARAMETER_BINDING_SYNTAX_INVALID("NODE_PARAMETER_BINDING_SYNTAX_INVALID"),

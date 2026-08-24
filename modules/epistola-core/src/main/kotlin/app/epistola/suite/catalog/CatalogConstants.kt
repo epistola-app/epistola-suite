@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.migration.CatalogWireSchema
+
 /**
  * The catalog exchange wire format carries a single, **catalog-wide** schema
  * version. It is stamped on the manifest (`catalog.json`) and — so each file is
@@ -19,10 +21,10 @@ package app.epistola.suite.catalog
  */
 
 /** The wire schema version this instance emits, and upgrades older imports to. */
-const val CATALOG_SCHEMA_VERSION: Int = 5
+const val CATALOG_SCHEMA_VERSION: Int = CatalogWireSchema.CURRENT_VERSION
 
 /** The oldest wire schema version this instance can still upgrade to current. */
-const val CATALOG_BASELINE_SCHEMA_VERSION: Int = 4
+const val CATALOG_BASELINE_SCHEMA_VERSION: Int = CatalogWireSchema.BASELINE_VERSION
 
 /**
  * Installation order for catalog resources — dependencies must be installed

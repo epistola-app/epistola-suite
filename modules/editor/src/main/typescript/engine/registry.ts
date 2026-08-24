@@ -13,6 +13,7 @@ import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/inde
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
 import type { FieldPath } from './schema-paths.js';
+import type { JsonSchemaNode } from '../json-schema/schema-node.js';
 import { componentRegistry as contractComponentRegistry } from '@epistola.app/epistola-catalog/registry';
 import { nanoid } from 'nanoid';
 import { createTableDefinition } from '../components/table/table-registration.js';
@@ -171,18 +172,30 @@ export function liftExampleFragment(fragment: ComponentExampleFragment): Branded
   return fragment as unknown as BrandedExampleFragment;
 }
 
-/** Context passed to a scope provider for resolving scoped variables. */
+/** Context passed to a scope provider for resolving preview values. */
 export interface ScopeProviderContext {
-  /** Schema-derived field paths for resolving array item types. */
-  schemaFieldPaths: FieldPath[];
   /** Accumulated evaluation context from parent scopes (for resolving preview values). */
   evaluationContext?: Record<string, unknown>;
 }
 
+/** Declarative schema source for an alias introduced by a component scope. */
+export interface ScopeSchemaBinding {
+  alias: string;
+  source:
+    | { kind: 'array-item-expression'; expression: string }
+    | { kind: 'schema-root'; schema: JsonSchemaNode };
+  scopeKind: 'iteration' | 'stencil-parameter';
+  description?: string;
+  /** Whether the alias itself appears in the expression picker alongside its descendants. */
+  includeAlias: boolean;
+}
+
 /** Variables and preview data a component introduces for its descendants. */
 export interface ScopeDeclaration {
-  /** Scoped FieldPath entries this component introduces. */
+  /** Non-schema variables introduced by this component (e.g. loop indexes). */
   variables: FieldPath[];
+  /** Schema-backed aliases materialized centrally by the editor engine. */
+  schemaBindings?: ScopeSchemaBinding[];
   /** Preview data to inject into the evaluation context (e.g., first array item). */
   evaluationData?: Record<string, unknown>;
 }

@@ -23,6 +23,7 @@
 
 import { REF_TYPES } from './ref-types.js';
 import type { SchemaFieldType } from './types.js';
+import { scalarFromJsonSchema as resolveJsonSchemaScalar } from '../json-schema/scalar-type.js';
 
 /** The scalar (non-container, non-ref) subset of `SchemaFieldType`. */
 export type ScalarFieldType = Extract<
@@ -145,10 +146,10 @@ export const FIELD_TYPE_DEFS: readonly FieldTypeDef[] = [
   },
 ];
 
-const DEF_BY_ID = new Map<SchemaFieldType, FieldTypeDef>(FIELD_TYPE_DEFS.map((d) => [d.id, d]));
+const DEF_BY_ID = new Map<string, FieldTypeDef>(FIELD_TYPE_DEFS.map((d) => [d.id, d]));
 
 /** UI label for any field type. */
-export function fieldTypeLabel(id: SchemaFieldType): string {
+export function fieldTypeLabel(id: string): string {
   return DEF_BY_ID.get(id)?.label ?? id;
 }
 
@@ -159,7 +160,7 @@ export const FIELD_TYPE_LABELS: Record<SchemaFieldType, string> = Object.fromEnt
 
 /** True when `id` is one of the scalar primitives. */
 export function isScalarFieldType(id: string): id is ScalarFieldType {
-  return DEF_BY_ID.get(id as SchemaFieldType)?.kind === 'scalar';
+  return DEF_BY_ID.get(id)?.kind === 'scalar';
 }
 
 /** Serialize a scalar field type to its JSON Schema `{ type, format? }`. */
@@ -181,13 +182,7 @@ export function scalarFromJsonSchema(
   jsonType: string | undefined,
   format: string | undefined,
 ): ScalarFieldType | null {
-  for (const d of FIELD_TYPE_DEFS) {
-    if (d.kind !== 'scalar' || !d.json) continue;
-    if (d.json.type === jsonType && (d.json.format ?? undefined) === (format ?? undefined)) {
-      return d.id as ScalarFieldType;
-    }
-  }
-  return null;
+  return resolveJsonSchemaScalar(jsonType, format);
 }
 
 /** Field types selectable as top-level data-contract fields, in display order. */

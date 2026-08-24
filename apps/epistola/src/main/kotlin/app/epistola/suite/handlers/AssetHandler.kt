@@ -21,6 +21,7 @@ import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.ValidationException
 import jakarta.servlet.http.Part
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -244,6 +245,9 @@ class AssetHandler(
                 errors["file"] = e.message ?: "That image is too large."
             } catch (e: CatalogReadOnlyException) {
                 errors["catalog"] = e.message ?: "Catalog is read-only"
+            } catch (e: ValidationException) {
+                // Bad file name (markup/control chars #644, over-long #692) → file field, not a 500.
+                errors["file"] = e.message
             }
         }
 

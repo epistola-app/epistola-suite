@@ -34,11 +34,17 @@ This matters for regulated industries (finance, healthcare, government) and any 
 
 The setting takes effect immediately for new batch/API generations. Preview rendering in the editor always uses standard PDF for speed.
 
+### Catalog exchange
+
+Catalog schema v6 carries `pdfaEnabled` on each template resource. Export,
+ZIP import, URL installation, and catalog upgrades preserve the explicit value.
+When the field is absent (including catalogs produced before contract 1.1.0),
+it defaults to `true` for backward compatibility.
+
 There is no REST API endpoint for this setting — it is configured through the settings UI
-only. (The toggle itself issues a form-encoded `PATCH …/templates/{catalogId}/{templateId}/pdfa`
-UI request; UI routes are internal and may change freely.) The setting also does not
-round-trip through catalog export/import. Whether this UI-only scoping is deliberate is an
-open question tracked in [#817](https://github.com/epistola-app/epistola-suite/issues/817).
+only. The toggle issues a form-encoded
+`PATCH …/templates/{catalogId}/{templateId}/pdfa` UI request; UI routes are internal and
+may change freely.
 
 ## How it works
 

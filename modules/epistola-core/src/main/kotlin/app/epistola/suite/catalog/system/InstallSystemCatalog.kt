@@ -92,6 +92,9 @@ class InstallSystemCatalogHandler : CommandHandler<InstallSystemCatalog, Install
             tenantKey = command.tenantKey,
             sourceUrl = SYSTEM_CATALOG_URL,
             authType = AuthType.NONE,
+            // System fonts share the catalog namespace but are intentionally
+            // seeded by EnsureSystemFonts rather than declared in the manifest.
+            preserveResourceTypes = setOf("font"),
         ).execute()
 
         // Bundled font families live next to the system catalog and are seeded

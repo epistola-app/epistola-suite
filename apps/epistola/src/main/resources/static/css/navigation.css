@@ -99,3 +99,44 @@
   flex-shrink: 0;
   flex-wrap: wrap;
 }
+
+/* ── Data contract actions ───────────────────────────────────────────── */
+
+.contract-status-bar {
+  position: sticky;
+  top: 48px;
+  z-index: var(--ep-z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-3);
+  flex-wrap: wrap;
+  padding: var(--ep-space-2) var(--ep-space-3);
+  margin-bottom: var(--ep-space-3);
+  border: 1px solid var(--ep-stone-200);
+  border-radius: var(--ep-radius-md);
+  background: color-mix(in srgb, var(--ep-white) 96%, transparent);
+  box-shadow: var(--ep-shadow-sm);
+  backdrop-filter: blur(8px);
+  font-size: var(--ep-text-sm);
+}
+
+.contract-status-save-controls {
+  display: flex;
+  flex: 1 1 28rem;
+  min-width: 0;
+}
+
+.contract-status-spacer {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 640px) {
+  .contract-status-save-controls {
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .contract-status-spacer {
+    display: none;
+  }
+}

@@ -36,6 +36,7 @@ import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -433,7 +434,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
 
@@ -473,7 +474,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         // Template embedding stencil v1, then published — leaving NO open draft.
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
@@ -542,7 +543,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         // so its only (published) version already pins the latest stencil version.
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
         UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 2).execute()

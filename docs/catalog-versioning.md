@@ -57,7 +57,9 @@ end to end.
 
 ### Fingerprint algorithm
 
-Hashes, in order: an identity line (`slug name description`); each resource
+Hashes, in order: the complete portable catalog identity and discovery metadata
+(`slug`, name, description, qualified attributes, case-preserving keywords,
+ordered presentation assets, and license); each resource
 sorted by `"$type/$slug"`, rendered as `key  <canonical resource JSON>  <asset
 bytes SHA-256 | "" | "MISSING">`; then a sorted, `;`-joined dependencies line.
 Resource JSON is canonical: the serialized `ResourceDetail` is parsed (floats
@@ -88,6 +90,28 @@ Guarded by `CatalogFingerprintEquivalenceTest`. The export ZIP and the
 fingerprint are built from the **same**
 [`CatalogContentBuilder`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt),
 so "the bytes you export" ≡ "the bytes you fingerprint".
+
+### Portable discovery metadata
+
+Catalog wire v6 stores discovery metadata alongside catalog identity:
+
+- qualified attribute assignments (`catalog`, `key`, `value`);
+- exact-case keywords;
+- an icon and ordered image gallery referencing assets in the same catalog;
+- license name, optional SPDX expression, absolute HTTP(S) URL, and copyright.
+
+AUTHORED catalogs edit these fields from the catalog browse page. SUBSCRIBED
+catalogs show source metadata read-only. URL registration, URL upgrade, ZIP
+import, export, release snapshots, and tenant snapshots preserve the same typed
+value. A metadata-only publisher edit appears in the upgrade preview and can be
+applied without fabricating a resource change.
+
+Presentation media is deliberately **installed-only**. Epistola never proxies
+or auto-downloads an uninstalled source asset just to render catalog chrome.
+The browse page shows an unavailable placeholder; local exports and snapshots
+omit missing icon references and filter missing gallery entries while preserving
+the order of installed entries. The full source metadata remains stored so the
+presentation appears as assets are installed later.
 
 ## Cutting a release (AUTHORED)
 
@@ -236,12 +260,12 @@ To regenerate after an intentional change: run the test, paste the reported
 
 ## Surfaces
 
-| Surface  | Exposure                                                                |
-| -------- | ----------------------------------------------------------------------- |
-| Web UI   | Version column (`v<version>` / `unreleased`); Release dialog (AUTHORED) |
-| REST     | `CatalogDto.releasedVersion` + `fingerprint` (read-only)                |
-| MCP      | `CatalogInfo.releasedVersion` + `fingerprint` (read-only)               |
-| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4            |
+| Surface  | Exposure                                                                     |
+| -------- | ---------------------------------------------------------------------------- |
+| Web UI   | Version column (`v<version>` / `unreleased`); Release dialog (AUTHORED)      |
+| REST     | `CatalogDto.releasedVersion` + `fingerprint` (read-only)                     |
+| MCP      | Release fields plus discovery metadata and metadata upgrade diff (read-only) |
+| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                 |
 
 The release **action** is intentionally UI-only in Phase 1 (deliberate, human;
 read-state parity is delivered everywhere). A REST/MCP release endpoint can be

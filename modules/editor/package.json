@@ -17,11 +17,13 @@
     "notices": "mkdir -p build && generate-license-file --input package.json --output build/THIRD-PARTY-NOTICES-frontend.txt --overwrite"
   },
   "dependencies": {
-    "@atlaskit/pragmatic-drag-and-drop": "^2.0.0",
+    "@atlaskit/pragmatic-drag-and-drop": "^3.0.0",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^2.0.0",
-    "@epistola.app/epistola-catalog": "1.0.1",
+    "@epistola.app/epistola-catalog": "1.1.0",
     "@epistola/design-system": "workspace:*",
+    "@faker-js/faker": "^10.5.0",
     "@floating-ui/dom": "^1.7.5",
+    "cytoscape": "^3.34.1",
     "driver.js": "^1.8.0",
     "jsonata": "^2.0.5",
     "lit": "^3.3.0",

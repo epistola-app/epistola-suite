@@ -46,6 +46,8 @@ data class RenderingDefaults(
     val listMarginBottom: Float,
     val listMarginLeft: Float,
     val listItemMarginBottom: Float,
+    val listItemSpacingDefault: String,
+    val listItemSpacingBetweenOnly: Boolean,
     val bulletMarkers: Map<String, String>,
 
     // -- Tables --
@@ -56,6 +58,7 @@ data class RenderingDefaults(
 
     // -- Columns --
     val columnGap: Float,
+    val columnCellPadding: Float,
 
     // -- Unit conversion --
     val baseFontSizePt: Float,
@@ -116,6 +119,8 @@ data class RenderingDefaults(
             listMarginBottom = 4f, // 1sp
             listMarginLeft = 20f, // 5sp
             listItemMarginBottom = 2f, // 0.5sp
+            listItemSpacingDefault = "0.5sp",
+            listItemSpacingBetweenOnly = false,
             bulletMarkers = mapOf(
                 "disc" to "•  ",
                 "circle" to "○  ",
@@ -127,6 +132,7 @@ data class RenderingDefaults(
             tableCellPadding = 0f, // 0pt (0sp) — cells render flush; padding via per-cell styles
             datatableDefaultColumnWidthPercent = 33f,
             columnGap = 8f, // 2sp
+            columnCellPadding = 2f, // iText's historical implicit cell padding
             baseFontSizePt = 12f,
             pageHeaderPadding = 20f, // 5sp
             pageHeaderHeight = 60f,
@@ -134,11 +140,34 @@ data class RenderingDefaults(
             pageFooterHeight = 60f,
         )
 
+        /**
+         * V2: list item spacing is configurable and is applied between sibling items only.
+         *
+         * The list bottom margin grows by the former final-item margin so the space after a
+         * list remains identical to V1. All other V1 defaults remain unchanged.
+         */
+        val V2 = V1.copy(
+            version = 2,
+            listMarginBottom = 6f,
+            listItemSpacingBetweenOnly = true,
+        )
+
+        /**
+         * V3: column cells no longer add iText's implicit padding around their content.
+         * Explicit component padding and the configured inter-column gap are unchanged.
+         */
+        val V3 = V2.copy(
+            version = 3,
+            columnCellPadding = 0f,
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V1
+        val CURRENT = V3
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
+            2 to V2,
+            3 to V3,
         )
 
         /**

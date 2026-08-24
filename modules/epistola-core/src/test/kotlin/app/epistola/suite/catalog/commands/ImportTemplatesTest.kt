@@ -36,6 +36,54 @@ class ImportTemplatesTest : IntegrationTestBase() {
     private val templateModel = TestTemplateBuilder.buildMinimal()
 
     @Test
+    fun `import preserves PDF-A setting when creating and updating a template`() {
+        val tenant = createTenant("PDF-A Import Test")
+        val tenantId = TenantId(tenant.id)
+        val slug = TestIdHelpers.nextTemplateId().value
+
+        fun import(pdfaEnabled: Boolean) = withMediator {
+            ImportTemplates(
+                tenantId = tenantId,
+                templates = listOf(
+                    ImportTemplateInput(
+                        slug = slug,
+                        name = "PDF-A Template",
+                        version = "1.0.0",
+                        pdfaEnabled = pdfaEnabled,
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = emptyList(),
+                    ),
+                ),
+            ).execute()
+        }
+
+        fun storedPdfaEnabled(): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT pdfa_enabled
+                FROM document_templates
+                WHERE tenant_key = :tenantKey AND catalog_key = 'default' AND id = :templateKey
+                """,
+            )
+                .bind("tenantKey", tenant.id)
+                .bind("templateKey", slug)
+                .mapTo(Boolean::class.java)
+                .one()
+        }
+
+        assertThat(import(pdfaEnabled = false).single().status).isEqualTo(ImportStatus.CREATED)
+        assertThat(storedPdfaEnabled()).isFalse()
+
+        assertThat(import(pdfaEnabled = true).single().status).isEqualTo(ImportStatus.UPDATED)
+        assertThat(storedPdfaEnabled()).isTrue()
+    }
+
+    @Test
     fun `import with one default variant creates variant with correct flag`() {
         val tenant = createTenant("Import Test")
         val tenantId = TenantId(tenant.id)

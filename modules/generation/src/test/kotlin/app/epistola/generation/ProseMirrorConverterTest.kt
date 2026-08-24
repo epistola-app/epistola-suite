@@ -8,10 +8,14 @@ import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
 import app.epistola.generation.pdf.BookmarkEntry
 import app.epistola.generation.pdf.FontCache
+import app.epistola.generation.pdf.RenderingDefaults
 import com.itextpdf.layout.element.Link
 import com.itextpdf.layout.element.List
+import com.itextpdf.layout.element.ListItem
 import com.itextpdf.layout.element.Paragraph
 import com.itextpdf.layout.element.Text
+import com.itextpdf.layout.properties.Property
+import com.itextpdf.layout.properties.UnitValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -23,6 +27,54 @@ class ProseMirrorConverterTest {
     )
     private val converter = ProseMirrorConverter(expressionEvaluator)
     private val fontCache = FontCache()
+
+    private fun twoItemBulletList(): Map<String, Any> = mapOf(
+        "type" to "doc",
+        "content" to listOf(
+            mapOf(
+                "type" to "bulletList",
+                "content" to listOf("One", "Two").map { value ->
+                    mapOf(
+                        "type" to "listItem",
+                        "content" to listOf(
+                            mapOf(
+                                "type" to "paragraph",
+                                "content" to listOf(mapOf("type" to "text", "text" to value)),
+                            ),
+                        ),
+                    )
+                },
+            ),
+        ),
+    )
+
+    @Test
+    fun `V2 applies configured spacing only between list items`() {
+        val v2Converter = ProseMirrorConverter(expressionEvaluator, renderingDefaults = RenderingDefaults.V2)
+        val list = assertIs<List>(
+            v2Converter.convert(
+                twoItemBulletList(),
+                emptyMap(),
+                fontCache = fontCache,
+                resolvedStyles = mapOf("listItemSpacing" to 8f),
+            ).single(),
+        )
+        val items = list.children.map { assertIs<ListItem>(it) }
+
+        assertEquals(8f, items[0].getProperty<UnitValue>(Property.MARGIN_BOTTOM).value)
+        assertEquals(0f, items[1].getProperty<UnitValue>(Property.MARGIN_BOTTOM).value)
+    }
+
+    @Test
+    fun `V1 retains its margin on every list item`() {
+        val v1Converter = ProseMirrorConverter(expressionEvaluator, renderingDefaults = RenderingDefaults.V1)
+        val list = assertIs<List>(
+            v1Converter.convert(twoItemBulletList(), emptyMap(), fontCache = fontCache).single(),
+        )
+        val items = list.children.map { assertIs<ListItem>(it) }
+
+        assertEquals(listOf(2f, 2f), items.map { it.getProperty<UnitValue>(Property.MARGIN_BOTTOM).value })
+    }
 
     @Test
     fun `converts null content to empty list`() {

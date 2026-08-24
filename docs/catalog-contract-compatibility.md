@@ -69,7 +69,7 @@ template at startup.
 | Publish a template or stencil draft    | Revalidates the stored draft and rejects a historical malformed shape instead of freezing it.                                               |
 | Copy or upgrade stored stencil content | Revalidates the source content before reusing it.                                                                                           |
 | Import or re-import a catalog          | Applies the complete portable archive, wire, resource, reference, schema, hash, and template validation policy before mutation.             |
-| Export a catalog                       | Builds current `schemaVersion: 5` content from published resources and refuses non-publishable draft provenance before writing the archive. |
+| Export a catalog                       | Builds current `schemaVersion: 6` content from published resources and refuses non-publishable draft provenance before writing the archive. |
 
 This means an already-published editor-created template is not invalidated just
 because the application starts with the new library. The realistic failure
@@ -96,6 +96,19 @@ Authored imports surface those notices in the confirmation UI before mutation;
 subscribed catalogs are never migrated. Catalog v5 publication rejects any
 `draftVersion`, so exported content always points to exact published stencil
 versions.
+
+## Contract 1.1 additions and the 2.0 boundary
+
+Suite supports the contract 1.1 wire-v6 additions end to end: portable catalog
+metadata, metadata-aware fingerprints, and the template-level `pdfaEnabled`
+setting. The contract's generated TypeScript shapes and golden fixtures remain
+library-owned; Suite tests that it consumes them rather than maintaining a
+parallel wire model.
+
+The contract documentation also announces a future 2.0 requirement that
+user-insertable component descriptors include examples. Suite already enforces
+that invariant in its component-registry tests, so no 1.1 runtime compatibility
+branch or migration is required.
 
 ## Deployment check
 

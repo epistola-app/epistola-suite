@@ -4,8 +4,16 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.DeleteDocumentTemplate
+import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -56,6 +64,25 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
             assertThat(third.status).isEqualTo(EnsureCatalogStatus.UPGRADED)
             assertThat(third.catalogKey).isEqualTo(demoKey)
             assertThat(third.newVersion).isNotBlank()
+        }
+    }
+
+    @Test
+    fun `missing resource is installed even when catalog fingerprint is current`() {
+        val tenant = createTenant("Ensure Missing")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("epistola-demo")
+        val templateId = TemplateId(TemplateKey.of("advanced-data-contract"), CatalogId(catalogKey, tenantId))
+
+        withMediator {
+            EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
+            val deleted = CatalogImportContext.runAsImport { DeleteDocumentTemplate(templateId).execute() }
+            assertThat(deleted).isTrue()
+
+            val result = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
+            assertThat(result.status).isEqualTo(EnsureCatalogStatus.UPGRADED)
+            assertThat(ListDocumentTemplates(tenantId).query().map { it.id.value })
+                .contains("advanced-data-contract")
         }
     }
 

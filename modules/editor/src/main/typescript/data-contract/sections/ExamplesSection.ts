@@ -11,6 +11,7 @@
  */
 
 import { html } from 'lit';
+import { keyed } from 'lit/directives/keyed.js';
 import type { DataContractState } from '../DataContractState.js';
 import type { JsonValue } from '../types.js';
 import { renderExampleForm } from './ExampleForm.js';
@@ -22,6 +23,7 @@ export interface ExamplesUiState {
   exampleErrorCounts: Record<string, number>;
   canUndo: boolean;
   canRedo: boolean;
+  canGenerate: boolean;
   readOnly: boolean;
 }
 
@@ -31,6 +33,7 @@ export interface ExamplesSectionCallbacks {
   onDeleteExample: (id: string) => void;
   onUpdateExampleName: (id: string, name: string) => void;
   onUpdateExampleData: (id: string, path: string, value: JsonValue) => void;
+  onGenerateExample: (id: string) => void;
   onUndo: () => void;
   onRedo: () => void;
 }
@@ -44,10 +47,17 @@ export function renderExamplesSection(
   const selectedExample = uiState.editingId
     ? examples.find((e) => e.id === uiState.editingId)
     : null;
+  const canDeleteSelected = selectedExample ? state.canDeleteExample(selectedExample.id) : false;
+  const deleteRequirement =
+    selectedExample && examples.length > 1 && state.isExampleCommitted(selectedExample.id)
+      ? 'Save another example before deleting this one. At least one saved test data example is required.'
+      : 'This example cannot be deleted because at least one test data example is required.';
 
   return html`
     <section class="dc-section dc-examples-section">
-      <h3 class="dc-section-label">Test Data Examples</h3>
+      <h3 class="dc-section-label">
+        Test Data Examples <span class="dc-required-indicator" aria-label="required">*</span>
+      </h3>
       <p class="dc-section-hint">
         Create example data sets to test your templates. Each example must conform to the schema.
       </p>
@@ -117,35 +127,56 @@ export function renderExamplesSection(
                     }}
                   />
                 </div>
-                <button
-                  class="dc-example-delete-btn"
-                  ?disabled=${uiState.readOnly}
-                  @click=${() => callbacks.onDeleteExample(selectedExample.id)}
-                  title="Delete this example"
-                  aria-label="Delete example"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4H12z"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
+                ${!canDeleteSelected
+                  ? html` <span class="dc-example-delete-requirement">${deleteRequirement}</span> `
+                  : html`
+                      <button
+                        class="dc-example-delete-btn"
+                        ?disabled=${uiState.readOnly}
+                        @click=${() => callbacks.onDeleteExample(selectedExample.id)}
+                        title="Delete this example"
+                        aria-label="Delete example"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4H12z"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    `}
               </div>
 
               <!-- Floating Toolbar -->
               <div class="dc-example-toolbar">
                 <div class="dc-example-toolbar-actions">
+                  <button
+                    class="dc-example-toolbar-btn dc-example-generate-btn"
+                    ?disabled=${!uiState.canGenerate || uiState.readOnly}
+                    @click=${() => callbacks.onGenerateExample(selectedExample.id)}
+                    title="Fill missing values from the current schema; existing values are kept"
+                    aria-label="Autofill missing example values from schema"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path
+                        d="M8 1.5l.8 2.4 2.4.8-2.4.8L8 7.9l-.8-2.4-2.4-.8 2.4-.8L8 1.5zM12.2 8.1l.55 1.65 1.65.55-1.65.55-.55 1.65-.55-1.65L10 10.3l1.65-.55.55-1.65zM4.2 9.1l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1z"
+                        stroke="currentColor"
+                        stroke-width="1.1"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    Autofill
+                  </button>
                   <button
                     class="dc-example-toolbar-btn"
                     ?disabled=${!uiState.canUndo || uiState.readOnly}
@@ -181,6 +212,23 @@ export function renderExamplesSection(
                       />
                     </svg>
                     Redo
+                  </button>
+                  <span class="dc-example-toolbar-divider" aria-hidden="true"></span>
+                  <button
+                    class="dc-example-toolbar-btn dc-example-expand-all-btn"
+                    @click=${(event: Event) => setExampleGroupsOpen(event, true)}
+                    title="Expand all properties in this example"
+                    aria-label="Expand all example properties"
+                  >
+                    Expand all
+                  </button>
+                  <button
+                    class="dc-example-toolbar-btn dc-example-collapse-all-btn"
+                    @click=${(event: Event) => setExampleGroupsOpen(event, false)}
+                    title="Collapse all properties in this example"
+                    aria-label="Collapse all example properties"
+                  >
+                    Collapse all
                   </button>
                 </div>
 
@@ -231,12 +279,15 @@ export function renderExamplesSection(
 
               <!-- Form -->
               <div class="dc-example-form-container">
-                ${renderExampleForm(
-                  state.schema,
-                  selectedExample.data,
-                  (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
-                  uiState.fieldErrorMap,
-                  uiState.readOnly,
+                ${keyed(
+                  selectedExample.id,
+                  renderExampleForm(
+                    state.schema,
+                    selectedExample.data,
+                    (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
+                    uiState.fieldErrorMap,
+                    uiState.readOnly,
+                  ),
                 )}
               </div>
             </div>
@@ -259,8 +310,17 @@ export function renderExamplesSection(
                     />
                   </svg>
                 </div>
-                <p>No test data examples yet</p>
-                <span class="dc-empty-state-hint">Click "+ New" to create your first example</span>
+                <p>At least one test data example is required</p>
+                <span class="dc-empty-state-hint">
+                  Add an example before saving or publishing this data contract.
+                </span>
+                <button
+                  class="ep-btn ep-btn-primary ep-btn-sm"
+                  ?disabled=${uiState.readOnly}
+                  @click=${() => callbacks.onAddExample()}
+                >
+                  Add first example
+                </button>
               </div>
             `
           : html`
@@ -286,4 +346,14 @@ export function renderExamplesSection(
             `}
     </section>
   `;
+}
+
+function setExampleGroupsOpen(event: Event, open: boolean): void {
+  if (!(event.currentTarget instanceof HTMLElement)) return;
+  const card = event.currentTarget.closest('.dc-example-card');
+  for (const group of card?.querySelectorAll<HTMLDetailsElement>(
+    '.dc-example-form-container details',
+  ) ?? []) {
+    group.open = open;
+  }
 }

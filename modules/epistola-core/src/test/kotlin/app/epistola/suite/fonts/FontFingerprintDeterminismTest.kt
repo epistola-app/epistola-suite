@@ -35,6 +35,7 @@ import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -153,7 +154,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
 
             // 2. Template pinned to that theme + a richtext contract.
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = "fp-determinism-template").execute()
+            CreateDocumentTemplate(id = templateId, name = "fp-determinism-template").execute().withRequiredDataExample()
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = ThemeKey.of("brand-theme"),

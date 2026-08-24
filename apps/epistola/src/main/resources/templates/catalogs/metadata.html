@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<dialog th:fragment="dialog" id="catalog-metadata-dialog" class="ep-dialog ep-dialog-lg">
+    <div class="ep-dialog-header">
+        <h3 th:text="${sectionTitle}">Catalog settings</h3>
+    </div>
+    <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id})}"
+          hx-target="#dialog-mount" hx-swap="innerHTML">
+        <input type="hidden" name="section" th:value="${section}" />
+        <div class="ep-dialog-body">
+            <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+            <th:block th:if="${section == 'details'}">
+                <div class="form-group">
+                    <label class="ep-label" for="catalog-metadata-name">Name</label>
+                    <input id="catalog-metadata-name" class="ep-input" name="name" required maxlength="100"
+                           th:value="${catalog.name}" />
+                </div>
+                <div class="form-group">
+                    <label class="ep-label" for="catalog-metadata-description">Description</label>
+                    <textarea id="catalog-metadata-description" class="ep-input" name="description" rows="3"
+                              th:text="${catalog.description}"></textarea>
+                </div>
+            </th:block>
+
+            <div th:if="${section == 'attributes'}">
+                <p class="form-hint">Select the locale advertised to catalog consumers.</p>
+                <div th:each="field : ${attributeFields}" style="margin-top: var(--ep-space-2);">
+                    <label class="ep-label"
+                           th:for="${'catalog-attribute-' + field.descriptor.qualifiedKey}"
+                           th:text="${field.descriptor.displayName + ' (' + field.descriptor.qualifiedKey + ')'}"></label>
+                    <select th:if="${!field.descriptor.options.isEmpty()}" class="ep-input"
+                            th:id="${'catalog-attribute-' + field.descriptor.qualifiedKey}"
+                            th:name="${'attribute_' + field.descriptor.qualifiedKey}">
+                        <option value="">Not set</option>
+                        <option th:each="option : ${field.descriptor.options}" th:value="${option.code}"
+                                th:text="${option.label}" th:selected="${option.code == field.value}"></option>
+                    </select>
+                    <input th:if="${field.descriptor.options.isEmpty()}" class="ep-input"
+                           th:id="${'catalog-attribute-' + field.descriptor.qualifiedKey}"
+                           th:name="${'attribute_' + field.descriptor.qualifiedKey}" th:value="${field.value}" />
+                </div>
+                <p th:if="${attributeFields.isEmpty()}" class="text-muted">The system locale attribute is not installed.</p>
+            </div>
+
+            <div th:if="${section == 'keywords'}" class="form-group">
+                <textarea id="catalog-keywords" class="ep-input" name="keywords" rows="4" aria-label="Keywords"
+                          th:text="${#strings.listJoin(catalog.catalogMetadata.keywords, '&#10;')}"></textarea>
+                <span class="form-hint">One keyword per line. Case is preserved.</span>
+            </div>
+
+            <div th:if="${section == 'presentation'}">
+                <label class="ep-label" for="catalog-icon">Icon</label>
+                <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
+                    <option value="">No icon</option>
+                    <option th:each="image : ${images}" th:value="${image.id}" th:text="${image.name}"
+                            th:selected="${catalog.catalogMetadata.presentation != null and image.id.toString() == catalog.catalogMetadata.presentation.iconAssetSlug}"></option>
+                </select>
+
+                <div style="margin-top: var(--ep-space-3);">
+                    <span class="ep-label">Ordered gallery</span>
+                    <div data-catalog-gallery class="ep-stack ep-gap-2" style="margin-top: var(--ep-space-1);">
+                        <div th:each="slug : ${gallerySlugs}" class="ep-row ep-gap-2" data-catalog-gallery-row>
+                            <select class="ep-input" name="imageAssetSlugs">
+                                <option value="">Select an image</option>
+                                <option th:each="image : ${images}" th:value="${image.id}" th:text="${image.name}"
+                                        th:selected="${image.id.toString() == slug}"></option>
+                            </select>
+                            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-gallery-move="up" aria-label="Move image up">↑</button>
+                            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-gallery-move="down" aria-label="Move image down">↓</button>
+                            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-gallery-remove aria-label="Remove image">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top: var(--ep-space-2);"
+                            data-gallery-add>Add image</button>
+                </div>
+            </div>
+
+            <div th:if="${section == 'license'}" class="ep-stack ep-gap-2">
+                <label class="ep-label" for="catalog-license-name">Name</label>
+                <input id="catalog-license-name" class="ep-input" name="licenseName"
+                       th:value="${catalog.catalogMetadata.license?.name}" />
+                <label class="ep-label" for="catalog-license-spdx">SPDX expression</label>
+                <input id="catalog-license-spdx" class="ep-input" name="licenseSpdx"
+                       th:value="${catalog.catalogMetadata.license?.spdxExpression}" placeholder="CC-BY-4.0" />
+                <span class="form-hint">For example: CC-BY-4.0 or MIT OR Apache-2.0.</span>
+                <label class="ep-label" for="catalog-license-url">License URL</label>
+                <input id="catalog-license-url" class="ep-input" type="url" name="licenseUrl"
+                       th:value="${catalog.catalogMetadata.license?.url}" />
+                <label class="ep-label" for="catalog-license-copyright">Copyright</label>
+                <textarea id="catalog-license-copyright" class="ep-input" name="licenseCopyright" rows="2"
+                          th:text="${catalog.catalogMetadata.license?.copyrightText}"></textarea>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="catalog-metadata-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary">Save changes</button>
+        </div>
+    </form>
+</dialog>
+</body>
+</html>

@@ -4,6 +4,10 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.protocol.AttributeAssignment
+import app.epistola.catalog.protocol.CatalogInfo
+import app.epistola.catalog.protocol.CatalogLicense
+import app.epistola.catalog.protocol.CatalogPresentation
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.crypto.Secret
 import org.jdbi.v3.json.Json
@@ -28,6 +32,7 @@ data class Catalog(
      * Never publisher-authored; null for AUTHORED catalogs.
      */
     @Json val installedResourceFingerprints: Map<String, String>? = null,
+    @Json val catalogMetadata: CatalogMetadata = CatalogMetadata(),
     val installedAt: OffsetDateTime? = null,
     val releasedVersion: String? = null,
     val releasedFingerprint: String? = null,
@@ -41,9 +46,54 @@ data class Catalog(
      * imported resources, so it does not register as drift.
      */
     val importedAt: OffsetDateTime? = null,
+    val contentUpdatedAt: OffsetDateTime,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 )
+
+/** Catalog metadata that is part of the portable catalog manifest. */
+data class CatalogMetadata(
+    val attributes: List<AttributeAssignment> = emptyList(),
+    val keywords: Set<String> = emptySet(),
+    val presentation: CatalogPresentation? = null,
+    val license: CatalogLicense? = null,
+) {
+    fun toCatalogInfo(
+        slug: String,
+        name: String,
+        description: String?,
+        availableAssetSlugs: Set<String>? = null,
+    ): CatalogInfo {
+        val effectivePresentation = if (availableAssetSlugs == null) {
+            presentation
+        } else {
+            presentation?.let {
+                CatalogPresentation(
+                    iconAssetSlug = it.iconAssetSlug?.takeIf(availableAssetSlugs::contains),
+                    imageAssetSlugs = it.imageAssetSlugs.filter(availableAssetSlugs::contains),
+                )
+            }
+        }
+        return CatalogInfo.create(
+            slug = slug,
+            name = name,
+            description = description,
+            attributes = attributes,
+            keywords = keywords,
+            presentation = effectivePresentation,
+            license = license,
+        )
+    }
+
+    companion object {
+        fun from(info: CatalogInfo): CatalogMetadata = CatalogMetadata(
+            attributes = info.attributes,
+            keywords = info.keywords,
+            presentation = info.presentation,
+            license = info.license,
+        )
+    }
+}
 
 enum class CatalogType {
     AUTHORED,

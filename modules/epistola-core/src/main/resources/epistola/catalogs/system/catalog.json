@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "catalog": {
     "slug": "system",
     "name": "System",
@@ -12,7 +12,7 @@
   "release": {
     "version": "1.2.1",
     "releasedAt": "2026-07-29T00:00:00Z",
-    "fingerprint": "413c32116b26df449da44dbb40d6cbe6c96743e1046f691e9d07ffb1c4eb58e9"
+    "fingerprint": "bc52a735c612e20e0dc97ecd67f38b455db256efc2071527a960fae5816764df"
   },
   "resources": [
     {

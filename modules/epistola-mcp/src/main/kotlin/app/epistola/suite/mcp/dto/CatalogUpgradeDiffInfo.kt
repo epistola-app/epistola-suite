@@ -16,8 +16,10 @@ data class CatalogUpgradeDiffInfo(
     val catalogId: String,
     val previousVersion: String?,
     val newVersion: String,
-    /** True when there is anything to apply (added/removed/changed). */
+    /** True when there is anything to apply (resource or metadata changes). */
     val upgradeAvailable: Boolean,
+    /** Portable catalog metadata sections changed by the publisher. */
+    val metadataChanges: List<String>,
     /** Newly published resources — not installed unless explicitly opted in. */
     val added: List<String>,
     /** Resources the new release removed (would be deleted on upgrade). */
@@ -38,6 +40,7 @@ data class CatalogUpgradeDiffInfo(
             previousVersion = diff.previousVersion,
             newVersion = diff.newVersion,
             upgradeAvailable = diff.hasChanges,
+            metadataChanges = diff.metadataChanges.map { it.name.lowercase() },
             added = keys(diff.added),
             removed = keys(diff.removed),
             changed = keys(diff.changed),

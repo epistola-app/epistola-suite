@@ -24,7 +24,10 @@ import { icon } from './icons.js';
 import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
 import { isCollapsible, countChildren } from './collapse.js';
 import { toStyleMap, DEFAULT_SPACING_UNIT_PT } from './style-css.js';
-import '../ui/EpistolaTextEditor.js';
+import type { EpistolaTextEditor, TextEditorFocusOptions } from './EpistolaTextEditor.js';
+import './EpistolaTextEditor.js';
+
+const TEXT_SELECTION_DRAG_THRESHOLD_PX = 4;
 
 @customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
@@ -42,6 +45,7 @@ export class EpistolaCanvas extends LitElement {
   private _dndCleanup: (() => void) | null = null;
   private _unsubComponentState?: () => void;
   private _subscribedEngine?: EditorEngine;
+  private _textPointerDown: { nodeId: NodeId; x: number; y: number } | null = null;
 
   private get _spacingUnit(): number {
     return this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
@@ -54,10 +58,25 @@ export class EpistolaCanvas extends LitElement {
     if (this._isInLockedSlot(nodeId)) return;
     e.stopPropagation();
     this.engine?.selectNode(nodeId);
-    this._maybeFocusTextEditor(nodeId);
+    const mouseEvent = e as MouseEvent;
+    const pointerDown = this._textPointerDown;
+    const wasTextDrag =
+      pointerDown?.nodeId === nodeId &&
+      (Math.abs(mouseEvent.clientX - pointerDown.x) > TEXT_SELECTION_DRAG_THRESHOLD_PX ||
+        Math.abs(mouseEvent.clientY - pointerDown.y) > TEXT_SELECTION_DRAG_THRESHOLD_PX);
+    this._textPointerDown = null;
+    this._maybeFocusTextEditor(nodeId, { collapseSelection: !wasTextDrag });
+  }
+
+  private _handleTextPointerDown(e: MouseEvent, nodeId: NodeId): void {
+    this._textPointerDown = null;
+    if (e.button !== 0 || this._isInLockedSlot(nodeId)) return;
+    if (this.doc?.nodes[nodeId]?.type !== 'text') return;
+    this._textPointerDown = { nodeId, x: e.clientX, y: e.clientY };
   }
 
   private _handleCanvasClick() {
+    this._textPointerDown = null;
     this.engine?.selectNode(null);
   }
 
@@ -85,7 +104,7 @@ export class EpistolaCanvas extends LitElement {
     return isSlotLocked(this.doc, parentSlotId, this.engine.indexes, this.engine.registry);
   }
 
-  private _maybeFocusTextEditor(nodeId: NodeId) {
+  private _maybeFocusTextEditor(nodeId: NodeId, options: TextEditorFocusOptions = {}) {
     const doc = this.doc;
     if (!doc) return;
     const node = doc.nodes[nodeId];
@@ -93,10 +112,9 @@ export class EpistolaCanvas extends LitElement {
 
     requestAnimationFrame(() => {
       const blockEl = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
-      const textEditor = blockEl?.querySelector<HTMLElement>('epistola-text-editor');
+      const textEditor = blockEl?.querySelector<EpistolaTextEditor>('epistola-text-editor');
       if (!textEditor) return;
-      const focusEditor = (textEditor as { focusEditor?: () => void }).focusEditor;
-      focusEditor?.call(textEditor);
+      textEditor.focusEditor(options);
     });
   }
 
@@ -429,6 +447,7 @@ export class EpistolaCanvas extends LitElement {
         data-node-id=${nodeId}
         data-block-label=${label}
         tabindex=${isInLockedSlot ? nothing : '0'}
+        @mousedown=${(e: MouseEvent) => this._handleTextPointerDown(e, nodeId)}
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
         @focus=${() => this._handleFocus(nodeId)}
       >
