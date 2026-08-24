@@ -492,6 +492,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("Only the latest published version of versioned resources will be included.")
             assertThat(body).contains("Drafts and older published versions will not be exported.")
             assertThat(body).contains("href=\"/tenants/${t.id}/catalogs/exportable-cat/export\"")
+            assertThat(body).contains("hx-boost=\"false\"")
             assertThat(body).contains("Export as ZIP")
         }
     }

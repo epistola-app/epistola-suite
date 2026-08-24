@@ -234,7 +234,7 @@
                         data-close-dialog="export-confirmation-dialog">Cancel</button>
                 <a class="ep-btn ep-btn-primary"
                    th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId})}"
-                   data-close-dialog="export-confirmation-dialog" download>Export as ZIP</a>
+                   data-close-dialog="export-confirmation-dialog" hx-boost="false" download>Export as ZIP</a>
             </div>
         </dialog>
     </th:block>
