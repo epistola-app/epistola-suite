@@ -269,7 +269,7 @@ Useful failure distinctions:
 ## Deferred work
 
 - Add the release-level override and publication id to the stable REST API after
-  compatibility design; UI behavior already exists.
+  compatibility design; UI behavior already exists ([#863](https://github.com/epistola-app/epistola-suite/issues/863)).
 - Define the inbound Exchange browse/install/subscription experience separately.
 - Define organization replacement/migration separately from reauthorization.
 - Add MCP publication tools only with an explicit authorization and idempotency
