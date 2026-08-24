@@ -25,6 +25,7 @@ import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.withRequiredDataExample
 import com.microsoft.playwright.Route
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
@@ -150,7 +151,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         val template = CreateDocumentTemplate(
             id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
             name = "Settings UI Template",
-        ).execute()
+        ).execute().withRequiredDataExample()
         // The deployment matrix only renders rows when an environment exists.
         CreateEnvironment(
             id = EnvironmentId(EnvironmentKey.of("prod"), tenantId),
