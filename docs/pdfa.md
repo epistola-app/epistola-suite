@@ -32,7 +32,7 @@ This matters for regulated industries (finance, healthcare, government) and any 
 2. Go to the **Settings** tab
 3. Under **Output Settings**, check **PDF/A-2b compliance**
 
-The setting takes effect immediately for new batch/API generations. Preview rendering in the editor always uses standard PDF for speed.
+The setting takes effect immediately for new batch/API generations and previews. Preview PDFs use the same PDF/A mode and font strategy as final output so pagination and layout remain representative; they carry a visible **PREVIEW** watermark and are not final documents.
 
 ### Catalog exchange
 
@@ -61,7 +61,7 @@ DocumentGenerationExecutor
             └─ pdfaCompliant=false → PdfDocument + standard Helvetica
 ```
 
-Preview rendering (`TemplatePreviewHandler`) always uses the default `pdfaCompliant = false`, so previews are fast regardless of the template setting.
+Preview rendering (`DocumentPreviewRenderer`) passes the same `template.pdfaEnabled` value through both the published-snapshot and live-theme paths. This keeps fonts and pagination aligned with final generation. Every preview is watermarked; final/batch output is not.
 
 ### Font strategy
 
@@ -113,6 +113,6 @@ ALTER TABLE document_templates ADD COLUMN pdfa_enabled BOOLEAN NOT NULL DEFAULT 
 
 ## Limitations
 
-- **Preview is always standard PDF** — PDF/A is only applied during batch/API generation, not in the editor preview. This is intentional for performance.
+- **Previews are not final output** — they honor the template's PDF/A setting for rendering parity but always carry a visible **PREVIEW** watermark.
 - **Font family is fixed** — Liberation Sans / Helvetica. Custom font support is not yet available.
 - **PDF/A-2b only** — higher conformance levels (PDF/A-2a with tagged structure, PDF/A-3 with attachments) are not supported.

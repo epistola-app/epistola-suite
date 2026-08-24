@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(pdfa): **Preview PDF/A behavior is documented accurately.** Preview rendering
+  honors the template's PDF/A setting to match final-output fonts and pagination, while retaining
+  its visible preview watermark.
 - **[dev]** docs(security): **The security policy is easier to discover.** `SECURITY.md` now lives
   at the repository root while remaining available through GitHub's Security tab.
 - **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
