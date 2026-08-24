@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalog): **Catalog exports explain their published-only contents.** Exporting a
+  catalog now confirms that only the latest published version of versioned resources is included,
+  while drafts and older published versions are left out of the ZIP.
 - **[user]** fix(themes): **A concurrently deleted template theme is rejected cleanly.** The
   settings selector now returns to its persisted value and displays an actionable error beside
   the control instead of leaving a stale selection visible after a foreign-key failure.

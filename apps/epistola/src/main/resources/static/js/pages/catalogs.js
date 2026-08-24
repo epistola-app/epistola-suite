@@ -23,7 +23,7 @@ document.addEventListener('htmx:afterRequest', function (event) {
   if (dialog) dialog.close();
 });
 
-// The release / upgrade-preview / export-conflict dialogs are fetched on demand
+// The release / upgrade-preview / export dialogs are fetched on demand
 // (hx-get) into always-present `data-open-dialog-on-swap` containers and opened
 // after the swap. That open-on-swap behavior is now app-wide (static/js/
 // behaviors.js) — both the legacy `data-open-dialog-on-swap="id"` containers
