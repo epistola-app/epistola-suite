@@ -34,6 +34,14 @@ the append-only collect feed and cursors (`generation_results`,
 and audit/runtime/membership tables. These are never read or written by
 backup/restore.
 
+Exchange authoring preferences are portable: the tenant publish default and
+each catalog's policy/namespace preference ride in the included `tenants` and
+`catalogs` rows. Exchange connections, device grants, encrypted OAuth
+credentials, namespace bindings, publication jobs, retained ZIPs, and remote
+state are excluded. They describe installation-specific trust and external
+side effects and must not be replayed by restore. See
+[`catalog-exchange-publication.md`](catalog-exchange-publication.md#backup-and-restore-boundary).
+
 ## How it works (the `tenantbackup/` primitive)
 
 `BuildTenantBackup` / `RestoreTenantBackup` (in `epistola-support-backups`,

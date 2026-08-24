@@ -3,6 +3,23 @@
 How Epistola Suite is deployed with the Helm chart (`charts/epistola`). For the
 migration model itself see [`migrations.md`](migrations.md).
 
+## Epistola Exchange publication
+
+Suite-to-Exchange catalog publication is a default-off outbound integration.
+Enable it explicitly in Helm:
+
+```yaml
+exchange:
+  enabled: true
+  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
+```
+
+The tenant Alpha feature remains off independently; enabling the deployment
+gate does not publish or enroll anything by itself. Network discovery, tenant
+device enrollment, namespace selection, credential handling, and publication
+operations are documented in
+[`catalog-exchange-publication.md`](catalog-exchange-publication.md).
+
 ## Database migrations: `migration.mode`
 
 Migrations run as a **separate, explicit step** by default (issue #431). The

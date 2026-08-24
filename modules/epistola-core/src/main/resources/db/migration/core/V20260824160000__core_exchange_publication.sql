@@ -53,7 +53,7 @@ CREATE TABLE catalog_release_publications (
     fingerprint CHAR(64) NOT NULL,
     namespace VARCHAR(63),
     archive BYTEA,
-    status VARCHAR(30) NOT NULL CHECK (status IN ('WAITING_SETUP', 'READY', 'SUBMITTING', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED')),
+    status VARCHAR(30) NOT NULL CHECK (status IN ('WAITING_SETUP', 'READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED')),
     idempotency_key UUID NOT NULL,
     remote_publication_id UUID,
     remote_status_url TEXT,

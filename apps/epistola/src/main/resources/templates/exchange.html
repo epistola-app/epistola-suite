@@ -18,6 +18,8 @@
             <p class="subtitle">One Exchange connection is maintained for this Suite tenant.</p>
         </div>
         <div class="card-content">
+            <div class="alert alert-danger" th:if="${connection != null && connection.lastError != null}"
+                 th:text="${connection.lastError}"></div>
             <div th:if="${connection != null && connection.status.name() == 'ACTIVE'}">
                 <p><strong>Connected organization:</strong>
                     <span th:text="${connection.organizationName}">Organization</span>

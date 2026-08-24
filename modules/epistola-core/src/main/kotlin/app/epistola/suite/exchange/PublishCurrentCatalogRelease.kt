@@ -53,15 +53,21 @@ class PublishCurrentCatalogReleaseHandler(
             "This catalog's publication policy forbids Exchange publishing"
         }
         val release = latestRelease(command)
-        val content = contentBuilder.build(command.tenantKey, command.catalogKey)
-        fingerprintService.requirePublishable(content)
-        require(fingerprintService.matchesFingerprint(content, release.fingerprint)) {
-            "The working copy differs from v${release.version}; release those changes before publishing to Exchange"
+        val previousAttempt = existingPublication(command, release.version)
+        require(previousAttempt == null || previousAttempt.status == "FAILED") {
+            "This release already has an Exchange publication attempt"
         }
-        val archive = archiveBuilder.build(
-            content,
-            ReleaseInfo(release.version, release.releasedAt.toString(), release.fingerprint),
-        )
+        val archive = previousAttempt?.archive ?: run {
+            val content = contentBuilder.build(command.tenantKey, command.catalogKey)
+            fingerprintService.requirePublishable(content)
+            require(fingerprintService.matchesFingerprint(content, release.fingerprint)) {
+                "The working copy differs from v${release.version}; release those changes before publishing to Exchange"
+            }
+            archiveBuilder.build(
+                content,
+                ReleaseInfo(release.version, release.releasedAt.toString(), release.fingerprint),
+            )
+        }
         val publicationId = UUIDv7.generate()
         val idempotencyKey = UUIDv7.generate()
         return jdbi.inTransaction<UUID, Exception> { handle ->
@@ -124,6 +130,17 @@ class PublishCurrentCatalogReleaseHandler(
         }.findOne().orElseThrow { IllegalArgumentException("Catalog has no release to publish") }
     }
 
+    private fun existingPublication(command: PublishCurrentCatalogRelease, version: String): ExistingPublication? = jdbi.withHandle<ExistingPublication?, Exception> { handle ->
+        handle.createQuery(
+            """
+                SELECT status, archive FROM catalog_release_publications
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND version = :version
+                """,
+        ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey).bind("version", version)
+            .map { rs, _ -> ExistingPublication(rs.getString("status"), rs.getBytes("archive")) }
+            .findOne().orElse(null)
+    }
+
     private fun resolveAndBindNamespace(
         handle: Handle,
         command: PublishCurrentCatalogRelease,
@@ -154,4 +171,10 @@ class PublishCurrentCatalogReleaseHandler(
     }
 
     private data class Release(val version: String, val fingerprint: String, val releasedAt: OffsetDateTime)
+
+    private data class ExistingPublication(val status: String, val archive: ByteArray) {
+        init {
+            require(archive.isNotEmpty()) { "Failed Exchange publication has no retained archive" }
+        }
+    }
 }

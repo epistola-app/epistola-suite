@@ -565,8 +565,10 @@ class CatalogHandler(
                     publishingAvailable &&
                         result.catalog.exchangePublicationPolicy != CatalogPublicationPolicy.NEVER &&
                         releaseStatus?.latestVersion != null &&
-                        !releaseStatus.hasUnreleasedChanges &&
-                        (latestPublication == null || latestPublication.status == "FAILED")
+                        (
+                            latestPublication?.status == "FAILED" ||
+                                (latestPublication == null && !releaseStatus.hasUnreleasedChanges)
+                            )
                     )
                 "publishCurrentReleaseLabel" to if (latestPublication?.status == "FAILED") "Retry publication" else "Publish current release"
                 "resources" to result.resources
