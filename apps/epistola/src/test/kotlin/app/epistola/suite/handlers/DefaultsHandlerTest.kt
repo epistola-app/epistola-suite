@@ -7,6 +7,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.tenants.commands.SetTenantCatalogPublishingDefault
 import app.epistola.suite.tenants.commands.SetTenantDefaultLocale
 import app.epistola.suite.tenants.queries.GetTenant
 import org.assertj.core.api.Assertions.assertThat
@@ -91,6 +92,22 @@ class DefaultsHandlerTest : BaseIntegrationTest() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val reloaded = withMediator { GetTenant(tenant.id).query() }
         assertThat(reloaded?.defaultLocale).isNull()
+    }
+
+    @Test
+    fun `POST catalog publishing default persists the tenant choice`() {
+        val tenant = createTenant("Publishing Default")
+        withMediator {
+            SetTenantCatalogPublishingDefault(tenant.id, false).execute()
+        }
+
+        val response = postForm(
+            "/tenants/${tenant.id.value}/defaults/catalog-publishing",
+            mapOf("publishByDefault" to "true"),
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(withMediator { GetTenant(tenant.id).query() }?.publishCatalogsByDefault).isTrue()
     }
 
     private fun postForm(url: String, form: Map<String, String>): ResponseEntity<String> {

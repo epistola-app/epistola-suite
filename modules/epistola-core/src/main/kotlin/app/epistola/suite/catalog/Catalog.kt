@@ -37,6 +37,8 @@ data class Catalog(
     val releasedVersion: String? = null,
     val releasedFingerprint: String? = null,
     val releasedAt: OffsetDateTime? = null,
+    val exchangePublicationPolicy: CatalogPublicationPolicy = CatalogPublicationPolicy.INHERIT,
+    val exchangeNamespacePreference: String? = null,
     /**
      * When catalog content was last set wholesale by a ZIP import. With
      * [releasedAt] it forms the AUTHORED drift baseline
@@ -104,4 +106,28 @@ enum class AuthType {
     NONE,
     API_KEY,
     BEARER,
+}
+
+/** Controls the default and override rules for publishing releases to Exchange. */
+enum class CatalogPublicationPolicy {
+    INHERIT,
+    ALWAYS,
+    DEFAULT_YES,
+    DEFAULT_NO,
+    NEVER,
+    ;
+
+    fun allowsReleaseOverride(): Boolean = this !in setOf(ALWAYS, NEVER)
+
+    fun defaultPublish(tenantDefault: Boolean): Boolean = when (this) {
+        INHERIT -> tenantDefault
+        ALWAYS, DEFAULT_YES -> true
+        DEFAULT_NO, NEVER -> false
+    }
+
+    fun resolve(tenantDefault: Boolean, releaseOverride: Boolean?): Boolean = when (this) {
+        ALWAYS -> true
+        NEVER -> false
+        else -> releaseOverride ?: defaultPublish(tenantDefault)
+    }
 }

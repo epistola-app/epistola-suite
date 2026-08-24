@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** feat(exchange): **Added the catalog publication policy hierarchy.** Exchange publishing is an Alpha tenant feature that defaults off. Tenant administrators can choose whether authored catalogs publish by default, while each catalog can inherit, force publishing, default yes/no, or forbid publishing; non-hard policies support a per-release override. Catalogs can also prefer an Exchange namespace before their first immutable publication binding.
+
 - **[dev]** docs(security): **The security policy is easier to discover.** `SECURITY.md` now lives
   at the repository root while remaining available through GitHub's Security tab.
 - **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
