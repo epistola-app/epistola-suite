@@ -24,12 +24,23 @@ Do not add an embargoed vulnerability record to a public branch. Prepare it with
 fix in the draft advisory's temporary private fork, then publish it here only when the
 patched release and coordinated disclosure are ready.
 
-The `Vulnerability Advisories` workflow synchronizes records whose frontmatter sets
-`database_specific.github.sync` to `true`. New records use `state: draft`. Changing the
-state to `published` publishes the GitHub mirror, but validation rejects that transition
-until `patched_versions` is populated. The workflow never deletes GitHub advisories and
-never requests a CVE automatically.
+Synchronization is an explicit maintainer action. The CLI synchronizes records whose
+frontmatter sets `database_specific.github.sync` to `true`; run it only as part of the
+coordinated disclosure flow:
 
-The workflow requires the repository secret `SECURITY_ADVISORY_TOKEN`, containing a
-fine-grained token scoped to this repository with only **Repository security advisories:
-write** permission. Local validation, rendering, and OSV export require no GitHub access.
+```console
+$ export SECURITY_ADVISORY_TOKEN  # Set its value securely in the shell first.
+$ python3 scripts/vulnerability_advisories.py sync-github \
+    --repository epistola-app/epistola-suite
+```
+
+New records use `state: draft`. Changing the state to `published` makes an explicit CLI
+run publish the GitHub mirror, but validation rejects that transition until
+`patched_versions` is populated. The CLI never deletes GitHub advisories and never
+requests a CVE. The GitHub Actions workflow only validates and exports records; it does
+not mutate advisories.
+
+The explicit sync requires `SECURITY_ADVISORY_TOKEN`, containing a fine-grained token
+scoped to this repository with only **Repository security advisories: write** permission.
+Do not store this token in the repository. Validation, rendering, and OSV export require
+no GitHub access.
