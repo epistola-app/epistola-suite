@@ -154,6 +154,12 @@ epistola:
     # When false, the whole Spring AI MCP server is disabled (see
     # spring.ai.mcp.server.enabled above) and the endpoint returns 404.
     enabled: true
+  exchange:
+    # Hard deployment gate. Tenant/catalog settings are inert while disabled.
+    enabled: false
+    discovery-url: https://epistola.app/.well-known/epistola/exchange.json
+    # Optional direct base URL for local development only; production discovers the issuer above.
+    base-url:
   features:
     ai-chat: false
     catalog-publishing: false

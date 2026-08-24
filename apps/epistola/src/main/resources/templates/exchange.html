@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="content">
+    <div th:replace="~{epistola-web/page-header :: page-header(
+        pageTitle='Epistola Exchange',
+        pageDescription='Authorize this tenant to publish catalog releases to Exchange.'
+    )}"></div>
+
+    <div class="alert alert-warning" th:if="${!deploymentEnabled}">
+        Catalog publishing is disabled for this deployment. Set <code>epistola.exchange.enabled=true</code>
+        before connecting a tenant.
+    </div>
+
+    <div class="card" th:if="${deploymentEnabled}">
+        <div class="card-header">
+            <h2>Tenant connection</h2>
+            <p class="subtitle">One Exchange connection is maintained for this Suite tenant.</p>
+        </div>
+        <div class="card-content">
+            <div th:if="${connection != null && connection.status.name() == 'ACTIVE'}">
+                <p><strong>Connected organization:</strong>
+                    <span th:text="${connection.organizationName}">Organization</span>
+                    (<code th:text="${connection.organizationSlug}">organization</code>)
+                </p>
+                <p><strong>Connection:</strong> <code th:text="${connection.tenantConnectionReference}">tc_01HWHVGZT1FCF9Y2CE4XP3Y79M</code></p>
+                <p><strong>Scopes:</strong> <span th:text="${#strings.arrayJoin(connection.scopes, ', ')}">read, publish</span></p>
+                <p><strong>Namespaces:</strong> <span th:text="${#strings.arrayJoin(connection.namespaces, ', ')}">namespace</span></p>
+                <form th:if="${connection.namespaces.length > 1}"
+                      th:action="@{/tenants/{tenantId}/exchange/namespace(tenantId=${tenantId})}" method="post">
+                    <div class="form-group">
+                        <label class="ep-label" for="exchange-default-namespace">Default namespace</label>
+                        <select id="exchange-default-namespace" class="ep-select" name="namespace" required>
+                            <option value="" th:selected="${connection.defaultNamespace == null}" disabled>Select a namespace</option>
+                            <option th:each="namespace : ${connection.namespaces}" th:value="${namespace}"
+                                    th:text="${namespace}" th:selected="${namespace == connection.defaultNamespace}"></option>
+                        </select>
+                    </div>
+                    <button type="submit" class="ep-btn ep-btn-primary">Save namespace</button>
+                </form>
+                <form th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post">
+                    <button type="submit" class="ep-btn ep-btn-outline">Reauthorize connection</button>
+                </form>
+            </div>
+
+            <div th:if="${authorization != null}">
+                <p>Open the activation page and confirm this tenant in Exchange:</p>
+                <p><a th:href="${authorization.verificationUriComplete}" target="_blank" rel="noopener"
+                      th:text="${authorization.verificationUri}">Open Exchange</a></p>
+                <p><strong>Code:</strong> <code th:text="${authorization.userCode}">ABCD-EFGH</code></p>
+                <form th:action="@{/tenants/{tenantId}/exchange/poll(tenantId=${tenantId})}" method="post">
+                    <button type="submit" class="ep-btn ep-btn-primary">Check authorization</button>
+                </form>
+            </div>
+
+            <form th:if="${authorization == null && (connection == null || connection.status.name() != 'ACTIVE')}"
+                  th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post">
+                <button type="submit" class="ep-btn ep-btn-primary">Connect to Exchange</button>
+            </form>
+        </div>
+    </div>
+</th:block>
+</body>
+</html>

@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper
  * key from the keyset once [KeyIdUsageReport.allOnPrimary] is true (no value
  * still references the old key id, and no legacy plaintext remains).
  *
- * Scans the core-owned credential columns (`catalogs`, `code_lists`) plus any
+ * Scans columns declared through [EncryptedCredentialContributor] plus any
  * `app_metadata` keys named in [metadataKeys].
  *
  * `SystemInternal`: an operational/maintenance read with no per-tenant principal.
@@ -46,15 +46,19 @@ class VerifyNoStaleKeyIdsHandler(
     private val cipher: CredentialCipher,
     private val appMetadata: AppMetadataService,
     private val objectMapper: ObjectMapper,
+    contributors: List<EncryptedCredentialContributor>,
 ) : QueryHandler<VerifyNoStaleKeyIds, KeyIdUsageReport> {
+
+    private val credentialColumns = contributors.flatMap { it.columns() }.sortedBy { it.qualifiedName }
 
     override fun handle(query: VerifyNoStaleKeyIds): KeyIdUsageReport {
         val raws = mutableListOf<String>()
         jdbi.useHandle<Exception> { handle ->
-            raws += handle.createQuery("SELECT source_auth_credential FROM catalogs WHERE source_auth_credential IS NOT NULL")
-                .mapTo(String::class.java).list()
-            raws += handle.createQuery("SELECT credential FROM code_lists WHERE credential IS NOT NULL")
-                .mapTo(String::class.java).list()
+            credentialColumns.forEach { definition ->
+                raws += handle.createQuery(
+                    "SELECT ${definition.column} FROM ${definition.table} WHERE ${definition.column} IS NOT NULL",
+                ).mapTo(String::class.java).list()
+            }
         }
         query.metadataKeys.forEach { key ->
             appMetadata.get(key)?.let { raws += objectMapper.treeToValue(it, String::class.java) }

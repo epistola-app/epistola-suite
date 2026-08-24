@@ -303,6 +303,12 @@ support:
     # still exists for rare single-instance overrides outside Kubernetes.)
 
 # Application configuration
+exchange:
+  # Hard deployment gate for Suite-to-Exchange catalog publication.
+  enabled: false
+  # Stable Epistola discovery document. Override only for a private Exchange deployment.
+  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
+
 config:
   # Spring profiles to activate. OIDC login is configured via oidc.* (env vars), not a profile.
   # Production:    "prod"

@@ -199,6 +199,12 @@ spec:
                    pod a distinct id automatically. */}}
             {{- end }}
 
+            {{- /* Suite-to-Exchange publication (hard deployment gate) */}}
+            - name: EPISTOLA_EXCHANGE_ENABLED
+              value: {{ .Values.exchange.enabled | quote }}
+            - name: EPISTOLA_EXCHANGE_DISCOVERYURL
+              value: {{ .Values.exchange.discoveryUrl | quote }}
+
             {{- /* Database configuration (shared with the migration Job / init container) */}}
             {{- include "epistola.databaseEnv" . | nindent 12 }}
             {{- /* HikariCP pool sizing + app-side socket timeout (app pods only;

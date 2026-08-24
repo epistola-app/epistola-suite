@@ -201,6 +201,19 @@
                         <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
                                   placeholder="What changed in this release?"></textarea>
                     </div>
+                    <div class="form-group" th:if="${publishingAvailable}">
+                        <label th:if="${publicationAllowsOverride}">
+                            <input type="checkbox" name="publishToExchange" value="true"
+                                   th:checked="${publicationDefaultPublish}">
+                            Publish this version to Epistola Exchange
+                        </label>
+                        <p class="form-hint" th:if="${!publicationAllowsOverride}"
+                           th:text="${publicationPolicy.name() == 'ALWAYS'} ?
+                               'Catalog policy Always: this version will be queued for Exchange.' :
+                               'Catalog policy Never: this version will not be published to Exchange.'">
+                        </p>
+                        <p class="form-hint">The Suite release succeeds even when Exchange is unavailable; publication continues in the background.</p>
+                    </div>
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"

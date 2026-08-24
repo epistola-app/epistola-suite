@@ -11,7 +11,6 @@ import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -26,9 +25,9 @@ import tools.jackson.databind.ObjectMapper
  * [VerifyNoStaleKeyIds] confirms no old key id is referenced, the old key can be
  * retired.
  *
- * Covers the core-owned credential columns (`catalogs`, `code_lists`) plus any
- * `app_metadata` keys named in [metadataKeys] (e.g. the hub credentials key,
- * supplied by the caller so this module stays decoupled from the support tier).
+ * Credential-owning domains contribute their columns through
+ * [EncryptedCredentialContributor]. The command also covers `app_metadata` keys
+ * named in [metadataKeys] (supplied by the caller so core stays decoupled).
  *
  * `SystemInternal`: an operational/maintenance action with no per-tenant
  * principal to authorize against.
@@ -39,8 +38,7 @@ data class ReencryptCredentials(
     SystemInternal
 
 data class ReencryptResult(
-    val catalogsReencrypted: Int,
-    val codeListsReencrypted: Int,
+    val credentialsReencrypted: Map<String, Int>,
     val metadataReencrypted: Int,
 )
 
@@ -50,62 +48,42 @@ class ReencryptCredentialsHandler(
     private val cipher: CredentialCipher,
     private val appMetadata: AppMetadataService,
     private val objectMapper: ObjectMapper,
+    contributors: List<EncryptedCredentialContributor>,
 ) : CommandHandler<ReencryptCredentials, ReencryptResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    private data class CatalogCredRow(val id: String, val tenantKey: String, val credential: String)
-    private data class CodeListCredRow(val slug: String, val tenantKey: String, val catalogKey: String, val credential: String)
+    private val credentialColumns = contributors.flatMap { it.columns() }.sortedBy { it.qualifiedName }
 
     override fun handle(command: ReencryptCredentials): ReencryptResult = jdbi.inTransaction<ReencryptResult, Exception> { handle ->
-        val catalogs = reencryptCatalogs(handle)
-        val codeLists = reencryptCodeLists(handle)
+        val credentials = credentialColumns.associate { it.qualifiedName to reencryptColumn(handle, it) }
         val metadata = command.metadataKeys.count { reencryptMetadata(it) }
-        ReencryptResult(catalogs, codeLists, metadata).also {
+        ReencryptResult(credentials, metadata).also {
             logger.info(
-                "Re-encrypted credentials under primary key '{}': {} catalog(s), {} code list(s), {} metadata key(s)",
+                "Re-encrypted credentials under primary key '{}': {} credential column(s), {} metadata key(s)",
                 cipher.primaryKeyId,
-                it.catalogsReencrypted,
-                it.codeListsReencrypted,
+                it.credentialsReencrypted.values.sum(),
                 it.metadataReencrypted,
             )
         }
     }
 
-    private fun reencryptCatalogs(handle: Handle): Int {
+    private fun reencryptColumn(handle: Handle, definition: EncryptedCredentialColumn): Int {
+        val selected = (definition.keyColumns + "${definition.column} AS credential").joinToString()
         val rows = handle.createQuery(
-            "SELECT id, tenant_key, source_auth_credential AS credential FROM catalogs WHERE source_auth_credential IS NOT NULL",
-        ).mapTo<CatalogCredRow>().list()
+            "SELECT $selected FROM ${definition.table} WHERE ${definition.column} IS NOT NULL",
+        ).map { rs, _ ->
+            definition.keyColumns.associateWith(rs::getString) to rs.getString("credential")
+        }.list()
         var count = 0
-        for (row in rows) {
-            val reencrypted = reencryptOrNull(row.credential) ?: continue
-            handle.createUpdate(
-                "UPDATE catalogs SET source_auth_credential = :cred WHERE id = :id AND tenant_key = :tenantKey",
-            )
-                .bind("cred", reencrypted)
-                .bind("id", row.id)
-                .bind("tenantKey", row.tenantKey)
-                .execute()
-            count++
-        }
-        return count
-    }
-
-    private fun reencryptCodeLists(handle: Handle): Int {
-        val rows = handle.createQuery(
-            "SELECT slug, tenant_key, catalog_key, credential FROM code_lists WHERE credential IS NOT NULL",
-        ).mapTo<CodeListCredRow>().list()
-        var count = 0
-        for (row in rows) {
-            val reencrypted = reencryptOrNull(row.credential) ?: continue
-            handle.createUpdate(
-                "UPDATE code_lists SET credential = :cred WHERE slug = :slug AND tenant_key = :tenantKey AND catalog_key = :catalogKey",
-            )
-                .bind("cred", reencrypted)
-                .bind("slug", row.slug)
-                .bind("tenantKey", row.tenantKey)
-                .bind("catalogKey", row.catalogKey)
-                .execute()
+        rows.forEach { (keys, raw) ->
+            val reencrypted = reencryptOrNull(raw) ?: return@forEach
+            val where = definition.keyColumns.joinToString(" AND ") { "$it = :key_$it" }
+            val update = handle.createUpdate(
+                "UPDATE ${definition.table} SET ${definition.column} = :credential WHERE $where",
+            ).bind("credential", reencrypted)
+            keys.forEach { (key, value) -> update.bind("key_$key", value) }
+            update.execute()
             count++
         }
         return count

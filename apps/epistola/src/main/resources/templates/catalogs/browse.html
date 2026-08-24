@@ -30,6 +30,31 @@
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='details')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
+                    <form th:if="${canPublishCurrentRelease}"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}"
+                          method="post" style="margin-top: var(--ep-space-3);">
+                        <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" th:text="${publishCurrentReleaseLabel}">
+                            Publish current release
+                        </button>
+                    </form>
+                    <div th:if="${!exchangePublications.isEmpty()}" style="margin-top: var(--ep-space-4);">
+                        <h4 style="margin-bottom: var(--ep-space-2);">Publication history</h4>
+                        <table class="ep-table">
+                            <thead><tr><th>Version</th><th>Namespace</th><th>Status</th><th>Updated</th></tr></thead>
+                            <tbody>
+                            <tr th:each="publication : ${exchangePublications}">
+                                <td th:text="'v' + ${publication.version}">v1.0.0</td>
+                                <td><code th:text="${publication.namespace ?: 'waiting for setup'}">namespace</code></td>
+                                <td>
+                                    <strong th:text="${publication.status}">READY</strong>
+                                    <span th:if="${publication.lastError != null}" class="text-muted"
+                                          th:text="' — ' + ${publication.lastError}"></span>
+                                </td>
+                                <td th:text="${publication.updatedAt}">2026-08-24</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
 
                 <section style="padding: var(--ep-space-4) 0; border-bottom: 1px solid var(--ep-border);">
@@ -96,6 +121,27 @@
                         </div>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='presentation')}"
+                                hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
+                    </div>
+                </section>
+
+                <section th:if="${catalog.type.name() == 'AUTHORED'}"
+                         style="padding: var(--ep-space-4) 0; border-bottom: 1px solid var(--ep-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
+                        <div>
+                            <h3 style="margin: 0 0 var(--ep-space-2);">Exchange publication</h3>
+                            <p style="margin: 0;">
+                                Policy: <strong th:text="${catalog.exchangePublicationPolicy.name()}">INHERIT</strong>
+                            </p>
+                            <p class="text-muted" style="margin: var(--ep-space-1) 0 0;" th:if="${exchangeBinding != null}">
+                                Namespace: <code th:text="${exchangeBinding}">namespace</code> (bound)
+                            </p>
+                            <p class="text-muted" style="margin: var(--ep-space-1) 0 0;" th:if="${exchangeBinding == null}">
+                                Preferred namespace: <code th:text="${catalog.exchangeNamespacePreference ?: 'tenant default'}"></code>
+                            </p>
+                        </div>
+                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='publication')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                 </section>

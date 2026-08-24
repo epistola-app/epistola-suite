@@ -92,6 +92,27 @@
                 <textarea id="catalog-license-copyright" class="ep-input" name="licenseCopyright" rows="2"
                           th:text="${catalog.catalogMetadata.license?.copyrightText}"></textarea>
             </div>
+
+            <div th:if="${section == 'publication'}" class="ep-stack ep-gap-2">
+                <label class="ep-label" for="catalog-publication-policy">Release policy</label>
+                <select id="catalog-publication-policy" class="ep-input" name="publicationPolicy">
+                    <option value="INHERIT" th:selected="${catalog.exchangePublicationPolicy.name() == 'INHERIT'}">Inherit tenant default</option>
+                    <option value="ALWAYS" th:selected="${catalog.exchangePublicationPolicy.name() == 'ALWAYS'}">Always publish (no release override)</option>
+                    <option value="DEFAULT_YES" th:selected="${catalog.exchangePublicationPolicy.name() == 'DEFAULT_YES'}">Publish by default</option>
+                    <option value="DEFAULT_NO" th:selected="${catalog.exchangePublicationPolicy.name() == 'DEFAULT_NO'}">Do not publish by default</option>
+                    <option value="NEVER" th:selected="${catalog.exchangePublicationPolicy.name() == 'NEVER'}">Never publish (no release override)</option>
+                </select>
+                <label class="ep-label" for="catalog-exchange-namespace">Preferred namespace</label>
+                <input id="catalog-exchange-namespace" class="ep-input" name="namespacePreference"
+                       pattern="[a-z][a-z0-9-]{0,62}" th:value="${catalog.exchangeNamespacePreference}"
+                       th:disabled="${exchangeBinding != null}" />
+                <p class="form-hint" th:if="${exchangeBinding == null}">
+                    Optional. The tenant default is used when blank. The effective namespace becomes immutable when the first release is queued.
+                </p>
+                <p class="form-hint" th:if="${exchangeBinding != null}">
+                    Bound to <code th:text="${exchangeBinding}">namespace</code> by the first queued publication.
+                </p>
+            </div>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="catalog-metadata-dialog">Cancel</button>
