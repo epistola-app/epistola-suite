@@ -7,11 +7,11 @@ dependencies {
     implementation(libs.epistola.catalog)
 
     // iText 9 for PDF generation
-    implementation("com.itextpdf:itext-core:9.6.0")
-    implementation("com.itextpdf:svg:9.6.0")
+    implementation("com.itextpdf:itext-core:9.7.1")
+    implementation("com.itextpdf:svg:9.7.1")
 
     // WEBP decoding for PDF image rendering
-    implementation("com.twelvemonkeys.imageio:imageio-webp:3.13.1")
+    implementation("com.twelvemonkeys.imageio:imageio-webp:3.14.0")
 
     // Kotlin reflection for expression evaluation
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -20,8 +20,8 @@ dependencies {
     implementation(libs.jsonata)
 
     // GraalJS for JavaScript expression evaluation
-    implementation("org.graalvm.polyglot:polyglot:25.1.3")
-    implementation("org.graalvm.polyglot:js:25.1.3")
+    implementation("org.graalvm.polyglot:polyglot:25.2.4")
+    implementation("org.graalvm.polyglot:js:25.2.4")
 
     // QR code generation
     implementation("com.google.zxing:core:3.5.4")
