@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-25
+
+This release adds an interactive catalog resource-reference graph, richer catalog discovery
+metadata (presentation, keywords, license) that now round-trips through every catalog workflow,
+and several data-contract editor improvements including realistic example autofill and a guarantee
+that every contract keeps at least one example. It also fixes stored-XSS in the asset and stencil
+pickers, PDF column alignment, nested-loop field typing, and expression copy/paste in the editor,
+plus a session-expiry popup that now closes automatically after SSO.
+
 - **[user]** fix(catalog-ui): **Catalog details match the application detail layout.** Catalog
   identity, discovery metadata, presentation, and license information now use a compact responsive
   panel instead of a long stack of oversized sections.
