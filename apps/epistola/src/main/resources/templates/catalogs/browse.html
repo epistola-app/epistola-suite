@@ -10,120 +10,121 @@
             pageDescription=${catalog.description}
         )}"></div>
 
-        <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" style="margin-bottom: var(--ep-space-4);" th:text="${catalog.sourceUrl}"></p>
-
         <div id="catalog-alert"></div>
 
-        <div id="catalog-metadata" th:fragment="metadata-card" class="card" style="margin-bottom: var(--ep-space-4);"
+        <div id="catalog-metadata" th:fragment="metadata-card" class="ep-panel detail-section"
              th:with="canEditMetadata=${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}">
-            <div class="card-header"><h2>Catalog details</h2></div>
-            <div class="card-content" style="padding-top: 0; padding-bottom: 0;">
-                <section style="padding: var(--ep-space-4) 0; border-bottom: 1px solid var(--ep-border);">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
-                        <div>
-                            <h3 style="margin: 0 0 var(--ep-space-2);">General details</h3>
-                            <p style="margin: 0;"><strong th:text="${catalog.name}"></strong></p>
-                            <p th:if="${catalog.description}" class="text-muted" style="margin: var(--ep-space-1) 0 0;" th:text="${catalog.description}"></p>
-                            <p th:unless="${catalog.description}" class="text-muted" style="margin: var(--ep-space-1) 0 0;">No description.</p>
-                        </div>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='details')}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
+            <div class="detail-section-header catalog-detail-header">
+                <div>
+                    <div class="catalog-detail-heading">
+                        <h2>Catalog details</h2>
+                        <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
+                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
                     </div>
-                </section>
+                    <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">Identity, discovery, presentation, and usage terms.</p>
+                </div>
+                <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='details')}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML">Edit details</button>
+            </div>
 
-                <section style="padding: var(--ep-space-4) 0; border-bottom: 1px solid var(--ep-border);">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
-                        <div style="min-width: 0;">
-                            <h3 style="margin: 0 0 var(--ep-space-2);">Discovery attributes</h3>
-                            <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="ep-row ep-gap-2" style="flex-wrap: wrap;">
-                                <span th:each="attribute : ${catalog.catalogMetadata.attributes}" class="badge badge-default"
-                                      th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
-                            </div>
-                            <p th:if="${catalog.catalogMetadata.attributes.isEmpty()}" class="text-muted" style="margin: 0;">No discovery attributes.</p>
-                        </div>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+            <div class="catalog-detail-summary"
+                 th:with="displayVersion=${catalog.type.name() == 'AUTHORED' ? (catalog.releasedVersion != null ? 'v' + catalog.releasedVersion : 'Unreleased') : (catalog.installedReleaseVersion != null ? 'v' + catalog.installedReleaseVersion : 'Unknown')}">
+                <div class="catalog-detail-summary-item">
+                    <span class="catalog-detail-label">Catalog ID</span>
+                    <code class="catalog-detail-value" th:text="${catalog.id}"></code>
+                </div>
+                <div class="catalog-detail-summary-item">
+                    <span class="catalog-detail-label">Version</span>
+                    <p class="catalog-detail-value" th:text="${displayVersion}"></p>
+                </div>
+                <div th:if="${catalog.sourceUrl}" class="catalog-detail-summary-item catalog-detail-source">
+                    <span class="catalog-detail-label">Source</span>
+                    <code class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
+                </div>
+            </div>
+
+            <div class="catalog-detail-grid">
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header">
+                        <h3>Discovery attributes</h3>
+                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='attributes')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
-                </section>
+                    <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="ep-row ep-gap-2 ep-row-wrap">
+                        <span th:each="attribute : ${catalog.catalogMetadata.attributes}" class="badge badge-default"
+                              th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
+                    </div>
+                    <p th:if="${catalog.catalogMetadata.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
+                </div>
 
-                <section style="padding: var(--ep-space-4) 0; border-bottom: 1px solid var(--ep-border);">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
-                        <div style="min-width: 0;">
-                            <h3 style="margin: 0 0 var(--ep-space-2);">Keywords</h3>
-                            <div th:if="${!catalog.catalogMetadata.keywords.isEmpty()}" class="ep-row ep-gap-2" style="flex-wrap: wrap;">
-                                <span th:each="keyword : ${catalog.catalogMetadata.keywords}" class="badge badge-info" th:text="${keyword}"></span>
-                            </div>
-                            <p th:if="${catalog.catalogMetadata.keywords.isEmpty()}" class="text-muted" style="margin: 0;">No keywords.</p>
-                        </div>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header">
+                        <h3>Keywords</h3>
+                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='keywords')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
-                </section>
+                    <div th:if="${!catalog.catalogMetadata.keywords.isEmpty()}" class="ep-row ep-gap-2 ep-row-wrap">
+                        <span th:each="keyword : ${catalog.catalogMetadata.keywords}" class="badge badge-info" th:text="${keyword}"></span>
+                    </div>
+                    <p th:if="${catalog.catalogMetadata.keywords.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No keywords.</p>
+                </div>
 
-                <section style="padding: var(--ep-space-4) 0; border-bottom: 1px solid var(--ep-border);">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
-                        <div style="min-width: 0; width: 100%;">
-                            <h3 style="margin: 0 0 var(--ep-space-2);">Presentation</h3>
-                            <p th:if="${presentationIcon == null and presentationImages.isEmpty()}" class="text-muted" style="margin: 0;">No icon or gallery images.</p>
-                            <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">
-                                <span class="ep-label">Icon</span>
-                                <div style="margin-top: var(--ep-space-2);">
-                                    <img th:if="${presentationIcon.available}" alt="Catalog icon"
-                                         style="max-width: 96px; max-height: 96px; object-fit: contain;"
-                                         th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${presentationIcon.asset.id})}" />
-                                    <div th:unless="${presentationIcon.available}" class="alert alert-warning">
-                                        Catalog icon is unavailable until asset <code th:text="${presentationIcon.slug}"></code> is installed.
-                                    </div>
-                                </div>
-                            </div>
-                            <div th:if="${!presentationImages.isEmpty()}">
-                                <span class="ep-label">Gallery</span>
-                                <div class="ep-row ep-gap-3" style="flex-wrap: wrap; margin-top: var(--ep-space-2);">
-                                    <div th:each="image : ${presentationImages}" style="width: 180px;">
-                                        <img th:if="${image.available}" th:alt="${image.asset.name}"
-                                             style="width: 180px; height: 110px; object-fit: contain; border: 1px solid var(--ep-border); border-radius: var(--ep-radius-md);"
-                                             th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${image.asset.id})}" />
-                                        <div th:unless="${image.available}" class="text-muted text-sm"
-                                             style="width: 180px; height: 110px; padding: var(--ep-space-3); border: 1px dashed var(--ep-border); border-radius: var(--ep-radius-md);">
-                                            Unavailable until installed<br /><code th:text="${image.slug}"></code>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header">
+                        <h3>Presentation</h3>
+                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='presentation')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
-                </section>
-
-                <section style="padding: var(--ep-space-4) 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ep-space-3);">
-                        <div>
-                            <h3 style="margin: 0 0 var(--ep-space-2);">License</h3>
-                            <p th:if="${catalog.catalogMetadata.license == null}" class="text-muted" style="margin: 0;">No license information.</p>
-                            <th:block th:if="${catalog.catalogMetadata.license != null}">
-                                <p style="margin: 0;">
-                                    <a th:if="${catalog.catalogMetadata.license.url != null}"
-                                       th:href="${catalog.catalogMetadata.license.url}" rel="noopener noreferrer"
-                                       th:text="${catalog.catalogMetadata.license.name}"></a>
-                                    <span th:unless="${catalog.catalogMetadata.license.url != null}"
-                                          th:text="${catalog.catalogMetadata.license.name}"></span>
-                                    <code th:if="${catalog.catalogMetadata.license.spdxExpression != null}"
-                                          th:text="${catalog.catalogMetadata.license.spdxExpression}"></code>
-                                </p>
-                                <p th:if="${catalog.catalogMetadata.license.copyrightText != null}" class="text-muted text-sm"
-                                   style="margin: var(--ep-space-1) 0 0;" th:text="${catalog.catalogMetadata.license.copyrightText}"></p>
-                            </th:block>
+                    <p th:if="${presentationIcon == null and presentationImages.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No icon or gallery images.</p>
+                    <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">
+                        <span class="catalog-detail-label">Icon</span>
+                        <img th:if="${presentationIcon.available}" alt="Catalog icon" class="catalog-presentation-icon"
+                             th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${presentationIcon.asset.id})}" />
+                        <div th:unless="${presentationIcon.available}" class="alert alert-warning">
+                            Catalog icon is unavailable until asset <code th:text="${presentationIcon.slug}"></code> is installed.
                         </div>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                    </div>
+                    <div th:if="${!presentationImages.isEmpty()}">
+                        <span class="catalog-detail-label">Gallery</span>
+                        <div class="ep-row ep-gap-3 ep-row-wrap">
+                            <div th:each="image : ${presentationImages}">
+                                <img th:if="${image.available}" th:alt="${image.asset.name}" class="catalog-presentation-image"
+                                     th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${image.asset.id})}" />
+                                <div th:unless="${image.available}" class="catalog-presentation-placeholder text-muted text-sm">
+                                    Unavailable until installed<br /><code th:text="${image.slug}"></code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header">
+                        <h3>License</h3>
+                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='license')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
-                </section>
+                    <p th:if="${catalog.catalogMetadata.license == null}" class="text-muted text-sm" style="margin: 0;">No license information.</p>
+                    <th:block th:if="${catalog.catalogMetadata.license != null}">
+                        <p class="catalog-detail-value">
+                            <a th:if="${catalog.catalogMetadata.license.url != null}"
+                               th:href="${catalog.catalogMetadata.license.url}" rel="noopener noreferrer"
+                               th:text="${catalog.catalogMetadata.license.name}"></a>
+                            <span th:unless="${catalog.catalogMetadata.license.url != null}"
+                                  th:text="${catalog.catalogMetadata.license.name}"></span>
+                        </p>
+                        <p th:if="${catalog.catalogMetadata.license.spdxExpression != null}" style="margin: var(--ep-space-2) 0 0;">
+                            <code th:text="${catalog.catalogMetadata.license.spdxExpression}"></code>
+                        </p>
+                        <p th:if="${catalog.catalogMetadata.license.copyrightText != null}" class="text-muted text-sm"
+                           style="margin: var(--ep-space-2) 0 0;" th:text="${catalog.catalogMetadata.license.copyrightText}"></p>
+                    </th:block>
+                </div>
             </div>
         </div>
 

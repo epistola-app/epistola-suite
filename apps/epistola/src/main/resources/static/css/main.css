@@ -38,3 +38,4 @@
 @import url('pages/login.css') layer(app);
 @import url('pages/tenant-home.css') layer(app);
 @import url('pages/load-test.css') layer(app);
+@import url('pages/catalog-detail.css') layer(app);

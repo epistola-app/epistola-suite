@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalog-ui): **Catalog details match the application detail layout.** Catalog
+  identity, discovery metadata, presentation, and license information now use a compact responsive
+  panel instead of a long stack of oversized sections.
 - **[user]** fix(catalog): **Catalog exports explain their published-only contents.** Exporting a
   catalog now confirms that only the latest published version of versioned resources is included,
   while drafts and older published versions are left out of the ZIP; confirming starts a regular
