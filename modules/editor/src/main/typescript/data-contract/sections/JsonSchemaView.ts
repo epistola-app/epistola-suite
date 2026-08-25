@@ -29,9 +29,11 @@ export function renderJsonSchemaView(
     <section class="dc-section">
       <h3 class="dc-section-label">JSON Schema</h3>
       <p class="dc-section-hint">
-        ${compatibilityIssues.length > 0
-          ? 'This schema uses features not supported by the visual editor. It is shown in read-only mode.'
-          : 'Read-only view of the JSON Schema representation.'}
+        ${
+          compatibilityIssues.length > 0
+            ? 'This schema uses features not supported by the visual editor. It is shown in read-only mode.'
+            : 'Read-only view of the JSON Schema representation.'
+        }
       </p>
 
       <!-- Toolbar -->
@@ -61,9 +63,11 @@ export function renderJsonSchemaView(
       ${compatibilityIssues.length > 0 ? renderCompatibilityBanner(compatibilityIssues) : nothing}
 
       <!-- JSON display -->
-      ${jsonSchema
-        ? html` <div class="dc-json-view">${renderJsonNode(jsonSchema, 0, true)}</div> `
-        : html`<div class="dc-empty-state">No schema defined.</div>`}
+      ${
+        jsonSchema
+          ? html` <div class="dc-json-view">${renderJsonNode(jsonSchema, 0, true)}</div> `
+          : html`<div class="dc-empty-state">No schema defined.</div>`
+      }
     </section>
   `;
 }
@@ -181,9 +185,9 @@ function renderJsonArray(arr: unknown[], depth: number, open: boolean): unknown 
         ${arr.map(
           (val, i) => html`
             <div class="dc-json-entry">
-              ${renderJsonNode(val, depth + 1, depth < 1)}${i < arr.length - 1
-                ? html`<span class="dc-json-comma">,</span>`
-                : nothing}
+              ${renderJsonNode(val, depth + 1, depth < 1)}${
+                i < arr.length - 1 ? html`<span class="dc-json-comma">,</span>` : nothing
+              }
             </div>
           `,
         )}
@@ -197,18 +201,17 @@ function renderInlineObject(entries: [string, unknown][]): unknown {
   return html`<span class="dc-json-brace">{</span>${entries.map(
       ([key, val], i) =>
         html`<span class="dc-json-key">"${key}"</span
-          ><span class="dc-json-colon">: </span>${renderJsonNode(val, 0, false)}${i <
-          entries.length - 1
-            ? html`<span class="dc-json-comma">, </span>`
-            : nothing}`,
+          ><span class="dc-json-colon">: </span>${renderJsonNode(val, 0, false)}${
+            i < entries.length - 1 ? html`<span class="dc-json-comma">, </span>` : nothing
+          }`,
     )}<span class="dc-json-brace">}</span>`;
 }
 
 function renderInlineArray(arr: unknown[]): unknown {
   return html`<span class="dc-json-brace">[</span>${arr.map(
       (val, i) =>
-        html`${renderJsonNode(val, 0, false)}${i < arr.length - 1
-          ? html`<span class="dc-json-comma">, </span>`
-          : nothing}`,
+        html`${renderJsonNode(val, 0, false)}${
+          i < arr.length - 1 ? html`<span class="dc-json-comma">, </span>` : nothing
+        }`,
     )}<span class="dc-json-brace">]</span>`;
 }

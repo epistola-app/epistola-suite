@@ -317,9 +317,9 @@ function renderFormField(
 
   const label = html`
     <label class="dc-tree-label" for=${fieldId}>
-      ${name}${isRequired
-        ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
-        : nothing}
+      ${name}${
+        isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+      }
     </label>
   `;
 
@@ -339,9 +339,11 @@ function renderFormField(
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
             />
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -365,9 +367,11 @@ function renderFormField(
                 onChange(path, raw === '' ? null : parseFloat(raw));
               }}
             />
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -391,9 +395,11 @@ function renderFormField(
                 onChange(path, raw === '' ? null : parseInt(raw, 10));
               }}
             />
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -415,9 +421,11 @@ function renderFormField(
                 @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
               />
             </label>
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -436,9 +444,11 @@ function renderFormField(
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
             />
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -482,9 +492,11 @@ function renderFormField(
                 )}
               </select>
             </div>
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -498,9 +510,11 @@ function renderFormField(
             role="label"
             @click=${() => document.getElementById(fieldId)?.focus()}
           >
-            ${name}${isRequired
-              ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
-              : nothing}
+            ${name}${
+              isRequired
+                ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
+                : nothing
+            }
           </span>
           <div class="dc-tree-input-wrapper">
             <epistola-rich-text-input
@@ -513,9 +527,11 @@ function renderFormField(
               @rich-text-change=${(e: CustomEvent<{ value: JsonValue }>) =>
                 onChange(path, e.detail.value)}
             ></epistola-rich-text-input>
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -563,9 +579,11 @@ function renderFormField(
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
             />
-            ${fieldError
-              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
-              : nothing}
+            ${
+              fieldError
+                ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+                : nothing
+            }
           </div>
         </div>
       `;
@@ -589,9 +607,9 @@ function renderObjectField(
     return html`
       <div class="dc-tree-row">
         <span class="dc-tree-label">
-          ${name}${isRequired
-            ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
-            : nothing}
+          ${name}${
+            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+          }
         </span>
         <span class="dc-tree-hint">No properties defined</span>
       </div>
@@ -608,13 +626,15 @@ function renderObjectField(
     >
       <summary class="dc-tree-group-header">
         <span class="dc-tree-group-title">
-          ${name}${isRequired
-            ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
-            : nothing}
+          ${name}${
+            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+          }
         </span>
-        ${groupHasErrors
-          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-          : nothing}
+        ${
+          groupHasErrors
+            ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+            : nothing
+        }
         <span class="dc-tree-type-badge" data-type="object" aria-hidden="true">object</span>
       </summary>
       <div class="dc-tree-group-body">
@@ -717,13 +737,15 @@ function renderArrayField(
     >
       <summary class="dc-tree-group-header">
         <span class="dc-tree-group-title">
-          ${name}${isRequired
-            ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
-            : nothing}
+          ${name}${
+            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+          }
         </span>
-        ${groupHasErrors
-          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-          : nothing}
+        ${
+          groupHasErrors
+            ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+            : nothing
+        }
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">${itemType}[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>
@@ -803,13 +825,15 @@ function renderArrayOfObjects(
     >
       <summary class="dc-tree-group-header">
         <span class="dc-tree-group-title">
-          ${name}${isRequired
-            ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
-            : nothing}
+          ${name}${
+            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+          }
         </span>
-        ${groupHasErrors
-          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-          : nothing}
+        ${
+          groupHasErrors
+            ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+            : nothing
+        }
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">object[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>
@@ -829,9 +853,11 @@ function renderArrayOfObjects(
                 <span class="dc-array-item-number dc-array-item-number-lg" aria-hidden="true"
                   >${index + 1}</span
                 >
-                ${itemHasErrors
-                  ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-                  : nothing}
+                ${
+                  itemHasErrors
+                    ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+                    : nothing
+                }
                 <div class="dc-array-object-spacer" aria-hidden="true"></div>
                 <button
                   class="dc-array-item-remove dc-array-item-remove-subtle"
@@ -854,22 +880,25 @@ function renderArrayOfObjects(
                 </button>
               </summary>
               <div class="dc-array-object-content">
-                ${effectiveItemSchema.properties
-                  ? Object.entries(effectiveItemSchema.properties).map(([nestedName, nestedProp]) =>
-                      renderFormField(
-                        nestedName,
-                        nestedProp,
-                        `${path}.${index}.${nestedName}`,
-                        rootData,
-                        rootSchema,
-                        nestedRequired.has(nestedName),
-                        onChange,
-                        depth + 1,
-                        errors,
-                        readOnly,
-                      ),
-                    )
-                  : nothing}
+                ${
+                  effectiveItemSchema.properties
+                    ? Object.entries(effectiveItemSchema.properties).map(
+                        ([nestedName, nestedProp]) =>
+                          renderFormField(
+                            nestedName,
+                            nestedProp,
+                            `${path}.${index}.${nestedName}`,
+                            rootData,
+                            rootSchema,
+                            nestedRequired.has(nestedName),
+                            onChange,
+                            depth + 1,
+                            errors,
+                            readOnly,
+                          ),
+                      )
+                    : nothing
+                }
               </div>
             </details>
           `;
@@ -905,13 +934,15 @@ function renderArrayOfArrays(
     >
       <summary class="dc-tree-group-header">
         <span class="dc-tree-group-title">
-          ${name}${isRequired
-            ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
-            : nothing}
+          ${name}${
+            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+          }
         </span>
-        ${groupHasErrors
-          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-          : nothing}
+        ${
+          groupHasErrors
+            ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+            : nothing
+        }
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">array[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>

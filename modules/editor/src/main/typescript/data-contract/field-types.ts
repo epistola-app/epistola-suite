@@ -118,16 +118,14 @@ const SCALAR_DEFS: readonly FieldTypeDef[] = [
  */
 export const FIELD_TYPE_DEFS: readonly FieldTypeDef[] = [
   ...SCALAR_DEFS,
-  ...REF_TYPES.map(
-    (r): FieldTypeDef => ({
-      id: r.id,
-      label: r.label,
-      kind: 'ref',
-      contractField: true,
-      arrayItem: true,
-      stencilParam: false,
-    }),
-  ),
+  ...REF_TYPES.map((r): FieldTypeDef => ({
+    id: r.id,
+    label: r.label,
+    kind: 'ref',
+    contractField: true,
+    arrayItem: true,
+    stencilParam: false,
+  })),
   {
     id: 'array',
     label: 'List',

@@ -154,7 +154,7 @@ myEntityId:
 # After
 myEntityId:
   type: string
-  pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+  pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
   minLength: 3
   maxLength: 63
   description: Slug identifier of the entity

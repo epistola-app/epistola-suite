@@ -215,19 +215,21 @@ export class EpistolaSidebar extends LitElement {
     return html`
       <div class="epistola-sidebar">
         <div class="sidebar-tabs-shell">
-          ${this._canScrollTabsBack
-            ? html`
-                <button
-                  type="button"
-                  class="sidebar-tab-scroll"
-                  title="Previous tabs"
-                  aria-label="Show previous tabs"
-                  @click=${() => this._scrollTabs(-1)}
-                >
-                  ${icon('chevron-left', 14)}
-                </button>
-              `
-            : nothing}
+          ${
+            this._canScrollTabsBack
+              ? html`
+                  <button
+                    type="button"
+                    class="sidebar-tab-scroll"
+                    title="Previous tabs"
+                    aria-label="Show previous tabs"
+                    @click=${() => this._scrollTabs(-1)}
+                  >
+                    ${icon('chevron-left', 14)}
+                  </button>
+                `
+              : nothing
+          }
           <div class="sidebar-tabs" @scroll=${() => this._updateTabOverflow()}>
             ${tabs.map((tab) => {
               const label = typeof tab.label === 'function' ? tab.label() : tab.label;
@@ -240,28 +242,32 @@ export class EpistolaSidebar extends LitElement {
                   @click=${() => this._setTab(tab.id)}
                 >
                   ${label}
-                  ${tab.badge
-                    ? html`<span class="sidebar-tab-badge badge ${tab.badge.className}"
-                        >${tab.badge.label}</span
-                      >`
-                    : nothing}
+                  ${
+                    tab.badge
+                      ? html`<span class="sidebar-tab-badge badge ${tab.badge.className}"
+                          >${tab.badge.label}</span
+                        >`
+                      : nothing
+                  }
                 </button>
               `;
             })}
           </div>
-          ${this._canScrollTabsForward
-            ? html`
-                <button
-                  type="button"
-                  class="sidebar-tab-scroll"
-                  title="More tabs"
-                  aria-label="Show more tabs"
-                  @click=${() => this._scrollTabs(1)}
-                >
-                  ${icon('chevron-right', 14)}
-                </button>
-              `
-            : nothing}
+          ${
+            this._canScrollTabsForward
+              ? html`
+                  <button
+                    type="button"
+                    class="sidebar-tab-scroll"
+                    title="More tabs"
+                    aria-label="Show more tabs"
+                    @click=${() => this._scrollTabs(1)}
+                  >
+                    ${icon('chevron-right', 14)}
+                  </button>
+                `
+              : nothing
+          }
         </div>
         <div class="sidebar-content">${activeTab?.render()}</div>
       </div>

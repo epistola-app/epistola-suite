@@ -55,28 +55,35 @@ export function renderMigrationDialog(
         <p class="dc-migration-subtitle">
           ${migrations.length} issue${migrations.length !== 1 ? 's' : ''} found across
           ${grouped.length} example${grouped.length !== 1 ? 's' : ''}.
-          ${autoMigratableCount > 0
-            ? html`${autoMigratableCount} can be auto-fixed.`
-            : html`None can be auto-fixed.`}
+          ${
+            autoMigratableCount > 0
+              ? html`${autoMigratableCount} can be auto-fixed.`
+              : html`None can be auto-fixed.`
+          }
         </p>
       </div>
 
       <!-- Select all/none controls -->
-      ${autoMigratableCount > 0
-        ? html`
-            <div class="dc-migration-select-controls">
-              <button class="ep-btn ep-btn-ghost ep-btn-sm" @click=${() => callbacks.onSelectAll()}>
-                Select all
-              </button>
-              <button
-                class="ep-btn ep-btn-ghost ep-btn-sm"
-                @click=${() => callbacks.onSelectNone()}
-              >
-                Select none
-              </button>
-            </div>
-          `
-        : nothing}
+      ${
+        autoMigratableCount > 0
+          ? html`
+              <div class="dc-migration-select-controls">
+                <button
+                  class="ep-btn ep-btn-ghost ep-btn-sm"
+                  @click=${() => callbacks.onSelectAll()}
+                >
+                  Select all
+                </button>
+                <button
+                  class="ep-btn ep-btn-ghost ep-btn-sm"
+                  @click=${() => callbacks.onSelectNone()}
+                >
+                  Select none
+                </button>
+              </div>
+            `
+          : nothing
+      }
 
       <!-- Grouped migration items -->
       <div class="dc-migration-groups">
@@ -108,22 +115,24 @@ export function renderMigrationDialog(
           Save Anyway
         </button>
 
-        ${autoMigratableCount > 0
-          ? html`
-              <button
-                class="ep-btn ep-btn-primary ep-btn-sm"
-                ?disabled=${selectedCount === 0}
-                @click=${() => {
-                  const selected = migrations.filter((m) =>
-                    selectedMigrations.has(migrationKey(m)),
-                  );
-                  callbacks.onApply(selected);
-                }}
-              >
-                Apply ${selectedCount} Fix${selectedCount !== 1 ? 'es' : ''}
-              </button>
-            `
-          : nothing}
+        ${
+          autoMigratableCount > 0
+            ? html`
+                <button
+                  class="ep-btn ep-btn-primary ep-btn-sm"
+                  ?disabled=${selectedCount === 0}
+                  @click=${() => {
+                    const selected = migrations.filter((m) =>
+                      selectedMigrations.has(migrationKey(m)),
+                    );
+                    callbacks.onApply(selected);
+                  }}
+                >
+                  Apply ${selectedCount} Fix${selectedCount !== 1 ? 'es' : ''}
+                </button>
+              `
+            : nothing
+        }
       </div>
     </div>
   `;
@@ -143,17 +152,19 @@ function renderMigrationItem(
   return html`
     <div class="dc-migration-item ${migration.autoMigratable ? '' : 'dc-migration-item-manual'}">
       <div class="dc-migration-item-check">
-        ${migration.autoMigratable
-          ? html`
-              <input
-                type="checkbox"
-                class="ep-checkbox"
-                .checked=${isSelected}
-                aria-label="Apply fix for ${migration.path}"
-                @change=${() => callbacks.onToggleMigration(migration)}
-              />
-            `
-          : html`<span class="dc-migration-item-icon" title="Cannot be auto-fixed">✗</span>`}
+        ${
+          migration.autoMigratable
+            ? html`
+                <input
+                  type="checkbox"
+                  class="ep-checkbox"
+                  .checked=${isSelected}
+                  aria-label="Apply fix for ${migration.path}"
+                  @change=${() => callbacks.onToggleMigration(migration)}
+                />
+              `
+            : html`<span class="dc-migration-item-icon" title="Cannot be auto-fixed">✗</span>`
+        }
       </div>
       <div class="dc-migration-item-details">
         <div class="dc-migration-item-path">
@@ -162,30 +173,36 @@ function renderMigrationItem(
             ${ISSUE_LABELS[migration.issue]}
           </span>
         </div>
-        ${migration.issue === 'TYPE_MISMATCH'
-          ? html`
-              <div class="dc-migration-item-conversion">
-                <span class="dc-migration-current">${formatValue(migration.currentValue)}</span>
-                <span class="dc-migration-arrow">→</span>
-                <span class="dc-migration-expected">${migration.expectedType}</span>
-                ${migration.suggestedValue !== null
-                  ? html`
-                      <span class="dc-migration-arrow">→</span>
-                      <span class="dc-migration-suggested"
-                        >${formatValue(migration.suggestedValue)}</span
-                      >
-                    `
-                  : nothing}
-              </div>
-            `
-          : nothing}
-        ${migration.issue === 'MISSING_REQUIRED'
-          ? html`
-              <div class="dc-migration-item-info">
-                Expected type: <code>${migration.expectedType}</code>
-              </div>
-            `
-          : nothing}
+        ${
+          migration.issue === 'TYPE_MISMATCH'
+            ? html`
+                <div class="dc-migration-item-conversion">
+                  <span class="dc-migration-current">${formatValue(migration.currentValue)}</span>
+                  <span class="dc-migration-arrow">→</span>
+                  <span class="dc-migration-expected">${migration.expectedType}</span>
+                  ${
+                    migration.suggestedValue !== null
+                      ? html`
+                          <span class="dc-migration-arrow">→</span>
+                          <span class="dc-migration-suggested"
+                            >${formatValue(migration.suggestedValue)}</span
+                          >
+                        `
+                      : nothing
+                  }
+                </div>
+              `
+            : nothing
+        }
+        ${
+          migration.issue === 'MISSING_REQUIRED'
+            ? html`
+                <div class="dc-migration-item-info">
+                  Expected type: <code>${migration.expectedType}</code>
+                </div>
+              `
+            : nothing
+        }
       </div>
     </div>
   `;

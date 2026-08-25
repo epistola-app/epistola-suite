@@ -402,15 +402,17 @@ export class EpistolaCanvas extends LitElement {
         data-slot-id=${slotId}
         data-slot-name=${slot.name}
       >
-        ${slot.children.length === 0
-          ? html`<span class="canvas-slot-hint"
-              >${isMultiSlot ? slot.name : 'Drop blocks here'}</span
-            >`
-          : repeat(
-              slot.children,
-              (childId) => childId,
-              (childId) => this._renderBlock(childId),
-            )}
+        ${
+          slot.children.length === 0
+            ? html`<span class="canvas-slot-hint"
+                >${isMultiSlot ? slot.name : 'Drop blocks here'}</span
+              >`
+            : repeat(
+                slot.children,
+                (childId) => childId,
+                (childId) => this._renderBlock(childId),
+              )
+        }
       </div>
     `;
   }
@@ -441,9 +443,9 @@ export class EpistolaCanvas extends LitElement {
       <div
         class="canvas-block ${isSelected ? 'selected' : ''} ${collapsed ? 'collapsed' : ''}"
         data-testid="canvas-block"
-        data-editor-anchor="${EDITOR_UI_ANCHORS.canvasBlock}${isSelected
-          ? ` ${EDITOR_UI_ANCHORS.selectedBlock}`
-          : ''}"
+        data-editor-anchor="${EDITOR_UI_ANCHORS.canvasBlock}${
+          isSelected ? ` ${EDITOR_UI_ANCHORS.selectedBlock}` : ''
+        }"
         data-node-id=${nodeId}
         data-block-label=${label}
         tabindex=${isInLockedSlot ? nothing : '0'}
@@ -453,54 +455,62 @@ export class EpistolaCanvas extends LitElement {
       >
         <!-- Block header -->
         <div class="canvas-block-header">
-          ${collapsible
-            ? html`
-                <button
-                  class="canvas-block-collapse"
-                  title="${collapsed ? 'Expand' : 'Collapse'}"
-                  @click=${(e: Event) => this._handleToggleCollapse(e, nodeId)}
-                >
-                  ${icon('chevron-right', 14)}
-                </button>
-              `
-            : nothing}
+          ${
+            collapsible
+              ? html`
+                  <button
+                    class="canvas-block-collapse"
+                    title="${collapsed ? 'Expand' : 'Collapse'}"
+                    @click=${(e: Event) => this._handleToggleCollapse(e, nodeId)}
+                  >
+                    ${icon('chevron-right', 14)}
+                  </button>
+                `
+              : nothing
+          }
           <span class="canvas-block-label">${label}</span>
-          ${collapsed
-            ? html`<span class="canvas-block-child-count"
-                >${(() => {
-                  const count = this._countChildren(nodeId);
-                  return count === 0 ? 'empty' : `${count} blocks`;
-                })()}</span
-              >`
-            : nothing}
+          ${
+            collapsed
+              ? html`<span class="canvas-block-child-count"
+                  >${(() => {
+                    const count = this._countChildren(nodeId);
+                    return count === 0 ? 'empty' : `${count} blocks`;
+                  })()}</span
+                >`
+              : nothing
+          }
           <span class="canvas-block-id">${nodeId.slice(0, 6)}</span>
-          ${isSelected
-            ? html`
-                <button
-                  class="canvas-block-delete"
-                  title="Delete block"
-                  @click=${(e: Event) => {
-                    e.stopPropagation();
-                    this._handleDeleteBlock(nodeId);
-                  }}
-                >
-                  ${icon('trash-2', 14)}
-                </button>
-              `
-            : nothing}
+          ${
+            isSelected
+              ? html`
+                  <button
+                    class="canvas-block-delete"
+                    title="Delete block"
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      this._handleDeleteBlock(nodeId);
+                    }}
+                  >
+                    ${icon('trash-2', 14)}
+                  </button>
+                `
+              : nothing
+          }
         </div>
 
         <!-- Block content area (hidden when collapsed) -->
-        ${collapsed
-          ? nothing
-          : html`
-              <div
-                class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
-                style=${styleMap(contentStyle)}
-              >
-                ${this._renderBlockContent(nodeId)}
-              </div>
-            `}
+        ${
+          collapsed
+            ? nothing
+            : html`
+                <div
+                  class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
+                  style=${styleMap(contentStyle)}
+                >
+                  ${this._renderBlockContent(nodeId)}
+                </div>
+              `
+        }
       </div>
     `;
   }

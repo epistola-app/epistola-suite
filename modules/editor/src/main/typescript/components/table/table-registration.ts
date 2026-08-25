@@ -196,9 +196,9 @@ export function createTableDefinition(): ComponentDefinition {
 
           cells.push(html`
             <div
-              class="table-canvas-cell ${isHeader ? 'header' : ''} ${isSelected
-                ? 'cell-selected'
-                : ''}"
+              class="table-canvas-cell ${isHeader ? 'header' : ''} ${
+                isSelected ? 'cell-selected' : ''
+              }"
               style=${styleMap(cellStyle)}
               data-cell-row=${r}
               data-cell-col=${c}

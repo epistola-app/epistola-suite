@@ -1519,74 +1519,78 @@ export class EpistolaEditor extends LitElement {
         <div class="paste-dialog-hint">${this._getPasteDialogHint()}</div>
         <div class="paste-dialog-context">${this._getPasteDialogContext()}</div>
 
-        ${this._pasteDialogError
-          ? html`<div class="paste-dialog-error">${this._pasteDialogError}</div>`
-          : nothing}
-        ${this._pasteDialogMode === 'slot'
-          ? html`
-              <div class="paste-dialog-slot-list">
-                ${this._pasteDialogSlotOptions.map(
-                  (slot, index) => html`
-                    <button
-                      class="paste-dialog-slot-option"
-                      data-testid=${`paste-slot-${index + 1}`}
-                      type="button"
-                      ?autofocus=${index === 0}
-                      @click=${this._buildPasteSlotClickHandler(slot.slotId)}
+        ${
+          this._pasteDialogError
+            ? html`<div class="paste-dialog-error">${this._pasteDialogError}</div>`
+            : nothing
+        }
+        ${
+          this._pasteDialogMode === 'slot'
+            ? html`
+                <div class="paste-dialog-slot-list">
+                  ${this._pasteDialogSlotOptions.map(
+                    (slot, index) => html`
+                      <button
+                        class="paste-dialog-slot-option"
+                        data-testid=${`paste-slot-${index + 1}`}
+                        type="button"
+                        ?autofocus=${index === 0}
+                        @click=${this._buildPasteSlotClickHandler(slot.slotId)}
+                      >
+                        <span class="paste-dialog-slot-index">${index + 1}</span>
+                        <span class="paste-dialog-slot-label">${slot.label}</span>
+                      </button>
+                    `,
+                  )}
+                </div>
+              `
+            : html`
+                <div class="paste-dialog-actions">
+                  <button
+                    class="paste-dialog-action"
+                    data-testid="paste-after"
+                    type="button"
+                    ?disabled=${!this._canPastePlacement('after')}
+                    autofocus
+                    @click=${() => this._handlePastePlacement('after')}
+                  >
+                    <span class="paste-dialog-action-index">1</span>
+                    <span class="paste-dialog-action-label">After</span>
+                    <span class="paste-dialog-action-detail"
+                      >${this._getPastePlacementDetail('after')}</span
                     >
-                      <span class="paste-dialog-slot-index">${index + 1}</span>
-                      <span class="paste-dialog-slot-label">${slot.label}</span>
-                    </button>
-                  `,
-                )}
-              </div>
-            `
-          : html`
-              <div class="paste-dialog-actions">
-                <button
-                  class="paste-dialog-action"
-                  data-testid="paste-after"
-                  type="button"
-                  ?disabled=${!this._canPastePlacement('after')}
-                  autofocus
-                  @click=${() => this._handlePastePlacement('after')}
-                >
-                  <span class="paste-dialog-action-index">1</span>
-                  <span class="paste-dialog-action-label">After</span>
-                  <span class="paste-dialog-action-detail"
-                    >${this._getPastePlacementDetail('after')}</span
-                  >
-                </button>
+                  </button>
 
-                <button
-                  class="paste-dialog-action"
-                  data-testid="paste-before"
-                  type="button"
-                  ?disabled=${!this._canPastePlacement('before')}
-                  @click=${() => this._handlePastePlacement('before')}
-                >
-                  <span class="paste-dialog-action-index">2</span>
-                  <span class="paste-dialog-action-label">Before</span>
-                  <span class="paste-dialog-action-detail"
-                    >${this._getPastePlacementDetail('before')}</span
+                  <button
+                    class="paste-dialog-action"
+                    data-testid="paste-before"
+                    type="button"
+                    ?disabled=${!this._canPastePlacement('before')}
+                    @click=${() => this._handlePastePlacement('before')}
                   >
-                </button>
+                    <span class="paste-dialog-action-index">2</span>
+                    <span class="paste-dialog-action-label">Before</span>
+                    <span class="paste-dialog-action-detail"
+                      >${this._getPastePlacementDetail('before')}</span
+                    >
+                  </button>
 
-                <button
-                  class="paste-dialog-action"
-                  data-testid="paste-inside"
-                  type="button"
-                  ?disabled=${!this._canPasteInside()}
-                  @click=${() => this._handlePastePlacement('inside')}
-                >
-                  <span class="paste-dialog-action-index">3</span>
-                  <span class="paste-dialog-action-label">Inside</span>
-                  <span class="paste-dialog-action-detail"
-                    >${this._getPastePlacementDetail('inside')}</span
+                  <button
+                    class="paste-dialog-action"
+                    data-testid="paste-inside"
+                    type="button"
+                    ?disabled=${!this._canPasteInside()}
+                    @click=${() => this._handlePastePlacement('inside')}
                   >
-                </button>
-              </div>
-            `}
+                    <span class="paste-dialog-action-index">3</span>
+                    <span class="paste-dialog-action-label">Inside</span>
+                    <span class="paste-dialog-action-detail"
+                      >${this._getPastePlacementDetail('inside')}</span
+                    >
+                  </button>
+                </div>
+              `
+        }
       </div>
     `;
   }
@@ -1659,88 +1663,101 @@ export class EpistolaEditor extends LitElement {
               this._handleInsertBlockAtSlot(event)}
           ></epistola-canvas>
 
-          ${showPreview
-            ? html`
-                <epistola-resize-handle></epistola-resize-handle>
-                <epistola-preview
-                  .engine=${this._engine}
-                  .fetchPreview=${this.fetchPreview}
-                ></epistola-preview>
-              `
-            : nothing}
+          ${
+            showPreview
+              ? html`
+                  <epistola-resize-handle></epistola-resize-handle>
+                  <epistola-preview
+                    .engine=${this._engine}
+                    .fetchPreview=${this.fetchPreview}
+                  ></epistola-preview>
+                `
+              : nothing
+          }
         </div>
         <div class=${leaderClasses} data-testid="leader-hint" role="status" aria-live="polite">
           <span class="leader-dot" aria-hidden="true"></span>
           <span class="leader-text" data-testid="leader-message">${this._leaderMessage}</span>
         </div>
 
-        ${this._insertDialogOpen
-          ? html`
-              <div class="insert-dialog-backdrop" @click=${this._closeInsertDialog}></div>
-              <div
-                class="insert-dialog"
-                data-testid="insert-dialog"
-                role="dialog"
-                aria-label="Insert block"
-              >
-                <div class="insert-dialog-title">Insert Block</div>
-                ${keyed(
-                  insertStageKey,
-                  html`
-                    <div class="insert-dialog-stage">
-                      <div class="insert-dialog-hint">${insertPrompt}</div>
-                      <div class="insert-dialog-context">${insertContext}</div>
+        ${
+          this._insertDialogOpen
+            ? html`
+                <div class="insert-dialog-backdrop" @click=${this._closeInsertDialog}></div>
+                <div
+                  class="insert-dialog"
+                  data-testid="insert-dialog"
+                  role="dialog"
+                  aria-label="Insert block"
+                >
+                  <div class="insert-dialog-title">Insert Block</div>
+                  ${keyed(
+                    insertStageKey,
+                    html`
+                      <div class="insert-dialog-stage">
+                        <div class="insert-dialog-hint">${insertPrompt}</div>
+                        <div class="insert-dialog-context">${insertContext}</div>
 
-                      ${this._insertDialogError
-                        ? html`<div class="insert-dialog-error">${this._insertDialogError}</div>`
-                        : nothing}
-                      ${this._isInsertBlockSelectionStage()
-                        ? html`
-                            <input
-                              class="insert-dialog-search"
-                              type="text"
-                              autofocus
-                              .value=${this._insertDialogQuery}
-                              @input=${(event: Event) => {
-                                const target = event.target as HTMLInputElement;
-                                this._setInsertDialogQuery(target.value);
-                              }}
-                              placeholder="Search blocks"
-                              spellcheck="false"
-                              autocomplete="off"
-                              aria-label="Search blocks"
-                            />
-                          `
-                        : nothing}
+                        ${
+                          this._insertDialogError
+                            ? html`<div class="insert-dialog-error">
+                                ${this._insertDialogError}
+                              </div>`
+                            : nothing
+                        }
+                        ${
+                          this._isInsertBlockSelectionStage()
+                            ? html`
+                                <input
+                                  class="insert-dialog-search"
+                                  type="text"
+                                  autofocus
+                                  .value=${this._insertDialogQuery}
+                                  @input=${(event: Event) => {
+                                    const target = event.target as HTMLInputElement;
+                                    this._setInsertDialogQuery(target.value);
+                                  }}
+                                  placeholder="Search blocks"
+                                  spellcheck="false"
+                                  autocomplete="off"
+                                  aria-label="Search blocks"
+                                />
+                              `
+                            : nothing
+                        }
 
-                      <div class="insert-dialog-list">
-                        ${insertRows.length === 0
-                          ? html`<div class="insert-dialog-empty">No matching blocks</div>`
-                          : insertRows.map(
-                              (row) => html`
-                                <div
-                                  class="insert-dialog-row ${row.index ===
-                                  this._insertDialogHighlight
-                                    ? 'is-active'
-                                    : ''}"
-                                >
-                                  <span class="insert-dialog-index">${row.index}</span>
-                                  <span class="insert-dialog-label">${row.label}</span>
-                                  <span class="insert-dialog-detail">${row.detail}</span>
-                                </div>
-                              `,
-                            )}
+                        <div class="insert-dialog-list">
+                          ${
+                            insertRows.length === 0
+                              ? html`<div class="insert-dialog-empty">No matching blocks</div>`
+                              : insertRows.map(
+                                  (row) => html`
+                                    <div
+                                      class="insert-dialog-row ${
+                                        row.index === this._insertDialogHighlight ? 'is-active' : ''
+                                      }"
+                                    >
+                                      <span class="insert-dialog-index">${row.index}</span>
+                                      <span class="insert-dialog-label">${row.label}</span>
+                                      <span class="insert-dialog-detail">${row.detail}</span>
+                                    </div>
+                                  `,
+                                )
+                          }
+                        </div>
+
+                        ${
+                          insertRangeText
+                            ? html`<div class="insert-dialog-range">${insertRangeText}</div>`
+                            : nothing
+                        }
                       </div>
-
-                      ${insertRangeText
-                        ? html`<div class="insert-dialog-range">${insertRangeText}</div>`
-                        : nothing}
-                    </div>
-                  `,
-                )}
-              </div>
-            `
-          : nothing}
+                    `,
+                  )}
+                </div>
+              `
+            : nothing
+        }
         ${this._renderPasteDialog()}
       </div>
     `;

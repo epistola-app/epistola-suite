@@ -100,19 +100,21 @@ export function renderUnitInput(
         ?disabled=${readOnly}
         @change=${handleNumberChange}
       />
-      ${units.length > 1
-        ? html`
-            <select
-              class="ep-select style-unit-select"
-              ?disabled=${readOnly || !isSet}
-              @change=${handleUnitChange}
-            >
-              ${units.map(
-                (u) => html` <option .value=${u} ?selected=${u === parsed.unit}>${u}</option> `,
-              )}
-            </select>
-          `
-        : html`<span class="style-unit-label">${defaultUnit}</span>`}
+      ${
+        units.length > 1
+          ? html`
+              <select
+                class="ep-select style-unit-select"
+                ?disabled=${readOnly || !isSet}
+                @change=${handleUnitChange}
+              >
+                ${units.map(
+                  (u) => html` <option .value=${u} ?selected=${u === parsed.unit}>${u}</option> `,
+                )}
+              </select>
+            `
+          : html`<span class="style-unit-label">${defaultUnit}</span>`
+      }
     </div>
   `;
 }
@@ -388,34 +390,36 @@ export function renderSpacingInput(
           </div>
         `;
       })}
-      ${units.length > 1
-        ? html`
-            <div class="style-spacing-side">
-              <span class="style-spacing-label">&nbsp;</span>
-              <select
-                class="ep-select style-spacing-unit"
-                ?disabled=${readOnly}
-                @change=${(e: Event) => {
-                  const newUnit = (e.target as HTMLSelectElement).value;
-                  const result: SpacingValue = {
-                    top: undefined,
-                    right: undefined,
-                    bottom: undefined,
-                    left: undefined,
-                  };
-                  for (const side of sides) {
-                    result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit);
-                  }
-                  onChange(result);
-                }}
-              >
-                ${units.map(
-                  (u) => html`<option .value=${u} ?selected=${u === currentUnit}>${u}</option>`,
-                )}
-              </select>
-            </div>
-          `
-        : nothing}
+      ${
+        units.length > 1
+          ? html`
+              <div class="style-spacing-side">
+                <span class="style-spacing-label">&nbsp;</span>
+                <select
+                  class="ep-select style-spacing-unit"
+                  ?disabled=${readOnly}
+                  @change=${(e: Event) => {
+                    const newUnit = (e.target as HTMLSelectElement).value;
+                    const result: SpacingValue = {
+                      top: undefined,
+                      right: undefined,
+                      bottom: undefined,
+                      left: undefined,
+                    };
+                    for (const side of sides) {
+                      result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit);
+                    }
+                    onChange(result);
+                  }}
+                >
+                  ${units.map(
+                    (u) => html`<option .value=${u} ?selected=${u === currentUnit}>${u}</option>`,
+                  )}
+                </select>
+              </div>
+            `
+          : nothing
+      }
     </div>
   `;
 }

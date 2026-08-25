@@ -158,16 +158,18 @@ export function renderSchemaSection(
       ${renderValidationMessages(uiState.warnings)}
 
       <!-- Two-panel layout -->
-      ${hasFields
-        ? html`
-            <div class="dc-schema-layout">
-              ${renderFieldList(fields, uiState, callbacks, expandedFields)}
-              ${renderDetailPanel(selectedField, fields, uiState, callbacks)}
-            </div>
-          `
-        : html`<div class="dc-empty-state">
-            No fields defined yet. Use Add field to data contract above.
-          </div>`}
+      ${
+        hasFields
+          ? html`
+              <div class="dc-schema-layout">
+                ${renderFieldList(fields, uiState, callbacks, expandedFields)}
+                ${renderDetailPanel(selectedField, fields, uiState, callbacks)}
+              </div>
+            `
+          : html`<div class="dc-empty-state">
+              No fields defined yet. Use Add field to data contract above.
+            </div>`
+      }
     </section>
   `;
 }
@@ -320,30 +322,32 @@ function renderDetailPanel(
         </div>
 
         <!-- Array item type -->
-        ${field.type === 'array'
-          ? html`
-              <div class="dc-detail-row">
-                <label class="dc-detail-label">Item type</label>
-                <select
-                  class="ep-select dc-detail-select"
-                  .value=${field.arrayItemType}
-                  ?disabled=${uiState.readOnly}
-                  @change=${(e: Event) => {
-                    const newItemType = (e.target as HTMLSelectElement).value as SchemaFieldType;
-                    emitUpdate({ arrayItemType: newItemType });
-                  }}
-                >
-                  ${ARRAY_ITEM_TYPES.map(
-                    (t) => html`
-                      <option value=${t} ?selected=${field.arrayItemType === t}>
-                        ${FIELD_TYPE_LABELS[t]}
-                      </option>
-                    `,
-                  )}
-                </select>
-              </div>
-            `
-          : nothing}
+        ${
+          field.type === 'array'
+            ? html`
+                <div class="dc-detail-row">
+                  <label class="dc-detail-label">Item type</label>
+                  <select
+                    class="ep-select dc-detail-select"
+                    .value=${field.arrayItemType}
+                    ?disabled=${uiState.readOnly}
+                    @change=${(e: Event) => {
+                      const newItemType = (e.target as HTMLSelectElement).value as SchemaFieldType;
+                      emitUpdate({ arrayItemType: newItemType });
+                    }}
+                  >
+                    ${ARRAY_ITEM_TYPES.map(
+                      (t) => html`
+                        <option value=${t} ?selected=${field.arrayItemType === t}>
+                          ${FIELD_TYPE_LABELS[t]}
+                        </option>
+                      `,
+                    )}
+                  </select>
+                </div>
+              `
+            : nothing
+        }
 
         <!-- Required -->
         <div class="dc-detail-row dc-detail-row-inline">
@@ -381,9 +385,11 @@ function renderDetailPanel(
         <!-- Actions -->
         <div class="dc-detail-actions">
           <div class="dc-detail-add-actions">
-            ${childTarget
-              ? renderAddFieldAction(field.id, childTarget, true, uiState.readOnly, callbacks)
-              : nothing}
+            ${
+              childTarget
+                ? renderAddFieldAction(field.id, childTarget, true, uiState.readOnly, callbacks)
+                : nothing
+            }
             ${renderAddFieldAction(
               location.parentFieldId,
               siblingTarget,
@@ -418,9 +424,9 @@ function renderAddFieldAction(
   const accessibleLabel = `Add field to ${target.accessible}`;
   return html`
     <button
-      class="ep-btn ${primary
-        ? 'ep-btn-primary'
-        : 'ep-btn-outline'} ep-btn-sm dc-context-add-field-btn"
+      class="ep-btn ${
+        primary ? 'ep-btn-primary' : 'ep-btn-outline'
+      } ep-btn-sm dc-context-add-field-btn"
       @click=${() => callbacks.onAddField(parentFieldId)}
       ?disabled=${readOnly}
       aria-label=${accessibleLabel}

@@ -207,55 +207,61 @@ export function createPlaceholderDefinition(): ComponentDefinition {
       const hasDefaultPreview = !showFill && defaultChildren.length > 0;
       return html`
         <div
-          class="canvas-placeholder ${showFill
-            ? 'canvas-placeholder--filled'
-            : 'canvas-placeholder--empty-fill'}"
+          class="canvas-placeholder ${
+            showFill ? 'canvas-placeholder--filled' : 'canvas-placeholder--empty-fill'
+          }"
         >
-          ${showFill
-            ? html`<div class="canvas-placeholder-fill">
-                ${fillSlotId ? renderSlot(fillSlotId) : nothing}
-              </div>`
-            : html`
-                ${hasDefaultPreview
-                  ? html`<div
-                      class="canvas-placeholder-default-preview"
-                      aria-hidden="true"
-                      title="Stencil default — read-only preview"
-                    >
-                      ${defaultSlotId ? renderSlot(defaultSlotId) : nothing}
-                    </div>`
-                  : nothing}
-                <div class="canvas-placeholder-fill canvas-placeholder-fill--empty">
+          ${
+            showFill
+              ? html`<div class="canvas-placeholder-fill">
                   ${fillSlotId ? renderSlot(fillSlotId) : nothing}
-                  <div class="canvas-placeholder-fill-hint">
-                    <span>Drop content here to override the default, or</span>
-                    ${fillSlotId
-                      ? html`
-                          <button
-                            type="button"
-                            class="canvas-placeholder-fill-add"
-                            data-testid="placeholder-fill-add"
-                            @click=${(event: Event) => {
-                              event.stopPropagation();
-                              const target = event.currentTarget;
-                              if (!(target instanceof HTMLElement)) return;
-                              target.dispatchEvent(
-                                new CustomEvent('epistola-insert-block-at-slot', {
-                                  detail: { slotId: fillSlotId },
-                                  bubbles: true,
-                                  composed: true,
-                                }),
-                              );
-                            }}
-                          >
-                            add a block
-                          </button>
-                        `
-                      : nothing}
-                    <span>.</span>
+                </div>`
+              : html`
+                  ${
+                    hasDefaultPreview
+                      ? html`<div
+                          class="canvas-placeholder-default-preview"
+                          aria-hidden="true"
+                          title="Stencil default — read-only preview"
+                        >
+                          ${defaultSlotId ? renderSlot(defaultSlotId) : nothing}
+                        </div>`
+                      : nothing
+                  }
+                  <div class="canvas-placeholder-fill canvas-placeholder-fill--empty">
+                    ${fillSlotId ? renderSlot(fillSlotId) : nothing}
+                    <div class="canvas-placeholder-fill-hint">
+                      <span>Drop content here to override the default, or</span>
+                      ${
+                        fillSlotId
+                          ? html`
+                              <button
+                                type="button"
+                                class="canvas-placeholder-fill-add"
+                                data-testid="placeholder-fill-add"
+                                @click=${(event: Event) => {
+                                  event.stopPropagation();
+                                  const target = event.currentTarget;
+                                  if (!(target instanceof HTMLElement)) return;
+                                  target.dispatchEvent(
+                                    new CustomEvent('epistola-insert-block-at-slot', {
+                                      detail: { slotId: fillSlotId },
+                                      bubbles: true,
+                                      composed: true,
+                                    }),
+                                  );
+                                }}
+                              >
+                                add a block
+                              </button>
+                            `
+                          : nothing
+                      }
+                      <span>.</span>
+                    </div>
                   </div>
-                </div>
-              `}
+                `
+          }
         </div>
       `;
     },

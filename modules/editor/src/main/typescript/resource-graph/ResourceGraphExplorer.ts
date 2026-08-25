@@ -565,25 +565,29 @@ export class ResourceGraphExplorer extends LitElement {
           <button type="submit" ?disabled=${this.searching || !this.search.trim()}>
             ${this.searching ? 'Searching…' : 'Search'}
           </button>
-          ${this.searchResultsVisible
-            ? html`<ul class="results" aria-label="Resource search results">
-                ${this.searchResults.length
-                  ? this.searchResults.map(
-                      (node) =>
-                        html`<li>
-                          <button type="button" @click=${() => void this.focusResource(node)}>
-                            <span class="badge">${displayType(node.type)}</span
-                            ><span
-                              ><strong>${node.name}</strong><br /><span class="result-meta"
-                                >${node.catalogName} · ${node.key}</span
-                              ></span
-                            >
-                          </button>
-                        </li>`,
-                    )
-                  : html`<li class="results-empty">No resources found.</li>`}
-              </ul>`
-            : nothing}
+          ${
+            this.searchResultsVisible
+              ? html`<ul class="results" aria-label="Resource search results">
+                  ${
+                    this.searchResults.length
+                      ? this.searchResults.map(
+                          (node) =>
+                            html`<li>
+                              <button type="button" @click=${() => void this.focusResource(node)}>
+                                <span class="badge">${displayType(node.type)}</span
+                                ><span
+                                  ><strong>${node.name}</strong><br /><span class="result-meta"
+                                    >${node.catalogName} · ${node.key}</span
+                                  ></span
+                                >
+                              </button>
+                            </li>`,
+                        )
+                      : html`<li class="results-empty">No resources found.</li>`
+                  }
+                </ul>`
+              : nothing
+          }
         </form>
         <label
           >Direction<select
@@ -678,18 +682,20 @@ export class ResourceGraphExplorer extends LitElement {
       ${this.loading ? html`<p class="status" role="status">Loading graph…</p>` : nothing}
       <div class="workspace">
         <section class="canvas-panel" aria-label="Resource reference graph">
-          ${this.graph
-            ? html`<div class="canvas-actions">
-                  <button type="button" @click=${() => this.cy?.fit(undefined, 35)}>Fit</button
-                  ><button type="button" @click=${() => this.cy?.zoom(1)}>100%</button>
-                </div>
-                <div id="graph"></div>`
-            : html`<div class="empty">
-                <div>
-                  <strong>Select a resource to begin</strong><br />Search by name, key, or catalog,
-                  then explore its references.
-                </div>
-              </div>`}
+          ${
+            this.graph
+              ? html`<div class="canvas-actions">
+                    <button type="button" @click=${() => this.cy?.fit(undefined, 35)}>Fit</button
+                    ><button type="button" @click=${() => this.cy?.zoom(1)}>100%</button>
+                  </div>
+                  <div id="graph"></div>`
+              : html`<div class="empty">
+                  <div>
+                    <strong>Select a resource to begin</strong><br />Search by name, key, or
+                    catalog, then explore its references.
+                  </div>
+                </div>`
+          }
         </section>
         <aside class="details" aria-live="polite">
           ${this.selectedEdge ? this.renderEvidence() : this.renderConnections(incoming, outgoing)}
@@ -722,9 +728,9 @@ export class ResourceGraphExplorer extends LitElement {
                   <button type="button" @click=${() => void this.selectEdge(edge)}>
                     ${this.connectionLabel(edge)}
                     <span class=${`badge ${edge.resolution}`}
-                      >${edge.kind}${edge.resolution === 'resolved'
-                        ? ''
-                        : ` · ${edge.resolution}`}</span
+                      >${edge.kind}${
+                        edge.resolution === 'resolved' ? '' : ` · ${edge.resolution}`
+                      }</span
                     >
                   </button>
                 </li>`,
@@ -765,38 +771,44 @@ export class ResourceGraphExplorer extends LitElement {
         ${edge.target ?? `${edge.targetSelector.catalogKey ?? '*'}:${edge.targetSelector.key}`}
       </p>
       <h3>Evidence (${edge.evidenceCount})</h3>
-      ${evidence
-        ? html`${evidence.items.map(
-            (item) =>
-              html`<div class="evidence">
-                <strong>${item.owner}</strong> ${item.status
-                  ? html`<span class="badge"
-                      >${item.status}${item.version ? ` v${item.version}` : ''}</span
-                    >`
-                  : nothing}<br />${item.location}${item.pinnedVersion
-                  ? html`<br />pinned stencil v${item.pinnedVersion}`
-                  : nothing}
-              </div>`,
-          )}${evidence.totalPages > 1
-            ? html`<p>
-                <button
-                  type="button"
-                  ?disabled=${evidence.page <= 1}
-                  @click=${() => void this.selectEdge(edge, evidence.page - 1)}
-                >
-                  Previous
-                </button>
-                <span>Page ${evidence.page} of ${evidence.totalPages}</span>
-                <button
-                  type="button"
-                  ?disabled=${evidence.page >= evidence.totalPages}
-                  @click=${() => void this.selectEdge(edge, evidence.page + 1)}
-                >
-                  Next
-                </button>
-              </p>`
-            : nothing}`
-        : html`<p>Loading evidence…</p>`}`;
+      ${
+        evidence
+          ? html`${evidence.items.map(
+              (item) =>
+                html`<div class="evidence">
+                  <strong>${item.owner}</strong> ${
+                    item.status
+                      ? html`<span class="badge"
+                          >${item.status}${item.version ? ` v${item.version}` : ''}</span
+                        >`
+                      : nothing
+                  }<br />${item.location}${
+                    item.pinnedVersion ? html`<br />pinned stencil v${item.pinnedVersion}` : nothing
+                  }
+                </div>`,
+            )}${
+              evidence.totalPages > 1
+                ? html`<p>
+                    <button
+                      type="button"
+                      ?disabled=${evidence.page <= 1}
+                      @click=${() => void this.selectEdge(edge, evidence.page - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span>Page ${evidence.page} of ${evidence.totalPages}</span>
+                    <button
+                      type="button"
+                      ?disabled=${evidence.page >= evidence.totalPages}
+                      @click=${() => void this.selectEdge(edge, evidence.page + 1)}
+                    >
+                      Next
+                    </button>
+                  </p>`
+                : nothing
+            }`
+          : html`<p>Loading evidence…</p>`
+      }`;
   }
 }
 

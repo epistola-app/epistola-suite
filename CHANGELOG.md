@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** chore(editor): **Editor sources reformatted for oxfmt 0.63.0.** The non-major
+  dependency update bumped oxfmt past a template-literal formatting rule change; reformatted the
+  35 affected files so `pnpm format:check` passes again.
+
 ## [1.1.0] - 2026-08-25
 
 This release adds an interactive catalog resource-reference graph, richer catalog discovery

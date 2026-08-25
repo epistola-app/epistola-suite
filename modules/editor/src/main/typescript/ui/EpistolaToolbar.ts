@@ -241,9 +241,9 @@ export class EpistolaToolbar extends LitElement {
     const parts = keys.split('{cmd}');
     return html`${parts.map(
       (part, i) => html`
-        ${i > 0
-          ? html`<span class="shortcut-cmd-icon">${icon('command', 12)}</span>`
-          : nothing}${part}
+        ${
+          i > 0 ? html`<span class="shortcut-cmd-icon">${icon('command', 12)}</span>` : nothing
+        }${part}
       `,
     )}`;
   }
@@ -280,19 +280,21 @@ export class EpistolaToolbar extends LitElement {
         </div>
 
         ${this.hasSave ? this._renderSaveButton() : nothing}
-        ${this.hasPreview
-          ? html`
-              <div class="toolbar-separator"></div>
-              <button
-                class="toolbar-btn ${this.previewOpen ? 'active' : ''}"
-                data-editor-anchor=${EDITOR_UI_ANCHORS.previewToggle}
-                @click=${this._handleTogglePreview}
-                title="${this.previewOpen ? 'Hide preview' : 'Show preview'}"
-              >
-                ${this.previewOpen ? icon('eye-off') : icon('eye')} Preview
-              </button>
-            `
-          : nothing}
+        ${
+          this.hasPreview
+            ? html`
+                <div class="toolbar-separator"></div>
+                <button
+                  class="toolbar-btn ${this.previewOpen ? 'active' : ''}"
+                  data-editor-anchor=${EDITOR_UI_ANCHORS.previewToggle}
+                  @click=${this._handleTogglePreview}
+                  title="${this.previewOpen ? 'Hide preview' : 'Show preview'}"
+                >
+                  ${this.previewOpen ? icon('eye-off') : icon('eye')} Preview
+                </button>
+              `
+            : nothing
+        }
         <div class="toolbar-separator"></div>
         <button
           class="toolbar-btn ${this.cleanMode ? 'active' : ''}"
@@ -391,9 +393,11 @@ export class EpistolaToolbar extends LitElement {
         >
           ${icon(iconName)} ${label}
         </button>
-        ${displayError
-          ? html`<span class="toolbar-save-error-text" title=${errorMsg}>${displayError}</span>`
-          : nothing}
+        ${
+          displayError
+            ? html`<span class="toolbar-save-error-text" title=${errorMsg}>${displayError}</span>`
+            : nothing
+        }
       </div>
     `;
   }
@@ -447,67 +451,73 @@ export class EpistolaToolbar extends LitElement {
           ${icon('command')}
         </button>
 
-        ${this._shortcutsOpen
-          ? html`
-              <div
-                id=${SHORTCUTS_POPOVER_ID}
-                class="toolbar-shortcuts-popover"
-                data-testid="shortcuts-popover"
-                role="dialog"
-                aria-label="Keyboard shortcuts"
-              >
-                <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
-                <div class="toolbar-shortcuts-search">
-                  <input
-                    class="toolbar-shortcuts-search-input"
-                    type="search"
-                    placeholder="Search shortcuts"
-                    .value=${this._shortcutsQuery}
-                    aria-label="Filter keyboard shortcuts"
-                    @input=${this._handleShortcutSearchInput}
-                  />
+        ${
+          this._shortcutsOpen
+            ? html`
+                <div
+                  id=${SHORTCUTS_POPOVER_ID}
+                  class="toolbar-shortcuts-popover"
+                  data-testid="shortcuts-popover"
+                  role="dialog"
+                  aria-label="Keyboard shortcuts"
+                >
+                  <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
+                  <div class="toolbar-shortcuts-search">
+                    <input
+                      class="toolbar-shortcuts-search-input"
+                      type="search"
+                      placeholder="Search shortcuts"
+                      .value=${this._shortcutsQuery}
+                      aria-label="Filter keyboard shortcuts"
+                      @input=${this._handleShortcutSearchInput}
+                    />
+                  </div>
+                  <div class="toolbar-shortcuts-groups">
+                    ${
+                      shortcutGroups.length === 0
+                        ? html`<div class="toolbar-shortcuts-empty">
+                            No shortcuts found for this filter.
+                          </div>`
+                        : shortcutGroups.map(
+                            (group: ShortcutGroup) => html`
+                              <div
+                                class="toolbar-shortcuts-group ${
+                                  group.fullWidth ? 'is-full-width' : ''
+                                }"
+                              >
+                                <div class="toolbar-shortcuts-group-title">${group.title}</div>
+                                <div
+                                  class="toolbar-shortcuts-items ${
+                                    group.layout === 'two-column'
+                                      ? 'layout-two-column'
+                                      : 'layout-one-column'
+                                  }"
+                                >
+                                  ${group.items.map(
+                                    (item) => html`
+                                      <div
+                                        class="toolbar-shortcuts-row ${item.active ? 'is-active' : ''}"
+                                      >
+                                        <span class="toolbar-shortcuts-keys"
+                                          >${this._renderShortcutKeys(item.keys)}</span
+                                        >
+                                        <span class="toolbar-shortcuts-action">${item.action}</span>
+                                      </div>
+                                    `,
+                                  )}
+                                </div>
+                              </div>
+                            `,
+                          )
+                    }
+                  </div>
+                  <div class="toolbar-shortcuts-footer">
+                    Tip: ${shortcutProjection.footerTip} opens this help
+                  </div>
                 </div>
-                <div class="toolbar-shortcuts-groups">
-                  ${shortcutGroups.length === 0
-                    ? html`<div class="toolbar-shortcuts-empty">
-                        No shortcuts found for this filter.
-                      </div>`
-                    : shortcutGroups.map(
-                        (group: ShortcutGroup) => html`
-                          <div
-                            class="toolbar-shortcuts-group ${group.fullWidth
-                              ? 'is-full-width'
-                              : ''}"
-                          >
-                            <div class="toolbar-shortcuts-group-title">${group.title}</div>
-                            <div
-                              class="toolbar-shortcuts-items ${group.layout === 'two-column'
-                                ? 'layout-two-column'
-                                : 'layout-one-column'}"
-                            >
-                              ${group.items.map(
-                                (item) => html`
-                                  <div
-                                    class="toolbar-shortcuts-row ${item.active ? 'is-active' : ''}"
-                                  >
-                                    <span class="toolbar-shortcuts-keys"
-                                      >${this._renderShortcutKeys(item.keys)}</span
-                                    >
-                                    <span class="toolbar-shortcuts-action">${item.action}</span>
-                                  </div>
-                                `,
-                              )}
-                            </div>
-                          </div>
-                        `,
-                      )}
-                </div>
-                <div class="toolbar-shortcuts-footer">
-                  Tip: ${shortcutProjection.footerTip} opens this help
-                </div>
-              </div>
-            `
-          : nothing}
+              `
+            : nothing
+        }
       </div>
     `;
   }
