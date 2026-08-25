@@ -10,9 +10,11 @@ plumbing that lets a host page embed and talk to it. See
 ## Status
 
 - **Demo-mode only.** Every capability described here is off by default and
-  only ever turned on by the `demo` Spring profile
-  (`application-demo.yaml`). Self-hosted customer deployments are byte-for-byte
-  unaffected.
+  only ever turned on by the `demo` and `local` Spring profiles
+  (`application-demo.yaml`, `application-local.yaml` — the latter so the
+  training-facility site can be developed against a local Epistola instance,
+  allowlisting `http://localhost:4321`, its usual local dev port). Self-hosted
+  customer deployments are byte-for-byte unaffected.
 - **No training content ships here.** No exercises, no lesson data, no
   training-specific UI — only the embedding basis (framing + the message
   protocol below).
@@ -25,8 +27,8 @@ plumbing that lets a host page embed and talk to it. See
 ```yaml
 epistola:
   embedding:
-    enabled: false # true only in application-demo.yaml
-    allowed-parent-origins: [] # e.g. [https://epistola.app]
+    enabled: false # true in application-demo.yaml and application-local.yaml
+    allowed-parent-origins: [] # e.g. [https://epistola.app] or [http://localhost:4321] for local dev
 ```
 
 `EmbeddingProperties` (`apps/epistola/.../embedding/EmbeddingProperties.kt`).

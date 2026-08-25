@@ -37,7 +37,10 @@ cannot be framed by any origin, anywhere, full stop.
 
 `epistola.embedding.enabled` + `epistola.embedding.allowed-parent-origins`
 (`EmbeddingProperties`, a `@ConfigurationProperties` bean) — off everywhere
-except `application-demo.yaml`. This deliberately does **not** use the per-tenant
+except `application-demo.yaml` (allowlisting `https://epistola.app`) and
+`application-local.yaml` (allowlisting `http://localhost:4321`, so the
+training-facility site can be developed against a local Epistola instance).
+This deliberately does **not** use the per-tenant
 `FeatureToggleService`/`KnownFeatures` system: that system is DB-backed and
 resolved per tenant, but embedding is an environment-level decision (a
 `demo`-profile install can have multiple tenants, and framing shouldn't vary
@@ -151,8 +154,10 @@ underneath it, without a per-handler edit.
 
 ## Consequences
 
-- Embedding is entirely off by default; the only profile that turns it on today
-  is `demo`, with `allowed-parent-origins: [https://epistola.app]`.
+- Embedding is entirely off by default; the only profiles that turn it on today
+  are `demo` (`allowed-parent-origins: [https://epistola.app]`) and `local`
+  (`allowed-parent-origins: [http://localhost:4321]`, for developing the
+  training-facility site against a local Epistola instance).
 - `SecurityConfig`, `SessionConfig`, and `WebMvcConfig` all now depend on
   `EmbeddingProperties`. None of their behavior changes when it's disabled.
 - A new `docs/embedding.md` documents the message protocol and the extension
