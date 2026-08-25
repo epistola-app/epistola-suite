@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** feat(embedding): **Epistola's UI can be embedded in an iframe on epistola.app, demo-mode only.** Adds a `postMessage` bridge (`epistola.embedding.*` config, gated CSP `frame-ancestors`) so a host page can request typed-identity navigation and receive navigation/resource-changed notifications; epistola-suite ships no training content itself.
+
 ## [1.1.0] - 2026-08-25
 
 This release adds an interactive catalog resource-reference graph, richer catalog discovery

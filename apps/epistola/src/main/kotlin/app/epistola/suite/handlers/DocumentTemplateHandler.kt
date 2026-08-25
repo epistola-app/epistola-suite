@@ -763,8 +763,16 @@ class DocumentTemplateHandler(
 
         DeleteDocumentTemplate(id = templateId).execute()
 
+        // A genuine browser-followed redirect (hx-boost="false" on this form) —
+        // no response header set here can ever reach client JS across a
+        // followed redirect, so the resource-changed signal rides a one-shot
+        // flash query param instead, consumed once by embed-bridge.js
+        // (docs/embedding.md).
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/templates")
+            .header(
+                "Location",
+                "/tenants/${tenantId.key}/templates?resourceDeleted=template:${catalogId.value}:${templateId.key.value}",
+            )
             .build()
     }
 }
