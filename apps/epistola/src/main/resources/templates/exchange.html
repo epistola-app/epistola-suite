@@ -67,7 +67,10 @@
 
             <form th:if="${connection == null || connection.status.name() != 'ACTIVE'}"
                   th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
-                <button type="submit" class="ep-btn ep-btn-primary">Connect to Exchange</button>
+                <button type="submit" class="ep-btn ep-btn-primary"
+                        th:text="${connection != null && connection.status.name() == 'REAUTHORIZATION_REQUIRED'} ? 'Recover Exchange connection' : 'Connect to Exchange'">
+                    Connect to Exchange
+                </button>
             </form>
         </div>
     </div>

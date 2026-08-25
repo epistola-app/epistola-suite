@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **Rejected application credentials now lead to a guided recovery flow.** Suite records that reauthorization is required, discards the failed one-time authorization, and tells the administrator to rotate the selected Exchange application's credentials instead of showing a generic unexpected-error page.
 - **[user]** fix(exchange): **Connect and reauthorize now navigate to Exchange normally.** The authorization forms bypass HTMX so the browser follows the cross-origin redirect as a top-level navigation instead of attempting a CSP-blocked background request.
 - **[user]** feat(exchange): **Tenant administrators can disconnect Suite from Exchange.** The normal action first revokes the remote tenant connection and its refresh credentials, then removes locally stored application credentials, tokens, and pending authorization state. An explicit local-only recovery action remains available when Exchange cannot be reached; applications, publication history, and immutable catalog namespace bindings are retained for later administrator-approved reconnection.
 - **[dev]** feat(exchange): **The local profile targets the local Exchange by default.** Exchange remains disabled until explicitly enabled, but opting in now uses `http://exchange.localhost:4075` without contacting the production discovery endpoint or requiring a repeated command-line URL override.

@@ -18,6 +18,7 @@ import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -112,7 +113,14 @@ class CompleteExchangeConnectionHandler(
     private val jdbi: Jdbi,
     private val client: ExchangeClient,
 ) : CommandHandler<CompleteExchangeConnection, ExchangeTenantConnection> {
-    override fun handle(command: CompleteExchangeConnection): ExchangeTenantConnection = jdbi.inTransaction<ExchangeTenantConnection, Exception> { handle ->
+    override fun handle(command: CompleteExchangeConnection): ExchangeTenantConnection = try {
+        complete(command)
+    } catch (failure: HttpClientErrorException.Unauthorized) {
+        if (!failure.responseBodyAsString.contains("\"error\":\"invalid_client\"")) throw failure
+        credentialRecoveryRequired(command.tenantKey)
+    }
+
+    private fun complete(command: CompleteExchangeConnection): ExchangeTenantConnection = jdbi.inTransaction<ExchangeTenantConnection, Exception> { handle ->
         val pending = handle.createQuery(
             "SELECT * FROM exchange_oauth_authorizations WHERE tenant_key = :tenantKey FOR UPDATE",
         ).bind("tenantKey", command.tenantKey).mapTo<ExchangeAuthorizationTransaction>().one()
@@ -161,6 +169,30 @@ class CompleteExchangeConnectionHandler(
         handle.createUpdate("DELETE FROM exchange_oauth_authorizations WHERE tenant_key = :tenantKey")
             .bind("tenantKey", command.tenantKey).execute()
         requireNotNull(current(handle, command.tenantKey))
+    }
+
+    private fun credentialRecoveryRequired(tenantKey: TenantKey): ExchangeTenantConnection = jdbi.inTransaction<ExchangeTenantConnection, Exception> { handle -> recordCredentialRecovery(handle, tenantKey) }
+
+    private fun recordCredentialRecovery(
+        handle: Handle,
+        tenantKey: TenantKey,
+    ): ExchangeTenantConnection {
+        handle.createUpdate(
+            """
+                UPDATE exchange_tenant_connections
+                SET status = 'REAUTHORIZATION_REQUIRED',
+                    last_error = :error,
+                    updated_at = NOW()
+                WHERE tenant_key = :tenantKey
+                """,
+        ).bind(
+            "error",
+            "Exchange rejected the application credentials. Connect again and select " +
+                "‘Recover application credentials and revoke its previous tokens’ during authorization.",
+        ).bind("tenantKey", tenantKey).execute()
+        handle.createUpdate("DELETE FROM exchange_oauth_authorizations WHERE tenant_key = :tenantKey")
+            .bind("tenantKey", tenantKey).execute()
+        return requireNotNull(current(handle, tenantKey))
     }
 }
 

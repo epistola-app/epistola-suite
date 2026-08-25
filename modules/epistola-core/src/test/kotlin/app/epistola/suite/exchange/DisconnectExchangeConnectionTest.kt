@@ -17,9 +17,34 @@ import java.net.InetSocketAddress
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 class DisconnectExchangeConnectionTest : IntegrationTestBase() {
+    @Test
+    fun `rejected application credentials become a guided recovery state`() {
+        testClock.set(Instant.now())
+        val tenant = createTenant("exchange-credential-recovery")
+        val issuer = "http://127.0.0.1:${exchangeServer.address.port}"
+
+        withMediator {
+            StartExchangeConnection(tenant.id, "https://suite.example/oauth/exchange/callback").execute()
+
+            val connection =
+                CompleteExchangeConnection(
+                    tenant.id,
+                    requireNotNull(latestState.get()),
+                    "single-use-authorization-code",
+                    UUID.randomUUID(),
+                    issuer,
+                ).execute()
+
+            assertThat(connection.status).isEqualTo(ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED)
+            assertThat(connection.lastError).contains("Recover application credentials")
+            assertThat(FindExchangeAuthorizationTenant(requireNotNull(latestState.get())).query()).isNull()
+        }
+    }
+
     @Test
     fun `disconnect removes the connection and pending authorization created by production commands`() {
         testClock.set(Instant.now())
@@ -67,6 +92,9 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
                         """{"authorization_uri":"http://exchange.example/authorize","expires_in":300}""",
                     )
                 }
+                createContext("/oauth/token") { exchange ->
+                    exchange.respond("""{"error":"invalid_client"}""", 401)
+                }
                 start()
             }
         }
@@ -78,10 +106,13 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
             registry.add("epistola.exchange.base-url") { "http://127.0.0.1:${exchangeServer.address.port}" }
         }
 
-        private fun HttpExchange.respond(body: String) {
+        private fun HttpExchange.respond(
+            body: String,
+            status: Int = 200,
+        ) {
             val bytes = body.toByteArray(StandardCharsets.UTF_8)
             responseHeaders.add("Content-Type", "application/json")
-            sendResponseHeaders(200, bytes.size.toLong())
+            sendResponseHeaders(status, bytes.size.toLong())
             responseBody.use { it.write(bytes) }
         }
     }
