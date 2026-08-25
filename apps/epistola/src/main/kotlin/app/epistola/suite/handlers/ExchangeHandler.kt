@@ -4,10 +4,11 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.exchange.CompleteExchangeConnection
+import app.epistola.suite.exchange.DisconnectExchangeConnection
 import app.epistola.suite.exchange.ExchangeProperties
+import app.epistola.suite.exchange.FindExchangeAuthorizationTenant
 import app.epistola.suite.exchange.GetExchangeConnection
-import app.epistola.suite.exchange.GetExchangeDeviceAuthorization
-import app.epistola.suite.exchange.PollExchangeConnection
 import app.epistola.suite.exchange.SetExchangeDefaultNamespace
 import app.epistola.suite.exchange.StartExchangeConnection
 import app.epistola.suite.htmx.page
@@ -19,6 +20,8 @@ import app.epistola.suite.security.requirePermission
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.net.URI
+import java.util.UUID
 
 @Component
 class ExchangeHandler(
@@ -33,21 +36,29 @@ class ExchangeHandler(
             "activeNavSection" to "exchange"
             "deploymentEnabled" to properties.enabled
             "connection" to GetExchangeConnection(tenantKey).query()
-            "authorization" to GetExchangeDeviceAuthorization(tenantKey).query()
         }
     }
 
     fun connect(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.TENANT_SETTINGS)
-        StartExchangeConnection(tenantKey).execute()
-        return redirect(tenantKey.value)
+        val authorizationUri = StartExchangeConnection(tenantKey, callbackUri(request)).execute()
+        return ServerResponse.status(303).header("Location", authorizationUri).build()
     }
 
-    fun poll(request: ServerRequest): ServerResponse {
-        val tenantKey = request.tenantId().key
+    fun callback(request: ServerRequest): ServerResponse {
+        val state = request.requiredParam("state")
+        val tenantKey = requireNotNull(FindExchangeAuthorizationTenant(state).query()) {
+            "Exchange authorization is unknown or expired"
+        }
         requirePermission(tenantKey, Permission.TENANT_SETTINGS)
-        PollExchangeConnection(tenantKey).execute()
+        CompleteExchangeConnection(
+            tenantKey,
+            state,
+            request.requiredParam("code"),
+            UUID.fromString(request.requiredParam("client_id")),
+            request.requiredParam("iss"),
+        ).execute()
         return redirect(tenantKey.value)
     }
 
@@ -60,6 +71,22 @@ class ExchangeHandler(
         ).execute()
         return redirect(tenantKey.value)
     }
+
+    fun disconnect(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        requirePermission(tenantKey, Permission.TENANT_SETTINGS)
+        DisconnectExchangeConnection(
+            tenantKey,
+            forgetLocally = request.params().getFirst("forgetLocal") == "true",
+        ).execute()
+        return redirect(tenantKey.value)
+    }
+
+    private fun callbackUri(request: ServerRequest): String = properties.callbackUrl?.trim()?.takeIf(String::isNotEmpty)
+        ?: URI(request.uri().scheme, request.uri().authority, "/oauth/exchange/callback", null, null).toString()
+
+    private fun ServerRequest.requiredParam(name: String): String = param(name).orElse(null)?.takeIf(String::isNotBlank)
+        ?: error("Exchange callback is missing '$name'")
 
     private fun redirect(tenant: String): ServerResponse = ServerResponse.status(303)
         .header("Location", "/tenants/$tenant/exchange")

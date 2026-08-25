@@ -152,14 +152,16 @@ class CatalogPublicationWorker(
             return@inTransaction connection.accessToken.value
         }
         val refresh = connection.refreshToken ?: return@inTransaction null
+        val applicationId = connection.oauthApplicationId ?: return@inTransaction null
+        val clientSecret = connection.clientSecret ?: return@inTransaction null
         val endpoints = ExchangeEndpoints(
             connection.issuer,
             connection.baseUrl,
-            "${connection.issuer}/oauth/device/code",
+            "${connection.issuer}/oauth/authorization-requests",
             "${connection.issuer}/oauth/token",
         )
         val token = try {
-            client.refresh(endpoints, refresh.value)
+            client.refresh(endpoints, refresh.value, applicationId, clientSecret.value)
         } catch (failure: HttpClientErrorException.BadRequest) {
             handle.createUpdate(
                 "UPDATE exchange_tenant_connections SET status = 'REAUTHORIZATION_REQUIRED', last_error = :error WHERE tenant_key = :tenantKey",

@@ -26,6 +26,7 @@
                     (<code th:text="${connection.organizationSlug}">organization</code>)
                 </p>
                 <p><strong>Connection:</strong> <code th:text="${connection.tenantConnectionReference}">tc_01HWHVGZT1FCF9Y2CE4XP3Y79M</code></p>
+                <p><strong>Application:</strong> <code th:text="${connection.oauthApplicationId}">application id</code></p>
                 <p><strong>Scopes:</strong> <span th:text="${#strings.arrayJoin(connection.scopes, ', ')}">read, publish</span></p>
                 <p><strong>Namespaces:</strong> <span th:text="${#strings.arrayJoin(connection.namespaces, ', ')}">namespace</span></p>
                 <form th:if="${connection.namespaces.length > 1}"
@@ -43,19 +44,28 @@
                 <form th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post">
                     <button type="submit" class="ep-btn ep-btn-outline">Reauthorize connection</button>
                 </form>
+                <details>
+                    <summary>Disconnect from Exchange</summary>
+                    <p>
+                        This revokes the tenant connection in Exchange and removes its credentials from Suite. The
+                        Exchange application, publication history, and catalog namespace bindings are retained.
+                    </p>
+                    <form th:action="@{/tenants/{tenantId}/exchange/disconnect(tenantId=${tenantId})}" method="post">
+                        <button type="submit" class="ep-btn ep-btn-danger">Disconnect</button>
+                    </form>
+                    <p>
+                        If Exchange is permanently unavailable, you can forget the local credentials without revoking
+                        the remote connection. Only use this recovery action when you can revoke it separately in
+                        Exchange.
+                    </p>
+                    <form th:action="@{/tenants/{tenantId}/exchange/disconnect(tenantId=${tenantId})}" method="post">
+                        <input type="hidden" name="forgetLocal" value="true">
+                        <button type="submit" class="ep-btn ep-btn-outline">Forget locally only</button>
+                    </form>
+                </details>
             </div>
 
-            <div th:if="${authorization != null}">
-                <p>Open the activation page and confirm this tenant in Exchange:</p>
-                <p><a th:href="${authorization.verificationUriComplete}" target="_blank" rel="noopener"
-                      th:text="${authorization.verificationUri}">Open Exchange</a></p>
-                <p><strong>Code:</strong> <code th:text="${authorization.userCode}">ABCD-EFGH</code></p>
-                <form th:action="@{/tenants/{tenantId}/exchange/poll(tenantId=${tenantId})}" method="post">
-                    <button type="submit" class="ep-btn ep-btn-primary">Check authorization</button>
-                </form>
-            </div>
-
-            <form th:if="${authorization == null && (connection == null || connection.status.name() != 'ACTIVE')}"
+            <form th:if="${connection == null || connection.status.name() != 'ACTIVE'}"
                   th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post">
                 <button type="submit" class="ep-btn ep-btn-primary">Connect to Exchange</button>
             </form>

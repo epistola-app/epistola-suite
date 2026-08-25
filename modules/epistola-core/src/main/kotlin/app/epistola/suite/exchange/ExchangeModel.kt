@@ -19,6 +19,8 @@ data class ExchangeTenantConnection(
     val baseUrl: String,
     val organizationSlug: String?,
     val organizationName: String?,
+    val oauthApplicationId: UUID?,
+    val clientSecret: Secret?,
     val scopes: Array<String> = emptyArray(),
     val namespaces: Array<String> = emptyArray(),
     val defaultNamespace: String?,
@@ -32,14 +34,11 @@ data class ExchangeTenantConnection(
     val updatedAt: OffsetDateTime,
 )
 
-data class ExchangeDeviceAuthorization(
+data class ExchangeAuthorizationTransaction(
     val tenantKey: TenantKey,
-    val deviceCode: Secret,
-    val userCode: String,
-    val verificationUri: String,
-    val verificationUriComplete: String,
+    val stateHash: String,
+    val codeVerifier: Secret,
+    val redirectUri: String,
     val expiresAt: OffsetDateTime,
-    val pollIntervalSeconds: Int,
-    val nextPollAt: OffsetDateTime,
     val createdAt: OffsetDateTime,
 )

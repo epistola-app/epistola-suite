@@ -74,6 +74,12 @@ epistola:
           - CONTENT_PUBLISHER
   catalog:
     allow-http: true
+  # Keep the deployment gate inherited as false, but make opting in locally
+  # target the sibling epistola-exchange checkout without contacting public
+  # product discovery. OAuth metadata is still discovered and issuer-checked.
+  exchange:
+    base-url: http://exchange.localhost:4075
+    callback-url: http://localhost:4000/oauth/exchange/callback
   editor:
     dev-server:
       auto-start: true

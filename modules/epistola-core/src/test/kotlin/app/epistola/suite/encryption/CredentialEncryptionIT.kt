@@ -12,6 +12,9 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.crypto.Secret
+import app.epistola.suite.exchange.ExchangeAuthorizationTransaction
+import app.epistola.suite.exchange.ExchangeTenantConnection
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -66,5 +69,53 @@ class CredentialEncryptionIT : IntegrationTestBase() {
         }
         assertThat(raw).startsWith("enc:v1:")
         assertThat(raw).doesNotContain(plaintext)
+    }
+
+    @Test
+    fun `Exchange application secret and PKCE verifier are encrypted at rest`() {
+        val tenant = createTenant("Exchange Crypto Tenant")
+        val clientSecret = Secret("exchange-client-secret")
+        val verifier = Secret("exchange-pkce-verifier")
+
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO exchange_tenant_connections
+                    (tenant_key, issuer, base_url, oauth_application_id, client_secret)
+                VALUES (:tenant, 'https://exchange.example', 'https://exchange.example', :application, :secret)
+                """,
+            ).bind("tenant", tenant.id).bind("application", java.util.UUID.randomUUID())
+                .bind("secret", clientSecret).execute()
+            handle.createUpdate(
+                """
+                INSERT INTO exchange_oauth_authorizations
+                    (tenant_key, state_hash, code_verifier, redirect_uri, expires_at)
+                VALUES (:tenant, :stateHash, :verifier, 'https://suite.example/oauth/exchange/callback', NOW() + INTERVAL '5 minutes')
+                """,
+            ).bind("tenant", tenant.id).bind("stateHash", "a".repeat(64)).bind("verifier", verifier).execute()
+        }
+
+        val decrypted = jdbi.withHandle<Pair<Secret, Secret>, Exception> { handle ->
+            val connection = handle.createQuery("SELECT * FROM exchange_tenant_connections WHERE tenant_key = :tenant")
+                .bind("tenant", tenant.id).mapTo(ExchangeTenantConnection::class.java).one()
+            val authorization = handle.createQuery("SELECT * FROM exchange_oauth_authorizations WHERE tenant_key = :tenant")
+                .bind("tenant", tenant.id).mapTo(ExchangeAuthorizationTransaction::class.java).one()
+            requireNotNull(connection.clientSecret) to authorization.codeVerifier
+        }
+        assertThat(decrypted.first.value).isEqualTo(clientSecret.value)
+        assertThat(decrypted.second.value).isEqualTo(verifier.value)
+
+        val raw = jdbi.withHandle<List<String>, Exception> { handle ->
+            listOf(
+                handle.createQuery("SELECT client_secret FROM exchange_tenant_connections WHERE tenant_key = :tenant")
+                    .bind("tenant", tenant.id).mapTo(String::class.java).one(),
+                handle.createQuery("SELECT code_verifier FROM exchange_oauth_authorizations WHERE tenant_key = :tenant")
+                    .bind("tenant", tenant.id).mapTo(String::class.java).one(),
+            )
+        }
+        assertThat(raw).allSatisfy { value ->
+            assertThat(value).startsWith("enc:v1:")
+            assertThat(value).doesNotContain("exchange-")
+        }
     }
 }

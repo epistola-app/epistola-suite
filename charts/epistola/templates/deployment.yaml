@@ -204,6 +204,10 @@ spec:
               value: {{ .Values.exchange.enabled | quote }}
             - name: EPISTOLA_EXCHANGE_DISCOVERYURL
               value: {{ .Values.exchange.discoveryUrl | quote }}
+            {{- with .Values.exchange.callbackUrl }}
+            - name: EPISTOLA_EXCHANGE_CALLBACKURL
+              value: {{ . | quote }}
+            {{- end }}
 
             {{- /* Database configuration (shared with the migration Job / init container) */}}
             {{- include "epistola.databaseEnv" . | nindent 12 }}

@@ -5,8 +5,9 @@
 ### Added
 
 - **`exchange.*` — opt-in catalog publication configuration.** The chart exposes the hard
-  deployment gate (off by default) and the stable epistola.app discovery URL to application pods;
-  tenant-level feature and publication settings remain inert until the gate is enabled.
+  deployment gate (off by default), the stable epistola.app discovery URL, and an optional
+  browser-reachable OAuth callback URL to application pods; tenant-level feature and publication
+  settings remain inert until the gate is enabled.
 - **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
   or `gelf`; `plain` is the chart default in every environment, including production. The chart
   validates the value and renders it only on application pods; the isolated migration step retains

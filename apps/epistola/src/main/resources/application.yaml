@@ -160,6 +160,8 @@ epistola:
     discovery-url: https://epistola.app/.well-known/epistola/exchange.json
     # Optional direct base URL for local development only; production discovers the issuer above.
     base-url:
+    # Optional browser-reachable callback. If absent, Suite derives it from the setup request.
+    callback-url:
   features:
     ai-chat: false
     catalog-publishing: false

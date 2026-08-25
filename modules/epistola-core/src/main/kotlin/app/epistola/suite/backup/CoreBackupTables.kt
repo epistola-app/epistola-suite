@@ -61,6 +61,7 @@ class CoreBackupTables : TenantBackupTableContributor {
         "cluster_tasks_scheduled",
         "exchange_tenant_connections",
         "exchange_device_authorizations",
+        "exchange_oauth_authorizations",
         "catalog_exchange_bindings",
         "catalog_release_publications",
     )

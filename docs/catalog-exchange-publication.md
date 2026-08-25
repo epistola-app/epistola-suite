@@ -69,6 +69,8 @@ epistola:
     discovery-url: https://epistola.app/.well-known/epistola/exchange.json
     # Optional local/private deployment escape hatch. Production normally omits it.
     base-url:
+    # Optional browser-reachable redirect. Otherwise derived from the setup request.
+    callback-url:
     poll-interval-ms: 5000
 ```
 
@@ -78,10 +80,13 @@ Helm values:
 exchange:
   enabled: true
   discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
+  # Optional; otherwise derived from the initiating browser request.
+  callbackUrl: https://suite.example.org/oauth/exchange/callback
 ```
 
-The chart maps these to `EPISTOLA_EXCHANGE_ENABLED` and
-`EPISTOLA_EXCHANGE_DISCOVERYURL`. The default remains off after an upgrade, so
+The chart maps these to `EPISTOLA_EXCHANGE_ENABLED`,
+`EPISTOLA_EXCHANGE_DISCOVERYURL`, and (when set)
+`EPISTOLA_EXCHANGE_CALLBACKURL`. The default remains off after an upgrade, so
 installing a Suite release cannot unexpectedly create outbound traffic.
 
 When `base-url` is absent, Suite reads the public discovery document. Version 1
@@ -96,30 +101,45 @@ has this shape:
 ```
 
 Suite then reads `<issuer>/.well-known/oauth-authorization-server`, verifies
-that the returned issuer matches, and uses the advertised device authorization
+that the returned issuer matches, and uses the advertised authorization-request
 and token endpoints. `base-url` bypasses only the public product discovery; OAuth
 metadata is still discovered and issuer-checked.
 
+The `local` Spring profile preconfigures `base-url` as
+`http://exchange.localhost:4075` while leaving the deployment gate disabled.
+It also sets the browser callback to
+`http://localhost:4000/oauth/exchange/callback`.
+Developers running the sibling Exchange checkout therefore only need to set
+`--epistola.exchange.enabled=true`; local Suite instances never contact the
+production discovery document merely because the local profile is active.
+
 ## Tenant enrollment, exactly
 
-Enrollment requires `TENANT_SETTINGS` and follows OAuth device authorization:
+Enrollment requires `TENANT_SETTINGS` and uses redirect authorization with
+state and S256 PKCE:
 
 1. Open **Settings → Exchange** for the Suite tenant.
-2. Select **Connect to Exchange**. Suite discovers Exchange and requests scopes
-   `read publish`, sending the Suite installation id and the tenant's display
-   name. If this is reauthorization, it also sends the existing Exchange tenant
-   connection UUID.
-3. Suite stores the device code encrypted and shows the user code plus Exchange
-   verification link. The browser session does not receive machine tokens.
-4. The administrator opens Exchange, signs in, selects an organization, reviews
-   the requested scopes, and approves or rejects the connection.
-5. Back in Suite, **Check authorization** polls no faster than Exchange's
-   advertised interval. `authorization_pending` leaves the grant pending.
-6. On approval, Exchange returns rotating access/refresh credentials and the
-   same connection identity. Suite calls the authenticated tenant-context
-   endpoint to obtain the organization and allowed namespaces.
-7. Suite replaces the pending grant with one active tenant connection, encrypts
-   both credentials, and displays Exchange's stable human reference such as
+2. Select **Connect to Exchange**. Suite discovers Exchange, creates a
+   high-entropy state and PKCE verifier, stores only the state hash and encrypted
+   verifier, and registers its exact callback plus scopes `read publish`.
+3. Suite returns HTTP 303 directly to Exchange. Exchange signs the administrator
+   in and shows the tenant, callback host, requested scopes, and organizations
+   they may administer.
+4. The administrator selects an existing OAuth application with the exact same
+   callback or creates one. They then create a tenant connection or select an
+   existing one. **Recover credentials** is explicit: it rotates that
+   application's secret and revokes its refresh tokens.
+5. Exchange returns HTTP 303 to the exact registered Suite callback with a
+   one-time code, unchanged state, client id, and issuer. The callback requires
+   an authenticated Suite user with `TENANT_SETTINGS` for the tenant resolved
+   from state.
+6. Suite checks state and issuer, exchanges the code using the PKCE verifier,
+   and receives the application secret (only when newly created or recovered),
+   rotating access token, and refresh token through the backchannel. It then
+   calls the tenant-context endpoint for organization and namespaces.
+7. Suite replaces the pending transaction with one active tenant connection,
+   encrypts the application secret and both tokens, and displays Exchange's
+   stable human reference such as
    `tc_01HW9TGZT1FCF9Y2CE4XP3Y79M`. The UUID remains the internal and protocol
    identity.
 8. If exactly one namespace is allowed, Suite selects it as the tenant default.
@@ -127,9 +147,30 @@ Enrollment requires `TENANT_SETTINGS` and follows OAuth device authorization:
    Exchange settings page before an unbound catalog can publish.
 
 There is exactly one Exchange connection per Suite tenant. Reauthorization
-updates that row and asks Exchange to preserve its remote connection identity;
-it does not silently replace the organization. Organization replacement is not
-part of the first version.
+offers the existing application and connection in Exchange. Selecting them
+preserves the logical connection, publication authority, and entitlements.
+If Suite has lost the application secret, the administrator explicitly enables
+credential recovery. This invalidates credentials for every tenant connection
+using that application, so separate applications are recommended for separate
+Suite installations.
+
+Suite need not have an internet-public URL. Exchange never calls the callback;
+the administrator's browser does. The callback therefore only needs to be
+reachable from that browser. Production Exchange requires HTTPS. Its local
+profile permits HTTP for development. Behind a proxy, configure `callback-url`
+explicitly if the browser-visible origin cannot be derived reliably from the
+request and forwarded headers. Redirect URI wildcards are not supported.
+
+Tenant administrators can disconnect a Suite tenant from Exchange from the
+tenant's Exchange settings. Suite first authenticates to Exchange, which marks
+the tenant connection revoked and invalidates all of its refresh credentials.
+Only after Exchange confirms does Suite delete its locally encrypted
+application secret, access token, refresh token, and any pending authorization
+state. If Exchange is permanently unavailable, the administrator may explicitly
+forget only the local credentials and must revoke the connection separately in
+Exchange. Neither path deletes the organization application, publication
+history, or immutable catalog namespace bindings. A later administrator-approved
+authorization can reactivate the retained connection and application.
 
 ## Namespace selection and immutable binding
 
@@ -204,11 +245,12 @@ attempts cannot be duplicated.
 
 ## Credentials and authorization failures
 
-Access tokens, refresh tokens, and pending device codes use the normal
+The OAuth application secret, access and refresh tokens, and pending PKCE
+verifier use the normal
 `Secret` JDBI mapping and AES-256-GCM envelope described in
 [Credential encryption at rest](encryption.md). The generic key-rotation
 commands do not know Exchange table names. The Exchange domain contributes its
-three credential columns through `EncryptedCredentialContributor`, alongside
+four credential columns through `EncryptedCredentialContributor`, alongside
 the core catalog/code-list contributor.
 
 The worker refreshes access tokens before expiry even when a tenant has paused
@@ -231,7 +273,7 @@ namespace preference because those columns belong to the normal `tenants` and
 They deliberately exclude:
 
 - `exchange_tenant_connections` and OAuth credentials;
-- pending device authorizations;
+- pending redirect authorization state and PKCE verifiers;
 - immutable namespace bindings;
 - publication outbox rows, retained ZIPs, retry state, and remote identifiers.
 
@@ -248,8 +290,8 @@ matches.
 For a newly enabled installation, verify in this order:
 
 1. the discovery URL returns version 1 and the expected issuer/base URL;
-2. Exchange's OAuth metadata advertises device and token endpoints for the same
-   issuer;
+2. Exchange's OAuth metadata advertises authorization-request, authorization,
+   and token endpoints for the same issuer, plus S256 PKCE;
 3. **Settings → Features** has `catalog-publishing` enabled for the tenant;
 4. **Settings → Exchange** shows an active connection, `read` and `publish`, an
    organization, allowed namespaces, and a default namespace;
@@ -261,7 +303,7 @@ Useful failure distinctions:
 
 - `WAITING_SETUP` is configuration, not a failed release;
 - `RETRY` is transient and automatic;
-- `REAUTHORIZATION_REQUIRED` requires the device flow again;
+- `REAUTHORIZATION_REQUIRED` requires redirect authorization again;
 - `BLOCKED` means Exchange denied the connection/scopes;
 - `REJECTED` is a terminal decision about that immutable release;
 - `FAILED` is manually retryable with a new remote attempt.

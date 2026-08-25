@@ -13,6 +13,7 @@ class ExchangeEncryptedCredentialColumns : EncryptedCredentialContributor {
     override fun columns(): Set<EncryptedCredentialColumn> = setOf(
         EncryptedCredentialColumn("exchange_tenant_connections", "access_token", listOf("tenant_key")),
         EncryptedCredentialColumn("exchange_tenant_connections", "refresh_token", listOf("tenant_key")),
-        EncryptedCredentialColumn("exchange_device_authorizations", "device_code", listOf("tenant_key")),
+        EncryptedCredentialColumn("exchange_tenant_connections", "client_secret", listOf("tenant_key")),
+        EncryptedCredentialColumn("exchange_oauth_authorizations", "code_verifier", listOf("tenant_key")),
     )
 }

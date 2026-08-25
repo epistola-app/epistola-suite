@@ -9,7 +9,8 @@
       "required": ["enabled", "discoveryUrl"],
       "properties": {
         "enabled": { "type": "boolean" },
-        "discoveryUrl": { "type": "string", "format": "uri", "minLength": 1 }
+        "discoveryUrl": { "type": "string", "format": "uri", "minLength": 1 },
+        "callbackUrl": { "type": "string" }
       }
     },
     "database": {

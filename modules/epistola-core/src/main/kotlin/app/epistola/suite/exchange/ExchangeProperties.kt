@@ -12,5 +12,7 @@ data class ExchangeProperties(
     val discoveryUrl: String = "https://epistola.app/.well-known/epistola/exchange.json",
     /** Local-development escape hatch; production should use the discovery document. */
     val baseUrl: String? = null,
+    /** Optional browser-reachable callback; otherwise derived from the initiating request. */
+    val callbackUrl: String? = null,
     val pollIntervalMs: Long = 5000,
 )

@@ -9,30 +9,26 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
-import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.ObjectMapper
 import java.time.Duration
 import java.util.UUID
 
 data class ExchangeEndpoints(
     val issuer: String,
     val baseUrl: String,
-    val deviceAuthorizationEndpoint: String,
+    val authorizationRequestEndpoint: String,
     val tokenEndpoint: String,
 )
 
-data class ExchangeDeviceCodeResponse(
-    val deviceCode: String,
-    val userCode: String,
-    val verificationUri: String,
-    val verificationUriComplete: String,
+data class ExchangeAuthorizationResponse(
+    val authorizationUri: String,
     val expiresIn: Duration,
-    val interval: Duration,
 )
 
 data class ExchangeTokenResponse(
+    val oauthApplicationId: UUID,
+    val clientSecret: String?,
     val tenantConnectionId: UUID,
     val accessToken: String,
     val accessTokenExpiresIn: Duration,
@@ -57,12 +53,9 @@ data class ExchangePublicationResponse(
     val errorDetail: String?,
 )
 
-class ExchangeAuthorizationPendingException : RuntimeException()
-
 @Component
 class ExchangeClient(
     private val properties: ExchangeProperties,
-    private val objectMapper: ObjectMapper,
 ) {
     private val http = RestClient.create()
 
@@ -81,47 +74,73 @@ class ExchangeClient(
         return ExchangeEndpoints(
             issuer = issuer,
             baseUrl = discovery.baseUrl.trimEnd('/'),
-            deviceAuthorizationEndpoint = metadata.requiredText("device_authorization_endpoint"),
+            authorizationRequestEndpoint = metadata.requiredText("authorization_request_endpoint"),
             tokenEndpoint = metadata.requiredText("token_endpoint"),
         )
     }
 
-    fun startDeviceAuthorization(
+    fun startAuthorization(
         endpoints: ExchangeEndpoints,
         tenantName: String,
         deploymentId: String,
+        redirectUri: String,
+        state: String,
+        codeChallenge: String,
+        existingApplicationId: UUID?,
         existingConnectionId: UUID?,
-    ): ExchangeDeviceCodeResponse {
+    ): ExchangeAuthorizationResponse {
         val form = LinkedMultiValueMap<String, String>().apply {
+            add("application_name", "Epistola Suite")
             add("tenant_name", tenantName)
-            add("deployment_id", deploymentId)
+            add("installation_id", deploymentId)
+            add("redirect_uri", redirectUri)
+            add("state", state)
+            add("code_challenge", codeChallenge)
+            add("code_challenge_method", "S256")
             add("scope", "read publish")
+            existingApplicationId?.let { add("application_id", it.toString()) }
             existingConnectionId?.let { add("tenant_connection_id", it.toString()) }
         }
-        val node = http.post().uri(endpoints.deviceAuthorizationEndpoint)
+        val node = http.post().uri(endpoints.authorizationRequestEndpoint)
             .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form).retrieve().body(JsonNode::class.java)
-            ?: error("Exchange device authorization returned an empty response")
-        return ExchangeDeviceCodeResponse(
-            node.requiredText("device_code"),
-            node.requiredText("user_code"),
-            node.requiredText("verification_uri"),
-            node.requiredText("verification_uri_complete"),
+            ?: error("Exchange authorization request returned an empty response")
+        return ExchangeAuthorizationResponse(
+            node.requiredText("authorization_uri"),
             Duration.ofSeconds(node.path("expires_in").asLong()),
-            Duration.ofSeconds(node.path("interval").asLong()),
         )
     }
 
-    fun pollDeviceToken(endpoints: ExchangeEndpoints, deviceCode: String): ExchangeTokenResponse = token(
+    fun exchangeAuthorizationCode(
+        endpoints: ExchangeEndpoints,
+        code: String,
+        applicationId: UUID,
+        redirectUri: String,
+        codeVerifier: String,
+        clientSecret: String?,
+    ): ExchangeTokenResponse = token(
         endpoints,
         linkedMapOf(
-            "grant_type" to "urn:ietf:params:oauth:grant-type:device_code",
-            "device_code" to deviceCode,
-        ),
+            "grant_type" to "authorization_code",
+            "code" to code,
+            "client_id" to applicationId.toString(),
+            "redirect_uri" to redirectUri,
+            "code_verifier" to codeVerifier,
+        ).also { values -> clientSecret?.let { values["client_secret"] = it } },
     )
 
-    fun refresh(endpoints: ExchangeEndpoints, refreshToken: String): ExchangeTokenResponse = token(
+    fun refresh(
+        endpoints: ExchangeEndpoints,
+        refreshToken: String,
+        applicationId: UUID,
+        clientSecret: String,
+    ): ExchangeTokenResponse = token(
         endpoints,
-        linkedMapOf("grant_type" to "refresh_token", "refresh_token" to refreshToken),
+        linkedMapOf(
+            "grant_type" to "refresh_token",
+            "refresh_token" to refreshToken,
+            "client_id" to applicationId.toString(),
+            "client_secret" to clientSecret,
+        ),
     )
 
     fun context(endpoints: ExchangeEndpoints, accessToken: String): ExchangeConnectionContext {
@@ -136,6 +155,13 @@ class ExchangeClient(
             node.path("scopes").mapTo(mutableSetOf()) { it.stringValue() },
             node.path("namespaces").mapTo(mutableSetOf()) { it.requiredText("slug") },
         )
+    }
+
+    fun disconnect(baseUrl: String, accessToken: String) {
+        http.delete().uri("${baseUrl.trimEnd('/')}/api/v1/tenant-connection")
+            .headers { it.setBearerAuth(accessToken) }
+            .retrieve()
+            .toBodilessEntity()
     }
 
     fun submit(
@@ -172,15 +198,12 @@ class ExchangeClient(
 
     private fun token(endpoints: ExchangeEndpoints, values: Map<String, String>): ExchangeTokenResponse {
         val form = LinkedMultiValueMap<String, String>().apply { values.forEach(::add) }
-        val node = try {
-            http.post().uri(endpoints.tokenEndpoint).contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(form).retrieve().body(JsonNode::class.java)
-        } catch (failure: HttpClientErrorException.BadRequest) {
-            val error = runCatching { objectMapper.readTree(failure.responseBodyAsByteArray).path("error").stringValue() }.getOrNull()
-            if (error == "authorization_pending") throw ExchangeAuthorizationPendingException()
-            throw failure
-        } ?: error("Exchange token endpoint returned an empty response")
+        val node = http.post().uri(endpoints.tokenEndpoint).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+            .body(form).retrieve().body(JsonNode::class.java)
+            ?: error("Exchange token endpoint returned an empty response")
         return ExchangeTokenResponse(
+            UUID.fromString(node.requiredText("client_id")),
+            node.path("client_secret").takeUnless { it.isMissingNode || it.isNull }?.stringValue(),
             UUID.fromString(node.requiredText("tenant_connection_id")),
             node.requiredText("access_token"),
             Duration.ofSeconds(node.path("expires_in").asLong()),

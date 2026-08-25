@@ -14,10 +14,11 @@ import org.springframework.web.servlet.function.router
 class ExchangeRoutes(private val handler: ExchangeHandler) {
     @Bean
     fun exchangeRouterFunction(): RouterFunction<ServerResponse> = router {
+        GET("/oauth/exchange/callback", handler::callback)
         "/tenants/{tenantId}/exchange".nest {
             GET("", handler::settings)
             POST("/connect", handler::connect)
-            POST("/poll", handler::poll)
+            POST("/disconnect", handler::disconnect)
             POST("/namespace", handler::setNamespace)
         }
     }
