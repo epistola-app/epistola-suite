@@ -22,9 +22,22 @@ spec:
       labels:
         app.kubernetes.io/name: postgres
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:18
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           env:
             - name: POSTGRES_DB
               value: epistola
@@ -46,8 +59,16 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql
+            - name: runtime
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: data
+          emptyDir: {}
+        - name: runtime
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
 ---
 apiVersion: v1
