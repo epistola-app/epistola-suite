@@ -8,7 +8,8 @@
   document-generation demand.** Pods request 750m CPU and 1536Mi memory, with
   4 CPU / 5Gi limits; the default HPA targets 600m CPU and does not scale on
   retained JVM memory. This supports about 5,000 documents per minute per node;
-  the Kind fixture documents and uses the smaller test / preview profile.
+  the Kind fixture documents and uses the smaller test / preview profile,
+  which supports about 1,000 documents in two minutes.
 - **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
   smoke test.** Pull requests run the local chart installation harness only
   when the Epistola chart, its test harness, or its workflow changes; unrelated

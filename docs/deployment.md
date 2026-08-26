@@ -424,7 +424,7 @@ functional but documents generate more slowly under load.
 | Profile | CPU request / limit | Memory request / limit | Intended use |
 | --- | --- | --- | --- |
 | Production generation (chart default) | `750m` / `4` | `1536Mi` / `5Gi` | About 5,000 documents/minute per node; sustained bursts can still affect UI responsiveness. |
-| Test, preview, or low volume | `100m` / `1` | `512Mi` / `1Gi` | Chart verification, manual testing, and occasional generation; do not use this profile when generation latency or UI responsiveness matters. |
+| Test, preview, or low volume | `100m` / `1` | `512Mi` / `1Gi` | About 1,000 documents in two minutes (~500/minute); chart verification, manual testing, and occasional generation. Do not use this profile when generation latency or UI responsiveness matters. |
 
 To select the small profile, override the defaults in your values file:
 
