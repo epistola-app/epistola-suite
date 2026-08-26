@@ -12,6 +12,12 @@
   healthy recovery window has elapsed — in-flight documents continue normally.
   The guard is enabled by default and exports pressure state, effective
   concurrency, and throttle/pause counters for Prometheus.
+- **[dev]** refactor(generation): **Database-pressure monitoring moved out of
+  JDBI config wiring.** `DatabasePressureMonitor` now lives in its own package
+  with explicit-clock timestamps and per-state admission-control handlers;
+  coverage extended to Hikari pool-waiter detection, the JDBI failure-recording
+  path (including a real Postgres statement-timeout cancellation), and the
+  THROTTLED-to-RECOVERING transition.
 
 - **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
   Start in recommendation-only mode; production uses CPU HPA while VPA remains
