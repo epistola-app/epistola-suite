@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(chart): **The chart reserves 512Mi of memory by default.** The
+  VPA floor follows the same value, avoiding a default memory-HPA target below
+  normal JVM operating memory.
 - **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
   smoke test.** Pull requests run the local chart installation harness only
   when the Epistola chart, its test harness, or its workflow changes; unrelated

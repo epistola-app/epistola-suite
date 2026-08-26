@@ -416,7 +416,7 @@ vpa:
   resourcePolicy:
     minAllowed:
       cpu: 100m
-      memory: 256Mi
+      memory: 512Mi
     maxAllowed:
       cpu: 1000m
       memory: 1Gi
@@ -433,6 +433,11 @@ limit.
 Do not configure HPA and VPA to control the same CPU or memory resource. They
 would make competing scaling decisions; use one controller for a resource, or
 split their resource responsibility deliberately before enabling both.
+
+The chart defaults the application memory request to `512Mi` (with a `1Gi`
+limit). With the default 80% memory HPA target, scaling starts at an average of
+about `410Mi` per pod; tune the request and target to the measured steady-state
+memory use of your workload.
 
 ## Connection pool (HikariCP)
 

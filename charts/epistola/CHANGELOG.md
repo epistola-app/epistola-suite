@@ -31,6 +31,13 @@
   validates the value and renders it only on application pods; the isolated migration step retains
   its minimal plain-text output.
 
+### Changed
+
+- **The default application memory request is now 512Mi.** This gives the JVM
+  realistic scheduling headroom and moves the default 80% memory-HPA target
+  from about 205Mi to about 410Mi. The optional VPA policy's memory floor now
+  matches the request; its 1Gi limit and maximum remain unchanged.
+
 ### Fixed
 
 - **Local Kind smoke-test fixture supplies an authentication mechanism.** The

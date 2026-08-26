@@ -71,7 +71,7 @@ resources:
     memory: 1Gi
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 512Mi
 
 # Liveness and readiness probes. These hit the MAIN application port (http)
 # at /livez and /readyz — the add-additional-paths probe endpoints — NOT the
@@ -124,7 +124,7 @@ vpa:
   resourcePolicy:
     minAllowed:
       cpu: 100m
-      memory: 256Mi
+      memory: 512Mi
     maxAllowed:
       cpu: 1000m
       memory: 1Gi
