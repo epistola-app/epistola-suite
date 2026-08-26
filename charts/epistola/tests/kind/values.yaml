@@ -1,0 +1,20 @@
+config:
+  profiles: prod
+
+# The smoke environment is disposable. Exercise the chart's production database
+# wiring and migration hook without provisioning a test encryption keyset.
+encryption:
+  enabled: false
+
+database:
+  type: external
+  external:
+    host: postgres
+    port: 5432
+    database: epistola
+    username: epistola
+    existingSecret: epistola-chart-test-db
+    secretKey: password
+
+migration:
+  mode: job

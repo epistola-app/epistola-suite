@@ -4,6 +4,14 @@
 
 ### Added
 
+- **Local Kind chart smoke test.** `scripts/test-helm-chart.sh` creates a
+  disposable Kind cluster with one ephemeral PostgreSQL container, installs the
+  application chart using its production database/migration wiring, verifies
+  readiness through the release Service, and confirms the native HPA resource is
+  accepted. It is deliberately developer-run rather than a CI requirement; VPA
+  remains covered by render/schema tests because the lightweight cluster does
+  not install VPA components.
+
 - **Optional Vertical Pod Autoscaler (VPA) support.** Set `vpa.enabled=true` to
   render a VPA targeting this release's application Deployment, without a
   separately maintained manifest or hard-coded Deployment name. It starts in

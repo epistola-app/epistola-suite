@@ -52,6 +52,33 @@ tool has no resource-level hook, prefer `initContainer` or `embedded`.
 
 ## Usage
 
+### Local Kubernetes chart smoke test
+
+Use the local smoke test to verify the application chart against a real,
+disposable Kubernetes API server before handing it to an operator. It creates a
+temporary [Kind](https://kind.sigs.k8s.io/) cluster, starts one ephemeral
+`postgres:18` container inside it, runs the chart's migration hook, waits for
+the application, verifies the Service through `helm test`, and confirms that the
+native HPA resource can be created. It does **not** install a database operator,
+VPA components, or Grafana Operator, and it is not part of CI yet.
+
+Docker must be running. Install the repository's pinned tools once, then run:
+
+```bash
+mise install
+scripts/test-helm-chart.sh
+```
+
+The test removes its cluster on success or failure. To inspect a failed run,
+keep it instead:
+
+```bash
+scripts/test-helm-chart.sh --keep-cluster
+```
+
+The default application image is the chart's `appVersion`. To test another
+published image without rebuilding locally, pass `--image-tag <tag>`.
+
 ### Production, external Postgres (default `job` mode)
 
 `migration.mode=job` is the default, so it can be omitted:
