@@ -27,6 +27,14 @@
   validates the value and renders it only on application pods; the isolated migration step retains
   its minimal plain-text output.
 
+### Fixed
+
+- **Migration hooks no longer wait forever for a missing ServiceAccount.** The
+  pre-install migration Job now uses the namespace's built-in `default` service
+  account with token mounting disabled. Helm creates normal chart resources only
+  after pre-install hooks, so the chart-managed application service account was
+  not available when the migration Job tried to create its pod.
+
 ## [1.0.0] - 2026-07-31
 
 ### Changed

@@ -40,6 +40,10 @@ jobs:
         if: matrix.chart == 'epistola'
         run: charts/epistola/tests/vpa-render.sh
 
+      - name: Test migration hook rendering
+        if: matrix.chart == 'epistola'
+        run: charts/epistola/tests/migration-render.sh
+
       - name: Scan Helm chart for misconfigurations
         uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
