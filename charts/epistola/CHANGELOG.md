@@ -4,10 +4,58 @@
 
 ### Added
 
+- **GitHub Kind smoke test for Epistola chart changes.** Pull requests run the
+  local chart installation harness only when this chart, its test harness, or
+  its workflow changes. Other charts do not create a Kubernetes cluster.
+
+- **Local Kind chart smoke test.** `scripts/test-helm-chart.sh` creates a
+  disposable Kind cluster with one ephemeral PostgreSQL container, installs the
+  application chart using its production database/migration wiring, verifies
+  readiness through the release Service, and confirms the native HPA resource is
+  accepted. It is deliberately developer-run rather than a CI requirement; VPA
+  remains covered by render/schema tests because the lightweight cluster does
+  not install VPA components.
+
+- **Optional Vertical Pod Autoscaler (VPA) support.** Set `vpa.enabled=true` to
+  render a VPA targeting this release's application Deployment, without a
+  separately maintained manifest or hard-coded Deployment name. It starts in
+  recommendation-only `Off` mode and defaults to `RequestsOnly`, so VPA changes
+  requests without taking ownership of the operator-set limits once an update
+  mode is selected. The update mode, minimum replica count, and CPU/memory
+  `minAllowed` / `maxAllowed` policy are configurable. The cluster must already
+  provide the VPA CRD and components. VPA-controller behavior is not yet
+  runtime-tested by Epistola; see `docs/deployment.md` for the recommendation-
+  only rollout, built-in load-test recommendation, and current HPA
+  incompatibility guidance.
+
 - **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
   or `gelf`; `plain` is the chart default in every environment, including production. The chart
   validates the value and renders it only on application pods; the isolated migration step retains
   its minimal plain-text output.
+
+### Changed
+
+- **Resource defaults now cover the documented document-generation load
+  profile.** Application pods request `750m` CPU and `1536Mi` memory and may
+  use up to 3 CPU / 4Gi memory. The VPA policy has matching bounds. The HPA's
+  default CPU target is therefore about `600m` per pod; its memory metric is
+  off by default because retained JVM heap is not a reliable scale-down signal.
+  This production profile supports about 5,000 documents per minute per node.
+  The Kind fixture explicitly uses the smaller test/preview profile instead,
+  which supports about 1,000 documents in two minutes.
+
+### Fixed
+
+- **Local Kind smoke-test fixture supplies an authentication mechanism.** The
+  disposable staging/test installation enables its self-contained form-login
+  profile, allowing the application to start without needing an OIDC provider
+  in the lightweight test cluster.
+
+- **Migration hooks no longer wait forever for a missing ServiceAccount.** The
+  pre-install migration Job now uses the namespace's built-in `default` service
+  account with token mounting disabled. Helm creates normal chart resources only
+  after pre-install hooks, so the chart-managed application service account was
+  not available when the migration Job tried to create its pod.
 
 ## [1.0.0] - 2026-07-31
 

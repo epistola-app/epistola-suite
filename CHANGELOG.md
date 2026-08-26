@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
+  Start in recommendation-only mode; production uses CPU HPA while VPA remains
+  disabled because its controller behavior has not yet been runtime-tested and
+  the chart cannot yet restrict VPA to memory-only control. Use the suite's
+  built-in Load Tests facility to gather representative recommendations.
+- **[dev]** fix(chart): **The chart's resource defaults now match measured
+  document-generation demand.** Pods request 750m CPU and 1536Mi memory, with
+  3 CPU / 4Gi limits; the default HPA targets 600m CPU and does not scale on
+  retained JVM memory. This supports about 5,000 documents per minute per node;
+  the Kind fixture documents and uses the smaller test / preview profile,
+  which supports about 1,000 documents in two minutes.
+- **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
+  smoke test.** Pull requests run the local chart installation harness only
+  when the Epistola chart, its test harness, or its workflow changes; unrelated
+  application and chart changes do not create a Kubernetes cluster.
+- **[dev]** fix(chart): **The local Kubernetes chart smoke test supplies its
+  required authentication configuration.** Its disposable staging/test
+  installation enables the self-contained form-login profile instead of needing
+  a full OIDC provider.
+- **[dev]** test(chart): **A local Kubernetes chart smoke test is available.**
+  `scripts/test-helm-chart.sh` creates and removes a disposable Kind cluster,
+  starts one ephemeral PostgreSQL container, installs the application chart,
+  validates migration/readiness/HPA admission, and prints diagnostics on failure.
+  It is intentionally not part of CI yet.
 - **[dev]** feat(embedding): **Epistola's UI can be embedded in an iframe on epistola.app, demo-mode only.** Adds a `postMessage` bridge (`epistola.embedding.*` config, gated CSP `frame-ancestors`) so a host page can request typed-identity navigation and receive navigation/resource-changed notifications; epistola-suite ships no training content itself.
 - **[dev]** chore(editor): **Editor sources reformatted for oxfmt 0.63.0.** The non-major
   dependency update bumped oxfmt past a template-literal formatting rule change; reformatted the
