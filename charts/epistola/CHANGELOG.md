@@ -25,7 +25,8 @@
   `minAllowed` / `maxAllowed` policy are configurable. The cluster must already
   provide the VPA CRD and components. VPA-controller behavior is not yet
   runtime-tested by Epistola; see `docs/deployment.md` for the recommendation-
-  only rollout and current HPA incompatibility guidance.
+  only rollout, built-in load-test recommendation, and current HPA
+  incompatibility guidance.
 
 - **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
   or `gelf`; `plain` is the chart default in every environment, including production. The chart

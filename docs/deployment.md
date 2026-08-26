@@ -475,7 +475,10 @@ not yet been tested by Epistola. Treat it as an operator-evaluated feature:
 
 1. Enable it with `updateMode: Off` and observe recommendations over
    representative PDF-generation bursts, document complexity, and normal UI
-   traffic.
+   traffic. Use Epistola Suite's built-in **Operations → Load Tests** facility
+   to run the same templates, data, document count, and concurrency expected
+   in production; record the resulting VPA recommendations, queue waits, and
+   UI responsiveness.
 2. If recommendations are stable, trial `Initial` in a non-critical
    environment. It applies the recommendation only when a pod is created, so
    it does not evict a running application pod.

@@ -7,7 +7,8 @@
 - **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
   Start in recommendation-only mode; production uses CPU HPA while VPA remains
   disabled because its controller behavior has not yet been runtime-tested and
-  the chart cannot yet restrict VPA to memory-only control.
+  the chart cannot yet restrict VPA to memory-only control. Use the suite's
+  built-in Load Tests facility to gather representative recommendations.
 - **[dev]** fix(chart): **The chart's resource defaults now match measured
   document-generation demand.** Pods request 750m CPU and 1536Mi memory, with
   4 CPU / 5Gi limits; the default HPA targets 600m CPU and does not scale on
