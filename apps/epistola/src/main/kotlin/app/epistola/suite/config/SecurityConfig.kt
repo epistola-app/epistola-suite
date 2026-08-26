@@ -9,6 +9,7 @@ import app.epistola.suite.api.security.ClientIdentityFilter
 import app.epistola.suite.api.v1.ApiProblemTypes
 import app.epistola.suite.api.v1.writeProblemDetail
 import app.epistola.suite.apikeys.ApiKeyService
+import app.epistola.suite.embedding.EmbeddingProperties
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler
@@ -29,6 +30,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher
 import tools.jackson.databind.ObjectMapper
@@ -53,6 +55,7 @@ class SecurityConfig(
     private val apiKeyService: ApiKeyService,
     private val apiKeyAuthCache: app.epistola.suite.apikeys.ApiKeyAuthCache,
     private val authProperties: AuthProperties,
+    private val embeddingProperties: EmbeddingProperties,
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
     private val meterRegistry: MeterRegistry,
     private val objectMapper: ObjectMapper,
@@ -237,8 +240,29 @@ class SecurityConfig(
             }
             .csrf { csrf ->
                 csrf.spa()
+                // ADR 0015: embedding-enabled deployments (demo profile only) need the
+                // CSRF cookie readable from inside a cross-origin iframe, which requires
+                // SameSite=None — browsers drop SameSite=Lax cookies on every request an
+                // embedded iframe's own JS makes back to its own origin, "site for
+                // cookies" being computed against the *top-level* document. Overriding
+                // just the repository (after .spa() has already wired its
+                // SpaCsrfTokenRequestHandler) keeps everything else about .spa()'s
+                // behavior intact. Every other profile is untouched.
+                if (embeddingProperties.cookiesNeedSameSiteNone) {
+                    csrf.csrfTokenRepository(
+                        CookieCsrfTokenRepository.withHttpOnlyFalse().apply {
+                            setCookieCustomizer { it.sameSite("None").secure(true) }
+                        },
+                    )
+                }
             }
             .headers { headers ->
+                // ADR 0015: frame-ancestors/X-Frame-Options are relaxed only when
+                // epistola.embedding.enabled=true (demo profile) — every other
+                // deployment keeps today's 'none'/DENY unchanged. The decisions
+                // themselves are pure properties on EmbeddingProperties so they're
+                // directly unit-testable (EmbeddingPropertiesTest) without booting a
+                // Spring context.
                 headers.contentSecurityPolicy { csp ->
                     // ADR 0010: script-src is strictly 'self' — no 'unsafe-inline',
                     // no external origins. Executable inline scripts and on*=
@@ -254,10 +278,13 @@ class SecurityConfig(
                             "img-src 'self' data:; " +
                             "connect-src 'self'; " +
                             "frame-src blob:; " +
-                            "frame-ancestors 'none'; " +
+                            "frame-ancestors ${embeddingProperties.cspFrameAncestors}; " +
                             "object-src 'none'; " +
                             "base-uri 'self'",
                     )
+                }
+                if (embeddingProperties.disableXFrameOptions) {
+                    headers.frameOptions { it.disable() }
                 }
             }
 
