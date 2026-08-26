@@ -4,6 +4,10 @@
 
 ### Added
 
+- **GitHub Kind smoke test for Epistola chart changes.** Pull requests run the
+  local chart installation harness only when this chart, its test harness, or
+  its workflow changes. Other charts do not create a Kubernetes cluster.
+
 - **Local Kind chart smoke test.** `scripts/test-helm-chart.sh` creates a
   disposable Kind cluster with one ephemeral PostgreSQL container, installs the
   application chart using its production database/migration wiring, verifies

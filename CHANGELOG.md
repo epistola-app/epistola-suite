@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
+  smoke test.** Pull requests run the local chart installation harness only
+  when the Epistola chart, its test harness, or its workflow changes; unrelated
+  application and chart changes do not create a Kubernetes cluster.
 - **[dev]** fix(chart): **The local Kubernetes chart smoke test supplies its
   required authentication configuration.** Its disposable staging/test
   installation enables the self-contained form-login profile instead of needing
