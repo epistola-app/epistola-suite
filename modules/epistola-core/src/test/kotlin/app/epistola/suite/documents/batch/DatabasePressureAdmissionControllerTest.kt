@@ -74,4 +74,26 @@ class DatabasePressureAdmissionControllerTest {
         source.value = DatabasePressureSnapshot(0, null, 1, false)
         assertEquals(4, controller.effectiveLimit(nowMs = 1_000))
     }
+
+    @Test
+    fun `throttled state recovers to RECOVERING and steps up without ever pausing`() {
+        val source = MutableSource()
+        val controller = controller(source)
+
+        // Sustained pressure -> THROTTLED, never PAUSED (no critical failure observed).
+        source.value = DatabasePressureSnapshot(3, 600, 0, false)
+        assertEquals(4, controller.effectiveLimit(nowMs = 1_000))
+
+        // Healthy again, but recoveryPeriodMs (30s) has not elapsed since the first healthy sample.
+        source.value = DatabasePressureSnapshot(3, 100, 0, false)
+        assertEquals(4, controller.effectiveLimit(nowMs = 2_000), "healthy period has not elapsed")
+
+        // Grace tick: the first call once recoveryPeriodMs has elapsed transitions
+        // THROTTLED -> RECOVERING but does not raise the limit yet, unlike the
+        // PAUSED -> RECOVERING path, which jumps straight to the minimum.
+        assertEquals(4, controller.effectiveLimit(nowMs = 32_000), "grace tick: enters RECOVERING, limit unchanged")
+
+        // First real recovery step, one recoveryStepIntervalMs (10s) later.
+        assertEquals(5, controller.effectiveLimit(nowMs = 42_000), "first recovery step raises by one")
+    }
 }
