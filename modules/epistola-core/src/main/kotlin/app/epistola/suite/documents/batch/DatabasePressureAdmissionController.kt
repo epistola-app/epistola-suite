@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.database.DatabasePressureSource
 import app.epistola.suite.documents.JobPollingProperties
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
@@ -27,7 +28,7 @@ enum class DatabasePressureState(val metricValue: Int) {
 @Component
 class DatabasePressureAdmissionController(
     private val properties: JobPollingProperties,
-    private val monitor: DatabasePressureSource,
+    private val pressureSource: DatabasePressureSource,
     meterRegistry: MeterRegistry,
 ) {
     private val effectiveLimit = AtomicInteger(properties.maxConcurrentJobs)
@@ -55,7 +56,7 @@ class DatabasePressureAdmissionController(
             return configuredMaximum
         }
 
-        val snapshot = monitor.snapshot(nowMs)
+        val snapshot = pressureSource.snapshot(nowMs)
         if (snapshot.criticalFailureObserved) {
             healthySinceMs = null
             effectiveLimit.set(0)

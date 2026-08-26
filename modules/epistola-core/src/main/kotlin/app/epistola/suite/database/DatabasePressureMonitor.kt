@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.documents.batch
+package app.epistola.suite.database
 
+import app.epistola.suite.documents.JobPollingProperties
 import com.zaxxer.hikari.HikariDataSource
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -23,7 +24,7 @@ import javax.sql.DataSource
  */
 @Component
 class DatabasePressureMonitor(
-    private val properties: app.epistola.suite.documents.JobPollingProperties,
+    private val properties: JobPollingProperties,
     private val meterRegistryProvider: ObjectProvider<MeterRegistry>,
     dataSource: DataSource,
 ) : DatabasePressureSource {

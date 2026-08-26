@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.documents.batch
+package app.epistola.suite.database
 
 import app.epistola.suite.documents.DatabasePressureProperties
 import app.epistola.suite.documents.JobPollingProperties

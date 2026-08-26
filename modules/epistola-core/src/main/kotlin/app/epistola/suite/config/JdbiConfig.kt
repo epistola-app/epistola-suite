@@ -15,7 +15,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.crypto.CredentialCipher
 import app.epistola.suite.crypto.Secret
-import app.epistola.suite.documents.batch.DatabasePressureMonitor
+import app.epistola.suite.database.DatabasePressureMonitor
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.core.mapper.ColumnMapper

@@ -4,6 +4,8 @@
 
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.database.DatabasePressureSnapshot
+import app.epistola.suite.database.DatabasePressureSource
 import app.epistola.suite.documents.DatabasePressureProperties
 import app.epistola.suite.documents.JobPollingProperties
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
@@ -31,7 +33,7 @@ class DatabasePressureAdmissionControllerTest {
                 recoveryStepIntervalMs = 10_000,
             ),
         ),
-        monitor = source,
+        pressureSource = source,
         meterRegistry = SimpleMeterRegistry(),
     )
 
