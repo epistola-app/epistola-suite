@@ -14,6 +14,33 @@
 - **[user]** feat(exchange): **Catalog releases publish through a durable background outbox.** The local release transaction stores the exact portable ZIP and succeeds independently of Exchange availability. Catalog pages show attempt history and allow an unchanged current release to be published later, or a remote failure to be retried with a fresh idempotency key. Cluster-safe workers pause tenant work while its feature is off, retain archives until a terminal Exchange decision, and maintain expiring connection credentials independently.
 - **[admin]** feat(exchange): **Added opt-in Exchange discovery and tenant enrollment storage.** The deployment gate defaults off and discovers the official Exchange through epistola.app. Device and refresh credentials are encrypted at rest, one logical Exchange connection is retained per Suite tenant across reauthorization, and the UI displays Exchange's stable `tc_`-prefixed connection reference instead of requiring a raw UUID. Connection/runtime publication state is deliberately excluded from portable tenant backups.
 
+- **[dev]** feat(embedding): **Epistola's UI can be embedded in an iframe on epistola.app, demo-mode only.** Adds a `postMessage` bridge (`epistola.embedding.*` config, gated CSP `frame-ancestors`) so a host page can request typed-identity navigation and receive navigation/resource-changed notifications; epistola-suite ships no training content itself.
+- **[dev]** chore(editor): **Editor sources reformatted for oxfmt 0.63.0.** The non-major
+  dependency update bumped oxfmt past a template-literal formatting rule change; reformatted the
+  35 affected files so `pnpm format:check` passes again.
+
+## [1.1.0] - 2026-08-25
+
+This release adds an interactive catalog resource-reference graph, richer catalog discovery
+metadata (presentation, keywords, license) that now round-trips through every catalog workflow,
+and several data-contract editor improvements including realistic example autofill and a guarantee
+that every contract keeps at least one example. It also fixes stored-XSS in the asset and stencil
+pickers, PDF column alignment, nested-loop field typing, and expression copy/paste in the editor,
+plus a session-expiry popup that now closes automatically after SSO.
+
+- **[user]** fix(catalog-ui): **Catalog details match the application detail layout.** Catalog
+  identity, discovery metadata, presentation, and license information now use a compact responsive
+  panel instead of a long stack of oversized sections.
+- **[user]** fix(catalog): **Catalog exports explain their published-only contents.** Exporting a
+  catalog now confirms that only the latest published version of versioned resources is included,
+  while drafts and older published versions are left out of the ZIP; confirming starts a regular
+  browser download instead of rendering the ZIP bytes as page content.
+- **[user]** fix(themes): **A concurrently deleted template theme is rejected cleanly.** The
+  settings selector now returns to its persisted value and displays an actionable error beside
+  the control instead of leaving a stale selection visible after a foreign-key failure.
+- **[dev]** docs(pdfa): **Preview PDF/A behavior is documented accurately.** Preview rendering
+  honors the template's PDF/A setting to match final-output fonts and pagination, while retaining
+  its visible preview watermark.
 - **[dev]** docs(security): **The security policy is easier to discover.** `SECURITY.md` now lives
   at the repository root while remaining available through GitHub's Security tab.
 - **[dev]** docs(security): **Repository-owned vulnerability publishing added.** Dated Markdown
@@ -182,6 +209,13 @@
   heartbeat/assignment updates and generation-result acknowledgement cursor advances are excluded
   from auditing, and a scoped migration removes their existing success and failure entries while
   preserving genuine audit history.
+- **[dev]** refactor(ui): **Hand-rolled HTMX converted to native HTMX.** The template
+  settings controls (theme select, rename, PDF/A toggle) and the version-comparison dialog
+  trigger reimplemented HTMX by hand — `fetch()` calls with manual swaps, a hand-set
+  `HX-Request` header, and programmatic `htmx.ajax()`. They are now plain `hx-*` attributes
+  backed by focused fragment endpoints (`PATCH …/name`, `…/pdfa`, form-encoded `…/theme`);
+  the JSON `PATCH /tenants/…/templates/{catalogId}/{id}` UI route and the orphaned
+  `static/js/modules/api-client.js` are removed. Behavior is unchanged.
 
 ## [1.0.1] - 2026-08-04
 

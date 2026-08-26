@@ -62,12 +62,14 @@ export class PlaceholderInspector extends LitElement {
           <div class="inspector-field-label">Name</div>
           <code class="placeholder-inspector-readonly-name">${this._name || '(unnamed)'}</code>
         </div>
-        ${this._description
-          ? html`<div class="inspector-field">
-              <div class="inspector-field-label">Description</div>
-              <div class="placeholder-inspector-readonly-description">${this._description}</div>
-            </div>`
-          : nothing}
+        ${
+          this._description
+            ? html`<div class="inspector-field">
+                <div class="inspector-field-label">Description</div>
+                <div class="placeholder-inspector-readonly-description">${this._description}</div>
+              </div>`
+            : nothing
+        }
         <div
           class="inspector-field-hint"
           style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-top: var(--ep-space-2);"
@@ -94,14 +96,16 @@ export class PlaceholderInspector extends LitElement {
             @input=${this._onNameInput}
             style=${this._nameError ? 'border-color: var(--ep-destructive);' : ''}
           />
-          ${this._nameError
-            ? html`<div
-                class="inspector-field-error"
-                style="color: var(--ep-destructive); font-size: var(--ep-text-xs); margin-top: var(--ep-space-1);"
-              >
-                ${this._nameError}
-              </div>`
-            : ''}
+          ${
+            this._nameError
+              ? html`<div
+                  class="inspector-field-error"
+                  style="color: var(--ep-destructive); font-size: var(--ep-text-xs); margin-top: var(--ep-space-1);"
+                >
+                  ${this._nameError}
+                </div>`
+              : ''
+          }
         </div>
 
         <div class="inspector-field">

@@ -461,6 +461,43 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `export-check confirms that only published resource versions are exported`() = fixture {
+        lateinit var t: Tenant
+        given {
+            t = tenant("Export Confirmation Dialog")
+            withMediator {
+                CreateCatalog(
+                    tenantKey = t.id,
+                    id = CatalogKey.of("exportable-cat"),
+                    name = "Exportable Cat",
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/exportable-cat/export-check",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
+            val body = response.body!!
+            assertThat(body).contains("id=\"export-confirmation-dialog\"")
+            assertThat(body).contains("Only the latest published version of versioned resources will be included.")
+            assertThat(body).contains("Drafts and older published versions will not be exported.")
+            assertThat(body).contains("href=\"/tenants/${t.id}/catalogs/exportable-cat/export\"")
+            assertThat(body).contains("hx-boost=\"false\"")
+            assertThat(body).contains("Export as ZIP")
+        }
+    }
+
+    @Test
     fun `export-check dialog names the templates that pin an outdated stencil version`() = fixture {
         lateinit var t: Tenant
         given {
@@ -507,6 +544,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).doesNotContain("Letter B")
             // And it tells the user to publish after upgrading.
             assertThat(body).contains("publish")
+            assertThat(body).doesNotContain("Export as ZIP")
         }
     }
 
@@ -685,6 +723,10 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(browseResponse.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(browseResponse.body)
                 .contains("id=\"dialog-mount\"")
+                .contains("class=\"ep-panel detail-section\"")
+                .contains("class=\"catalog-detail-summary\"")
+                .contains("class=\"catalog-detail-grid\"")
+                .contains("Edit details")
                 .contains("hx-target=\"#dialog-mount\"")
                 .contains("section=details")
                 .contains("section=attributes")

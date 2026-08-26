@@ -59,9 +59,19 @@ async function mount(container) {
       const result = await response.json();
       if (result.name) {
         document.title = result.name + ' - Epistola';
-        const h1 = document.querySelector('.page-header h1');
-        if (h1) h1.textContent = result.name;
+        const titleEl = document.getElementById('page-title-text');
+        if (titleEl) titleEl.textContent = result.name;
       }
+
+      // This save is a raw fetch(), so it bypasses htmx.js entirely — the
+      // HX-Trigger mechanism other resource-changed notifications ride on
+      // never fires for it. Tell the embedding bridge directly instead
+      // (docs/embedding.md). No-op when the bridge isn't loaded (embedding
+      // disabled, i.e. every non-demo deployment).
+      window.epistolaEmbedBridge?.notifyResourceChanged(
+        { resourceType: 'theme', tenantId: tenantId, catalogKey: catalogId, key: themeId },
+        'update',
+      );
     },
   });
 }

@@ -82,9 +82,7 @@ carry parameter state:
       "tags": "['vip', 'priority']",
     },
     "paramsAlias": "params", // optional; defaults to "params"
-    "parameterSchemaSnapshot": {
-      /* copy of the source version's parameter_schema */
-    },
+    "parameterSchemaSnapshot": {/* copy of the source version's parameter_schema */},
   },
 }
 ```

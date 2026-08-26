@@ -1090,9 +1090,9 @@ class CatalogHandler(
      * HTMX precheck for the export button. Runs the cheap conflict query and
      * either:
      *  - returns the export-conflict dialog fragment when conflicts exist;
-     *  - returns `HX-Redirect` to the real export URL so the browser starts the
-     *    ZIP download. The `MultipleStencilVersionsInUseException` thrown by
-     *    [ExportCatalogZip] is the backstop for non-UI callers (REST, MCP).
+     *  - returns the export confirmation dialog when the catalog is exportable.
+     * The `MultipleStencilVersionsInUseException` thrown by [ExportCatalogZip]
+     * is the backstop for callers that bypass this UI precheck.
      */
     fun exportCheck(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -1100,9 +1100,13 @@ class CatalogHandler(
 
         val conflicts = FindStencilVersionExportConflicts(tenantId.key, catalogKey).query()
         if (conflicts.isEmpty()) {
-            return ServerResponse.noContent()
-                .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/export")
-                .build()
+            return ServerResponse.ok().render(
+                "catalogs/list :: export-confirmation-dialog",
+                mapOf(
+                    "tenantId" to tenantId.key,
+                    "catalogId" to catalogKey.value,
+                ),
+            )
         }
 
         val model = mapOf(

@@ -28,7 +28,7 @@
     "htmx.org": "2.0.10"
   },
   "devDependencies": {
-    "oxfmt": "^0.57.0",
+    "oxfmt": "^0.64.0",
     "oxlint": "^1.57.0",
     "oxlint-tsgolint": "^7.0.0",
     "stylelint": "^17.11.0",

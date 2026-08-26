@@ -72,24 +72,26 @@ export function renderExamplesSection(
               class="dc-example-chip ${isActive ? 'dc-example-chip-active' : ''}"
               role="option"
               aria-selected="${isActive}"
-              aria-label="${ex.name}${errorCount > 0
-                ? `, ${errorCount} error${errorCount !== 1 ? 's' : ''}`
-                : ', valid'}"
+              aria-label="${ex.name}${
+                errorCount > 0 ? `, ${errorCount} error${errorCount !== 1 ? 's' : ''}` : ', valid'
+              }"
               @click=${() => callbacks.onSelectExample(ex.id)}
               title="${ex.name}"
             >
               <span class="dc-example-chip-name">${ex.name}</span>
-              ${errorCount > 0
-                ? html`<span
-                    class="dc-example-chip-badge dc-example-chip-badge-error"
-                    aria-hidden="true"
-                    >${errorCount}</span
-                  >`
-                : html`<span
-                    class="dc-example-chip-badge dc-example-chip-badge-ok"
-                    aria-hidden="true"
-                    >&#10003;</span
-                  >`}
+              ${
+                errorCount > 0
+                  ? html`<span
+                      class="dc-example-chip-badge dc-example-chip-badge-error"
+                      aria-hidden="true"
+                      >${errorCount}</span
+                    >`
+                  : html`<span
+                      class="dc-example-chip-badge dc-example-chip-badge-ok"
+                      aria-hidden="true"
+                      >&#10003;</span
+                    >`
+              }
             </button>
           `;
         })}
@@ -103,247 +105,286 @@ export function renderExamplesSection(
       </div>
 
       <!-- Example editor card -->
-      ${selectedExample
-        ? html`
-            <div class="dc-example-card">
-              <!-- Card Header -->
-              <div class="dc-example-card-header">
-                <div class="dc-example-card-header-main">
-                  <label class="dc-example-field-label" for="example-name-input"
-                    >Example Name</label
-                  >
-                  <input
-                    type="text"
-                    id="example-name-input"
-                    class="ep-input dc-example-name-input"
-                    .value=${selectedExample.name}
-                    ?disabled=${uiState.readOnly}
-                    placeholder="Enter example name"
-                    @change=${(e: Event) => {
-                      const name = (e.target as HTMLInputElement).value.trim();
-                      if (name) {
-                        callbacks.onUpdateExampleName(selectedExample.id, name);
-                      }
-                    }}
-                  />
-                </div>
-                ${!canDeleteSelected
-                  ? html` <span class="dc-example-delete-requirement">${deleteRequirement}</span> `
-                  : html`
-                      <button
-                        class="dc-example-delete-btn"
-                        ?disabled=${uiState.readOnly}
-                        @click=${() => callbacks.onDeleteExample(selectedExample.id)}
-                        title="Delete this example"
-                        aria-label="Delete example"
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4H12z"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    `}
-              </div>
-
-              <!-- Floating Toolbar -->
-              <div class="dc-example-toolbar">
-                <div class="dc-example-toolbar-actions">
-                  <button
-                    class="dc-example-toolbar-btn dc-example-generate-btn"
-                    ?disabled=${!uiState.canGenerate || uiState.readOnly}
-                    @click=${() => callbacks.onGenerateExample(selectedExample.id)}
-                    title="Fill missing values from the current schema; existing values are kept"
-                    aria-label="Autofill missing example values from schema"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path
-                        d="M8 1.5l.8 2.4 2.4.8-2.4.8L8 7.9l-.8-2.4-2.4-.8 2.4-.8L8 1.5zM12.2 8.1l.55 1.65 1.65.55-1.65.55-.55 1.65-.55-1.65L10 10.3l1.65-.55.55-1.65zM4.2 9.1l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1z"
-                        stroke="currentColor"
-                        stroke-width="1.1"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    Autofill
-                  </button>
-                  <button
-                    class="dc-example-toolbar-btn"
-                    ?disabled=${!uiState.canUndo || uiState.readOnly}
-                    @click=${() => callbacks.onUndo()}
-                    title="Undo (Ctrl+Z)"
-                    aria-label="Undo"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path
-                        d="M3 6h7a4 4 0 014 4v0M3 6l3-3M3 6l3 3"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    Undo
-                  </button>
-                  <button
-                    class="dc-example-toolbar-btn"
-                    ?disabled=${!uiState.canRedo || uiState.readOnly}
-                    @click=${() => callbacks.onRedo()}
-                    title="Redo (Ctrl+Shift+Z)"
-                    aria-label="Redo"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path
-                        d="M13 6H6a4 4 0 00-4 4v0M13 6l-3-3M13 6l-3 3"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    Redo
-                  </button>
-                  <span class="dc-example-toolbar-divider" aria-hidden="true"></span>
-                  <button
-                    class="dc-example-toolbar-btn dc-example-expand-all-btn"
-                    @click=${(event: Event) => setExampleGroupsOpen(event, true)}
-                    title="Expand all properties in this example"
-                    aria-label="Expand all example properties"
-                  >
-                    Expand all
-                  </button>
-                  <button
-                    class="dc-example-toolbar-btn dc-example-collapse-all-btn"
-                    @click=${(event: Event) => setExampleGroupsOpen(event, false)}
-                    title="Collapse all properties in this example"
-                    aria-label="Collapse all example properties"
-                  >
-                    Collapse all
-                  </button>
-                </div>
-
-                ${uiState.validationErrorCount > 0
-                  ? html`
-                      <span class="dc-validation-summary">
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" />
-                          <path
-                            d="M8 5v4M8 11v.01"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                          />
-                        </svg>
-                        ${uiState.validationErrorCount}
-                        error${uiState.validationErrorCount !== 1 ? 's' : ''}
-                      </span>
-                    `
-                  : html`
-                      <span class="dc-validation-success">
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" />
-                          <path
-                            d="M5 8l2 2 4-4"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          />
-                        </svg>
-                        Valid
-                      </span>
-                    `}
-              </div>
-
-              <!-- Form -->
-              <div class="dc-example-form-container">
-                ${keyed(
-                  selectedExample.id,
-                  renderExampleForm(
-                    state.schema,
-                    selectedExample.data,
-                    (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
-                    uiState.fieldErrorMap,
-                    uiState.readOnly,
-                  ),
-                )}
-              </div>
-            </div>
-          `
-        : examples.length === 0
+      ${
+        selectedExample
           ? html`
-              <div class="dc-empty-state">
-                <div class="dc-empty-state-icon">
-                  <svg
-                    width="32"
-                    height="32"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M9 12h.01M15 12h.01M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z"
+              <div class="dc-example-card">
+                <!-- Card Header -->
+                <div class="dc-example-card-header">
+                  <div class="dc-example-card-header-main">
+                    <label class="dc-example-field-label" for="example-name-input"
+                      >Example Name</label
+                    >
+                    <input
+                      type="text"
+                      id="example-name-input"
+                      class="ep-input dc-example-name-input"
+                      .value=${selectedExample.name}
+                      ?disabled=${uiState.readOnly}
+                      placeholder="Enter example name"
+                      @change=${(e: Event) => {
+                        const name = (e.target as HTMLInputElement).value.trim();
+                        if (name) {
+                          callbacks.onUpdateExampleName(selectedExample.id, name);
+                        }
+                      }}
                     />
-                  </svg>
+                  </div>
+                  ${
+                    !canDeleteSelected
+                      ? html`
+                          <span class="dc-example-delete-requirement">${deleteRequirement}</span>
+                        `
+                      : html`
+                          <button
+                            class="dc-example-delete-btn"
+                            ?disabled=${uiState.readOnly}
+                            @click=${() => callbacks.onDeleteExample(selectedExample.id)}
+                            title="Delete this example"
+                            aria-label="Delete example"
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4H12z"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        `
+                  }
                 </div>
-                <p>At least one test data example is required</p>
-                <span class="dc-empty-state-hint">
-                  Add an example before saving or publishing this data contract.
-                </span>
-                <button
-                  class="ep-btn ep-btn-primary ep-btn-sm"
-                  ?disabled=${uiState.readOnly}
-                  @click=${() => callbacks.onAddExample()}
-                >
-                  Add first example
-                </button>
+
+                <!-- Floating Toolbar -->
+                <div class="dc-example-toolbar">
+                  <div class="dc-example-toolbar-actions">
+                    <button
+                      class="dc-example-toolbar-btn dc-example-generate-btn"
+                      ?disabled=${!uiState.canGenerate || uiState.readOnly}
+                      @click=${() => callbacks.onGenerateExample(selectedExample.id)}
+                      title="Fill missing values from the current schema; existing values are kept"
+                      aria-label="Autofill missing example values from schema"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M8 1.5l.8 2.4 2.4.8-2.4.8L8 7.9l-.8-2.4-2.4-.8 2.4-.8L8 1.5zM12.2 8.1l.55 1.65 1.65.55-1.65.55-.55 1.65-.55-1.65L10 10.3l1.65-.55.55-1.65zM4.2 9.1l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1z"
+                          stroke="currentColor"
+                          stroke-width="1.1"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                      Autofill
+                    </button>
+                    <button
+                      class="dc-example-toolbar-btn"
+                      ?disabled=${!uiState.canUndo || uiState.readOnly}
+                      @click=${() => callbacks.onUndo()}
+                      title="Undo (Ctrl+Z)"
+                      aria-label="Undo"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M3 6h7a4 4 0 014 4v0M3 6l3-3M3 6l3 3"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                      Undo
+                    </button>
+                    <button
+                      class="dc-example-toolbar-btn"
+                      ?disabled=${!uiState.canRedo || uiState.readOnly}
+                      @click=${() => callbacks.onRedo()}
+                      title="Redo (Ctrl+Shift+Z)"
+                      aria-label="Redo"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M13 6H6a4 4 0 00-4 4v0M13 6l-3-3M13 6l-3 3"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                      Redo
+                    </button>
+                    <span class="dc-example-toolbar-divider" aria-hidden="true"></span>
+                    <button
+                      class="dc-example-toolbar-btn dc-example-expand-all-btn"
+                      @click=${(event: Event) => setExampleGroupsOpen(event, true)}
+                      title="Expand all properties in this example"
+                      aria-label="Expand all example properties"
+                    >
+                      Expand all
+                    </button>
+                    <button
+                      class="dc-example-toolbar-btn dc-example-collapse-all-btn"
+                      @click=${(event: Event) => setExampleGroupsOpen(event, false)}
+                      title="Collapse all properties in this example"
+                      aria-label="Collapse all example properties"
+                    >
+                      Collapse all
+                    </button>
+                  </div>
+
+                  ${
+                    uiState.validationErrorCount > 0
+                      ? html`
+                          <span class="dc-validation-summary">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <circle
+                                cx="8"
+                                cy="8"
+                                r="6"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                              />
+                              <path
+                                d="M8 5v4M8 11v.01"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                              />
+                            </svg>
+                            ${uiState.validationErrorCount}
+                            error${uiState.validationErrorCount !== 1 ? 's' : ''}
+                          </span>
+                        `
+                      : html`
+                          <span class="dc-validation-success">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <circle
+                                cx="8"
+                                cy="8"
+                                r="6"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                              />
+                              <path
+                                d="M5 8l2 2 4-4"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                              />
+                            </svg>
+                            Valid
+                          </span>
+                        `
+                  }
+                </div>
+
+                <!-- Form -->
+                <div class="dc-example-form-container">
+                  ${keyed(
+                    selectedExample.id,
+                    renderExampleForm(
+                      state.schema,
+                      selectedExample.data,
+                      (path, value) =>
+                        callbacks.onUpdateExampleData(selectedExample.id, path, value),
+                      uiState.fieldErrorMap,
+                      uiState.readOnly,
+                    ),
+                  )}
+                </div>
               </div>
             `
-          : html`
-              <div class="dc-empty-state">
-                <div class="dc-empty-state-icon dc-empty-state-icon-muted">
-                  <svg
-                    width="32"
-                    height="32"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    aria-hidden="true"
+          : examples.length === 0
+            ? html`
+                <div class="dc-empty-state">
+                  <div class="dc-empty-state-icon">
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M9 12h.01M15 12h.01M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z"
+                      />
+                    </svg>
+                  </div>
+                  <p>At least one test data example is required</p>
+                  <span class="dc-empty-state-hint">
+                    Add an example before saving or publishing this data contract.
+                  </span>
+                  <button
+                    class="ep-btn ep-btn-primary ep-btn-sm"
+                    ?disabled=${uiState.readOnly}
+                    @click=${() => callbacks.onAddExample()}
                   >
-                    <path
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
+                    Add first example
+                  </button>
                 </div>
-                <p>Select an example to edit</p>
-                <span class="dc-empty-state-hint">Choose one from the chips above</span>
-              </div>
-            `}
+              `
+            : html`
+                <div class="dc-empty-state">
+                  <div class="dc-empty-state-icon dc-empty-state-icon-muted">
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
+                    </svg>
+                  </div>
+                  <p>Select an example to edit</p>
+                  <span class="dc-empty-state-hint">Choose one from the chips above</span>
+                </div>
+              `
+      }
     </section>
   `;
 }

@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -17,9 +18,11 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 /**
  * Updates a template's metadata (name, theme, pdfaEnabled).
@@ -50,6 +53,7 @@ data class UpdateDocumentTemplate(
 class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<UpdateDocumentTemplate, DocumentTemplate?> {
+    @Transactional
     override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
@@ -68,7 +72,7 @@ class UpdateDocumentTemplateHandler(
             updates.add("theme_key = :themeId")
             updates.add("theme_catalog_key = :themeCatalogKey")
             bindings["themeId"] = command.themeId
-            bindings["themeCatalogKey"] = command.themeCatalogKey
+            bindings["themeCatalogKey"] = command.themeCatalogKey ?: CatalogKey.DEFAULT
         }
         if (command.pdfaEnabled != null) {
             updates.add("pdfa_enabled = :pdfaEnabled")
@@ -90,6 +94,32 @@ class UpdateDocumentTemplateHandler(
         """
 
         val rowsUpdated = jdbi.withHandle<Int, Exception> { handle ->
+            if (!command.clearThemeId && command.themeId != null) {
+                val themeCatalogKey = command.themeCatalogKey ?: CatalogKey.DEFAULT
+                val themeExists = handle.createQuery(
+                    """
+                    SELECT 1
+                    FROM themes
+                    WHERE tenant_key = :tenantId
+                      AND catalog_key = :themeCatalogKey
+                      AND id = :themeId
+                    FOR KEY SHARE
+                    """,
+                )
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("themeCatalogKey", themeCatalogKey)
+                    .bind("themeId", command.themeId)
+                    .mapTo(Int::class.java)
+                    .findOne()
+                    .isPresent
+                if (!themeExists) {
+                    throw ValidationException(
+                        "themeId",
+                        "The selected theme '$themeCatalogKey/${command.themeId}' no longer exists. Refresh the page and choose another theme.",
+                    )
+                }
+            }
+
             val update = handle.createUpdate(sql)
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)

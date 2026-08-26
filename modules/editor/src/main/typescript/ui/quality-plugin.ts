@@ -195,9 +195,11 @@ export class EpistolaQualityPanel extends LitElement {
         </div>
 
         ${this._error ? html`<div class="quality-panel-error">${this._error}</div>` : nothing}
-        ${!this._loading && findings.length === 0
-          ? html`<div class="quality-panel-empty">No findings for this variant.</div>`
-          : nothing}
+        ${
+          !this._loading && findings.length === 0
+            ? html`<div class="quality-panel-empty">No findings for this variant.</div>`
+            : nothing
+        }
 
         <div class="quality-finding-list">
           ${findings.map((finding) => this._renderFinding(finding))}
@@ -226,11 +228,13 @@ export class EpistolaQualityPanel extends LitElement {
           <span class="quality-badge quality-severity">${finding.severity.toLowerCase()}</span>
           <span class="quality-badge">${finding.status.toLowerCase()}</span>
           ${finding.stale ? html`<span class="quality-badge quality-stale">stale</span>` : nothing}
-          ${finding.nodeIds.length > 0
-            ? html`<span class="quality-badge"
-                >${finding.nodeIds.length} node${finding.nodeIds.length === 1 ? '' : 's'}</span
-              >`
-            : nothing}
+          ${
+            finding.nodeIds.length > 0
+              ? html`<span class="quality-badge"
+                  >${finding.nodeIds.length} node${finding.nodeIds.length === 1 ? '' : 's'}</span
+                >`
+              : nothing
+          }
         </div>
       </article>
     `;

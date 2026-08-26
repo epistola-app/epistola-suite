@@ -38,6 +38,15 @@ epistola:
   demo:
     enabled: true
 
+  # Embedding basis for the training-facility site (docs/embedding.md, ADR
+  # 0015), enabled here so it can be developed against a local Epistola
+  # instance. The training site's local dev server usually runs at
+  # localhost:4321.
+  embedding:
+    enabled: true
+    allowed-parent-origins:
+      - http://localhost:4321
+
   # A FIXED local-dev encryption key (not the in-memory ephemeral fallback) so
   # credentials encrypted in your local DB survive app restarts. This is a
   # throwaway, non-secret dev key — same spirit as the admin/admin users below;
@@ -109,7 +118,6 @@ epistola:
       host: localhost
       port: 9090
       plaintext: true
-
 
 # ---------------------------------------------------------------------------
 # Keycloak OAuth2/OIDC for local development (opt-in).

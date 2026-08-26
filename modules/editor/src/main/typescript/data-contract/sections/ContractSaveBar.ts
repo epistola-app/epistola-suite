@@ -32,42 +32,52 @@ export function renderContractSaveControls(
   return html`
     <div class="dc-contract-save-controls">
       <div class="dc-contract-save-summary" aria-live="polite">
-        ${state.saving
-          ? html`<span class="dc-contract-save-state">Saving draft…</span>`
-          : state.saveError
-            ? html`<span class="dc-status-error">${state.saveError}</span>`
-            : state.saveSuccess
-              ? html`<span class="dc-status-success">Draft saved</span>`
-              : isDirty
-                ? html`
-                    <span class="dc-contract-save-state">Unsaved draft changes</span>
-                    ${state.schemaDirty
-                      ? html`<span class="dc-contract-change-badge">Schema</span>`
-                      : nothing}
-                    ${state.examplesDirty
-                      ? html`<span class="dc-contract-change-badge">Examples</span>`
-                      : nothing}
-                  `
-                : html`<span class="dc-contract-save-state dc-contract-save-state-muted"
-                    >All changes saved</span
-                  >`}
-        ${isDirty && state.blockedReason
-          ? html`<span class="dc-contract-save-blocked">${state.blockedReason}</span>`
-          : nothing}
+        ${
+          state.saving
+            ? html`<span class="dc-contract-save-state">Saving draft…</span>`
+            : state.saveError
+              ? html`<span class="dc-status-error">${state.saveError}</span>`
+              : state.saveSuccess
+                ? html`<span class="dc-status-success">Draft saved</span>`
+                : isDirty
+                  ? html`
+                      <span class="dc-contract-save-state">Unsaved draft changes</span>
+                      ${
+                        state.schemaDirty
+                          ? html`<span class="dc-contract-change-badge">Schema</span>`
+                          : nothing
+                      }
+                      ${
+                        state.examplesDirty
+                          ? html`<span class="dc-contract-change-badge">Examples</span>`
+                          : nothing
+                      }
+                    `
+                  : html`<span class="dc-contract-save-state dc-contract-save-state-muted"
+                      >All changes saved</span
+                    >`
+        }
+        ${
+          isDirty && state.blockedReason
+            ? html`<span class="dc-contract-save-blocked">${state.blockedReason}</span>`
+            : nothing
+        }
       </div>
 
       <div class="dc-contract-save-actions">
-        ${state.canForceSave
-          ? html`
-              <button
-                class="ep-btn ep-btn-outline ep-btn-sm dc-force-save-btn"
-                ?disabled=${state.saving}
-                @click=${() => callbacks.onForceSave()}
-              >
-                Save anyway
-              </button>
-            `
-          : nothing}
+        ${
+          state.canForceSave
+            ? html`
+                <button
+                  class="ep-btn ep-btn-outline ep-btn-sm dc-force-save-btn"
+                  ?disabled=${state.saving}
+                  @click=${() => callbacks.onForceSave()}
+                >
+                  Save anyway
+                </button>
+              `
+            : nothing
+        }
         <button
           class="ep-btn ep-btn-primary ep-btn-sm dc-save-btn"
           ?disabled=${!canSave}

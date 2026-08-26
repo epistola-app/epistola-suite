@@ -9,3 +9,11 @@
 epistola:
   demo:
     enabled: true
+  # Basis for the future training facility on epistola.app: allows Epistola's
+  # UI to be embedded in an <iframe> there, driven by a postMessage bridge.
+  # docs/embedding.md. Relaxes CSP frame-ancestors and switches session/CSRF
+  # cookies to SameSite=None — demo-profile only, see ADR 0015.
+  embedding:
+    enabled: true
+    allowed-parent-origins:
+      - https://epistola.app

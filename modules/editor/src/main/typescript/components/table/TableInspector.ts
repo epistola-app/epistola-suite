@@ -280,26 +280,30 @@ export class TableInspector extends LitElement {
           >Selection (${sel.startRow},${sel.startCol}) - (${sel.endRow},${sel.endCol})</span
         >
         <div class="table-merge-buttons">
-          ${canDoMerge
-            ? html`
-                <button
-                  class="ep-btn ep-btn-outline ep-btn-sm"
-                  @click=${() => this._handleMerge(sel)}
-                >
-                  Merge Cells
-                </button>
-              `
-            : nothing}
-          ${isMergedCell
-            ? html`
-                <button
-                  class="ep-btn ep-btn-outline ep-btn-sm"
-                  @click=${() => this._handleUnmerge(sel.startRow, sel.startCol)}
-                >
-                  Unmerge
-                </button>
-              `
-            : nothing}
+          ${
+            canDoMerge
+              ? html`
+                  <button
+                    class="ep-btn ep-btn-outline ep-btn-sm"
+                    @click=${() => this._handleMerge(sel)}
+                  >
+                    Merge Cells
+                  </button>
+                `
+              : nothing
+          }
+          ${
+            isMergedCell
+              ? html`
+                  <button
+                    class="ep-btn ep-btn-outline ep-btn-sm"
+                    @click=${() => this._handleUnmerge(sel.startRow, sel.startCol)}
+                  >
+                    Unmerge
+                  </button>
+                `
+              : nothing
+          }
         </div>
       </div>
     `;

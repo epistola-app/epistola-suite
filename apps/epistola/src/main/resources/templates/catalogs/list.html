@@ -144,11 +144,9 @@
         <!-- Upgrade preview dialog is loaded here on demand (hx-get) -->
         <div id="upgrade-dialog-container" data-open-dialog-on-swap="upgrade-dialog"></div>
 
-        <!-- Export conflict dialog is loaded here on demand (hx-get). Only
-             rendered when the precheck found stencil-version conflicts; with no
-             conflicts the server returns 204 + HX-Redirect (handled by htmx
-             itself, no dialog arrives and nothing opens). -->
-        <div id="export-dialog-container" data-open-dialog-on-swap="export-conflict-dialog"></div>
+        <!-- The export precheck loads either a confirmation dialog or a blocking
+             stencil-version conflict dialog into this generic dialog mount. -->
+        <div id="export-dialog-container" data-dialog-mount></div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
@@ -228,10 +226,34 @@
          open dialog) while #catalog-list updates via OOB. -->
     <th:block th:fragment="release-done"></th:block>
 
+    <!-- Export confirmation — rendered by `exportCheck` after the catalog
+         passes its stencil-version conflict precheck. -->
+    <th:block th:fragment="export-confirmation-dialog">
+        <dialog id="export-confirmation-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>Export catalog</h3>
+            </div>
+            <div class="ep-dialog-body">
+                <div class="alert alert-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-lg')}" />
+                    <div>
+                        Only the latest published version of versioned resources will be included.
+                        Drafts and older published versions will not be exported.
+                    </div>
+                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-ghost"
+                        data-close-dialog="export-confirmation-dialog">Cancel</button>
+                <a class="ep-btn ep-btn-primary"
+                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId})}"
+                   data-close-dialog="export-confirmation-dialog" hx-boost="false" download>Export as ZIP</a>
+            </div>
+        </dialog>
+    </th:block>
+
     <!-- Export conflict dialog — rendered by `exportCheck` when published
-         templates in the catalog pin the same own-catalog stencil at multiple
-         versions. When there is no conflict the server returns 204 +
-         HX-Redirect instead, so this fragment never renders on the happy path. -->
+         templates in the catalog pin an outdated own-catalog stencil version. -->
     <th:block th:fragment="export-conflict-dialog">
         <dialog id="export-conflict-dialog" class="ep-dialog">
             <div class="ep-dialog-header">

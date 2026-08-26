@@ -24,6 +24,11 @@
         <script th:src="@{/js/pages/stencil-detail.js}"></script>
         <script th:src="@{/js/pages/template-detail.js}"></script>
         <script th:src="@{/js/pages/resource-graph.js}"></script>
+        <!-- Embedding/postMessage bridge (docs/embedding.md, ADR 0015) — demo-mode
+             only. Conditioned server-side by the same flag that drives the CSP
+             frame-ancestors relaxation, so the message listener doesn't exist at
+             all in non-embedding deployments. -->
+        <script th:if="${embeddingEnabled}" th:src="@{/js/embed-bridge.js}"></script>
     </th:block>
 </head>
 </html>

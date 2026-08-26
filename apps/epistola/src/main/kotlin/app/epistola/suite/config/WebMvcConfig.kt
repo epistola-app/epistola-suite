@@ -4,6 +4,7 @@
 
 package app.epistola.suite.config
 
+import app.epistola.suite.embedding.EmbeddingContextInterceptor
 import app.epistola.suite.handlers.ShellModelInterceptor
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
@@ -15,6 +16,7 @@ class WebMvcConfig(
     private val shellModelInterceptor: ShellModelInterceptor,
     private val versionInterceptor: VersionInterceptor,
     private val siteBannerInterceptor: SiteBannerInterceptor,
+    private val embeddingContextInterceptor: EmbeddingContextInterceptor,
 ) : WebMvcConfigurer {
 
     override fun addInterceptors(registry: InterceptorRegistry) {
@@ -23,6 +25,8 @@ class WebMvcConfig(
         registry.addInterceptor(shellModelInterceptor)
             .addPathPatterns("/**")
         registry.addInterceptor(siteBannerInterceptor)
+            .addPathPatterns("/**")
+        registry.addInterceptor(embeddingContextInterceptor)
             .addPathPatterns("/**")
     }
 

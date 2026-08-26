@@ -179,12 +179,14 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); padding: 1px 6px; background: var(--ep-muted, #f3f4f6); border-radius: 4px;"
           >${typeLabel}</span
         >
-        ${row.required
-          ? html`<span
-              title="Required"
-              style="width:6px; height:6px; border-radius:50%; background: var(--ep-destructive, #dc2626);"
-            ></span>`
-          : nothing}
+        ${
+          row.required
+            ? html`<span
+                title="Required"
+                style="width:6px; height:6px; border-radius:50%; background: var(--ep-destructive, #dc2626);"
+              ></span>`
+            : nothing
+        }
       </div>
     `;
   }
@@ -286,11 +288,15 @@ export class StencilParameterDefinitionsPanel extends LitElement {
             placeholder=${defaultPlaceholder(row)}
           />`,
         )}
-        ${error
-          ? html`<div style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626);">
-              ${error}
-            </div>`
-          : nothing}
+        ${
+          error
+            ? html`<div
+                style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626);"
+              >
+                ${error}
+              </div>`
+            : nothing
+        }
       </div>
     `;
   }

@@ -6,6 +6,12 @@
     <title th:text="${pageTitle} ?: 'Epistola'">Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
+    <!-- Embedding bridge config (docs/embedding.md, ADR 0015) — demo-mode only.
+         Static per session, so <head>-once is fine even though boosted swaps
+         never re-load <head>. -->
+    <script type="application/json" id="epistola-embed-config" th:if="${embeddingEnabled}" th:inline="javascript">
+        /*[[${allowedParentOrigins}]]*/ []
+    </script>
     <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <body class="app-shell" hx-boost="true">

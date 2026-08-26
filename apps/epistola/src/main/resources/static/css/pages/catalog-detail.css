@@ -1,0 +1,130 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+.catalog-detail-header {
+  align-items: flex-start;
+  gap: var(--ep-space-4);
+}
+
+.catalog-detail-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+}
+
+.catalog-detail-heading h2 {
+  margin: 0;
+}
+
+.catalog-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--ep-space-5);
+  padding: var(--ep-space-5) var(--ep-space-6);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.catalog-detail-summary-item {
+  min-width: 0;
+}
+
+.catalog-detail-source {
+  grid-column: 1 / -1;
+}
+
+.catalog-detail-label {
+  display: block;
+  margin-bottom: var(--ep-space-1-5);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--ep-tracking-wide);
+  text-transform: uppercase;
+}
+
+.catalog-detail-value {
+  margin: 0;
+  font-size: var(--ep-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.catalog-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.catalog-detail-item {
+  min-width: 0;
+  padding: var(--ep-space-5) var(--ep-space-6);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.catalog-detail-item:nth-child(odd) {
+  border-right: 1px solid var(--ep-border-color);
+}
+
+.catalog-detail-item:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.catalog-detail-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-3);
+}
+
+.catalog-detail-item-header h3 {
+  margin: 0;
+  font-size: var(--ep-text-sm);
+  font-weight: 600;
+}
+
+.catalog-detail-item .ep-btn {
+  flex: none;
+}
+
+.catalog-presentation-icon {
+  display: block;
+  max-width: 4rem;
+  max-height: 4rem;
+  object-fit: contain;
+}
+
+.catalog-presentation-image {
+  width: 8.5rem;
+  height: 5.25rem;
+  object-fit: contain;
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+}
+
+.catalog-presentation-placeholder {
+  width: 8.5rem;
+  min-height: 5.25rem;
+  padding: var(--ep-space-2);
+  border: 1px dashed var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+}
+
+@media (max-width: 640px) {
+  .catalog-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-detail-item,
+  .catalog-detail-item:nth-child(odd),
+  .catalog-detail-item:nth-last-child(-n + 2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--ep-border-color);
+  }
+
+  .catalog-detail-item:last-child {
+    border-bottom: 0;
+  }
+}
