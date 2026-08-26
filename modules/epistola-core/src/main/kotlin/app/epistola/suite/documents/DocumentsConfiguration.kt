@@ -34,6 +34,7 @@ data class JobPollingProperties(
     val maxConcurrentJobs: Int = 2,
     val staleTimeoutMinutes: Long = 10,
     val adaptiveBatch: AdaptiveBatchProperties = AdaptiveBatchProperties(),
+    val databasePressure: DatabasePressureProperties = DatabasePressureProperties(),
 )
 
 /**
@@ -49,4 +50,23 @@ data class AdaptiveBatchProperties(
     val maxBatchSize: Int = 10,
     val fastThresholdMs: Long = 2000,
     val slowThresholdMs: Long = 5000,
+)
+
+/**
+ * Protects interactive traffic by reducing only *new* document-generation
+ * admissions when this process observes database pressure.  It is deliberately
+ * separate from adaptive batch sizing: batch size controls how many rows are
+ * claimed in one transaction, while this controls how many renders may run at
+ * once.
+ */
+data class DatabasePressureProperties(
+    val enabled: Boolean = true,
+    val observationWindowMs: Long = 10_000,
+    val minimumSamples: Int = 3,
+    val slowStatementThresholdMs: Long = 500,
+    val recoveryStatementThresholdMs: Long = 200,
+    val minimumConcurrentJobs: Int = 1,
+    val backoffIntervalMs: Long = 1_000,
+    val recoveryPeriodMs: Long = 30_000,
+    val recoveryStepIntervalMs: Long = 10_000,
 )

@@ -61,6 +61,7 @@ class JobPoller(
     private val jobExecutor: DocumentGenerationExecutor,
     private val properties: JobPollingProperties,
     private val batchSizer: AdaptiveBatchSizer,
+    private val admissionController: DatabasePressureAdmissionController,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
 ) : ClusterScheduledTaskHandler {
@@ -243,8 +244,15 @@ class JobPoller(
             updatePendingCount()
 
             // Keep claiming until at capacity or no more work
-            while (activeJobs.get() < properties.maxConcurrentJobs) {
-                val availableSlots = properties.maxConcurrentJobs - activeJobs.get()
+            while (true) {
+                val effectiveLimit = admissionController.effectiveLimit()
+                val availableSlots = effectiveLimit - activeJobs.get()
+                if (availableSlots <= 0) {
+                    if (effectiveLimit == 0) {
+                        logger.info("Document generation admissions paused while database pressure recovers")
+                    }
+                    break
+                }
                 val requestedBatchSize = batchSizer.getCurrentBatchSize()
                 val actualBatchSize = minOf(requestedBatchSize, availableSlots)
 
@@ -260,7 +268,7 @@ class JobPoller(
                         "No pending jobs available | Batch size: {}, Active: {}/{}",
                         requestedBatchSize,
                         activeJobs.get(),
-                        properties.maxConcurrentJobs,
+                        effectiveLimit,
                     )
                     break // Queue empty
                 }
@@ -272,7 +280,7 @@ class JobPoller(
                     requestedBatchSize,
                     availableSlots,
                     activeJobs.get(),
-                    properties.maxConcurrentJobs,
+                    effectiveLimit,
                 )
 
                 // Increment counter for all claimed jobs
