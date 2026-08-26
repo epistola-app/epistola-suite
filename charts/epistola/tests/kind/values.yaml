@@ -8,6 +8,17 @@ config:
 encryption:
   enabled: false
 
+# Keep the disposable smoke environment small. It validates chart wiring and
+# readiness, not document-generation throughput; use the chart defaults for
+# the production generation profile documented in docs/deployment.md.
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
 database:
   type: external
   external:

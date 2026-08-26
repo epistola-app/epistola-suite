@@ -7,7 +7,8 @@
 - **[dev]** fix(chart): **The chart's resource defaults now match measured
   document-generation demand.** Pods request 750m CPU and 1536Mi memory, with
   4 CPU / 5Gi limits; the default HPA targets 600m CPU and does not scale on
-  retained JVM memory.
+  retained JVM memory. The Kind fixture documents and uses the smaller test /
+  preview profile.
 - **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
   smoke test.** Pull requests run the local chart installation harness only
   when the Epistola chart, its test harness, or its workflow changes; unrelated

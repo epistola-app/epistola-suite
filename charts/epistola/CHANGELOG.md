@@ -38,6 +38,7 @@
   use up to 4 CPU / 5Gi memory. The VPA policy has matching bounds. The HPA's
   default CPU target is therefore about `600m` per pod; its memory metric is
   off by default because retained JVM heap is not a reliable scale-down signal.
+  The Kind fixture explicitly uses the smaller test/preview profile instead.
 
 ### Fixed
 

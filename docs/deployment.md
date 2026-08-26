@@ -415,11 +415,33 @@ result.
 | 100 documents | 8.5s | ~11.7 docs/s | 7.0s | 8.0s | 0 |
 | 10,000 documents | 85.2s | ~117 docs/s | 47.5s | 81.4s | 0 |
 
-The chart defaults reserve `750m` CPU and `1536Mi` memory, with `4` CPU and
-`5Gi` memory limits. This gives a single pod enough headroom for roughly
-500 documents per minute, though a sustained generation burst can make the UI
-less responsive. Size up, introduce separate worker capacity, or limit
-generation concurrency if interactive responsiveness is a priority.
+### Resource profiles
+
+Use the chart defaults for production generation capacity. The smaller profile
+is deliberately for test, preview, and low-volume environments; it remains
+functional but documents generate more slowly under load.
+
+| Profile | CPU request / limit | Memory request / limit | Intended use |
+| --- | --- | --- | --- |
+| Production generation (chart default) | `750m` / `4` | `1536Mi` / `5Gi` | About 500 documents/minute per pod; sustained bursts can still affect UI responsiveness. |
+| Test, preview, or low volume | `100m` / `1` | `512Mi` / `1Gi` | Chart verification, manual testing, and occasional generation; do not use this profile when generation latency or UI responsiveness matters. |
+
+To select the small profile, override the defaults in your values file:
+
+```yaml
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+```
+
+For workloads above the production baseline, benchmark representative document
+templates and concurrent UI traffic. Increase capacity, introduce separate
+worker capacity, or limit generation concurrency when interactive
+responsiveness is a priority.
 
 ## Pod autoscaling
 
