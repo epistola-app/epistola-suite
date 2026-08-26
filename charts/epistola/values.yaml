@@ -67,8 +67,8 @@ ingress:
 
 resources:
   limits:
-    cpu: "4"
-    memory: 5Gi
+    cpu: "3"
+    memory: 4Gi
   requests:
     # The JVM retains heap after generation bursts. These defaults are sized
     # for the documented PDF-generation load profile in docs/deployment.md.
@@ -130,8 +130,8 @@ vpa:
       cpu: 750m
       memory: 1536Mi
     maxAllowed:
-      cpu: "4"
-      memory: 5Gi
+      cpu: "3"
+      memory: 4Gi
 
 # Additional volumes on the output Deployment definition.
 # Note: tmp-dir is required for readOnlyRootFilesystem since Java needs a writable /tmp

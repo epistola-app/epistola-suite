@@ -37,7 +37,7 @@
 
 - **Resource defaults now cover the documented document-generation load
   profile.** Application pods request `750m` CPU and `1536Mi` memory and may
-  use up to 4 CPU / 5Gi memory. The VPA policy has matching bounds. The HPA's
+  use up to 3 CPU / 4Gi memory. The VPA policy has matching bounds. The HPA's
   default CPU target is therefore about `600m` per pod; its memory metric is
   off by default because retained JVM heap is not a reliable scale-down signal.
   This production profile supports about 5,000 documents per minute per node.

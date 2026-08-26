@@ -26,7 +26,8 @@ for expected in \
   'controlledValues: "RequestsOnly"' \
   'cpu: 750m' \
   'memory: 1536Mi' \
-  'memory: 5Gi'; do
+  'cpu: "3"' \
+  'memory: 4Gi'; do
   if ! grep -Fq "${expected}" <<<"${enabled}"; then
     echo "Expected enabled VPA render to contain: ${expected}" >&2
     exit 1
