@@ -468,17 +468,32 @@ vpa:
       memory: 5Gi
 ```
 
-After observing representative workload, including peak PDF-generation
-concurrency and document complexity, consider `Initial` (apply a recommendation
-when creating a pod) or `Recreate` (evict pods to apply a recommendation). The
-default `RequestsOnly` leaves `resources.limits` under operator control. Its
-recommendations must stay at or below those limits, so increasing a VPA
+### VPA rollout recommendation
+
+VPA rendering is supported by this chart, but live VPA-controller behavior has
+not yet been tested by Epistola. Treat it as an operator-evaluated feature:
+
+1. Enable it with `updateMode: Off` and observe recommendations over
+   representative PDF-generation bursts, document complexity, and normal UI
+   traffic.
+2. If recommendations are stable, trial `Initial` in a non-critical
+   environment. It applies the recommendation only when a pod is created, so
+   it does not evict a running application pod.
+3. Evaluate `Recreate` or `Auto` only after confirming that pod evictions are
+   safe for active users and document-generation jobs.
+
+The default `RequestsOnly` leaves `resources.limits` under operator control.
+Its recommendations must stay at or below those limits, so increasing a VPA
 `maxAllowed` value also requires increasing the corresponding Helm resource
 limit.
 
-Do not configure HPA and VPA to control the same CPU or memory resource. They
-would make competing scaling decisions; use one controller for a resource, or
-split their resource responsibility deliberately before enabling both.
+Do not enable VPA together with this chart's default CPU HPA configuration.
+The chart's VPA currently manages CPU and memory requests together; it does
+not yet expose VPA `controlledResources` to restrict VPA to memory while HPA
+controls CPU. In production, use the CPU HPA and leave VPA disabled. For a
+fixed-size or exploratory environment, disable HPA and use VPA `Off` first,
+then potentially `Initial`. Test and preview environments normally need
+neither controller.
 
 The HPA is disabled by default. When enabled, it scales on average CPU use at
 80% of the `750m` request—about `600m` per pod—and keeps one to ten replicas.
