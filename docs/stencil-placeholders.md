@@ -44,9 +44,7 @@ position.
     "description": "<string, optional>",
     "kind": "block", // reserved; only "block" in v1
   },
-  "styles": {
-    /* container-style props, optional */
-  },
+  "styles": {/* container-style props, optional */},
 }
 ```
 

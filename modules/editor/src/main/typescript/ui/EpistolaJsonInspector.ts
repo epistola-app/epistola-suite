@@ -508,115 +508,126 @@ export class EpistolaJsonInspector extends LitElement {
           ${icon('braces')}
         </button>
 
-        ${this._open
-          ? html`
-              <div
-                id=${POPOVER_ID}
-                class=${popoverClass}
-                style=${popoverStyle}
-                data-testid="inspector-popover"
-                role="dialog"
-                aria-label="JSON inspector"
-                tabindex="-1"
-              >
-                <div class="json-inspector-header">
-                  <div class="json-inspector-tabs" role="tablist" aria-label="Inspect">
-                    <button
-                      class="json-inspector-tab ${view === 'template' ? 'is-active' : ''}"
-                      data-testid="inspector-tab-template"
-                      role="tab"
-                      type="button"
-                      aria-selected=${String(view === 'template')}
-                      @click=${(e: Event) => this._setView('template', e)}
-                    >
-                      Template
-                    </button>
-                    <button
-                      class="json-inspector-tab ${view === 'data' ? 'is-active' : ''}"
-                      data-testid="inspector-tab-data"
-                      role="tab"
-                      type="button"
-                      ?disabled=${!hasExamples}
-                      title=${hasExamples
-                        ? 'Current data example'
-                        : 'This template has no data examples'}
-                      aria-selected=${String(view === 'data')}
-                      @click=${(e: Event) => this._setView('data', e)}
-                    >
-                      Data
-                    </button>
+        ${
+          this._open
+            ? html`
+                <div
+                  id=${POPOVER_ID}
+                  class=${popoverClass}
+                  style=${popoverStyle}
+                  data-testid="inspector-popover"
+                  role="dialog"
+                  aria-label="JSON inspector"
+                  tabindex="-1"
+                >
+                  <div class="json-inspector-header">
+                    <div class="json-inspector-tabs" role="tablist" aria-label="Inspect">
+                      <button
+                        class="json-inspector-tab ${view === 'template' ? 'is-active' : ''}"
+                        data-testid="inspector-tab-template"
+                        role="tab"
+                        type="button"
+                        aria-selected=${String(view === 'template')}
+                        @click=${(e: Event) => this._setView('template', e)}
+                      >
+                        Template
+                      </button>
+                      <button
+                        class="json-inspector-tab ${view === 'data' ? 'is-active' : ''}"
+                        data-testid="inspector-tab-data"
+                        role="tab"
+                        type="button"
+                        ?disabled=${!hasExamples}
+                        title=${
+                          hasExamples
+                            ? 'Current data example'
+                            : 'This template has no data examples'
+                        }
+                        aria-selected=${String(view === 'data')}
+                        @click=${(e: Event) => this._setView('data', e)}
+                      >
+                        Data
+                      </button>
+                    </div>
+
+                    <div class="json-inspector-actions">
+                      ${
+                        this._pinned
+                          ? html`
+                              <button
+                                class="ep-btn ep-btn-outline ep-btn-sm json-inspector-drag-handle"
+                                data-testid="inspector-drag-handle"
+                                type="button"
+                                title="Drag to move"
+                                aria-label="Drag to move"
+                                @pointerdown=${(e: PointerEvent) => this._startDrag(e)}
+                              >
+                                ${icon('grip-vertical', 14)} Drag
+                              </button>
+                            `
+                          : nothing
+                      }
+
+                      <button
+                        class=${`ep-btn ep-btn-outline ep-btn-sm ${copyClass}`}
+                        data-testid="inspector-copy"
+                        type="button"
+                        ?disabled=${!canCopy}
+                        @click=${(e: Event) => void this._copy(e)}
+                      >
+                        ${this._copyButtonLabel()}
+                      </button>
+
+                      <button
+                        class="ep-btn ep-btn-outline ep-btn-sm ep-btn-icon json-inspector-pin ${
+                          this._pinned ? 'is-active' : ''
+                        }"
+                        data-testid="inspector-pin"
+                        type="button"
+                        title=${pinLabel}
+                        aria-label=${pinLabel}
+                        aria-pressed=${String(this._pinned)}
+                        @click=${this._togglePinned}
+                      >
+                        ${icon('paperclip', 14)}
+                      </button>
+                    </div>
                   </div>
 
-                  <div class="json-inspector-actions">
-                    ${this._pinned
+                  ${
+                    !this._pinned
                       ? html`
-                          <button
-                            class="ep-btn ep-btn-outline ep-btn-sm json-inspector-drag-handle"
-                            data-testid="inspector-drag-handle"
-                            type="button"
-                            title="Drag to move"
-                            aria-label="Drag to move"
-                            @pointerdown=${(e: PointerEvent) => this._startDrag(e)}
-                          >
-                            ${icon('grip-vertical', 14)} Drag
-                          </button>
+                          <div class="json-inspector-drag-hint">
+                            ${icon('paperclip', 12)} Pin to keep this viewer open and movable
+                          </div>
                         `
-                      : nothing}
+                      : nothing
+                  }
 
-                    <button
-                      class=${`ep-btn ep-btn-outline ep-btn-sm ${copyClass}`}
-                      data-testid="inspector-copy"
-                      type="button"
-                      ?disabled=${!canCopy}
-                      @click=${(e: Event) => void this._copy(e)}
-                    >
-                      ${this._copyButtonLabel()}
-                    </button>
+                  <div class="json-inspector-meta">${content.header}</div>
 
-                    <button
-                      class="ep-btn ep-btn-outline ep-btn-sm ep-btn-icon json-inspector-pin ${this
-                        ._pinned
-                        ? 'is-active'
-                        : ''}"
-                      data-testid="inspector-pin"
-                      type="button"
-                      title=${pinLabel}
-                      aria-label=${pinLabel}
-                      aria-pressed=${String(this._pinned)}
-                      @click=${this._togglePinned}
-                    >
-                      ${icon('paperclip', 14)}
-                    </button>
-                  </div>
+                  ${
+                    content.json !== null
+                      ? html`
+                          <textarea
+                            class="json-inspector-json"
+                            data-testid="inspector-json"
+                            readonly
+                            spellcheck="false"
+                            aria-label=${
+                              view === 'template'
+                                ? 'Effective template JSON'
+                                : 'Current data example JSON'
+                            }
+                            .value=${content.json}
+                          ></textarea>
+                        `
+                      : html`<div class="json-inspector-empty">${emptyText}</div>`
+                  }
                 </div>
-
-                ${!this._pinned
-                  ? html`
-                      <div class="json-inspector-drag-hint">
-                        ${icon('paperclip', 12)} Pin to keep this viewer open and movable
-                      </div>
-                    `
-                  : nothing}
-
-                <div class="json-inspector-meta">${content.header}</div>
-
-                ${content.json !== null
-                  ? html`
-                      <textarea
-                        class="json-inspector-json"
-                        data-testid="inspector-json"
-                        readonly
-                        spellcheck="false"
-                        aria-label=${view === 'template'
-                          ? 'Effective template JSON'
-                          : 'Current data example JSON'}
-                        .value=${content.json}
-                      ></textarea>
-                    `
-                  : html`<div class="json-inspector-empty">${emptyText}</div>`}
-              </div>
-            `
-          : nothing}
+              `
+            : nothing
+        }
       </div>
     `;
   }

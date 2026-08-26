@@ -161,19 +161,23 @@ export class StencilInspector extends LitElement {
       <div class="inspector-section">
         <div class="inspector-section-label">Stencil</div>
 
-        ${this._recovery
-          ? this._renderRecovery()
-          : html`
-              ${this._isLocked ? this._renderLocked() : nothing}
-              ${this._hasDraft ? this._renderDraft() : nothing}
-            `}
-        ${this._message
-          ? html`<div
-              class=${`callout callout--${this._messageType}${this._messageFading ? ' is-fading' : ''}`}
-            >
-              ${this._message}
-            </div>`
-          : nothing}
+        ${
+          this._recovery
+            ? this._renderRecovery()
+            : html`
+                ${this._isLocked ? this._renderLocked() : nothing}
+                ${this._hasDraft ? this._renderDraft() : nothing}
+              `
+        }
+        ${
+          this._message
+            ? html`<div
+                class=${`callout callout--${this._messageType}${this._messageFading ? ' is-fading' : ''}`}
+              >
+                ${this._message}
+              </div>`
+            : nothing
+        }
       </div>
       ${this._renderParameters()}
     `;
@@ -186,11 +190,13 @@ export class StencilInspector extends LitElement {
         <button class="btn btn-primary" ?disabled=${this._busy} @click=${this._handleRecover}>
           Recover embedded copy
         </button>
-        ${this._version != null
-          ? html`<button class="btn" ?disabled=${this._busy} @click=${this._handleDiscard}>
-              Discard to v${this._version}
-            </button>`
-          : nothing}
+        ${
+          this._version != null
+            ? html`<button class="btn" ?disabled=${this._busy} @click=${this._handleDiscard}>
+                Discard to v${this._version}
+              </button>`
+            : nothing
+        }
         <button class="btn" ?disabled=${this._busy} @click=${this._handleDetach}>
           Detach embedded copy
         </button>
@@ -218,11 +224,13 @@ export class StencilInspector extends LitElement {
           style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-2);"
         >
           ${boundCount} of ${declared.length}
-          bound${missingRequired
-            ? html`<span style="color: var(--ep-destructive, #dc2626); margin-left: 4px;"
-                >· missing required</span
-              >`
-            : nothing}
+          bound${
+            missingRequired
+              ? html`<span style="color: var(--ep-destructive, #dc2626); margin-left: 4px;"
+                  >· missing required</span
+                >`
+              : nothing
+          }
         </div>
         <button
           class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
@@ -287,28 +295,30 @@ export class StencilInspector extends LitElement {
   private _renderLocked() {
     return html`
       <div class="inspector-field stencil-actions">
-        ${this._hasUpgrade
-          ? html`<button
-                class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
-                ?disabled=${this._busy}
-                @click=${this._handleUpgrade}
-              >
-                ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
-              </button>
-              <div class="callout callout--warning">
-                Upgrade to v${this._latestVersion} before editing — editing the stale
-                v${this._version} content here would overwrite the newer published version when you
-                save.
-              </div>`
-          : this.callbacks?.startEditing
+        ${
+          this._hasUpgrade
             ? html`<button
-                class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
-                ?disabled=${this._busy}
-                @click=${this._handleStartEditing}
-              >
-                ${this._busy ? 'Loading...' : 'Start Editing'}
-              </button>`
-            : nothing}
+                  class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
+                  ?disabled=${this._busy}
+                  @click=${this._handleUpgrade}
+                >
+                  ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
+                </button>
+                <div class="callout callout--warning">
+                  Upgrade to v${this._latestVersion} before editing — editing the stale
+                  v${this._version} content here would overwrite the newer published version when
+                  you save.
+                </div>`
+            : this.callbacks?.startEditing
+              ? html`<button
+                  class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
+                  ?disabled=${this._busy}
+                  @click=${this._handleStartEditing}
+                >
+                  ${this._busy ? 'Loading...' : 'Start Editing'}
+                </button>`
+              : nothing
+        }
 
         <button class="ep-btn ep-btn-outline ep-btn-sm stencil-btn" @click=${this._handleDetach}>
           Detach from Stencil
@@ -341,43 +351,52 @@ export class StencilInspector extends LitElement {
       </div>
 
       <div class="inspector-field stencil-actions">
-        ${this.callbacks?.updateStencil
-          ? html`<button
-              class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
-              ?disabled=${this._busy}
-              @click=${this._handleSaveDraft}
-            >
-              ${this._busy ? 'Saving...' : 'Save to Draft'}
-            </button>`
-          : nothing}
-        ${this.callbacks?.publishDraft
-          ? html`<button
-              class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
-              ?disabled=${this._busy || missingRequired.length > 0}
-              @click=${this._handlePublishDraft}
-            >
-              ${this._busy ? 'Publishing...' : 'Publish Draft'}
-            </button>`
-          : nothing}
-        ${this.callbacks?.getStencilVersion
-          ? html`<button
-              class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm stencil-btn"
-              ?disabled=${this._busy}
-              @click=${this._handleDiscard}
-            >
-              Discard Changes
-            </button>`
-          : nothing}
+        ${
+          this.callbacks?.updateStencil
+            ? html`<button
+                class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
+                ?disabled=${this._busy}
+                @click=${this._handleSaveDraft}
+              >
+                ${this._busy ? 'Saving...' : 'Save to Draft'}
+              </button>`
+            : nothing
+        }
+        ${
+          this.callbacks?.publishDraft
+            ? html`<button
+                class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+                ?disabled=${this._busy || missingRequired.length > 0}
+                @click=${this._handlePublishDraft}
+              >
+                ${this._busy ? 'Publishing...' : 'Publish Draft'}
+              </button>`
+            : nothing
+        }
+        ${
+          this.callbacks?.getStencilVersion
+            ? html`<button
+                class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm stencil-btn"
+                ?disabled=${this._busy}
+                @click=${this._handleDiscard}
+              >
+                Discard Changes
+              </button>`
+            : nothing
+        }
 
         <button class="ep-btn ep-btn-outline ep-btn-sm stencil-btn" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
-        ${missingRequired.length > 0
-          ? html`<div class="callout callout--warning">
-              Configure required ${missingRequired.length === 1 ? 'parameter' : 'parameters'} before
-              publishing: ${missingRequired.join(', ')}. You can still save this as a draft.
-            </div>`
-          : nothing}
+        ${
+          missingRequired.length > 0
+            ? html`<div class="callout callout--warning">
+                Configure required ${missingRequired.length === 1 ? 'parameter' : 'parameters'}
+                before publishing: ${missingRequired.join(', ')}. You can still save this as a
+                draft.
+              </div>`
+            : nothing
+        }
       </div>
     `;
   }

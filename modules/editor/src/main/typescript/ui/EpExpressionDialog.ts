@@ -764,34 +764,42 @@ export class EpExpressionDialog extends LitElement {
   private _renderFieldOptions(): TemplateResult | typeof nothing {
     return html`
       <option value="">Select a field...</option>
-      ${this._builderFields.length > 0
-        ? html`
-            <optgroup label="Template variables">
-              ${this._builderFields.map((fp) => this._renderFieldOption(fp))}
-            </optgroup>
-          `
-        : nothing}
-      ${this._builderIterationFields.length > 0
-        ? html`
-            <optgroup label="Iteration variables">
-              ${this._builderIterationFields.map((fp) => this._renderFieldOption(fp))}
-            </optgroup>
-          `
-        : nothing}
-      ${this._builderStencilParameterFields.length > 0
-        ? html`
-            <optgroup label="Stencil parameters">
-              ${this._builderStencilParameterFields.map((fp) => this._renderFieldOption(fp))}
-            </optgroup>
-          `
-        : nothing}
-      ${this._builderSystemFields.length > 0
-        ? html`
-            <optgroup label="System parameters">
-              ${this._builderSystemFields.map((fp) => this._renderFieldOption(fp))}
-            </optgroup>
-          `
-        : nothing}
+      ${
+        this._builderFields.length > 0
+          ? html`
+              <optgroup label="Template variables">
+                ${this._builderFields.map((fp) => this._renderFieldOption(fp))}
+              </optgroup>
+            `
+          : nothing
+      }
+      ${
+        this._builderIterationFields.length > 0
+          ? html`
+              <optgroup label="Iteration variables">
+                ${this._builderIterationFields.map((fp) => this._renderFieldOption(fp))}
+              </optgroup>
+            `
+          : nothing
+      }
+      ${
+        this._builderStencilParameterFields.length > 0
+          ? html`
+              <optgroup label="Stencil parameters">
+                ${this._builderStencilParameterFields.map((fp) => this._renderFieldOption(fp))}
+              </optgroup>
+            `
+          : nothing
+      }
+      ${
+        this._builderSystemFields.length > 0
+          ? html`
+              <optgroup label="System parameters">
+                ${this._builderSystemFields.map((fp) => this._renderFieldOption(fp))}
+              </optgroup>
+            `
+          : nothing
+      }
     `;
   }
 
@@ -816,9 +824,9 @@ export class EpExpressionDialog extends LitElement {
         <div class="expression-dialog-mode-toggle">
           <button
             type="button"
-            class="mode-btn ${this._mode === 'builder' ? 'active' : ''} ${builderDisabled
-              ? 'disabled'
-              : ''}"
+            class="mode-btn ${this._mode === 'builder' ? 'active' : ''} ${
+              builderDisabled ? 'disabled' : ''
+            }"
             data-mode="builder"
             @click=${(): void => this._switchMode('builder')}
           >
@@ -911,11 +919,13 @@ export class EpExpressionDialog extends LitElement {
         data-mode-panel="code"
         style="display: ${this._mode === 'code' || !this.enableBuilderMode ? '' : 'none'}"
       >
-        ${this.enableBuilderMode
-          ? html`<label class="expression-dialog-field-label" for="expression-dialog-input"
-              >Expression</label
-            >`
-          : nothing}
+        ${
+          this.enableBuilderMode
+            ? html`<label class="expression-dialog-field-label" for="expression-dialog-input"
+                >Expression</label
+              >`
+            : nothing
+        }
         <textarea
           class="expression-dialog-input ${this._inputValidationClass()}"
           id="expression-dialog-input"
@@ -1007,10 +1017,9 @@ export class EpExpressionDialog extends LitElement {
 
     return html`
       <li
-        class="expression-dialog-path-item ${highlighted ? 'highlighted' : ''} ${disabledReason !==
-        null
-          ? 'disabled'
-          : ''} ${fp.scope ? 'scoped' : ''} ${fp.system ? 'system' : ''}"
+        class="expression-dialog-path-item ${highlighted ? 'highlighted' : ''} ${
+          disabledReason !== null ? 'disabled' : ''
+        } ${fp.scope ? 'scoped' : ''} ${fp.system ? 'system' : ''}"
         tabindex="${disabledReason !== null ? '-1' : '0'}"
         role="button"
         title="${disabledReason !== null ? disabledReason : (fp.description ?? '')}"
@@ -1166,13 +1175,15 @@ export class EpExpressionDialog extends LitElement {
         @click=${this._onBackdropClick}
       >
         <form method="dialog" class="expression-dialog-form" @submit=${this._onSubmit}>
-          ${this.enableBuilderMode
-            ? this._renderModeToggle()
-            : html`
-                <label class="expression-dialog-field-label" for="expression-dialog-input">
-                  ${this.label}
-                </label>
-              `}
+          ${
+            this.enableBuilderMode
+              ? this._renderModeToggle()
+              : html`
+                  <label class="expression-dialog-field-label" for="expression-dialog-input">
+                    ${this.label}
+                  </label>
+                `
+          }
           <div class="expression-dialog-body">
             ${this.enableBuilderMode ? this._renderBuilderPanel() : nothing}
             ${this.enableBuilderMode ? this._renderModeWarning() : nothing}

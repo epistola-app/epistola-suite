@@ -100,9 +100,11 @@ export class EpistolaThemeEditor extends LitElement {
         </span>
         <button
           class="ep-btn ep-btn-primary ep-btn-sm theme-save-btn"
-          ?disabled=${this._saveState === 'saving' ||
-          this._saveState === 'idle' ||
-          this._saveState === 'saved'}
+          ?disabled=${
+            this._saveState === 'saving' ||
+            this._saveState === 'idle' ||
+            this._saveState === 'saved'
+          }
           @click=${() => this._save()}
         >
           ${this._saveState === 'saving' ? 'Saving...' : 'Save'}

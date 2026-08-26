@@ -36,18 +36,20 @@ export function renderPresetsSection(state: ThemeEditorState, readOnly = false):
       </div>
 
       <div class="theme-preset-list">
-        ${entries.length === 0
-          ? html`
-              <div class="empty-state">
-                <div class="empty-state-title">No presets defined</div>
-                <div class="empty-state-description">
-                  Add a preset to reuse the same styling across blocks.
+        ${
+          entries.length === 0
+            ? html`
+                <div class="empty-state">
+                  <div class="empty-state-title">No presets defined</div>
+                  <div class="empty-state-description">
+                    Add a preset to reuse the same styling across blocks.
+                  </div>
                 </div>
-              </div>
-            `
-          : entries.map(([name, preset]) =>
-              renderPresetItem(state, name, preset, () => state.removePreset(name), readOnly),
-            )}
+              `
+            : entries.map(([name, preset]) =>
+                renderPresetItem(state, name, preset, () => state.removePreset(name), readOnly),
+              )
+        }
       </div>
     </div>
   `;
