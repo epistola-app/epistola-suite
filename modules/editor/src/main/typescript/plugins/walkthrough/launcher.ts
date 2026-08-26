@@ -245,69 +245,75 @@ export class WalkthroughLauncher extends LitElement {
         >
           ${icon('compass')}
         </button>
-        ${this._open
-          ? html`
-              <div
-                class="ep-wt-popover"
-                role="menu"
-                aria-label="Guided walkthrough"
-                data-testid="walkthrough-launcher"
-                @keydown=${this._onMenuKeydown}
-              >
-                <div class="ep-wt-title">Walkthrough</div>
-                <ul class="ep-wt-list" role="none">
-                  ${this._chapters.map(
-                    (c) => html`
-                      <li role="none">
-                        <button
-                          class="ep-wt-item ${c.current ? 'is-current' : ''}"
-                          type="button"
-                          role="menuitem"
-                          tabindex="-1"
-                          aria-disabled=${c.available ? nothing : 'true'}
-                          data-testid=${`walkthrough-chapter-${c.id}`}
-                          aria-current=${c.current ? 'step' : nothing}
-                          aria-label=${`${c.title}: ${
-                            !c.available
-                              ? 'locked'
-                              : c.complete
-                                ? 'completed'
-                                : c.current
-                                  ? 'current chapter'
-                                  : 'not started'
-                          }. ${c.hint ?? c.summary}`}
-                          @click=${() => this._run(c.id)}
-                        >
-                          <span
-                            class="ep-wt-mark ${c.complete && c.available ? 'is-done' : ''}"
-                            data-state=${!c.available
-                              ? 'locked'
-                              : c.complete
-                                ? 'done'
-                                : c.current
-                                  ? 'current'
-                                  : 'pending'}
-                            aria-hidden="true"
-                            >${!c.available
-                              ? icon('lock')
-                              : c.complete
-                                ? icon('circle-check')
-                                : c.current
-                                  ? icon('circle-dot')
-                                  : icon('circle')}</span
+        ${
+          this._open
+            ? html`
+                <div
+                  class="ep-wt-popover"
+                  role="menu"
+                  aria-label="Guided walkthrough"
+                  data-testid="walkthrough-launcher"
+                  @keydown=${this._onMenuKeydown}
+                >
+                  <div class="ep-wt-title">Walkthrough</div>
+                  <ul class="ep-wt-list" role="none">
+                    ${this._chapters.map(
+                      (c) => html`
+                        <li role="none">
+                          <button
+                            class="ep-wt-item ${c.current ? 'is-current' : ''}"
+                            type="button"
+                            role="menuitem"
+                            tabindex="-1"
+                            aria-disabled=${c.available ? nothing : 'true'}
+                            data-testid=${`walkthrough-chapter-${c.id}`}
+                            aria-current=${c.current ? 'step' : nothing}
+                            aria-label=${`${c.title}: ${
+                              !c.available
+                                ? 'locked'
+                                : c.complete
+                                  ? 'completed'
+                                  : c.current
+                                    ? 'current chapter'
+                                    : 'not started'
+                            }. ${c.hint ?? c.summary}`}
+                            @click=${() => this._run(c.id)}
                           >
-                          <span class="ep-wt-text">
-                            <span class="ep-wt-name">${c.title}</span>
-                            <span class="ep-wt-summary">${c.hint ?? c.summary}</span>
-                          </span>
-                        </button>
-                      </li>
-                    `,
-                  )}
-                </ul>
-              </div>
-            `
-          : nothing}
+                            <span
+                              class="ep-wt-mark ${c.complete && c.available ? 'is-done' : ''}"
+                              data-state=${
+                                !c.available
+                                  ? 'locked'
+                                  : c.complete
+                                    ? 'done'
+                                    : c.current
+                                      ? 'current'
+                                      : 'pending'
+                              }
+                              aria-hidden="true"
+                              >${
+                                !c.available
+                                  ? icon('lock')
+                                  : c.complete
+                                    ? icon('circle-check')
+                                    : c.current
+                                      ? icon('circle-dot')
+                                      : icon('circle')
+                              }</span
+                            >
+                            <span class="ep-wt-text">
+                              <span class="ep-wt-name">${c.title}</span>
+                              <span class="ep-wt-summary">${c.hint ?? c.summary}</span>
+                            </span>
+                          </button>
+                        </li>
+                      `,
+                    )}
+                  </ul>
+                </div>
+              `
+            : nothing
+        }
       </div>
     `;
   }

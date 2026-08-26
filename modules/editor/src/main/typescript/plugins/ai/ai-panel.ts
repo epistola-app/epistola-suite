@@ -205,12 +205,16 @@ export class EpistolaAiPanel extends LitElement {
     return html`
       <div class="ai-panel">
         <div class="ai-messages" @scroll=${this._handleScroll}>
-          ${this._messages.length === 0
-            ? this._renderEmptyState()
-            : this._messages.map((msg) => this._renderMessage(msg))}
-          ${this._status === 'error' && this._error
-            ? html`<div class="ai-error">${this._error}</div>`
-            : nothing}
+          ${
+            this._messages.length === 0
+              ? this._renderEmptyState()
+              : this._messages.map((msg) => this._renderMessage(msg))
+          }
+          ${
+            this._status === 'error' && this._error
+              ? html`<div class="ai-error">${this._error}</div>`
+              : nothing
+          }
         </div>
         <div class="ai-input-area">
           <input
@@ -221,28 +225,32 @@ export class EpistolaAiPanel extends LitElement {
             @change=${this._handleFileChange}
             hidden
           />
-          ${this._attachError
-            ? html`<div class="ai-attach-error">${this._attachError}</div>`
-            : nothing}
-          ${this._pendingFiles.length > 0
-            ? html` <div class="ai-pending-files">
-                ${this._pendingFiles.map(
-                  (f) => html`
-                    <span class="ai-file-chip">
-                      ${icon('file-text', 12)}
-                      <span class="ai-file-chip-name">${f.name}</span>
-                      <button
-                        class="ai-file-chip-remove"
-                        @click=${() => this._handleRemoveFile(f.id)}
-                        title="Remove file"
-                      >
-                        ${icon('x', 10)}
-                      </button>
-                    </span>
-                  `,
-                )}
-              </div>`
-            : nothing}
+          ${
+            this._attachError
+              ? html`<div class="ai-attach-error">${this._attachError}</div>`
+              : nothing
+          }
+          ${
+            this._pendingFiles.length > 0
+              ? html` <div class="ai-pending-files">
+                  ${this._pendingFiles.map(
+                    (f) => html`
+                      <span class="ai-file-chip">
+                        ${icon('file-text', 12)}
+                        <span class="ai-file-chip-name">${f.name}</span>
+                        <button
+                          class="ai-file-chip-remove"
+                          @click=${() => this._handleRemoveFile(f.id)}
+                          title="Remove file"
+                        >
+                          ${icon('x', 10)}
+                        </button>
+                      </span>
+                    `,
+                  )}
+                </div>`
+              : nothing
+          }
           <div class="ai-input-row">
             <button class="ai-attach-btn" @click=${this._handleAttachClick} title="Attach file">
               ${icon('paperclip', 16)}
@@ -255,22 +263,24 @@ export class EpistolaAiPanel extends LitElement {
               @keydown=${this._handleKeydown}
               rows="2"
             ></textarea>
-            ${this._status === 'streaming'
-              ? html` <button
-                  class="ai-stop-btn"
-                  @click=${this._handleStop}
-                  title="Stop generating"
-                >
-                  ${icon('square', 14)}
-                </button>`
-              : html` <button
-                  class="ai-send-btn"
-                  @click=${this._handleSend}
-                  ?disabled=${!this._inputValue.trim() && this._pendingFiles.length === 0}
-                  title="Send message"
-                >
-                  ${icon('arrow-up', 16)}
-                </button>`}
+            ${
+              this._status === 'streaming'
+                ? html` <button
+                    class="ai-stop-btn"
+                    @click=${this._handleStop}
+                    title="Stop generating"
+                  >
+                    ${icon('square', 14)}
+                  </button>`
+                : html` <button
+                    class="ai-send-btn"
+                    @click=${this._handleSend}
+                    ?disabled=${!this._inputValue.trim() && this._pendingFiles.length === 0}
+                    title="Send message"
+                  >
+                    ${icon('arrow-up', 16)}
+                  </button>`
+            }
           </div>
         </div>
       </div>
@@ -294,19 +304,21 @@ export class EpistolaAiPanel extends LitElement {
 
     return html`
       <div
-        class="ai-message ${isUser ? 'ai-message-user' : 'ai-message-assistant'} ${isStreaming
-          ? 'ai-message-streaming'
-          : ''}"
+        class="ai-message ${isUser ? 'ai-message-user' : 'ai-message-assistant'} ${
+          isStreaming ? 'ai-message-streaming' : ''
+        }"
       >
-        ${msg.attachments && msg.attachments.length > 0
-          ? html` <div class="ai-message-attachments">
-              ${msg.attachments.map(
-                (a) => html`
-                  <span class="ai-attachment-badge">${icon('file-text', 10)} ${a.name}</span>
-                `,
-              )}
-            </div>`
-          : nothing}
+        ${
+          msg.attachments && msg.attachments.length > 0
+            ? html` <div class="ai-message-attachments">
+                ${msg.attachments.map(
+                  (a) => html`
+                    <span class="ai-attachment-badge">${icon('file-text', 10)} ${a.name}</span>
+                  `,
+                )}
+              </div>`
+            : nothing
+        }
         <div class="ai-message-content">
           ${msg.content}${isStreaming ? html`<span class="ai-cursor"></span>` : nothing}
         </div>
@@ -323,16 +335,18 @@ export class EpistolaAiPanel extends LitElement {
           <span class="ai-proposal-description">${msg.proposal!.description}</span>
           ${this._renderProposalBadge(status)}
         </div>
-        ${status === 'pending'
-          ? html` <div class="ai-proposal-actions">
-              <button class="ai-proposal-apply" @click=${() => this._handleApply(msg)}>
-                Apply
-              </button>
-              <button class="ai-proposal-reject" @click=${() => this._handleReject(msg)}>
-                Reject
-              </button>
-            </div>`
-          : nothing}
+        ${
+          status === 'pending'
+            ? html` <div class="ai-proposal-actions">
+                <button class="ai-proposal-apply" @click=${() => this._handleApply(msg)}>
+                  Apply
+                </button>
+                <button class="ai-proposal-reject" @click=${() => this._handleReject(msg)}>
+                  Reject
+                </button>
+              </div>`
+            : nothing
+        }
       </div>
     `;
   }

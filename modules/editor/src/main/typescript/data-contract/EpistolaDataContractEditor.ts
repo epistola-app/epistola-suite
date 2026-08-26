@@ -295,23 +295,25 @@ export class EpistolaDataContractEditor extends LitElement {
     return html`
       <div class="dc-editor-layout">
         <!-- Breaking changes banner -->
-        ${this._breakingChanges.length > 0
-          ? html`
-              <div class="dc-breaking-changes-banner">
-                <div class="dc-breaking-changes-banner-title">
-                  ${this._breakingChanges.length} breaking
-                  change${this._breakingChanges.length === 1 ? '' : 's'}
+        ${
+          this._breakingChanges.length > 0
+            ? html`
+                <div class="dc-breaking-changes-banner">
+                  <div class="dc-breaking-changes-banner-title">
+                    ${this._breakingChanges.length} breaking
+                    change${this._breakingChanges.length === 1 ? '' : 's'}
+                  </div>
+                  ${this._breakingChanges.map(
+                    (c) => html`
+                      <span class="dc-breaking-change-chip dc-breaking-change-chip-${c.type}">
+                        ${c.description}
+                      </span>
+                    `,
+                  )}
                 </div>
-                ${this._breakingChanges.map(
-                  (c) => html`
-                    <span class="dc-breaking-change-chip dc-breaking-change-chip-${c.type}">
-                      ${c.description}
-                    </span>
-                  `,
-                )}
-              </div>
-            `
-          : nothing}
+              `
+            : nothing
+        }
         <!-- Page content: schema then examples -->
         <div class="dc-page-content">
           ${this._renderNormalizationNotice()} ${this._renderSchemaSection()}
@@ -320,72 +322,78 @@ export class EpistolaDataContractEditor extends LitElement {
       </div>
 
       <!-- Breaking changes confirmation dialog -->
-      ${this._showBreakingChangesDialog
-        ? html`
-            <dialog class="dc-dialog" open @close=${() => this._dismissBreakingChanges()}>
-              <div class="dc-dialog-content">
-                <h3 class="dc-dialog-title">Breaking Changes</h3>
-                <p class="dc-dialog-description">
-                  The following changes may affect external systems consuming this data contract.
-                  Are you sure you want to save?
-                </p>
-                <ul class="dc-breaking-changes-list">
-                  ${this._breakingChanges.map(
-                    (c) => html`
-                      <li class="dc-breaking-change dc-breaking-change-${c.type}">
-                        <span class="dc-breaking-change-badge">${c.type.replace('_', ' ')}</span>
-                        ${c.description}
-                      </li>
-                    `,
-                  )}
-                </ul>
-                <div class="dc-dialog-actions">
-                  <button
-                    class="ep-btn ep-btn-outline ep-btn-sm"
-                    @click=${() => this._dismissBreakingChanges()}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="ep-btn ep-btn-primary ep-btn-sm"
-                    @click=${() => this._confirmBreakingChanges()}
-                  >
-                    Save Anyway
-                  </button>
+      ${
+        this._showBreakingChangesDialog
+          ? html`
+              <dialog class="dc-dialog" open @close=${() => this._dismissBreakingChanges()}>
+                <div class="dc-dialog-content">
+                  <h3 class="dc-dialog-title">Breaking Changes</h3>
+                  <p class="dc-dialog-description">
+                    The following changes may affect external systems consuming this data contract.
+                    Are you sure you want to save?
+                  </p>
+                  <ul class="dc-breaking-changes-list">
+                    ${this._breakingChanges.map(
+                      (c) => html`
+                        <li class="dc-breaking-change dc-breaking-change-${c.type}">
+                          <span class="dc-breaking-change-badge">${c.type.replace('_', ' ')}</span>
+                          ${c.description}
+                        </li>
+                      `,
+                    )}
+                  </ul>
+                  <div class="dc-dialog-actions">
+                    <button
+                      class="ep-btn ep-btn-outline ep-btn-sm"
+                      @click=${() => this._dismissBreakingChanges()}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      class="ep-btn ep-btn-primary ep-btn-sm"
+                      @click=${() => this._confirmBreakingChanges()}
+                    >
+                      Save Anyway
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </dialog>
-          `
-        : nothing}
+              </dialog>
+            `
+          : nothing
+      }
 
       <!-- Migration dialog -->
-      ${this._showMigrationDialog
-        ? html`
-            <dialog class="dc-dialog" open @close=${() => this._closeMigrationDialog()}>
-              ${renderMigrationDialog(this._pendingMigrations, this._selectedMigrations, {
-                onApply: (selected) => this._applyMigrations(selected),
-                onForceSave: () => this._forceSave(),
-                onCancel: () => this._closeMigrationDialog(),
-                onToggleMigration: (m) => this._toggleMigration(m),
-                onSelectAll: () => this._selectAllMigrations(),
-                onSelectNone: () => this._selectNoneMigrations(),
-              })}
-            </dialog>
-          `
-        : nothing}
+      ${
+        this._showMigrationDialog
+          ? html`
+              <dialog class="dc-dialog" open @close=${() => this._closeMigrationDialog()}>
+                ${renderMigrationDialog(this._pendingMigrations, this._selectedMigrations, {
+                  onApply: (selected) => this._applyMigrations(selected),
+                  onForceSave: () => this._forceSave(),
+                  onCancel: () => this._closeMigrationDialog(),
+                  onToggleMigration: (m) => this._toggleMigration(m),
+                  onSelectAll: () => this._selectAllMigrations(),
+                  onSelectNone: () => this._selectNoneMigrations(),
+                })}
+              </dialog>
+            `
+          : nothing
+      }
 
       <!-- Import schema dialog -->
-      ${this._showImportDialog
-        ? html`
-            <dialog class="dc-dialog" open @close=${() => this._closeImportDialog()}>
-              ${renderImportSchemaDialog(this._importParseError, {
-                onImportFromText: (text) => this._handleImportFromText(text),
-                onImportFromFile: (file) => this._handleImportFromFile(file),
-                onCancel: () => this._closeImportDialog(),
-              })}
-            </dialog>
-          `
-        : nothing}
+      ${
+        this._showImportDialog
+          ? html`
+              <dialog class="dc-dialog" open @close=${() => this._closeImportDialog()}>
+                ${renderImportSchemaDialog(this._importParseError, {
+                  onImportFromText: (text) => this._handleImportFromText(text),
+                  onImportFromFile: (file) => this._handleImportFromFile(file),
+                  onCancel: () => this._closeImportDialog(),
+                })}
+              </dialog>
+            `
+          : nothing
+      }
     `;
   }
 
@@ -465,20 +473,22 @@ export class EpistolaDataContractEditor extends LitElement {
 
     return html`
       ${renderSchemaSection(this._visualSchema, uiState, callbacks, this._expandedFields)}
-      ${this._jsonPanelOpen
-        ? html`
-            <div class="dc-json-panel">
-              ${renderJsonSchemaView(
-                this._visualSchema.fields.length > 0
-                  ? visualSchemaToJsonSchema(this._visualSchema)
-                  : null,
-                [],
-                this._copySuccess,
-                jsonSchemaViewCallbacks,
-              )}
-            </div>
-          `
-        : nothing}
+      ${
+        this._jsonPanelOpen
+          ? html`
+              <div class="dc-json-panel">
+                ${renderJsonSchemaView(
+                  this._visualSchema.fields.length > 0
+                    ? visualSchemaToJsonSchema(this._visualSchema)
+                    : null,
+                  [],
+                  this._copySuccess,
+                  jsonSchemaViewCallbacks,
+                )}
+              </div>
+            `
+          : nothing
+      }
     `;
   }
 

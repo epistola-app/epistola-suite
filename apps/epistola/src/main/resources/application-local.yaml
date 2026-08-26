@@ -113,7 +113,6 @@ epistola:
       port: 9090
       plaintext: true
 
-
 # ---------------------------------------------------------------------------
 # Keycloak OAuth2/OIDC for local development (opt-in).
 #

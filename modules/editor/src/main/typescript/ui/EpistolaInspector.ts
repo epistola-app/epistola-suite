@@ -112,36 +112,44 @@ export class EpistolaInspector extends LitElement {
         ${def?.renderInspector ? def.renderInspector({ node, engine: this.engine }) : nothing}
 
         <!-- Props -->
-        ${!presentation?.suppressPropsSection && def?.inspector && def.inspector.length > 0
-          ? this._renderInspectorFields(node, def)
-          : nothing}
+        ${
+          !presentation?.suppressPropsSection && def?.inspector && def.inspector.length > 0
+            ? this._renderInspectorFields(node, def)
+            : nothing
+        }
 
         <!-- Style preset -->
-        ${!presentation?.suppressStylePresetSection && this._hasStyles(def?.applicableStyles)
-          ? this._renderStylePresetSection(node)
-          : nothing}
+        ${
+          !presentation?.suppressStylePresetSection && this._hasStyles(def?.applicableStyles)
+            ? this._renderStylePresetSection(node)
+            : nothing
+        }
 
         <!-- Style properties -->
-        ${!presentation?.suppressStylesSection && this._hasStyles(def?.applicableStyles)
-          ? this._renderNodeStyleGroups(node, def?.applicableStyles)
-          : nothing}
+        ${
+          !presentation?.suppressStylesSection && this._hasStyles(def?.applicableStyles)
+            ? this._renderNodeStyleGroups(node, def?.applicableStyles)
+            : nothing
+        }
 
         <!-- Delete -->
-        ${!presentation?.suppressDeleteSection
-          ? html`
-              <div
-                class="inspector-delete-section"
-                data-editor-anchor=${EDITOR_UI_ANCHORS.blockDelete}
-              >
-                <button
-                  class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-full"
-                  @click=${this._handleDelete}
+        ${
+          !presentation?.suppressDeleteSection
+            ? html`
+                <div
+                  class="inspector-delete-section"
+                  data-editor-anchor=${EDITOR_UI_ANCHORS.blockDelete}
                 >
-                  Delete Block
-                </button>
-              </div>
-            `
-          : nothing}
+                  <button
+                    class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-full"
+                    @click=${this._handleDelete}
+                  >
+                    Delete Block
+                  </button>
+                </div>
+              `
+            : nothing
+        }
       </div>
     `;
   }
@@ -415,9 +423,11 @@ export class EpistolaInspector extends LitElement {
     const inputId = `inspector-style-${prop.key}`;
     return html`
       <div class="inspector-field">
-        ${prop.type !== 'boolean'
-          ? html`<label class="inspector-field-label" for=${inputId}>${prop.label}</label>`
-          : nothing}
+        ${
+          prop.type !== 'boolean'
+            ? html`<label class="inspector-field-label" for=${inputId}>${prop.label}</label>`
+            : nothing
+        }
         ${this._renderStyleInput(prop, value, onChange, inputId)}
       </div>
     `;
@@ -624,13 +634,15 @@ export class EpistolaInspector extends LitElement {
               class="inspector-expression-trigger ${validClass}"
               @click=${() => this._openExpressionDialog(field.key, exprValue, node)}
             >
-              ${exprValue
-                ? html`<code class="inspector-expression-value"
-                    >${exprValue.length > 40 ? exprValue.slice(0, 40) + '...' : exprValue}</code
-                  >`
-                : html`<span class="inspector-expression-placeholder"
-                    >Click to set expression...</span
-                  >`}
+              ${
+                exprValue
+                  ? html`<code class="inspector-expression-value"
+                      >${exprValue.length > 40 ? exprValue.slice(0, 40) + '...' : exprValue}</code
+                    >`
+                  : html`<span class="inspector-expression-placeholder"
+                      >Click to set expression...</span
+                    >`
+              }
             </button>
           </div>
         `;

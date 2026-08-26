@@ -89,9 +89,11 @@ export class EpistolaPreview extends LitElement {
     return html`
       <div class="preview-header">
         <span class="preview-header-title">Preview</span>
-        ${this._previewState.status === 'loading'
-          ? html`<span class="preview-header-status">${icon('loader-2', 14)} Loading...</span>`
-          : nothing}
+        ${
+          this._previewState.status === 'loading'
+            ? html`<span class="preview-header-status">${icon('loader-2', 14)} Loading...</span>`
+            : nothing
+        }
       </div>
       <div class="preview-content">${this._renderContent()}</div>
     `;

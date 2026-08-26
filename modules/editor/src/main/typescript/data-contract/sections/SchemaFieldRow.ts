@@ -47,42 +47,46 @@ export function renderSchemaFieldListItem(
         onSelectField(field.id);
       }}
     >
-      ${canExpand
-        ? html`
-            <button
-              class="dc-field-expand-btn"
-              @click=${(e: Event) => {
-                e.stopPropagation();
-                onToggleExpand(field.id);
-              }}
-              title="${isExpanded ? 'Collapse' : 'Expand'} nested fields"
-              aria-expanded="${isExpanded}"
-            >
-              ${isExpanded ? '\u25BC' : '\u25B6'}
-            </button>
-          `
-        : html`<span class="dc-field-expand-spacer"></span>`}
+      ${
+        canExpand
+          ? html`
+              <button
+                class="dc-field-expand-btn"
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  onToggleExpand(field.id);
+                }}
+                title="${isExpanded ? 'Collapse' : 'Expand'} nested fields"
+                aria-expanded="${isExpanded}"
+              >
+                ${isExpanded ? '\u25BC' : '\u25B6'}
+              </button>
+            `
+          : html`<span class="dc-field-expand-spacer"></span>`
+      }
 
       <span class="dc-field-list-item-name">${field.name}</span>
       <span class="dc-field-type-badge">${FIELD_TYPE_LABELS[field.type]}</span>
       ${field.required ? html`<span class="dc-field-required-dot"></span>` : nothing}
     </div>
 
-    ${canExpand && isExpanded && nestedFields.length > 0
-      ? html`
-          <div class="dc-field-nested-items">
-            ${nestedFields.map((nestedField) =>
-              renderSchemaFieldListItem(
-                nestedField,
-                depth + 1,
-                expandedFields,
-                selectedFieldId,
-                onToggleExpand,
-                onSelectField,
-              ),
-            )}
-          </div>
-        `
-      : nothing}
+    ${
+      canExpand && isExpanded && nestedFields.length > 0
+        ? html`
+            <div class="dc-field-nested-items">
+              ${nestedFields.map((nestedField) =>
+                renderSchemaFieldListItem(
+                  nestedField,
+                  depth + 1,
+                  expandedFields,
+                  selectedFieldId,
+                  onToggleExpand,
+                  onSelectField,
+                ),
+              )}
+            </div>
+          `
+        : nothing
+    }
   `;
 }
