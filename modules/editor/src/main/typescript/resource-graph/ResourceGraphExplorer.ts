@@ -852,28 +852,32 @@ export class ResourceGraphExplorer extends LitElement {
           ${this.moving ? 'Checking…' : 'Preview move'}
         </button>
       </p>
-      ${this.movePreview
-        ? html`<div class="evidence">
-            <strong>${this.movePreview.executable ? 'Ready to move' : 'Move is blocked'}</strong>
-            <p>
-              ${this.movePreview.mutableRewriteCount} draft reference(s) will be rewritten;<br />
-              ${this.movePreview.immutableReferenceCount} published reference(s) will resolve
-              through the alias.
-            </p>
-            ${this.movePreview.blockers.map(
-              (blocker) => html`<p class="error">${blocker.message}</p>`,
-            )}
-            ${this.movePreview.executable
-              ? html`<button
-                  type="button"
-                  ?disabled=${this.moving}
-                  @click=${() => void this.executeResourceMove()}
-                >
-                  Move to ${this.moveTarget}
-                </button>`
-              : nothing}
-          </div>`
-        : nothing}`;
+      ${
+        this.movePreview
+          ? html`<div class="evidence">
+              <strong>${this.movePreview.executable ? 'Ready to move' : 'Move is blocked'}</strong>
+              <p>
+                ${this.movePreview.mutableRewriteCount} draft reference(s) will be rewritten;<br />
+                ${this.movePreview.immutableReferenceCount} published reference(s) will resolve
+                through the alias.
+              </p>
+              ${this.movePreview.blockers.map(
+                (blocker) => html`<p class="error">${blocker.message}</p>`,
+              )}
+              ${
+                this.movePreview.executable
+                  ? html`<button
+                      type="button"
+                      ?disabled=${this.moving}
+                      @click=${() => void this.executeResourceMove()}
+                    >
+                      Move to ${this.moveTarget}
+                    </button>`
+                  : nothing
+              }
+            </div>`
+          : nothing
+      }`;
   }
 
   private renderEvidence() {
