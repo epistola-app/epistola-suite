@@ -4,9 +4,10 @@
 
 ## [Unreleased]
 
-- **[dev]** fix(chart): **The chart reserves 512Mi of memory by default.** The
-  VPA floor follows the same value, avoiding a default memory-HPA target below
-  normal JVM operating memory.
+- **[dev]** fix(chart): **The chart's resource defaults now match measured
+  document-generation demand.** Pods request 750m CPU and 1536Mi memory, with
+  4 CPU / 5Gi limits; the default HPA targets 600m CPU and does not scale on
+  retained JVM memory.
 - **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
   smoke test.** Pull requests run the local chart installation harness only
   when the Epistola chart, its test harness, or its workflow changes; unrelated

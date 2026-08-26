@@ -24,9 +24,9 @@ for expected in \
   'minReplicas: 1' \
   'containerName: epistola' \
   'controlledValues: "RequestsOnly"' \
-  'cpu: 100m' \
-  'memory: 512Mi' \
-  'memory: 1Gi'; do
+  'cpu: 750m' \
+  'memory: 1536Mi' \
+  'memory: 5Gi'; do
   if ! grep -Fq "${expected}" <<<"${enabled}"; then
     echo "Expected enabled VPA render to contain: ${expected}" >&2
     exit 1

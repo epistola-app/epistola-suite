@@ -33,10 +33,11 @@
 
 ### Changed
 
-- **The default application memory request is now 512Mi.** This gives the JVM
-  realistic scheduling headroom and moves the default 80% memory-HPA target
-  from about 205Mi to about 410Mi. The optional VPA policy's memory floor now
-  matches the request; its 1Gi limit and maximum remain unchanged.
+- **Resource defaults now cover the documented document-generation load
+  profile.** Application pods request `750m` CPU and `1536Mi` memory and may
+  use up to 4 CPU / 5Gi memory. The VPA policy has matching bounds. The HPA's
+  default CPU target is therefore about `600m` per pod; its memory metric is
+  off by default because retained JVM heap is not a reliable scale-down signal.
 
 ### Fixed
 

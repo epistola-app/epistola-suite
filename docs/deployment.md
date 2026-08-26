@@ -397,6 +397,30 @@ truststore` — a quick confirmation your certs were picked up.
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.
 
+## Generation load profile and resource sizing
+
+The following representative load test used a four-core worker and generated
+PDF documents with the standard application configuration. Treat it as a
+sizing baseline, not a throughput guarantee: document complexity, templates,
+fonts, database latency, and concurrent interactive traffic all affect the
+result.
+
+| Measure | Idle | 100-document burst | 10,000-document burst | Settled after burst |
+| --- | ---: | ---: | ---: | ---: |
+| Memory | 763 MB | 2,384 MB | 3,933 MB | 1,252 MB |
+| CPU | ~0.007 cores | ~0.40 cores | 2.70 of 4 cores | back to idle |
+
+| Workload | Wall time | Throughput | Average queue wait | p95 queue wait | Failures |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 100 documents | 8.5s | ~11.7 docs/s | 7.0s | 8.0s | 0 |
+| 10,000 documents | 85.2s | ~117 docs/s | 47.5s | 81.4s | 0 |
+
+The chart defaults reserve `750m` CPU and `1536Mi` memory, with `4` CPU and
+`5Gi` memory limits. This gives a single pod enough headroom for roughly
+500 documents per minute, though a sustained generation burst can make the UI
+less responsive. Size up, introduce separate worker capacity, or limit
+generation concurrency if interactive responsiveness is a priority.
+
 ## Pod autoscaling
 
 The chart can optionally render either a `HorizontalPodAutoscaler` (HPA) or a
@@ -415,11 +439,11 @@ vpa:
   controlledValues: RequestsOnly
   resourcePolicy:
     minAllowed:
-      cpu: 100m
-      memory: 512Mi
+      cpu: 750m
+      memory: 1536Mi
     maxAllowed:
-      cpu: 1000m
-      memory: 1Gi
+      cpu: "4"
+      memory: 5Gi
 ```
 
 After observing representative workload, including peak PDF-generation
@@ -434,10 +458,12 @@ Do not configure HPA and VPA to control the same CPU or memory resource. They
 would make competing scaling decisions; use one controller for a resource, or
 split their resource responsibility deliberately before enabling both.
 
-The chart defaults the application memory request to `512Mi` (with a `1Gi`
-limit). With the default 80% memory HPA target, scaling starts at an average of
-about `410Mi` per pod; tune the request and target to the measured steady-state
-memory use of your workload.
+The HPA is disabled by default. When enabled, it scales on average CPU use at
+80% of the `750m` request—about `600m` per pod—and keeps one to ten replicas.
+Memory scaling is disabled by default: after a generation burst the JVM retains
+heap (the measured process settled at 1,252 MB), which would otherwise keep an
+HPA above its intended threshold. Enable a memory target only after measuring
+your own steady-state workload.
 
 ## Connection pool (HikariCP)
 

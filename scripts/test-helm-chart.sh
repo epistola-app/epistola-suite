@@ -98,6 +98,7 @@ kubectl_bin="$(resolve_command kubectl)"
 "${docker_bin}" info >/dev/null
 
 "${helm_bin}" lint "${chart_dir}"
+"${chart_dir}/tests/hpa-render.sh"
 "${chart_dir}/tests/vpa-render.sh"
 
 "${kind_bin}" create cluster --name "${cluster_name}" --image kindest/node:v1.34.0 --wait 60s

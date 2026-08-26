@@ -40,6 +40,10 @@ jobs:
         if: matrix.chart == 'epistola'
         run: charts/epistola/tests/vpa-render.sh
 
+      - name: Test HPA rendering
+        if: matrix.chart == 'epistola'
+        run: charts/epistola/tests/hpa-render.sh
+
       - name: Test migration hook rendering
         if: matrix.chart == 'epistola'
         run: charts/epistola/tests/migration-render.sh
