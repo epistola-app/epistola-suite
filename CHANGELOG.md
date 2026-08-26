@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(chart): **The local Kubernetes chart smoke test supplies its
+  required authentication configuration.** Its disposable staging/test
+  installation enables the self-contained form-login profile instead of needing
+  a full OIDC provider.
 - **[dev]** test(chart): **A local Kubernetes chart smoke test is available.**
   `scripts/test-helm-chart.sh` creates and removes a disposable Kind cluster,
   starts one ephemeral PostgreSQL container, installs the application chart,

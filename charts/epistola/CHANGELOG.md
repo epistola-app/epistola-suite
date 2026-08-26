@@ -29,6 +29,11 @@
 
 ### Fixed
 
+- **Local Kind smoke-test fixture supplies an authentication mechanism.** The
+  disposable staging/test installation enables its self-contained form-login
+  profile, allowing the application to start without needing an OIDC provider
+  in the lightweight test cluster.
+
 - **Migration hooks no longer wait forever for a missing ServiceAccount.** The
   pre-install migration Job now uses the namespace's built-in `default` service
   account with token mounting disabled. Helm creates normal chart resources only

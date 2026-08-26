@@ -1,5 +1,7 @@
 config:
-  profiles: prod
+  # The documented staging/test profile supplies self-contained form login.
+  # The chart still exercises its external database and migration Job wiring.
+  profiles: demo,localauth
 
 # The smoke environment is disposable. Exercise the chart's production database
 # wiring and migration hook without provisioning a test encryption keyset.
