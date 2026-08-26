@@ -370,6 +370,43 @@ truststore` — a quick confirmation your certs were picked up.
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.
 
+## Pod autoscaling
+
+The chart can optionally render either a `HorizontalPodAutoscaler` (HPA) or a
+`VerticalPodAutoscaler` (VPA) for the application Deployment. HPA is built into
+Kubernetes; VPA is not. Before enabling VPA, install its CRD and the VPA
+recommender, updater, and admission-controller components in the cluster.
+
+VPA is disabled by default. Start with `updateMode: Off`, which records
+recommendations without changing any pods:
+
+```yaml
+vpa:
+  enabled: true
+  updateMode: "Off"
+  minReplicas: 1
+  controlledValues: RequestsOnly
+  resourcePolicy:
+    minAllowed:
+      cpu: 100m
+      memory: 256Mi
+    maxAllowed:
+      cpu: 1000m
+      memory: 1Gi
+```
+
+After observing representative workload, including peak PDF-generation
+concurrency and document complexity, consider `Initial` (apply a recommendation
+when creating a pod) or `Recreate` (evict pods to apply a recommendation). The
+default `RequestsOnly` leaves `resources.limits` under operator control. Its
+recommendations must stay at or below those limits, so increasing a VPA
+`maxAllowed` value also requires increasing the corresponding Helm resource
+limit.
+
+Do not configure HPA and VPA to control the same CPU or memory resource. They
+would make competing scaling decisions; use one controller for a resource, or
+split their resource responsibility deliberately before enabling both.
+
 ## Connection pool (HikariCP)
 
 The app's base pool tuning lives in `application.yaml` and applies to every

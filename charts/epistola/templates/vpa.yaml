@@ -1,0 +1,24 @@
+{{- if .Values.vpa.enabled }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ include "epistola.fullname" . }}
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "epistola.fullname" . }}
+  updatePolicy:
+    updateMode: {{ .Values.vpa.updateMode | quote }}
+    minReplicas: {{ .Values.vpa.minReplicas }}
+  resourcePolicy:
+    containerPolicies:
+      - containerName: {{ .Chart.Name }}
+        controlledValues: {{ .Values.vpa.controlledValues | quote }}
+        minAllowed:
+          {{- toYaml .Values.vpa.resourcePolicy.minAllowed | nindent 10 }}
+        maxAllowed:
+          {{- toYaml .Values.vpa.resourcePolicy.maxAllowed | nindent 10 }}
+{{- end }}

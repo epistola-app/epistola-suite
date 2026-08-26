@@ -110,6 +110,25 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
+# Optional Vertical Pod Autoscaler (VPA) for the application Deployment. Requires
+# the VPA CRD and recommender/updater/admission-controller components to be
+# installed in the cluster. `Off` only publishes recommendations; review those
+# before using `Initial` or `Recreate`.
+vpa:
+  enabled: false
+  updateMode: "Off"
+  minReplicas: 1
+  # Keep limits operator-managed. With RequestsOnly, maxAllowed must not exceed
+  # the matching value in resources.limits.
+  controlledValues: RequestsOnly
+  resourcePolicy:
+    minAllowed:
+      cpu: 100m
+      memory: 256Mi
+    maxAllowed:
+      cpu: 1000m
+      memory: 1Gi
+
 # Additional volumes on the output Deployment definition.
 # Note: tmp-dir is required for readOnlyRootFilesystem since Java needs a writable /tmp
 volumes:

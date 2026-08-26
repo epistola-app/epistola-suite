@@ -60,6 +60,24 @@
         }
       }
     },
+    "vpa": {
+      "type": "object",
+      "properties": {
+        "updateMode": {
+          "description": "How the Vertical Pod Autoscaler applies recommendations.",
+          "enum": ["Off", "Initial", "Recreate", "Auto"]
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Minimum number of replicas required before VPA may evict pods."
+        },
+        "controlledValues": {
+          "description": "Whether VPA controls resource requests only or requests and limits.",
+          "enum": ["RequestsOnly", "RequestsAndLimits"]
+        }
+      }
+    },
     "oidc": {
       "type": "object",
       "properties": {

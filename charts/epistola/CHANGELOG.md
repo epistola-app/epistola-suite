@@ -4,6 +4,16 @@
 
 ### Added
 
+- **Optional Vertical Pod Autoscaler (VPA) support.** Set `vpa.enabled=true` to
+  render a VPA targeting this release's application Deployment, without a
+  separately maintained manifest or hard-coded Deployment name. It starts in
+  recommendation-only `Off` mode and defaults to `RequestsOnly`, so VPA changes
+  requests without taking ownership of the operator-set limits once an update
+  mode is selected. The update mode, minimum replica count, and CPU/memory
+  `minAllowed` / `maxAllowed` policy are configurable. The cluster must already
+  provide the VPA CRD and components; see `docs/deployment.md` for safe rollout
+  and HPA coexistence guidance.
+
 - **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
   or `gelf`; `plain` is the chart default in every environment, including production. The chart
   validates the value and renders it only on application pods; the isolated migration step retains
