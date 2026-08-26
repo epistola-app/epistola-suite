@@ -8,6 +8,7 @@ import app.epistola.suite.database.DatabasePressureSnapshot
 import app.epistola.suite.database.DatabasePressureSource
 import app.epistola.suite.documents.DatabasePressureProperties
 import app.epistola.suite.documents.JobPollingProperties
+import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicInteger
@@ -49,7 +50,7 @@ class DatabasePressureAdmissionController(
     }
 
     @Synchronized
-    fun effectiveLimit(nowMs: Long = System.currentTimeMillis()): Int {
+    fun effectiveLimit(nowMs: Long = EpistolaClock.instant().toEpochMilli()): Int {
         val configuredMaximum = properties.maxConcurrentJobs.coerceAtLeast(1)
         val config = properties.databasePressure
         if (!config.enabled) return disabled(configuredMaximum)

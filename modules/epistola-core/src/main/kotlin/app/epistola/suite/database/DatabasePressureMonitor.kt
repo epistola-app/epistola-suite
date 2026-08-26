@@ -5,9 +5,11 @@
 package app.epistola.suite.database
 
 import app.epistola.suite.documents.JobPollingProperties
+import app.epistola.suite.time.EpistolaClock
 import com.zaxxer.hikari.HikariDataSource
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 import java.sql.SQLException
@@ -30,17 +32,32 @@ class DatabasePressureMonitor(
 ) : DatabasePressureSource {
     private data class Observation(val atMs: Long, val durationMs: Long)
 
+    private val logger = LoggerFactory.getLogger(javaClass)
     private val observations = ArrayDeque<Observation>()
     private var lastCriticalFailureAtMs: Long = Long.MIN_VALUE
     private val hikari = dataSource as? HikariDataSource
+    private val successTimer = buildTimer("success")
+    private val failureTimer = buildTimer("failure")
 
-    fun recordSuccess(duration: Duration) = record(duration, "success")
+    init {
+        if (hikari != null) {
+            logger.info("Database pressure monitor: Hikari pool-waiter detection is active")
+        } else {
+            logger.warn(
+                "Database pressure monitor: DataSource is not a HikariDataSource ({}) — " +
+                    "pool-waiter detection is disabled; pressure detection relies on statement latency only",
+                dataSource::class.qualifiedName,
+            )
+        }
+    }
+
+    fun recordSuccess(duration: Duration) = record(duration, successTimer)
 
     fun recordFailure(duration: Duration, error: SQLException) {
-        record(duration, "failure")
+        record(duration, failureTimer)
         if (error.sqlState?.let(::isCriticalSqlState) == true) {
             synchronized(this) {
-                lastCriticalFailureAtMs = System.currentTimeMillis()
+                lastCriticalFailureAtMs = EpistolaClock.instant().toEpochMilli()
             }
         }
     }
@@ -62,15 +79,16 @@ class DatabasePressureMonitor(
         )
     }
 
-    private fun record(duration: Duration, outcome: String) {
+    private fun buildTimer(outcome: String): Timer = Timer.builder("epistola.database.statement.duration")
+        .description("JDBI database statement execution duration")
+        .tag("outcome", outcome)
+        .register(meterRegistryProvider.getObject())
+
+    private fun record(duration: Duration, timer: Timer) {
         val safeDuration = duration.coerceAtLeast(Duration.ZERO)
-        Timer.builder("epistola.database.statement.duration")
-            .description("JDBI database statement execution duration")
-            .tag("outcome", outcome)
-            .register(meterRegistryProvider.getObject())
-            .record(safeDuration)
+        timer.record(safeDuration)
         synchronized(this) {
-            val nowMs = System.currentTimeMillis()
+            val nowMs = EpistolaClock.instant().toEpochMilli()
             observations.addLast(Observation(nowMs, safeDuration.toMillis()))
             prune(nowMs, properties.databasePressure.observationWindowMs)
         }
