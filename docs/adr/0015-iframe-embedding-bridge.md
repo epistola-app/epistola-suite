@@ -144,13 +144,17 @@ above.
 
 ### Where the resource identity for `navigated` comes from
 
-`EmbeddingContextInterceptor` derives the current page's resource identity by
-matching the request path against
-`/tenants/{tenantId}/(templates|themes|stencils)/{catalogKey}/{key}` — not by
-threading a model attribute through each detail handler. The URL shape is
-already the shared identity scheme (confirmed identical to the REST API's), so
-one regex covers every resource-detail route today, and any sub-tab path
-underneath it, without a per-handler edit.
+Client-side only, same as `resource-changed`: `embed-bridge.js` runs
+`location.pathname` through the same `parseResourcePath` matcher used for
+mutation classification. An earlier version had `EmbeddingContextInterceptor`
+derive this server-side (matching the request path against
+`/tenants/{tenantId}/(templates|themes|stencils)/{catalogKey}/{key}` and
+rendering it into a `#epistola-current-resource` JSON island) — removed once
+it became clear the client already had the exact same URL-parsing logic for
+`resource-changed`, so there was nothing left for the server to compute that
+the client couldn't derive itself. `EmbeddingContextInterceptor` now only
+carries `embeddingEnabled`/`allowedParentOrigins`, which genuinely are
+server-side config with no client-derivable equivalent.
 
 ## Consequences
 

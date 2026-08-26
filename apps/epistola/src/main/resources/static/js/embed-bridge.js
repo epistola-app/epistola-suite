@@ -134,21 +134,32 @@
     }
   });
 
+  // Reuses parseResourcePath (the same URL convention resource-changed
+  // detection already relies on) instead of a server-rendered JSON island —
+  // the current page's own URL is all that's needed, so there's nothing for
+  // the server to tell the client that it can't derive itself.
+  function currentResourceFromLocation() {
+    const parsed = parseResourcePath(location.pathname);
+    if (!parsed || parsed.rest.length < 2) return null;
+    return {
+      resourceType: parsed.resourceType,
+      tenantId: parsed.tenantId,
+      catalogKey: parsed.rest[0],
+      key: parsed.rest[1],
+    };
+  }
+
   let lastNotifiedPath = null;
   function notifyNavigated() {
     const path = location.pathname + location.search;
     if (path === lastNotifiedPath) return;
     lastNotifiedPath = path;
-    const island = document.getElementById('epistola-current-resource');
-    let resource = null;
-    if (island) {
-      try {
-        resource = JSON.parse(island.textContent);
-      } catch (e) {
-        resource = null;
-      }
-    }
-    postToHost({ source: 'epistola-suite', type: 'navigated', path: path, resource: resource });
+    postToHost({
+      source: 'epistola-suite',
+      type: 'navigated',
+      path: path,
+      resource: currentResourceFromLocation(),
+    });
   }
   document.addEventListener('htmx:load', notifyNavigated);
   window.addEventListener('popstate', notifyNavigated);

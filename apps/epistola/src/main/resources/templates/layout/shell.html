@@ -16,13 +16,6 @@
 </head>
 <body class="app-shell" hx-boost="true">
 
-    <!-- Identity of the single resource this page shows (template/theme/stencil
-         detail), or absent on list/dashboard pages. Lives in <body> so it stays
-         in sync with whichever page is showing on every boosted swap. -->
-    <script type="application/json" id="epistola-current-resource" th:if="${currentResource != null}" th:inline="javascript">
-        /*[[${currentResource}]]*/ {}
-    </script>
-
     <th:block th:replace="~{layout/nav :: nav}" />
 
     <th:block th:if="${siteBanner != null}">

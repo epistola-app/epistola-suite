@@ -107,14 +107,13 @@ swap, and browser back/forward — whether triggered by the host's `navigate`
 message or by the user clicking around inside the iframe. `resource` is `null`
 on pages that aren't a single resource's detail view (lists, dashboards).
 
-The resource identity comes from a per-page JSON island
-(`#epistola-current-resource`) that `EmbeddingContextInterceptor` populates by
-matching the request path against
-`/tenants/{tenantId}/(templates|themes|stencils)/{catalogKey}/{key}` — not by
-threading a model attribute through each detail handler. The URL shape is
-already the shared identity scheme (identical to the REST API's), so this one
-regex covers every resource-detail route today, and any sub-tab path
-underneath it, without a per-handler edit.
+The resource identity is derived entirely client-side, by running
+`location.pathname` through the same `parseResourcePath` matcher
+`resource-changed` detection already uses (see below) — there's no server
+involvement, no JSON island, and no per-handler edit needed for a new
+resource-detail route: the URL shape is already the shared identity scheme
+(identical to the REST API's), so one client-side matcher covers every
+current and future route that follows it.
 
 ### Suite → host: `resource-changed`
 
