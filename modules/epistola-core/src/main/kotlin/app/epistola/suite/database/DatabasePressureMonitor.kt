@@ -9,12 +9,13 @@ import app.epistola.suite.time.EpistolaClock
 import com.zaxxer.hikari.HikariDataSource
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
+import io.micrometer.core.instrument.binder.MeterBinder
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 import java.sql.SQLException
 import java.time.Duration
 import java.util.ArrayDeque
+import java.util.concurrent.ConcurrentHashMap
 import javax.sql.DataSource
 
 /**
@@ -27,17 +28,17 @@ import javax.sql.DataSource
 @Component
 class DatabasePressureMonitor(
     private val properties: JobPollingProperties,
-    private val meterRegistryProvider: ObjectProvider<MeterRegistry>,
     dataSource: DataSource,
-) : DatabasePressureSource {
+) : DatabasePressureSource,
+    MeterBinder {
     private data class Observation(val atMs: Long, val durationMs: Long)
+    private data class Timers(val success: Timer, val failure: Timer)
 
     private val logger = LoggerFactory.getLogger(javaClass)
     private val observations = ArrayDeque<Observation>()
     private var lastCriticalFailureAtMs: Long = Long.MIN_VALUE
     private val hikari = dataSource as? HikariDataSource
-    private val successTimer = buildTimer("success")
-    private val failureTimer = buildTimer("failure")
+    private val timersByRegistry = ConcurrentHashMap<MeterRegistry, Timers>()
 
     init {
         if (hikari != null) {
@@ -51,10 +52,25 @@ class DatabasePressureMonitor(
         }
     }
 
-    fun recordSuccess(duration: Duration) = record(duration, successTimer)
+    /**
+     * Spring invokes this after registries have completed their own bootstrap.
+     * In particular, this must not resolve a registry from the JDBI construction
+     * path: common metric tags read installation metadata through that same JDBI
+     * instance.
+     */
+    override fun bindTo(registry: MeterRegistry) {
+        timersByRegistry.computeIfAbsent(registry) {
+            Timers(
+                success = buildTimer(registry, "success"),
+                failure = buildTimer(registry, "failure"),
+            )
+        }
+    }
+
+    fun recordSuccess(duration: Duration) = record(duration) { it.success }
 
     fun recordFailure(duration: Duration, error: SQLException) {
-        record(duration, failureTimer)
+        record(duration) { it.failure }
         if (error.sqlState?.let(::isCriticalSqlState) == true) {
             synchronized(this) {
                 lastCriticalFailureAtMs = EpistolaClock.instant().toEpochMilli()
@@ -79,14 +95,14 @@ class DatabasePressureMonitor(
         )
     }
 
-    private fun buildTimer(outcome: String): Timer = Timer.builder("epistola.database.statement.duration")
+    private fun buildTimer(registry: MeterRegistry, outcome: String): Timer = Timer.builder("epistola.database.statement.duration")
         .description("JDBI database statement execution duration")
         .tag("outcome", outcome)
-        .register(meterRegistryProvider.getObject())
+        .register(registry)
 
-    private fun record(duration: Duration, timer: Timer) {
+    private fun record(duration: Duration, timer: (Timers) -> Timer) {
         val safeDuration = duration.coerceAtLeast(Duration.ZERO)
-        timer.record(safeDuration)
+        timersByRegistry.values.forEach { timer(it).record(safeDuration) }
         synchronized(this) {
             val nowMs = EpistolaClock.instant().toEpochMilli()
             observations.addLast(Observation(nowMs, safeDuration.toMillis()))

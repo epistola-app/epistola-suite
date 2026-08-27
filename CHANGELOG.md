@@ -18,6 +18,10 @@
   coverage extended to Hikari pool-waiter detection, the JDBI failure-recording
   path (including a real Postgres statement-timeout cancellation), and the
   THROTTLED-to-RECOVERING transition.
+- **[dev]** fix(generation): **Database-pressure instrumentation no longer
+  participates in application bootstrap.** Timers now bind through Micrometer
+  after metric registries are ready, avoiding the JDBI-to-installation-metadata
+  startup cycle while preserving pressure observation and exported metrics.
 
 - **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
   Start in recommendation-only mode; production uses CPU HPA while VPA remains

@@ -9,12 +9,10 @@ import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.time.EpistolaClock
 import com.zaxxer.hikari.HikariDataSource
 import com.zaxxer.hikari.HikariPoolMXBean
-import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
-import org.springframework.beans.factory.ObjectProvider
 import java.sql.SQLException
 import java.time.Duration
 import java.time.Instant
@@ -25,30 +23,49 @@ import kotlin.test.assertTrue
 
 class DatabasePressureMonitorTest {
 
-    private fun monitor(registry: SimpleMeterRegistry = SimpleMeterRegistry()): DatabasePressureMonitor {
-        val registryProvider = mock<ObjectProvider<MeterRegistry>>()
-        `when`(registryProvider.getObject()).thenReturn(registry)
-        return DatabasePressureMonitor(
-            properties = JobPollingProperties(
-                databasePressure = DatabasePressureProperties(observationWindowMs = 10_000),
-            ),
-            meterRegistryProvider = registryProvider,
-            dataSource = mock(DataSource::class.java),
-        )
-    }
+    private fun monitor(): DatabasePressureMonitor = DatabasePressureMonitor(
+        properties = JobPollingProperties(
+            databasePressure = DatabasePressureProperties(observationWindowMs = 10_000),
+        ),
+        dataSource = mock(DataSource::class.java),
+    )
 
     @Test
-    fun `records only aggregate statement latency`() {
+    fun `records aggregate statement latency after metrics binding`() {
         val registry = SimpleMeterRegistry()
-        val monitor = monitor(registry)
+        val monitor = monitor()
+        monitor.bindTo(registry)
 
         monitor.recordSuccess(Duration.ofMillis(40))
         monitor.recordSuccess(Duration.ofMillis(80))
+        monitor.recordFailure(Duration.ofMillis(5), SQLException("constraint", "23505"))
 
         val snapshot = monitor.snapshot(System.currentTimeMillis())
-        assertEquals(2, snapshot.sampleCount)
+        assertEquals(3, snapshot.sampleCount)
         assertEquals(80, snapshot.p95StatementLatencyMs)
-        assertEquals(2, registry.find("epistola.database.statement.duration").timer()!!.count())
+        assertEquals(2, registry.find("epistola.database.statement.duration").tag("outcome", "success").timer()!!.count())
+        assertEquals(1, registry.find("epistola.database.statement.duration").tag("outcome", "failure").timer()!!.count())
+    }
+
+    @Test
+    fun `records pressure before metrics binding without resolving a registry`() {
+        val monitor = monitor()
+
+        monitor.recordSuccess(Duration.ofMillis(40))
+
+        assertEquals(1, monitor.snapshot(System.currentTimeMillis()).sampleCount)
+    }
+
+    @Test
+    fun `binding the same registry twice does not duplicate statement metrics`() {
+        val registry = SimpleMeterRegistry()
+        val monitor = monitor()
+        monitor.bindTo(registry)
+        monitor.bindTo(registry)
+
+        monitor.recordSuccess(Duration.ofMillis(40))
+
+        assertEquals(1, registry.find("epistola.database.statement.duration").tag("outcome", "success").timer()!!.count())
     }
 
     @Test
@@ -103,13 +120,10 @@ class DatabasePressureMonitorTest {
         `when`(hikariDataSource.hikariPoolMXBean).thenReturn(poolMXBean)
         `when`(poolMXBean.threadsAwaitingConnection).thenReturn(2)
 
-        val registryProvider = mock<ObjectProvider<MeterRegistry>>()
-        `when`(registryProvider.getObject()).thenReturn(SimpleMeterRegistry())
         val monitor = DatabasePressureMonitor(
             properties = JobPollingProperties(
                 databasePressure = DatabasePressureProperties(observationWindowMs = 10_000),
             ),
-            meterRegistryProvider = registryProvider,
             dataSource = hikariDataSource,
         )
 
