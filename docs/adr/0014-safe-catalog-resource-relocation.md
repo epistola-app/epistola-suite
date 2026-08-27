@@ -111,8 +111,8 @@ address. A move changes only catalog membership and the canonical address; refer
 identify the same `resource_id`.
 
 Ordinary relational relationships use a typed foreign key to the target resource ID. For references
-embedded in versioned JSON, saving or publishing creates a typed, persisted reference record with
-the source version, JSON path, target `resource_id`, authored address, and resolution base. The
+embedded in versioned JSON, saving or publishing records the resolved target alongside the payload,
+with its location, target `resource_id`, authored address, and resolution base. The
 JSON continues to contain the readable address that authors and catalog tools understand; the
 recorded ID is the internal resolution target. A current reference therefore has both useful forms:
 an immutable identity for execution and a visible address for authoring, diagnostics, and export.
@@ -129,8 +129,10 @@ and reference records preserve one logical identity across catalog moves; graph 
 derived from typed records; and aliases can eventually be limited to compatibility boundaries.
 
 **Cons:** this is the largest migration. Every relationship and embedded reference needs a safe
-ID-resolution and dual-write path; reference records must remain transactionally synchronized with
-their source models; existing immutable address-only payloads still need aliases; and tenant-local
+ID-resolution and dual-write path; recorded references must be written by whatever writes the
+payload they describe, which is what the mechanism chosen under
+[ID-first reference migration](#id-first-reference-migration) is selected to guarantee; existing
+immutable address-only payloads still need aliases; and tenant-local
 UUIDs require an explicit portable identity or handoff mapping for exchange between installations.
 
 ## Decision
@@ -374,43 +376,64 @@ their resolution context remains a separate requirement described below.
 
 ### ID-first reference migration
 
-Option F separates a reference's identity from the text used to author it. New persisted semantic
-references have, conceptually:
+Option F separates a reference's identity from the text used to author it. A resolved reference is
+recorded next to the payload that carries it, in a `resolved_references` JSONB column on the rows
+that own versioned content — `template_versions`, `stencil_versions`, and the theme rows:
 
-```text
-resource_references
-  tenant_key
-  source_resource_id
-  source_version_id              -- nullable for unversioned configuration
-  reference_kind
-  json_path_or_field
-  target_resource_id
-  authored_type
-  authored_catalog_key
-  authored_resource_key
-  resolution_base_catalog_key    -- when relative syntax is supported
+```jsonc
+// template_versions.resolved_references
+[
+  {
+    "kind": "stencil-insertion",
+    "location": "templateModel.slots.children[0].props.stencilId",
+    "targetResourceId": "0199...",
+    "authoredCatalogKey": "letters",
+    "authoredResourceKey": "header",
+    "qualification": "RELATIVE",
+    "resolutionBaseCatalogKey": "letters",
+  },
+]
 ```
 
-This is not a second graph source of truth. It is a typed, transactional projection of the domain
-models that own references. The resource graph traverses these records together with direct
-relational foreign keys; each domain remains responsible for producing and validating its own
-reference records when it saves a draft or publishes a version.
+This follows the idiom the codebase already uses for exactly this problem.
+`template_versions.resolved_theme` is a publish-time resolution snapshot stored in a sibling
+column, written by the same statement that writes the model, and `referenced_paths` is a JSONB
+projection of the same kind. The resource graph already reads `resolved_theme` as reference
+evidence.
+
+A normalized `resource_references` table keyed by `(source_version_id, json_path)` was considered
+and rejected. It would be written by every domain save and publish path, which is a second source
+of truth with many writers and a permanent drift class — the thing the Consequences section below
+forbids and that `CLAUDE.md` states as the rule for `catalog/graph/`. Keying on a JSON path also
+couples the schema to the template model's shape. The sibling column has one writer per row and no
+drift by construction; its target has no foreign key, but a target that no longer exists is already
+a modelled state (`ReferenceResolution.MISSING`), and a foreign key there would wrongly block
+deleting a referenced resource.
+
+Reference extraction stays behind `ResourceReferenceSites` (`catalog/graph/`), the single authority
+for which JSON shapes carry a reference. `resolved_references` is what that traversal produced at
+write time, not a second opinion about it.
 
 The migration is dual-write and non-destructive:
 
 1. Backfill stable resource IDs and resolve existing references where their meaning is provable.
-2. Persist target IDs for new or edited drafts and newly published versions, while retaining their
-   authored addresses.
+2. Persist resolved references for new or edited drafts and newly published versions, while
+   retaining their authored addresses in the payload.
 3. Use target IDs first at runtime and in graph traversal; fall back to address resolution and
    aliases for historical rows that do not yet have a recorded target.
-4. Export canonical public addresses and explicit dependencies; never expose local UUIDs as the
-   exchange identity.
+4. Export canonical public addresses and explicit dependencies. Local UUIDs live in a sibling
+   column that is never serialized, so they cannot leak into the exchange format.
 5. Retain aliases until every supported historical payload and external address can be retired by a
    separately proven compatibility policy.
 
 The move command updates the resource's location and canonical address. It may update an authored
-address in a mutable model for clarity, but it does not need to change the `target_resource_id` of
-an ID-first reference. This is the essential reason for choosing Option F.
+address in a mutable model for clarity, but it does not need to change the `targetResourceId` of an
+ID-first reference. This is the essential reason for choosing Option F.
+
+Relocation's planner then becomes a targeted lookup — a GIN-indexed containment query for the
+moving resource's id — replacing the alpha's full scan of every template and stencil version in the
+tenant. That scan is explicitly temporary and exists only because address-based content is still
+the primary representation.
 
 ### Reference rewriting
 
@@ -641,8 +664,9 @@ until the alpha workflow and error model have settled.
 2. Add the shared resource registry and backfill a stable identity for every resource.
 3. Migrate relational foreign keys to stable identities, including distinct font and backing-asset
    relationships, without weakening tenant or type integrity.
-4. Add typed, transactional reference records for embedded references, with source-version,
-   target-ID, authored-address, and resolution-base evidence.
+4. Add the `resolved_references` sibling column for embedded references, with location,
+   target-ID, authored-address, and resolution-base evidence, written wherever `resolved_theme`
+   is written today.
 5. Dual-write and backfill those records conservatively; use IDs first for new references and
    retain alias-aware address resolution for historical references.
 6. Define immutable relative-reference context and conservatively block historical shapes that
@@ -671,9 +695,11 @@ until the alpha workflow and error model have settled.
   subsequent moves do not rewrite historical ownership hierarchies.
 - The shared registry is foundational identity metadata, not a replacement for domain resource
   tables and not a separately persisted reference graph.
-- New internal references are ID-first. Typed reference records retain their authored addresses for
-  display, diagnostics, export, and compatibility, while aliases serve legacy and external
-  address-based callers rather than ordinary current dependencies.
+- New internal references are ID-first. Resolved-reference records retain their authored addresses
+  for display, diagnostics, export, and compatibility, while aliases serve legacy and external
+  address-based callers rather than ordinary current dependencies. They are a sibling column on the
+  row that owns the payload, written by that row's own writer — not a separately maintained
+  reference graph with its own writers.
 - Existing immutable relative references reduce the initially supported move set unless their
   historical base catalog is preserved explicitly.
 - Catalogs affected indirectly by rewritten or canonicalized references acquire unreleased changes.
