@@ -112,7 +112,9 @@ class DatabasePressureMonitor(
 
     private fun prune(nowMs: Long, windowMs: Long) {
         val cutoff = nowMs - windowMs.coerceAtLeast(1)
-        while ((observations.firstOrNull()?.atMs ?: Long.MAX_VALUE) < cutoff) {
+        while (true) {
+            val oldest = observations.firstOrNull() ?: break
+            if (oldest.atMs >= cutoff) break
             observations.removeFirst()
         }
     }
