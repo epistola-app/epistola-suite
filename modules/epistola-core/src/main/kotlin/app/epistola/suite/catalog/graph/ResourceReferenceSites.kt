@@ -70,6 +70,10 @@ class ReferenceSite internal constructor(
     fun setKey(value: String) {
         holder.put(kind.keyField, value)
     }
+
+    fun clearCatalogKey() {
+        holder.remove(CATALOG_KEY)
+    }
 }
 
 /** Locates every [ReferenceSite] in a template, stencil, or theme JSON payload. */
@@ -79,6 +83,41 @@ object ResourceReferenceSites {
      *   (`templateModel`, `content`, `documentStyles`, …).
      */
     fun scan(root: JsonNode, path: String = ""): List<ReferenceSite> = buildList { collect(root, path, this) }
+
+    /**
+     * Fills in [containingCatalogKey] on every unqualified relative reference, in place.
+     *
+     * Applied when content is persisted, so a stored reference always names the catalog it
+     * resolves against and keeps that meaning if its owner is later relocated. Assets are left
+     * alone: they resolve tenant-globally, so qualifying one would change what it means rather
+     * than pin it.
+     *
+     * @return true when anything was qualified.
+     */
+    fun qualifyRelative(root: JsonNode, containingCatalogKey: String): Boolean {
+        var changed = false
+        for (site in scan(root)) {
+            if (!site.kind.relativeWhenUnqualified || site.catalogKey != null) continue
+            site.setCatalogKey(containingCatalogKey)
+            changed = true
+        }
+        return changed
+    }
+
+    /**
+     * Drops [containingCatalogKey] from references that target it, the inverse of [qualifyRelative].
+     *
+     * Applied when building a catalog export so a same-catalog reference travels as a relative one.
+     * That is what lets an exported catalog be installed under a different key: the importer
+     * re-qualifies against the target catalog. References to other catalogs keep their explicit
+     * key and remain declared dependencies.
+     */
+    fun relativizeOwnCatalog(root: JsonNode, containingCatalogKey: String) {
+        for (site in scan(root)) {
+            if (!site.kind.relativeWhenUnqualified || site.catalogKey != containingCatalogKey) continue
+            site.clearCatalogKey()
+        }
+    }
 
     private fun collect(node: JsonNode, path: String, into: MutableList<ReferenceSite>) {
         if (node is ObjectNode) {

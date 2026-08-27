@@ -280,9 +280,10 @@ class CatalogContentBuilder(
                 JOIN catalog_resources r
                   ON r.tenant_key = a.tenant_key AND r.resource_id = a.target_resource_id
                 WHERE a.tenant_key = :tenantKey AND a.resource_type = 'stencil'
-                  -- A canonical resource re-created at an aliased address wins over the alias,
-                  -- exactly as ResolveCatalogResourceAddress orders them. Without this an export
-                  -- would rewrite references to the NEW resource into the moved one's address.
+                  -- Authoring reserves an aliased address (requireAddressAvailable), but import
+                  -- and backup restore reproduce stored state faithfully and may carry a resource
+                  -- that predates the alias. A canonical resource therefore still wins here,
+                  -- exactly as ResolveCatalogResourceAddress orders them.
                   AND NOT EXISTS (
                       SELECT 1 FROM catalog_resources shadow
                       WHERE shadow.tenant_key = a.tenant_key
@@ -315,6 +316,9 @@ class CatalogContentBuilder(
                 site.setKey(targetKey)
             }
         }
+        // Stored references are absolute so relocation cannot change their meaning; exported ones
+        // are relative to their own catalog so the ZIP stays installable under a different key.
+        ResourceReferenceSites.relativizeOwnCatalog(root, containingCatalog)
     }
 
     /**

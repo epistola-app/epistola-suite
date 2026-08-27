@@ -113,7 +113,7 @@ class CreateDocumentTemplateHandler(
                     .execute()
 
                 // 4. Create draft version with default TemplateDocument (version ID = 1)
-                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variantId))
+                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variantId), command.id.catalogKey)
                 val versionId = VersionKey.of(1) // First version is always 1
 
                 handle.createUpdate(

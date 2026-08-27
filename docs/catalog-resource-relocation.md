@@ -35,6 +35,13 @@ catalog.
 - Source and destination must be different authored catalogs in the same tenant.
 - A source catalog with a release is blocked until subscriber/release handoff semantics exist.
 - Immutable version JSON is never edited.
+- An address a moved resource left behind is reserved: creating a resource there is rejected until
+  the alias is explicitly released, which previews what stops resolving first.
+- References are qualified with their catalog when content is written, so a published reference
+  keeps its meaning after its owner moves. Content written before that rule may still carry an
+  unqualified dependency and blocks its owner's move.
+- Export relativizes references back to their own catalog, so an exported catalog stays installable
+  under a different key. Stored form is absolute, wire form is relative.
 - The web resource graph is the only product surface in this alpha. REST and MCP operations are
   intentionally deferred until the command contract and authorization model have settled.
 - Old public stencil URLs are not redirected yet; the resolver is currently used by graph and

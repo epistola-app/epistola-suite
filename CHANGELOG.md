@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+- **[dev]** feat(catalogs): **Stored resource references now name their catalog.** Saving or
+  publishing fills in the containing catalog on relative references, so a published reference keeps
+  its meaning when its owner is relocated. Exports still travel relative to their own catalog, so a
+  catalog remains installable under a different key. Assets stay unqualified: they resolve
+  tenant-globally.
+- **[user]** feat(catalogs): **An address a moved resource left behind is reserved.** Creating a
+  resource at that address is rejected rather than silently repointing references published against
+  it; releasing the alias is explicit and previews what stops resolving. Alpha, behind the
+  `resource-relocation` toggle.
 - **[user]** fix(catalogs): **Catalog exports declare dependencies bound inside stencil content.**
   Export scanned only template models, so a font, theme, or asset that a stencil bound in another
   catalog never reached `manifest.dependencies` and a re-import was not told the other catalog was

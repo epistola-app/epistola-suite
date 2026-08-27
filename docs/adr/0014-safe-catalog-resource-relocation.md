@@ -103,7 +103,7 @@ foreign keys, aliases alone cannot move relational data. Relative references in 
 also need a preserved resolution base or must block the move. This is substantially more
 infrastructure than a direct update.
 
-### Option F — Canonical move with ID-first internal references (chosen)
+### Option F — Canonical move with ID-first internal references
 
 Give every logical resource a stable tenant-local `resource_id` and make that ID the authoritative
 target of internal references. Catalog key and slug remain the mutable, human-readable public
@@ -128,35 +128,56 @@ content that has a recorded target ID keeps its meaning without depending on an 
 and reference records preserve one logical identity across catalog moves; graph traversal can be
 derived from typed records; and aliases can eventually be limited to compatibility boundaries.
 
-**Cons:** this is the largest migration. Every relationship and embedded reference needs a safe
-ID-resolution and dual-write path; recorded references must be written by whatever writes the
-payload they describe, which is what the mechanism chosen under
-[ID-first reference migration](#id-first-reference-migration) is selected to guarantee; existing
-immutable address-only payloads still need aliases; and tenant-local
+**Cons:** this is the largest migration, and write-time qualification obtains most of its benefit
+for a fraction of the cost. Every relationship and embedded reference needs a safe ID-resolution and
+dual-write path; recorded references must be written by whatever writes the payload they describe;
+existing immutable address-only payloads still need aliases; and tenant-local
 UUIDs require an explicit portable identity or handoff mapping for exchange between installations.
 
 ## Decision
 
-Adopt **Option F** as the target architecture, with Option E's canonical-move semantics and a
-two-step **preview then execute** protocol. Implement its resource identity foundation using
-**E2 — a shared surrogate resource registry**, described under
-[Composite keys and foreign keys](#composite-keys-and-foreign-keys). New internal relationships are
-ID-first; address resolution and aliases remain the compatibility boundary for legacy content and
-public addresses.
+**Accepted: Option E — canonical move with address aliases and typed rewrites**, made complete by
+two rules that remove the reasons Option F looked necessary:
 
-The existing alpha is deliberately only the first migration step: it establishes the registry,
-aliases, address resolution, and stencil relocation, while address-based content remains the
-primary representation. It must not be mistaken for the final ID-first reference architecture.
-The alpha supports only moves between two different `AUTHORED` catalogs in the same tenant and
-blocks every move whose relational, immutable-reference, exchange, or release-upgrade shape is not
-yet supported. In particular, moving a resource that has crossed a release or subscription boundary
-is not enabled until the exchange format can carry a relocation handoff between catalogs.
+1. **References are qualified when they are written.** Persisting a draft or publishing a version
+   fills in the containing catalog on every unqualified relative reference
+   (`ResourceReferenceSites.qualifyRelative`, applied in `TemplateDocumentPreparation` and the
+   stencil write paths). A stored reference therefore always names the catalog it resolves against,
+   so an alias always has a concrete address to attach to. Assets are excluded: they resolve
+   tenant-globally, so qualifying one would change its meaning rather than pin it.
 
-Options A–E define move behavior for address-based content. Option F chooses the long-term
-reference architecture that implements the same canonical-move behavior without making aliases the
-normal internal dependency mechanism. Suboptions E1–E3 define how Option F's stable identity and
-relational integrity are represented in the database. Choosing E2 does not introduce another
-author-visible move behavior.
+   This is normalization on write, not a required field. The catalog wire format keeps
+   `catalogKey` optional, so existing exports still import and no GA surface breaks. Unqualified
+   references become a finite, non-growing legacy tail rather than an open-ended problem.
+
+   **Storage is absolute; the wire stays relative.** Export drops the catalog from references that
+   target the catalog being exported (`ResourceReferenceSites.relativizeOwnCatalog`), and import
+   re-qualifies against the catalog it installs into. This is not cosmetic: relative references are
+   what let an exported catalog be installed under a _different_ key, which the retarget path
+   (`renameInManifest`) and stencil renumbering both depend on. Qualifying the wire form would bake
+   the source catalog's key into the ZIP and turn every same-catalog reference into an unsatisfiable
+   cross-catalog dependency. The exported bytes are therefore unchanged by this decision.
+
+2. **An address a relocated resource left behind is reserved.** Creating a resource at an aliased
+   address is rejected (`requireAddressAvailable`), because a version published before the move
+   named that address meaning the resource that has since left. `ReleaseCatalogResourceAlias`
+   gives the address up deliberately, after `PreviewCatalogResourceAliasRelease` reports what stops
+   resolving. Reservation is a command-layer rule, not a database constraint: catalog import and
+   tenant backup restore must reproduce stored state faithfully, so alias consumers still prefer a
+   canonical resource when both exist.
+
+Together these close the two gaps that motivated Option F. Rule 1 removes the
+`immutable-relative-reference` blocker for anything authored from now on; rule 2 removes the
+address-reuse ambiguity that an alias alone cannot express. Renames and whole-catalog moves are
+expressible with the same alias mechanism.
+
+The identity foundation is still required and still implemented with **E2 — a shared surrogate
+resource registry**: relational integrity across a move needs a catalog-independent key regardless
+of how references are represented.
+
+Option F is **deferred**, not rejected — see [Deferred](#deferred). It remains the answer if
+address reservation proves too restrictive in practice, or when the relocation planner's cost
+becomes the binding constraint.
 
 Option D remains the lower-cost alternative if the desired product semantics are that old
 references intentionally see a frozen snapshot. It is not chosen because the primary requirement
@@ -374,11 +395,12 @@ higher up-front migration cost, but makes later moves small and preserves databa
 identity across all resource types. It does not solve relative references in immutable payloads;
 their resolution context remains a separate requirement described below.
 
-### ID-first reference migration
+### Deferred: ID-first reference records
 
-Option F separates a reference's identity from the text used to author it. A resolved reference is
-recorded next to the payload that carries it, in a `resolved_references` JSONB column on the rows
-that own versioned content — `template_versions`, `stencil_versions`, and the theme rows:
+If address reservation proves too restrictive, or the relocation planner's scan becomes the binding
+cost, Option F is implemented by recording the resolved target alongside the payload that carries
+it — a `resolved_references` JSONB column on `template_versions`, `stencil_versions`, and the theme
+rows:
 
 ```jsonc
 // template_versions.resolved_references
@@ -389,51 +411,25 @@ that own versioned content — `template_versions`, `stencil_versions`, and the 
     "targetResourceId": "0199...",
     "authoredCatalogKey": "letters",
     "authoredResourceKey": "header",
-    "qualification": "RELATIVE",
-    "resolutionBaseCatalogKey": "letters",
   },
 ]
 ```
 
-This follows the idiom the codebase already uses for exactly this problem.
-`template_versions.resolved_theme` is a publish-time resolution snapshot stored in a sibling
-column, written by the same statement that writes the model, and `referenced_paths` is a JSONB
-projection of the same kind. The resource graph already reads `resolved_theme` as reference
-evidence.
+This follows the idiom already used for exactly this problem: `template_versions.resolved_theme` is
+a publish-time resolution snapshot in a sibling column, written by the same statement as the model,
+and `referenced_paths` is a JSONB projection of the same kind.
 
 A normalized `resource_references` table keyed by `(source_version_id, json_path)` was considered
-and rejected. It would be written by every domain save and publish path, which is a second source
-of truth with many writers and a permanent drift class — the thing the Consequences section below
-forbids and that `CLAUDE.md` states as the rule for `catalog/graph/`. Keying on a JSON path also
-couples the schema to the template model's shape. The sibling column has one writer per row and no
-drift by construction; its target has no foreign key, but a target that no longer exists is already
-a modelled state (`ReferenceResolution.MISSING`), and a foreign key there would wrongly block
-deleting a referenced resource.
+and rejected. It would be written by every domain save and publish path — a second source of truth
+with many writers and a permanent drift class, which the Consequences section below forbids and
+`CLAUDE.md` states as the rule for `catalog/graph/`. Keying on a JSON path also couples the schema
+to the template model's shape. The sibling column has one writer per row and no drift by
+construction. Its target has no foreign key, but a missing target is already a modelled state
+(`ReferenceResolution.MISSING`), and a foreign key there would wrongly block deleting a referenced
+resource.
 
-Reference extraction stays behind `ResourceReferenceSites` (`catalog/graph/`), the single authority
-for which JSON shapes carry a reference. `resolved_references` is what that traversal produced at
-write time, not a second opinion about it.
-
-The migration is dual-write and non-destructive:
-
-1. Backfill stable resource IDs and resolve existing references where their meaning is provable.
-2. Persist resolved references for new or edited drafts and newly published versions, while
-   retaining their authored addresses in the payload.
-3. Use target IDs first at runtime and in graph traversal; fall back to address resolution and
-   aliases for historical rows that do not yet have a recorded target.
-4. Export canonical public addresses and explicit dependencies. Local UUIDs live in a sibling
-   column that is never serialized, so they cannot leak into the exchange format.
-5. Retain aliases until every supported historical payload and external address can be retired by a
-   separately proven compatibility policy.
-
-The move command updates the resource's location and canonical address. It may update an authored
-address in a mutable model for clarity, but it does not need to change the `targetResourceId` of an
-ID-first reference. This is the essential reason for choosing Option F.
-
-Relocation's planner then becomes a targeted lookup — a GIN-indexed containment query for the
-moving resource's id — replacing the alpha's full scan of every template and stencil version in the
-tenant. That scan is explicitly temporary and exists only because address-based content is still
-the primary representation.
+Extraction would stay behind `ResourceReferenceSites` either way; `resolved_references` is what
+that traversal produced at write time, not a second opinion about it.
 
 ### Reference rewriting
 
@@ -664,11 +660,10 @@ until the alpha workflow and error model have settled.
 2. Add the shared resource registry and backfill a stable identity for every resource.
 3. Migrate relational foreign keys to stable identities, including distinct font and backing-asset
    relationships, without weakening tenant or type integrity.
-4. Add the `resolved_references` sibling column for embedded references, with location,
-   target-ID, authored-address, and resolution-base evidence, written wherever `resolved_theme`
-   is written today.
-5. Dual-write and backfill those records conservatively; use IDs first for new references and
-   retain alias-aware address resolution for historical references.
+4. Qualify relative references when content is written, so new stored references always name
+   their catalog and aliases always have an address to attach to.
+5. Reserve addresses vacated by a relocation, with an explicit release that previews what stops
+   resolving.
 6. Define immutable relative-reference context and conservatively block historical shapes that
    cannot preserve resolution.
 7. Make every runtime and export resolver use one alias-aware resource-address resolver, with parity
@@ -695,13 +690,18 @@ until the alpha workflow and error model have settled.
   subsequent moves do not rewrite historical ownership hierarchies.
 - The shared registry is foundational identity metadata, not a replacement for domain resource
   tables and not a separately persisted reference graph.
-- New internal references are ID-first. Resolved-reference records retain their authored addresses
-  for display, diagnostics, export, and compatibility, while aliases serve legacy and external
-  address-based callers rather than ordinary current dependencies. They are a sibling column on the
-  row that owns the payload, written by that row's own writer — not a separately maintained
-  reference graph with its own writers.
-- Existing immutable relative references reduce the initially supported move set unless their
-  historical base catalog is preserved explicitly.
+- Stored references are qualified on write, so a reference's catalog is explicit and an alias
+  always has a concrete address to attach to. Assets stay unqualified because they resolve
+  tenant-globally.
+- An address vacated by a relocation is reserved and can only be reused by explicitly releasing the
+  alias, which is previewable. Authors cannot silently reclaim a slug they moved away from.
+- Aliases are the ordinary mechanism by which a published reference survives a move, not merely a
+  legacy compatibility boundary. They are permanent, flat (each points straight at a stable
+  identity), and cheap to resolve in one indexed lookup.
+- Immutable references written before write-time qualification are a bounded, non-growing legacy
+  tail. They still reduce the supported move set: a resource whose published versions carry an
+  unqualified outgoing reference stays blocked until a frozen resolution base is recorded for those
+  rows. Nothing authored from now on joins that set.
 - Catalogs affected indirectly by rewritten or canonicalized references acquire unreleased changes.
 - Moving a resource across catalog boundaries can introduce new dependency edges, release-ordering
   requirements, or cycles; it is not only a storage operation.
@@ -713,6 +713,19 @@ until the alpha workflow and error model have settled.
   audit state, not a separately persisted graph.
 - Initial delivery is deliberately synchronous and conservative. Unsupported reference shapes are
   blockers, not best-effort rewrites.
+
+## Deferred
+
+- **ID-first reference records (Option F)** — see
+  [Deferred: ID-first reference records](#deferred-id-first-reference-records). Revisit if address
+  reservation proves too restrictive for authors, or if the relocation planner's full scan of the
+  tenant's versions becomes the binding cost.
+- **A frozen resolution base for legacy unqualified references**, unblocking moves of resources
+  whose pre-qualification published versions still carry relative dependencies.
+- Released-catalog relocation handoff and coordinated subscriber upgrade.
+- Resource types beyond stencils, renaming resource keys, and moving whole catalogs — all
+  expressible with the same alias mechanism, gated on per-type rewrite strategies.
+- REST and MCP surfaces for relocation, once the command contract has settled.
 
 ## Related
 

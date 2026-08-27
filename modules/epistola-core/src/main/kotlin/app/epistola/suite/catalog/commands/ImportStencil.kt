@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
@@ -20,6 +21,7 @@ import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -84,7 +86,12 @@ class ImportStencilHandler(
         templateDocumentValidator.validateStencilPublishable(command.content)
         val stencilKey = StencilKey.of(command.slug)
         val tagsJson = objectMapper.writeValueAsString(command.tags)
-        val contentJson = objectMapper.writeValueAsString(command.content)
+        // Wire content is relative to the catalog it lands in, so qualify against the target.
+        // Computed once: the same JSON backs both the idempotency comparison below and the insert,
+        // so a re-import still compares equal to what was stored.
+        val contentJson = objectMapper.valueToTree<JsonNode>(command.content)
+            .also { ResourceReferenceSites.qualifyRelative(it, command.catalogKey.value) }
+            .let(objectMapper::writeValueAsString)
         val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
         val auditUser = currentUserIdOrNull()?.value
 

@@ -388,6 +388,10 @@ class CatalogResourceMovePlanner(
     /**
      * Pins the moving stencil's own unqualified dependencies to the catalog they resolve against
      * today, so they keep their meaning once the stencil resolves relative to its destination.
+     *
+     * Content written since references became qualified on write has nothing left to pin, so this
+     * only does work for drafts predating that rule. Its published counterpart is the
+     * `immutable-relative-reference` blocker, which cannot rewrite and so refuses the move.
      */
     private fun qualifyRelativeOutgoingReferences(root: JsonNode, sourceCatalog: String, alreadyChanged: Boolean): RewriteResult {
         var changed = alreadyChanged

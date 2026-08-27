@@ -4,6 +4,8 @@
 
 package app.epistola.suite.templates.services
 
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.templates.analysis.TemplatePathExtractor
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.template.model.TemplateDocument
@@ -27,21 +29,26 @@ class TemplateDocumentPreparation(
     private val pathExtractor: TemplatePathExtractor,
     private val validator: TemplateDocumentValidator,
 ) {
-    fun prepare(document: TemplateDocument): PreparedTemplateDocument {
+    fun prepare(document: TemplateDocument, catalogKey: CatalogKey): PreparedTemplateDocument {
         validator.validateTemplate(document)
-        return prepareValidated(document)
+        return prepareValidated(document, catalogKey)
     }
 
     /** Prepare an editable draft, allowing required parameter bindings to be incomplete. */
-    fun prepareDraft(document: TemplateDocument): PreparedTemplateDocument {
+    fun prepareDraft(document: TemplateDocument, catalogKey: CatalogKey): PreparedTemplateDocument {
         validator.validateTemplateDraft(document)
-        return prepareValidated(document)
+        return prepareValidated(document, catalogKey)
     }
 
-    private fun prepareValidated(document: TemplateDocument): PreparedTemplateDocument {
+    private fun prepareValidated(document: TemplateDocument, catalogKey: CatalogKey): PreparedTemplateDocument {
         val referencedPaths = pathExtractor.extractReferencedPaths(document)
+        // Stored references always name the catalog they resolve against, so relocating the owner
+        // cannot silently change what an already-written reference means. Data-path extraction is
+        // unaffected by the catalog and still reads the typed document.
+        val model = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(document)
+        ResourceReferenceSites.qualifyRelative(model, catalogKey.value)
         return PreparedTemplateDocument(
-            templateModelJson = objectMapper.writeValueAsString(document),
+            templateModelJson = objectMapper.writeValueAsString(model),
             referencedPaths = referencedPaths,
             referencedPathsJson = objectMapper.writeValueAsString(referencedPaths),
         )

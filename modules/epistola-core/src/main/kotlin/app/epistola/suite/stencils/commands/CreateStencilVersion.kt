@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -135,7 +136,10 @@ class CreateStencilVersionHandler(
             val content = command.content
                 ?: objectMapper.readValue(source!!["content"].toString(), TemplateDocument::class.java)
             templateDocumentValidator.validateStencil(content)
-            val contentJson = objectMapper.writeValueAsString(content)
+            // Idempotent for content copied from an already-qualified version.
+            val contentJson = objectMapper.valueToTree<JsonNode>(content)
+                .also { ResourceReferenceSites.qualifyRelative(it, command.stencilId.catalogKey.value) }
+                .let(objectMapper::writeValueAsString)
 
             // Schema: explicit wins; otherwise carry over the copied version's schema
             // for internal draft-reopen flows unless the caller opts into contract-style

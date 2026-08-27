@@ -4,6 +4,10 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
+import app.epistola.suite.catalog.identity.requireAddressAvailable
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -81,6 +85,11 @@ class CreateStencilHandler(
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("stencil", command.id.key.value) {
             jdbi.inTransaction<Stencil, Exception> { handle ->
+                requireAddressAvailable(
+                    handle,
+                    command.id.tenantKey,
+                    ResourceAddress(CatalogResourceType.STENCIL, command.id.catalogKey.value, command.id.key.value),
+                )
                 val tagsJson = objectMapper.writeValueAsString(command.tags)
 
                 // 1. Create the stencil
@@ -104,7 +113,10 @@ class CreateStencilHandler(
                 // 2. Create initial draft version (empty if no content provided)
                 run {
                     val content = command.content ?: emptyTemplateDocument()
-                    val contentJson = objectMapper.writeValueAsString(content)
+                    // Stored references name the catalog they resolve against; see UpdateStencilDraft.
+                    val contentJson = objectMapper.valueToTree<JsonNode>(content)
+                        .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
+                        .let(objectMapper::writeValueAsString)
                     val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
                     handle.createUpdate(
                         """
