@@ -79,8 +79,14 @@ class StartExchangeConnectionHandler(
     private val random = SecureRandom()
 
     override fun handle(command: StartExchangeConnection): String {
+        // Enrolling is what creates the remote relationship, so it needs both switches — the
+        // deployment gate and the tenant's own feature. Disconnecting deliberately does not, so a
+        // tenant that has since turned the feature off can still clean up.
         validate("exchange", availability.deploymentEnabled, ValidationCode.PUBLICATION_UNAVAILABLE) {
             "Exchange publishing is disabled for this deployment."
+        }
+        validate("exchange", availability.isAvailable(command.tenantKey), ValidationCode.PUBLICATION_UNAVAILABLE) {
+            "Enable the Catalog publishing feature for this tenant before connecting to Exchange."
         }
         val tenant = requireNotNull(GetTenant(command.tenantKey).query())
         val existing = jdbi.withHandle<ExchangeTenantConnection?, Exception> { handle -> current(handle, command.tenantKey) }
@@ -109,7 +115,12 @@ class StartExchangeConnectionHandler(
                 ON CONFLICT (tenant_key) DO UPDATE SET issuer = EXCLUDED.issuer, base_url = EXCLUDED.base_url,
                     authorization_request_endpoint = EXCLUDED.authorization_request_endpoint,
                     token_endpoint = EXCLUDED.token_endpoint,
-                    status = 'PENDING', last_error = NULL, updated_at = NOW()
+                    -- Starting an authorization is not the same as losing the current one. An
+                    -- ACTIVE connection keeps working (and keeps publishing) until the new
+                    -- authorization actually completes, so abandoning the browser flow cannot
+                    -- strand a healthy tenant in PENDING with valid credentials.
+                    status = CASE WHEN exchange_tenant_connections.status = 'ACTIVE' THEN 'ACTIVE' ELSE 'PENDING' END,
+                    last_error = NULL, updated_at = NOW()
                 """,
             ).bind("tenantKey", command.tenantKey).bind("issuer", endpoints.issuer).bind("baseUrl", endpoints.baseUrl)
                 .bind("authorizationEndpoint", endpoints.authorizationRequestEndpoint)
@@ -247,6 +258,7 @@ class DisconnectExchangeConnectionHandler(
     private val jdbi: Jdbi,
     private val client: ExchangeClient,
     private val credentials: ExchangeCredentialService,
+    private val store: CatalogPublicationStore,
 ) : CommandHandler<DisconnectExchangeConnection, Unit> {
     override fun handle(command: DisconnectExchangeConnection) {
         val connection = credentials.connection(command.tenantKey)
@@ -268,6 +280,14 @@ class DisconnectExchangeConnectionHandler(
             clearPendingAuthorization(handle, command.tenantKey)
             handle.createUpdate("DELETE FROM exchange_tenant_connections WHERE tenant_key = :tenantKey")
                 .bind("tenantKey", command.tenantKey).execute()
+            // Queued work has just lost the credentials it needs. Left as-is it would be re-claimed
+            // and deferred forever, holding a retained release archive each. Failing it stops that
+            // and keeps the archives, so reconnecting and retrying still works.
+            store.abandonActive(
+                handle,
+                command.tenantKey,
+                "The Exchange connection was disconnected before this release was accepted.",
+            )
         }
     }
 }

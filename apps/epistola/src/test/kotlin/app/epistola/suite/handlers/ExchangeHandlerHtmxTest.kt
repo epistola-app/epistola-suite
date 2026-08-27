@@ -5,6 +5,10 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,6 +33,7 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `an unconnected tenant is offered authorization as a top-level navigation`() {
         val tenant = createTenant("Exchange Page")
+        enablePublishing(tenant)
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/exchange", String::class.java)
 
@@ -43,9 +48,25 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(connectForms).allMatch { """hx-boost="false"""" in it }
     }
 
+    /** Connecting requires the tenant feature as well as the deployment gate. */
+    private fun enablePublishing(tenant: Tenant) = withMediator {
+        SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+    }
+
+    @Test
+    fun `a malformed authorization callback is a bad request, not a server error`() {
+        val response = restTemplate.getForEntity(
+            "/oauth/exchange/callback?state=unknown-state&code=x&client_id=not-a-uuid&iss=https://exchange.example",
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
     @Test
     fun `a rejected setup action is shown on the settings page, not as an error page`() {
         val tenant = createTenant("Exchange Bad Namespace")
+        enablePublishing(tenant)
 
         val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
         val body = LinkedMultiValueMap<String, String>().apply { add("namespace", "not-granted") }

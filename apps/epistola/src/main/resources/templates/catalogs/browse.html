@@ -45,6 +45,7 @@
             </div>
 
             <div th:if="${publication != null}" style="margin-bottom: var(--ep-space-4);">
+                <div class="alert alert-danger" th:if="${publicationError != null}" th:text="${publicationError}"></div>
                 <form th:if="${publication.canPublishCurrentRelease}"
                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}"
                       method="post">

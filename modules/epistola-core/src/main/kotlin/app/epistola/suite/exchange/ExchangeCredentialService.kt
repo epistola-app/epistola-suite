@@ -12,6 +12,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
+import java.time.Duration
 
 /**
  * Keeps each tenant's Exchange access token usable.
@@ -39,12 +40,16 @@ class ExchangeCredentialService(
     fun activeConnection(tenantKey: TenantKey): ExchangeTenantConnection? = connection(tenantKey)?.takeIf { it.status == ExchangeConnectionStatus.ACTIVE }
 
     /**
-     * Returns a token good for at least [EXPIRY_MARGIN_SECONDS], refreshing first if needed. Null
-     * when the connection cannot produce one — the caller defers rather than failing the work.
+     * Returns a token good for at least [renewWithin], refreshing first if needed. Null when the
+     * connection cannot produce one — the caller defers rather than failing the work.
+     *
+     * [renewWithin] is a parameter rather than a constant because the background sweep renews
+     * further ahead than a caller that is about to use the token: with one shared margin, the
+     * sweep would select connections and then decline to refresh every one of them.
      */
-    fun accessToken(connection: ExchangeTenantConnection): String? {
+    fun accessToken(connection: ExchangeTenantConnection, renewWithin: Duration = USE_MARGIN): String? {
         val now = EpistolaClock.offsetDateTime()
-        if (connection.accessToken != null && connection.accessTokenExpiresAt?.isAfter(now.plusSeconds(EXPIRY_MARGIN_SECONDS)) == true) {
+        if (connection.accessToken != null && connection.accessTokenExpiresAt?.isAfter(now.plus(renewWithin)) == true) {
             return connection.accessToken.value
         }
         val refresh = connection.refreshToken ?: return null
@@ -88,17 +93,20 @@ class ExchangeCredentialService(
      * queued work. Only connections that actually need it are touched.
      */
     fun refreshExpiringConnections() {
+        // `access_token_expires_at` is written from the application clock, so it is compared
+        // against the application clock — not the database's NOW().
+        val deadline = EpistolaClock.offsetDateTime().plus(RENEW_AHEAD)
         val due = jdbi.withHandle<List<ExchangeTenantConnection>, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT * FROM exchange_tenant_connections
                 WHERE status = 'ACTIVE' AND refresh_token IS NOT NULL
-                  AND (access_token_expires_at IS NULL OR access_token_expires_at <= NOW() + :margin * INTERVAL '1 second')
+                  AND (access_token_expires_at IS NULL OR access_token_expires_at <= :deadline)
                 """,
-            ).bind("margin", REFRESH_AHEAD_SECONDS).mapTo<ExchangeTenantConnection>().list()
+            ).bind("deadline", deadline).mapTo<ExchangeTenantConnection>().list()
         }
         due.forEach { connection ->
-            runCatching { accessToken(connection) }.onFailure {
+            runCatching { accessToken(connection, renewWithin = RENEW_AHEAD) }.onFailure {
                 logger.warn("Exchange credential refresh failed for tenant {}: {}", connection.tenantKey, it.message)
             }
         }
@@ -111,10 +119,10 @@ class ExchangeCredentialService(
     }
 
     private companion object {
-        /** Treat a token expiring within this window as already expired. */
-        const val EXPIRY_MARGIN_SECONDS = 30L
+        /** A caller about to use a token treats one expiring this soon as already expired. */
+        val USE_MARGIN: Duration = Duration.ofSeconds(30)
 
-        /** How far ahead the background sweep renews. */
-        const val REFRESH_AHEAD_SECONDS = 300L
+        /** How far ahead the background sweep renews, so a token is never used at the wire. */
+        val RENEW_AHEAD: Duration = Duration.ofMinutes(5)
     }
 }

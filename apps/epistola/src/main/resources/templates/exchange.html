@@ -12,6 +12,12 @@
         before connecting a tenant.
     </div>
 
+    <div class="alert alert-warning" th:if="${settings.deploymentEnabled && !settings.featureEnabled}">
+        The Catalog publishing feature is off for this tenant. Enable it under
+        <a th:href="@{/tenants/{tenantId}/features(tenantId=${tenantId})}">Settings &rarr; Features</a>
+        before connecting to Exchange. An existing connection can still be disconnected here.
+    </div>
+
     <div class="card" th:if="${settings.deploymentEnabled}">
         <div class="card-header">
             <h2>Tenant connection</h2>
@@ -42,7 +48,8 @@
                     </div>
                     <button type="submit" class="ep-btn ep-btn-primary">Save namespace</button>
                 </form>
-                <form th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
+                <form th:if="${settings.featureEnabled}"
+                      th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
                     <button type="submit" class="ep-btn ep-btn-outline">Reauthorize connection</button>
                 </form>
                 <details>
@@ -66,7 +73,7 @@
                 </details>
             </div>
 
-            <form th:if="${!settings.connected}"
+            <form th:if="${!settings.connected && settings.featureEnabled}"
                   th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
                 <button type="submit" class="ep-btn ep-btn-primary"
                         th:text="${settings.needsReauthorization} ? 'Recover Exchange connection' : 'Connect to Exchange'">

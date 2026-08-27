@@ -72,21 +72,20 @@ class JdbiConfig {
                 },
             )
 
-            // SQL text arrays as List<String>, so a row model can hold an idiomatic list
-            // rather than an Array (whose identity-based equals silently breaks data classes).
-            // Binding the other way already works: JDBI turns a Kotlin Array into a SQL array.
-            // Registered on the erased List type because that is what Kotlin reflection hands
-            // JDBI for a `List<String>` constructor parameter; the only auto-mapped list columns
-            // in the schema are text arrays.
+            // SQL arrays as a List, so a row model can hold an idiomatic list rather than an
+            // Array (whose identity-based equals silently breaks data classes). Binding the other
+            // way already works: JDBI turns a Kotlin Array into a SQL array.
+            //
+            // Registered on the erased List type because that is what Kotlin reflection hands JDBI
+            // for a `List<T>` constructor parameter — the element type is not available here. The
+            // elements are therefore passed through as the driver produced them rather than being
+            // coerced to String: a `uuid[]` maps to UUIDs and an `int[]` to Ints, instead of
+            // producing a list whose contents do not match its declared type.
             registerColumnMapper(
                 List::class.java,
                 ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
                     val array = r.getArray(columnNumber)
-                    if (r.wasNull() || array == null) {
-                        emptyList()
-                    } else {
-                        (array.array as Array<*>).mapNotNull { it?.toString() }
-                    }
+                    if (r.wasNull() || array == null) null else (array.array as Array<*>).toList()
                 },
             )
 

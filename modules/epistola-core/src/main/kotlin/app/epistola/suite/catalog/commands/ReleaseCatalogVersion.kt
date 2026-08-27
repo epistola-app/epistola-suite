@@ -136,7 +136,7 @@ class ReleaseCatalogVersionHandler(
         // queued. The bytes are handed to the outbox inside the release transaction below: a crash
         // between committing the release and recording publication intent must not be possible.
         val port = publicationPort.ifAvailable?.takeIf { shouldPublish(command, catalog, it) }
-        val archive = port?.let { archiveBuilder.build(content, releaseInfo) }
+        val archive = port?.let { archiveBuilder.build(content, manifest) }
         var publicationId: UUID? = null
 
         jdbi.useTransaction<Exception> { handle ->

@@ -324,6 +324,11 @@ class CatalogHandler {
             }
         }
 
+        // Resolved once: the dialog renders from it, and the checkbox is only an override where
+        // the catalog policy allows one. Listing publication history on every error re-render
+        // would be pure waste.
+        val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
+
         fun reRenderWithError(message: String): ServerResponse {
             val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
             return ServerResponse.ok().render(
@@ -333,7 +338,7 @@ class CatalogHandler {
                     "catalogId" to catalogKey.value,
                     "status" to status,
                     "error" to message,
-                    "publication" to GetCatalogPublicationState(tenantId.key, catalogKey).query(),
+                    "publication" to publication,
                 ),
             )
         }
@@ -343,9 +348,6 @@ class CatalogHandler {
         }
 
         val notes = form.formData["notes"]?.ifBlank { null }
-        // The checkbox is only an override where the catalog policy allows one; otherwise the
-        // command resolves the policy itself.
-        val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
         val publicationChoice = when {
             publication?.available != true || !publication.allowsReleaseOverride -> ReleasePublication.DEFAULT
             request.params().getFirst("publishToExchange") == "true" -> ReleasePublication.PUBLISH
@@ -383,13 +385,24 @@ class CatalogHandler {
     private fun publicationPolicy(raw: String?): CatalogPublicationPolicy = CatalogPublicationPolicy.entries.firstOrNull { it.name == raw }
         ?: throw ValidationException("publicationPolicy", "Choose a valid publication policy.")
 
+    /**
+     * The button that offered this action was rendered from state that may have moved since — the
+     * working copy edited in another tab, a second administrator queueing first. Those races are
+     * exactly what the command validates, so a rejection returns the catalog page with the reason
+     * rather than an error page.
+     */
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        PublishCurrentCatalogRelease(tenantId.key, catalogKey).execute()
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
-            .build()
+        return try {
+            PublishCurrentCatalogRelease(tenantId.key, catalogKey).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ValidationException) {
+            logger.warn("Publishing the current release of '{}' was rejected: {}", catalogKey.value, failure.message)
+            browse(request, error = failure.message)
+        }
     }
 
     /**
@@ -500,7 +513,9 @@ class CatalogHandler {
         }
     }
 
-    fun browse(request: ServerRequest): ServerResponse {
+    fun browse(request: ServerRequest): ServerResponse = browse(request, error = null)
+
+    private fun browse(request: ServerRequest, error: String?): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
@@ -538,6 +553,7 @@ class CatalogHandler {
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
                 "publication" to publication
+                "publicationError" to error
                 "resources" to result.resources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts

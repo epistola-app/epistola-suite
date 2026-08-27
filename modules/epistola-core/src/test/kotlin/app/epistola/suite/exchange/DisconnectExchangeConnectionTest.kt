@@ -4,8 +4,16 @@
 
 package app.epistola.suite.exchange
 
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -33,7 +41,7 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
         exchange.tokenResponse = { FakeExchangeServer.Response(401, """{"error":"invalid_client"}""") }
 
         withMediator {
-            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            beginAuthorization(tenant)
 
             val connection = CompleteExchangeConnection(
                 tenant.id,
@@ -54,7 +62,7 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
         val tenant = createTenant("exchange-endpoints")
 
         withMediator {
-            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            beginAuthorization(tenant)
             val connection = CompleteExchangeConnection(
                 tenant.id,
                 requireNotNull(exchange.latestState.get()),
@@ -77,7 +85,7 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
         val tenant = createTenant("exchange-stale-state")
 
         withMediator {
-            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            beginAuthorization(tenant)
             assertThatThrownBy {
                 CompleteExchangeConnection(
                     tenant.id,
@@ -93,11 +101,51 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `starting a reauthorization leaves a working connection working`() {
+        val tenant = createTenant("exchange-reauthorize")
+
+        withMediator {
+            enroll(tenant)
+            assertThat(credentials.activeConnection(tenant.id)).isNotNull
+
+            // The administrator opens the authorization page and never finishes it.
+            beginAuthorization(tenant)
+
+            // Publishing must keep working until a new authorization actually completes.
+            val connection = requireNotNull(credentials.connection(tenant.id))
+            assertThat(connection.status).isEqualTo(ExchangeConnectionStatus.ACTIVE)
+            assertThat(credentials.activeConnection(tenant.id)).isNotNull
+            assertThat(connection.accessToken).isNotNull
+        }
+    }
+
+    @Test
+    fun `disconnecting fails queued publications instead of leaving them to spin`() {
+        val tenant = createTenant("exchange-disconnect-queue")
+        val catalogKey = CatalogKey.of("disconnect-queue")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Disconnect queue").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            assertThat(publication(tenant.id, catalogKey).status.isActive).isTrue()
+
+            DisconnectExchangeConnection(tenant.id, forgetLocally = true).execute()
+
+            val abandoned = publication(tenant.id, catalogKey)
+            assertThat(abandoned.status).isEqualTo(CatalogPublicationStatus.FAILED)
+            assertThat(abandoned.lastError).contains("disconnected")
+            // The archive survives, so reconnecting and retrying is still possible.
+            assertThat(abandoned.archiveRetained).isTrue()
+        }
+    }
+
+    @Test
     fun `disconnect removes the connection and pending authorization created by production commands`() {
         val tenant = createTenant("exchange-disconnect")
 
         withMediator {
-            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            beginAuthorization(tenant)
 
             assertThat(GetExchangeConnection(tenant.id).query()).isNotNull
             assertThat(FindExchangeAuthorizationTenant(requireNotNull(exchange.latestState.get())).query()).isEqualTo(tenant.id)
@@ -114,7 +162,7 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
         val tenant = createTenant("exchange-forget-local")
 
         withMediator {
-            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            beginAuthorization(tenant)
             CompleteExchangeConnection(
                 tenant.id,
                 requireNotNull(exchange.latestState.get()),
@@ -133,6 +181,25 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
             assertThat(GetExchangeConnection(tenant.id).query()).isNull()
         }
     }
+
+    /** Enrolling requires the tenant feature, so the toggle is part of starting authorization. */
+    private fun beginAuthorization(tenant: Tenant) {
+        SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+        StartExchangeConnection(tenant.id, CALLBACK).execute()
+    }
+
+    private fun enroll(tenant: Tenant) {
+        beginAuthorization(tenant)
+        CompleteExchangeConnection(
+            tenant.id,
+            requireNotNull(exchange.latestState.get()),
+            "authorization-code",
+            FakeExchangeServer.OAUTH_APPLICATION_ID,
+            exchange.baseUrl,
+        ).execute()
+    }
+
+    private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query()).publications.single()
 
     companion object {
         private const val CALLBACK = "https://suite.example/oauth/exchange/callback"

@@ -7,6 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.catalog.archive.CatalogArchive
 import app.epistola.catalog.archive.CatalogArchivePolicy
 import app.epistola.catalog.archive.CatalogArchiveWriter
+import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ReleaseInfo
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
@@ -17,10 +18,13 @@ import java.io.ByteArrayOutputStream
 class CatalogArchiveBuilder(
     private val sizeLimits: CatalogSizeLimits,
 ) {
-    fun build(content: CatalogContent, release: ReleaseInfo): ByteArray {
+    fun build(content: CatalogContent, release: ReleaseInfo): ByteArray = build(content, content.toManifest(release))
+
+    /** For callers that already built the manifest — releasing keeps a copy for its snapshot. */
+    fun build(content: CatalogContent, manifest: CatalogManifest): ByteArray {
         val assetContent = content.assetContents.mapKeys { (filename, _) -> "resources/asset/$filename" }
         val portableArchive = CatalogArchive(
-            manifest = content.toManifest(release),
+            manifest = manifest,
             resourceDetails = content.resourceDetails,
             paths = assetContent.keys,
             content = { path ->

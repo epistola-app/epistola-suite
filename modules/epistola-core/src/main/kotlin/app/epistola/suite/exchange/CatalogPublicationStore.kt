@@ -194,6 +194,22 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         ).bind("delay", delay.toSeconds()).bind("id", id).execute()
     }
 
+    /**
+     * Fails every still-active publication for a tenant. Used when the thing they were waiting on
+     * is gone for good — currently a disconnect. `FAILED` is terminal for the worker but keeps the
+     * retained archive, so the administrator's normal retry still applies after reconnecting.
+     */
+    fun abandonActive(handle: Handle, tenantKey: TenantKey, reason: String): Int = handle.createUpdate(
+        """
+        UPDATE catalog_release_publications
+        SET status = :failed, last_error = :reason, claimed_at = NULL, updated_at = NOW()
+        WHERE tenant_key = :tenantKey AND status = ANY(:active)
+        """,
+    ).bind("failed", CatalogPublicationStatus.FAILED).bind("reason", reason)
+        .bind("tenantKey", tenantKey)
+        .bind("active", CatalogPublicationStatus.active.map(CatalogPublicationStatus::name).toTypedArray())
+        .execute()
+
     private fun initialStatus(namespace: String?) = if (namespace == null) CatalogPublicationStatus.WAITING_SETUP else CatalogPublicationStatus.READY
 
     private fun map(rs: ResultSet, _context: StatementContext) = CatalogReleasePublication(
