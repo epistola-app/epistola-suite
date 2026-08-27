@@ -21,6 +21,8 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.graph.ReferenceSiteKind
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
 import app.epistola.suite.catalog.queries.ExportCodeLists
@@ -34,8 +36,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
 
 /** The canonical content of a catalog, independent of release metadata. */
@@ -301,29 +303,18 @@ class CatalogContentBuilder(
 
     /** Materialise stable aliases as canonical public addresses in portable catalog exports. */
     private fun canonicalizeStencilAliases(
-        document: tools.jackson.databind.JsonNode,
+        document: JsonNode,
         containingCatalog: String,
         aliases: Map<Pair<String, String>, Pair<String, String>>,
-    ) = document.deepCopy().also { root ->
-        fun visit(node: tools.jackson.databind.JsonNode) {
-            if (node is ObjectNode) {
-                if (node.path("type").takeIf { it.isString }?.stringValue() == "stencil") {
-                    val props = node.path("props") as? ObjectNode
-                    val stencilId = props?.path("stencilId")?.takeIf { it.isString }?.stringValue()
-                    if (stencilId != null) {
-                        val requestedCatalog = props.path("catalogKey").takeIf { it.isString }?.stringValue() ?: containingCatalog
-                        aliases[requestedCatalog to stencilId]?.let { (targetCatalog, targetKey) ->
-                            props.put("catalogKey", targetCatalog)
-                            props.put("stencilId", targetKey)
-                        }
-                    }
-                }
-                node.properties().forEach { visit(it.value) }
-            } else if (node.isArray) {
-                node.forEach(::visit)
+    ): JsonNode = document.deepCopy().also { root ->
+        for (site in ResourceReferenceSites.scan(root)) {
+            if (site.kind != ReferenceSiteKind.STENCIL_INSERTION) continue
+            val requestedCatalog = site.catalogKey ?: containingCatalog
+            aliases[requestedCatalog to site.key]?.let { (targetCatalog, targetKey) ->
+                site.setCatalogKey(targetCatalog)
+                site.setKey(targetKey)
             }
         }
-        visit(root)
     }
 
     /**

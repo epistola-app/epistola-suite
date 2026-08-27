@@ -226,24 +226,8 @@ class GetTenantResourceGraphHandler(
         destination: MutableList<Occurrence>,
         owner: String = source.key,
     ) {
-        if (node.isObject) {
-            val type = node.path("type").textOrNull().orEmpty()
-            val props = node.path("props")
-            if (type == "stencil" && props.path("stencilId").textOrNull() != null) {
-                destination += jsonOccurrence(source, CatalogResourceType.STENCIL, props.path("catalogKey").textOrNull(), props.path("stencilId").stringValue(), "stencil-insertion", ReferenceSemantics.PROVENANCE, "$path.props.stencilId", lifecycle, status, version, owner, props.path("version").intOrNull())
-            }
-            if (type == "image" && props.path("assetId").textOrNull() != null) {
-                destination += jsonOccurrence(source, CatalogResourceType.ASSET, props.path("catalogKey").textOrNull(), props.path("assetId").stringValue(), "image-asset", ReferenceSemantics.RUNTIME, "$path.props.assetId", lifecycle, status, version, owner)
-            }
-            node.path("themeRef").takeIf { it.isObject && it.path("themeId").textOrNull() != null }?.let { ref ->
-                destination += jsonOccurrence(source, CatalogResourceType.THEME, ref.path("catalogKey").textOrNull(), ref.path("themeId").stringValue(), "theme-override", ReferenceSemantics.RUNTIME, "$path.themeRef", lifecycle, status, version, owner)
-            }
-            node.path("fontFamily").takeIf { it.isObject && it.path("slug").textOrNull() != null }?.let { ref ->
-                destination += jsonOccurrence(source, CatalogResourceType.FONT, ref.path("catalogKey").textOrNull(), ref.path("slug").stringValue(), "font-family", ReferenceSemantics.RUNTIME, "$path.fontFamily", lifecycle, status, version, owner)
-            }
-            node.properties().forEach { (key, child) -> scanJson(source, child, "$path.$key", lifecycle, status, version, destination, owner) }
-        } else if (node.isArray) {
-            node.forEachIndexed { index, child -> scanJson(source, child, "$path[$index]", lifecycle, status, version, destination, owner) }
+        ResourceReferenceSites.scan(node, path).forEach { site ->
+            destination += jsonOccurrence(source, site, lifecycle, status, version, owner)
         }
     }
 
@@ -254,26 +238,48 @@ class GetTenantResourceGraphHandler(
             val separator = rawKey.indexOf('/')
             val catalog = rawKey.substring(0, separator.coerceAtLeast(0)).ifBlank { null }
             val slug = if (separator >= 0) rawKey.substring(separator + 1) else rawKey
-            destination += jsonOccurrence(source, CatalogResourceType.FONT, catalog, slug, "published-font-snapshot", ReferenceSemantics.PROVENANCE, "resolvedTheme.fontFingerprints.$rawKey", lifecycle, status, version, owner)
+            // Not a node-embedded reference: the published theme snapshot keys fonts as
+            // "catalog/slug", so it is read here rather than through ResourceReferenceSites.
+            destination += Occurrence(
+                source,
+                ReferenceSelector(CatalogResourceType.FONT, catalog ?: source.catalogKey, slug),
+                "published-font-snapshot",
+                ReferenceSemantics.PROVENANCE,
+                if (catalog != null) ReferenceQualification.EXPLICIT else ReferenceQualification.RELATIVE,
+                ReferenceEvidence(owner, lifecycle, status, version, "resolvedTheme.fontFingerprints.$rawKey", null),
+            )
         }
     }
 
-    private fun jsonOccurrence(source: ResourceAddress, type: CatalogResourceType, catalog: String?, key: String, kind: String, semantics: ReferenceSemantics, location: String, lifecycle: ReferenceLifecycle, status: String?, version: Int?, owner: String, pinnedVersion: Int? = null): Occurrence {
-        val qualification = if (catalog != null) {
-            ReferenceQualification.EXPLICIT
-        } else if (type == CatalogResourceType.ASSET) {
-            ReferenceQualification.TENANT_GLOBAL
-        } else {
-            ReferenceQualification.RELATIVE
+    private fun jsonOccurrence(
+        source: ResourceAddress,
+        site: ReferenceSite,
+        lifecycle: ReferenceLifecycle,
+        status: String?,
+        version: Int?,
+        owner: String,
+    ): Occurrence {
+        val catalog = site.catalogKey
+        val qualification = when {
+            catalog != null -> ReferenceQualification.EXPLICIT
+            site.kind.relativeWhenUnqualified -> ReferenceQualification.RELATIVE
+            else -> ReferenceQualification.TENANT_GLOBAL
         }
         val effectiveCatalog = if (qualification == ReferenceQualification.RELATIVE) source.catalogKey else catalog
         return Occurrence(
             source,
-            ReferenceSelector(type, effectiveCatalog, key),
-            kind,
-            semantics,
+            ReferenceSelector(site.kind.type, effectiveCatalog, site.key),
+            site.kind.wireKind,
+            site.kind.semantics,
             qualification,
-            ReferenceEvidence(owner, lifecycle, status, version, location, pinnedVersion),
+            ReferenceEvidence(
+                owner,
+                lifecycle,
+                status,
+                version,
+                site.location,
+                site.pinnedVersion.takeIf { site.kind == ReferenceSiteKind.STENCIL_INSERTION },
+            ),
         )
     }
 
@@ -328,9 +334,6 @@ class GetTenantResourceGraphHandler(
     }
 
     private fun resourceType(value: String): CatalogResourceType = CatalogResourceType.entries.single { it.wireName == value }
-
-    private fun JsonNode.textOrNull(): String? = takeUnless { isMissingNode || isNull || !isString }?.stringValue()?.takeIf { it.isNotBlank() }
-    private fun JsonNode.intOrNull(): Int? = takeUnless { isMissingNode || isNull }?.asInt()
 
     private data class Occurrence(
         val source: ResourceAddress,

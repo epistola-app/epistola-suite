@@ -6,7 +6,9 @@ package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ReferenceSiteKind
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -20,7 +22,6 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -375,6 +376,7 @@ class CatalogResourceMovePlanner(
             JsonOwnerRow(rs.getString("catalog_key"), rs.getString("owner_key"), null, rs.getInt("id"), rs.getString("status"), raw, objectMapper.readTree(raw))
         }.list()
 
+    /** Points references to the moving stencil at its destination catalog. */
     private fun rewriteIncomingStencilReferences(
         root: JsonNode,
         ownerCatalog: String,
@@ -383,61 +385,34 @@ class CatalogResourceMovePlanner(
     ): RewriteResult {
         val copy = root.deepCopy()
         var changed = false
-        walkObjects(copy) { node ->
-            if (node.path("type").textOrNull() != "stencil") return@walkObjects
-            val props = node.path("props") as? ObjectNode ?: return@walkObjects
-            if (props.path("stencilId").textOrNull() != source.key) return@walkObjects
-            val explicitCatalog = props.path("catalogKey").textOrNull()
+        for (site in ResourceReferenceSites.scan(copy)) {
+            if (site.kind != ReferenceSiteKind.STENCIL_INSERTION || site.key != source.key) continue
+            val explicitCatalog = site.catalogKey
             if (explicitCatalog == source.catalogKey || (explicitCatalog == null && ownerCatalog == source.catalogKey)) {
-                props.put("catalogKey", targetCatalog)
+                site.setCatalogKey(targetCatalog)
                 changed = true
             }
         }
         return RewriteResult(copy, changed)
     }
 
+    /**
+     * Pins the moving stencil's own unqualified dependencies to the catalog they resolve against
+     * today, so they keep their meaning once the stencil resolves relative to its destination.
+     */
     private fun qualifyRelativeOutgoingReferences(root: JsonNode, sourceCatalog: String, alreadyChanged: Boolean): RewriteResult {
         var changed = alreadyChanged
-        walkObjects(root) { node ->
-            if (node.path("type").textOrNull() == "stencil") {
-                (node.path("props") as? ObjectNode)?.takeIf { !it.path("catalogKey").isString }?.let {
-                    it.put("catalogKey", sourceCatalog)
-                    changed = true
-                }
-            }
-            for (field in listOf("themeRef", "fontFamily")) {
-                val resourceKey = if (field == "themeRef") "themeId" else "slug"
-                (node.path(field) as? ObjectNode)?.takeIf {
-                    it.path(resourceKey).isString && !it.path("catalogKey").isString
-                }?.let {
-                    it.put("catalogKey", sourceCatalog)
-                    changed = true
-                }
-            }
+        for (site in relativeReferences(root)) {
+            site.setCatalogKey(sourceCatalog)
+            changed = true
         }
         return RewriteResult(root, changed)
     }
 
-    private fun containsRelativeOutgoingReference(root: JsonNode): Boolean {
-        var found = false
-        walkObjects(root) { node ->
-            if (node.path("type").textOrNull() == "stencil" && node.path("props").path("stencilId").isString && !node.path("props").path("catalogKey").isString) found = true
-            if (node.path("themeRef").path("themeId").isString && !node.path("themeRef").path("catalogKey").isString) found = true
-            if (node.path("fontFamily").path("slug").isString && !node.path("fontFamily").path("catalogKey").isString) found = true
-        }
-        return found
-    }
+    private fun containsRelativeOutgoingReference(root: JsonNode): Boolean = relativeReferences(root).isNotEmpty()
 
-    private fun walkObjects(node: JsonNode, visit: (ObjectNode) -> Unit) {
-        if (node is ObjectNode) {
-            visit(node)
-            node.properties().forEach { (_, child) -> walkObjects(child, visit) }
-        } else if (node.isArray) {
-            node.forEach { walkObjects(it, visit) }
-        }
-    }
-
-    private fun JsonNode.textOrNull(): String? = takeIf { isString }?.stringValue()?.takeIf { it.isNotBlank() }
+    private fun relativeReferences(root: JsonNode) = ResourceReferenceSites.scan(root)
+        .filter { it.kind.relativeWhenUnqualified && it.catalogKey == null }
 
     /**
      * Covers exactly what the operator approved in the preview, not the state of the tenant.

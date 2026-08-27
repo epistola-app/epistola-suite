@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(catalogs): **One authority for embedded resource references.** The resource
+  graph, catalog relocation, and catalog export walked template and stencil JSON with four separate
+  hand-written traversals that had already diverged on which shapes count as a reference. They now
+  share `ResourceReferenceSites`, so a new reference shape is declared once.
 - **[user]** fix(catalogs): **Stale relocation aliases no longer redirect exports.** A resource
   re-created at an address a moved resource left behind now wins over that alias everywhere, so
   exporting the source catalog keeps the new resource's own references instead of rewriting them to
