@@ -198,18 +198,7 @@ class MoveCatalogResourceHandler(
             .bind("targetCatalogKey", command.targetCatalogKey)
             .execute()
         if (moved != 1) throw StaleCatalogResourceMovePlanException()
-
-        handle.createUpdate(
-            """
-                UPDATE stencil_versions
-                SET catalog_key = :targetCatalogKey
-                WHERE tenant_key = :tenantKey AND stencil_resource_id = :resourceId
-                """,
-        )
-            .bind("tenantKey", command.tenantKey)
-            .bind("resourceId", resourceId)
-            .bind("targetCatalogKey", command.targetCatalogKey)
-            .execute()
+        // stencil_versions follows via fk_stencil_versions_parent_address ON UPDATE CASCADE.
 
         plan.preview
     }

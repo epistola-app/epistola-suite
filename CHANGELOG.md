@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **Catalog exports declare dependencies bound inside stencil content.**
+  Export scanned only template models, so a font, theme, or asset that a stencil bound in another
+  catalog never reached `manifest.dependencies` and a re-import was not told the other catalog was
+  required.
+- **[dev]** fix(catalogs): **Stencil versions cannot drift from their parent's address.** A
+  relocation-era migration left `stencil_versions.catalog_key` and `stencil_key` unconstrained while
+  ten queries still filtered on them; the address foreign key is restored with `ON UPDATE CASCADE`.
 - **[dev]** refactor(catalogs): **One authority for embedded resource references.** The resource
   graph, catalog relocation, and catalog export walked template and stencil JSON with four separate
   hand-written traversals that had already diverged on which shapes count as a reference. They now

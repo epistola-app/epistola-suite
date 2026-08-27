@@ -40,11 +40,6 @@ function isDirection(value: unknown): value is (typeof DIRECTIONS)[number] {
   return typeof value === 'string' && DIRECTIONS.some((direction) => direction === value);
 }
 
-function csrfToken(): string {
-  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : '';
-}
-
 function isResourceNode(value: unknown): value is ResourceNode {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<ResourceNode>;
@@ -568,7 +563,10 @@ export class ResourceGraphExplorer extends LitElement {
     try {
       const response = await fetch(`${this.baseUrl}/move`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-XSRF-TOKEN': window.getCsrfToken?.() ?? '',
+        },
         body: JSON.stringify({
           type: graph.focus.type,
           catalog: graph.focus.catalogKey,
@@ -947,5 +945,9 @@ export class ResourceGraphExplorer extends LitElement {
 declare global {
   interface HTMLElementTagNameMap {
     'ep-resource-graph': ResourceGraphExplorer;
+  }
+  interface Window {
+    /** Defined by the app shell (static/js/app-shell.js), which every UI page loads. */
+    getCsrfToken?: () => string;
   }
 }

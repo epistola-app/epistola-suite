@@ -47,7 +47,6 @@ export interface ResourceEdge {
 export interface ResourceMovePreview {
   source: ResourceAddress;
   target: ResourceAddress;
-  resourceId: string | null;
   mutableRewriteCount: number;
   immutableReferenceCount: number;
   blockers: Array<{ code: string; message: string }>;

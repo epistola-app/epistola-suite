@@ -5,14 +5,24 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.stencils.commands.CreateStencil
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import tools.jackson.databind.ObjectMapper
 
 class ResourceGraphRoutesTest : BaseIntegrationTest() {
@@ -75,4 +85,46 @@ class ResourceGraphRoutesTest : BaseIntegrationTest() {
         assertThat(nodes.values().map { it.path("key").stringValue() }).contains("inter")
         assertThat(nodes.values()).allSatisfy { node -> assertThat(node.path("type").stringValue()).isEqualTo("font") }
     }
+
+    @Test
+    fun `move flow previews, rejects a stale plan, then relocates the stencil`() {
+        val tenant = createTenant("Graph move")
+        val tenantId = TenantId(tenant.id)
+        val source = CatalogKey.of("letters")
+        val target = CatalogKey.of("shared")
+        withMediator {
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
+            CreateCatalog(tenant.id, source, "Letters").execute()
+            CreateCatalog(tenant.id, target, "Shared").execute()
+            CreateStencil(StencilId(StencilKey.of("header"), CatalogId(source, tenantId)), "Header").execute()
+        }
+
+        val preview = restTemplate.getForEntity(
+            "/tenants/${tenant.id}/resource-graph/move-preview?type=stencil&catalog=letters&key=header&targetCatalog=shared",
+            String::class.java,
+        )
+        assertThat(preview.statusCode).isEqualTo(HttpStatus.OK)
+        val plan = objectMapper.readTree(preview.body)
+        assertThat(plan.path("executable").booleanValue()).isTrue()
+        // The internal surrogate identity must not reach the browser.
+        assertThat(plan.has("resourceId")).isFalse()
+
+        val stale = postMove(tenant.id.value, "not-the-plan-you-previewed")
+        assertThat(stale.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(objectMapper.readTree(stale.body).path("code").stringValue()).isEqualTo("stale-plan")
+
+        val moved = postMove(tenant.id.value, plan.path("planFingerprint").stringValue())
+        assertThat(moved.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(objectMapper.readTree(moved.body).path("target").path("catalogKey").stringValue()).isEqualTo("shared")
+    }
+
+    private fun postMove(tenantId: String, planFingerprint: String) = restTemplate.postForEntity(
+        "/tenants/$tenantId/resource-graph/move",
+        HttpEntity(
+            """{"type":"stencil","catalog":"letters","key":"header","targetCatalog":"shared","planFingerprint":"$planFingerprint"}""",
+            HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON },
+        ),
+        String::class.java,
+    )
 }

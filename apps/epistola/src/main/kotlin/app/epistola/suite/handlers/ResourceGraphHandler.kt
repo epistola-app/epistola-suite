@@ -15,6 +15,7 @@ import app.epistola.suite.catalog.graph.TraversalDirection
 import app.epistola.suite.catalog.graph.traverse
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.relocation.CatalogResourceMoveBlockedException
+import app.epistola.suite.catalog.relocation.CatalogResourceMovePreview
 import app.epistola.suite.catalog.relocation.MoveCatalogResource
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.StaleCatalogResourceMovePlanException
@@ -80,7 +81,7 @@ class ResourceGraphHandler {
             source,
             app.epistola.suite.catalog.CatalogKey.of(request.requiredParam("targetCatalog")),
         ).query()
-        return json(preview)
+        return json(movePreviewDto(preview))
     }
 
     fun move(request: ServerRequest): ServerResponse {
@@ -94,7 +95,7 @@ class ResourceGraphHandler {
                 app.epistola.suite.catalog.CatalogKey.of(body.targetCatalog),
                 body.planFingerprint,
             ).execute()
-            json(result)
+            json(movePreviewDto(result))
         } catch (_: StaleCatalogResourceMovePlanException) {
             conflict(mapOf("code" to "stale-plan", "message" to "The move preview is stale; preview it again"))
         } catch (exception: CatalogResourceMoveBlockedException) {
@@ -204,6 +205,17 @@ class ResourceGraphHandler {
     private fun ServerRequest.resourceGraphEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_GRAPH] == true
     private fun ServerRequest.resourceRelocationEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_RELOCATION] == true
     private fun ServerRequest.requiredParam(name: String) = param(name).orElseThrow { IllegalArgumentException("Missing query parameter: $name") }
+
+    /** [CatalogResourceMovePreview.resourceId] is the internal surrogate identity and stays server-side. */
+    private fun movePreviewDto(preview: CatalogResourceMovePreview) = mapOf(
+        "source" to preview.source,
+        "target" to preview.target,
+        "mutableRewriteCount" to preview.mutableRewriteCount,
+        "immutableReferenceCount" to preview.immutableReferenceCount,
+        "blockers" to preview.blockers,
+        "planFingerprint" to preview.planFingerprint,
+        "executable" to preview.executable,
+    )
 
     private fun json(body: Any) = ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(body)
     private fun conflict(body: Any) = ServerResponse.status(409).contentType(MediaType.APPLICATION_JSON).body(body)
