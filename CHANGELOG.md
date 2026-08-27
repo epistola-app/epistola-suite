@@ -5,28 +5,17 @@
 ## [Unreleased]
 
 - **[dev]** feat(generation): **Document workers now yield to a degraded
-  database.** Every JDBI statement records a safe aggregate round-trip timer;
-  workers combine its rolling latency with Hikari pool contention to lower their
-  effective render concurrency under sustained pressure. A database
-  cancellation, timeout, or connectivity failure pauses only new claims until a
-  healthy recovery window has elapsed — in-flight documents continue normally.
-  The guard is enabled by default and exports pressure state, effective
-  concurrency, and throttle/pause counters for Prometheus.
-- **[dev]** refactor(generation): **Database-pressure monitoring moved out of
-  JDBI config wiring.** `DatabasePressureMonitor` now lives in its own package
-  with explicit-clock timestamps and per-state admission-control handlers;
-  coverage extended to Hikari pool-waiter detection, the JDBI failure-recording
-  path (including a real Postgres statement-timeout cancellation), and the
-  THROTTLED-to-RECOVERING transition.
-- **[dev]** fix(generation): **Database-pressure instrumentation no longer
-  participates in application bootstrap.** Timers now bind through Micrometer
-  after metric registries are ready, avoiding the JDBI-to-installation-metadata
-  startup cycle while preserving pressure observation and exported metrics.
-- **[dev]** fix(generation): **Pressure-pause logging no longer repeats every
-  poll tick.** The admission controller now logs once on the PAUSED edge
-  (WARN) and once on recovery (INFO), instead of the job poller logging on
-  every drain cycle for the duration of an incident; the continuous signal
-  stays available via the pressure-state gauge and throttle/pause counters.
+  database.** Every JDBI statement records a safe aggregate round-trip timer
+  (bound through Micrometer after bootstrap, so it never joins the
+  JDBI-to-installation-metadata startup cycle); workers combine its rolling
+  latency with Hikari pool contention to lower their effective render
+  concurrency under sustained pressure via a hysteretic
+  NORMAL→THROTTLED→PAUSED→RECOVERING state machine. A database cancellation,
+  timeout, or connectivity failure pauses only new claims until a healthy
+  recovery window has elapsed — in-flight documents continue normally.
+  Enabled by default; exports pressure state, effective concurrency, and
+  throttle/pause counters for Prometheus, and logs once on entering/leaving a
+  pause rather than on every poll cycle.
 
 - **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
   Start in recommendation-only mode; production uses CPU HPA while VPA remains
