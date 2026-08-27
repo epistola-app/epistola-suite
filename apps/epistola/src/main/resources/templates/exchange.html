@@ -18,6 +18,7 @@
             <p class="subtitle">One Exchange connection is maintained for this Suite tenant.</p>
         </div>
         <div class="card-content">
+            <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
             <div class="alert alert-danger" th:if="${settings.connection != null && settings.connection.lastError != null}"
                  th:text="${settings.connection.lastError}"></div>
             <div th:if="${settings.connected}" th:with="connection=${settings.connection}">

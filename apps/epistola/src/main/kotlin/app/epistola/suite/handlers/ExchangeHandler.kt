@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CompleteExchangeConnection
 import app.epistola.suite.exchange.DisconnectExchangeConnection
 import app.epistola.suite.exchange.FindExchangeAuthorizationTenant
@@ -29,19 +30,16 @@ class ExchangeHandler {
     fun settings(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.TENANT_SETTINGS)
-        return ServerResponse.ok().page("exchange") {
-            "pageTitle" to "Exchange - Epistola"
-            "tenantId" to tenantKey
-            "activeNavSection" to "exchange"
-            "settings" to GetExchangeSettings(tenantKey).query()
-        }
+        return renderSettings(tenantKey)
     }
 
     fun connect(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.TENANT_SETTINGS)
-        val authorizationUri = StartExchangeConnection(tenantKey, callbackUri(request)).execute()
-        return ServerResponse.status(303).header("Location", authorizationUri).build()
+        return onSettingsPage(tenantKey) {
+            val authorizationUri = StartExchangeConnection(tenantKey, callbackUri(request)).execute()
+            ServerResponse.status(303).header("Location", authorizationUri).build()
+        }
     }
 
     fun callback(request: ServerRequest): ServerResponse {
@@ -62,21 +60,43 @@ class ExchangeHandler {
     fun setNamespace(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.TENANT_SETTINGS)
-        SetExchangeDefaultNamespace(
-            tenantKey,
-            request.params().getFirst("namespace")?.trim().orEmpty(),
-        ).execute()
-        return redirect(tenantKey.value)
+        return onSettingsPage(tenantKey) {
+            SetExchangeDefaultNamespace(
+                tenantKey,
+                request.params().getFirst("namespace")?.trim().orEmpty(),
+            ).execute()
+            redirect(tenantKey.value)
+        }
     }
 
     fun disconnect(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.TENANT_SETTINGS)
-        DisconnectExchangeConnection(
-            tenantKey,
-            forgetLocally = request.params().getFirst("forgetLocal") == "true",
-        ).execute()
-        return redirect(tenantKey.value)
+        return onSettingsPage(tenantKey) {
+            DisconnectExchangeConnection(
+                tenantKey,
+                forgetLocally = request.params().getFirst("forgetLocal") == "true",
+            ).execute()
+            redirect(tenantKey.value)
+        }
+    }
+
+    /**
+     * Every setup action belongs to one page, so a rejected one is shown there rather than
+     * replacing the administrator's context with an error page.
+     */
+    private fun onSettingsPage(tenantKey: TenantKey, action: () -> ServerResponse): ServerResponse = try {
+        action()
+    } catch (failure: ValidationException) {
+        renderSettings(tenantKey, failure.message)
+    }
+
+    private fun renderSettings(tenantKey: TenantKey, error: String? = null): ServerResponse = ServerResponse.ok().page("exchange") {
+        "pageTitle" to "Exchange - Epistola"
+        "tenantId" to tenantKey
+        "activeNavSection" to "exchange"
+        "settings" to GetExchangeSettings(tenantKey).query()
+        "error" to error
     }
 
     /** The callback as this browser reached us; a deployment may override it in configuration. */
