@@ -7,6 +7,7 @@ package app.epistola.suite.exchange
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.SystemInternal
@@ -26,6 +27,7 @@ data class ExchangeSettings(
     val deploymentEnabled: Boolean,
     val featureEnabled: Boolean,
     val connection: ExchangeTenantConnection?,
+    val activity: ExchangePublicationActivity,
 ) {
     val connected: Boolean get() = connection?.status == ExchangeConnectionStatus.ACTIVE
     val needsReauthorization: Boolean get() = connection?.status == ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED
@@ -61,6 +63,7 @@ class GetExchangeSettingsHandler(
         deploymentEnabled = availability.deploymentEnabled,
         featureEnabled = availability.isAvailable(query.tenantKey),
         connection = credentials.connection(query.tenantKey),
+        activity = GetExchangePublicationActivity(query.tenantKey).query(),
     )
 }
 

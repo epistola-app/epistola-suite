@@ -355,12 +355,36 @@ For a newly enabled installation, verify in this order:
 
 Useful failure distinctions:
 
+- a climbing `exchange_publication_oldest_active_age_seconds`, or the stalled
+  warning on the Exchange page, means work is queued that cannot proceed;
 - `WAITING_SETUP` is configuration, not a failed release;
 - `RETRY` is transient and automatic;
 - `REAUTHORIZATION_REQUIRED` requires redirect authorization again;
 - `BLOCKED` means Exchange denied the connection/scopes;
 - `REJECTED` is a terminal decision about that immutable release;
 - `FAILED` is manually retryable with a new remote attempt.
+
+## Watching it run
+
+Publication is deliberately invisible on the happy path — a release succeeds
+locally whatever Exchange does — so both surfaces below exist to make failure
+visible instead.
+
+**In the UI.** **Settings → Exchange** shows publication activity for the whole
+tenant: a count per state, the most recently touched publications across every
+catalog with a link back to each, and a warning when the oldest unfinished
+publication has been queued for more than an hour. Per-catalog history stays on
+the catalog page; this answers the question that page cannot, which is whether
+anything is wrong anywhere.
+
+**In metrics.** `epistola.exchange.publication.submissions{outcome}` and
+`epistola.exchange.credential.refresh{outcome}` count what each node did.
+Installation-wide state is published once per installation by an advisory-lock
+elected replica: `epistola.installation.exchange_publications{status}`,
+`epistola.installation.exchange_connections{status}`, and
+`epistola.installation.exchange_publication_oldest_active_age_seconds`. Alert on
+the last one — a queue age that keeps climbing is the single reliable signal that
+publication has stopped working. See [`metrics.md`](metrics.md).
 
 ## Why this is not in the demo catalog
 

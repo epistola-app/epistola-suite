@@ -107,6 +107,24 @@ persistently non-zero value means the mark-and-sweep reclaim is not keeping up
 | ---------------------------- | ------- | -------- |
 | `epistola.api.auth.attempts` | Counter | `result` |
 
+### Catalog publication (Exchange)
+
+Only present when `epistola.exchange.enabled=true`.
+
+| Meter                                       | Type    | Tags      |
+| ------------------------------------------- | ------- | --------- |
+| `epistola.exchange.publication.submissions` | Counter | `outcome` |
+| `epistola.exchange.credential.refresh`      | Counter | `outcome` |
+
+`submissions{outcome}` counts remote submissions and status polls that produced a
+decision (`accepted`, `rejected`, `failed`, `submitted`) plus `error` for attempts
+that never reached one. `credential.refresh{outcome}` is `renewed`, `rejected`
+(the tenant must reauthorize) or `error`.
+
+Publication is asynchronous and default-off, so nothing tells an operator it has
+stopped working: a tenant whose credentials lapsed simply stops publishing. The
+installation gauges below — particularly the queue age — are the signal for that.
+
 ### Installation-wide gauges
 
 Published by a single leader replica (advisory-lock elected); non-leaders
@@ -117,6 +135,27 @@ keyed by `installation_id` as leadership moves.
 `epistola.installation.{tenants,templates,themes,catalogs,stencils,fonts,environments}`
 — one Gauge each, no per-instance/per-tenant tags (they are install-wide
 aggregates).
+
+Catalog publication adds three more, published the same way (own advisory lock,
+only when `epistola.exchange.enabled=true`):
+
+| Meter                                                                  | Type  | Tags     |
+| ---------------------------------------------------------------------- | ----- | -------- |
+| `epistola.installation.exchange_publications`                          | Gauge | `status` |
+| `epistola.installation.exchange_connections`                           | Gauge | `status` |
+| `epistola.installation.exchange_publication_oldest_active_age_seconds` | Gauge | —        |
+
+`exchange_publications{status}` and `exchange_connections{status}` use the
+lifecycle names (`waiting_setup`, `ready`, `submitted`, `retry`, `accepted`,
+`rejected`, `failed`; `pending`, `active`, `reauthorization_required`,
+`blocked`). Cardinality is bounded and there is no `tenant` tag.
+
+**The one to alert on is `exchange_publication_oldest_active_age_seconds`.**
+Counts tell you how much work exists; the age tells you whether any of it is
+stuck. A queued release normally reaches a terminal state in seconds, so a value
+that keeps climbing means enrollment lapsed, a namespace is unavailable, or the
+tenant feature was switched off with work outstanding. It is measured by the
+database clock and is `0` when nothing is outstanding.
 
 ## Per-tenant tagging
 

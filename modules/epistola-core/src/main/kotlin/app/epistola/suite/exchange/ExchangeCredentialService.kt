@@ -29,6 +29,7 @@ import java.time.Duration
 class ExchangeCredentialService(
     private val jdbi: Jdbi,
     private val client: ExchangeClient,
+    private val metrics: ExchangeMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -59,9 +60,14 @@ class ExchangeCredentialService(
         val token = try {
             client.refresh(connection.endpoints, refresh.value, applicationId, clientSecret.value)
         } catch (failure: HttpClientErrorException.BadRequest) {
+            metrics.credentialRefresh(ExchangeMetrics.CredentialRefreshOutcome.REJECTED)
             markConnection(connection.tenantKey, ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED, "Refresh token was rejected")
             return null
+        } catch (failure: Exception) {
+            metrics.credentialRefresh(ExchangeMetrics.CredentialRefreshOutcome.ERROR)
+            throw failure
         }
+        metrics.credentialRefresh(ExchangeMetrics.CredentialRefreshOutcome.RENEWED)
 
         val stored = jdbi.withHandle<Int, Exception> { handle ->
             handle.createUpdate(
@@ -110,6 +116,13 @@ class ExchangeCredentialService(
                 logger.warn("Exchange credential refresh failed for tenant {}: {}", connection.tenantKey, it.message)
             }
         }
+    }
+
+    /** Installation-wide connection counts per state, for the leader-published gauges. */
+    fun installationCountsByStatus(): Map<ExchangeConnectionStatus, Long> = jdbi.withHandle<Map<ExchangeConnectionStatus, Long>, Exception> { handle ->
+        handle.createQuery("SELECT status, count(*) AS total FROM exchange_tenant_connections GROUP BY status")
+            .map { rs, _ -> ExchangeConnectionStatus.valueOf(rs.getString("status")) to rs.getLong("total") }
+            .list().toMap()
     }
 
     fun markConnection(tenantKey: TenantKey, status: ExchangeConnectionStatus, error: String?) = jdbi.useHandle<Exception> { handle ->

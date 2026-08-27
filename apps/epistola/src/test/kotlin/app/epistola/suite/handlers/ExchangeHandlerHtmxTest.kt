@@ -5,6 +5,10 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -46,6 +50,28 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
             .findAll(requireNotNull(response.body)).map { it.value }.toList()
         assertThat(connectForms).isNotEmpty()
         assertThat(connectForms).allMatch { """hx-boost="false"""" in it }
+    }
+
+    @Test
+    fun `the settings page reports publication activity across every catalog`() {
+        val tenant = createTenant("Exchange Activity")
+        enablePublishing(tenant)
+        withMediator {
+            listOf("activity-alpha", "activity-beta").forEach { slug ->
+                val key = CatalogKey.of(slug)
+                CreateCatalog(tenant.id, key, slug).execute()
+                ReleaseCatalogVersion(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            }
+        }
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/exchange", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("Publication activity")
+        // Both catalogs on one page — this is what the per-catalog history cannot show.
+        assertThat(response.body).contains("activity-alpha")
+        assertThat(response.body).contains("activity-beta")
+        assertThat(response.body).contains("Waiting for setup")
     }
 
     /** Connecting requires the tenant feature as well as the deployment gate. */

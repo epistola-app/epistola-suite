@@ -38,6 +38,9 @@ data class CatalogReleasePublication(
     val updatedAt: OffsetDateTime,
 )
 
+/** The longest-outstanding unfinished publication, with its age measured by the database clock. */
+data class OldestActivePublication(val since: OffsetDateTime, val age: Duration)
+
 /**
  * Sole owner of the `catalog_release_publications` SQL — the durable publication outbox.
  *
@@ -113,7 +116,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             FOR UPDATE SKIP LOCKED
             LIMIT :limit
             """,
-        ).bind("active", CatalogPublicationStatus.active.map(CatalogPublicationStatus::name).toTypedArray())
+        ).bind("active", activeNames())
             .bind("lease", claimLease.toSeconds()).bind("limit", limit).map(::map).list()
         if (rows.isNotEmpty()) {
             handle.createUpdate("UPDATE catalog_release_publications SET claimed_at = NOW() WHERE id = ANY(:ids)")
@@ -194,6 +197,60 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         ).bind("delay", delay.toSeconds()).bind("id", id).execute()
     }
 
+    /** How many publications this tenant holds in each state. Aggregated in the database. */
+    fun countsByStatus(tenantKey: TenantKey): Map<CatalogPublicationStatus, Int> = jdbi.withHandle<Map<CatalogPublicationStatus, Int>, Exception> { handle ->
+        handle.createQuery(
+            "SELECT status, count(*) AS total FROM catalog_release_publications WHERE tenant_key = :tenantKey GROUP BY status",
+        ).bind("tenantKey", tenantKey)
+            .map { rs, _ -> CatalogPublicationStatus.valueOf(rs.getString("status")) to rs.getInt("total") }
+            .list().toMap()
+    }
+
+    /** The tenant's most recently touched publications across every catalog. */
+    fun recent(tenantKey: TenantKey, limit: Int): List<CatalogReleasePublication> = jdbi.withHandle<List<CatalogReleasePublication>, Exception> { handle ->
+        handle.createQuery("$SELECT_METADATA WHERE tenant_key = :tenantKey ORDER BY updated_at DESC LIMIT :limit")
+            .bind("tenantKey", tenantKey).bind("limit", limit).map(::map).list()
+    }
+
+    /**
+     * The tenant's longest-outstanding unfinished publication, or null if none is outstanding.
+     * This is the "is anything stuck?" signal: waiting is normal, waiting for days is not, and
+     * nothing else in the model distinguishes the two.
+     *
+     * The age is computed in the database because `created_at` is a database-owned timestamp —
+     * ageing it against the application clock would compare two different clocks.
+     */
+    fun oldestActive(tenantKey: TenantKey): OldestActivePublication? = jdbi.withHandle<OldestActivePublication?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT min(created_at) AS oldest,
+                   EXTRACT(EPOCH FROM (NOW() - min(created_at))) AS age_seconds
+            FROM catalog_release_publications
+            WHERE tenant_key = :tenantKey AND status = ANY(:active)
+            """,
+        ).bind("tenantKey", tenantKey).bind("active", activeNames()).map { rs, _ ->
+            rs.getObject("oldest", OffsetDateTime::class.java)
+                ?.let { OldestActivePublication(it, Duration.ofSeconds(rs.getLong("age_seconds"))) }
+        }.findOne().orElse(null)
+    }
+
+    /** Installation-wide counts per state, for the leader-published gauges. */
+    fun installationCountsByStatus(): Map<CatalogPublicationStatus, Long> = jdbi.withHandle<Map<CatalogPublicationStatus, Long>, Exception> { handle ->
+        handle.createQuery("SELECT status, count(*) AS total FROM catalog_release_publications GROUP BY status")
+            .map { rs, _ -> CatalogPublicationStatus.valueOf(rs.getString("status")) to rs.getLong("total") }
+            .list().toMap()
+    }
+
+    /** Installation-wide age of the oldest unfinished publication, in seconds; 0 when there is none. */
+    fun installationOldestActiveAgeSeconds(): Double = jdbi.withHandle<Double, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT COALESCE(EXTRACT(EPOCH FROM (NOW() - min(created_at))), 0) AS age
+            FROM catalog_release_publications WHERE status = ANY(:active)
+            """,
+        ).bind("active", activeNames()).mapTo(Double::class.java).one()
+    }
+
     /**
      * Fails every still-active publication for a tenant. Used when the thing they were waiting on
      * is gone for good — currently a disconnect. `FAILED` is terminal for the worker but keeps the
@@ -207,8 +264,10 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         """,
     ).bind("failed", CatalogPublicationStatus.FAILED).bind("reason", reason)
         .bind("tenantKey", tenantKey)
-        .bind("active", CatalogPublicationStatus.active.map(CatalogPublicationStatus::name).toTypedArray())
+        .bind("active", activeNames())
         .execute()
+
+    private fun activeNames() = CatalogPublicationStatus.active.map(CatalogPublicationStatus::name).toTypedArray()
 
     private fun initialStatus(namespace: String?) = if (namespace == null) CatalogPublicationStatus.WAITING_SETUP else CatalogPublicationStatus.READY
 

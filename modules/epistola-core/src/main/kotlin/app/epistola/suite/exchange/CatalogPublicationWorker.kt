@@ -34,6 +34,7 @@ class CatalogPublicationWorker(
     private val credentials: ExchangeCredentialService,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
+    private val metrics: ExchangeMetrics,
     private val jdbi: Jdbi,
 ) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -83,6 +84,7 @@ class CatalogPublicationWorker(
             client.publication(connection.baseUrl, token, publication.remotePublicationId)
         }
         val status = CatalogPublicationStatus.fromRemote(response.state)
+        metrics.submissionOutcome(status)
         store.applyRemoteState(
             id = publication.id,
             status = status,
@@ -111,6 +113,7 @@ class CatalogPublicationWorker(
      * says the problem is authorization rather than the payload.
      */
     private fun fail(publication: CatalogReleasePublication, failure: Throwable) {
+        metrics.submissionError()
         when (failure) {
             is HttpClientErrorException.Unauthorized ->
                 credentials.markConnection(publication.tenantKey, ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED, failure.message)
