@@ -247,12 +247,7 @@ class JobPoller(
             while (true) {
                 val effectiveLimit = admissionController.effectiveLimit()
                 val availableSlots = effectiveLimit - activeJobs.get()
-                if (availableSlots <= 0) {
-                    if (effectiveLimit == 0) {
-                        logger.info("Document generation admissions paused while database pressure recovers")
-                    }
-                    break
-                }
+                if (availableSlots <= 0) break
                 val requestedBatchSize = batchSizer.getCurrentBatchSize()
                 val actualBatchSize = minOf(requestedBatchSize, availableSlots)
 

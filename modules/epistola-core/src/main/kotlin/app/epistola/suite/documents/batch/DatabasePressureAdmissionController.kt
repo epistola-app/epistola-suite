@@ -10,6 +10,7 @@ import app.epistola.suite.documents.DatabasePressureProperties
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -35,6 +36,7 @@ class DatabasePressureAdmissionController(
     private val pressureSource: DatabasePressureSource,
     meterRegistry: MeterRegistry,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
     private val effectiveLimit = AtomicInteger(properties.maxConcurrentJobs)
     private val state = AtomicReference(DatabasePressureState.NORMAL)
     private var healthySinceMs: Long? = null
@@ -168,9 +170,20 @@ class DatabasePressureAdmissionController(
         return effectiveLimit.get()
     }
 
+    /**
+     * Logs only the edges (entering/leaving PAUSED), not every poll tick — the continuous
+     * signal already lives in the [DatabasePressureState] gauge and the throttled/paused
+     * counters, so a level-triggered log here would just repeat that on a timer.
+     */
     private fun transition(next: DatabasePressureState) {
-        if (state.get() == next) return
-        if (next == DatabasePressureState.PAUSED) pausedCounter.increment()
+        val previous = state.get()
+        if (previous == next) return
+        if (next == DatabasePressureState.PAUSED) {
+            pausedCounter.increment()
+            logger.warn("Document generation admissions paused: database pressure critical")
+        } else if (previous == DatabasePressureState.PAUSED) {
+            logger.info("Document generation admissions resuming: database pressure easing")
+        }
         state.set(next)
     }
 }
