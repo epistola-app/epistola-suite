@@ -22,6 +22,11 @@
   participates in application bootstrap.** Timers now bind through Micrometer
   after metric registries are ready, avoiding the JDBI-to-installation-metadata
   startup cycle while preserving pressure observation and exported metrics.
+- **[dev]** fix(generation): **Pressure-pause logging no longer repeats every
+  poll tick.** The admission controller now logs once on the PAUSED edge
+  (WARN) and once on recovery (INFO), instead of the job poller logging on
+  every drain cycle for the duration of an incident; the continuous signal
+  stays available via the pressure-state gauge and throttle/pause counters.
 
 - **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
   Start in recommendation-only mode; production uses CPU HPA while VPA remains
