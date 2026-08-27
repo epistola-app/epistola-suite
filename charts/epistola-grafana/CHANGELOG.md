@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- Database statement latency p95 on the Infrastructure dashboard and the
+  effective document-generation concurrency on the Generation dashboard, so
+  database-pressure worker throttling is visible alongside pool saturation.
+
 ## [0.1.1] - 2026-07-05
 
 ### Added

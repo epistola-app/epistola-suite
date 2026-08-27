@@ -222,6 +222,11 @@ spec:
               "expr": "epistola_jobs_max_concurrent",
               "legendFormat": "Max Concurrent",
               "refId": "B"
+            },
+            {
+              "expr": "epistola_generation_concurrency_effective",
+              "legendFormat": "Effective Concurrent",
+              "refId": "C"
             }
           ],
           "options": {

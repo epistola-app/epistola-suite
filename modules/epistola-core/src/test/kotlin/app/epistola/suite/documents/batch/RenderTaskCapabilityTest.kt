@@ -29,6 +29,7 @@ class RenderTaskCapabilityTest {
             jobExecutor = mock(DocumentGenerationExecutor::class.java),
             properties = JobPollingProperties(),
             batchSizer = mock(AdaptiveBatchSizer::class.java),
+            admissionController = mock(DatabasePressureAdmissionController::class.java),
             meterRegistry = SimpleMeterRegistry(),
             mediator = mock(Mediator::class.java),
         )

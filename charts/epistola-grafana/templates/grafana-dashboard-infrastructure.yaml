@@ -341,6 +341,27 @@ spec:
               }
             ]
           }
+        },
+        {
+          "id": 11,
+          "title": "Database Statement Latency p95",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 26, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.grafana.datasourceUid }}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (outcome, le) (rate(epistola_database_statement_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{`{{outcome}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }
+          }
         }
       ]
     }

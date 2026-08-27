@@ -181,6 +181,18 @@ epistola:
         max-batch-size: 50 # Claim more per poll for efficient draining
         fast-threshold-ms: 2000 # < 2s avg = increase batch size
         slow-threshold-ms: 5000 # > 5s avg = decrease batch size
+      # Keeps background renders from monopolising a degraded database. It limits
+      # new admissions only; documents already rendering are allowed to finish.
+      database-pressure:
+        enabled: true
+        observation-window-ms: 10000
+        minimum-samples: 3
+        slow-statement-threshold-ms: 500
+        recovery-statement-threshold-ms: 200
+        minimum-concurrent-jobs: 1
+        backoff-interval-ms: 1000
+        recovery-period-ms: 30000
+        recovery-step-interval-ms: 10000
     async:
       concurrency: 10 # Items processed concurrently per job
     jobs:
@@ -355,6 +367,7 @@ management:
         epistola.mediator.command.duration: true
         epistola.mediator.query.duration: true
         epistola.jobs.duration: true
+        epistola.database.statement.duration: true
   otlp:
     metrics:
       export:
