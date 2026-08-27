@@ -199,14 +199,14 @@
                         <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
                                   placeholder="What changed in this release?"></textarea>
                     </div>
-                    <div class="form-group" th:if="${publishingAvailable}">
-                        <label th:if="${publicationAllowsOverride}">
+                    <div class="form-group" th:if="${publication != null && publication.available}">
+                        <label th:if="${publication.allowsReleaseOverride}">
                             <input type="checkbox" name="publishToExchange" value="true"
-                                   th:checked="${publicationDefaultPublish}">
+                                   th:checked="${publication.defaultPublish}">
                             Publish this version to Epistola Exchange
                         </label>
-                        <p class="form-hint" th:if="${!publicationAllowsOverride}"
-                           th:text="${publicationPolicy.name() == 'ALWAYS'} ?
+                        <p class="form-hint" th:if="${!publication.allowsReleaseOverride}"
+                           th:text="${publication.defaultPublish} ?
                                'Catalog policy Always: this version will be queued for Exchange.' :
                                'Catalog policy Never: this version will not be published to Exchange.'">
                         </p>

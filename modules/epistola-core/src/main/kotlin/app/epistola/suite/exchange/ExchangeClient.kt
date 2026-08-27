@@ -4,6 +4,7 @@
 
 package app.epistola.suite.exchange
 
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
@@ -56,8 +57,8 @@ data class ExchangePublicationResponse(
 @Component
 class ExchangeClient(
     private val properties: ExchangeProperties,
+    @Qualifier("exchangeRestClient") private val http: RestClient,
 ) {
-    private val http = RestClient.create()
 
     fun endpoints(): ExchangeEndpoints {
         val configuredBase = properties.baseUrl?.trimEnd('/')

@@ -33,7 +33,7 @@ data class SetCatalogPublicationSettings(
     init {
         validate(
             "namespacePreference",
-            namespacePreference == null || namespacePreference.matches(Regex("^[a-z][a-z0-9-]{0,62}$")),
+            namespacePreference == null || namespacePreference.matches(Regex("^${CatalogPublicationPolicy.NAMESPACE_PATTERN}$")),
         ) { "Exchange namespace must be a lowercase slug." }
     }
 }

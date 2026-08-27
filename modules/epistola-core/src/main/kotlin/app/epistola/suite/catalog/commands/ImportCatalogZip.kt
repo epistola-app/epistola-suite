@@ -477,7 +477,7 @@ class ImportCatalogZipHandler(
                     catalogKey = catalogKey,
                     version = manifest.release.version,
                     notes = "Initial release imported from catalog ZIP (publisher: ${manifest.publisher.name})",
-                    exchangePublication = ReleaseExchangePublication.SUPPRESS,
+                    publication = ReleasePublication.SUPPRESS,
                 ).execute()
                 logger.info(
                     "Catalog '{}' created from ZIP — adopted imported release {} as the initial release",

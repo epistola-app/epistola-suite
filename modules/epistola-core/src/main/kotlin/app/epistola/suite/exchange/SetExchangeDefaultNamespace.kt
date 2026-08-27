@@ -9,6 +9,8 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -33,7 +35,9 @@ class SetExchangeDefaultNamespaceHandler(
                 WHERE tenant_key = :tenantKey AND status = 'ACTIVE' AND :namespace = ANY(namespaces)
                 """,
             ).bind("tenantKey", command.tenantKey).bind("namespace", command.namespace).execute()
-            require(updated == 1) { "Namespace is not available to this Exchange connection" }
+            validate("namespace", updated == 1, ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE) {
+                "That namespace is not available to this Exchange connection."
+            }
         }
     }
 }

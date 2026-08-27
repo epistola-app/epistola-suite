@@ -7,29 +7,29 @@
         pageDescription='Authorize this tenant to publish catalog releases to Exchange.'
     )}"></div>
 
-    <div class="alert alert-warning" th:if="${!deploymentEnabled}">
+    <div class="alert alert-warning" th:if="${!settings.deploymentEnabled}">
         Catalog publishing is disabled for this deployment. Set <code>epistola.exchange.enabled=true</code>
         before connecting a tenant.
     </div>
 
-    <div class="card" th:if="${deploymentEnabled}">
+    <div class="card" th:if="${settings.deploymentEnabled}">
         <div class="card-header">
             <h2>Tenant connection</h2>
             <p class="subtitle">One Exchange connection is maintained for this Suite tenant.</p>
         </div>
         <div class="card-content">
-            <div class="alert alert-danger" th:if="${connection != null && connection.lastError != null}"
-                 th:text="${connection.lastError}"></div>
-            <div th:if="${connection != null && connection.status.name() == 'ACTIVE'}">
+            <div class="alert alert-danger" th:if="${settings.connection != null && settings.connection.lastError != null}"
+                 th:text="${settings.connection.lastError}"></div>
+            <div th:if="${settings.connected}" th:with="connection=${settings.connection}">
                 <p><strong>Connected organization:</strong>
                     <span th:text="${connection.organizationName}">Organization</span>
                     (<code th:text="${connection.organizationSlug}">organization</code>)
                 </p>
                 <p><strong>Connection:</strong> <code th:text="${connection.tenantConnectionReference}">tc_01HWHVGZT1FCF9Y2CE4XP3Y79M</code></p>
                 <p><strong>Application:</strong> <code th:text="${connection.oauthApplicationId}">application id</code></p>
-                <p><strong>Scopes:</strong> <span th:text="${#strings.arrayJoin(connection.scopes, ', ')}">read, publish</span></p>
-                <p><strong>Namespaces:</strong> <span th:text="${#strings.arrayJoin(connection.namespaces, ', ')}">namespace</span></p>
-                <form th:if="${connection.namespaces.length > 1}"
+                <p><strong>Scopes:</strong> <span th:text="${#strings.listJoin(connection.scopes, ', ')}">read, publish</span></p>
+                <p><strong>Namespaces:</strong> <span th:text="${#strings.listJoin(connection.namespaces, ', ')}">namespace</span></p>
+                <form th:if="${!settings.choosableNamespaces.isEmpty()}"
                       th:action="@{/tenants/{tenantId}/exchange/namespace(tenantId=${tenantId})}" method="post">
                     <div class="form-group">
                         <label class="ep-label" for="exchange-default-namespace">Default namespace</label>
@@ -65,10 +65,10 @@
                 </details>
             </div>
 
-            <form th:if="${connection == null || connection.status.name() != 'ACTIVE'}"
+            <form th:if="${!settings.connected}"
                   th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
                 <button type="submit" class="ep-btn ep-btn-primary"
-                        th:text="${connection != null && connection.status.name() == 'REAUTHORIZATION_REQUIRED'} ? 'Recover Exchange connection' : 'Connect to Exchange'">
+                        th:text="${settings.needsReauthorization} ? 'Recover Exchange connection' : 'Connect to Exchange'">
                     Connect to Exchange
                 </button>
             </form>

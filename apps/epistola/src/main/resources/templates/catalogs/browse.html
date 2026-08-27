@@ -44,29 +44,30 @@
                 </div>
             </div>
 
-            <div th:if="${catalog.type.name() == 'AUTHORED'}" style="margin-bottom: var(--ep-space-4);">
-                <form th:if="${canPublishCurrentRelease}"
+            <div th:if="${publication != null}" style="margin-bottom: var(--ep-space-4);">
+                <form th:if="${publication.canPublishCurrentRelease}"
                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}"
                       method="post">
-                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" th:text="${publishCurrentReleaseLabel}">
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm"
+                            th:text="${publication.isRetry} ? 'Retry publication' : 'Publish current release'">
                         Publish current release
                     </button>
                 </form>
-                <div th:if="${!exchangePublications.isEmpty()}" style="margin-top: var(--ep-space-4);">
+                <div th:if="${!publication.publications.isEmpty()}" style="margin-top: var(--ep-space-4);">
                     <h3 style="margin-bottom: var(--ep-space-2);">Publication history</h3>
                     <div class="ep-table-scroll" role="region" aria-label="Exchange publication history" tabindex="0">
                         <table class="ep-table">
                             <thead><tr><th>Version</th><th>Namespace</th><th>Status</th><th>Updated</th></tr></thead>
                             <tbody>
-                            <tr th:each="publication : ${exchangePublications}">
-                                <td th:text="'v' + ${publication.version}">v1.0.0</td>
-                                <td><code th:text="${publication.namespace ?: 'waiting for setup'}">namespace</code></td>
+                            <tr th:each="entry : ${publication.publications}">
+                                <td th:text="'v' + ${entry.version}">v1.0.0</td>
+                                <td><code th:text="${entry.namespace ?: 'waiting for setup'}">namespace</code></td>
                                 <td>
-                                    <strong th:text="${publication.status}">READY</strong>
-                                    <span th:if="${publication.lastError != null}" class="text-muted"
-                                          th:text="' — ' + ${publication.lastError}"></span>
+                                    <strong th:text="${entry.status.label}">Ready</strong>
+                                    <span th:if="${entry.lastError != null}" class="text-muted"
+                                          th:text="' — ' + ${entry.lastError}"></span>
                                 </td>
-                                <td th:text="${publication.updatedAt}">2026-08-24</td>
+                                <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
                             </tr>
                             </tbody>
                         </table>
@@ -89,7 +90,7 @@
                     <p th:if="${catalog.catalogMetadata.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
                 </div>
 
-                <div th:if="${catalog.type.name() == 'AUTHORED'}" class="catalog-detail-item">
+                <div th:if="${publication != null}" class="catalog-detail-item">
                     <div class="catalog-detail-item-header">
                         <h3>Exchange publication</h3>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
@@ -97,13 +98,13 @@
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <p class="catalog-detail-value">
-                        Policy: <strong th:text="${catalog.exchangePublicationPolicy.name()}">INHERIT</strong>
+                        Policy: <strong th:text="${publication.policy.label}">Inherit tenant default</strong>
                     </p>
-                    <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;" th:if="${exchangeBinding != null}">
-                        Namespace: <code th:text="${exchangeBinding}">namespace</code> (bound)
+                    <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;" th:if="${publication.boundNamespace != null}">
+                        Namespace: <code th:text="${publication.boundNamespace}">namespace</code> (bound)
                     </p>
-                    <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;" th:if="${exchangeBinding == null}">
-                        Preferred namespace: <code th:text="${catalog.exchangeNamespacePreference ?: 'tenant default'}"></code>
+                    <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;" th:if="${publication.boundNamespace == null}">
+                        Preferred namespace: <code th:text="${publication.namespacePreference ?: 'tenant default'}"></code>
                     </p>
                 </div>
 

@@ -72,6 +72,24 @@ class JdbiConfig {
                 },
             )
 
+            // SQL text arrays as List<String>, so a row model can hold an idiomatic list
+            // rather than an Array (whose identity-based equals silently breaks data classes).
+            // Binding the other way already works: JDBI turns a Kotlin Array into a SQL array.
+            // Registered on the erased List type because that is what Kotlin reflection hands
+            // JDBI for a `List<String>` constructor parameter; the only auto-mapped list columns
+            // in the schema are text arrays.
+            registerColumnMapper(
+                List::class.java,
+                ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
+                    val array = r.getArray(columnNumber)
+                    if (r.wasNull() || array == null) {
+                        emptyList()
+                    } else {
+                        (array.array as Array<*>).mapNotNull { it?.toString() }
+                    }
+                },
+            )
+
             // Transparent credential encryption-at-rest: Secret values are encrypted
             // on bind and decrypted on read by the credential cipher.
             registerArgument(SecretArgumentFactory(credentialCipher))

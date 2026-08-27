@@ -7,113 +7,146 @@ package app.epistola.suite.exchange
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
-import com.sun.net.httpserver.HttpExchange
-import com.sun.net.httpserver.HttpServer
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import java.net.InetSocketAddress
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
-import java.time.Instant
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 
+/** Enrollment and its two exits: a guided recovery, and disconnecting. */
 class DisconnectExchangeConnectionTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var credentials: ExchangeCredentialService
+
+    @BeforeEach
+    fun resetExchange() = exchange.reset()
+
     @Test
     fun `rejected application credentials become a guided recovery state`() {
-        testClock.set(Instant.now())
         val tenant = createTenant("exchange-credential-recovery")
-        val issuer = "http://127.0.0.1:${exchangeServer.address.port}"
+        exchange.tokenResponse = { FakeExchangeServer.Response(401, """{"error":"invalid_client"}""") }
 
         withMediator {
-            StartExchangeConnection(tenant.id, "https://suite.example/oauth/exchange/callback").execute()
+            StartExchangeConnection(tenant.id, CALLBACK).execute()
 
-            val connection =
-                CompleteExchangeConnection(
-                    tenant.id,
-                    requireNotNull(latestState.get()),
-                    "single-use-authorization-code",
-                    UUID.randomUUID(),
-                    issuer,
-                ).execute()
+            val connection = CompleteExchangeConnection(
+                tenant.id,
+                requireNotNull(exchange.latestState.get()),
+                "single-use-authorization-code",
+                FakeExchangeServer.OAUTH_APPLICATION_ID,
+                exchange.baseUrl,
+            ).execute()
 
             assertThat(connection.status).isEqualTo(ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED)
             assertThat(connection.lastError).contains("Recover application credentials")
-            assertThat(FindExchangeAuthorizationTenant(requireNotNull(latestState.get())).query()).isNull()
+            assertThat(FindExchangeAuthorizationTenant(requireNotNull(exchange.latestState.get())).query()).isNull()
+        }
+    }
+
+    @Test
+    fun `completing authorization stores the endpoints the issuer advertised`() {
+        val tenant = createTenant("exchange-endpoints")
+
+        withMediator {
+            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            val connection = CompleteExchangeConnection(
+                tenant.id,
+                requireNotNull(exchange.latestState.get()),
+                "authorization-code",
+                FakeExchangeServer.OAUTH_APPLICATION_ID,
+                exchange.baseUrl,
+            ).execute()
+
+            assertThat(connection.status).isEqualTo(ExchangeConnectionStatus.ACTIVE)
+            assertThat(connection.tokenEndpoint).isEqualTo("${exchange.baseUrl}/oauth/token")
+            assertThat(connection.endpoints.tokenEndpoint).isEqualTo(connection.tokenEndpoint)
+            assertThat(connection.namespaces).containsExactly("public-services")
+            // A single granted namespace needs no choice, so it becomes the default.
+            assertThat(connection.defaultNamespace).isEqualTo("public-services")
+        }
+    }
+
+    @Test
+    fun `a stale authorization state is refused`() {
+        val tenant = createTenant("exchange-stale-state")
+
+        withMediator {
+            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            assertThatThrownBy {
+                CompleteExchangeConnection(
+                    tenant.id,
+                    "not-the-state-we-issued",
+                    "authorization-code",
+                    FakeExchangeServer.OAUTH_APPLICATION_ID,
+                    exchange.baseUrl,
+                ).execute()
+            }.isInstanceOfSatisfying(ValidationException::class.java) {
+                assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_AUTHORIZATION_INVALID)
+            }
         }
     }
 
     @Test
     fun `disconnect removes the connection and pending authorization created by production commands`() {
-        testClock.set(Instant.now())
         val tenant = createTenant("exchange-disconnect")
 
         withMediator {
-            StartExchangeConnection(tenant.id, "https://suite.example/oauth/exchange/callback").execute()
+            StartExchangeConnection(tenant.id, CALLBACK).execute()
 
             assertThat(GetExchangeConnection(tenant.id).query()).isNotNull
-            assertThat(FindExchangeAuthorizationTenant(requireNotNull(latestState.get())).query()).isEqualTo(tenant.id)
+            assertThat(FindExchangeAuthorizationTenant(requireNotNull(exchange.latestState.get())).query()).isEqualTo(tenant.id)
 
             DisconnectExchangeConnection(tenant.id).execute()
 
             assertThat(GetExchangeConnection(tenant.id).query()).isNull()
-            assertThat(FindExchangeAuthorizationTenant(requireNotNull(latestState.get())).query()).isNull()
+            assertThat(FindExchangeAuthorizationTenant(requireNotNull(exchange.latestState.get())).query()).isNull()
+        }
+    }
+
+    @Test
+    fun `a broken connection can only be dropped with the explicit local-only action`() {
+        val tenant = createTenant("exchange-forget-local")
+
+        withMediator {
+            StartExchangeConnection(tenant.id, CALLBACK).execute()
+            CompleteExchangeConnection(
+                tenant.id,
+                requireNotNull(exchange.latestState.get()),
+                "authorization-code",
+                FakeExchangeServer.OAUTH_APPLICATION_ID,
+                exchange.baseUrl,
+            ).execute()
+            credentials.markConnection(tenant.id, ExchangeConnectionStatus.BLOCKED, "Exchange revoked us")
+
+            assertThatThrownBy { DisconnectExchangeConnection(tenant.id).execute() }
+                .isInstanceOfSatisfying(ValidationException::class.java) {
+                    assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_CONNECTION_NOT_ACTIVE)
+                }
+
+            DisconnectExchangeConnection(tenant.id, forgetLocally = true).execute()
+            assertThat(GetExchangeConnection(tenant.id).query()).isNull()
         }
     }
 
     companion object {
-        private val latestState = AtomicReference<String>()
-        private val exchangeServer: HttpServer by lazy {
-            HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
-                createContext("/.well-known/oauth-authorization-server") { exchange ->
-                    val issuer = "http://127.0.0.1:${address.port}"
-                    exchange.respond(
-                        """
-                        {
-                          "issuer": "$issuer",
-                          "authorization_request_endpoint": "$issuer/oauth/authorization-requests",
-                          "token_endpoint": "$issuer/oauth/token"
-                        }
-                        """.trimIndent(),
-                    )
-                }
-                createContext("/oauth/authorization-requests") { exchange ->
-                    val parameters = exchange.requestBody.bufferedReader().use { it.readText() }
-                        .split('&')
-                        .associate { field ->
-                            val (name, value) = field.split('=', limit = 2)
-                            URLDecoder.decode(name, StandardCharsets.UTF_8) to
-                                URLDecoder.decode(value, StandardCharsets.UTF_8)
-                        }
-                    latestState.set(parameters.getValue("state"))
-                    exchange.respond(
-                        """{"authorization_uri":"http://exchange.example/authorize","expires_in":300}""",
-                    )
-                }
-                createContext("/oauth/token") { exchange ->
-                    exchange.respond("""{"error":"invalid_client"}""", 401)
-                }
-                start()
-            }
-        }
+        private const val CALLBACK = "https://suite.example/oauth/exchange/callback"
+        private val exchange = FakeExchangeServer()
 
         @JvmStatic
         @DynamicPropertySource
         fun exchangeProperties(registry: DynamicPropertyRegistry) {
             registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { "http://127.0.0.1:${exchangeServer.address.port}" }
+            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
         }
 
-        private fun HttpExchange.respond(
-            body: String,
-            status: Int = 200,
-        ) {
-            val bytes = body.toByteArray(StandardCharsets.UTF_8)
-            responseHeaders.add("Content-Type", "application/json")
-            sendResponseHeaders(status, bytes.size.toLong())
-            responseBody.use { it.write(bytes) }
-        }
+        @JvmStatic
+        @AfterAll
+        fun stopExchange() = exchange.close()
     }
 }

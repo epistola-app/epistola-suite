@@ -64,6 +64,17 @@ epistola-suite-modules/
 
 - **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers)
 - **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config). **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, bundled demo/system catalogs, and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
+- **Outbound catalog publication** to Epistola Exchange lives in core's `exchange/` package
+  (`app.epistola.suite.exchange`): enrollment, the OAuth client, the durable publication outbox and
+  its cluster worker. It is optional and default-off (`epistola.exchange.enabled`). The catalog
+  domain must **not** reference it: `ReleaseCatalogVersion` records publication intent through
+  `CatalogReleasePublicationPort` (in `catalog/`), which is handed the open release transaction so
+  the outbox write stays atomic without inverting the dependency. `ExchangeAvailability` is the one
+  place that answers "may this tenant publish?" (deployment gate **and** tenant feature);
+  `ExchangeNamespaceBinder` owns the immutable namespace binding rule; `CatalogPublicationStore`
+  owns the outbox SQL. UI reads `GetCatalogPublicationState` / `GetExchangeSettings` rather than
+  recomposing any of it. See [`docs/catalog-exchange-publication.md`](docs/catalog-exchange-publication.md)
+  and [ADR 0015](docs/adr/0015-durable-catalog-publication-to-exchange.md).
 - **Resource references**: tenant-wide reference discovery and traversal live in
   `catalog/graph/` and are documented in [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
   New catalog-resource reference shapes must be added to this graph authority with resolution and

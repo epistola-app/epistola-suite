@@ -9,8 +9,9 @@ alone never exposes a usable secret. This covers:
   remote code list).
 - **Hub credentials** — the support tier's `app_metadata` entry
   (`support.hub.credentials`).
-- **Exchange credentials** — tenant access/refresh tokens and pending OAuth
-  device codes used for catalog publication.
+- **Exchange credentials** — the tenant's OAuth application secret, its
+  access/refresh tokens, and the pending PKCE verifier used for catalog
+  publication.
 
 > **API keys are different and are _not_ encrypted.** They are a verify-only
 > secret, so they are **hashed** (SHA-256) — the plaintext is never stored and

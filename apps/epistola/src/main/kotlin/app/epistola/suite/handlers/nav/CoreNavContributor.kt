@@ -4,7 +4,7 @@
 
 package app.epistola.suite.handlers.nav
 
-import app.epistola.suite.exchange.ExchangeProperties
+import app.epistola.suite.exchange.ResolveCatalogPublishingAvailability
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.KnownFeatures.FeatureStage
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -24,9 +24,7 @@ import org.springframework.stereotype.Component
  * (so Operations disappears for users with none of its permissions, and Settings for non-managers).
  */
 @Component
-class CoreNavContributor(
-    private val exchangeProperties: ExchangeProperties,
-) : NavContributor {
+class CoreNavContributor : NavContributor {
 
     override fun groups(context: UiRequestContext): List<NavGroup> = listOf(
         NavGroup(key = "authoring", label = "Authoring", order = 10, testId = "nav-dropdown-authoring"),
@@ -89,10 +87,7 @@ class CoreNavContributor(
         if (context.hasPermission(Permission.TENANT_SETTINGS)) {
             add(NavItem("settings", "features", "Features", "features", 10))
             add(NavItem("settings", "defaults", "Defaults", "defaults", 20))
-            if (
-                exchangeProperties.enabled &&
-                ResolveFeatureToggles(context.tenantKey).query()[KnownFeatures.CATALOG_PUBLISHING] == true
-            ) {
+            if (ResolveCatalogPublishingAvailability(context.tenantKey).query()) {
                 add(
                     NavItem(
                         "settings",

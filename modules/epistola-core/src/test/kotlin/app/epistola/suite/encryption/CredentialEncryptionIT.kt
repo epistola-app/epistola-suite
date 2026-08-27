@@ -77,12 +77,17 @@ class CredentialEncryptionIT : IntegrationTestBase() {
         val clientSecret = Secret("exchange-client-secret")
         val verifier = Secret("exchange-pkce-verifier")
 
+        // Raw SQL: reaching this state through commands would require a live Exchange to
+        // authorize against, and the assertion is about column encryption, not the OAuth flow.
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 INSERT INTO exchange_tenant_connections
-                    (tenant_key, issuer, base_url, oauth_application_id, client_secret)
-                VALUES (:tenant, 'https://exchange.example', 'https://exchange.example', :application, :secret)
+                    (tenant_key, issuer, base_url, authorization_request_endpoint, token_endpoint,
+                     oauth_application_id, client_secret)
+                VALUES (:tenant, 'https://exchange.example', 'https://exchange.example',
+                        'https://exchange.example/oauth/authorization-requests',
+                        'https://exchange.example/oauth/token', :application, :secret)
                 """,
             ).bind("tenant", tenant.id).bind("application", java.util.UUID.randomUUID())
                 .bind("secret", clientSecret).execute()

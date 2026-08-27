@@ -12,15 +12,13 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.CatalogReleasePublicationPort
+import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
-import app.epistola.suite.exchange.ExchangeProperties
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
@@ -29,6 +27,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.queries.GetTenant
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.time.OffsetDateTime
@@ -46,13 +45,21 @@ data class ReleaseCatalogVersion(
     val catalogKey: CatalogKey,
     val version: String,
     val notes: String? = null,
-    val exchangePublication: ReleaseExchangePublication = ReleaseExchangePublication.DEFAULT,
+    val publication: ReleasePublication = ReleasePublication.DEFAULT,
 ) : Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_PUBLISH
 }
 
-enum class ReleaseExchangePublication { DEFAULT, PUBLISH, SKIP, SUPPRESS }
+/**
+ * What the caller wants to happen to publication for this one release.
+ *
+ * [DEFAULT] follows the catalog policy and tenant default; [PUBLISH] and [SKIP] are the
+ * release-time override the UI offers where the policy permits one. [SUPPRESS] is internal and
+ * stronger than [SKIP]: it is used when adopting an already-published release (a ZIP import), where
+ * republishing would not be a user choice but an accident.
+ */
+enum class ReleasePublication { DEFAULT, PUBLISH, SKIP, SUPPRESS }
 
 data class ReleaseCatalogVersionResult(
     val version: String,
@@ -61,7 +68,8 @@ data class ReleaseCatalogVersionResult(
     val releasedAt: OffsetDateTime,
     /** True when the released content is byte-identical to a prior release. */
     val unchangedContent: Boolean,
-    val exchangePublicationId: UUID? = null,
+    /** Set when the release was queued for publication; null when it was not. */
+    val publicationId: UUID? = null,
 )
 
 /** Thrown when the requested release version is not a strictly increasing SemVer. */
@@ -74,7 +82,7 @@ class ReleaseCatalogVersionHandler(
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
     private val objectMapper: ObjectMapper,
-    private val exchangeProperties: ExchangeProperties,
+    private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -124,8 +132,12 @@ class ReleaseCatalogVersionHandler(
         }
         val releaseInfo = ReleaseInfo(version = newVersion.toString(), releasedAt = releasedAt.toString(), fingerprint = fingerprint)
         val manifest = content.toManifest(releaseInfo)
-        val publicationId = shouldPublish(command, catalog).takeIf { it }?.let { UUIDv7.generate() }
-        val archive = publicationId?.let { archiveBuilder.build(content, releaseInfo) }
+        // Building the archive is expensive, so only do it when the release will actually be
+        // queued. The bytes are handed to the outbox inside the release transaction below: a crash
+        // between committing the release and recording publication intent must not be possible.
+        val port = publicationPort.ifAvailable?.takeIf { shouldPublish(command, catalog, it) }
+        val archive = port?.let { archiveBuilder.build(content, releaseInfo) }
+        var publicationId: UUID? = null
 
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
@@ -158,27 +170,17 @@ class ReleaseCatalogVersionHandler(
                 .bind("releasedAt", releasedAt)
                 .execute()
 
-            if (publicationId != null && archive != null) {
-                val namespace = resolveAndBindNamespace(handle, command, catalog.exchangeNamespacePreference)
-                handle.createUpdate(
-                    """
-                    INSERT INTO catalog_release_publications
-                        (id, tenant_key, catalog_key, version, fingerprint, namespace, archive,
-                         status, idempotency_key)
-                    VALUES (:id, :tenantKey, :catalogKey, :version, :fingerprint, :namespace, :archive,
-                            :status, :idempotencyKey)
-                    """,
+            if (port != null && archive != null) {
+                publicationId = port.recordReleasePublication(
+                    handle,
+                    CatalogReleasePublicationRequest(
+                        tenantKey = command.tenantKey,
+                        catalogKey = command.catalogKey,
+                        version = newVersion.toString(),
+                        fingerprint = fingerprint,
+                        archive = archive,
+                    ),
                 )
-                    .bind("id", publicationId)
-                    .bind("tenantKey", command.tenantKey)
-                    .bind("catalogKey", command.catalogKey)
-                    .bind("version", newVersion.toString())
-                    .bind("fingerprint", fingerprint)
-                    .bind("namespace", namespace)
-                    .bind("archive", archive)
-                    .bind("status", if (namespace == null) "WAITING_SETUP" else "READY")
-                    .bind("idempotencyKey", UUIDv7.generate())
-                    .execute()
             }
         }
 
@@ -196,53 +198,29 @@ class ReleaseCatalogVersionHandler(
             previousVersion = latest?.toString(),
             releasedAt = releasedAt,
             unchangedContent = unchanged,
-            exchangePublicationId = publicationId,
+            publicationId = publicationId,
         )
     }
 
-    private fun shouldPublish(command: ReleaseCatalogVersion, catalog: Catalog): Boolean {
-        if (!exchangeProperties.enabled || command.exchangePublication == ReleaseExchangePublication.SUPPRESS) return false
-        if (ResolveAvailableFeatures(command.tenantKey).query()[KnownFeatures.CATALOG_PUBLISHING] != true) return false
-        val tenantDefault = requireNotNull(GetTenant(command.tenantKey).query()).publishCatalogsByDefault
-        val override = when (command.exchangePublication) {
-            ReleaseExchangePublication.DEFAULT -> null
-            ReleaseExchangePublication.PUBLISH -> true
-            ReleaseExchangePublication.SKIP -> false
-            ReleaseExchangePublication.SUPPRESS -> return false
-        }
-        return catalog.exchangePublicationPolicy.resolve(tenantDefault, override)
-    }
-
-    private fun resolveAndBindNamespace(
-        handle: org.jdbi.v3.core.Handle,
+    /**
+     * Resolves the catalog's publication policy against the tenant default and this release's
+     * override. The integration only says whether publishing is possible at all; which releases go
+     * out stays a catalog decision.
+     */
+    private fun shouldPublish(
         command: ReleaseCatalogVersion,
-        preference: String?,
-    ): String? {
-        val existing = handle.createQuery(
-            "SELECT namespace FROM catalog_exchange_bindings WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
-        ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey)
-            .mapTo(String::class.java).findOne().orElse(null)
-        if (existing != null) return existing
-
-        val selected = handle.createQuery(
-            """
-            SELECT namespaces, default_namespace FROM exchange_tenant_connections
-            WHERE tenant_key = :tenantKey AND status = 'ACTIVE'
-            """,
-        ).bind("tenantKey", command.tenantKey).map { rs, _ ->
-            val allowed = (rs.getArray("namespaces").array as Array<*>).map(Any?::toString).toSet()
-            (preference?.takeIf(allowed::contains) ?: rs.getString("default_namespace"))?.takeIf(allowed::contains)
-        }.findOne().orElse(null) ?: return null
-
-        handle.createUpdate(
-            """
-            INSERT INTO catalog_exchange_bindings (tenant_key, catalog_key, namespace)
-            VALUES (:tenantKey, :catalogKey, :namespace)
-            ON CONFLICT (tenant_key, catalog_key) DO NOTHING
-            """,
-        ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey)
-            .bind("namespace", selected).execute()
-        return selected
+        catalog: Catalog,
+        port: CatalogReleasePublicationPort,
+    ): Boolean {
+        val override = when (command.publication) {
+            ReleasePublication.SUPPRESS -> return false
+            ReleasePublication.DEFAULT -> null
+            ReleasePublication.PUBLISH -> true
+            ReleasePublication.SKIP -> false
+        }
+        if (!port.isPublicationAvailable(command.tenantKey)) return false
+        val tenantDefault = requireNotNull(GetTenant(command.tenantKey).query()).publishCatalogsByDefault
+        return catalog.exchangePublicationPolicy.resolve(tenantDefault, override)
     }
 
     private data class ReleaseRow(val version: String, val fingerprint: String)

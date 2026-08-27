@@ -16,7 +16,7 @@ exchange:
 
 The tenant Alpha feature remains off independently; enabling the deployment
 gate does not publish or enroll anything by itself. Network discovery, tenant
-device enrollment, namespace selection, credential handling, and publication
+enrollment, namespace selection, credential handling, and publication
 operations are documented in
 [`catalog-exchange-publication.md`](catalog-exchange-publication.md).
 

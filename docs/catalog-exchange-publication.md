@@ -71,8 +71,21 @@ epistola:
     base-url:
     # Optional browser-reachable redirect. Otherwise derived from the setup request.
     callback-url:
+    # Worker cadence and remote-call bounds.
     poll-interval-ms: 5000
+    connect-timeout: 5s
+    read-timeout: 30s
+    # Consecutive transient failures after which a publication becomes FAILED.
+    max-attempts: 10
+    # Recheck cadence for work that is not actionable yet.
+    setup-retry-interval: 1m
+    # Poll cadence for a submission Exchange has accepted but not decided.
+    submitted-poll-interval: 30s
 ```
+
+Every Exchange call is bounded by `connect-timeout`/`read-timeout` and made
+outside any database transaction, so a slow or hung Exchange cannot hold a
+pooled database connection or block other readers of the connection row.
 
 Helm values:
 
@@ -102,7 +115,9 @@ has this shape:
 
 Suite then reads `<issuer>/.well-known/oauth-authorization-server`, verifies
 that the returned issuer matches, and uses the advertised authorization-request
-and token endpoints. `base-url` bypasses only the public product discovery; OAuth
+and token endpoints. Those two endpoints are **stored on the connection**, so
+later token refreshes call what Exchange advertised rather than reconstructing a
+path Suite assumed. `base-url` bypasses only the public product discovery; OAuth
 metadata is still discovered and issuer-checked.
 
 The `local` Spring profile preconfigures `base-url` as
@@ -205,6 +220,11 @@ by export. When the resolved policy says publish, one database transaction:
 3. stores the exact ZIP in `catalog_release_publications` with a fresh
    idempotency key and `WAITING_SETUP` or `READY` state.
 
+The release command reaches step 3 through `CatalogReleasePublicationPort`, a
+catalog-owned seam handed the open transaction. Catalog decides _whether_ to
+publish from its own policy; the Exchange side decides _how_ and _where_, so no
+catalog code depends on the integration.
+
 Only after that transaction commits can the cluster worker see the job. There
 is no network call in the release transaction. Consequently:
 
@@ -217,7 +237,8 @@ is no network call in the release transaction. Consequently:
 `ImportCatalogZip` uses an internal `SUPPRESS` disposition so adopting an
 imported release never republishes it accidentally. Stable REST release calls
 use `DEFAULT`; the Suite release dialog can send `PUBLISH` or `SKIP` where the
-catalog policy permits it.
+catalog policy permits it. The dispositions are the `ReleasePublication` values
+on `ReleaseCatalogVersion`.
 
 ## Worker state machine
 
@@ -229,7 +250,7 @@ catalog policy permits it.
 | `RETRY`         | A transient local/network call failed.                              | Yes               | Retry with exponential backoff, capped at one hour.            |
 | `ACCEPTED`      | Exchange validation/scanning/publication accepted the release.      | No                | Terminal success.                                              |
 | `REJECTED`      | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                     |
-| `FAILED`        | Exchange's processing attempt failed operationally.                 | Yes               | Terminal until an administrator selects **Retry publication**. |
+| `FAILED`        | Exchange failed the attempt, or local retries were exhausted.       | Yes               | Terminal until an administrator selects **Retry publication**. |
 
 The worker is a single-owner cluster scheduled task and also uses
 `FOR UPDATE SKIP LOCKED` plus expiring `claimed_at` leases. Those two layers make processing
@@ -237,6 +258,21 @@ safe across replicas and recoverable after node loss. Remote work already
 accepted by Exchange may continue there when the tenant feature is switched
 off; Suite pauses its own queued/polling work until the feature is enabled
 again.
+
+Retrying is bounded. `RETRY` backs off exponentially, and after
+`max-attempts` consecutive transient failures the publication becomes `FAILED`
+and waits for an administrator. Every attempt holds the retained release ZIP, so
+retrying forever would accumulate archives rather than make progress.
+
+States that are simply not actionable yet — waiting for enrollment or a
+namespace, or a tenant whose feature is paused — are **deferred**, not failed.
+They are rechecked every `setup-retry-interval` and consume no retry budget, so
+an unconfigured tenant does not spin at the poll interval. A submission Exchange
+has accepted but not decided is polled every `submitted-poll-interval`.
+
+The worker never loads a retained archive to decide what to do: claiming, polling
+and retry accounting work from metadata alone, and the bytes are read only on the
+branch that actually submits them.
 
 An explicit retry of `FAILED` reuses the retained exact archive, clears the old
 remote attempt, and assigns a new idempotency key. It remains safe even when the
@@ -255,10 +291,16 @@ the core catalog/code-list contributor.
 
 The worker refreshes access tokens before expiry even when a tenant has paused
 catalog publishing, provided the deployment gate is still on. Refresh tokens
-rotate on use. A rejected refresh changes the connection to
-`REAUTHORIZATION_REQUIRED`; HTTP 401 does the same. HTTP 403 changes it to
-`BLOCKED`. Both stop useful submission work and surface the connection error on
-the Exchange settings page. Reauthorize to recover the same connection.
+rotate on use, and the rotated pair is written back under an optimistic check on
+the row version that was read, so a concurrent refresh cannot be clobbered. A
+rejected refresh changes the connection to `REAUTHORIZATION_REQUIRED`; HTTP 401
+does the same. HTTP 403 changes it to `BLOCKED`. Both stop useful submission work
+and surface the connection error on the Exchange settings page. Reauthorize to
+recover the same connection.
+
+Disconnecting revokes the remote connection first and only then removes local
+credentials. That requires an active connection, so a broken one is dropped with
+the explicit local-only recovery action instead.
 
 Disabling the deployment gate stops all Exchange network activity, including
 credential maintenance. It does not delete encrypted credentials or queued
@@ -307,6 +349,17 @@ Useful failure distinctions:
 - `BLOCKED` means Exchange denied the connection/scopes;
 - `REJECTED` is a terminal decision about that immutable release;
 - `FAILED` is manually retryable with a new remote attempt.
+
+## Why this is not in the demo catalog
+
+The demo catalog demonstrates authoring capabilities inside a catalog. Publication
+is not one: it is an integration between a Suite installation and a separate
+Exchange deployment, gated on an operator-enabled deployment switch and a tenant's
+own OAuth enrollment. There is no resource a bundled catalog could carry that would
+exercise it, and shipping demo content that points at a namespace no installation
+owns would be misleading. The behaviour is covered by integration tests that drive
+a stand-in Exchange over real HTTP instead (`CatalogPublicationWorkerIntegrationTest`,
+`CatalogReleasePublicationIntegrationTest`, `DisconnectExchangeConnectionTest`).
 
 ## Deferred work
 

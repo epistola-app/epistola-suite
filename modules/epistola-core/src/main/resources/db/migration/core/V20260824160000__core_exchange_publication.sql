@@ -9,8 +9,12 @@ CREATE TABLE exchange_tenant_connections (
     tenant_connection_reference VARCHAR(29) UNIQUE,
     issuer TEXT NOT NULL,
     base_url TEXT NOT NULL,
+    authorization_request_endpoint TEXT NOT NULL,
+    token_endpoint TEXT NOT NULL,
     organization_slug TEXT,
     organization_name TEXT,
+    oauth_application_id UUID,
+    client_secret TEXT,
     scopes VARCHAR(30)[] NOT NULL DEFAULT ARRAY[]::VARCHAR[],
     namespaces VARCHAR(63)[] NOT NULL DEFAULT ARRAY[]::VARCHAR[],
     default_namespace VARCHAR(63),
@@ -24,15 +28,12 @@ CREATE TABLE exchange_tenant_connections (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE exchange_device_authorizations (
+CREATE TABLE exchange_oauth_authorizations (
     tenant_key TENANT_KEY PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
-    device_code TEXT NOT NULL,
-    user_code VARCHAR(20) NOT NULL,
-    verification_uri TEXT NOT NULL,
-    verification_uri_complete TEXT NOT NULL,
+    state_hash CHAR(64) NOT NULL UNIQUE,
+    code_verifier TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
-    poll_interval_seconds INTEGER NOT NULL,
-    next_poll_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -56,7 +57,6 @@ CREATE TABLE catalog_release_publications (
     status VARCHAR(30) NOT NULL CHECK (status IN ('WAITING_SETUP', 'READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED')),
     idempotency_key UUID NOT NULL,
     remote_publication_id UUID,
-    remote_status_url TEXT,
     attempts INTEGER NOT NULL DEFAULT 0,
     next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     claimed_at TIMESTAMPTZ,
@@ -73,9 +73,15 @@ CREATE INDEX catalog_release_publications_work
     WHERE status IN ('WAITING_SETUP', 'READY', 'SUBMITTED', 'RETRY');
 
 COMMENT ON TABLE exchange_tenant_connections IS
-    'One Exchange device-grant connection per Suite tenant; credentials are encrypted by JDBI and excluded from portable backups.';
-COMMENT ON TABLE exchange_device_authorizations IS
-    'Cluster-safe pending device grants; the device code is encrypted and never included in tenant backups.';
+    'One Exchange OAuth connection per Suite tenant; credentials are encrypted by JDBI and excluded from portable backups.';
+COMMENT ON COLUMN exchange_tenant_connections.token_endpoint IS
+    'Token endpoint discovered from the issuer''s OAuth metadata when the connection was authorized; never reconstructed from a hard-coded path.';
+COMMENT ON COLUMN exchange_tenant_connections.oauth_application_id IS
+    'Exchange OAuth application selected or created during browser authorization.';
+COMMENT ON COLUMN exchange_tenant_connections.client_secret IS
+    'Encrypted OAuth application credential used only for backchannel token refresh.';
+COMMENT ON TABLE exchange_oauth_authorizations IS
+    'Short-lived redirect state and encrypted PKCE verifier; excluded from portable backups.';
 COMMENT ON TABLE catalog_exchange_bindings IS
     'Immutable namespace chosen when a catalog is first queued for Exchange publication.';
 COMMENT ON TABLE catalog_release_publications IS

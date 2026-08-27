@@ -36,9 +36,9 @@ backup/restore.
 
 Exchange authoring preferences are portable: the tenant publish default and
 each catalog's policy/namespace preference ride in the included `tenants` and
-`catalogs` rows. Exchange connections, device grants, encrypted OAuth
-credentials, namespace bindings, publication jobs, retained ZIPs, and remote
-state are excluded. They describe installation-specific trust and external
+`catalogs` rows. Exchange connections, pending redirect authorizations,
+encrypted OAuth credentials, namespace bindings, publication jobs, retained
+ZIPs, and remote state are excluded. They describe installation-specific trust and external
 side effects and must not be replayed by restore. See
 [`catalog-exchange-publication.md`](catalog-exchange-publication.md#backup-and-restore-boundary).
 

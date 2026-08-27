@@ -28,7 +28,7 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.OnStencilConflict
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.commands.ReleaseExchangePublication
+import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.StencilVersionImportConflictsException
 import app.epistola.suite.catalog.commands.UnregisterCatalog
@@ -48,12 +48,8 @@ import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
-import app.epistola.suite.exchange.ExchangeProperties
-import app.epistola.suite.exchange.GetCatalogExchangeBinding
-import app.epistola.suite.exchange.ListCatalogReleasePublications
+import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -65,7 +61,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
-import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -74,9 +70,7 @@ import org.springframework.web.servlet.function.ServerResponse
 private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
 
 @Component
-class CatalogHandler(
-    private val exchangeProperties: ExchangeProperties,
-) {
+class CatalogHandler {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -308,14 +302,14 @@ class CatalogHandler(
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
-        val publishing = releasePublishingModel(tenantId.key, catalogKey)
         return ServerResponse.ok().render(
             "catalogs/list :: release-dialog",
             mapOf(
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogKey.value,
                 "status" to status,
-            ) + publishing,
+                "publication" to GetCatalogPublicationState(tenantId.key, catalogKey).query(),
+            ),
         )
     }
 
@@ -332,7 +326,6 @@ class CatalogHandler(
 
         fun reRenderWithError(message: String): ServerResponse {
             val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
-            val publishing = releasePublishingModel(tenantId.key, catalogKey)
             return ServerResponse.ok().render(
                 "catalogs/list :: release-dialog",
                 mapOf(
@@ -340,7 +333,8 @@ class CatalogHandler(
                     "catalogId" to catalogKey.value,
                     "status" to status,
                     "error" to message,
-                ) + publishing,
+                    "publication" to GetCatalogPublicationState(tenantId.key, catalogKey).query(),
+                ),
             )
         }
 
@@ -349,12 +343,13 @@ class CatalogHandler(
         }
 
         val notes = form.formData["notes"]?.ifBlank { null }
-        val publishing = releasePublishingModel(tenantId.key, catalogKey)
-        val exchangePublication = when {
-            publishing["publishingAvailable"] != true || publishing["publicationAllowsOverride"] != true ->
-                ReleaseExchangePublication.DEFAULT
-            request.params().getFirst("publishToExchange") == "true" -> ReleaseExchangePublication.PUBLISH
-            else -> ReleaseExchangePublication.SKIP
+        // The checkbox is only an override where the catalog policy allows one; otherwise the
+        // command resolves the policy itself.
+        val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
+        val publicationChoice = when {
+            publication?.available != true || !publication.allowsReleaseOverride -> ReleasePublication.DEFAULT
+            request.params().getFirst("publishToExchange") == "true" -> ReleasePublication.PUBLISH
+            else -> ReleasePublication.SKIP
         }
 
         return try {
@@ -363,7 +358,7 @@ class CatalogHandler(
                 catalogKey = catalogKey,
                 version = form["version"],
                 notes = notes,
-                exchangePublication = exchangePublication,
+                publication = publicationChoice,
             ).execute()
 
             request.htmx {
@@ -384,6 +379,10 @@ class CatalogHandler(
         }
     }
 
+    /** Rejects an unknown policy as a form error instead of letting `valueOf` become a 500. */
+    private fun publicationPolicy(raw: String?): CatalogPublicationPolicy = CatalogPublicationPolicy.entries.firstOrNull { it.name == raw }
+        ?: throw ValidationException("publicationPolicy", "Choose a valid publication policy.")
+
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
@@ -391,19 +390,6 @@ class CatalogHandler(
         return ServerResponse.status(303)
             .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
             .build()
-    }
-
-    private fun releasePublishingModel(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey): Map<String, Any?> {
-        val catalog = GetCatalog(tenantKey, catalogKey).query() ?: return emptyMap()
-        val tenant = GetTenant(tenantKey).query() ?: return emptyMap()
-        val available = exchangeProperties.enabled &&
-            ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.CATALOG_PUBLISHING] == true
-        return mapOf(
-            "publishingAvailable" to available,
-            "publicationPolicy" to catalog.exchangePublicationPolicy,
-            "publicationAllowsOverride" to catalog.exchangePublicationPolicy.allowsReleaseOverride(),
-            "publicationDefaultPublish" to catalog.exchangePublicationPolicy.defaultPublish(tenant.publishCatalogsByDefault),
-        )
     }
 
     /**
@@ -525,19 +511,11 @@ class CatalogHandler(
             val images = ListAssets(tenantId.key, catalogKey = catalogKey).query()
                 .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
             val imagesBySlug = images.associateBy { it.id.value.toString() }
-            val releaseStatus = if (result.catalog.type == CatalogType.AUTHORED) {
-                GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
+            val publication = if (result.catalog.type == CatalogType.AUTHORED) {
+                GetCatalogPublicationState(tenantId.key, catalogKey).query()
             } else {
                 null
             }
-            val publications = if (result.catalog.type == CatalogType.AUTHORED) {
-                ListCatalogReleasePublications(tenantId.key, catalogKey).query()
-            } else {
-                emptyList()
-            }
-            val publishingAvailable = exchangeProperties.enabled &&
-                ResolveAvailableFeatures(tenantId.key).query()[KnownFeatures.CATALOG_PUBLISHING] == true
-            val latestPublication = publications.firstOrNull { it.version == releaseStatus?.latestVersion }
             // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
             // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
             // the browse view to flag stencils that block export — mirrors the precheck
@@ -559,18 +537,7 @@ class CatalogHandler(
                 "tenantId" to tenantId.key
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
-                "exchangeBinding" to GetCatalogExchangeBinding(tenantId.key, catalogKey).query()
-                "exchangePublications" to publications
-                "canPublishCurrentRelease" to (
-                    publishingAvailable &&
-                        result.catalog.exchangePublicationPolicy != CatalogPublicationPolicy.NEVER &&
-                        releaseStatus?.latestVersion != null &&
-                        (
-                            latestPublication?.status == "FAILED" ||
-                                (latestPublication == null && !releaseStatus.hasUnreleasedChanges)
-                            )
-                    )
-                "publishCurrentReleaseLabel" to if (latestPublication?.status == "FAILED") "Retry publication" else "Publish current release"
+                "publication" to publication
                 "resources" to result.resources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
@@ -607,13 +574,14 @@ class CatalogHandler(
             val current = catalog.catalogMetadata
 
             if (section == CatalogMetadataSection.PUBLICATION) {
-                val binding = GetCatalogExchangeBinding(tenantId.key, catalogKey).query()
+                // The namespace is immutable once bound, so a stale form cannot move it.
+                val bound = GetCatalogPublicationState(tenantId.key, catalogKey).query()?.boundNamespace
                 SetCatalogPublicationSettings(
                     tenantKey = tenantId.key,
                     catalogKey = catalogKey,
-                    policy = CatalogPublicationPolicy.valueOf(request.servletRequest().getParameter("publicationPolicy")),
-                    namespacePreference = if (binding == null) {
-                        request.servletRequest().getParameter("namespacePreference")?.trim()?.ifBlank { null }
+                    policy = publicationPolicy(request.params().getFirst("publicationPolicy")),
+                    namespacePreference = if (bound == null) {
+                        request.params().getFirst("namespacePreference")?.trim()?.ifBlank { null }
                     } else {
                         catalog.exchangeNamespacePreference
                     },
@@ -727,7 +695,7 @@ class CatalogHandler(
             "attributeFields" to descriptors.map { CatalogMetadataAttributeField(it, currentAttributes[it.qualifiedKey]) },
             "images" to images,
             "gallerySlugs" to (gallery + ""),
-            "exchangeBinding" to GetCatalogExchangeBinding(tenantKey, catalogKey).query(),
+            "publication" to GetCatalogPublicationState(tenantKey, catalogKey).query(),
         )
     }
 

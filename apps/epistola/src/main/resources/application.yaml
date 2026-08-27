@@ -169,6 +169,18 @@ epistola:
     base-url:
     # Optional browser-reachable callback. If absent, Suite derives it from the setup request.
     callback-url:
+    # How often the publication worker looks for due work.
+    poll-interval-ms: 5000
+    # Every Exchange call is bounded so a slow remote cannot pin a worker or request thread.
+    connect-timeout: 5s
+    read-timeout: 30s
+    # Consecutive transient failures after which a publication becomes an administrator-retryable
+    # FAILED instead of retrying forever while holding its retained archive.
+    max-attempts: 10
+    # Recheck cadence for work that is not actionable yet (enrollment incomplete, feature paused).
+    setup-retry-interval: 1m
+    # Poll cadence for a submission Exchange has accepted but not yet decided.
+    submitted-poll-interval: 30s
   features:
     ai-chat: false
     catalog-publishing: false
