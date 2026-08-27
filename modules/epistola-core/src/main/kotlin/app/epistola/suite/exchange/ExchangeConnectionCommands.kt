@@ -87,7 +87,7 @@ class StartExchangeConnectionHandler(
         val endpoints = client.endpoints()
         val state = randomValue(32)
         val verifier = randomValue(64)
-        val redirectUri = properties.callbackUrl?.trim()?.ifEmpty { null } ?: command.requestRedirectUri
+        val redirectUri = properties.configuredCallbackUrl ?: command.requestRedirectUri
         val response = client.startAuthorization(
             endpoints,
             tenant.name,

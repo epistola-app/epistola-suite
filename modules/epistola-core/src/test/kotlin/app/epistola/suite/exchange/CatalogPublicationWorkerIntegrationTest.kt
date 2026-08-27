@@ -206,6 +206,8 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
         fun exchangeProperties(registry: DynamicPropertyRegistry) {
             registry.add("epistola.exchange.enabled") { "true" }
             registry.add("epistola.exchange.base-url") { exchange.baseUrl }
+            // The loopback stand-in is plaintext.
+            registry.add("epistola.exchange.allow-http") { "true" }
         }
 
         @JvmStatic

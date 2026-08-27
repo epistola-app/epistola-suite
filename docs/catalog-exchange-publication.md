@@ -81,7 +81,19 @@ epistola:
     setup-retry-interval: 1m
     # Poll cadence for a submission Exchange has accepted but not decided.
     submitted-poll-interval: 30s
+    # Refuse a plaintext Exchange. Only a local checkout should turn this on.
+    allow-http: false
 ```
+
+`base-url` and `callback-url` are optional: leave them blank (or omit them) to use
+the discovery document and a request-derived callback. A blank value is treated
+as unset.
+
+Exchange must be reachable over HTTPS. The discovered issuer and base URL, the
+OAuth endpoints, and the configured escape hatch are all checked, because the
+application secret, refresh token and full catalog archive travel over them.
+`allow-http: true` lifts that for a local Exchange checkout only — the `local`
+profile sets it, and no other profile does.
 
 Every Exchange call is bounded by `connect-timeout`/`read-timeout` and made
 outside any database transaction, so a slow or hung Exchange cannot hold a

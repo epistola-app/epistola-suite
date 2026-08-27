@@ -61,23 +61,36 @@ class ExchangeClient(
 ) {
 
     fun endpoints(): ExchangeEndpoints {
-        val configuredBase = properties.baseUrl?.trimEnd('/')
+        val configuredBase = properties.configuredBaseUrl?.trimEnd('/')
         val discovery = configuredBase?.let { DiscoveryDocument(1, it, it) } ?: run {
             val node = http.get().uri(properties.discoveryUrl).retrieve().body(JsonNode::class.java)
                 ?: error("Exchange discovery returned an empty response")
             require(node.path("version").asInt() == 1) { "Unsupported Exchange discovery version" }
             DiscoveryDocument(1, node.requiredText("issuer"), node.requiredText("baseUrl"))
         }
-        val issuer = discovery.issuer.trimEnd('/')
+        val issuer = requireSecure(discovery.issuer.trimEnd('/'), "issuer")
+        val baseUrl = requireSecure(discovery.baseUrl.trimEnd('/'), "base URL")
         val metadata = http.get().uri("$issuer/.well-known/oauth-authorization-server").retrieve().body(JsonNode::class.java)
             ?: error("Exchange OAuth discovery returned an empty response")
         require(metadata.requiredText("issuer").trimEnd('/') == issuer) { "Exchange OAuth issuer mismatch" }
         return ExchangeEndpoints(
             issuer = issuer,
-            baseUrl = discovery.baseUrl.trimEnd('/'),
-            authorizationRequestEndpoint = metadata.requiredText("authorization_request_endpoint"),
-            tokenEndpoint = metadata.requiredText("token_endpoint"),
+            baseUrl = baseUrl,
+            authorizationRequestEndpoint = requireSecure(metadata.requiredText("authorization_request_endpoint"), "authorization endpoint"),
+            tokenEndpoint = requireSecure(metadata.requiredText("token_endpoint"), "token endpoint"),
         )
+    }
+
+    /**
+     * The client secret, refresh token and whole catalog archive cross these URLs, so plaintext is
+     * refused unless a local checkout has explicitly opted in.
+     */
+    private fun requireSecure(url: String, what: String): String {
+        require(properties.allowHttp || !url.startsWith("http://")) {
+            "Exchange $what must use HTTPS; set epistola.exchange.allow-http only for a local Exchange"
+        }
+        require(url.startsWith("https://") || url.startsWith("http://")) { "Exchange $what is not an absolute URL: '$url'" }
+        return url
     }
 
     fun startAuthorization(

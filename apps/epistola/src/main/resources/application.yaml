@@ -166,6 +166,7 @@ epistola:
     enabled: false
     discovery-url: https://epistola.app/.well-known/epistola/exchange.json
     # Optional direct base URL for local development only; production discovers the issuer above.
+    # Leave blank to use discovery — a blank value is treated as unset.
     base-url:
     # Optional browser-reachable callback. If absent, Suite derives it from the setup request.
     callback-url:
@@ -181,6 +182,8 @@ epistola:
     setup-retry-interval: 1m
     # Poll cadence for a submission Exchange has accepted but not yet decided.
     submitted-poll-interval: 30s
+    # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
+    allow-http: false
   features:
     ai-chat: false
     catalog-publishing: false
