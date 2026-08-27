@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **Stale relocation aliases no longer redirect exports.** A resource
+  re-created at an address a moved resource left behind now wins over that alias everywhere, so
+  exporting the source catalog keeps the new resource's own references instead of rewriting them to
+  the moved resource. Moving a resource back to a catalog it previously occupied is also supported,
+  and a relocation plan is only invalidated by edits that actually change the move.
+- **[dev]** perf(catalogs): **Stencil version lookups keep their tenant predicate.** Restores
+  `tenant_key` to the `stencil_versions` joins in the stencil list, catalog export, and export
+  conflict queries so they use `idx_stencil_versions_stable_parent` instead of scanning the table.
 - **[dev]** docs(catalogs): **Resource relocation now has an ID-first target architecture.** ADR
   0014 accepts stable resource IDs as the target of internal relationships and typed reference
   records, while retaining catalog/slug addresses for authoring and exchange and aliases for

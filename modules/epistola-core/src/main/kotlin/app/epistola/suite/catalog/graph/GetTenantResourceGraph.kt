@@ -52,6 +52,14 @@ class GetTenantResourceGraphHandler(
          AND resources.resource_id = aliases.target_resource_id
          AND resources.resource_type = aliases.resource_type
         WHERE aliases.tenant_key = :tenantKey
+          -- A canonical resource re-created at an aliased address shadows the alias.
+          AND NOT EXISTS (
+              SELECT 1 FROM catalog_resources shadow
+              WHERE shadow.tenant_key = aliases.tenant_key
+                AND shadow.resource_type = aliases.resource_type
+                AND shadow.catalog_key = aliases.catalog_key
+                AND shadow.resource_key = aliases.resource_key
+          )
         """,
     )
         .bind("tenantKey", tenantKey)

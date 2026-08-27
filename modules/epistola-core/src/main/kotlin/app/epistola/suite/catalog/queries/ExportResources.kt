@@ -238,7 +238,7 @@ class ExportStencilsHandler(
                 FROM stencils s
                 JOIN LATERAL (
                     SELECT id, content, parameter_schema FROM stencil_versions
-                    WHERE stencil_resource_id = s.resource_id
+                    WHERE tenant_key = s.tenant_key AND stencil_resource_id = s.resource_id
                       AND status = 'published'
                     ORDER BY id DESC
                     LIMIT 1

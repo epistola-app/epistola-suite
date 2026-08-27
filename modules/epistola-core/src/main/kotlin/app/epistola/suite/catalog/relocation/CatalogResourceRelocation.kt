@@ -141,6 +141,10 @@ class MoveCatalogResourceHandler(
         }
 
         val resourceId = requireNotNull(plan.preview.resourceId)
+
+        // The address being vacated keeps resolving to this resource. If an earlier occupant of the
+        // same address already left an alias behind, the most recent occupant wins -- an alias
+        // always points at the resource that last held the address.
         handle.createUpdate(
             """
                 INSERT INTO catalog_resource_aliases (
@@ -148,11 +152,32 @@ class MoveCatalogResourceHandler(
                 ) VALUES (
                     :tenantKey, :resourceType, :sourceCatalogKey, :resourceKey, :resourceId
                 )
+                ON CONFLICT (tenant_key, resource_type, catalog_key, resource_key) DO UPDATE
+                SET target_resource_id = EXCLUDED.target_resource_id
                 """,
         )
             .bind("tenantKey", command.tenantKey)
             .bind("resourceType", command.source.type.wireName)
             .bind("sourceCatalogKey", command.source.catalogKey)
+            .bind("resourceKey", command.source.key)
+            .bind("resourceId", resourceId)
+            .execute()
+
+        // Moving back to an address this resource previously held reclaims it canonically, so the
+        // alias it left there last time is now redundant.
+        handle.createUpdate(
+            """
+                DELETE FROM catalog_resource_aliases
+                WHERE tenant_key = :tenantKey
+                  AND resource_type = :resourceType
+                  AND catalog_key = :targetCatalogKey
+                  AND resource_key = :resourceKey
+                  AND target_resource_id = :resourceId
+                """,
+        )
+            .bind("tenantKey", command.tenantKey)
+            .bind("resourceType", command.source.type.wireName)
+            .bind("targetCatalogKey", command.targetCatalogKey)
             .bind("resourceKey", command.source.key)
             .bind("resourceId", resourceId)
             .execute()
@@ -248,9 +273,12 @@ class CatalogResourceMovePlanner(
                 WHERE tenant_key = :tenantKey AND resource_type = :resourceType
                   AND catalog_key = :catalogKey AND resource_key = :resourceKey
                 UNION ALL
+                -- An alias this very resource left behind does not occupy the address:
+                -- moving back to a previously-held catalog is a supported undo.
                 SELECT 1 FROM catalog_resource_aliases
                 WHERE tenant_key = :tenantKey AND resource_type = :resourceType
                   AND catalog_key = :catalogKey AND resource_key = :resourceKey
+                  AND target_resource_id IS DISTINCT FROM :resourceId
             )
             """,
         )
@@ -258,6 +286,7 @@ class CatalogResourceMovePlanner(
             .bind("resourceType", source.type.wireName)
             .bind("catalogKey", target.catalogKey)
             .bind("resourceKey", target.key)
+            .bind("resourceId", resourceId)
             .mapTo(Boolean::class.java)
             .one()
         if (targetOccupied) blockers += blocker("target-occupied", "The target address is already a resource or retained alias")
@@ -311,8 +340,7 @@ class CatalogResourceMovePlanner(
             }
         }
 
-        val observedState = (templateVersions + stencilVersions).map { it.identity + ":" + it.status + ":" + it.rawJson }
-        val fingerprint = fingerprint(source, target, resourceId, blockers, rewrites, immutableReferences, observedState)
+        val fingerprint = fingerprint(source, target, resourceId, blockers, rewrites, immutableReferences)
         return CatalogResourceMovePlan(
             preview = CatalogResourceMovePreview(source, target, resourceId, rewrites.size, immutableReferences, blockers.distinct(), fingerprint),
             rewrites = rewrites,
@@ -411,6 +439,15 @@ class CatalogResourceMovePlanner(
 
     private fun JsonNode.textOrNull(): String? = takeIf { isString }?.stringValue()?.takeIf { it.isNotBlank() }
 
+    /**
+     * Covers exactly what the operator approved in the preview, not the state of the tenant.
+     *
+     * Correctness comes from re-planning under the advisory lock in [MoveCatalogResourceHandler]
+     * plus the per-statement `= :expected::jsonb` guard on each rewrite. This fingerprint is the
+     * consent check on top of that: a reference appearing or disappearing changes [rewrites] or
+     * [immutableReferences] and so invalidates the plan, while an unrelated edit elsewhere in the
+     * tenant leaves it untouched.
+     */
     private fun fingerprint(
         source: ResourceAddress,
         target: ResourceAddress,
@@ -418,7 +455,6 @@ class CatalogResourceMovePlanner(
         blockers: List<ResourceMoveBlocker>,
         rewrites: List<JsonRewrite>,
         immutableReferences: Int,
-        observedState: List<String>,
     ): String {
         val input = buildString {
             appendLine(source.id)
@@ -427,7 +463,6 @@ class CatalogResourceMovePlanner(
             appendLine(immutableReferences)
             blockers.sortedBy { it.code + it.message }.forEach { appendLine("${it.code}:${it.message}") }
             rewrites.sortedBy(JsonRewrite::identity).forEach { appendLine("${it.identity}:${it.expected}:${it.replacement}") }
-            observedState.sorted().forEach(::appendLine)
         }
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
     }
@@ -442,9 +477,7 @@ class CatalogResourceMovePlanner(
         val status: String,
         val rawJson: String,
         val json: JsonNode,
-    ) {
-        val identity get() = listOf(catalogKey, ownerKey, variantKey.orEmpty(), version.toString()).joinToString(":")
-    }
+    )
 
     private data class RewriteResult(val json: JsonNode, val changed: Boolean)
 }

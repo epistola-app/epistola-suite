@@ -65,7 +65,8 @@ class FindStencilVersionExportConflictsHandler(
                     SELECT s.id, MAX(sv.id) AS latest_published_version
                     FROM stencils s
                     JOIN stencil_versions sv
-                      ON sv.stencil_resource_id = s.resource_id
+                      ON sv.tenant_key = s.tenant_key
+                     AND sv.stencil_resource_id = s.resource_id
                      AND sv.status = 'published'
                     WHERE s.tenant_key = :tenantKey
                       AND s.catalog_key = :catalogKey

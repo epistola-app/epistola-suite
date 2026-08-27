@@ -278,6 +278,16 @@ class CatalogContentBuilder(
                 JOIN catalog_resources r
                   ON r.tenant_key = a.tenant_key AND r.resource_id = a.target_resource_id
                 WHERE a.tenant_key = :tenantKey AND a.resource_type = 'stencil'
+                  -- A canonical resource re-created at an aliased address wins over the alias,
+                  -- exactly as ResolveCatalogResourceAddress orders them. Without this an export
+                  -- would rewrite references to the NEW resource into the moved one's address.
+                  AND NOT EXISTS (
+                      SELECT 1 FROM catalog_resources shadow
+                      WHERE shadow.tenant_key = a.tenant_key
+                        AND shadow.resource_type = a.resource_type
+                        AND shadow.catalog_key = a.catalog_key
+                        AND shadow.resource_key = a.resource_key
+                  )
                 """,
         )
             .bind("tenantKey", tenantKey)
