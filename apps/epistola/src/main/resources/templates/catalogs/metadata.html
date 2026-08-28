@@ -104,12 +104,21 @@
                 <input id="catalog-exchange-namespace" class="ep-input" name="namespacePreference"
                        th:pattern="${publication.namespacePattern}"
                        th:value="${publication.namespacePreference}"
-                       th:disabled="${publication.boundNamespace != null}" />
-                <p class="form-hint" th:if="${publication.boundNamespace == null}">
-                    Optional. The tenant default is used when blank. The effective namespace becomes immutable when the first release is queued.
+                       list="catalog-exchange-namespace-options"
+                       th:disabled="${publication.namespaceLocked}" />
+                <datalist id="catalog-exchange-namespace-options">
+                    <option th:each="option : ${publication.availableNamespaces}" th:value="${option}"></option>
+                </datalist>
+                <p class="form-hint" th:if="${!publication.namespaceLocked && publication.boundNamespace == null}">
+                    Optional. The tenant default is used when blank.
                 </p>
-                <p class="form-hint" th:if="${publication.boundNamespace != null}">
-                    Bound to <code th:text="${publication.boundNamespace}">namespace</code> by the first queued publication.
+                <p class="form-hint" th:if="${!publication.namespaceLocked && publication.boundNamespace != null}">
+                    Currently <code th:text="${publication.boundNamespace}">namespace</code>. It can still be changed:
+                    no release of this catalog has reached Exchange yet. It becomes permanent once one does.
+                </p>
+                <p class="form-hint" th:if="${publication.namespaceLocked}">
+                    Permanently <code th:text="${publication.boundNamespace}">namespace</code> — a release has reached
+                    Exchange, so the catalog's published coordinates cannot move.
                 </p>
             </div>
         </div>

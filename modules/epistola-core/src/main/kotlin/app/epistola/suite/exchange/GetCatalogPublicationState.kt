@@ -37,6 +37,10 @@ data class CatalogPublicationState(
     val canPublishCurrentRelease: Boolean,
     /** True when that action would retry a failed attempt rather than queue a new one. */
     val isRetry: Boolean,
+    /** False while the namespace is still a local choice — nothing has reached Exchange yet. */
+    val namespaceLocked: Boolean,
+    /** Namespaces the tenant's connection currently grants, for the namespace picker. */
+    val availableNamespaces: List<String>,
 ) {
     val policyOptions: List<CatalogPublicationPolicy> get() = CatalogPublicationPolicy.entries
     val namespacePattern: String get() = CatalogPublicationPolicy.NAMESPACE_PATTERN
@@ -80,6 +84,12 @@ class GetCatalogPublicationStateHandler(
                 namespaceBinder.existingBinding(handle, query.tenantKey, query.catalogKey)
             },
             publications = publications,
+            namespaceLocked = jdbi.withHandle<Boolean, Exception> { handle ->
+                store.hasReachedExchange(handle, query.tenantKey, query.catalogKey)
+            },
+            availableNamespaces = jdbi.withHandle<List<String>, Exception> { handle ->
+                namespaceBinder.grantedNamespaces(handle, query.tenantKey).sorted()
+            },
             canPublishCurrentRelease = available &&
                 policy != CatalogPublicationPolicy.NEVER &&
                 releaseStatus.latestVersion != null &&

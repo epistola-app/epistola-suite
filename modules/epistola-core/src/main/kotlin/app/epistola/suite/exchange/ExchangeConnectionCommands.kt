@@ -197,6 +197,21 @@ class CompleteExchangeConnectionHandler(
         ) { "Exchange token application does not match." }
         val context = client.context(connection.endpoints, token.accessToken)
 
+        // A reauthorization renews an identity; it does not replace one. Every catalog binding in
+        // this tenant names a namespace belonging to the organization it enrolled with, so silently
+        // adopting a different organization would leave each of them pointing somewhere the tenant
+        // no longer is — and the binding is immutable once a release has reached Exchange, so there
+        // would be no way back. Moving organizations has to be a deliberate disconnect.
+        val previousOrganization = connection.organizationSlug
+        validate(
+            "organization",
+            previousOrganization == null || previousOrganization == context.organizationSlug,
+            ValidationCode.EXCHANGE_ORGANIZATION_CHANGED,
+        ) {
+            "This tenant is connected to Exchange organization '$previousOrganization', but the " +
+                "authorization returned '${context.organizationSlug}'. Disconnect first if you intend to move it."
+        }
+
         val now = EpistolaClock.offsetDateTime()
         return jdbi.inTransaction<ExchangeTenantConnection, Exception> { handle ->
             handle.createUpdate(

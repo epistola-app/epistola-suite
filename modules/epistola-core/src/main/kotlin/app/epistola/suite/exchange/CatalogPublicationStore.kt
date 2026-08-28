@@ -187,14 +187,42 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
      * simply not actionable yet — enrollment is incomplete, or the tenant paused the feature — so
      * waiting rows do not spin at the poll interval.
      */
-    fun defer(id: UUID, delay: Duration) = jdbi.useHandle<Exception> { handle ->
+    fun defer(id: UUID, delay: Duration, reason: String? = null) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
-            SET claimed_at = NULL, next_attempt_at = NOW() + :delay * INTERVAL '1 second'
+            SET claimed_at = NULL, next_attempt_at = NOW() + :delay * INTERVAL '1 second',
+                last_error = COALESCE(:reason, last_error)
             WHERE id = :id
             """,
-        ).bind("delay", delay.toSeconds()).bind("id", id).execute()
+        ).bind("delay", delay.toSeconds()).bind("reason", reason).bind("id", id).execute()
+    }
+
+    /**
+     * True once any of this catalog's publications has reached Exchange — the moment its namespace
+     * stops being a local choice. Before that nothing has been submitted anywhere, so the binding is
+     * protecting nothing and may still be corrected.
+     */
+    fun hasReachedExchange(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = handle.createQuery(
+        """
+        SELECT EXISTS (
+            SELECT 1 FROM catalog_release_publications
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND remote_publication_id IS NOT NULL
+        )
+        """,
+    ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).mapTo(Boolean::class.java).one()
+
+    /** Re-points every publication that has not reached Exchange at a newly bound namespace. */
+    fun repointUnsubmitted(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) {
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET namespace = :namespace, status = 'READY', last_error = NULL, updated_at = NOW()
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+              AND remote_publication_id IS NULL AND status = ANY(:active)
+            """,
+        ).bind("namespace", namespace).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
+            .bind("active", activeNames()).execute()
     }
 
     /** How many publications this tenant holds in each state. Aggregated in the database. */

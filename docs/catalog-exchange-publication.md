@@ -53,6 +53,10 @@ Suite refuses that action when the working-copy fingerprint differs from the
 release fingerprint, because publishing mutable content under an old version
 would violate the release contract.
 
+A namespace chosen by mistake can be corrected until a release of that catalog has reached
+Exchange; after that the catalog's published coordinates cannot move. Queued publications that have
+not been submitted follow the catalog to its new namespace.
+
 The stable REST release operation uses the resolved default policy. It does not
 yet accept a per-release publication override or return the publication id. That
 is tracked separately because changing a GA API needs its own compatibility
@@ -201,6 +205,37 @@ forget only the local credentials and must revoke the connection separately in
 Exchange. Neither path deletes the organization application, publication
 history, or immutable catalog namespace bindings. A later administrator-approved
 authorization can reactivate the retained connection and application.
+
+## One tenant, one organization
+
+A Suite tenant connects to exactly one Exchange organization. The connection row carries the
+credential, the organization the tenant publishes _as_, and the namespaces that organization grants
+it. A provider authoring for several organizations uses one Suite tenant per organization; that is
+already the boundary for catalogs, themes and API keys, so publishing identity follows it rather
+than introducing a second, overlapping boundary.
+
+Two rules keep that honest:
+
+- **Reauthorization cannot change organization.** If an authorization returns a different
+  organization than the one stored, Suite refuses it and keeps the existing connection. Every
+  catalog binding names a namespace of the enrolled organization, and bindings are permanent once
+  published, so adopting a new organization silently would strand all of them. Moving a tenant
+  between organizations is a deliberate disconnect, and is otherwise deferred work.
+- **A binding is re-checked against current grants.** Before each submission Suite verifies that the
+  catalog's bound namespace is still granted. If it is not, that publication is deferred with the
+  reason recorded — it resumes by itself if the grant returns — instead of being submitted, refused
+  with HTTP 403, and marking the whole connection `BLOCKED` for one catalog's sake. Publications
+  Exchange has already accepted continue to be polled regardless, so an outcome is never lost.
+
+## Several publishers, one namespace
+
+Nothing stops two installations — or two tenants — publishing into the same namespace, and Suite
+does not try to. It cannot see the other publishers, so reserving coordinates locally would be a
+guess. Exchange arbitrates, and the release fingerprint is the material it needs: it travels inside
+the manifest of every archive, so Exchange can treat a re-submission of identical content under the
+same coordinates as the same release, and differing content under the same coordinates as a
+conflict to refuse. Suite needs no additional wire field for this; the rule is Exchange-side and is
+tracked separately.
 
 ## Namespace selection and immutable binding
 

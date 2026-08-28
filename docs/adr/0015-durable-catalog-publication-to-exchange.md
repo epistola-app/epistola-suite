@@ -28,6 +28,25 @@ transaction, not a shared module: catalog decides _whether_ to publish from its
 own policy, and the Exchange implementation decides _how_ and _where_. No catalog
 code references Exchange, and the integration can be absent entirely.
 
+**One Suite tenant is one Exchange organization.** The connection row is keyed by tenant, and it
+carries three things at once: the credential for this installation, the organization identity the
+tenant publishes as, and the namespaces that organization grants it. One credential per tenant is
+uncontroversial; the identity is the load-bearing part. A tenant is already the isolation boundary
+for catalogs, themes and API keys, so making it the publishing identity too keeps one boundary
+rather than two. An organization authoring on behalf of several others therefore uses one Suite
+tenant per client organization — which is what tenancy is for — rather than one tenant with several
+connections.
+
+Two consequences follow, and both are enforced rather than assumed. A reauthorization renews an
+identity and may not replace one: an authorization returning a different organization is refused,
+because every catalog binding in the tenant names a namespace of the organization it enrolled with.
+And a binding is checked against the _current_ grants before each submission, because a namespace
+recorded earlier is not proof that the organization still grants it.
+
+Should multi-organization tenants ever be needed, `catalog_exchange_bindings` would have to
+reference the connection rather than only the namespace. That is a migration worth knowing about in
+advance; nothing is built for it now.
+
 The feature has four explicit controls: a default-off deployment gate, a
 default-off Alpha tenant feature, a tenant publish default, and a five-state
 catalog policy with release overrides only for non-hard policies. The first
@@ -74,6 +93,14 @@ remote identifiers.
   current release; restore cannot replay old remote side effects.
 - Catalog release code knows only the port, not the integration behind it.
   Credential rotation stays integration-agnostic through the contributor SPI.
+- A namespace chosen by mistake is correctable until a release of that catalog has reached
+  Exchange, and permanent afterwards. Immutability exists to stop published coordinates moving;
+  before anything is published it protects nothing, and freezing a typo forever is the worse
+  failure.
+- Several publishers may target one namespace, and Exchange arbitrates. Suite does not attempt to
+  reserve coordinates it cannot see: the release fingerprint travels inside the manifest, so
+  Exchange can treat a re-submission of identical content as the same release and differing content
+  under the same coordinates as a conflict. That rule belongs on the side that sees every publisher.
 - Stable REST and MCP contracts do not change in this delivery. REST override
   support needs separate compatibility work.
 

@@ -8,6 +8,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
@@ -77,6 +78,20 @@ class CatalogPublicationWorker(
             return
         }
         val response = if (publication.remotePublicationId == null) {
+            // A binding made earlier is not proof of a present grant. Submitting into a namespace the
+            // connection no longer holds earns a 403, which would mark the whole connection BLOCKED —
+            // one catalog's stale binding taking down every other catalog in the tenant, and blaming
+            // the wrong thing. Checking locally keeps it a per-publication problem that heals by
+            // itself if the grant comes back. Only submission is gated: a publication Exchange has
+            // already accepted must still be followed to its outcome.
+            if (namespace !in grantedNamespaces(publication.tenantKey)) {
+                store.defer(
+                    publication.id,
+                    properties.setupRetryInterval,
+                    "This catalog is bound to namespace '$namespace', which the Exchange connection no longer grants.",
+                )
+                return
+            }
             val archive = store.loadArchive(publication.id)
                 ?: error("Publication ${publication.id} has no retained archive to submit")
             client.submit(connection.baseUrl, token, namespace, archive, publication.idempotencyKey)
@@ -92,6 +107,10 @@ class CatalogPublicationWorker(
             error = listOfNotNull(response.errorCode, response.errorDetail).joinToString(": ").ifBlank { null },
             pollDelay = properties.submittedPollInterval,
         )
+    }
+
+    private fun grantedNamespaces(tenantKey: TenantKey) = jdbi.withHandle<Set<String>, Exception> { handle ->
+        namespaceBinder.grantedNamespaces(handle, tenantKey)
     }
 
     /**

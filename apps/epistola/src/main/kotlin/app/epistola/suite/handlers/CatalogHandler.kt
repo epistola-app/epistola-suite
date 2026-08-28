@@ -50,6 +50,7 @@ import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
+import app.epistola.suite.exchange.RebindCatalogNamespace
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -590,18 +591,26 @@ class CatalogHandler {
             val current = catalog.catalogMetadata
 
             if (section == CatalogMetadataSection.PUBLICATION) {
-                // The namespace is immutable once bound, so a stale form cannot move it.
-                val bound = GetCatalogPublicationState(tenantId.key, catalogKey).query()?.boundNamespace
+                val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
+                // Locked once a release has reached Exchange; until then the choice is still local,
+                // and a stale form cannot move a locked one because the command re-checks.
+                val requested = request.params().getFirst("namespacePreference")?.trim()?.ifBlank { null }
+                val editable = publication?.namespaceLocked != true
                 SetCatalogPublicationSettings(
                     tenantKey = tenantId.key,
                     catalogKey = catalogKey,
                     policy = publicationPolicy(request.params().getFirst("publicationPolicy")),
-                    namespacePreference = if (bound == null) {
-                        request.params().getFirst("namespacePreference")?.trim()?.ifBlank { null }
-                    } else {
-                        catalog.exchangeNamespacePreference
-                    },
+                    namespacePreference = if (editable) requested else catalog.exchangeNamespacePreference,
                 ).execute()
+                // The preference records intent; moving an existing binding is a separate,
+                // guarded action owned by the publication integration.
+                if (editable &&
+                    requested != null &&
+                    requested != publication?.boundNamespace &&
+                    publication?.boundNamespace != null
+                ) {
+                    RebindCatalogNamespace(tenantId.key, catalogKey, requested).execute()
+                }
                 return ServerResponse.noContent()
                     .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                     .build()

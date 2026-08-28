@@ -56,6 +56,9 @@ class FakeExchangeServer : AutoCloseable {
     val remotePublicationId: UUID = UUID.fromString("00000000-0000-4000-8000-0000000000aa")
     var namespaces: List<String> = listOf("public-services")
 
+    /** Lets a test hand back a different organization on a later authorization. */
+    var organizationSlug: String = "acme"
+
     private val connections = AtomicInteger()
 
     init {
@@ -93,7 +96,7 @@ class FakeExchangeServer : AutoCloseable {
                         {
                           "tenantConnectionId": "${UUID(CONNECTION_ID_HIGH, connection.toLong())}",
                           "tenantConnectionReference": "tc_01HWHVGZT1FCF9Y2CE4XP${"%03d".format(connection)}",
-                          "organization": {"slug": "acme", "name": "Acme"},
+                          "organization": {"slug": "$organizationSlug", "name": "Acme"},
                           "scopes": ["read", "publish"],
                           "namespaces": [${namespaces.joinToString(",") { """{"slug":"$it"}""" }}]
                         }
@@ -149,6 +152,7 @@ class FakeExchangeServer : AutoCloseable {
         submittedNamespaces.clear()
         submittedBytes = 0
         namespaces = listOf("public-services")
+        organizationSlug = "acme"
         discoveryResponse = { Response(200, """{"version":1,"issuer":"$baseUrl","baseUrl":"$baseUrl"}""") }
         oauthMetadataIssuer = null
         tokenResponse = { Response(200, defaultToken()) }

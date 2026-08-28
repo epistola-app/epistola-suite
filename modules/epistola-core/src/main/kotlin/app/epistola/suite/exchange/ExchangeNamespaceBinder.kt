@@ -38,6 +38,34 @@ class ExchangeNamespaceBinder {
         return existingBinding(handle, tenantKey, catalogKey)
     }
 
+    /**
+     * Namespaces the tenant's active connection currently grants. A binding made earlier is not
+     * proof of a present grant: an organization can withdraw one, and a reauthorization can arrive
+     * with a different set.
+     */
+    fun grantedNamespaces(handle: Handle, tenantKey: TenantKey): Set<String> = handle.createQuery(
+        "SELECT namespaces FROM exchange_tenant_connections WHERE tenant_key = :tenantKey AND status = 'ACTIVE'",
+    ).bind("tenantKey", tenantKey)
+        .map { rs, _ -> (rs.getArray("namespaces").array as Array<*>).mapNotNull { it?.toString() }.toSet() }
+        .findOne().orElse(emptySet())
+
+    /**
+     * Moves a catalog to a different granted namespace.
+     *
+     * The binding is immutable *once Exchange has seen a release* — that is what protects published
+     * coordinates. Before then it protects nothing, and a namespace chosen by mistake would
+     * otherwise be permanent. Publications still queued locally follow the catalog to its new home.
+     */
+    fun rebind(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) {
+        handle.createUpdate(
+            """
+            INSERT INTO catalog_exchange_bindings (tenant_key, catalog_key, namespace)
+            VALUES (:tenantKey, :catalogKey, :namespace)
+            ON CONFLICT (tenant_key, catalog_key) DO UPDATE SET namespace = EXCLUDED.namespace, bound_at = NOW()
+            """,
+        ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("namespace", namespace).execute()
+    }
+
     fun existingBinding(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = handle.createQuery(
         "SELECT namespace FROM catalog_exchange_bindings WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
     ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
