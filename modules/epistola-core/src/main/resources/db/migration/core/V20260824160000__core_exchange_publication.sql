@@ -38,12 +38,12 @@ CREATE TABLE exchange_oauth_authorizations (
 );
 
 CREATE TABLE catalog_exchange_bindings (
-    tenant_key TENANT_KEY NOT NULL,
+    tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     catalog_key CATALOG_KEY NOT NULL,
     namespace VARCHAR(63) NOT NULL,
     bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (tenant_key, catalog_key),
-    FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
+    published_at TIMESTAMPTZ,
+    PRIMARY KEY (tenant_key, catalog_key)
 );
 
 CREATE TABLE catalog_release_publications (
@@ -54,7 +54,7 @@ CREATE TABLE catalog_release_publications (
     fingerprint CHAR(64) NOT NULL,
     namespace VARCHAR(63),
     archive BYTEA,
-    status VARCHAR(30) NOT NULL CHECK (status IN ('WAITING_SETUP', 'READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED')),
+    status VARCHAR(30) NOT NULL CHECK (status IN ('WAITING_SETUP', 'READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED', 'CANCELLED')),
     idempotency_key UUID NOT NULL,
     remote_publication_id UUID,
     attempts INTEGER NOT NULL DEFAULT 0,
@@ -83,6 +83,8 @@ COMMENT ON COLUMN exchange_tenant_connections.client_secret IS
 COMMENT ON TABLE exchange_oauth_authorizations IS
     'Short-lived redirect state and encrypted PKCE verifier; excluded from portable backups.';
 COMMENT ON TABLE catalog_exchange_bindings IS
-    'Immutable namespace chosen when a catalog is first queued for Exchange publication.';
+    'Immutable namespace chosen when a catalog is first queued for Exchange publication. Deliberately NOT tied to the catalogs row: Exchange keeps what was published under these coordinates even after the local catalog is deleted, so a catalog recreated under the same key must land in the same namespace rather than silently claiming a second one.';
+COMMENT ON COLUMN catalog_exchange_bindings.published_at IS
+    'When a release of this catalog first reached Exchange, fixing the namespace. NULL while the choice is still local and correctable.';
 COMMENT ON TABLE catalog_release_publications IS
     'Durable publication outbox containing the exact release ZIP until Exchange accepts or rejects it.';

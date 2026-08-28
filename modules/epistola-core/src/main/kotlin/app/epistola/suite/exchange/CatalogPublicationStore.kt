@@ -76,19 +76,38 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             .bind("status", initialStatus(namespace)).bind("idempotencyKey", idempotencyKey).execute()
     }
 
-    /** Restarts a terminally failed publication from its retained archive with a fresh idempotency key. */
-    fun requeue(handle: Handle, id: UUID, namespace: String?, idempotencyKey: UUID) {
+    /**
+     * Restarts a terminal publication with a fresh idempotency key, so Exchange does not deduplicate
+     * the new attempt against the old one. [archive] replaces the stored bytes when the caller had
+     * to rebuild them — a cancelled publication released its archive, a failed one kept it.
+     */
+    fun requeue(handle: Handle, id: UUID, namespace: String?, idempotencyKey: UUID, archive: ByteArray? = null) {
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
             SET namespace = :namespace, status = :status, idempotency_key = :idempotencyKey,
+                archive = COALESCE(:archive, archive),
                 remote_publication_id = NULL, attempts = 0, next_attempt_at = NOW(),
                 claimed_at = NULL, last_error = NULL, updated_at = NOW()
             WHERE id = :id
             """,
-        ).bind("namespace", namespace).bind("status", initialStatus(namespace))
+        ).bind("namespace", namespace).bind("status", initialStatus(namespace)).bind("archive", archive)
             .bind("idempotencyKey", idempotencyKey).bind("id", id).execute()
     }
+
+    /** Withdraws a publication the administrator no longer wants, releasing its retained archive. */
+    fun cancel(handle: Handle, id: UUID, reason: String) {
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET status = :status, archive = NULL, claimed_at = NULL, last_error = :reason, updated_at = NOW()
+            WHERE id = :id
+            """,
+        ).bind("status", CatalogPublicationStatus.CANCELLED).bind("reason", reason).bind("id", id).execute()
+    }
+
+    fun find(handle: Handle, id: UUID): CatalogReleasePublication? = handle.createQuery("$SELECT_METADATA WHERE id = :id FOR UPDATE")
+        .bind("id", id).map(::map).findOne().orElse(null)
 
     fun findByVersion(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogReleasePublication? = handle.createQuery(
         "${SELECT_METADATA} WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND version = :version FOR UPDATE",
@@ -197,20 +216,6 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             """,
         ).bind("delay", delay.toSeconds()).bind("reason", reason).bind("id", id).execute()
     }
-
-    /**
-     * True once any of this catalog's publications has reached Exchange — the moment its namespace
-     * stops being a local choice. Before that nothing has been submitted anywhere, so the binding is
-     * protecting nothing and may still be corrected.
-     */
-    fun hasReachedExchange(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = handle.createQuery(
-        """
-        SELECT EXISTS (
-            SELECT 1 FROM catalog_release_publications
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND remote_publication_id IS NOT NULL
-        )
-        """,
-    ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).mapTo(Boolean::class.java).one()
 
     /** Re-points every publication that has not reached Exchange at a newly bound namespace. */
     fun repointUnsubmitted(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) {

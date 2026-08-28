@@ -38,11 +38,21 @@ enum class CatalogPublicationStatus(val label: String, val badgeClass: String) {
     ACCEPTED("Accepted", "badge-success"),
     REJECTED("Rejected", "badge-error"),
     FAILED("Failed", "badge-error"),
+    CANCELLED("Cancelled", "badge-muted"),
     ;
 
     val isActive: Boolean get() = this == WAITING_SETUP || this == READY || this == SUBMITTED || this == RETRY
 
     val clearsArchive: Boolean get() = this == ACCEPTED || this == REJECTED
+
+    /**
+     * Whether an administrator may withdraw this publication.
+     *
+     * Anything Exchange has decided is already over. `SUBMITTED` is excluded for the opposite
+     * reason: Exchange holds it and may still publish it, so dropping it locally would abandon an
+     * outcome rather than prevent one.
+     */
+    val isCancellable: Boolean get() = this == WAITING_SETUP || this == READY || this == RETRY || this == FAILED
 
     companion object {
         val active: List<CatalogPublicationStatus> = entries.filter { it.isActive }

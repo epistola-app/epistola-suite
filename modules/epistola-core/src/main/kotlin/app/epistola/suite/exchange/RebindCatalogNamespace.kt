@@ -42,7 +42,7 @@ class RebindCatalogNamespaceHandler(
     override fun handle(command: RebindCatalogNamespace) = jdbi.useTransaction<Exception> { handle ->
         validate(
             "namespace",
-            !store.hasReachedExchange(handle, command.tenantKey, command.catalogKey),
+            !namespaceBinder.isLocked(handle, command.tenantKey, command.catalogKey),
             ValidationCode.EXCHANGE_NAMESPACE_LOCKED,
         ) { "A release of this catalog has already reached Exchange, so its namespace is fixed." }
 

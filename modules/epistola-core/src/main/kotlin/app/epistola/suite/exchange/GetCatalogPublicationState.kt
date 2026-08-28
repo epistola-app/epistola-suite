@@ -85,7 +85,7 @@ class GetCatalogPublicationStateHandler(
             },
             publications = publications,
             namespaceLocked = jdbi.withHandle<Boolean, Exception> { handle ->
-                store.hasReachedExchange(handle, query.tenantKey, query.catalogKey)
+                namespaceBinder.isLocked(handle, query.tenantKey, query.catalogKey)
             },
             availableNamespaces = jdbi.withHandle<List<String>, Exception> { handle ->
                 namespaceBinder.grantedNamespaces(handle, query.tenantKey).sorted()

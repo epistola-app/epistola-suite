@@ -56,6 +56,32 @@ class ExchangeNamespaceBinder {
      * coordinates. Before then it protects nothing, and a namespace chosen by mistake would
      * otherwise be permanent. Publications still queued locally follow the catalog to its new home.
      */
+    /**
+     * Records that a release of this catalog has reached Exchange, fixing the namespace for good.
+     *
+     * Kept on the binding rather than derived from the publication rows: those are tied to their
+     * releases and disappear with the catalog, while Exchange's copy does not. A catalog deleted and
+     * recreated under the same key would otherwise look unpublished and be free to claim a second
+     * namespace, with the first still live.
+     */
+    fun markPublished(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey) {
+        handle.createUpdate(
+            """
+            UPDATE catalog_exchange_bindings SET published_at = COALESCE(published_at, NOW())
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            """,
+        ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).execute()
+    }
+
+    /** True once a release has reached Exchange under this binding. */
+    fun isLocked(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = handle.createQuery(
+        """
+        SELECT COALESCE(published_at IS NOT NULL, FALSE) FROM catalog_exchange_bindings
+        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+        """,
+    ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
+        .mapTo(Boolean::class.java).findOne().orElse(false)
+
     fun rebind(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) {
         handle.createUpdate(
             """

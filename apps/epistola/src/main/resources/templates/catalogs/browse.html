@@ -58,7 +58,7 @@
                     <h3 style="margin-bottom: var(--ep-space-2);">Publication history</h3>
                     <div class="ep-table-scroll" role="region" aria-label="Exchange publication history" tabindex="0">
                         <table class="ep-table">
-                            <thead><tr><th>Version</th><th>Namespace</th><th>Status</th><th>Updated</th></tr></thead>
+                            <thead><tr><th>Version</th><th>Namespace</th><th>Status</th><th>Updated</th><th></th></tr></thead>
                             <tbody>
                             <tr th:each="entry : ${publication.publications}">
                                 <td th:text="'v' + ${entry.version}">v1.0.0</td>
@@ -69,6 +69,18 @@
                                           th:text="' — ' + ${entry.lastError}"></span>
                                 </td>
                                 <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
+                                <td class="actions">
+                                    <form th:if="${entry.status.isCancellable}"
+                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalog.id},publicationId=${entry.id})}"
+                                          method="post">
+                                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                                                data-confirm-submit
+                                                data-confirm-submit-title="Withdraw this publication"
+                                                data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."
+                                                data-confirm-submit-label="Withdraw"
+                                                data-confirm-submit-class="ep-btn-warning">Withdraw</button>
+                                    </form>
+                                </td>
                             </tr>
                             </tbody>
                         </table>

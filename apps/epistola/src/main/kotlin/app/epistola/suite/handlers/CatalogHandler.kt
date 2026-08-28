@@ -48,6 +48,7 @@ import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.exchange.CancelCatalogPublication
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
 import app.epistola.suite.exchange.RebindCatalogNamespace
@@ -67,6 +68,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.util.UUID
 
 private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
 
@@ -392,6 +394,21 @@ class CatalogHandler {
      * exactly what the command validates, so a rejection returns the catalog page with the reason
      * rather than an error page.
      */
+    /** Withdraws a queued publication; rejections stay on the catalog page like the publish action. */
+    fun cancelPublication(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return try {
+            CancelCatalogPublication(tenantId.key, UUID.fromString(request.pathVariable("publicationId"))).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ValidationException) {
+            logger.warn("Cancelling a publication of '{}' was rejected: {}", catalogKey.value, failure.message)
+            browse(request, error = failure.message)
+        }
+    }
+
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))

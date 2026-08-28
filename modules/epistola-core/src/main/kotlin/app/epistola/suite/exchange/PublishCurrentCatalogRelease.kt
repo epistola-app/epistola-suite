@@ -77,15 +77,17 @@ class PublishCurrentCatalogReleaseHandler(
                 .bind("version", release.version)
                 .mapTo(CatalogPublicationStatus::class.java).findOne().orElse(null)
         }
+        val resumable = setOf(CatalogPublicationStatus.FAILED, CatalogPublicationStatus.CANCELLED)
         validate(
             "publication",
-            previousStatus == null || previousStatus == CatalogPublicationStatus.FAILED,
+            previousStatus == null || previousStatus in resumable,
             ValidationCode.PUBLICATION_ALREADY_QUEUED,
         ) { "This release already has an Exchange publication attempt." }
 
-        // A fresh queue rebuilds the archive from the working copy and refuses if it has drifted;
-        // a retry must reuse the bytes that were already released.
-        val archive = if (previousStatus == null) buildReleaseArchive(command, release) else null
+        // A failed attempt kept its archive and must resubmit exactly those bytes. A first attempt —
+        // or one that was cancelled, which released its archive — rebuilds from the working copy,
+        // and is refused if that has drifted from the release.
+        val archive = if (previousStatus == CatalogPublicationStatus.FAILED) null else buildReleaseArchive(command, release)
 
         return jdbi.inTransaction<UUID, Exception> { handle ->
             val namespace = namespaceBinder.resolveAndBind(handle, command.tenantKey, command.catalogKey)
@@ -108,13 +110,15 @@ class PublishCurrentCatalogReleaseHandler(
                 else -> {
                     validate(
                         "publication",
-                        existing.status == CatalogPublicationStatus.FAILED,
+                        existing.status in resumable,
                         ValidationCode.PUBLICATION_ALREADY_QUEUED,
                     ) { "This release already has an Exchange publication attempt." }
-                    validate("publication", existing.archiveRetained, ValidationCode.PUBLICATION_ARCHIVE_MISSING) {
-                        "The failed publication no longer has its released archive; release a new version instead."
-                    }
-                    store.requeue(handle, existing.id, namespace, UUIDv7.generate())
+                    validate(
+                        "publication",
+                        existing.status == CatalogPublicationStatus.CANCELLED || existing.archiveRetained,
+                        ValidationCode.PUBLICATION_ARCHIVE_MISSING,
+                    ) { "The failed publication no longer has its released archive; release a new version instead." }
+                    store.requeue(handle, existing.id, namespace, UUIDv7.generate(), archive)
                     existing.id
                 }
             }

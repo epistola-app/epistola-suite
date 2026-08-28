@@ -94,7 +94,14 @@ class CatalogPublicationWorker(
             }
             val archive = store.loadArchive(publication.id)
                 ?: error("Publication ${publication.id} has no retained archive to submit")
-            client.submit(connection.baseUrl, token, namespace, archive, publication.idempotencyKey)
+            val submitted = client.submit(connection.baseUrl, token, namespace, archive, publication.idempotencyKey)
+            // Exchange now holds a release under these coordinates. That outlives the local catalog,
+            // so the fact is recorded on the binding rather than inferred from rows that would
+            // disappear with it.
+            jdbi.useHandle<Exception> { handle ->
+                namespaceBinder.markPublished(handle, publication.tenantKey, publication.catalogKey)
+            }
+            submitted
         } else {
             client.publication(connection.baseUrl, token, publication.remotePublicationId)
         }

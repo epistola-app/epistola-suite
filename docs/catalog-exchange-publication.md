@@ -54,7 +54,10 @@ release fingerprint, because publishing mutable content under an old version
 would violate the release contract.
 
 A namespace chosen by mistake can be corrected until a release of that catalog has reached
-Exchange; after that the catalog's published coordinates cannot move. Queued publications that have
+Exchange; after that the catalog's published coordinates cannot move. That fact is recorded on the
+binding, and the binding deliberately outlives the local catalog: Exchange keeps what was published
+even after the catalog is deleted here, so a catalog recreated under the same key stays in the same
+namespace rather than silently claiming a second one. Queued publications that have
 not been submitted follow the catalog to its new namespace.
 
 The stable REST release operation uses the resolved default policy. It does not
@@ -292,15 +295,16 @@ on `ReleaseCatalogVersion`.
 
 ## Worker state machine
 
-| Local state     | Meaning                                                             | Archive retained? | Next action                                                    |
-| --------------- | ------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------- |
-| `WAITING_SETUP` | Enrollment/default namespace is incomplete.                         | Yes               | Recheck setup without failing the release.                     |
-| `READY`         | Namespace and archive are ready to submit.                          | Yes               | Submit with the stored idempotency key.                        |
-| `SUBMITTED`     | Exchange accepted the request but has not made a terminal decision. | Yes               | Poll the remote submission.                                    |
-| `RETRY`         | A transient local/network call failed.                              | Yes               | Retry with exponential backoff, capped at one hour.            |
-| `ACCEPTED`      | Exchange validation/scanning/publication accepted the release.      | No                | Terminal success.                                              |
-| `REJECTED`      | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                     |
-| `FAILED`        | Exchange failed the attempt, or local retries were exhausted.       | Yes               | Terminal until an administrator selects **Retry publication**. |
+| Local state     | Meaning                                                             | Archive retained? | Next action                                                                     |
+| --------------- | ------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `WAITING_SETUP` | Enrollment/default namespace is incomplete.                         | Yes               | Recheck setup without failing the release.                                      |
+| `READY`         | Namespace and archive are ready to submit.                          | Yes               | Submit with the stored idempotency key.                                         |
+| `SUBMITTED`     | Exchange accepted the request but has not made a terminal decision. | Yes               | Poll the remote submission.                                                     |
+| `RETRY`         | A transient local/network call failed.                              | Yes               | Retry with exponential backoff, capped at one hour.                             |
+| `ACCEPTED`      | Exchange validation/scanning/publication accepted the release.      | No                | Terminal success.                                                               |
+| `REJECTED`      | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                                      |
+| `FAILED`        | Exchange failed the attempt, or local retries were exhausted.       | Yes               | Terminal until an administrator selects **Retry publication**.                  |
+| `CANCELLED`     | An administrator withdrew it before Exchange published it.          | No                | Terminal; the release can be queued again while the working copy still matches. |
 
 The worker is a single-owner cluster scheduled task and also uses
 `FOR UPDATE SKIP LOCKED` plus expiring `claimed_at` leases. Those two layers make processing
@@ -323,6 +327,12 @@ has accepted but not decided is polled every `submitted-poll-interval`.
 The worker never loads a retained archive to decide what to do: claiming, polling
 and retry accounting work from metadata alone, and the bytes are read only on the
 branch that actually submits them.
+
+A queued publication can be **withdrawn** from the catalog page until Exchange is holding it.
+Withdrawing releases the retained archive and leaves the attempt in the history; the release can be
+queued again afterwards, rebuilt from the working copy while that still matches. A `SUBMITTED`
+publication cannot be withdrawn: Exchange may still publish it, so dropping it locally would abandon
+the outcome rather than prevent it.
 
 An explicit retry of `FAILED` reuses the retained exact archive, clears the old
 remote attempt, and assigns a new idempotency key. It remains safe even when the
