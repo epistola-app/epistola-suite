@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** test(exchange): **Enrollment through the public discovery document is now covered.** Every existing test configured `base-url`, the local-development escape hatch, which is how a production-only defect survived: discovery was skipped and nothing exercised it. The new tests leave `base-url` unset, serve the document shape epistola.app actually publishes, and cover the version guard, the issuer-mismatch guard, and the refusal of a plaintext Exchange.
+
 - **[user]** feat(exchange): **The Exchange page now shows publication activity across every catalog.** Releases publish in the background, so a lapsed enrollment or an unavailable namespace previously left work queued with nothing to indicate it. Settings → Exchange now reports a count per state, the most recently touched publications across all catalogs with a link back to each, and a warning when the oldest unfinished publication has been queued for over an hour.
 - **[dev]** feat(exchange): **Added metrics for catalog publication.** `epistola.exchange.publication.submissions` and `epistola.exchange.credential.refresh` count what each node did; `epistola.installation.exchange_publications`, `epistola.installation.exchange_connections` and `epistola.installation.exchange_publication_oldest_active_age_seconds` describe the installation and are published once per installation by an advisory-lock elected replica. Alert on the queue age — it is the reliable signal that publication has stopped progressing. See `docs/metrics.md`.
 

@@ -36,6 +36,15 @@ class FakeExchangeServer : AutoCloseable {
     var submittedBytes: Int = 0
         private set
 
+    /**
+     * The public product discovery document, in the shape epistola.app actually publishes:
+     * `{"version":1,"issuer":…,"baseUrl":…}`.
+     */
+    var discoveryResponse: () -> Response = { Response(200, """{"version":1,"issuer":"$baseUrl","baseUrl":"$baseUrl"}""") }
+
+    /** Lets a test make the OAuth metadata disagree with the discovered issuer. */
+    var oauthMetadataIssuer: String? = null
+
     var tokenResponse: () -> Response = { Response(200, defaultToken()) }
     var submitResponse: () -> Response = { Response(200, publicationBody(remotePublicationId, "PENDING")) }
     var statusResponse: () -> Response = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }
@@ -46,13 +55,14 @@ class FakeExchangeServer : AutoCloseable {
     private val connections = AtomicInteger()
 
     init {
+        server.createContext("/.well-known/epistola/exchange.json") { exchange -> exchange.respond(discoveryResponse()) }
         server.createContext("/.well-known/oauth-authorization-server") { exchange ->
             exchange.respond(
                 Response(
                     200,
                     """
                     {
-                      "issuer": "$baseUrl",
+                      "issuer": "${oauthMetadataIssuer ?: baseUrl}",
                       "authorization_request_endpoint": "$baseUrl/oauth/authorization-requests",
                       "token_endpoint": "$baseUrl/oauth/token"
                     }
@@ -135,6 +145,8 @@ class FakeExchangeServer : AutoCloseable {
         submittedNamespaces.clear()
         submittedBytes = 0
         namespaces = listOf("public-services")
+        discoveryResponse = { Response(200, """{"version":1,"issuer":"$baseUrl","baseUrl":"$baseUrl"}""") }
+        oauthMetadataIssuer = null
         tokenResponse = { Response(200, defaultToken()) }
         submitResponse = { Response(200, publicationBody(remotePublicationId, "PENDING")) }
         statusResponse = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }

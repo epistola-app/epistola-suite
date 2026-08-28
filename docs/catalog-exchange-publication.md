@@ -114,8 +114,11 @@ The chart maps these to `EPISTOLA_EXCHANGE_ENABLED`,
 `EPISTOLA_EXCHANGE_CALLBACKURL`. The default remains off after an upgrade, so
 installing a Suite release cannot unexpectedly create outbound traffic.
 
-When `base-url` is absent, Suite reads the public discovery document. Version 1
-has this shape:
+When `base-url` is absent, Suite reads the public discovery document — the path a
+real deployment takes. It is published by the Epistola website (an Astro route at
+`src/pages/.well-known/epistola/exchange.json.ts`), and `ExchangeDiscoveryIntegrationTest`
+serves that exact shape so the parser is pinned against the published contract
+rather than against our own reading of it. Version 1 has this shape:
 
 ```json
 {
