@@ -74,21 +74,45 @@ Rules:
 
 ## Sequence
 
-Ordered by inbound foreign-key coupling, measured from the schema. Cheapest and least entangled
-first; each step is independently shippable.
+Two independent axes determine the work for a type, and they rank differently:
 
-| #   | Resource                        | Inbound FKs | Notes                                                             |
-| --- | ------------------------------- | ----------- | ----------------------------------------------------------------- |
-| 1   | `variant_attribute_definitions` | 0           | No dependants. Proves the recipe end to end.                      |
-| 2   | `assets`                        | 1           | From `fonts` (backing asset).                                     |
-| 3   | `fonts`                         | 1           | Slug-keyed; exercises the non-`id` key shape.                     |
-| 4   | `code_lists`                    | 2           | Both inside `core_code_lists`; one is `ON DELETE RESTRICT`.       |
-| 5   | `themes`                        | 2           | `document_templates.theme_*`, `tenants.default_theme_*`.          |
-| 6   | `stencils`                      | 3           | Partly done: `stencil_versions` already keys on the parent id.    |
-| 7   | `document_templates`            | 7           | Spans **three modules**, includes partitioned history. See below. |
+- **Who points at me** — the references that must be re-targeted at identity, split between content
+  (`ResourceReferenceSites` kinds) and relational foreign keys.
+- **What I own** — child and version tables that must be re-keyed onto the parent's `resource_id`
+  and stripped of denormalised address columns.
 
-Steps 1–6 are mechanical. Step 7 is a different kind of problem and should not be started until
-1–6 have shipped and the recipe is proven.
+| Type                            | Who points at me                           | What I own                            |
+| ------------------------------- | ------------------------------------------ | ------------------------------------- |
+| `variant_attribute_definitions` | variant attributes JSONB map               | —                                     |
+| `code_lists`                    | 1 relational FK                            | `code_list_entries`                   |
+| `assets`                        | content `IMAGE_ASSET`, `font_faces`        | —                                     |
+| `fonts`                         | content `FONT_FAMILY`, theme fingerprints  | `font_faces`                          |
+| `themes`                        | content `THEME_OVERRIDE`, 2 relational FKs | —                                     |
+| `stencils`                      | content `STENCIL_INSERTION`                | `stencil_versions` (already re-keyed) |
+| `document_templates`            | **nothing**                                | **7 FKs, 3 modules, partitioned**     |
+
+Templates invert: nothing references a template as a dependency, so their reference work is nil and
+all their difficulty is in what they own.
+
+Recommended order — `variant_attribute_definitions`, `code_lists`, `assets`, `fonts`, `themes`,
+`stencils`, `document_templates` — takes the cheapest on both axes first and leaves templates last.
+A type becomes movable once its own two axes are done; it does not wait for the others.
+
+## Phases
+
+0. **Decide** whether a moved template's generation history follows it or pins to where it lived,
+   and the same for the quality findings ledger. Gates phase 3 only; everything else can start now.
+1. **Re-key resources**, one type per change, in the order above, using the recipe below. Content
+   references are handled in phase 2; a type needs both before it is movable.
+2. **Carry `target` in content references** — independent of phase 1 and runnable in parallel. Only
+   the four content-referenced types need it.
+3. **Templates**, once phase 0 is answered.
+4. **Generalise the move command.** It hardcodes `UPDATE stencils` today. With identity separated it
+   needs only a per-type table map — not the rewrite-strategy SPI Option E would have required.
+5. **Delete the interim machinery**: plan/preview/fingerprint, rewrite strategies, the
+   `immutable-relative-reference` blocker, address reservation and its release command, and
+   write-time qualification. Keep a preview for policy checks only — permissions, released
+   catalogs, slug collisions.
 
 ## The per-table recipe
 
