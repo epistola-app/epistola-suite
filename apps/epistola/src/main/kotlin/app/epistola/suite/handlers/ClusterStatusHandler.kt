@@ -185,10 +185,37 @@ data class ClusterNodeStatus(
     val statusLabel: String = if (isActive) "active" else "stale"
     val capabilitiesLabel: String = node.capabilities.ifEmpty { listOf("suite") }.joinToString(", ")
     val versionLabel: String = node.version ?: "-"
+
+    /**
+     * Coarse, two-unit relative age.
+     *
+     * A stale node can be weeks old, and a minutes-only form rendered that as "33474m ago".
+     * The exact timestamp is always on the cell's `title`, so this only has to be scannable.
+     */
     val ageLabel: String = when {
         ageSeconds < 1 -> "just now"
-        ageSeconds == 1L -> "1s ago"
-        ageSeconds < 60 -> "${ageSeconds}s ago"
-        else -> "${ageSeconds / 60}m ago"
+        ageSeconds < SECONDS_PER_MINUTE -> "${ageSeconds}s ago"
+        ageSeconds < SECONDS_PER_HOUR -> "${ageSeconds / SECONDS_PER_MINUTE}m ago"
+        ageSeconds < SECONDS_PER_DAY -> twoUnit(ageSeconds, SECONDS_PER_HOUR, "h", SECONDS_PER_MINUTE, "m")
+        else -> twoUnit(ageSeconds, SECONDS_PER_DAY, "d", SECONDS_PER_HOUR, "h")
+    }
+
+    private companion object {
+        const val SECONDS_PER_MINUTE = 60L
+        const val SECONDS_PER_HOUR = 3_600L
+        const val SECONDS_PER_DAY = 86_400L
+
+        /** "2h 3m ago", collapsing to "2h ago" when the smaller unit is zero. */
+        fun twoUnit(
+            seconds: Long,
+            majorUnit: Long,
+            majorSuffix: String,
+            minorUnit: Long,
+            minorSuffix: String,
+        ): String {
+            val major = seconds / majorUnit
+            val minor = (seconds % majorUnit) / minorUnit
+            return if (minor == 0L) "$major$majorSuffix ago" else "$major$majorSuffix $minor$minorSuffix ago"
+        }
     }
 }
