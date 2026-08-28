@@ -18,18 +18,34 @@ needed.
 The end state is that a move is one statement:
 
 ```sql
-UPDATE stencils SET catalog_id = ? WHERE tenant_key = ? AND resource_id = ?
+UPDATE stencils SET catalog_key = ? WHERE tenant_key = ? AND resource_id = ?
 ```
 
 …plus a slug-collision check. Nothing to rewrite, because nothing internal stored an address.
 
 ## Target model
 
-| Concept        | Representation                           | Mutable |
-| -------------- | ---------------------------------------- | ------- |
-| Identity       | `resource_id UUID`                       | never   |
-| Location       | `catalog_key` column, not part of a key  | yes     |
-| Address / name | `catalog_key` + `slug`, derived at edges | yes     |
+Every resource belongs to exactly one tenant, permanently — cross-tenant transfer is out of scope
+(ADR 0014). Within that tenant it has one immutable identity and two mutable attributes. Its
+address is what those two attributes compose to, not a third thing stored anywhere.
+
+| Concept                | Representation                          | Changed by    |
+| ---------------------- | --------------------------------------- | ------------- |
+| **Tenant**             | `tenant_key`, the isolation boundary    | nothing, ever |
+| **Identity**           | `resource_id UUID`, never exported      | nothing       |
+| **Catalog membership** | `catalog_key` column, not part of a key | a move        |
+| **Slug**               | its name within that catalog            | a rename      |
+
+The **address** is `catalog_key` + `slug`, derived at the boundaries that need it. This is what
+makes each operation a single-attribute change: a move sets catalog membership, a rename sets the
+slug, and neither disturbs identity or anything referring to it. Today both attributes are welded
+into the primary key, which is why changing either one breaks every reference.
+
+`tenant_key` leads every key and every foreign key even though `resource_id` is a UUID and unique on
+its own. That is deliberate: it makes tenant isolation a property of the schema rather than of each
+query remembering a predicate, and it keeps a tenant's rows contiguous in every index. A join that
+drops `tenant_key` still returns correct rows but stops using the index — a regression this branch
+already hit once, in three `stencil_versions` joins.
 
 Rules:
 

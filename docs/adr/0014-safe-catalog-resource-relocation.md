@@ -147,11 +147,15 @@ UUIDs are not portable — but that is a requirement on the **wire**, and it was
 Separating the three concepts the address currently conflates removes the problem rather than
 managing it:
 
-| Concept  | Representation                              | Mutable |
-| -------- | ------------------------------------------- | ------- |
-| Identity | `resource_id UUID`                          | never   |
-| Location | `catalog_key` column, not part of any key   | yes     |
-| Address  | `catalog_key` + slug, derived at boundaries | yes     |
+| Concept                | Representation                          | Changed by    |
+| ---------------------- | --------------------------------------- | ------------- |
+| **Tenant**             | `tenant_key`, the isolation boundary    | nothing, ever |
+| **Identity**           | `resource_id UUID`, never exported      | nothing       |
+| **Catalog membership** | `catalog_key` column, not part of a key | a move        |
+| **Slug**               | its name within that catalog            | a rename      |
+
+The address is `catalog_key` + slug — what those two attributes compose to, derived at the
+boundaries that need it, and not stored as a third thing.
 
 Internal references target identity — relational ones as `resource_id` foreign keys, in-content
 ones as `{ target, catalogKey, key }` where `target` resolves and the address records authored
