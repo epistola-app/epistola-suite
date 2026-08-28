@@ -178,6 +178,15 @@ at instead.
 problem, so a resubmit updates the set without reopening. If a changed element set _is_ a
 different problem, that belongs in the fingerprint.
 
+> **Planned change — catalog resource relocation.** `subject_urn` and `ignore_scope_urn` compose a
+> template's _address_, and `ignore_scope_urn` is both a primary-key column and the finding-to-ignore
+> join condition. Once templates can move between catalogs, a move would leave the ignore holding
+> the old URN while new submissions carry the new one, so the join stops matching and every ignored
+> finding silently reappears as open. Finding-to-ignore matching moves onto identity columns before
+> templates become movable; the URN stays as a display and wire value so the disposition feed is
+> unaffected. See
+> [Catalog resource identity migration](catalog-resource-identity-migration.md).
+
 ## Reconciliation: how findings resolve themselves
 
 A source submits its **full current finding set** for a subject, not a delta:

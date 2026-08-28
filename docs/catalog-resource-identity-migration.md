@@ -100,16 +100,18 @@ A type becomes movable once its own two axes are done; it does not wait for the 
 
 ## Phases
 
-0. **Decide** whether a moved template's generation history follows it or pins to where it lived,
-   and the same for the quality findings ledger. Gates phase 3 only; everything else can start now.
-1. **Re-key resources**, one type per change, in the order above, using the recipe below. Content
-   references are handled in phase 2; a type needs both before it is movable.
-2. **Carry `target` in content references** — independent of phase 1 and runnable in parallel. Only
-   the four content-referenced types need it.
-3. **Templates**, once phase 0 is answered.
-4. **Generalise the move command.** It hardcodes `UPDATE stencils` today. With identity separated it
-   needs only a per-type table map — not the rewrite-strategy SPI Option E would have required.
-5. **Delete the interim machinery**: plan/preview/fingerprint, rewrite strategies, the
+1. **Re-key `variant_attribute_definitions`** using the recipe below. No dependants, no owned
+   children — it proves the whole recipe in one small change.
+2. **Generalise the move command.** It hardcodes `UPDATE stencils` today; with identity separated it
+   needs only a per-type table map, not the rewrite-strategy SPI Option E would have required.
+   Doing it here rather than last means step 1 ships a movable type, validating re-key → move →
+   verify end to end on the simplest subject.
+3. **Re-key the remaining types** in the order above, one per change. Each becomes movable on
+   landing.
+4. **Carry `target` in content references** — independent of steps 1 and 3, runnable in parallel.
+   Only the four content-referenced types need it.
+5. **Templates**, applying the pin/follow decisions recorded below.
+6. **Delete the interim machinery**: plan/preview/fingerprint, rewrite strategies, the
    `immutable-relative-reference` blocker, address reservation and its release command, and
    write-time qualification. Keep a preview for policy checks only — permissions, released
    catalogs, slug collisions.
@@ -167,8 +169,24 @@ So generation history takes a different shape from the recipe above:
   facts, no longer foreign keys;
 - drop the composite foreign keys, which is what currently makes the template immovable.
 
-The same question applies to the quality findings ledger, and the answer is likely the same —
-a finding was raised against a subject at a point in time. Confirm before implementing.
+The quality findings ledger asks the same question and gets the **opposite** answer. A finding is
+live state about a current subject, not a record of an event: findings reconcile, reopen on their
+original row, and cascade-delete with their template. A finding must survive its subject moving, so
+it follows — re-key its foreign keys to `resource_id`.
+
+That is not sufficient on its own. `subject_urn` and `ignore_scope_urn` are built from
+`EntityId.toUrn()`, which composes the address (`urn:epistola:template:tenantA/letters/invoice`).
+`ignore_scope_urn` is in the primary key of `quality_finding_ignores` and is the join condition
+between a finding and its ignore. After a move the ignore keeps the old URN while newly submitted
+findings carry the new one, the join stops matching, and **every ignored finding silently reappears
+as open** — breaking the "IGNORED is derived from a live ignore row" invariant that
+[`quality.md`](quality.md) calls out as easy to break.
+
+There is no live bug today: quality subjects are templates, variants, and versions, and none of
+those are movable yet. It becomes real the moment templates are.
+
+Fix by adding identity columns and matching findings to ignores on those, keeping the URN as a
+display and wire value so the remote-source disposition feed contract is unchanged.
 
 ## Content references
 
@@ -201,13 +219,20 @@ Once a type completes the recipe, its relocation needs none of the machinery the
 Aliases survive only as external redirects. Keep the preview command for _policy_ checks —
 permissions, released catalogs, slug collisions — which remain real.
 
-## Open decisions
+## Decisions
 
-1. Generation history: pin or follow (recommendation: pin).
-2. Quality findings: same question, likely the same answer.
-3. Whether a released or subscribed catalog's resources may move at all, and what the portable
-   handoff looks like — deferred in ADR 0014 and unchanged by this plan.
-4. Whether external alias redirects expire, and after how long.
+1. **Generation history pins.** Identity via `template_resource_id`; address columns retained as
+   historical facts; composite foreign keys dropped.
+2. **Quality findings follow**, and additionally need identity-based finding-to-ignore matching so
+   a move does not silently reopen every ignored finding.
+3. **The move command is generalised after the first re-keyed type**, not at the end, so each
+   subsequent re-key delivers a movable type rather than accumulating unmovable ones.
+
+## Still open
+
+- Whether a released or subscribed catalog's resources may move at all, and what the portable
+  handoff looks like — deferred in ADR 0014 and unchanged by this plan.
+- Whether external alias redirects expire, and after how long.
 
 ## Verification
 
