@@ -136,48 +136,60 @@ UUIDs require an explicit portable identity or handoff mapping for exchange betw
 
 ## Decision
 
-**Accepted: Option E — canonical move with address aliases and typed rewrites**, made complete by
-two rules that remove the reasons Option F looked necessary:
+**Accepted: Option F — canonical move with ID-first internal references.**
 
-1. **References are qualified when they are written.** Persisting a draft or publishing a version
-   fills in the containing catalog on every unqualified relative reference
-   (`ResourceReferenceSites.qualifyRelative`, applied in `TemplateDocumentPreparation` and the
-   stencil write paths). A stored reference therefore always names the catalog it resolves against,
-   so an alias always has a concrete address to attach to. Assets are excluded: they resolve
-   tenant-globally, so qualifying one would change its meaning rather than pin it.
+A resource's address is currently also its primary key, which is why moving one is hard: references
+name an address, so changing location changes identity, so every reference must be rewritten,
+aliased, or blocked. Exchange between installations must be address-based, because tenant-local
+UUIDs are not portable — but that is a requirement on the **wire**, and it was applied to
+**storage**, where it was never needed.
 
-   This is normalization on write, not a required field. The catalog wire format keeps
-   `catalogKey` optional, so existing exports still import and no GA surface breaks. Unqualified
-   references become a finite, non-growing legacy tail rather than an open-ended problem.
+Separating the three concepts the address currently conflates removes the problem rather than
+managing it:
 
-   **Storage is absolute; the wire stays relative.** Export drops the catalog from references that
-   target the catalog being exported (`ResourceReferenceSites.relativizeOwnCatalog`), and import
-   re-qualifies against the catalog it installs into. This is not cosmetic: relative references are
-   what let an exported catalog be installed under a _different_ key, which the retarget path
-   (`renameInManifest`) and stencil renumbering both depend on. Qualifying the wire form would bake
-   the source catalog's key into the ZIP and turn every same-catalog reference into an unsatisfiable
-   cross-catalog dependency. The exported bytes are therefore unchanged by this decision.
+| Concept  | Representation                              | Mutable |
+| -------- | ------------------------------------------- | ------- |
+| Identity | `resource_id UUID`                          | never   |
+| Location | `catalog_key` column, not part of any key   | yes     |
+| Address  | `catalog_key` + slug, derived at boundaries | yes     |
 
-2. **An address a relocated resource left behind is reserved.** Creating a resource at an aliased
-   address is rejected (`requireAddressAvailable`), because a version published before the move
-   named that address meaning the resource that has since left. `ReleaseCatalogResourceAlias`
-   gives the address up deliberately, after `PreviewCatalogResourceAliasRelease` reports what stops
-   resolving. Reservation is a command-layer rule, not a database constraint: catalog import and
-   tenant backup restore must reproduce stored state faithfully, so alias consumers still prefer a
-   canonical resource when both exist.
+Internal references target identity — relational ones as `resource_id` foreign keys, in-content
+ones as `{ target, catalogKey, key }` where `target` resolves and the address records authored
+intent and remains the fallback for an unresolvable reference. Address is computed at the edges
+(export, URLs, REST, MCP) and mapped back on import. A move becomes a single column update plus a
+slug-collision check, with nothing to rewrite because nothing internal stored an address. Published
+payloads are never touched and keep resolving.
 
-Together these close the two gaps that motivated Option F. Rule 1 removes the
-`immutable-relative-reference` blocker for anything authored from now on; rule 2 removes the
-address-reuse ambiguity that an alias alone cannot express. Renames and whole-catalog moves are
-expressible with the same alias mechanism.
+Identity is implemented with **E2 — a shared surrogate resource registry**, already in place for all
+seven resource types.
 
-The identity foundation is still required and still implemented with **E2 — a shared surrogate
-resource registry**: relational integrity across a move needs a catalog-independent key regardless
-of how references are represented.
+Aliases are retained only as an **external-redirect layer** for bookmarked URLs and external
+callers. They are expirable and never consulted by internal resolution.
 
-Option F is **deferred**, not rejected — see [Deferred](#deferred). It remains the answer if
-address reservation proves too restrictive in practice, or when the relocation planner's cost
-becomes the binding constraint.
+The sequenced migration, per-table ordering, and the generation-history decision it forces are in
+[Catalog resource identity migration](../catalog-resource-identity-migration.md).
+
+### Why not Option E
+
+Option E — canonical move with aliases and typed rewrites — is what the alpha shipped, completed by
+qualifying references on write and reserving vacated addresses. It is the cheapest path to one
+movable type and it works.
+
+It was reconsidered because the goal is for **every** resource type to be movable. Option E's cost
+is per-type and permanent: a rewrite strategy, a cascade migration, a reservation call, and a
+legacy-content blocker for each of seven types, plus aliases as load-bearing internal
+infrastructure and an address that can never be reused after a move. Option F's cost is one-time
+and structural, and it ends with less machinery than the system has today.
+
+At a scope of one alpha type the trade favoured E. At a scope of all types it favours F.
+
+### Interim state
+
+The alpha's Option E machinery stays in place and keeps working while the migration proceeds. Each
+type that completes the migration stops needing it; the machinery is removed once no type does.
+Write-time qualification remains valuable until in-content `target` is populated, and export
+continues to emit relative same-catalog addresses either way — that is what keeps an exported
+catalog installable under a different key.
 
 Option D remains the lower-cost alternative if the desired product semantics are that old
 references intentionally see a frozen snapshot. It is not chosen because the primary requirement
@@ -395,12 +407,16 @@ higher up-front migration cost, but makes later moves small and preserves databa
 identity across all resource types. It does not solve relative references in immutable payloads;
 their resolution context remains a separate requirement described below.
 
-### Deferred: ID-first reference records
+### Recording resolved references
 
-If address reservation proves too restrictive, or the relocation planner's scan becomes the binding
-cost, Option F is implemented by recording the resolved target alongside the payload that carries
-it — a `resolved_references` JSONB column on `template_versions`, `stencil_versions`, and the theme
-rows:
+Relational references become ordinary `resource_id` foreign keys. References embedded in versioned
+content record their resolved target too, so that a published payload keeps resolving after its
+dependency moves without the payload being rewritten.
+
+The preferred shape carries the target **inside** the reference — `{ target, catalogKey, key }` —
+so a reference is self-describing and export simply strips `target`. Where that is impractical for
+an existing content model, the equivalent is a sibling `resolved_references` JSONB column on
+`template_versions`, `stencil_versions`, and the theme rows:
 
 ```jsonc
 // template_versions.resolved_references
@@ -693,11 +709,12 @@ until the alpha workflow and error model have settled.
   subsequent moves do not rewrite historical ownership hierarchies.
 - The shared registry is foundational identity metadata, not a replacement for domain resource
   tables and not a separately persisted reference graph.
-- Stored references are qualified on write, so a reference's catalog is explicit and an alias
-  always has a concrete address to attach to. Assets stay unqualified because they resolve
-  tenant-globally.
-- An address vacated by a relocation is reserved and can only be reused by explicitly releasing the
-  alias, which is previewable. Authors cannot silently reclaim a slug they moved away from.
+- **Interim:** stored references are qualified on write, so a reference's catalog is explicit and an
+  alias always has a concrete address to attach to. Assets stay unqualified because they resolve
+  tenant-globally. This is superseded per type as in-content `target` is populated.
+- **Interim, until a type completes the identity migration:** an address vacated by a relocation is
+  reserved and can only be reused by explicitly releasing the alias, which is previewable. Once
+  references target identity, address reuse is unambiguous and the reservation is removed.
 - Aliases are the ordinary mechanism by which a published reference survives a move, not merely a
   legacy compatibility boundary. They are permanent, flat (each points straight at a stable
   identity), and cheap to resolve in one indexed lookup.
@@ -719,15 +736,12 @@ until the alpha workflow and error model have settled.
 
 ## Deferred
 
-- **ID-first reference records (Option F)** — see
-  [Deferred: ID-first reference records](#deferred-id-first-reference-records). Revisit if address
-  reservation proves too restrictive for authors, or if the relocation planner's full scan of the
-  tenant's versions becomes the binding cost.
-- **A frozen resolution base for legacy unqualified references**, unblocking moves of resources
-  whose pre-qualification published versions still carry relative dependencies.
 - Released-catalog relocation handoff and coordinated subscriber upgrade.
-- Resource types beyond stencils, renaming resource keys, and moving whole catalogs — all
-  expressible with the same alias mechanism, gated on per-type rewrite strategies.
+- Renaming resource keys and moving whole catalogs. Both become straightforward once identity is
+  separated from address, but neither is in scope here.
+- Expiry policy for external alias redirects.
+- Whether a resource may move while it has unreleased changes in a catalog that has been
+  published.
 - REST and MCP surfaces for relocation, once the command contract has settled.
 
 ## Related

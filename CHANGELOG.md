@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(catalogs): **Resource relocation targets an ID-first model.** ADR 0014 now accepts
+  Option F: identity, location, and address are separated so a move is a single column update with
+  nothing to rewrite. Adds a sequenced per-table migration plan, ordered by measured foreign-key
+  coupling, and surfaces the generation-history decision that moving templates forces.
 - **[dev]** feat(catalogs): **Stored resource references now name their catalog.** Saving or
   publishing fills in the containing catalog on relative references, so a published reference keeps
   its meaning when its owner is relocated. Exports still travel relative to their own catalog, so a
