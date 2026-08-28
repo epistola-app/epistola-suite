@@ -7,106 +7,124 @@
         pageDescription='Authorize this tenant to publish catalog releases to Exchange.'
     )}"></div>
 
+    <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+
     <div class="alert alert-warning" th:if="${!settings.deploymentEnabled}">
-        Catalog publishing is disabled for this deployment. Set <code>epistola.exchange.enabled=true</code>
-        before connecting a tenant.
+        <strong>Catalog publishing is disabled for this deployment.</strong>
+        Set <code>epistola.exchange.enabled=true</code> before connecting a tenant.
     </div>
 
     <div class="alert alert-warning" th:if="${settings.deploymentEnabled && !settings.featureEnabled}">
-        The Catalog publishing feature is off for this tenant. Enable it under
+        <strong>The Catalog publishing feature is off for this tenant.</strong>
+        Enable it under
         <a th:href="@{/tenants/{tenantId}/features(tenantId=${tenantId})}">Settings &rarr; Features</a>
-        before connecting to Exchange. An existing connection can still be disconnected here.
+        to connect. An existing connection can still be disconnected below.
     </div>
 
-    <div class="card" th:if="${settings.deploymentEnabled}">
-        <div class="card-header">
-            <h2>Tenant connection</h2>
-            <p class="subtitle">One Exchange connection is maintained for this Suite tenant.</p>
-        </div>
-        <div class="card-content">
-            <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
-            <div class="alert alert-danger" th:if="${settings.connection != null && settings.connection.lastError != null}"
-                 th:text="${settings.connection.lastError}"></div>
-            <div th:if="${settings.connected}" th:with="connection=${settings.connection}">
-                <p><strong>Connected organization:</strong>
-                    <span th:text="${connection.organizationName}">Organization</span>
-                    (<code th:text="${connection.organizationSlug}">organization</code>)
-                </p>
-                <p><strong>Connection:</strong> <code th:text="${connection.tenantConnectionReference}">tc_01HWHVGZT1FCF9Y2CE4XP3Y79M</code></p>
-                <p><strong>Application:</strong> <code th:text="${connection.oauthApplicationId}">application id</code></p>
-                <p><strong>Scopes:</strong> <span th:text="${#strings.listJoin(connection.scopes, ', ')}">read, publish</span></p>
-                <p><strong>Namespaces:</strong> <span th:text="${#strings.listJoin(connection.namespaces, ', ')}">namespace</span></p>
-                <form th:if="${!settings.choosableNamespaces.isEmpty()}"
-                      th:action="@{/tenants/{tenantId}/exchange/namespace(tenantId=${tenantId})}" method="post">
-                    <div class="form-group">
-                        <label class="ep-label" for="exchange-default-namespace">Default namespace</label>
-                        <select id="exchange-default-namespace" class="ep-select" name="namespace" required>
-                            <option value="" th:selected="${connection.defaultNamespace == null}" disabled>Select a namespace</option>
-                            <option th:each="namespace : ${connection.namespaces}" th:value="${namespace}"
-                                    th:text="${namespace}" th:selected="${namespace == connection.defaultNamespace}"></option>
-                        </select>
+    <th:block th:if="${settings.deploymentEnabled}">
+        <div class="ep-panel detail-section">
+            <div class="detail-section-header">
+                <h2>Tenant connection</h2>
+                <div class="ep-row ep-gap-3">
+                    <span th:class="${'badge ' + settings.status.badgeClass}" th:text="${settings.status.label}">Connected</span>
+                    <form th:if="${settings.connected && settings.featureEnabled}"
+                          th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
+                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm">Reauthorize</button>
+                    </form>
+                </div>
+            </div>
+            <div class="detail-section-body">
+                <div class="alert alert-danger" th:if="${settings.connection != null && settings.connection.lastError != null}"
+                     th:text="${settings.connection.lastError}"></div>
+
+                <th:block th:if="${settings.connected}" th:with="connection=${settings.connection}">
+                    <dl class="description-list">
+                        <dt>Organization</dt>
+                        <dd>
+                            <span th:text="${connection.organizationName}">Organization</span>
+                            <code th:text="${connection.organizationSlug}">organization</code>
+                        </dd>
+                        <dt>Connection</dt>
+                        <dd><code th:text="${connection.tenantConnectionReference}">tc_01HWHVGZT1FCF9Y2CE4XP3Y79M</code></dd>
+                        <dt>Application</dt>
+                        <dd><code th:text="${connection.oauthApplicationId}">application id</code></dd>
+                        <dt>Scopes</dt>
+                        <dd class="badge-list">
+                            <span th:each="scope : ${connection.scopes}" class="badge badge-outline" th:text="${scope}">read</span>
+                        </dd>
+                        <dt>Namespaces</dt>
+                        <dd class="badge-list">
+                            <span th:each="namespace : ${connection.namespaces}"
+                                  th:class="${namespace == connection.defaultNamespace} ? 'badge badge-default' : 'badge badge-outline'"
+                                  th:text="${namespace}">namespace</span>
+                        </dd>
+                    </dl>
+
+                    <form th:if="${!settings.choosableNamespaces.isEmpty()}"
+                          th:action="@{/tenants/{tenantId}/exchange/namespace(tenantId=${tenantId})}" method="post"
+                          style="margin-top: var(--ep-space-6);">
+                        <div class="form-group">
+                            <label class="ep-label" for="exchange-default-namespace">Default namespace</label>
+                            <select id="exchange-default-namespace" class="ep-select" name="namespace" required>
+                                <option value="" th:selected="${connection.defaultNamespace == null}" disabled>Select a namespace</option>
+                                <option th:each="namespace : ${connection.namespaces}" th:value="${namespace}"
+                                        th:text="${namespace}" th:selected="${namespace == connection.defaultNamespace}"></option>
+                            </select>
+                            <p class="form-hint">
+                                Used by catalogs that express no preference of their own. A catalog's namespace becomes
+                                immutable once its first release is queued.
+                            </p>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Save namespace</button>
+                        </div>
+                    </form>
+
+                </th:block>
+
+                <th:block th:unless="${settings.connected}">
+                    <p class="text-muted" th:if="${!settings.needsReauthorization}">
+                        Connecting sends you to Exchange to sign in, choose an organization and grant this tenant a
+                        namespace to publish into. Suite stores one connection per tenant; nothing is published until a
+                        catalog policy says so.
+                    </p>
+                    <p class="text-muted" th:if="${settings.needsReauthorization}">
+                        Exchange no longer accepts this tenant's stored credentials. Reconnecting restores the same
+                        connection — queued publications resume where they left off.
+                    </p>
+                    <div class="form-actions" th:if="${settings.featureEnabled}">
+                        <form th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
+                            <button type="submit" class="ep-btn ep-btn-primary"
+                                    th:text="${settings.needsReauthorization} ? 'Recover Exchange connection' : 'Connect to Exchange'">
+                                Connect to Exchange
+                            </button>
+                        </form>
                     </div>
-                    <button type="submit" class="ep-btn ep-btn-primary">Save namespace</button>
-                </form>
-                <form th:if="${settings.featureEnabled}"
-                      th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
-                    <button type="submit" class="ep-btn ep-btn-outline">Reauthorize connection</button>
-                </form>
-                <details>
-                    <summary>Disconnect from Exchange</summary>
-                    <p>
-                        This revokes the tenant connection in Exchange and removes its credentials from Suite. The
-                        Exchange application, publication history, and catalog namespace bindings are retained.
-                    </p>
-                    <form th:action="@{/tenants/{tenantId}/exchange/disconnect(tenantId=${tenantId})}" method="post">
-                        <button type="submit" class="ep-btn ep-btn-danger">Disconnect</button>
-                    </form>
-                    <p>
-                        If Exchange is permanently unavailable, you can forget the local credentials without revoking
-                        the remote connection. Only use this recovery action when you can revoke it separately in
-                        Exchange.
-                    </p>
-                    <form th:action="@{/tenants/{tenantId}/exchange/disconnect(tenantId=${tenantId})}" method="post">
-                        <input type="hidden" name="forgetLocal" value="true">
-                        <button type="submit" class="ep-btn ep-btn-outline">Forget locally only</button>
-                    </form>
-                </details>
+                </th:block>
             </div>
-
-            <form th:if="${!settings.connected && settings.featureEnabled}"
-                  th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
-                <button type="submit" class="ep-btn ep-btn-primary"
-                        th:text="${settings.needsReauthorization} ? 'Recover Exchange connection' : 'Connect to Exchange'">
-                    Connect to Exchange
-                </button>
-            </form>
         </div>
-    </div>
 
-    <div class="card" th:if="${settings.deploymentEnabled && settings.activity.total > 0}"
-         th:with="activity=${settings.activity}">
-        <div class="card-header">
-            <h2>Publication activity</h2>
-            <p class="subtitle">
-                Every catalog in this tenant. Releases publish in the background, so this is where a
-                stalled or refused publication becomes visible.
-            </p>
-        </div>
-        <div class="card-content">
-            <div class="alert alert-warning" th:if="${activity.stalled}">
-                <strong>Publications are not progressing.</strong>
-                The oldest unfinished publication has been queued for
-                <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</span>.
-                Check that this tenant's Exchange connection is active and that a namespace is available.
+        <div class="ep-panel detail-section" th:if="${settings.activity.total > 0}" th:with="activity=${settings.activity}">
+            <div class="detail-section-header">
+                <h2>Publication activity</h2>
+                <div class="badge-list">
+                    <span th:each="entry : ${activity.breakdown}"
+                          th:class="${'badge ' + entry.badgeClass}"
+                          th:text="${entry.count} + ' ' + ${entry.label}">2 Waiting for setup</span>
+                </div>
             </div>
-
-            <p class="catalog-detail-value">
-                <span th:each="entry, iter : ${activity.breakdown}">
-                    <strong th:text="${entry.count}">0</strong>
-                    <span th:text="${entry.label}">Ready to submit</span><span th:if="${!iter.last}">, </span>
-                </span>
-            </p>
-
+            <div class="detail-section-body">
+                <div class="alert alert-warning" th:if="${activity.stalled}">
+                    <strong>Publications are not progressing.</strong>
+                    The oldest unfinished publication has been queued since
+                    <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</span>.
+                    Check that this tenant's connection is active and that a namespace is available.
+                </div>
+                <p class="text-muted" style="margin-top: 0;">
+                    Every catalog in this tenant. Releases publish in the background, so this is where a stalled or
+                    refused publication becomes visible.
+                </p>
+            </div>
             <div class="ep-table-scroll" role="region" aria-label="Recent Exchange publications" tabindex="0">
                 <table class="ep-table">
                     <thead>
@@ -119,10 +137,13 @@
                                th:text="${entry.catalogKey}">catalog</a>
                         </td>
                         <td th:text="'v' + ${entry.version}">v1.0.0</td>
-                        <td><code th:text="${entry.namespace ?: 'waiting for setup'}">namespace</code></td>
                         <td>
-                            <strong th:text="${entry.status.label}">Ready to submit</strong>
-                            <span th:if="${entry.lastError != null}" class="text-muted" th:text="' — ' + ${entry.lastError}"></span>
+                            <code th:if="${entry.namespace != null}" th:text="${entry.namespace}">namespace</code>
+                            <span th:if="${entry.namespace == null}" class="text-muted">Not yet bound</span>
+                        </td>
+                        <td>
+                            <span th:class="${'badge ' + entry.status.badgeClass}" th:text="${entry.status.label}">Ready to submit</span>
+                            <div th:if="${entry.lastError != null}" class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${entry.lastError}"></div>
                         </td>
                         <td th:text="${entry.attempts}">0</td>
                         <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
@@ -131,7 +152,48 @@
                 </table>
             </div>
         </div>
-    </div>
+
+        <div class="ep-panel detail-section" th:if="${settings.connection != null}">
+            <div class="detail-section-header"><h3>Disconnect from Exchange</h3></div>
+            <div class="detail-section-body">
+                <p class="text-muted" style="margin-top: 0; font-size: var(--ep-text-sm);">
+                    Revokes the tenant connection in Exchange and removes its credentials from Suite. The Exchange
+                    application, publication history and immutable catalog namespace bindings are kept, so reconnecting
+                    later restores the same identity. Queued publications that have not been accepted are marked failed
+                    and can be retried after reconnecting.
+                </p>
+                <div class="form-actions">
+                    <form th:action="@{/tenants/{tenantId}/exchange/disconnect(tenantId=${tenantId})}" method="post">
+                        <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm"
+                                data-confirm-submit
+                                data-confirm-submit-title="Disconnect from Exchange"
+                                data-confirm-submit-message="Suite will revoke this tenant's connection in Exchange and delete its stored credentials. Queued publications will be marked failed."
+                                data-confirm-submit-label="Disconnect">Disconnect</button>
+                    </form>
+                </div>
+
+                <details style="margin-top: var(--ep-space-6);">
+                    <summary class="text-muted" style="font-size: var(--ep-text-sm);">Exchange is unreachable</summary>
+                    <p class="text-muted" style="font-size: var(--ep-text-sm);">
+                        If Exchange cannot be reached at all, you can forget the local credentials without revoking the
+                        remote connection. Only use this when you are able to revoke the connection in Exchange
+                        yourself — otherwise it keeps granting access.
+                    </p>
+                    <div class="form-actions">
+                        <form th:action="@{/tenants/{tenantId}/exchange/disconnect(tenantId=${tenantId})}" method="post">
+                            <input type="hidden" name="forgetLocal" value="true">
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    data-confirm-submit
+                                    data-confirm-submit-title="Forget the connection locally"
+                                    data-confirm-submit-message="Suite will delete its stored credentials without revoking the connection in Exchange. Revoke it in Exchange yourself, or it keeps granting access."
+                                    data-confirm-submit-label="Forget locally"
+                                    data-confirm-submit-class="ep-btn-warning">Forget locally only</button>
+                        </form>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </th:block>
 </th:block>
 </body>
 </html>

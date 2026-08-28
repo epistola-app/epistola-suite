@@ -29,6 +29,9 @@ data class ExchangeSettings(
     val connection: ExchangeTenantConnection?,
     val activity: ExchangePublicationActivity,
 ) {
+    /** What the page shows as the connection's state; an absent connection reads as not connected. */
+    val status: ExchangeConnectionStatus get() = connection?.status ?: ExchangeConnectionStatus.PENDING
+
     val connected: Boolean get() = connection?.status == ExchangeConnectionStatus.ACTIVE
     val needsReauthorization: Boolean get() = connection?.status == ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED
 

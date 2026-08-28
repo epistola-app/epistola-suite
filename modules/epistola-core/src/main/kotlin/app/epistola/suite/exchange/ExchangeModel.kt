@@ -9,7 +9,19 @@ import app.epistola.suite.crypto.Secret
 import java.time.OffsetDateTime
 import java.util.UUID
 
-enum class ExchangeConnectionStatus { PENDING, ACTIVE, REAUTHORIZATION_REQUIRED, BLOCKED }
+/**
+ * State of a tenant's enrollment.
+ *
+ * [label] and [badgeClass] are the single wording and styling every surface uses, the same contract
+ * as `KnownFeatures.FeatureStage`: a status without a matching `.badge-*` rule in the design system
+ * would ship as an unstyled badge, so `ExchangeStatusBadgeTest` holds the two together.
+ */
+enum class ExchangeConnectionStatus(val label: String, val badgeClass: String) {
+    PENDING("Not connected", "badge-muted"),
+    ACTIVE("Connected", "badge-success"),
+    REAUTHORIZATION_REQUIRED("Reauthorization required", "badge-warning"),
+    BLOCKED("Blocked by Exchange", "badge-error"),
+}
 
 /**
  * Lifecycle of one release in the publication outbox.
@@ -18,14 +30,14 @@ enum class ExchangeConnectionStatus { PENDING, ACTIVE, REAUTHORIZATION_REQUIRED,
  * decisions after which the retained ZIP is no longer needed. `FAILED` deliberately keeps
  * its archive: an administrator can retry it with a fresh idempotency key.
  */
-enum class CatalogPublicationStatus(val label: String) {
-    WAITING_SETUP("Waiting for setup"),
-    READY("Ready to submit"),
-    SUBMITTED("Submitted"),
-    RETRY("Retrying"),
-    ACCEPTED("Accepted"),
-    REJECTED("Rejected"),
-    FAILED("Failed"),
+enum class CatalogPublicationStatus(val label: String, val badgeClass: String) {
+    WAITING_SETUP("Waiting for setup", "badge-muted"),
+    READY("Ready to submit", "badge-info"),
+    SUBMITTED("Submitted", "badge-info"),
+    RETRY("Retrying", "badge-warning"),
+    ACCEPTED("Accepted", "badge-success"),
+    REJECTED("Rejected", "badge-error"),
+    FAILED("Failed", "badge-error"),
     ;
 
     val isActive: Boolean get() = this == WAITING_SETUP || this == READY || this == SUBMITTED || this == RETRY

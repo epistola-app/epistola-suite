@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** feat(exchange): **Reworked the Exchange settings page.** The connection state is now stated as a badge rather than left to be inferred, its details read as a key/value list instead of a run of sentences, and scopes and namespaces are chips with the default namespace marked. Publication status is a coloured badge everywhere it appears, the per-state counts sit in the section header, and disconnecting has its own section with confirmation dialogs instead of a bare disclosure triangle. Reauthorizing moved to the card header, where it reads as an action on the connection rather than a step in the namespace form.
+
 - **[user]** fix(exchange): **A rejected Exchange response now explains itself on the settings page.** Reaching Exchange and getting back something unusable — a discovery document version Suite does not understand, OAuth metadata advertising a different issuer than discovery, a missing field, a non-HTTPS endpoint — produced an unexpected-error page with no indication of what disagreed. These now raise a distinct failure that the Exchange page reports in full, naming both sides of the mismatch, so the most likely first-connection problem is readable rather than a stack trace in the log.
 
 - **[dev]** test(exchange): **Enrollment through the public discovery document is now covered.** Every existing test configured `base-url`, the local-development escape hatch, which is how a production-only defect survived: discovery was skipped and nothing exercised it. The new tests leave `base-url` unset, serve the document shape epistola.app actually publishes, and cover the version guard, the issuer-mismatch guard, and the refusal of a plaintext Exchange.

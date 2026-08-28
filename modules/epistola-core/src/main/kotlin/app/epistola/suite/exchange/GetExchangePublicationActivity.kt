@@ -60,6 +60,7 @@ data class ExchangePublicationActivity(
 
 data class PublicationStatusCount(val status: CatalogPublicationStatus, val count: Int) {
     val label: String get() = status.label
+    val badgeClass: String get() = status.badgeClass
 }
 
 data class GetExchangePublicationActivity(
