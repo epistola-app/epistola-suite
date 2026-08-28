@@ -7,6 +7,7 @@ package app.epistola.suite.exchange
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
@@ -31,7 +32,7 @@ class ExchangePlaintextRefusalTest : IntegrationTestBase() {
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
             assertThatThrownBy {
                 StartExchangeConnection(tenant.id, "https://suite.example/oauth/exchange/callback").execute()
-            }.hasMessageContaining("must use HTTPS")
+            }.isInstanceOf(ExchangeProtocolException::class.java).hasMessageContaining("must use HTTPS")
         }
     }
 

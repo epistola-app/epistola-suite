@@ -7,6 +7,7 @@ package app.epistola.suite.exchange
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -67,6 +68,7 @@ class ExchangeDiscoveryIntegrationTest : IntegrationTestBase() {
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
             assertThatThrownBy { StartExchangeConnection(tenant.id, CALLBACK).execute() }
+                .isInstanceOf(ExchangeProtocolException::class.java)
                 .hasMessageContaining("Unsupported Exchange discovery version")
         }
     }
@@ -79,6 +81,7 @@ class ExchangeDiscoveryIntegrationTest : IntegrationTestBase() {
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
             assertThatThrownBy { StartExchangeConnection(tenant.id, CALLBACK).execute() }
+                .isInstanceOf(ExchangeProtocolException::class.java)
                 .hasMessageContaining("Exchange OAuth issuer mismatch")
         }
     }

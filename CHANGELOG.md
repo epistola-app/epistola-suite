@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **A rejected Exchange response now explains itself on the settings page.** Reaching Exchange and getting back something unusable — a discovery document version Suite does not understand, OAuth metadata advertising a different issuer than discovery, a missing field, a non-HTTPS endpoint — produced an unexpected-error page with no indication of what disagreed. These now raise a distinct failure that the Exchange page reports in full, naming both sides of the mismatch, so the most likely first-connection problem is readable rather than a stack trace in the log.
+
 - **[dev]** test(exchange): **Enrollment through the public discovery document is now covered.** Every existing test configured `base-url`, the local-development escape hatch, which is how a production-only defect survived: discovery was skipped and nothing exercised it. The new tests leave `base-url` unset, serve the document shape epistola.app actually publishes, and cover the version guard, the issuer-mismatch guard, and the refusal of a plaintext Exchange.
 
 - **[user]** feat(exchange): **The Exchange page now shows publication activity across every catalog.** Releases publish in the background, so a lapsed enrollment or an unavailable namespace previously left work queued with nothing to indicate it. Settings → Exchange now reports a count per state, the most recently touched publications across all catalogs with a link back to each, and a warning when the oldest unfinished publication has been queued for over an hour.

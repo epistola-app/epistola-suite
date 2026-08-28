@@ -15,6 +15,17 @@ import tools.jackson.databind.JsonNode
 import java.time.Duration
 import java.util.UUID
 
+/**
+ * Exchange was reachable, but its answer cannot be used: a document version Suite does not
+ * understand, an issuer that does not match, a missing field, an endpoint that is not HTTPS.
+ *
+ * Distinct from a transport failure (`RestClientException`) because the remedy is different — this
+ * is a configuration or contract problem an operator has to look at — and distinct from a bare
+ * `IllegalArgumentException` so callers can surface it as an explanation rather than a stack trace.
+ * The messages are safe to show: they name URLs and protocol fields, never credentials.
+ */
+class ExchangeProtocolException(message: String) : RuntimeException(message)
+
 data class ExchangeEndpoints(
     val issuer: String,
     val baseUrl: String,
@@ -64,15 +75,21 @@ class ExchangeClient(
         val configuredBase = properties.configuredBaseUrl?.trimEnd('/')
         val discovery = configuredBase?.let { DiscoveryDocument(1, it, it) } ?: run {
             val node = http.get().uri(properties.discoveryUrl).retrieve().body(JsonNode::class.java)
-                ?: error("Exchange discovery returned an empty response")
-            require(node.path("version").asInt() == 1) { "Unsupported Exchange discovery version" }
+                ?: throw ExchangeProtocolException("Exchange discovery returned an empty response")
+            val version = node.path("version").asInt()
+            if (version != 1) throw ExchangeProtocolException("Unsupported Exchange discovery version: $version")
             DiscoveryDocument(1, node.requiredText("issuer"), node.requiredText("baseUrl"))
         }
         val issuer = requireSecure(discovery.issuer.trimEnd('/'), "issuer")
         val baseUrl = requireSecure(discovery.baseUrl.trimEnd('/'), "base URL")
         val metadata = http.get().uri("$issuer/.well-known/oauth-authorization-server").retrieve().body(JsonNode::class.java)
-            ?: error("Exchange OAuth discovery returned an empty response")
-        require(metadata.requiredText("issuer").trimEnd('/') == issuer) { "Exchange OAuth issuer mismatch" }
+            ?: throw ExchangeProtocolException("Exchange OAuth discovery returned an empty response")
+        val advertised = metadata.requiredText("issuer").trimEnd('/')
+        if (advertised != issuer) {
+            throw ExchangeProtocolException(
+                "Exchange OAuth issuer mismatch: discovery says '$issuer' but its OAuth metadata advertises '$advertised'",
+            )
+        }
         return ExchangeEndpoints(
             issuer = issuer,
             baseUrl = baseUrl,
@@ -86,10 +103,14 @@ class ExchangeClient(
      * refused unless a local checkout has explicitly opted in.
      */
     private fun requireSecure(url: String, what: String): String {
-        require(properties.allowHttp || !url.startsWith("http://")) {
-            "Exchange $what must use HTTPS; set epistola.exchange.allow-http only for a local Exchange"
+        if (!url.startsWith("https://") && !url.startsWith("http://")) {
+            throw ExchangeProtocolException("Exchange $what is not an absolute URL: '$url'")
         }
-        require(url.startsWith("https://") || url.startsWith("http://")) { "Exchange $what is not an absolute URL: '$url'" }
+        if (!properties.allowHttp && url.startsWith("http://")) {
+            throw ExchangeProtocolException(
+                "Exchange $what must use HTTPS ('$url'); set epistola.exchange.allow-http only for a local Exchange",
+            )
+        }
         return url
     }
 
@@ -117,7 +138,7 @@ class ExchangeClient(
         }
         val node = http.post().uri(endpoints.authorizationRequestEndpoint)
             .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form).retrieve().body(JsonNode::class.java)
-            ?: error("Exchange authorization request returned an empty response")
+            ?: throw ExchangeProtocolException("Exchange authorization request returned an empty response")
         return ExchangeAuthorizationResponse(
             node.requiredText("authorization_uri"),
             Duration.ofSeconds(node.path("expires_in").asLong()),
@@ -160,7 +181,7 @@ class ExchangeClient(
     fun context(endpoints: ExchangeEndpoints, accessToken: String): ExchangeConnectionContext {
         val node = http.get().uri("${endpoints.baseUrl}/api/v1/tenant-connection")
             .headers { it.setBearerAuth(accessToken) }.retrieve().body(JsonNode::class.java)
-            ?: error("Exchange tenant context returned an empty response")
+            ?: throw ExchangeProtocolException("Exchange tenant context returned an empty response")
         return ExchangeConnectionContext(
             UUID.fromString(node.requiredText("tenantConnectionId")),
             node.requiredText("tenantConnectionReference"),
@@ -199,14 +220,14 @@ class ExchangeClient(
                 it.setBearerAuth(accessToken)
                 it.set("Idempotency-Key", idempotencyKey.toString())
             }.contentType(MediaType.MULTIPART_FORM_DATA).body(multipart)
-            .retrieve().body(JsonNode::class.java) ?: error("Exchange publication returned an empty response")
+            .retrieve().body(JsonNode::class.java) ?: throw ExchangeProtocolException("Exchange publication returned an empty response")
         return publication(node)
     }
 
     fun publication(baseUrl: String, accessToken: String, id: UUID): ExchangePublicationResponse {
         val node = http.get().uri("${baseUrl.trimEnd('/')}/api/v1/publication-submissions/$id")
             .headers { it.setBearerAuth(accessToken) }.retrieve().body(JsonNode::class.java)
-            ?: error("Exchange publication status returned an empty response")
+            ?: throw ExchangeProtocolException("Exchange publication status returned an empty response")
         return publication(node)
     }
 
@@ -214,7 +235,7 @@ class ExchangeClient(
         val form = LinkedMultiValueMap<String, String>().apply { values.forEach(::add) }
         val node = http.post().uri(endpoints.tokenEndpoint).contentType(MediaType.APPLICATION_FORM_URLENCODED)
             .body(form).retrieve().body(JsonNode::class.java)
-            ?: error("Exchange token endpoint returned an empty response")
+            ?: throw ExchangeProtocolException("Exchange token endpoint returned an empty response")
         return ExchangeTokenResponse(
             UUID.fromString(node.requiredText("client_id")),
             node.path("client_secret").takeUnless { it.isMissingNode || it.isNull }?.stringValue(),
@@ -237,5 +258,5 @@ class ExchangeClient(
     )
 
     private fun JsonNode.requiredText(name: String): String = path(name).stringValue()?.takeIf(String::isNotBlank)
-        ?: error("Exchange response is missing '$name'")
+        ?: throw ExchangeProtocolException("Exchange response is missing '$name'")
 }

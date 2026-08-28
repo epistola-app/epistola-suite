@@ -7,6 +7,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CompleteExchangeConnection
 import app.epistola.suite.exchange.DisconnectExchangeConnection
+import app.epistola.suite.exchange.ExchangeProtocolException
 import app.epistola.suite.exchange.FindExchangeAuthorizationTenant
 import app.epistola.suite.exchange.GetExchangeSettings
 import app.epistola.suite.exchange.SetExchangeDefaultNamespace
@@ -108,11 +109,12 @@ class ExchangeHandler {
     } catch (failure: RestClientException) {
         logger.warn("Exchange call failed for tenant {}: {}", tenantKey, failure.message)
         renderSettings(tenantKey, "Exchange could not be reached or refused the request. Try again, or forget the connection locally.")
-    } catch (failure: IllegalStateException) {
-        // The client raises these for a response that is present but unusable (missing fields,
-        // empty body) — an Exchange problem, not ours.
+    } catch (failure: ExchangeProtocolException) {
+        // Reached Exchange, cannot use its answer — a version, issuer or endpoint problem an
+        // operator has to act on. The message names what disagreed, so it is shown as-is:
+        // "connect failed" without the reason is the least useful thing this page could say.
         logger.warn("Exchange returned an unusable response for tenant {}: {}", tenantKey, failure.message)
-        renderSettings(tenantKey, "Exchange returned a response Suite could not understand. Try again later.")
+        renderSettings(tenantKey, failure.message)
     }
 
     private fun renderSettings(tenantKey: TenantKey, error: String? = null): ServerResponse = ServerResponse.ok().page("exchange") {

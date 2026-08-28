@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.exchange
+package app.epistola.suite.testing
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -15,6 +15,10 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * A stand-in Exchange over a real loopback HTTP server.
+ *
+ * Shared test infrastructure rather than a fixture of one module: the same server backs the
+ * domain's enrollment and worker tests and the host app's UI tests, which is the only way to prove
+ * that what the client raises actually reaches the page an administrator is looking at.
  *
  * Publication is a conversation with a remote service, so the parts worth testing — token refresh,
  * idempotent submission, following a submission to a terminal state, and what Suite does with 401
