@@ -60,6 +60,7 @@ class PermissionTest {
             Permission.CATALOG_MANAGE,
             Permission.BACKUP_CREATE,
             Permission.DIAGNOSTICS_VIEW,
+            Permission.DIAGNOSTICS_MANAGE,
             Permission.AUDIT_VIEW,
             Permission.TENANT_RESTORE,
         )

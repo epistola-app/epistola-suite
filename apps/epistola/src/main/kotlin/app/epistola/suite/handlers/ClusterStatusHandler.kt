@@ -6,6 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterProperties
+import app.epistola.suite.cluster.ForgetClusterNode
 import app.epistola.suite.cluster.ListClusterNodes
 import app.epistola.suite.cluster.RecordClusterHeartbeat
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
@@ -16,11 +17,14 @@ import app.epistola.suite.cluster.schedules.ListClusterScheduledTasks
 import app.epistola.suite.cluster.timers.ClusterTimer
 import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.ValidationException
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -54,6 +58,44 @@ class ClusterStatusHandler(
         val tenantId = request.tenantId()
         val report = loadReport()
 
+        return request.htmx {
+            fragment("cluster/dashboard", "results") {
+                "tenantId" to tenantId.key
+                "report" to report
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/cluster") }
+        }
+    }
+
+    /**
+     * Removes a stale node from the registry, then re-renders the table.
+     *
+     * The command re-checks liveness inside the delete, so a node that heartbeats between
+     * the page render and this call is refused rather than removed.
+     */
+    fun forgetNode(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val nodeId = request.pathVariable("nodeId")
+
+        try {
+            ForgetClusterNode(nodeId = nodeId, tenantKey = tenantId.key).execute()
+        } catch (e: ValidationException) {
+            // 422 rather than a 500: the request was rejected on its merits (still live,
+            // or already gone), so retrying is pointless. The confirm dialog reads
+            // `detail` and, on a 4xx, replaces Delete with Cancel.
+            val detail = e.message
+            return if (request.isHtmx) {
+                ServerResponse.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .header("Content-Type", "application/json")
+                    .body(mapOf("detail" to detail, "error" to detail))
+            } else {
+                ServerResponse.status(HttpStatus.SEE_OTHER)
+                    .header("Location", "/tenants/${tenantId.key}/cluster")
+                    .build()
+            }
+        }
+
+        val report = loadReport()
         return request.htmx {
             fragment("cluster/dashboard", "results") {
                 "tenantId" to tenantId.key

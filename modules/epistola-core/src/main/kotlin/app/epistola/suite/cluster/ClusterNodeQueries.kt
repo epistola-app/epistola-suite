@@ -6,11 +6,16 @@ package app.epistola.suite.cluster
 
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 
 /**
@@ -49,4 +54,54 @@ class RecordClusterHeartbeatHandler(
     private val registry: ClusterNodeRegistry,
 ) : CommandHandler<RecordClusterHeartbeat, ClusterNode> {
     override fun handle(command: RecordClusterHeartbeat): ClusterNode = registry.heartbeat()
+}
+
+/**
+ * Removes one dead node from the cluster registry at an operator's request.
+ *
+ * The registry is installation-wide, but the *authorization* to maintain it is a tenant
+ * permission — the same way the Cluster operations page itself is gated. [tenantKey] is
+ * therefore the permission scope, not a data scope.
+ *
+ * Only a node that is already stale can be forgotten: an active node would simply
+ * re-register on its next heartbeat, and removing a live node's row briefly stops it
+ * claiming cluster work. [ClusterNodeRegistry.forgetNode] re-checks liveness in the same
+ * statement that deletes, so the guard holds even against a concurrent heartbeat.
+ *
+ * Audited: this is a deliberate operator action, unlike the infrastructural
+ * [RecordClusterHeartbeat]. Not event-logged — nothing downstream reacts to it.
+ */
+data class ForgetClusterNode(
+    val nodeId: String,
+    override val tenantKey: TenantKey,
+) : Command<StaleClusterNodePurge>,
+    RequiresPermission,
+    NotEventLogged {
+    override val permission get() = Permission.DIAGNOSTICS_MANAGE
+}
+
+@Component
+class ForgetClusterNodeHandler(
+    private val registry: ClusterNodeRegistry,
+) : CommandHandler<ForgetClusterNode, StaleClusterNodePurge> {
+    override fun handle(command: ForgetClusterNode): StaleClusterNodePurge {
+        val node = registry.findNode(command.nodeId)
+            ?: throw ValidationException(
+                field = "nodeId",
+                message = "Cluster node '${command.nodeId}' is not registered.",
+                code = ValidationCode.CLUSTER_NODE_NOT_FOUND,
+            )
+
+        val purge = registry.forgetNode(node.nodeId)
+        if (purge.nodes == 0) {
+            // The delete re-checks liveness, so reaching here means the node is still
+            // heartbeating — report that rather than silently doing nothing.
+            throw ValidationException(
+                field = "nodeId",
+                message = "Cluster node '${command.nodeId}' is still active and cannot be forgotten.",
+                code = ValidationCode.CLUSTER_NODE_ACTIVE,
+            )
+        }
+        return purge
+    }
 }

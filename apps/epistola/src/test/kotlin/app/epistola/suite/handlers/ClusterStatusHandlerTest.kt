@@ -122,6 +122,125 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `POST forget removes a stale node and returns the refreshed table`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Cluster Forget Tenant")
+            deleteNode("forgettable-cluster-node")
+            insertNode("forgettable-cluster-node", OffsetDateTime.now().minusMinutes(30))
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            restTemplate.exchange(
+                "/tenants/${tenant.id}/cluster/nodes/forgettable-cluster-node/forget",
+                HttpMethod.POST,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // The fragment, not a whole page — the button targets #cluster-results.
+            assertThat(body).doesNotContain("<html")
+            assertThat(body).contains("id=\"cluster-results\"")
+            assertThat(body).doesNotContain("forgettable-cluster-node")
+            assertThat(nodeExists("forgettable-cluster-node")).isFalse()
+        }
+    }
+
+    @Test
+    fun `POST forget refuses the current node because it is still active`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Cluster Forget Active Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            restTemplate.exchange(
+                "/tenants/${tenant.id}/cluster/nodes/${nodeIdentity.nodeId}/forget",
+                HttpMethod.POST,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // 422, not 500: rejected on its merits, so the dialog swaps Delete for Cancel
+            // and shows this message instead of a generic internal-error page.
+            assertThat(response.statusCode.value()).isEqualTo(422)
+            assertThat(response.body!!).contains("still active")
+            // The node this request is being served by must survive — every claim path needs its row.
+            assertThat(nodeExists(nodeIdentity.nodeId)).isTrue()
+        }
+    }
+
+    @Test
+    fun `POST forget rejects an unknown node`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Cluster Forget Unknown Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            restTemplate.exchange(
+                "/tenants/${tenant.id}/cluster/nodes/no-such-node/forget",
+                HttpMethod.POST,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode.value()).isEqualTo(422)
+            assertThat(response.body!!).contains("not registered")
+        }
+    }
+
+    @Test
+    fun `GET dashboard offers Forget only for stale nodes`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Cluster Forget Button Tenant")
+            deleteNode("stale-forget-button-node")
+            insertNode("stale-forget-button-node", OffsetDateTime.now().minusMinutes(20))
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${tenant.id}/cluster", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            val body = response.body!!
+            assertThat(body).contains("/cluster/nodes/stale-forget-button-node/forget")
+            // The current node is active, so it must not be offered a Forget button.
+            assertThat(body).doesNotContain("/cluster/nodes/${nodeIdentity.nodeId}/forget")
+        }
+    }
+
+    private fun nodeExists(nodeId: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        handle.createQuery("SELECT EXISTS (SELECT 1 FROM cluster_nodes WHERE node_id = :nodeId)")
+            .bind("nodeId", nodeId)
+            .mapTo(Boolean::class.java)
+            .one()
+    }
+
     private fun deleteNode(nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM cluster_nodes WHERE node_id = :nodeId")
