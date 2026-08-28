@@ -663,7 +663,10 @@ until the alpha workflow and error model have settled.
 4. Qualify relative references when content is written, so new stored references always name
    their catalog and aliases always have an address to attach to.
 5. Reserve addresses vacated by a relocation, with an explicit release that previews what stops
-   resolving.
+   resolving. `requireAddressAvailable` is shared, but each resource type's create command must
+   call it: **making a new type movable means wiring the guard into that type's create path in the
+   same change**, because no alias can exist for a type before it is movable and nothing fails if
+   the call is missed.
 6. Define immutable relative-reference context and conservatively block historical shapes that
    cannot preserve resolution.
 7. Make every runtime and export resolver use one alias-aware resource-address resolver, with parity

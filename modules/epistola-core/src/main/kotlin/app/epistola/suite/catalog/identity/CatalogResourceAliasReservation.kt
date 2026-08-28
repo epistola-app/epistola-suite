@@ -38,6 +38,11 @@ class CatalogResourceAddressReservedException(
  * Deliberately a command-layer rule rather than a database constraint: catalog import and tenant
  * backup restore must reproduce stored state faithfully, including a resource that legitimately
  * predates an alias.
+ *
+ * Only [app.epistola.suite.stencils.commands.CreateStencil] calls this today, because stencils are
+ * the only relocatable type and no alias can exist for a type that cannot move. Making another type
+ * movable must wire this into that type's create command in the same change — omitting it fails
+ * nothing, it just lets a published reference be silently repointed at a different resource.
  */
 fun requireAddressAvailable(handle: Handle, tenantKey: TenantKey, address: ResourceAddress) {
     val reserved = handle.createQuery(
