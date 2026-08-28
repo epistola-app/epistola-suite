@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+- **[user]** feat(cluster): **Dead cluster nodes are cleaned up automatically.** A node id is
+  the pod hostname, so every rollout left a permanent row in the registry — an installation
+  could show dozens of stale nodes going back weeks on the Cluster page, each also leaking a
+  scheduled-task registration per definition. A daily `single_owner` task now purges nodes
+  unseen for `epistola.cluster.node-reaper.stale-node-retention` (default 7 days) together
+  with the registration and per-node task-state rows they orphaned. Retention is deliberately
+  measured in days and clamped to at least 4x the reconciliation grace period: a node row is
+  what vouches for that node's scheduled-task definitions, so purging too eagerly would turn a
+  routine pod restart into lost schedules. The current node is never purged.
+- **[user]** feat(cluster): **Forget a dead node from the Cluster page.** Stale rows get a
+  Forget action so an operator does not have to wait for the nightly purge. It refuses a node
+  that is still heartbeating, re-checking liveness inside the delete itself, and is gated on
+  the new `DIAGNOSTICS_MANAGE` permission so reading the operations pages never implies
+  mutating the registries they show.
+- **[user]** fix(cluster): **Node ages read in days and hours.** A month-old node rendered as
+  "33474m ago"; ages now read "23d 5h ago", with the exact timestamp still on hover.
+
 - **[dev]** feat(generation): **Document workers now yield to a degraded
   database.** Every JDBI statement records a safe aggregate round-trip timer
   (bound through Micrometer after bootstrap, so it never joins the

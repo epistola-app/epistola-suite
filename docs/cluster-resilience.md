@@ -230,25 +230,57 @@ at-least-once and cancellation semantics.
 - `JobPollerDatabasePressureIntegrationTest`: reducing the effective limit
   mid-drain blocks new claims but never touches an already in-flight request.
 
+## Node registry retention
+
+`cluster_nodes` is not just a display table: `ClusterScheduledTaskRegistry`'s
+`LIVE_REGISTRATION_EXISTS` **inner-joins** `cluster_scheduled_task_registrations` to it,
+so a node row is what vouches for the scheduled-task definitions that node carries.
+Deleting a row is therefore semantically identical to that node being _infinitely_ stale
+— it stops vouching immediately, and the reconciler may then retire definitions no live
+node carries.
+
+`StaleClusterNodeReaper` (`core.stale-cluster-node-reaper`, `single_owner`, daily) purges
+nodes unseen for the retention window, together with the
+`cluster_scheduled_task_registrations` and `cluster_tasks_scheduled_node_state` rows they
+orphaned. It exists because `node_id` is the pod hostname: on Kubernetes every rollout
+registers a new set of rows and nothing removed the old ones.
+
+Two invariants keep the purge safe, and both are enforced rather than documented:
+
+- **Retention is clamped** to at least 4x `scheduled-tasks.reconciliation-grace-period-ms`
+  by `ClusterProperties.effectiveStaleNodeRetention()`. A shorter window would let the
+  reaper retire definitions ahead of the reconciler, turning a routine pod restart into
+  lost schedules.
+- **The current node is never purged.** Every claim path requires this node's own row to
+  exist and be fresh, so a node that deleted its own row would stop claiming all cluster
+  work until its next heartbeat.
+
+Lease reclaim (`lease_expires_at < now`) never consults `cluster_nodes`, so purging cannot
+strand an in-flight lease. An operator can also forget a single stale node from the
+Cluster page; that path re-checks liveness inside the delete, so a live node is refused.
+
 ## Configuration reference
 
-| Property                                                                        | Default | Purpose                                                                                                      |
-| ------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
-| `epistola.cluster.idle-timeout-ms`                                              | 10000   | Heartbeat freshness window for "active".                                                                     |
-| `epistola.cluster.scheduled-tasks.scheduler-idle-timeout-ms`                    | 30000   | Poll-completion freshness for single-owner election (#723).                                                  |
-| `epistola.cluster.scheduled-tasks.lease-duration-ms`                            | 30000   | Lease held on a claimed task; renewed while in-flight.                                                       |
-| `epistola.cluster.scheduled-tasks.max-run-duration-ms`                          | 900000  | Hard deadline after which a single-owner run is force-reclaimed. Set well above the longest handler runtime. |
-| `epistola.generation.polling.stale-timeout-minutes`                             | 10      | IN_PROGRESS document age after which `StaleJobRecovery` re-queues it.                                        |
-| `epistola.generation.polling.database-pressure.enabled`                         | true    | Enables admission throttling under database pressure.                                                        |
-| `epistola.generation.polling.database-pressure.observation-window-ms`           | 10000   | Rolling window over which statement latency and critical-failure signals are aggregated.                     |
-| `epistola.generation.polling.database-pressure.minimum-samples`                 | 3       | Statements required in the window before latency-based throttling/recovery acts.                             |
-| `epistola.generation.polling.database-pressure.slow-statement-threshold-ms`     | 500     | p95 statement latency that triggers throttling.                                                              |
-| `epistola.generation.polling.database-pressure.recovery-statement-threshold-ms` | 200     | p95 statement latency required (with zero pool waiters) to count as healthy.                                 |
-| `epistola.generation.polling.database-pressure.minimum-concurrent-jobs`         | 1       | Floor effective concurrency never drops below outside a full pause.                                          |
-| `epistola.generation.polling.database-pressure.backoff-interval-ms`             | 1000    | Minimum time between successive halvings while pressured.                                                    |
-| `epistola.generation.polling.database-pressure.recovery-period-ms`              | 30000   | Sustained healthy time required before recovery stepping begins.                                             |
-| `epistola.generation.polling.database-pressure.recovery-step-interval-ms`       | 10000   | Time between successive +1 recovery steps.                                                                   |
-| `epistola.loadtest.polling.stale-timeout-minutes`                               | 10      | No-progress window after which a load-test run is recovered (#725).                                          |
+| Property                                                                        | Default         | Purpose                                                                                                                                                                             |
+| ------------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `epistola.cluster.idle-timeout-ms`                                              | 10000           | Heartbeat freshness window for "active".                                                                                                                                            |
+| `epistola.cluster.scheduled-tasks.scheduler-idle-timeout-ms`                    | 30000           | Poll-completion freshness for single-owner election (#723).                                                                                                                         |
+| `epistola.cluster.scheduled-tasks.lease-duration-ms`                            | 30000           | Lease held on a claimed task; renewed while in-flight.                                                                                                                              |
+| `epistola.cluster.scheduled-tasks.max-run-duration-ms`                          | 900000          | Hard deadline after which a single-owner run is force-reclaimed. Set well above the longest handler runtime.                                                                        |
+| `epistola.cluster.node-reaper.stale-node-retention`                             | P7D             | Heartbeat age after which a dead node row, and the scheduled-task registrations and per-node state it orphaned, are purged. Clamped to at least 4x the reconciliation grace period. |
+| `epistola.cluster.node-reaper.cron`                                             | 0 15 4 \* \* \* | When the node purge runs.                                                                                                                                                           |
+| `epistola.cluster.node-reaper.enabled`                                          | true            | Master switch for the node purge.                                                                                                                                                   |
+| `epistola.generation.polling.stale-timeout-minutes`                             | 10              | IN_PROGRESS document age after which `StaleJobRecovery` re-queues it.                                                                                                               |
+| `epistola.generation.polling.database-pressure.enabled`                         | true            | Enables admission throttling under database pressure.                                                                                                                               |
+| `epistola.generation.polling.database-pressure.observation-window-ms`           | 10000           | Rolling window over which statement latency and critical-failure signals are aggregated.                                                                                            |
+| `epistola.generation.polling.database-pressure.minimum-samples`                 | 3               | Statements required in the window before latency-based throttling/recovery acts.                                                                                                    |
+| `epistola.generation.polling.database-pressure.slow-statement-threshold-ms`     | 500             | p95 statement latency that triggers throttling.                                                                                                                                     |
+| `epistola.generation.polling.database-pressure.recovery-statement-threshold-ms` | 200             | p95 statement latency required (with zero pool waiters) to count as healthy.                                                                                                        |
+| `epistola.generation.polling.database-pressure.minimum-concurrent-jobs`         | 1               | Floor effective concurrency never drops below outside a full pause.                                                                                                                 |
+| `epistola.generation.polling.database-pressure.backoff-interval-ms`             | 1000            | Minimum time between successive halvings while pressured.                                                                                                                           |
+| `epistola.generation.polling.database-pressure.recovery-period-ms`              | 30000           | Sustained healthy time required before recovery stepping begins.                                                                                                                    |
+| `epistola.generation.polling.database-pressure.recovery-step-interval-ms`       | 10000           | Time between successive +1 recovery steps.                                                                                                                                          |
+| `epistola.loadtest.polling.stale-timeout-minutes`                               | 10              | No-progress window after which a load-test run is recovered (#725).                                                                                                                 |
 
 New columns (additive, nullable, data-preserving migrations):
 

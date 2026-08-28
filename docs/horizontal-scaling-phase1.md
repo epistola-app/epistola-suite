@@ -212,6 +212,14 @@ Indexes:
 `joined_at` is set on insert and preserved on every heartbeat. `last_seen_at`
 is updated on every heartbeat.
 
+A row's full lifecycle is therefore: created on the node's first heartbeat, refreshed on
+every heartbeat, and removed by `StaleClusterNodeReaper` once the node has been unseen for
+`epistola.cluster.node-reaper.stale-node-retention`. Retention is required, not cosmetic:
+`NodeIdentity` derives `node_id` from the pod hostname, so on Kubernetes every rollout
+registers a fresh set of rows. See
+[cluster-resilience.md](cluster-resilience.md#node-registry-retention) for why the window
+must stay far above the reconciliation grace period.
+
 ### Runtime Components
 
 `ClusterProperties`:
@@ -219,6 +227,9 @@ is updated on every heartbeat.
 - `epistola.cluster.heartbeat-interval-ms`
 - `epistola.cluster.idle-timeout-ms`
 - `epistola.cluster.capabilities`
+- `epistola.cluster.node-reaper.enabled`
+- `epistola.cluster.node-reaper.cron`
+- `epistola.cluster.node-reaper.stale-node-retention`
 
 There is deliberately no `epistola.cluster.enabled` switch. Epistola always
 runs as a cluster runtime; a non-horizontal deployment is simply a one-node
@@ -236,6 +247,15 @@ for timer ownership, durable processes, and cache invalidation.
 - fixed delay from `epistola.cluster.heartbeat-interval-ms`
 - always active
 
+`StaleClusterNodeReaper`:
+
+- `single_owner` cluster scheduled task, `core.stale-cluster-node-reaper`
+- runs daily at `epistola.cluster.node-reaper.cron`
+- deletes nodes whose `last_seen_at` is older than the clamped retention window, plus the
+  purged nodes' `cluster_scheduled_task_registrations` and
+  `cluster_tasks_scheduled_node_state` rows, in one statement
+- never deletes the current node's own row
+
 Default configuration:
 
 ```yaml
@@ -243,6 +263,10 @@ epistola:
   cluster:
     heartbeat-interval-ms: 2000
     idle-timeout-ms: 10000
+    node-reaper:
+      enabled: true
+      cron: "0 15 4 * * *"
+      stale-node-retention: P7D
     capabilities:
       - suite
 ```
@@ -269,6 +293,9 @@ Phase 1A tests:
 - active-node query excludes stale nodes
 - configured capabilities are persisted and read back
 - registry uses `NodeIdentity`
+- stale node rows and the scheduled-task registrations they orphaned are purged
+- the current node's row is never purged, however stale it looks
+- a node stale beyond the reconciliation grace period but inside retention is kept
 
 Later phase tests:
 
