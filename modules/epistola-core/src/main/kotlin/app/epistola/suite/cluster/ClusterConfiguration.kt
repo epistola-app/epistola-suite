@@ -7,6 +7,7 @@ package app.epistola.suite.cluster
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
+import java.time.Duration
 
 /**
  * Enables cluster coordination configuration properties.
@@ -35,6 +36,7 @@ data class ClusterProperties(
     val capabilities: List<String> = listOf(DEFAULT_CAPABILITY),
     val timers: ClusterTimerProperties = ClusterTimerProperties(),
     val scheduledTasks: ClusterScheduledTaskProperties = ClusterScheduledTaskProperties(),
+    val nodeReaper: ClusterNodeReaperProperties = ClusterNodeReaperProperties(),
     /**
      * Which substrate triggers autonomous cluster work:
      * [SUBSTRATE_WALL_CLOCK] (production default — pollers tick via the
@@ -74,6 +76,24 @@ data class ClusterProperties(
     /** True when autonomous wall-clock triggering is active (production). */
     fun autonomousSchedulingEnabled(): Boolean = schedulingSubstrate == SUBSTRATE_WALL_CLOCK
 
+    /**
+     * Heartbeat age at which [StaleClusterNodeReaper] purges a node, never shorter than
+     * [RETENTION_GRACE_MULTIPLIER] x [ClusterScheduledTaskProperties.reconciliationGracePeriodMs].
+     *
+     * Deleting a `cluster_nodes` row is semantically identical to that node being
+     * *infinitely* stale. The row is what `ClusterScheduledTaskRegistry`'s
+     * `LIVE_REGISTRATION_EXISTS` inner-joins to, so the moment it is gone the node stops
+     * vouching for the scheduled-task definitions it registered. A retention window
+     * shorter than the reconciliation grace period would therefore let the reaper retire
+     * definitions *earlier* than the reconciler itself would, turning a routine pod
+     * restart into lost schedules. Clamping here makes that unreachable by
+     * misconfiguration rather than merely warned about in documentation.
+     */
+    fun effectiveStaleNodeRetention(): Duration = maxOf(
+        nodeReaper.staleNodeRetention,
+        Duration.ofMillis(scheduledTasks.reconciliationGracePeriodMs).multipliedBy(RETENTION_GRACE_MULTIPLIER),
+    )
+
     companion object {
         const val DEFAULT_CAPABILITY = "suite"
 
@@ -86,6 +106,12 @@ data class ClusterProperties(
         const val PDF_RENDER_CAPABILITY = "pdf-render"
         const val SUBSTRATE_WALL_CLOCK = "wall-clock"
         const val SUBSTRATE_TEST = "test"
+
+        /**
+         * Safety factor between the scheduled-task reconciliation grace period and the
+         * floor under node retention. See [ClusterProperties.effectiveStaleNodeRetention].
+         */
+        const val RETENTION_GRACE_MULTIPLIER = 4L
     }
 }
 
@@ -160,4 +186,33 @@ data class ClusterScheduledTaskProperties(
      * schedules protected. Default 15 minutes.
      */
     val reconciliationGracePeriodMs: Long = 900_000,
+)
+
+/**
+ * Settings for the daily purge of dead `cluster_nodes` rows.
+ *
+ * On Kubernetes the node id is the pod hostname, so every Deployment rollout registers
+ * brand-new rows and nothing ever removed the old ones: the registry, and with it the
+ * Cluster operations page, grew without bound.
+ */
+data class ClusterNodeReaperProperties(
+    /**
+     * Master switch. When false the reaper contributes no scheduled-task definition, so
+     * this node stops vouching for `core.stale-cluster-node-reaper` and
+     * `ClusterScheduledTaskReconciler` retires the row once no node has carried it for
+     * the grace period. That is the ordinary path for a withdrawn definition, not data
+     * loss: re-enabling re-creates it on the next startup.
+     */
+    val enabled: Boolean = true,
+    /**
+     * When the purge runs. Default 04:15 daily, clear of partition maintenance (02:00),
+     * the stale consumer-node reaper (03:00) and application-log retention (03:30).
+     */
+    val cron: String = "0 15 4 * * *",
+    /**
+     * A node whose heartbeat is older than this is purged, along with the scheduled-task
+     * registrations and per-node task state it left behind. Days, not minutes — see
+     * [ClusterProperties.effectiveStaleNodeRetention], which clamps it.
+     */
+    val staleNodeRetention: Duration = Duration.ofDays(7),
 )
