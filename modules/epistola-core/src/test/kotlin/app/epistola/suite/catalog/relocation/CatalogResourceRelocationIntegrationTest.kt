@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -15,6 +16,8 @@ import app.epistola.suite.catalog.identity.CatalogResourceAddressReservedExcepti
 import app.epistola.suite.catalog.identity.PreviewCatalogResourceAliasRelease
 import app.epistola.suite.catalog.identity.ReleaseCatalogResourceAlias
 import app.epistola.suite.catalog.identity.ResolveCatalogResourceAddress
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
@@ -37,6 +40,7 @@ import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.Node
@@ -53,12 +57,17 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import java.nio.charset.StandardCharsets
 import java.util.zip.ZipInputStream
 
 class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
 
     @Test
     fun `moves stencil atomically while preserving published references through alias`() {
@@ -356,6 +365,85 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         slots = emptyMap(),
         themeRef = ThemeRefOverride(themeId = "brand"),
     )
+
+    @Test
+    fun `moves an attribute and repoints the variants that name it`() {
+        val tenant = createTenant("Move attribute")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val attribute = AttributeId(AttributeKey.of("brand"), sourceCatalogId)
+        val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val address = ResourceAddress(CatalogResourceType.ATTRIBUTE, sourceCatalog.value, attribute.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateAttributeDefinition(attribute, "Brand", allowedValues = listOf("acme")).execute()
+            CreateDocumentTemplate(templateId, "Invoice").execute()
+            UpdateVariant(variantId, "Main", mapOf("letters.brand" to "acme")).execute()
+        }
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
+
+        // Every reference to an attribute is a mutable variant key, so none survives on an alias.
+        assertThat(preview.blockers).isEmpty()
+        assertThat(preview.mutableRewriteCount).isEqualTo(1)
+        assertThat(preview.immutableReferenceCount).isZero()
+
+        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+
+        val resolved = withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }
+        assertThat(resolved.canonical.catalogKey).isEqualTo(targetCatalog.value)
+
+        // The variant now names the attribute at its new address, with its value intact.
+        assertThat(variantAttributes(tenant.id, templateId, variantId))
+            .containsExactlyEntriesOf(mapOf("shared.brand" to "acme"))
+    }
+
+    @Test
+    fun `a resource type that is still keyed by address cannot move`() {
+        val tenant = createTenant("Unsupported move")
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(sourceCatalog, TenantId(tenant.id))), "Brand").execute()
+        }
+
+        val preview = withMediator {
+            PreviewCatalogResourceMove(
+                tenant.id,
+                ResourceAddress(CatalogResourceType.THEME, sourceCatalog.value, "brand"),
+                targetCatalog,
+            ).query()
+        }
+
+        assertThat(preview.blockers).anySatisfy { assertThat(it.code).isEqualTo("unsupported-resource-type") }
+        assertThat(preview.executable).isFalse()
+    }
+
+    private fun variantAttributes(tenantKey: TenantKey, templateId: TemplateId, variantId: VariantId): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
+        handle.createQuery(
+            """
+                SELECT attributes::text FROM template_variants
+                WHERE tenant_key = :tenantKey AND template_key = :templateKey AND id = :variantKey
+                """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bind("templateKey", templateId.key)
+            .bind("variantKey", variantId.key)
+            .mapTo(String::class.java)
+            .one()
+            .let { json ->
+                (objectMapper.readTree(json) as ObjectNode)
+                    .properties()
+                    .associate { (key, value) -> key to value.stringValue() }
+            }
+    }
 
     private fun aliasCatalogKeys(tenantKey: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery("SELECT catalog_key::text FROM catalog_resource_aliases WHERE tenant_key = :tenantKey ORDER BY catalog_key")

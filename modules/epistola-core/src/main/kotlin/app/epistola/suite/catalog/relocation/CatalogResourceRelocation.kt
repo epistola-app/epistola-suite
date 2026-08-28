@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ReferenceSiteKind
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.common.ids.TenantKey
@@ -22,6 +21,7 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -118,6 +118,25 @@ class MoveCatalogResourceHandler(
                     .bind("expected", rewrite.expected)
                     .execute()
 
+                is JsonRewrite.VariantAttributes -> handle.createUpdate(
+                    """
+                        UPDATE template_variants
+                        SET attributes = :replacement::jsonb
+                        WHERE tenant_key = :tenantKey
+                          AND catalog_key = :catalogKey
+                          AND template_key = :templateKey
+                          AND id = :variantKey
+                          AND attributes = :expected::jsonb
+                        """,
+                )
+                    .bind("tenantKey", command.tenantKey)
+                    .bind("catalogKey", rewrite.catalogKey)
+                    .bind("templateKey", rewrite.ownerKey)
+                    .bind("variantKey", rewrite.variantKey)
+                    .bind("replacement", rewrite.replacement)
+                    .bind("expected", rewrite.expected)
+                    .execute()
+
                 is JsonRewrite.StencilVersion -> handle.createUpdate(
                     """
                         UPDATE stencil_versions
@@ -183,9 +202,12 @@ class MoveCatalogResourceHandler(
             .bind("resourceId", resourceId)
             .execute()
 
+        // The table comes from MovableResource, never from caller input. A type only appears there
+        // once its table is keyed by identity, so this update cannot strand a dependant.
+        val movable = requireNotNull(MovableResource.of(command.source.type))
         val moved = handle.createUpdate(
             """
-                UPDATE stencils
+                UPDATE ${movable.table}
                 SET catalog_key = :targetCatalogKey
                 WHERE tenant_key = :tenantKey
                   AND resource_id = :resourceId
@@ -198,7 +220,9 @@ class MoveCatalogResourceHandler(
             .bind("targetCatalogKey", command.targetCatalogKey)
             .execute()
         if (moved != 1) throw StaleCatalogResourceMovePlanException()
-        // stencil_versions follows via fk_stencil_versions_parent_address ON UPDATE CASCADE.
+        // Owned hierarchies follow their parent's address by database rule, not by a statement here
+        // -- stencil_versions via fk_stencil_versions_parent_address ON UPDATE CASCADE. Types with
+        // no owned hierarchy, such as attributes, need nothing.
 
         plan.preview
     }
@@ -217,8 +241,12 @@ class CatalogResourceMovePlanner(
         val target = source.copy(catalogKey = targetCatalogKey.value)
         val blockers = mutableListOf<ResourceMoveBlocker>()
         if (source.catalogKey == target.catalogKey) blockers += blocker("same-catalog", "Source and target catalogs must differ")
-        if (source.type != CatalogResourceType.STENCIL) {
-            blockers += blocker("unsupported-resource-type", "The alpha currently supports stencil moves only")
+        val movable = MovableResource.of(source.type)
+        if (movable == null) {
+            blockers += blocker(
+                "unsupported-resource-type",
+                "${source.type.wireName} is not relocatable yet; its table is still keyed by address",
+            )
         }
 
         val catalogs = handle.createQuery(
@@ -299,9 +327,9 @@ class CatalogResourceMovePlanner(
         var immutableReferences = 0
         val templateVersions = loadTemplateVersions(handle, tenantKey)
         val stencilVersions = loadStencilVersions(handle, tenantKey)
-        if (source.type == CatalogResourceType.STENCIL && resourceId != null) {
+        if (movable != null && resourceId != null && movable.contentReferenceKinds.isNotEmpty()) {
             templateVersions.forEach { row ->
-                val rewritten = rewriteIncomingStencilReferences(row.json, row.catalogKey, source, target.catalogKey)
+                val rewritten = rewriteIncomingContentReferences(row.json, row.catalogKey, source, target.catalogKey, movable)
                 if (rewritten.changed) {
                     if (row.status == "draft") {
                         rewrites += JsonRewrite.TemplateVersion(row.catalogKey, row.ownerKey, row.variantKey!!, row.version, row.rawJson, rewritten.json.toString())
@@ -311,8 +339,11 @@ class CatalogResourceMovePlanner(
                 }
             }
             stencilVersions.forEach { row ->
-                var rewritten = rewriteIncomingStencilReferences(row.json, row.catalogKey, source, target.catalogKey)
-                if (row.ownerKey == source.key && row.catalogKey == source.catalogKey) {
+                var rewritten = rewriteIncomingContentReferences(row.json, row.catalogKey, source, target.catalogKey, movable)
+                // Rows here are stencil_versions, so ownerKey is a stencil key. The type check is a
+                // correctness guard, not leftover specialisation: another type's key could coincide
+                // with a stencil key and wrongly select that stencil's own versions.
+                if (source.type == CatalogResourceType.STENCIL && row.ownerKey == source.key && row.catalogKey == source.catalogKey) {
                     if (row.status == "draft") {
                         rewritten = qualifyRelativeOutgoingReferences(rewritten.json, source.catalogKey, rewritten.changed)
                     } else if (containsRelativeOutgoingReference(rewritten.json)) {
@@ -330,11 +361,56 @@ class CatalogResourceMovePlanner(
             }
         }
 
+        if (movable == MovableResource.ATTRIBUTE && resourceId != null) {
+            rewrites += attributeKeyRewrites(handle, tenantKey, source, target.catalogKey)
+        }
+
         val fingerprint = fingerprint(source, target, resourceId, blockers, rewrites, immutableReferences)
         return CatalogResourceMovePlan(
             preview = CatalogResourceMovePreview(source, target, resourceId, rewrites.size, immutableReferences, blockers.distinct(), fingerprint),
             rewrites = rewrites,
         )
+    }
+
+    /**
+     * Attributes are referenced by the *keys* of `template_variants.attributes`, either qualified as
+     * `catalog.attribute` or left bare. A bare key resolves tenant-globally, so a move does not
+     * affect it; only an explicitly qualified key names the catalog being vacated.
+     *
+     * `template_variants` is live mutable configuration rather than versioned content, so every such
+     * reference is rewritable and none has to survive on an alias.
+     */
+    private fun attributeKeyRewrites(
+        handle: Handle,
+        tenantKey: TenantKey,
+        source: ResourceAddress,
+        targetCatalog: String,
+    ): List<JsonRewrite> {
+        val oldKey = source.catalogKey + "." + source.key
+        val newKey = targetCatalog + "." + source.key
+        return handle.createQuery(
+            """
+            SELECT catalog_key::text, template_key::text, id::text variant_key, attributes::text
+            FROM template_variants
+            WHERE tenant_key = :tenantKey AND attributes ?? :oldKey
+            ORDER BY catalog_key, template_key, id
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bind("oldKey", oldKey)
+            .map { rs, _ ->
+                val raw = rs.getString("attributes")
+                val moved = (objectMapper.readTree(raw) as ObjectNode).deepCopy()
+                moved.set(newKey, moved.remove(oldKey))
+                JsonRewrite.VariantAttributes(
+                    rs.getString("catalog_key"),
+                    rs.getString("template_key"),
+                    rs.getString("variant_key"),
+                    raw,
+                    moved.toString(),
+                )
+            }
+            .list()
     }
 
     private fun loadTemplateVersions(handle: Handle, tenantKey: TenantKey): List<JsonOwnerRow> = handle.createQuery(
@@ -365,17 +441,18 @@ class CatalogResourceMovePlanner(
             JsonOwnerRow(rs.getString("catalog_key"), rs.getString("owner_key"), null, rs.getInt("id"), rs.getString("status"), raw, objectMapper.readTree(raw))
         }.list()
 
-    /** Points references to the moving stencil at its destination catalog. */
-    private fun rewriteIncomingStencilReferences(
+    /** Points content references to the moving resource at its destination catalog. */
+    private fun rewriteIncomingContentReferences(
         root: JsonNode,
         ownerCatalog: String,
         source: ResourceAddress,
         targetCatalog: String,
+        movable: MovableResource,
     ): RewriteResult {
         val copy = root.deepCopy()
         var changed = false
         for (site in ResourceReferenceSites.scan(copy)) {
-            if (site.kind != ReferenceSiteKind.STENCIL_INSERTION || site.key != source.key) continue
+            if (site.kind !in movable.contentReferenceKinds || site.key != source.key) continue
             val explicitCatalog = site.catalogKey
             if (explicitCatalog == source.catalogKey || (explicitCatalog == null && ownerCatalog == source.catalogKey)) {
                 site.setCatalogKey(targetCatalog)
@@ -482,5 +559,17 @@ internal sealed interface JsonRewrite {
         override val replacement: String,
     ) : JsonRewrite {
         override val identity get() = "stencil:$catalogKey:$ownerKey:$version"
+    }
+
+    /** A variant's attribute map is unversioned live configuration, so [version] is unused. */
+    data class VariantAttributes(
+        override val catalogKey: String,
+        override val ownerKey: String,
+        val variantKey: String,
+        override val expected: String,
+        override val replacement: String,
+    ) : JsonRewrite {
+        override val version = 0
+        override val identity get() = "variant-attributes:$catalogKey:$ownerKey:$variantKey"
     }
 }

@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs): **Variant attributes can be moved between catalogs.** The first type
+  re-keyed onto its stable identity, so relocation is a plain column update. Every reference to an
+  attribute is a key in a variant's attribute map, which the move rewrites — nothing is left
+  resolving through an alias. Alpha, behind the `resource-relocation` toggle.
+- **[dev]** refactor(catalogs): **Relocation is driven by a per-type descriptor.** `MovableResource`
+  declares which table a move updates and which content reference kinds target it, replacing four
+  hardcoded stencil checks. A type appears there only once its table is keyed by identity, so the
+  unsupported-type blocker is derived rather than maintained by hand.
 - **[dev]** docs(catalogs): **Resource relocation targets an ID-first model.** ADR 0014 now accepts
   Option F: identity, location, and address are separated so a move is a single column update with
   nothing to rewrite. Adds a sequenced per-table migration plan, ordered by measured foreign-key

@@ -83,7 +83,7 @@ Two independent axes determine the work for a type, and they rank differently:
 
 | Type                            | Who points at me                           | What I own                            |
 | ------------------------------- | ------------------------------------------ | ------------------------------------- |
-| `variant_attribute_definitions` | variant attributes JSONB map               | —                                     |
+| `variant_attribute_definitions` | variant attributes JSONB map — **done**    | — **done**                            |
 | `code_lists`                    | 1 relational FK                            | `code_list_entries`                   |
 | `assets`                        | content `IMAGE_ASSET`, `font_faces`        | —                                     |
 | `fonts`                         | content `FONT_FAMILY`, theme fingerprints  | `font_faces`                          |
@@ -115,6 +115,11 @@ A type becomes movable once its own two axes are done; it does not wait for the 
    `immutable-relative-reference` blocker, address reservation and its release command, and
    write-time qualification. Keep a preview for policy checks only — permissions, released
    catalogs, slug collisions.
+
+> **Step 1 complete.** `variant_attribute_definitions` is re-keyed (`V20260828132828`) and movable.
+> Its references are keys in `template_variants.attributes` — live mutable configuration — so the
+> move rewrites every one and none survives on an alias. No owned children, which is what made it
+> the right subject for proving the recipe.
 
 ## The per-table recipe
 

@@ -31,7 +31,11 @@ catalog.
 
 ## Initial boundaries
 
-- Stencils only; other top-level resource types produce an explicit preview blocker.
+- Stencils and variant attributes. Other types produce an `unsupported-resource-type` blocker
+  until their table is re-keyed onto its stable identity — see
+  [Catalog resource identity migration](catalog-resource-identity-migration.md). Supported types are
+  declared in `MovableResource`; adding an entry is the last step of making a type movable, not the
+  first.
 - Source and destination must be different authored catalogs in the same tenant.
 - A source catalog with a release is blocked until subscriber/release handoff semantics exist.
 - Immutable version JSON is never edited.
