@@ -242,6 +242,13 @@ tracked separately.
 
 ## Namespace selection and immutable binding
 
+When a tenant has no default namespace and the catalog expresses no preference — the usual case for
+a connection granting several — the release dialog and the catalog's publish action offer the
+granted namespaces directly. Choosing there is part of publishing and needs only `TEMPLATE_PUBLISH`;
+moving an already-bound catalog is a management action and stays separate. A release published
+without choosing still succeeds locally: its publication waits, and records that a namespace is what
+it is waiting for.
+
 Exchange addresses a catalog by namespace, catalog key, and version. Suite
 chooses the namespace in this order:
 

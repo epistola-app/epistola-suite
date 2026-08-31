@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** feat(exchange): **Publishing asks which namespace when there is no default.** A connection granting several namespaces leaves the tenant default unset, so a first release had nowhere to go and simply waited. The release dialog and the catalog's publish action now offer the granted namespaces directly, so choosing where a catalog publishes is part of publishing it rather than a setting to go and find. Moving an already-bound catalog stays a separate, management-level action.
+- **[user]** feat(exchange): **Publication history on the catalog page matches the Exchange page.** The catalog's own publication section is now a proper panel with status badges, attempt counts, the bound namespace, and — when its releases cannot proceed — the reason, so an author who just pressed publish sees what is wrong where they are rather than on a settings page.
+
 - **[user]** fix(exchange): **A release waiting for setup now says what is missing.** A connection granting more than one namespace leaves the default unset, because Suite will not guess a choice that becomes permanent — but nothing said so, and every release from a catalog without its own preference waited silently behind a connection that looked healthy. The Exchange page now asks for a default while releases are waiting on it, and each waiting publication records why it cannot proceed, naming the namespaces available.
 
 - **[user]** feat(exchange): **A queued publication can be withdrawn.** Queueing the wrong release previously had no way out but waiting for Exchange, exhausting the retries, or disconnecting the tenant. Withdrawing releases the retained archive, leaves the attempt in the history, and lets the release be queued again while the working copy still matches. A publication Exchange is already holding cannot be withdrawn — that would abandon the outcome rather than prevent it.

@@ -212,6 +212,21 @@
                         </p>
                         <p class="form-hint">The Suite release succeeds even when Exchange is unavailable; publication continues in the background.</p>
                     </div>
+                    <div class="form-group"
+                         th:if="${publication != null && publication.available && publication.needsNamespaceChoice}">
+                        <label class="ep-label" for="release-namespace">Publish to namespace</label>
+                        <select id="release-namespace" class="ep-select" name="chosenNamespace">
+                            <option value="">Choose a namespace</option>
+                            <option th:each="option : ${publication.availableNamespaces}"
+                                    th:value="${option}" th:text="${option}">community</option>
+                        </select>
+                        <p class="form-hint">
+                            This tenant has no default namespace, so this catalog needs one of its own. It becomes
+                            permanent once a release reaches Exchange. Leave it blank and the release still succeeds
+                            &mdash; its publication just waits until a namespace is chosen.
+                        </p>
+                    </div>
+
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"

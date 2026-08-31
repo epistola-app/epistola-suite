@@ -44,47 +44,81 @@
                 </div>
             </div>
 
-            <div th:if="${publication != null}" style="margin-bottom: var(--ep-space-4);">
-                <div class="alert alert-danger" th:if="${publicationError != null}" th:text="${publicationError}"></div>
-                <form th:if="${publication.canPublishCurrentRelease}"
-                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}"
-                      method="post">
-                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm"
-                            th:text="${publication.isRetry} ? 'Retry publication' : 'Publish current release'">
-                        Publish current release
-                    </button>
-                </form>
-                <div th:if="${!publication.publications.isEmpty()}" style="margin-top: var(--ep-space-4);">
-                    <h3 style="margin-bottom: var(--ep-space-2);">Publication history</h3>
-                    <div class="ep-table-scroll" role="region" aria-label="Exchange publication history" tabindex="0">
-                        <table class="ep-table">
-                            <thead><tr><th>Version</th><th>Namespace</th><th>Status</th><th>Updated</th><th></th></tr></thead>
-                            <tbody>
-                            <tr th:each="entry : ${publication.publications}">
-                                <td th:text="'v' + ${entry.version}">v1.0.0</td>
-                                <td><code th:text="${entry.namespace ?: 'waiting for setup'}">namespace</code></td>
-                                <td>
-                                    <strong th:text="${entry.status.label}">Ready</strong>
-                                    <span th:if="${entry.lastError != null}" class="text-muted"
-                                          th:text="' — ' + ${entry.lastError}"></span>
-                                </td>
-                                <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
-                                <td class="actions">
-                                    <form th:if="${entry.status.isCancellable}"
-                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalog.id},publicationId=${entry.id})}"
-                                          method="post">
-                                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                                                data-confirm-submit
-                                                data-confirm-submit-title="Withdraw this publication"
-                                                data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."
-                                                data-confirm-submit-label="Withdraw"
-                                                data-confirm-submit-class="ep-btn-warning">Withdraw</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+            <div class="ep-panel detail-section" th:if="${publication != null}">
+                <div class="detail-section-header">
+                    <h2>Exchange publication</h2>
+                    <div class="ep-row ep-gap-3">
+                        <span th:if="${publication.boundNamespace != null}" class="badge badge-default"
+                              th:text="${publication.boundNamespace}">namespace</span>
+                        <form th:if="${publication.canPublishCurrentRelease}"
+                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}"
+                              method="post" class="ep-row ep-gap-3">
+                            <select th:if="${publication.needsNamespaceChoice}" class="ep-select ep-select-sm"
+                                    name="chosenNamespace" required aria-label="Publish to namespace">
+                                <option value="">Choose a namespace</option>
+                                <option th:each="option : ${publication.availableNamespaces}"
+                                        th:value="${option}" th:text="${option}">community</option>
+                            </select>
+                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm"
+                                    th:text="${publication.isRetry} ? 'Retry publication' : 'Publish current release'">
+                                Publish current release
+                            </button>
+                        </form>
                     </div>
+                </div>
+                <div class="detail-section-body">
+                    <div class="alert alert-danger" th:if="${publicationError != null}" th:text="${publicationError}"></div>
+
+                    <div class="alert alert-warning" th:if="${publication.setupBlocker != null}">
+                        <strong>This catalog's releases cannot publish yet.</strong>
+                        <span th:text="${publication.setupBlocker}">Reason.</span>
+                    </div>
+
+                    <p class="text-muted" style="margin: 0; font-size: var(--ep-text-sm);"
+                       th:if="${publication.publications.isEmpty()}">
+                        Nothing has been queued for Exchange yet. Releases follow this catalog's publication policy;
+                        an unchanged current release can also be published from here.
+                    </p>
+                    <p class="text-muted" style="margin: 0; font-size: var(--ep-text-sm);"
+                       th:unless="${publication.publications.isEmpty()}">
+                        Every release of this catalog that has been queued for Exchange, newest first.
+                    </p>
+                </div>
+                <div class="ep-table-scroll" th:unless="${publication.publications.isEmpty()}"
+                     role="region" aria-label="Exchange publication history" tabindex="0">
+                    <table class="ep-table">
+                        <thead>
+                        <tr><th>Version</th><th>Namespace</th><th>Status</th><th>Attempts</th><th>Updated</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="entry : ${publication.publications}">
+                            <td th:text="'v' + ${entry.version}">v1.0.0</td>
+                            <td>
+                                <code th:if="${entry.namespace != null}" th:text="${entry.namespace}">namespace</code>
+                                <span th:if="${entry.namespace == null}" class="text-muted">Not yet bound</span>
+                            </td>
+                            <td>
+                                <span th:class="${'badge ' + entry.status.badgeClass}" th:text="${entry.status.label}">Ready</span>
+                                <div th:if="${entry.lastError != null}" class="text-muted"
+                                     style="font-size: var(--ep-text-sm);" th:text="${entry.lastError}"></div>
+                            </td>
+                            <td th:text="${entry.attempts}">0</td>
+                            <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
+                            <td class="actions">
+                                <form th:if="${entry.status.isCancellable}"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalog.id},publicationId=${entry.id})}"
+                                      method="post">
+                                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                                            data-confirm-submit
+                                            data-confirm-submit-title="Withdraw this publication"
+                                            data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."
+                                            data-confirm-submit-label="Withdraw"
+                                            data-confirm-submit-class="ep-btn-warning">Withdraw</button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

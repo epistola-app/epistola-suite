@@ -41,6 +41,17 @@ data class CatalogPublicationState(
     val namespaceLocked: Boolean,
     /** Namespaces the tenant's connection currently grants, for the namespace picker. */
     val availableNamespaces: List<String>,
+    /**
+     * Why this catalog's queued work cannot proceed, when something is queued and nothing can carry
+     * it. The catalog page is where an author looks after pressing publish, so the reason belongs
+     * here and not only on the Exchange settings page.
+     */
+    val setupBlocker: String?,
+    /**
+     * True when publishing right now would have nowhere to go, but the connection does offer a
+     * choice. The publish action asks instead of queueing work that cannot move.
+     */
+    val needsNamespaceChoice: Boolean,
 ) {
     val policyOptions: List<CatalogPublicationPolicy> get() = CatalogPublicationPolicy.entries
     val namespacePattern: String get() = CatalogPublicationPolicy.NAMESPACE_PATTERN
@@ -89,6 +100,15 @@ class GetCatalogPublicationStateHandler(
             },
             availableNamespaces = jdbi.withHandle<List<String>, Exception> { handle ->
                 namespaceBinder.grantedNamespaces(handle, query.tenantKey).sorted()
+            },
+            needsNamespaceChoice = available &&
+                jdbi.withHandle<Boolean, Exception> { handle ->
+                    namespaceBinder.existingBinding(handle, query.tenantKey, query.catalogKey) == null &&
+                        namespaceBinder.resolvable(handle, query.tenantKey, query.catalogKey) == null &&
+                        namespaceBinder.grantedNamespaces(handle, query.tenantKey).isNotEmpty()
+                },
+            setupBlocker = publications.firstOrNull { it.status.isActive && it.namespace == null }?.let {
+                jdbi.withHandle<String, Exception> { handle -> namespaceBinder.unresolvedReason(handle, query.tenantKey) }
             },
             canPublishCurrentRelease = available &&
                 policy != CatalogPublicationPolicy.NEVER &&

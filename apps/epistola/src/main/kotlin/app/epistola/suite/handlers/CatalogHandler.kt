@@ -48,7 +48,9 @@ import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
+import app.epistola.suite.exchange.ChooseCatalogNamespace
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
 import app.epistola.suite.exchange.RebindCatalogNamespace
@@ -358,6 +360,9 @@ class CatalogHandler {
         }
 
         return try {
+            if (publicationChoice == ReleasePublication.PUBLISH) {
+                chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
+            }
             ReleaseCatalogVersion(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
@@ -382,6 +387,15 @@ class CatalogHandler {
             logger.warn("Failed to release catalog: ${e.message}", e)
             reRenderWithError(e.message ?: "Failed to release catalog.")
         }
+    }
+
+    /**
+     * Applies a namespace picked on the publish form. Offered only when the catalog has no binding
+     * and nothing would resolve one, so publishing would otherwise queue work that cannot move.
+     */
+    private fun chooseNamespaceIfOffered(request: ServerRequest, tenantKey: TenantKey, catalogKey: CatalogKey) {
+        request.params().getFirst("chosenNamespace")?.trim()?.ifBlank { null }
+            ?.let { ChooseCatalogNamespace(tenantKey, catalogKey, it).execute() }
     }
 
     /** Rejects an unknown policy as a form error instead of letting `valueOf` become a 500. */
@@ -413,6 +427,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         return try {
+            chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
             PublishCurrentCatalogRelease(tenantId.key, catalogKey).execute()
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")

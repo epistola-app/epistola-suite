@@ -115,6 +115,9 @@ class ExchangeNamespaceBinder {
     ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
         .mapTo(String::class.java).findOne().orElse(null)
 
+    /** The namespace this catalog would bind to right now, or null if nothing resolves. */
+    fun resolvable(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = select(handle, tenantKey, catalogKey)
+
     private fun select(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = handle.createQuery(
         """
         SELECT c.exchange_namespace_preference AS preference, x.namespaces, x.default_namespace

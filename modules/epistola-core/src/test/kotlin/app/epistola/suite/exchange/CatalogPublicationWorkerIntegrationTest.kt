@@ -149,6 +149,32 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `choosing a namespace at publish time is enough on its own`() {
+        val tenant = createTenant("Worker Chooses Namespace")
+        val catalogKey = CatalogKey.of("worker-chooses-ns")
+        exchange.namespaces = listOf("community", "epistola")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Worker chooses ns").execute()
+
+            // No tenant default and no catalog preference: publishing would have nowhere to go.
+            assertThat(requireNotNull(GetCatalogPublicationState(tenant.id, catalogKey).query()).needsNamespaceChoice)
+                .isTrue()
+
+            // Picking one at the point of publishing is the whole setup — no visit to settings.
+            ChooseCatalogNamespace(tenant.id, catalogKey, "epistola").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            worker.run()
+
+            assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("epistola")
+            assertThat(exchange.submittedNamespaces).containsExactly("epistola")
+            assertThat(requireNotNull(GetCatalogPublicationState(tenant.id, catalogKey).query()).needsNamespaceChoice)
+                .isFalse()
+        }
+    }
+
+    @Test
     fun `turning the tenant feature off pauses its queue without failing it`() {
         val tenant = createTenant("Worker Paused")
         val catalogKey = CatalogKey.of("worker-paused")
