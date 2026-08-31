@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
+import org.springframework.web.client.ResourceAccessException
 import java.time.Duration
 
 /**
@@ -138,6 +139,20 @@ class CatalogPublicationWorker(
             // connection itself, and the local grant list cannot tell us — Exchange only writes it
             // when a tenant authorizes. So ask, and let the answer decide.
             is HttpClientErrorException.Forbidden -> if (withdrawnGrant(publication)) return
+
+            // Exchange being unreachable says nothing about this publication — every queued release
+            // in the installation is equally affected. Spending the attempt budget on it would turn
+            // an outage into a pile of terminally failed publications an administrator has to retry
+            // one by one, which is the opposite of what the budget is for.
+            is ResourceAccessException -> {
+                store.defer(
+                    publication.id,
+                    properties.setupRetryInterval,
+                    "Exchange could not be reached: ${failure.message}",
+                )
+                logger.warn("Exchange unreachable; publication {} waits without spending a retry", publication.id)
+                return
+            }
 
             else -> Unit
         }

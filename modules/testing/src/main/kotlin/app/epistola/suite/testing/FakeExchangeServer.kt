@@ -160,7 +160,15 @@ class FakeExchangeServer : AutoCloseable {
         statusResponse = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }
     }
 
-    override fun close() = server.stop(0)
+    private var stopped = false
+
+    /** Idempotent, so a test can take Exchange down mid-run and still close in an `@AfterAll`. */
+    override fun close() {
+        if (!stopped) {
+            stopped = true
+            server.stop(0)
+        }
+    }
 
     data class Response(val status: Int, val body: String)
 

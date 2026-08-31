@@ -26,7 +26,11 @@ data class ExchangeProperties(
     val readTimeout: Duration = Duration.ofSeconds(30),
     /** Consecutive transient failures after which a publication becomes an administrator-retryable `FAILED`. */
     val maxAttempts: Int = 10,
-    /** Delay before rechecking a publication that is waiting for enrollment or a namespace. */
+    /**
+     * Delay before rechecking a publication that cannot proceed for a reason that is not its own
+     * fault: enrollment or a namespace is missing, the tenant paused the feature, or Exchange is
+     * unreachable. None of these spend the retry budget.
+     */
     val setupRetryInterval: Duration = Duration.ofMinutes(1),
     /** Delay between polls of a submission Exchange has accepted but not yet decided. */
     val submittedPollInterval: Duration = Duration.ofSeconds(30),

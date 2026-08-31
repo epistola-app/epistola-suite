@@ -362,6 +362,19 @@ Retrying is bounded. `RETRY` backs off exponentially, and after
 and waits for an administrator. Every attempt holds the retained release ZIP, so
 retrying forever would accumulate archives rather than make progress.
 
+**An unreachable Exchange does not spend that budget.** The budget exists to stop
+one permanently-broken publication retrying for ever; an outage is not about any
+publication in particular, and every queued release in the installation is
+affected identically. Counting it would turn three quarters of an hour of downtime
+into a pile of terminally failed publications for an administrator to retry one by
+one. A connection or read failure therefore defers on the `setup-retry-interval`
+cadence with the reason recorded, keeps its archive, and resumes on its own when
+Exchange returns. The connection is not marked broken either — being unable to
+reach a host says nothing about the credentials.
+
+Failures that _are_ attributable to the request — an error response, or a reply
+Suite cannot use — still count, which is what the budget is for.
+
 States that are simply not actionable yet — waiting for enrollment or a
 namespace, or a tenant whose feature is paused — are **deferred**, not failed.
 They are rechecked every `setup-retry-interval` and consume no retry budget, so
@@ -449,7 +462,8 @@ For a newly enabled installation, verify in this order:
 Useful failure distinctions:
 
 - a climbing `exchange_publication_oldest_active_age_seconds`, or the stalled
-  warning on the Exchange page, means work is queued that cannot proceed;
+  warning on the Exchange page, means work is queued that cannot proceed — during
+  an Exchange outage this is the signal, since nothing fails and nothing is lost;
 - no publication at all means the catalog has no namespace yet — releases succeed and simply are
   not sent, until one is chosen;
 - `RETRY` is transient and automatic;
