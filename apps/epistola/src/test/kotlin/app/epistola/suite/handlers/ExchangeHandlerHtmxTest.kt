@@ -119,11 +119,42 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/exchange", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        // The state leads, and it says what to do about it.
+        assertThat(response.body).contains("Reauthorization required")
+        assertThat(response.body).contains("Reconnecting restores the same connection")
+        assertThat(response.body).contains("Recover Exchange connection")
+        // What the call reported is kept, but as supporting detail rather than the explanation.
+        assertThat(response.body).contains("Exchange reported:")
         assertThat(response.body).contains("Exchange no longer recognises this installation")
-        assertThat(response.body).contains("Recover application credentials")
-        // The transport's wording is not the explanation.
-        assertThat(response.body).doesNotContain("401 Unauthorized")
-        assertThat(response.body).doesNotContain("invalid_client")
+    }
+
+    /**
+     * Whatever a failed call reported, the page has to read as guidance. Errors recorded before this
+     * page knew how to present them — or by any future path that stores a transport message — must
+     * not become the headline again.
+     */
+    @Test
+    fun `a raw error recorded earlier is presented as detail, not as the explanation`() {
+        val tenant = createTenant("Exchange Raw Error")
+        withMediator { enroll(tenant) }
+        // Exactly what the old code stored, and what a rebuilt Exchange produced.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE exchange_tenant_connections
+                SET status = 'REAUTHORIZATION_REQUIRED', last_error = :error WHERE tenant_key = :tenantKey
+                """,
+            ).bind("error", "401 Unauthorized: {\"error\":\"invalid_client\"}").bind("tenantKey", tenant.id).execute()
+        }
+
+        val body = requireNotNull(
+            restTemplate.getForEntity("/tenants/${tenant.id.value}/exchange", String::class.java).body,
+        )
+
+        assertThat(body).contains("Reauthorization required")
+        assertThat(body).contains("Reconnecting restores the same connection")
+        // Kept and labelled, rather than shown alone as though it were the explanation.
+        assertThat(body).contains("Exchange reported:")
     }
 
     /**

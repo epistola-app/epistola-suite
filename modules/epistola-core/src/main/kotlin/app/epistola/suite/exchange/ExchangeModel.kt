@@ -16,11 +16,34 @@ import java.util.UUID
  * as `KnownFeatures.FeatureStage`: a status without a matching `.badge-*` rule in the design system
  * would ship as an unstyled badge, so `ExchangeStatusBadgeTest` holds the two together.
  */
-enum class ExchangeConnectionStatus(val label: String, val badgeClass: String) {
+enum class ExchangeConnectionStatus(val label: String, val badgeClass: String, val guidance: String? = null) {
     PENDING("Not connected", "badge-muted"),
     ACTIVE("Connected", "badge-success"),
-    REAUTHORIZATION_REQUIRED("Reauthorization required", "badge-warning"),
-    BLOCKED("Blocked by Exchange", "badge-error"),
+    REAUTHORIZATION_REQUIRED(
+        "Reauthorization required",
+        "badge-warning",
+        "Exchange no longer accepts this tenant's stored credentials. Reconnecting restores the same " +
+            "connection and queued publications resume where they left off. If Exchange reports that it does " +
+            "not recognise this installation's application, choose to recover the application credentials " +
+            "during authorization.",
+    ),
+    BLOCKED(
+        "Blocked by Exchange",
+        "badge-error",
+        "Exchange has refused this tenant's connection. It is not something Suite can resolve on its own — " +
+            "the organization that owns the namespaces has to restore the tenant's access before publishing " +
+            "can continue.",
+    ),
+    ;
+
+    /**
+     * Whether this state needs someone to do something, and therefore says what.
+     *
+     * The state is the headline, not whatever a failed call happened to report. A recorded error is
+     * worth keeping and worth showing, but as supporting detail — on its own it tends to be the
+     * transport's wording, which describes the symptom to nobody who can act on it.
+     */
+    val needsAttention: Boolean get() = guidance != null
 }
 
 /**

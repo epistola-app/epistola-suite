@@ -42,7 +42,24 @@
                 </div>
             </div>
             <div class="detail-section-body">
-                <div class="alert alert-danger" th:if="${settings.connection != null && settings.connection.lastError != null}"
+                <!--
+                  The state is the headline and the guidance is the body; whatever the last failed
+                  call reported is supporting detail. Shown the other way round, the page led with
+                  the transport's own words - `401 Unauthorized: {"error":"invalid_client"}` - which
+                  names the symptom to nobody who can act on it, and says nothing about what to do.
+                -->
+                <div class="alert alert-warning" th:if="${settings.status.needsAttention}">
+                    <div>
+                        <div class="alert-title" th:text="${settings.status.label}">Reauthorization required</div>
+                        <p style="margin: var(--ep-space-1) 0 0;" th:text="${settings.status.guidance}"></p>
+                        <p class="text-muted" style="margin: var(--ep-space-2) 0 0; font-size: var(--ep-text-sm);"
+                           th:if="${settings.connection != null && settings.connection.lastError != null}"
+                           th:text="'Exchange reported: ' + ${settings.connection.lastError}"></p>
+                    </div>
+                </div>
+
+                <div class="alert alert-danger"
+                     th:if="${!settings.status.needsAttention && settings.connection != null && settings.connection.lastError != null}"
                      th:text="${settings.connection.lastError}"></div>
 
                 <th:block th:if="${settings.connected}" th:with="connection=${settings.connection}">
@@ -96,10 +113,6 @@
                         Connecting sends you to Exchange to sign in, choose an organization and grant this tenant a
                         namespace to publish into. Suite stores one connection per tenant; nothing is published until a
                         catalog policy says so.
-                    </p>
-                    <p class="text-muted" th:if="${settings.needsReauthorization}">
-                        Exchange no longer accepts this tenant's stored credentials. Reconnecting restores the same
-                        connection — queued publications resume where they left off.
                     </p>
                     <div class="form-actions" th:if="${settings.featureEnabled}">
                         <form th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
