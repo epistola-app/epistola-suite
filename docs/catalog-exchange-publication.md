@@ -258,9 +258,16 @@ Releasing and publishing are separate acts with separate permissions. `TEMPLATE_
 immutable release inside this installation; `CATALOG_PUBLISH` sends one to Exchange and decides the
 namespace it lands in. Someone can be trusted with the first and not the second.
 
-Only the **current** release can be published after the fact. The exact archive is retained only for
-releases that were queued, and anything else has to be rebuilt from the working copy — which
-reproduces the release only while that copy still matches it.
+Only the **current, unmodified** release can be published after the fact, and that is deliberate. A
+release is published exactly as it was cut. Suite retains the exact archive only for releases it
+actually queued, so any other release has to be rebuilt from the working copy — which reproduces it
+only while that copy still matches. Rather than publish something that merely resembles the release,
+Suite refuses.
+
+The consequence is worth stating plainly: a release that was never published, and whose catalog has
+since changed, can never be published. The catalog page says so and names the version, instead of
+quietly withdrawing the action. The way forward is to release the current state as a new version and
+publish that.
 
 Exchange addresses a catalog by namespace, catalog key, and version. The
 namespace is recorded once in `catalog_exchange_bindings(tenant, catalog,

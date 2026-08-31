@@ -37,6 +37,16 @@ data class CatalogPublicationState(
     val canPublishCurrentRelease: Boolean,
     /** True when that action would retry a failed attempt rather than queue a new one. */
     val isRetry: Boolean,
+    /**
+     * A released version that was never published and no longer can be, because the catalog has
+     * changed since it was cut.
+     *
+     * A release is published exactly as it was released, and Suite keeps the bytes only for
+     * releases it actually queued — so once the working copy moves on, that version cannot be
+     * reproduced. The action simply disappearing says none of this, which is why the state names
+     * the version instead of leaving an author to wonder where the button went.
+     */
+    val unpublishableRelease: String?,
     /** False while the namespace is still a local choice — nothing has reached Exchange yet. */
     val namespaceLocked: Boolean,
     /** Namespaces the tenant's connection currently grants, for the namespace picker. */
@@ -113,6 +123,13 @@ class GetCatalogPublicationStateHandler(
                 releaseStatus.latestVersion != null &&
                 (isRetry || (current == null && !releaseStatus.hasUnreleasedChanges)),
             isRetry = isRetry,
+            unpublishableRelease = releaseStatus.latestVersion?.takeIf {
+                available &&
+                    canPublish &&
+                    policy != CatalogPublicationPolicy.NEVER &&
+                    current == null &&
+                    releaseStatus.hasUnreleasedChanges
+            },
         )
     }
 

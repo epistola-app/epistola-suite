@@ -10,25 +10,30 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
+import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.SetTenantCatalogPublishingDefault
+import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
-import org.springframework.test.context.TestPropertySource
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 
 /**
  * The release-time half of publication: which releases get queued, and that queueing never
  * depends on Exchange being reachable. The worker's half lives in
  * [CatalogPublicationWorkerIntegrationTest].
  */
-@TestPropertySource(properties = ["epistola.exchange.enabled=true"])
 class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
 
     @Test
@@ -71,6 +76,43 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
                     assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE)
                 }
             assertThat(publications(tenant.id, catalogKey)).isEmpty()
+        }
+    }
+
+    @Test
+    fun `a release left unpublished while the catalog moves on says so instead of going quiet`() {
+        val tenant = createTenant("Drifted Release")
+        val catalogKey = CatalogKey.of("drifted-release")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Drifted release").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+
+            // Unchanged, so it can still be sent.
+            assertThat(state(tenant.id, catalogKey).canPublishCurrentRelease).isTrue()
+            assertThat(state(tenant.id, catalogKey).unpublishableRelease).isNull()
+
+            // Any edit moves the working copy away from the released bytes, which are not retained
+            // for a release that was never queued.
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Drifted release",
+                description = "Changed after releasing",
+                attributes = emptyList(),
+            ).execute()
+
+            val drifted = state(tenant.id, catalogKey)
+            assertThat(drifted.canPublishCurrentRelease).isFalse()
+            // The action disappearing is not an explanation; the version is named so an author can act.
+            assertThat(drifted.unpublishableRelease).isEqualTo("1.0.0")
+
+            assertThatThrownBy { PublishCurrentCatalogRelease(tenant.id, catalogKey).execute() }
+                .isInstanceOfSatisfying(ValidationException::class.java) {
+                    assertThat(it.code).isEqualTo(ValidationCode.PUBLICATION_WORKING_COPY_DRIFTED)
+                }
         }
     }
 
@@ -138,5 +180,36 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
         }
     }
 
-    private fun publications(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query()).publications
+    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
+
+    private fun publications(tenantKey: TenantKey, catalogKey: CatalogKey) = state(tenantKey, catalogKey).publications
+
+    /** Choosing a namespace needs a connection, so the drift case has to be a fully enrolled tenant. */
+    private fun enroll(tenant: Tenant) {
+        SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+        StartExchangeConnection(tenant.id, "https://suite.example/oauth/exchange/callback").execute()
+        CompleteExchangeConnection(
+            tenant.id,
+            requireNotNull(exchange.latestState.get()),
+            "authorization-code",
+            FakeExchangeServer.OAUTH_APPLICATION_ID,
+            exchange.baseUrl,
+        ).execute()
+    }
+
+    companion object {
+        private val exchange = FakeExchangeServer()
+
+        @JvmStatic
+        @DynamicPropertySource
+        fun exchangeProperties(registry: DynamicPropertyRegistry) {
+            registry.add("epistola.exchange.enabled") { "true" }
+            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
+            registry.add("epistola.exchange.allow-http") { "true" }
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun stopExchange() = exchange.close()
+    }
 }

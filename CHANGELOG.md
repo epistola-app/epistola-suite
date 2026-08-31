@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **A release that can no longer be published now says so.** Publishing an existing release rebuilds it from the working copy and refuses unless that still matches, because a release is published exactly as it was cut — so a release left unpublished while the catalog moved on cannot be sent at all. The action used to disappear with no explanation; the catalog page now names the version, says why, and points at releasing the current state instead.
+
 - **[user]** feat(catalog): **Releasing now takes you to the catalog, where you can watch the publication run.** The release dialog previously closed onto the catalog list, which shows nothing about what happens next; publication is a background process worth following.
 - **[user]** fix(catalog): **Reworked the catalog detail page.** The Exchange publication section was nested inside the catalog-details panel, so the two ran together as one block, and it repeated itself in the metadata grid below. It is now its own panel stating the policy, the namespace and every queued release. Actions that were rendered as bare text — Change, Withdraw — are buttons.
 
