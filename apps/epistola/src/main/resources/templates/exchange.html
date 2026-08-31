@@ -7,7 +7,7 @@
         pageDescription='Authorize this tenant to publish catalog releases to Exchange.'
     )}"></div>
 
-    <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+    <div class="alert alert-error" th:if="${error != null}" th:text="${error}"></div>
 
     <div class="alert alert-warning" th:if="${!settings.deploymentEnabled}">
         <div>
@@ -58,7 +58,7 @@
                     </div>
                 </div>
 
-                <div class="alert alert-danger"
+                <div class="alert alert-error"
                      th:if="${!settings.status.needsAttention && settings.connection != null && settings.connection.lastError != null}"
                      th:text="${settings.connection.lastError}"></div>
 

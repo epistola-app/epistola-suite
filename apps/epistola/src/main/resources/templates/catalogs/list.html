@@ -10,7 +10,7 @@
         <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
             Catalog settings updated successfully.
         </div>
-        <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+        <div class="alert alert-error" th:if="${error != null}" th:text="${error}"></div>
 
         <!-- Single, always-present swap region for every list mutation
              (create / remove / release / upgrade). It contains *either* the
@@ -440,7 +440,7 @@
                             </p>
                         </div>
 
-                        <div class="alert alert-danger" th:if="${diff.hasConflicts}">
+                        <div class="alert alert-error" th:if="${diff.hasConflicts}">
                             <strong>Cannot apply — resources are still in use:</strong>
                             <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
                                 <li th:each="c : ${diff.conflicts}" th:text="${c}"></li>

@@ -9,7 +9,7 @@
           hx-target="#dialog-mount" hx-swap="innerHTML">
         <input type="hidden" name="section" th:value="${section}" />
         <div class="ep-dialog-body">
-            <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+            <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
             <th:block th:if="${section == 'details'}">
                 <div class="form-group">
