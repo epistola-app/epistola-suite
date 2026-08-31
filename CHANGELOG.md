@@ -79,6 +79,13 @@
 - **[user]** feat(exchange): **Added the catalog publication policy hierarchy.** Exchange publishing is an Alpha tenant feature that defaults off. Tenant administrators can choose whether authored catalogs publish by default, while each catalog can inherit, force publishing, default yes/no, or forbid publishing; non-hard policies support a per-release override. Catalogs can also prefer an Exchange namespace before their first immutable publication binding.
 - **[user]** feat(exchange): **Catalog releases publish through a durable background outbox.** The local release transaction stores the exact portable ZIP and succeeds independently of Exchange availability. Catalog pages show attempt history and allow an unchanged current release to be published later, or a remote failure to be retried with a fresh idempotency key. Cluster-safe workers pause tenant work while its feature is off, retain archives until a terminal Exchange decision, and maintain expiring connection credentials independently.
 - **[user]** feat(exchange): **Added opt-in Exchange discovery and tenant enrollment storage.** The deployment gate defaults off and discovers the official Exchange through epistola.app. Application secrets, access and refresh tokens, and the pending PKCE verifier are encrypted at rest, one logical Exchange connection is retained per Suite tenant across reauthorization, and the UI displays Exchange's stable `tc_`-prefixed connection reference instead of requiring a raw UUID. Connection/runtime publication state is deliberately excluded from portable tenant backups.
+- **[dev]** fix(generation): **Fixed a flaky database-pressure recovery test.**
+  `JobPollerDatabasePressureIntegrationTest` synchronized on a drain-loop
+  heartbeat that ticks before claiming happens, so on a slow CI runner the
+  test could check `JobPoller.awaitIdle()` before the claim it was waiting on
+  had even landed. Added `JobPoller.awaitDrain()`, a test-only synchronous
+  drain that blocks on the drain pass's own `Future`, giving an exact
+  happens-before guarantee with no added polling latency.
 
 - **[dev]** feat(generation): **Document workers now yield to a degraded
   database.** Every JDBI statement records a safe aggregate round-trip timer
