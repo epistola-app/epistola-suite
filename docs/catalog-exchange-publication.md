@@ -275,8 +275,19 @@ namespace)` and never inferred: someone holding `CATALOG_PUBLISH` picks it, from
 the namespaces the connection grants. The tenant default supplies the value the
 picker starts on and nothing more.
 
-The binding is changeable until a release of that catalog reaches Exchange, and
-fixed from that moment — recorded on the binding itself as `published_at`, so the
+The binding is freely changeable until a release of that catalog reaches
+Exchange. After that it can still be **moved**, but only deliberately: the change
+must be acknowledged, because what it does is narrower than it looks. Versions
+already published stay exactly where they are — Exchange holds them under the old
+namespace and Suite neither can nor should move them — and only future releases
+go somewhere new. The cost falls downstream: anyone following the old namespace
+keeps the versions already there and never sees another one, with nothing telling
+them the catalog continued elsewhere.
+
+After a move the new namespace has published nothing, so the catalog is freely
+changeable again until it does.
+
+The binding is otherwise fixed from the moment a release reaches Exchange — recorded on the binding itself as `published_at`, so the
 fact survives the catalog being deleted, exactly as Exchange's copy of what was
 published does. A catalog recreated under the same key therefore returns to the
 same namespace instead of claiming a second one.
@@ -475,5 +486,12 @@ a stand-in Exchange over real HTTP instead (`CatalogPublicationWorkerIntegration
   compatibility design; UI behavior already exists ([#863](https://github.com/epistola-app/epistola-suite/issues/863)).
 - Define the inbound Exchange browse/install/subscription experience separately.
 - Define organization replacement/migration separately from reauthorization.
+- **Ask Exchange about the impact of a namespace move before allowing it.** Exchange is
+  the only side that can see whether the old namespace still has consumers. A move nobody
+  depends on could then be waved through, while one that would strand subscribers could say
+  how many. Longer term Exchange also needs a way to express "this catalog continues at
+  `X`", so followers can be carried across rather than silently left behind. Until both
+  exist, a move is allowed on an explicit acknowledgement and its downstream cost is stated
+  rather than measured.
 - Add MCP publication tools only with an explicit authorization and idempotency
   contract; MCP currently remains unchanged.

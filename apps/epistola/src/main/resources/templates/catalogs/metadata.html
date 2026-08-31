@@ -102,17 +102,24 @@
                 </select>
                 <th:block th:if="${publication.canPublish}">
                     <label class="ep-label" for="catalog-exchange-namespace">Exchange namespace</label>
-                    <select id="catalog-exchange-namespace" class="ep-select" name="chosenNamespace"
-                            th:disabled="${publication.namespaceLocked}">
+                    <select id="catalog-exchange-namespace" class="ep-select" name="chosenNamespace">
                         <option value="" th:if="${publication.suggestedNamespace == null}">Not chosen yet</option>
                         <option th:each="option : ${publication.availableNamespaces}"
                                 th:value="${option}" th:text="${option}"
                                 th:selected="${option == publication.suggestedNamespace}">community</option>
                     </select>
-                    <p class="form-hint" th:if="${publication.namespaceLocked}">
-                        Permanent: a release of this catalog has reached Exchange, so its published coordinates
-                        cannot move.
-                    </p>
+                    <div th:if="${publication.namespaceLocked}" class="alert alert-warning"
+                         style="margin-top: var(--ep-space-3);">
+                        <strong>This catalog has already published.</strong>
+                        Versions already on Exchange stay under
+                        <code th:text="${publication.boundNamespace}">namespace</code> — moving only changes where
+                        <em>future</em> releases go. Anyone following the old namespace keeps what is there and will
+                        not see anything new.
+                        <label style="display: block; margin-top: var(--ep-space-3);">
+                            <input type="checkbox" name="acknowledgeAlreadyPublished" value="true">
+                            I understand, move future releases to the namespace selected above
+                        </label>
+                    </div>
                     <p class="form-hint" th:unless="${publication.namespaceLocked}">
                         Where this catalog publishes. It can still be changed until a release reaches Exchange.
                     </p>

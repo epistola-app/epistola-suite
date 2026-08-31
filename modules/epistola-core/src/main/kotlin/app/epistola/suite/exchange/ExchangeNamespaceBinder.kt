@@ -69,6 +69,13 @@ class ExchangeNamespaceBinder {
     ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
         .mapTo(Boolean::class.java).findOne().orElse(false)
 
+    /** Clears the published marker after a move: the new namespace has published nothing yet. */
+    fun clearPublished(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey) {
+        handle.createUpdate(
+            "UPDATE catalog_exchange_bindings SET published_at = NULL WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+        ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).execute()
+    }
+
     fun bind(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) {
         handle.createUpdate(
             """

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** feat(exchange): **A catalog that has already published can be moved to another namespace, deliberately.** It was permanent, which overstated the case: versions already on Exchange stay under the old namespace whatever happens, so a move only changes where future releases go. That is now allowed on an explicit acknowledgement, with the consequence stated — anyone following the old namespace keeps what is there and will not see anything new. Whether a move would actually strand anyone is something only Exchange can answer, and asking it is tracked as deferred work.
+
 - **[user]** fix(exchange): **A release that can no longer be published now says so.** Publishing an existing release rebuilds it from the working copy and refuses unless that still matches, because a release is published exactly as it was cut — so a release left unpublished while the catalog moved on cannot be sent at all. The action used to disappear with no explanation; the catalog page now names the version, says why, and points at releasing the current state instead.
 
 - **[user]** feat(catalog): **Releasing now takes you to the catalog, where you can watch the publication run.** The release dialog previously closed onto the catalog list, which shows nothing about what happens next; publication is a background process worth following.

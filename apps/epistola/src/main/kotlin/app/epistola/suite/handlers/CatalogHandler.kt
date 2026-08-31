@@ -391,8 +391,14 @@ class CatalogHandler {
      * and nothing would resolve one, so publishing would otherwise queue work that cannot move.
      */
     private fun chooseNamespaceIfOffered(request: ServerRequest, tenantKey: TenantKey, catalogKey: CatalogKey) {
-        request.params().getFirst("chosenNamespace")?.trim()?.ifBlank { null }
-            ?.let { SetCatalogPublicationNamespace(tenantKey, catalogKey, it).execute() }
+        request.params().getFirst("chosenNamespace")?.trim()?.ifBlank { null }?.let { namespace ->
+            SetCatalogPublicationNamespace(
+                tenantKey = tenantKey,
+                catalogKey = catalogKey,
+                namespace = namespace,
+                acknowledgeAlreadyPublished = request.params().getFirst("acknowledgeAlreadyPublished") == "true",
+            ).execute()
+        }
     }
 
     /** Rejects an unknown policy as a form error instead of letting `valueOf` become a 500. */

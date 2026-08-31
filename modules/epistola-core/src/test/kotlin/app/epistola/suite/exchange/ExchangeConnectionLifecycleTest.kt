@@ -102,7 +102,7 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a namespace can be corrected until a release has reached Exchange, and not after`() {
+    fun `a namespace is freely corrected before publishing, and moved deliberately after`() {
         val tenant = createTenant("exchange-rebind")
         val catalogKey = CatalogKey.of("rebind-me")
         exchange.namespaces = listOf("public-services", "internal-forms")
@@ -124,10 +124,26 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
             // Once Exchange has seen it, the coordinates are fixed.
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
+
+            // Once published it is no longer a casual change: an unacknowledged move is refused.
             assertThatThrownBy { SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_LOCKED)
                 }
+
+            // Acknowledged, it goes through — and the new namespace has published nothing, so the
+            // catalog is freely movable again until it does.
+            SetCatalogPublicationNamespace(
+                tenant.id,
+                catalogKey,
+                "public-services",
+                acknowledgeAlreadyPublished = true,
+            ).execute()
+            val moved = state(tenant.id, catalogKey)
+            assertThat(moved.boundNamespace).isEqualTo("public-services")
+            assertThat(moved.namespaceLocked).isFalse()
+            // What was already published stays where it was; Suite does not move it.
+            assertThat(moved.publications.single().namespace).isEqualTo("internal-forms")
         }
     }
 
