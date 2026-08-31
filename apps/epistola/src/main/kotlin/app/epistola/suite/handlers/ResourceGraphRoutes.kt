@@ -19,7 +19,7 @@ class ResourceGraphRoutes(private val handler: ResourceGraphHandler) {
             GET("/nodes", handler::nodes)
             GET("/subgraph", handler::subgraph)
             GET("/evidence", handler::evidence)
-            GET("/move-preview", handler::movePreview)
+            POST("/move-preview", handler::movePreview)
             POST("/move", handler::move)
         }
     }

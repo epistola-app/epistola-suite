@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs): **Resources are relocated in batches, and a relocation can rename.**
+  A destination is now a full address, so a resource can change catalog, key, or both — moving and
+  renaming are the same operation. A batch is all-or-nothing: one transaction, one plan, and any
+  blocker stops every member, with blockers naming the member they belong to. A member may take an
+  address another member is vacating; two members exchanging addresses is refused in the preview,
+  because address uniqueness is checked per statement and no order avoids a transient collision.
+- **[user]** feat(catalogs): **Relocation refuses a move that would make two catalogs depend on
+  each other.** Snapshot restore orders catalogs topologically and fails outright on a cycle, so
+  such a move could have left a tenant's snapshots unrestorable — discovered later, by whoever was
+  trying to recover. Required by ADR 0014 and previously unimplemented.
+- **[dev]** feat(catalogs): **The resource graph carries stable resource identities.** Nodes now
+  expose the `resource_id` that survives a relocation, so a caller can follow a resource across a
+  move instead of guessing where it landed from its new address.
+- **[user]** fix(catalogs): **The move panel offers every relocatable type.** It still gated on
+  stencils after attributes and templates became movable.
 - **[user]** fix(catalogs): **A template reopened after a relocation can be republished again.**
   Reopening copied the published model verbatim, so the new draft still named the address the moved
   resource had left; publish validation then looked for it there and refused, leaving the template

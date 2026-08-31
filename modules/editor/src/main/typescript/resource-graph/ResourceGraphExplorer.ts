@@ -10,6 +10,7 @@ import {
   displayType,
   type EvidenceResponse,
   type ResourceEdge,
+  type ResourceFocusRef,
   type ResourceMovePreview,
   type ResourceNode,
   type ResourceType,
@@ -316,8 +317,6 @@ export class ResourceGraphExplorer extends LitElement {
         catalogKey: catalog,
         key,
         name: key,
-        catalogName: catalog,
-        catalogType: '',
       });
   }
 
@@ -369,7 +368,7 @@ export class ResourceGraphExplorer extends LitElement {
     void this.loadNodes(true);
   }
 
-  private async focusResource(node: ResourceNode): Promise<void> {
+  private async focusResource(node: ResourceFocusRef): Promise<void> {
     this.loading = true;
     this.error = '';
     this.search = node.name;
@@ -583,8 +582,6 @@ export class ResourceGraphExplorer extends LitElement {
         catalogKey: this.moveTarget,
         key: graph.focus.key,
         name: graph.nodes.find((node) => node.id === graph.focus.id)?.name ?? graph.focus.key,
-        catalogName: this.moveTarget,
-        catalogType: 'authored',
       });
     } catch (error) {
       this.error = error instanceof Error ? error.message : 'Could not move resource';
@@ -819,7 +816,14 @@ export class ResourceGraphExplorer extends LitElement {
   }
 
   private renderMoveResource() {
-    if (this.relocationEnabled !== 'true' || this.graph?.focus.type !== 'stencil') return nothing;
+    // Kept in step with MovableResource on the server. A type absent there is rejected with an
+    // unsupported-resource-type blocker, so offering it would only produce a preview that cannot
+    // execute.
+    const movableTypes: ResourceType[] = ['stencil', 'attribute', 'template'];
+    const focusType = this.graph?.focus.type;
+    if (this.relocationEnabled !== 'true' || !focusType || !movableTypes.includes(focusType)) {
+      return nothing;
+    }
     const targets = this.catalogOptions.filter(
       (catalog) => catalog.type === 'authored' && catalog.key !== this.graph?.focus.catalogKey,
     );

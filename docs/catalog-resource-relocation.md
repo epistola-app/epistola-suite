@@ -57,6 +57,10 @@ written before it existed resolve through their recorded address instead.
 - Source and destination must be different authored catalogs in the same tenant.
 - A source catalog with a release is blocked until subscriber/release handoff semantics exist.
 - Immutable version JSON is never edited.
+- A move that would leave two catalogs depending on each other is blocked. Catalog ordering is
+  load-bearing for snapshot restore, which orders catalogs topologically and throws on a cycle, so
+  an unchecked move could make a tenant's snapshots unrestorable — surfacing later, to whoever is
+  trying to recover, with nothing tying it back to the move.
 - An address a moved resource left behind is reserved: creating a resource there is rejected until
   the alias is explicitly released, which previews what stops resolving first.
 - References are qualified with their catalog when content is written, so a published reference

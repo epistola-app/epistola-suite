@@ -23,6 +23,13 @@ data class ResourceAddress(
 }
 
 data class ResourceNode(
+    /**
+     * Stable tenant-local identity, unchanged by a relocation.
+     *
+     * The address is what authors and catalog exchange use, but it moves. Callers that need to
+     * follow a resource across a move -- notably relocation itself -- hold this instead.
+     */
+    val resourceId: java.util.UUID,
     val address: ResourceAddress,
     val name: String,
     val catalogName: String,

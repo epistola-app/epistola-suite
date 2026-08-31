@@ -16,8 +16,9 @@ import app.epistola.suite.catalog.graph.traverse
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.relocation.CatalogResourceMoveBlockedException
 import app.epistola.suite.catalog.relocation.CatalogResourceMovePreview
-import app.epistola.suite.catalog.relocation.MoveCatalogResource
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.ResourceRelocation
 import app.epistola.suite.catalog.relocation.StaleCatalogResourceMovePlanException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
@@ -69,31 +70,24 @@ class ResourceGraphHandler {
         return json(mapOf("nodes" to nodes, "total" to matches.size, "catalogs" to catalogs))
     }
 
+    /**
+     * Preview accepts a batch as a POST body rather than query parameters: a relocation now carries
+     * a full destination address per member, which does not fit a URL sensibly.
+     */
     fun movePreview(request: ServerRequest): ServerResponse {
         if (!request.resourceGraphEnabled() || !request.resourceRelocationEnabled()) return ServerResponse.notFound().build()
-        val source = ResourceAddress(
-            resourceType(request.requiredParam("type")),
-            request.requiredParam("catalog"),
-            request.requiredParam("key"),
-        )
-        val preview = PreviewCatalogResourceMove(
-            request.tenantKey(),
-            source,
-            app.epistola.suite.catalog.CatalogKey.of(request.requiredParam("targetCatalog")),
-        ).query()
-        return json(movePreviewDto(preview))
+        val body = request.body(MoveResourcesRequest::class.java)
+        return json(movePreviewDto(PreviewCatalogResourceMove(request.tenantKey(), body.toRelocations()).query()))
     }
 
     fun move(request: ServerRequest): ServerResponse {
         if (!request.resourceGraphEnabled() || !request.resourceRelocationEnabled()) return ServerResponse.notFound().build()
-        val body = request.body(MoveResourceRequest::class.java)
-        val source = ResourceAddress(resourceType(body.type), body.catalog, body.key)
+        val body = request.body(MoveResourcesRequest::class.java)
         return try {
-            val result = MoveCatalogResource(
+            val result = MoveCatalogResources(
                 request.tenantKey(),
-                source,
-                app.epistola.suite.catalog.CatalogKey.of(body.targetCatalog),
-                body.planFingerprint,
+                body.toRelocations(),
+                body.planFingerprint.orEmpty(),
             ).execute()
             json(movePreviewDto(result))
         } catch (_: StaleCatalogResourceMovePlanException) {
@@ -168,6 +162,7 @@ class ResourceGraphHandler {
     }
 
     private fun nodeDto(node: ResourceNode) = mapOf(
+        "resourceId" to node.resourceId.toString(),
         "id" to node.address.id,
         "type" to node.address.type.wireName,
         "catalogKey" to node.address.catalogKey,
@@ -208,8 +203,14 @@ class ResourceGraphHandler {
 
     /** [CatalogResourceMovePreview.resourceId] is the internal surrogate identity and stays server-side. */
     private fun movePreviewDto(preview: CatalogResourceMovePreview) = mapOf(
-        "source" to preview.source,
-        "target" to preview.target,
+        "relocations" to preview.relocations.map {
+            mapOf(
+                "source" to it.source,
+                "target" to it.target,
+                "mutableRewriteCount" to it.mutableRewriteCount,
+                "immutableReferenceCount" to it.immutableReferenceCount,
+            )
+        },
         "mutableRewriteCount" to preview.mutableRewriteCount,
         "immutableReferenceCount" to preview.immutableReferenceCount,
         "blockers" to preview.blockers,
@@ -221,10 +222,26 @@ class ResourceGraphHandler {
     private fun conflict(body: Any) = ServerResponse.status(409).contentType(MediaType.APPLICATION_JSON).body(body)
 }
 
-private data class MoveResourceRequest(
+private data class MoveResourcesRequest(
+    val relocations: List<RelocationRequest>,
+    val planFingerprint: String? = null,
+) {
+    fun toRelocations() = relocations.map { it.toRelocation() }
+}
+
+private data class RelocationRequest(
     val type: String,
     val catalog: String,
     val key: String,
     val targetCatalog: String,
-    val planFingerprint: String,
-)
+    /** Omitted to keep the current key: a plain move rather than a move-and-rename. */
+    val targetKey: String? = null,
+) {
+    fun toRelocation(): ResourceRelocation {
+        val resourceType = CatalogResourceType.entries.single { it.wireName == type }
+        return ResourceRelocation(
+            source = ResourceAddress(resourceType, catalog, key),
+            target = ResourceAddress(resourceType, targetCatalog, targetKey ?: key),
+        )
+    }
+}

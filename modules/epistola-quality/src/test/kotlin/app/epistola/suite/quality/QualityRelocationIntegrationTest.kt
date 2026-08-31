@@ -8,8 +8,9 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.relocation.MoveCatalogResource
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -74,8 +75,8 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
             .isEqualTo(EffectiveQualityStatus.IGNORED)
 
         val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
-        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The source submits again, as it does on every sweep. Rebuilding the subject at the new
         // address recomputes its URNs -- which is precisely what breaks if the ignore was left

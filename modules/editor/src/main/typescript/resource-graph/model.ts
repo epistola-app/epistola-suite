@@ -14,6 +14,8 @@ export type ReferenceSemantics = 'runtime' | 'authoring' | 'provenance';
 export type Resolution = 'resolved' | 'missing' | 'ambiguous';
 
 export interface ResourceNode {
+  /** Stable identity; unlike the address, it survives a relocation. */
+  resourceId: string;
   id: string;
   type: ResourceType;
   catalogKey: string;
@@ -22,6 +24,16 @@ export interface ResourceNode {
   catalogName: string;
   catalogType: string;
 }
+
+/**
+ * What is needed to focus a resource: its address plus a label.
+ *
+ * Deliberately narrower than {@link ResourceNode}. Focus is reached from places that only have an
+ * address -- a URL the user pasted, or the destination of a move -- and inventing a
+ * {@link ResourceNode.resourceId} there would be a lie, since identity is something the server
+ * knows and the caller does not.
+ */
+export type ResourceFocusRef = Pick<ResourceNode, 'id' | 'type' | 'catalogKey' | 'key' | 'name'>;
 
 export interface ResourceAddress {
   id: string;

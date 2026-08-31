@@ -20,8 +20,10 @@ import app.epistola.suite.catalog.graph.ReferenceSiteKind
  */
 enum class MovableResource(
     val type: CatalogResourceType,
-    /** Table whose `catalog_key` the move updates. Never interpolated from caller input. */
+    /** Table whose address the move updates. Never interpolated from caller input. */
     val table: String,
+    /** Column on [table] holding the resource key, so a relocation can rename as well as move. */
+    val keyColumn: String,
     /** Content reference kinds that target this type and must be re-pointed at the destination. */
     val contentReferenceKinds: Set<ReferenceSiteKind>,
 ) {
@@ -32,6 +34,7 @@ enum class MovableResource(
     STENCIL(
         CatalogResourceType.STENCIL,
         "stencils",
+        "id",
         setOf(ReferenceSiteKind.STENCIL_INSERTION),
     ),
 
@@ -44,6 +47,7 @@ enum class MovableResource(
     ATTRIBUTE(
         CatalogResourceType.ATTRIBUTE,
         "variant_attribute_definitions",
+        "id",
         emptySet(),
     ),
 
@@ -60,6 +64,7 @@ enum class MovableResource(
     TEMPLATE(
         CatalogResourceType.TEMPLATE,
         "document_templates",
+        "id",
         emptySet(),
     ),
     ;

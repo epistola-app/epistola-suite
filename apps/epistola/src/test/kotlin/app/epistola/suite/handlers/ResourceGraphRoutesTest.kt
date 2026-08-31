@@ -60,10 +60,9 @@ class ResourceGraphRoutesTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute()
         }
 
-        val disabledPreview = restTemplate.getForEntity(
-            "/tenants/${tenant.id}/resource-graph/move-preview?type=stencil&catalog=source&key=header&targetCatalog=target",
-            String::class.java,
-        )
+        // Posted, not fetched: a GET would 404 on a POST-only route whatever the toggle says, so it
+        // would pass without testing the gate at all.
+        val disabledPreview = postRelocation(tenant.id.value, "move-preview", null)
         assertThat(disabledPreview.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
 
         withMediator {
@@ -100,29 +99,39 @@ class ResourceGraphRoutesTest : BaseIntegrationTest() {
             CreateStencil(StencilId(StencilKey.of("header"), CatalogId(source, tenantId)), "Header").execute()
         }
 
-        val preview = restTemplate.getForEntity(
-            "/tenants/${tenant.id}/resource-graph/move-preview?type=stencil&catalog=letters&key=header&targetCatalog=shared",
-            String::class.java,
-        )
+        val preview = postRelocation(tenant.id.value, "move-preview", null)
         assertThat(preview.statusCode).isEqualTo(HttpStatus.OK)
         val plan = objectMapper.readTree(preview.body)
         assertThat(plan.path("executable").booleanValue()).isTrue()
         // The internal surrogate identity must not reach the browser.
-        assertThat(plan.has("resourceId")).isFalse()
+        assertThat(plan.path("relocations").single().has("resourceId")).isFalse()
 
-        val stale = postMove(tenant.id.value, "not-the-plan-you-previewed")
+        val stale = postRelocation(tenant.id.value, "move", "not-the-plan-you-previewed")
         assertThat(stale.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(objectMapper.readTree(stale.body).path("code").stringValue()).isEqualTo("stale-plan")
 
-        val moved = postMove(tenant.id.value, plan.path("planFingerprint").stringValue())
+        val moved = postRelocation(tenant.id.value, "move", plan.path("planFingerprint").stringValue())
         assertThat(moved.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(objectMapper.readTree(moved.body).path("target").path("catalogKey").stringValue()).isEqualTo("shared")
+        assertThat(
+            objectMapper.readTree(moved.body).path("relocations").single().path("target").path("catalogKey").stringValue(),
+        ).isEqualTo("shared")
     }
 
-    private fun postMove(tenantId: String, planFingerprint: String) = restTemplate.postForEntity(
-        "/tenants/$tenantId/resource-graph/move",
+    /**
+     * Preview and execute share a body shape: a relocation is a batch, and its destination is a
+     * full address rather than just a catalog.
+     */
+    private fun postRelocation(tenantId: String, path: String, planFingerprint: String?) = restTemplate.postForEntity(
+        "/tenants/$tenantId/resource-graph/$path",
         HttpEntity(
-            """{"type":"stencil","catalog":"letters","key":"header","targetCatalog":"shared","planFingerprint":"$planFingerprint"}""",
+            """
+            {
+              "relocations": [
+                {"type":"stencil","catalog":"letters","key":"header","targetCatalog":"shared"}
+              ]
+              ${planFingerprint?.let { ""","planFingerprint":"$it"""" } ?: ""}
+            }
+            """.trimIndent(),
             HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON },
         ),
         String::class.java,

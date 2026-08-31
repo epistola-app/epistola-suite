@@ -97,14 +97,14 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         }
 
         val before = withMediator { ResolveCatalogResourceAddress(tenant.id, sourceAddress).query()!! }
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, sourceAddress, targetCatalog).query() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(sourceAddress.movedTo(targetCatalog))).query() }
 
         assertThat(preview.executable).isTrue()
         assertThat(preview.mutableRewriteCount).isEqualTo(1)
         assertThat(preview.immutableReferenceCount).isEqualTo(1)
 
         withMediator {
-            MoveCatalogResource(tenant.id, sourceAddress, targetCatalog, preview.planFingerprint).execute()
+            MoveCatalogResources(tenant.id, listOf(sourceAddress.movedTo(targetCatalog)), preview.planFingerprint).execute()
         }
 
         val oldResolution = withMediator { ResolveCatalogResourceAddress(tenant.id, sourceAddress).query()!! }
@@ -159,13 +159,13 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateDocumentTemplate(templateId, "Invoice").execute()
             UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
         }
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, sourceAddress, targetCatalog).query() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(sourceAddress.movedTo(targetCatalog))).query() }
 
         withMediator { UpdateDraft(variantId, emptyTemplate()).execute() }
 
         assertThatThrownBy {
             withMediator {
-                MoveCatalogResource(tenant.id, sourceAddress, targetCatalog, preview.planFingerprint).execute()
+                MoveCatalogResources(tenant.id, listOf(sourceAddress.movedTo(targetCatalog)), preview.planFingerprint).execute()
             }
         }.isInstanceOf(StaleCatalogResourceMovePlanException::class.java)
 
@@ -186,8 +186,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
         }
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, sourceAddress, targetCatalog).query() }
-        withMediator { MoveCatalogResource(tenant.id, sourceAddress, targetCatalog, preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(sourceAddress.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(sourceAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // Reusing the vacated address would make every published reference to it ambiguous.
         assertThatThrownBy { withMediator { CreateStencil(stencilId, "Replacement").execute() } }
@@ -228,8 +228,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             UpdateDraft(variantId, templateEmbedding(stencilId.key.value, sourceCatalog.value)).execute()
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
         }
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, movedAddress, targetCatalog).query() }
-        withMediator { MoveCatalogResource(tenant.id, movedAddress, targetCatalog, preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(movedAddress.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(movedAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // Authoring reserves an aliased address, so only import or backup restore can produce an
         // alias shadowed by a canonical resource. Planted directly for that reason.
@@ -273,12 +273,12 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateStencil(stencilId, "Header").execute()
         }
 
-        val out = withMediator { PreviewCatalogResourceMove(tenant.id, sourceAddress, targetCatalog).query() }
-        withMediator { MoveCatalogResource(tenant.id, sourceAddress, targetCatalog, out.planFingerprint).execute() }
+        val out = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(sourceAddress.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(sourceAddress.movedTo(targetCatalog)), out.planFingerprint).execute() }
 
-        val back = withMediator { PreviewCatalogResourceMove(tenant.id, movedAddress, sourceCatalog).query() }
+        val back = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(movedAddress.movedTo(sourceCatalog))).query() }
         assertThat(back.blockers).isEmpty()
-        withMediator { MoveCatalogResource(tenant.id, movedAddress, sourceCatalog, back.planFingerprint).execute() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(movedAddress.movedTo(sourceCatalog)), back.planFingerprint).execute() }
 
         val home = withMediator { ResolveCatalogResourceAddress(tenant.id, sourceAddress).query()!! }
         assertThat(home.canonical.catalogKey).isEqualTo(sourceCatalog.value)
@@ -315,13 +315,13 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             UpdateDraft(unrelatedVariant, emptyTemplate()).execute()
         }
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, sourceAddress, targetCatalog).query() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(sourceAddress.movedTo(targetCatalog))).query() }
         assertThat(preview.mutableRewriteCount).isEqualTo(1)
 
         // A draft that has nothing to do with the moving stencil changes in the meantime.
         withMediator { UpdateDraft(unrelatedVariant, templateEmbedding("unrelated-stencil")).execute() }
 
-        withMediator { MoveCatalogResource(tenant.id, sourceAddress, targetCatalog, preview.planFingerprint).execute() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(sourceAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, sourceAddress).query()!! }.resolvedViaAlias).isTrue()
     }
@@ -347,12 +347,12 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
         }
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, headerAddress, targetCatalog).query() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(headerAddress.movedTo(targetCatalog))).query() }
 
         assertThat(preview.blockers).noneSatisfy { assertThat(it.code).isEqualTo("immutable-relative-reference") }
         assertThat(preview.executable).isTrue()
 
-        withMediator { MoveCatalogResource(tenant.id, headerAddress, targetCatalog, preview.planFingerprint).execute() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The published dependency still names the catalog the theme actually lives in.
         val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
@@ -389,14 +389,14 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             UpdateVariant(variantId, "Main", mapOf("letters.brand" to "acme")).execute()
         }
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
 
         // Every reference to an attribute is a mutable variant key, so none survives on an alias.
         assertThat(preview.blockers).isEmpty()
         assertThat(preview.mutableRewriteCount).isEqualTo(1)
         assertThat(preview.immutableReferenceCount).isZero()
 
-        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         val resolved = withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }
         assertThat(resolved.canonical.catalogKey).isEqualTo(targetCatalog.value)
@@ -418,11 +418,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         }
 
         val preview = withMediator {
-            PreviewCatalogResourceMove(
-                tenant.id,
-                ResourceAddress(CatalogResourceType.THEME, sourceCatalog.value, "brand"),
-                targetCatalog,
-            ).query()
+            PreviewCatalogResourceMove(tenant.id, listOf(ResourceAddress(CatalogResourceType.THEME, sourceCatalog.value, "brand").movedTo(targetCatalog))).query()
         }
 
         assertThat(preview.blockers).anySatisfy { assertThat(it.code).isEqualTo("unsupported-resource-type") }
@@ -465,10 +461,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
                 .execute()
         }
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
 
-        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The template and its owned hierarchy followed.
         assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }.canonical.catalogKey)
@@ -526,8 +522,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
         }
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
-        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // Reopening copies the published model, which still names the vacated address. The copy is
         // mutable, so it is canonicalised; the published version itself keeps its original bytes.
@@ -565,8 +561,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
         }
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
-        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The published version keeps naming letters/header. Asking the moved stencil what uses it
         // must still surface that template, or a delete-with-force would look safe when the alias is
@@ -578,6 +574,185 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(usage.items).anySatisfy { item ->
             assertThat(item.templateId).isEqualTo(templateId.key)
         }
+    }
+
+    @Test
+    fun `a move that would make two catalogs depend on each other is blocked`() {
+        val tenant = createTenant("Cycle guard")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val shared = CatalogKey.of("shared")
+        val lettersId = CatalogId(letters, tenantId)
+        val sharedId = CatalogId(shared, tenantId)
+
+        // letters/invoice already depends on shared/base-theme, so shared must install first.
+        val sharedTheme = ThemeId(ThemeKey.of("base"), sharedId)
+        val header = StencilId(StencilKey.of("header"), lettersId)
+        val lettersTheme = ThemeId(ThemeKey.of("brand"), lettersId)
+        val templateId = TemplateId(TemplateKey.of("invoice"), lettersId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateCatalog(tenant.id, shared, "Shared").execute()
+            CreateTheme(sharedTheme, "Base").execute()
+            CreateTheme(lettersTheme, "Brand").execute()
+            CreateStencil(header, "Header").execute()
+            // The stencil depends on a theme that stays in letters.
+            UpdateStencilDraft(StencilVersionId(VersionKey.of(1), header), usesTheme(lettersTheme.key.value, letters.value)).execute()
+            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
+            // And a template in letters depends on the shared theme, so letters -> shared exists.
+            CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
+            UpdateDraft(variantId, usesTheme(sharedTheme.key.value, shared.value)).execute()
+        }
+
+        // Moving the stencil into shared would make shared depend on letters, closing the loop.
+        val preview = withMediator {
+            PreviewCatalogResourceMove(tenant.id, listOf(ResourceAddress(CatalogResourceType.STENCIL, letters.value, header.key.value).movedTo(shared))).query()
+        }
+
+        assertThat(preview.executable).isFalse()
+        assertThat(preview.blockers).anySatisfy { blocker ->
+            assertThat(blocker.code).isEqualTo("catalog-dependency-cycle")
+            assertThat(blocker.message).contains("letters", "shared", "unrestorable")
+        }
+    }
+
+    private fun usesTheme(themeKey: String, catalogKey: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root")),
+        slots = emptyMap(),
+        themeRef = ThemeRefOverride(themeId = themeKey, catalogKey = catalogKey),
+    )
+
+    @Test
+    fun `a relocation can rename as well as move`() {
+        val tenant = createTenant("Rename on move")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val shared = CatalogKey.of("shared")
+        val stencilId = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
+        val address = ResourceAddress(CatalogResourceType.STENCIL, letters.value, stencilId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateCatalog(tenant.id, shared, "Shared").execute()
+            CreateStencil(stencilId, "Header").execute()
+            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
+        }
+
+        val relocation = address.movedTo(shared, "letterhead")
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query() }
+        assertThat(preview.blockers).isEmpty()
+        withMediator { MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute() }
+
+        // Both halves of the address changed, and the old one still resolves.
+        val resolved = withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }
+        assertThat(resolved.canonical.catalogKey).isEqualTo(shared.value)
+        assertThat(resolved.canonical.key).isEqualTo("letterhead")
+        assertThat(resolved.resolvedViaAlias).isTrue()
+
+        // The owned hierarchy followed the rename, not only the catalog change: the ON UPDATE
+        // CASCADE foreign key fires on any referenced column.
+        val renamed = StencilId(StencilKey.of("letterhead"), CatalogId(shared, tenantId))
+        assertThat(withMediator { ListStencilVersions(renamed).query() }).hasSize(1)
+    }
+
+    @Test
+    fun `a member can take an address another member is vacating`() {
+        val tenant = createTenant("Handover batch")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val shared = CatalogKey.of("shared")
+        val header = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
+        val draft = StencilId(StencilKey.of("draft-header"), CatalogId(letters, tenantId))
+        val headerAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "header")
+        val draftAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "draft-header")
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateCatalog(tenant.id, shared, "Shared").execute()
+            CreateStencil(header, "Header").execute()
+            CreateStencil(draft, "Draft header").execute()
+        }
+
+        // Promote the draft into the name the old one is vacating. Neither move works alone: the
+        // rename is blocked while the original still holds the address.
+        val batch = listOf(headerAddress.movedTo(shared), draftAddress.renamedTo("header"))
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, batch).query() }
+
+        assertThat(preview.blockers).isEmpty()
+        withMediator { MoveCatalogResources(tenant.id, batch, preview.planFingerprint).execute() }
+
+        // letters/header is now the promoted resource, not the one that left.
+        val promoted = withMediator { ResolveCatalogResourceAddress(tenant.id, draftAddress).query()!! }
+        assertThat(promoted.canonical).isEqualTo(headerAddress)
+        val moved = withMediator { ResolveCatalogResourceAddress(tenant.id, headerAddress).query()!! }
+        assertThat(moved.resourceId).isEqualTo(promoted.resourceId)
+    }
+
+    @Test
+    fun `two resources exchanging addresses is refused rather than half applied`() {
+        val tenant = createTenant("Swap refused")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val header = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
+        val footer = StencilId(StencilKey.of("footer"), CatalogId(letters, tenantId))
+        val headerAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "header")
+        val footerAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "footer")
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateStencil(header, "Header").execute()
+            CreateStencil(footer, "Footer").execute()
+        }
+
+        // Each wants the other's address. Updates apply one at a time and address uniqueness is
+        // checked per statement, so no order avoids a transient collision. Refused in the preview
+        // rather than failing partway through the transaction.
+        val batch = listOf(headerAddress.renamedTo("footer"), footerAddress.renamedTo("header"))
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, batch).query() }
+
+        assertThat(preview.executable).isFalse()
+        assertThat(preview.blockers).anySatisfy { blocker ->
+            assertThat(blocker.code).isEqualTo("address-swap-cycle")
+        }
+    }
+
+    @Test
+    fun `one blocked member stops the whole batch`() {
+        val tenant = createTenant("Batch atomicity")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val shared = CatalogKey.of("shared")
+        val good = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
+        val goodAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "header")
+        val missingAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "does-not-exist")
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateCatalog(tenant.id, shared, "Shared").execute()
+            CreateStencil(good, "Header").execute()
+        }
+
+        val batch = listOf(goodAddress.movedTo(shared), missingAddress.movedTo(shared))
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, batch).query() }
+
+        assertThat(preview.executable).isFalse()
+        // The blocker names which member it belongs to, so a batch can be shown per row.
+        assertThat(preview.blockers).anySatisfy { blocker ->
+            assertThat(blocker.code).isEqualTo("resource-not-found")
+            assertThat(blocker.source).isEqualTo(missingAddress)
+        }
+
+        assertThatThrownBy {
+            withMediator { MoveCatalogResources(tenant.id, batch, preview.planFingerprint).execute() }
+        }.isInstanceOf(CatalogResourceMoveBlockedException::class.java)
+
+        // The member that could have moved did not: a batch is all or nothing.
+        assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, goodAddress).query()!! }.canonical)
+            .isEqualTo(goodAddress)
     }
 
     private fun variantAttributes(tenantKey: TenantKey, templateId: TemplateId, variantId: VariantId): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
