@@ -50,7 +50,8 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
             CreateCatalog(tenant.id, catalogKey, "Invoices").execute()
             SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
-            // Reaching Exchange is what makes the namespace consequential to change.
+            // Exchange *accepting* a release is what makes the namespace consequential to change:
+            // a submission it takes and then rejects has published nothing.
             worker.run()
         }
 
@@ -78,6 +79,7 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
     companion object {
         private val exchange = FakeExchangeServer().apply {
             namespaces = listOf("public-services", "internal-forms")
+            submitResponse = { FakeExchangeServer.Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }
         }
 
         @JvmStatic
