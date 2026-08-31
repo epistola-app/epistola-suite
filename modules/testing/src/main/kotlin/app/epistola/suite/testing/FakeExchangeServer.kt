@@ -46,6 +46,9 @@ class FakeExchangeServer : AutoCloseable {
      */
     var discoveryResponse: () -> Response = { Response(200, """{"version":1,"issuer":"$baseUrl","baseUrl":"$baseUrl"}""") }
 
+    /** Makes this Exchange refuse an application or connection a Suite still holds, as a rebuilt one would. */
+    var rejectCarriedIdentity: Boolean = false
+
     /** Lets a test make the OAuth metadata disagree with the discovered issuer. */
     var oauthMetadataIssuer: String? = null
 
@@ -78,8 +81,16 @@ class FakeExchangeServer : AutoCloseable {
             )
         }
         server.createContext("/oauth/authorization-requests") { exchange ->
-            latestState.set(exchange.form()["state"])
-            exchange.respond(Response(200, """{"authorization_uri":"$baseUrl/authorize","expires_in":300}"""))
+            val form = exchange.form()
+            latestState.set(form["state"])
+            // A rebuilt Exchange knows nothing of the application or connection a Suite still holds,
+            // and answers a request carrying them as the stale client request it is.
+            val carriesIdentity = form["application_id"] != null || form["tenant_connection_id"] != null
+            if (rejectCarriedIdentity && carriesIdentity) {
+                exchange.respond(Response(400, """{"detail":"unknown_client_identity: Unknown OAuth application"}"""))
+            } else {
+                exchange.respond(Response(200, """{"authorization_uri":"$baseUrl/authorize","expires_in":300}"""))
+            }
         }
         server.createContext("/oauth/token") { exchange -> exchange.respond(tokenResponse()) }
         server.createContext("/api/v1/tenant-connection") { exchange ->
@@ -153,6 +164,7 @@ class FakeExchangeServer : AutoCloseable {
         submittedBytes = 0
         namespaces = listOf("public-services")
         organizationSlug = "acme"
+        rejectCarriedIdentity = false
         discoveryResponse = { Response(200, """{"version":1,"issuer":"$baseUrl","baseUrl":"$baseUrl"}""") }
         oauthMetadataIssuer = null
         tokenResponse = { Response(200, defaultToken()) }

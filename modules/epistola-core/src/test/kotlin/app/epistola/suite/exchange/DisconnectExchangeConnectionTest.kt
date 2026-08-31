@@ -191,6 +191,34 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
         StartExchangeConnection(tenant.id, CALLBACK).execute()
     }
 
+    /**
+     * An Exchange that no longer knows the identity this tenant holds - rebuilt, or restored from
+     * before the enrollment - used to be a dead end: reauthorizing offered ids Exchange rejected,
+     * and the only way out was to work out that "forget locally, then connect" was what the failure
+     * meant. Enrolling afresh is the recovery, so it happens without being asked for.
+     */
+    @Test
+    fun `an identity Exchange no longer knows is re-enrolled rather than refused`() {
+        val tenant = createTenant("Exchange Forgotten Identity")
+
+        withMediator {
+            enroll(tenant)
+            val enrolled = requireNotNull(credentials.connection(tenant.id))
+            assertThat(enrolled.oauthApplicationId).isNotNull()
+
+            // Exchange has been rebuilt: it rejects the application and connection Suite still holds.
+            exchange.rejectCarriedIdentity = true
+
+            StartExchangeConnection(tenant.id, CALLBACK).execute()
+
+            // The stale identity is dropped rather than carried into the new authorization.
+            val restarted = requireNotNull(credentials.connection(tenant.id))
+            assertThat(restarted.oauthApplicationId).isNull()
+            assertThat(restarted.clientSecret).isNull()
+            assertThat(restarted.tenantConnectionId).isNull()
+        }
+    }
+
     private fun enroll(tenant: Tenant) {
         beginAuthorization(tenant)
         CompleteExchangeConnection(

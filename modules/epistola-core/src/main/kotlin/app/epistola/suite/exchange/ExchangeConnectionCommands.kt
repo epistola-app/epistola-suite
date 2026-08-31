@@ -20,6 +20,7 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import java.nio.charset.StandardCharsets
@@ -77,6 +78,7 @@ class StartExchangeConnectionHandler(
     private val properties: ExchangeProperties,
 ) : CommandHandler<StartExchangeConnection, String> {
     private val random = SecureRandom()
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: StartExchangeConnection): String {
         // Enrolling is what creates the remote relationship, so it needs both switches — the
@@ -94,16 +96,24 @@ class StartExchangeConnectionHandler(
         val state = randomValue(32)
         val verifier = randomValue(64)
         val redirectUri = properties.configuredCallbackUrl ?: command.requestRedirectUri
-        val response = client.startAuthorization(
-            endpoints,
-            tenant.name,
-            installationService.get().id.toString(),
-            redirectUri,
-            state,
-            base64Sha256(verifier),
-            existing?.oauthApplicationId,
-            existing?.tenantConnectionId,
-        )
+        val installation = installationService.get().id.toString()
+        val startAuthorization = { application: UUID?, connection: UUID? ->
+            client.startAuthorization(endpoints, tenant.name, installation, redirectUri, state, base64Sha256(verifier), application, connection)
+        }
+        // Reauthorizing offers the identity this tenant already holds, so Exchange renews it rather
+        // than minting another and stranding the catalogs bound to it. Exchange may no longer have
+        // it — rebuilt, restored from before the enrollment — and then the stored ids are simply
+        // stale. Enrolling afresh is the recovery, and doing it here means the administrator is not
+        // asked to work out that "forget locally, then connect" was what the dead end meant.
+        var enrolledAfresh = false
+        val response = try {
+            startAuthorization(existing?.oauthApplicationId, existing?.tenantConnectionId)
+        } catch (failure: HttpClientErrorException.BadRequest) {
+            if (!failure.responseBodyAsString.contains("unknown_client_identity")) throw failure
+            logger.warn("Exchange does not recognise the stored identity for tenant {}; enrolling afresh", command.tenantKey)
+            enrolledAfresh = true
+            startAuthorization(null, null)
+        }
         val now = EpistolaClock.offsetDateTime()
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
@@ -120,12 +130,20 @@ class StartExchangeConnectionHandler(
                     -- authorization actually completes, so abandoning the browser flow cannot
                     -- strand a healthy tenant in PENDING with valid credentials.
                     status = CASE WHEN exchange_tenant_connections.status = 'ACTIVE' THEN 'ACTIVE' ELSE 'PENDING' END,
+                    -- Enrolling afresh means the remote identity this row described is gone. Left
+                    -- behind, the stale application secret would survive `COALESCE` when the new
+                    -- authorization completes, and the connection would carry a credential for an
+                    -- application that no longer exists.
+                    tenant_connection_id = CASE WHEN :afresh THEN NULL ELSE exchange_tenant_connections.tenant_connection_id END,
+                    oauth_application_id = CASE WHEN :afresh THEN NULL ELSE exchange_tenant_connections.oauth_application_id END,
+                    client_secret = CASE WHEN :afresh THEN NULL ELSE exchange_tenant_connections.client_secret END,
                     last_error = NULL, updated_at = NOW()
                 """,
             ).bind("tenantKey", command.tenantKey).bind("issuer", endpoints.issuer).bind("baseUrl", endpoints.baseUrl)
                 .bind("authorizationEndpoint", endpoints.authorizationRequestEndpoint)
                 .bind("tokenEndpoint", endpoints.tokenEndpoint)
-                .bind("connectionId", existing?.tenantConnectionId).execute()
+                .bind("afresh", enrolledAfresh)
+                .bind("connectionId", existing?.tenantConnectionId?.takeUnless { enrolledAfresh }).execute()
             handle.createUpdate(
                 """
                 INSERT INTO exchange_oauth_authorizations (tenant_key, state_hash, code_verifier, redirect_uri, expires_at)
