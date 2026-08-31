@@ -50,14 +50,15 @@
                     <div class="ep-row ep-gap-3">
                         <span th:if="${publication.boundNamespace != null}" class="badge badge-default"
                               th:text="${publication.boundNamespace}">namespace</span>
-                        <form th:if="${publication.canPublishCurrentRelease}"
+                        <form th:if="${publication.canPublishCurrentRelease || publication.needsNamespaceChoice}"
                               th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}"
                               method="post" class="ep-row ep-gap-3">
                             <select th:if="${publication.needsNamespaceChoice}" class="ep-select ep-select-sm"
                                     name="chosenNamespace" required aria-label="Publish to namespace">
-                                <option value="">Choose a namespace</option>
+                                <option value="" th:if="${publication.suggestedNamespace == null}">Choose a namespace</option>
                                 <option th:each="option : ${publication.availableNamespaces}"
-                                        th:value="${option}" th:text="${option}">community</option>
+                                        th:value="${option}" th:text="${option}"
+                                        th:selected="${option == publication.suggestedNamespace}">community</option>
                             </select>
                             <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm"
                                     th:text="${publication.isRetry} ? 'Retry publication' : 'Publish current release'">
@@ -69,9 +70,10 @@
                 <div class="detail-section-body">
                     <div class="alert alert-danger" th:if="${publicationError != null}" th:text="${publicationError}"></div>
 
-                    <div class="alert alert-warning" th:if="${publication.setupBlocker != null}">
-                        <strong>This catalog's releases cannot publish yet.</strong>
-                        <span th:text="${publication.setupBlocker}">Reason.</span>
+                    <div class="alert alert-warning" th:if="${publication.needsNamespaceChoice}">
+                        <strong>This catalog has no Exchange namespace yet.</strong>
+                        Choose one when you publish. Releases are not queued until it has one, so nothing is
+                        waiting in the meantime.
                     </div>
 
                     <p class="text-muted" style="margin: 0; font-size: var(--ep-text-sm);"
@@ -147,11 +149,10 @@
                     <p class="catalog-detail-value">
                         Policy: <strong th:text="${publication.policy.label}">Inherit tenant default</strong>
                     </p>
-                    <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;" th:if="${publication.boundNamespace != null}">
-                        Namespace: <code th:text="${publication.boundNamespace}">namespace</code> (bound)
-                    </p>
-                    <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;" th:if="${publication.boundNamespace == null}">
-                        Preferred namespace: <code th:text="${publication.namespacePreference ?: 'tenant default'}"></code>
+                    <p class="text-muted" style="margin: var(--ep-space-2) 0 0; font-size: var(--ep-text-sm);"
+                       th:text="${publication.policy.name() == 'NEVER'}
+                           ? 'This catalog is never published to Exchange.'
+                           : 'Whether a release is queued for Exchange. The namespace is shown above.'">
                     </p>
                 </div>
 

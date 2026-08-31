@@ -52,9 +52,9 @@ CREATE TABLE catalog_release_publications (
     catalog_key CATALOG_KEY NOT NULL,
     version VARCHAR(50) NOT NULL,
     fingerprint CHAR(64) NOT NULL,
-    namespace VARCHAR(63),
+    namespace VARCHAR(63) NOT NULL,
     archive BYTEA,
-    status VARCHAR(30) NOT NULL CHECK (status IN ('WAITING_SETUP', 'READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED', 'CANCELLED')),
+    status VARCHAR(30) NOT NULL CHECK (status IN ('READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED', 'CANCELLED')),
     idempotency_key UUID NOT NULL,
     remote_publication_id UUID,
     attempts INTEGER NOT NULL DEFAULT 0,
@@ -70,7 +70,7 @@ CREATE TABLE catalog_release_publications (
 
 CREATE INDEX catalog_release_publications_work
     ON catalog_release_publications(status, next_attempt_at)
-    WHERE status IN ('WAITING_SETUP', 'READY', 'SUBMITTED', 'RETRY');
+    WHERE status IN ('READY', 'SUBMITTED', 'RETRY');
 
 COMMENT ON TABLE exchange_tenant_connections IS
     'One Exchange OAuth connection per Suite tenant; credentials are encrypted by JDBI and excluded from portable backups.';

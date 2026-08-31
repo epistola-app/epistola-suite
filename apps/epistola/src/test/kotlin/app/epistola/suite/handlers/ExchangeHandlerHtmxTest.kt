@@ -9,11 +9,16 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.exchange.CompleteExchangeConnection
+import app.epistola.suite.exchange.SetCatalogPublicationNamespace
+import app.epistola.suite.exchange.StartExchangeConnection
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.FakeExchangeServer
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -21,14 +26,14 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.TestPropertySource
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
 
 /**
  * Server-contract assertions for the Exchange settings page, made against the rendered response
  * rather than the template source, so they keep holding if the markup is reorganized.
  */
-@TestPropertySource(properties = ["epistola.exchange.enabled=true"])
 class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired
@@ -55,11 +60,14 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `the settings page reports publication activity across every catalog`() {
         val tenant = createTenant("Exchange Activity")
-        enablePublishing(tenant)
         withMediator {
+            // A release only queues once its catalog has somewhere to publish, so the page can only
+            // show activity for a tenant that is actually enrolled.
+            enroll(tenant)
             listOf("activity-alpha", "activity-beta").forEach { slug ->
                 val key = CatalogKey.of(slug)
                 CreateCatalog(tenant.id, key, slug).execute()
+                SetCatalogPublicationNamespace(tenant.id, key, "public-services").execute()
                 ReleaseCatalogVersion(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             }
         }
@@ -71,12 +79,41 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         // Both catalogs on one page — this is what the per-catalog history cannot show.
         assertThat(response.body).contains("activity-alpha")
         assertThat(response.body).contains("activity-beta")
-        assertThat(response.body).contains("Waiting for setup")
+        assertThat(response.body).contains("Ready to submit")
     }
 
     /** Connecting requires the tenant feature as well as the deployment gate. */
     private fun enablePublishing(tenant: Tenant) = withMediator {
         SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+    }
+
+    /** Completes enrollment against the stand-in Exchange, from inside a mediator scope. */
+    private fun enroll(tenant: Tenant) {
+        SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+        StartExchangeConnection(tenant.id, "https://suite.example/oauth/exchange/callback").execute()
+        CompleteExchangeConnection(
+            tenant.id,
+            requireNotNull(exchange.latestState.get()),
+            "authorization-code",
+            FakeExchangeServer.OAUTH_APPLICATION_ID,
+            exchange.baseUrl,
+        ).execute()
+    }
+
+    companion object {
+        private val exchange = FakeExchangeServer()
+
+        @JvmStatic
+        @DynamicPropertySource
+        fun exchangeProperties(registry: DynamicPropertyRegistry) {
+            registry.add("epistola.exchange.enabled") { "true" }
+            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
+            registry.add("epistola.exchange.allow-http") { "true" }
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun stopExchange() = exchange.close()
     }
 
     @Test

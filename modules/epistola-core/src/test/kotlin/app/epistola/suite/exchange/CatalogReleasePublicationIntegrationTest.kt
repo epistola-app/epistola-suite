@@ -32,7 +32,7 @@ import org.springframework.test.context.TestPropertySource
 class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
 
     @Test
-    fun `release command succeeds and queues exact archive while connection is missing`() {
+    fun `a release with nowhere to publish still succeeds and queues nothing`() {
         val tenant = createTenant("Queued Publication")
         val catalogKey = CatalogKey.of("public-catalog")
 
@@ -40,6 +40,7 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, catalogKey, "Public catalog").execute()
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
 
+            // No namespace has been chosen, so there is nowhere for this release to go.
             val release = ReleaseCatalogVersion(
                 tenant.id,
                 catalogKey,
@@ -47,16 +48,16 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
                 publication = ReleasePublication.PUBLISH,
             ).execute()
 
-            assertThat(release.publicationId).isNotNull()
-            val publication = publications(tenant.id, catalogKey).single()
-            assertThat(publication.version).isEqualTo("1.0.0")
-            assertThat(publication.status).isEqualTo(CatalogPublicationStatus.WAITING_SETUP)
-            assertThat(publication.archiveRetained).isTrue()
+            // The local release is unaffected — that is the point of the outbox being separate.
+            assertThat(release.version).isEqualTo("1.0.0")
+            // But nothing is queued: work that cannot move is not created rather than left waiting.
+            assertThat(release.publicationId).isNull()
+            assertThat(publications(tenant.id, catalogKey)).isEmpty()
         }
     }
 
     @Test
-    fun `unchanged current release can be queued later through the production command`() {
+    fun `publishing an existing release needs a namespace first`() {
         val tenant = createTenant("Publish Current")
         val catalogKey = CatalogKey.of("publish-current")
 
@@ -65,17 +66,11 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
 
-            PublishCurrentCatalogRelease(tenant.id, catalogKey).execute()
-
-            val publication = publications(tenant.id, catalogKey).single()
-            assertThat(publication.version).isEqualTo("1.0.0")
-            assertThat(publication.status).isEqualTo(CatalogPublicationStatus.WAITING_SETUP)
-            assertThat(publication.archiveRetained).isTrue()
-
             assertThatThrownBy { PublishCurrentCatalogRelease(tenant.id, catalogKey).execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
-                    assertThat(it.code).isEqualTo(ValidationCode.PUBLICATION_ALREADY_QUEUED)
+                    assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE)
                 }
+            assertThat(publications(tenant.id, catalogKey)).isEmpty()
         }
     }
 
@@ -88,7 +83,7 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, catalogKey, "Never publishes").execute()
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = true).execute()
-            SetCatalogPublicationSettings(tenant.id, catalogKey, CatalogPublicationPolicy.NEVER, null).execute()
+            SetCatalogPublicationSettings(tenant.id, catalogKey, CatalogPublicationPolicy.NEVER).execute()
 
             // Even an explicit release-time opt-in cannot override a hard policy.
             val release = ReleaseCatalogVersion(
@@ -117,11 +112,12 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = true).execute()
 
-            assertThat(ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0").execute().publicationId).isNotNull()
+            // Nothing is bound, so even an inheriting catalog with the tenant default on queues nothing.
+            assertThat(ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0").execute().publicationId).isNull()
 
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = false).execute()
             assertThat(ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0").execute().publicationId).isNull()
-            assertThat(publications(tenant.id, catalogKey).map { it.version }).containsExactly("1.0.0")
+            assertThat(publications(tenant.id, catalogKey)).isEmpty()
         }
     }
 

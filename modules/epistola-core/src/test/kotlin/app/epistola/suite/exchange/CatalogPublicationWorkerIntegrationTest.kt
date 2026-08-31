@@ -98,53 +98,20 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an unenrolled tenant waits for setup instead of consuming retries`() {
+    fun `an unenrolled tenant queues nothing at all`() {
         val tenant = createTenant("Worker Waits")
         val catalogKey = CatalogKey.of("worker-waits")
 
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
-            releaseWithPublication(tenant, catalogKey)
+            releaseWithPublication(tenant, catalogKey, namespace = null)
 
             worker.run()
 
-            val waiting = publication(tenant.id, catalogKey)
-            assertThat(waiting.status).isEqualTo(CatalogPublicationStatus.WAITING_SETUP)
-            assertThat(waiting.attempts).isZero()
-            assertThat(waiting.archiveRetained).isTrue()
+            // Not enrolled means no namespace, and no namespace means nothing was ever queued —
+            // there is no work sitting in a queue that cannot move.
+            assertThat(GetCatalogPublicationState(tenant.id, catalogKey).query()?.publications).isEmpty()
             assertThat(exchange.submittedIdempotencyKeys).isEmpty()
-            // "Waiting for setup" alone is not actionable; the row says what is missing.
-            assertThat(waiting.lastError).contains("not connected to Exchange")
-        }
-    }
-
-    @Test
-    fun `an enrolled tenant with several namespaces and no default is told which to choose`() {
-        val tenant = createTenant("Worker Needs Default")
-        val catalogKey = CatalogKey.of("worker-needs-default")
-        // Two granted namespaces, so enrollment cannot pick a default and does not guess.
-        exchange.namespaces = listOf("community", "epistola")
-
-        withMediator {
-            enroll(tenant)
-            releaseWithPublication(tenant, catalogKey)
-
-            worker.run()
-
-            val waiting = publication(tenant.id, catalogKey)
-            assertThat(waiting.status).isEqualTo(CatalogPublicationStatus.WAITING_SETUP)
-            assertThat(waiting.lastError).contains("No default namespace is chosen")
-            // It names the options, so the fix does not require going to look them up.
-            assertThat(waiting.lastError).contains("community, epistola")
-            assertThat(requireNotNull(GetExchangeSettings(tenant.id).query()).needsDefaultNamespace).isTrue()
-
-            // Choosing one releases the queue on the next sweep.
-            SetExchangeDefaultNamespace(tenant.id, "community").execute()
-            forceDue(waiting.id)
-            worker.run()
-
-            assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("community")
-            assertThat(requireNotNull(GetExchangeSettings(tenant.id).query()).needsDefaultNamespace).isFalse()
         }
     }
 
@@ -158,12 +125,12 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Worker chooses ns").execute()
 
-            // No tenant default and no catalog preference: publishing would have nowhere to go.
+            // Nothing bound: publishing would have nowhere to go, and the form asks.
             assertThat(requireNotNull(GetCatalogPublicationState(tenant.id, catalogKey).query()).needsNamespaceChoice)
                 .isTrue()
 
             // Picking one at the point of publishing is the whole setup — no visit to settings.
-            ChooseCatalogNamespace(tenant.id, catalogKey, "epistola").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "epistola").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
@@ -241,8 +208,13 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
         ).execute()
     }
 
-    private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey) {
+    /**
+     * A catalog only queues once it has somewhere to publish, so binding is part of setting up a
+     * publishable catalog rather than something the tenant default does behind the scenes.
+     */
+    private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey, namespace: String? = "public-services") {
         CreateCatalog(tenant.id, catalogKey, catalogKey.value).execute()
+        namespace?.let { SetCatalogPublicationNamespace(tenant.id, catalogKey, it).execute() }
         ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
     }
 

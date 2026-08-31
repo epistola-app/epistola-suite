@@ -33,6 +33,7 @@ Publication is resolved from four controls, from broadest to narrowest:
 | Deployment     | `epistola.exchange.enabled`                               | `false`         | Hard network and UI gate. When false, no enrollment, credential maintenance, or publication traffic runs. |
 | Tenant feature | `catalog-publishing`                                      | `false` (Alpha) | Enables publication behavior for one tenant. Turning it off pauses that tenant's unaccepted queued work.  |
 | Tenant default | `publishCatalogsByDefault`                                | `false`         | Supplies the default for catalogs using `INHERIT`. It does not authorize network traffic by itself.       |
+| Permission     | `CATALOG_PUBLISH`                                         | publisher role  | Sending a release out of this installation, and choosing the namespace it lands in.                       |
 | Catalog policy | `INHERIT`, `ALWAYS`, `DEFAULT_YES`, `DEFAULT_NO`, `NEVER` | `INHERIT`       | Sets the catalog's default and whether a release-time override is allowed.                                |
 
 The release dialog is the final decision point for policies that permit an
@@ -242,12 +243,24 @@ tracked separately.
 
 ## Namespace selection and immutable binding
 
-When a tenant has no default namespace and the catalog expresses no preference — the usual case for
-a connection granting several — the release dialog and the catalog's publish action offer the
-granted namespaces directly. Choosing there is part of publishing and needs only `TEMPLATE_PUBLISH`;
-moving an already-bound catalog is a management action and stays separate. A release published
-without choosing still succeeds locally: its publication waits, and records that a namespace is what
-it is waiting for.
+A catalog's namespace is always chosen **explicitly**. Nothing infers one from the tenant default at
+publish time: the choice becomes permanent the moment a release reaches Exchange, and a permanent
+decision should not be made by a fallback. The tenant default is only the value a namespace picker
+starts on.
+
+Until a catalog has a namespace, **no publication is created at all** — a release with nowhere to go
+is not queued and left waiting, it is simply not queued. The local release is unaffected either way.
+The release dialog and the catalog's publish action offer the granted namespaces to anyone holding
+`CATALOG_PUBLISH`, so choosing happens at the moment of publishing rather than on a settings page;
+once chosen, the same forms show where the release will go instead of asking again.
+
+Releasing and publishing are separate acts with separate permissions. `TEMPLATE_PUBLISH` cuts an
+immutable release inside this installation; `CATALOG_PUBLISH` sends one to Exchange and decides the
+namespace it lands in. Someone can be trusted with the first and not the second.
+
+Only the **current** release can be published after the fact. The exact archive is retained only for
+releases that were queued, and anything else has to be rebuilt from the working copy — which
+reproduces the release only while that copy still matches it.
 
 Exchange addresses a catalog by namespace, catalog key, and version. Suite
 chooses the namespace in this order:

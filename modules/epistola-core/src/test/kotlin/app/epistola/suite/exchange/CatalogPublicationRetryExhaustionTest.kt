@@ -48,6 +48,7 @@ class CatalogPublicationRetryExhaustionTest : IntegrationTestBase() {
                 exchange.baseUrl,
             ).execute()
             CreateCatalog(tenant.id, catalogKey, "Retry exhaustion").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             worker.run()

@@ -53,14 +53,14 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
         val catalogKey = CatalogKey.of("observability-gauges")
 
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+            enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Observability gauges").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             metricsPublisher.publish()
 
-            // Never enrolled, so the release is queued and waiting for setup.
-            assertThat(gauge("epistola.installation.exchange_publications", "waiting_setup")).isGreaterThanOrEqualTo(1.0)
+            assertThat(gauge("epistola.installation.exchange_publications", "ready")).isGreaterThanOrEqualTo(1.0)
             assertThat(gauge("epistola.installation.exchange_publications", "accepted")).isZero()
             // Something is outstanding, so the age gauge is live.
             assertThat(
@@ -80,21 +80,25 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Observability counters").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
+            // The worker drains every due publication in the installation, so assert the counter
+            // moved for this outcome rather than pinning an exact total.
             val acceptedBefore = counter("epistola.exchange.publication.submissions", "accepted")
             worker.run()
-            assertThat(counter("epistola.exchange.publication.submissions", "accepted")).isEqualTo(acceptedBefore + 1.0)
+            assertThat(counter("epistola.exchange.publication.submissions", "accepted")).isGreaterThan(acceptedBefore)
 
             // A second catalog whose submission never reaches Exchange counts as an error, not a decision.
             val other = CatalogKey.of("observability-counters-error")
             CreateCatalog(tenant.id, other, "Observability counters error").execute()
+            SetCatalogPublicationNamespace(tenant.id, other, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, other, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             exchange.submitResponse = { FakeExchangeServer.Response(500, """{"error":"boom"}""") }
 
             val errorsBefore = counter("epistola.exchange.publication.submissions", "error")
             worker.run()
-            assertThat(counter("epistola.exchange.publication.submissions", "error")).isEqualTo(errorsBefore + 1.0)
+            assertThat(counter("epistola.exchange.publication.submissions", "error")).isGreaterThan(errorsBefore)
         }
     }
 
@@ -103,10 +107,11 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Observability Activity")
 
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+            enroll(tenant)
             listOf("activity-one", "activity-two").forEach { slug ->
                 val key = CatalogKey.of(slug)
                 CreateCatalog(tenant.id, key, slug).execute()
+                SetCatalogPublicationNamespace(tenant.id, key, "public-services").execute()
                 ReleaseCatalogVersion(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             }
 
@@ -116,7 +121,7 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
             assertThat(activity.total).isEqualTo(2)
             assertThat(activity.active).isEqualTo(2)
             assertThat(activity.recent.map { it.catalogKey.value }).containsExactlyInAnyOrder("activity-one", "activity-two")
-            assertThat(activity.countsByStatus[CatalogPublicationStatus.WAITING_SETUP]).isEqualTo(2)
+            assertThat(activity.countsByStatus[CatalogPublicationStatus.READY]).isEqualTo(2)
             assertThat(activity.oldestActiveSince).isNotNull
 
             // Freshly queued work is not stalled.

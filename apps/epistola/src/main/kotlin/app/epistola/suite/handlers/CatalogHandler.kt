@@ -50,10 +50,9 @@ import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
-import app.epistola.suite.exchange.ChooseCatalogNamespace
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
-import app.epistola.suite.exchange.RebindCatalogNamespace
+import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -395,7 +394,7 @@ class CatalogHandler {
      */
     private fun chooseNamespaceIfOffered(request: ServerRequest, tenantKey: TenantKey, catalogKey: CatalogKey) {
         request.params().getFirst("chosenNamespace")?.trim()?.ifBlank { null }
-            ?.let { ChooseCatalogNamespace(tenantKey, catalogKey, it).execute() }
+            ?.let { SetCatalogPublicationNamespace(tenantKey, catalogKey, it).execute() }
     }
 
     /** Rejects an unknown policy as a form error instead of letting `valueOf` become a 500. */
@@ -623,26 +622,15 @@ class CatalogHandler {
             val current = catalog.catalogMetadata
 
             if (section == CatalogMetadataSection.PUBLICATION) {
-                val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
-                // Locked once a release has reached Exchange; until then the choice is still local,
-                // and a stale form cannot move a locked one because the command re-checks.
-                val requested = request.params().getFirst("namespacePreference")?.trim()?.ifBlank { null }
-                val editable = publication?.namespaceLocked != true
                 SetCatalogPublicationSettings(
                     tenantKey = tenantId.key,
                     catalogKey = catalogKey,
                     policy = publicationPolicy(request.params().getFirst("publicationPolicy")),
-                    namespacePreference = if (editable) requested else catalog.exchangeNamespacePreference,
                 ).execute()
-                // The preference records intent; moving an existing binding is a separate,
-                // guarded action owned by the publication integration.
-                if (editable &&
-                    requested != null &&
-                    requested != publication?.boundNamespace &&
-                    publication?.boundNamespace != null
-                ) {
-                    RebindCatalogNamespace(tenantId.key, catalogKey, requested).execute()
-                }
+                // The namespace is a publishing decision, not catalog metadata, and carries its own
+                // permission — so it travels as its own command and is simply absent for anyone who
+                // may not set it.
+                chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
                 return ServerResponse.noContent()
                     .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                     .build()

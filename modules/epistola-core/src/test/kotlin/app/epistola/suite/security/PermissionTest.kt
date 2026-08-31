@@ -48,6 +48,9 @@ class PermissionTest {
         assertThat(permissions).containsExactlyInAnyOrder(
             Permission.TEMPLATE_PUBLISH,
             Permission.STENCIL_PUBLISH,
+            // Publishing a catalog to Exchange is a publisher's act, not an administrator's —
+            // see the TENANT_ADMINISTRATOR case below, which grants administration but not publish.
+            Permission.CATALOG_PUBLISH,
         )
     }
 

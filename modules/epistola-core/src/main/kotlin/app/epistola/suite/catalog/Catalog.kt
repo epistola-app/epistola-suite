@@ -38,7 +38,6 @@ data class Catalog(
     val releasedFingerprint: String? = null,
     val releasedAt: OffsetDateTime? = null,
     val exchangePublicationPolicy: CatalogPublicationPolicy = CatalogPublicationPolicy.INHERIT,
-    val exchangeNamespacePreference: String? = null,
     /**
      * When catalog content was last set wholesale by a ZIP import. With
      * [releasedAt] it forms the AUTHORED drift baseline

@@ -84,6 +84,7 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Grant withdrawn").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("public-services")
 
@@ -108,13 +109,13 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
 
         withMediator {
             enroll(tenant)
-            SetExchangeDefaultNamespace(tenant.id, "public-services").execute()
             CreateCatalog(tenant.id, catalogKey, "Rebind me").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(state(tenant.id, catalogKey).boundNamespace).isEqualTo("public-services")
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isFalse()
 
-            RebindCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "internal-forms").execute()
 
             // The binding moves, and the queued release follows it — nothing was submitted anywhere.
             assertThat(state(tenant.id, catalogKey).boundNamespace).isEqualTo("internal-forms")
@@ -123,7 +124,7 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
             // Once Exchange has seen it, the coordinates are fixed.
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
-            assertThatThrownBy { RebindCatalogNamespace(tenant.id, catalogKey, "public-services").execute() }
+            assertThatThrownBy { SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_LOCKED)
                 }
@@ -138,9 +139,10 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Rebind ungranted").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
-            assertThatThrownBy { RebindCatalogNamespace(tenant.id, catalogKey, "not-ours").execute() }
+            assertThatThrownBy { SetCatalogPublicationNamespace(tenant.id, catalogKey, "not-ours").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE)
                 }

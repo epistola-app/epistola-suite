@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
 
 class CatalogPublicationSettingsIntegrationTest : IntegrationTestBase() {
     @Test
-    fun `command stores policy and namespace preference for authored catalog`() {
+    fun `command stores the publication policy for an authored catalog`() {
         val tenant = createTenant("Catalog Publication")
 
         withMediator {
@@ -23,12 +23,10 @@ class CatalogPublicationSettingsIntegrationTest : IntegrationTestBase() {
                 tenantKey = tenant.id,
                 catalogKey = CatalogKey.DEFAULT,
                 policy = CatalogPublicationPolicy.DEFAULT_YES,
-                namespacePreference = "public-services",
             ).execute()
 
             val catalog = GetCatalog(tenant.id, CatalogKey.DEFAULT).query()
             assertThat(catalog?.exchangePublicationPolicy).isEqualTo(CatalogPublicationPolicy.DEFAULT_YES)
-            assertThat(catalog?.exchangeNamespacePreference).isEqualTo("public-services")
         }
     }
 }

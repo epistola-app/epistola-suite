@@ -4,11 +4,15 @@
 
 package app.epistola.suite.exchange
 
+import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import org.jdbi.v3.core.Handle
+import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.util.UUID
 
@@ -19,12 +23,17 @@ import java.util.UUID
  */
 @Component
 class ExchangeReleasePublicationAdapter(
+    private val jdbi: Jdbi,
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
 ) : CatalogReleasePublicationPort {
 
-    override fun isPublicationAvailable(tenantKey: TenantKey): Boolean = availability.isAvailable(tenantKey)
+    override fun isPublicationAvailable(tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = availability.isAvailable(tenantKey) &&
+        SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_PUBLISH) &&
+        jdbi.withHandle<Boolean, Exception> { handle ->
+            namespaceBinder.existingBinding(handle, tenantKey, catalogKey) != null
+        }
 
     override fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID {
         val id = UUIDv7.generate()
@@ -35,7 +44,9 @@ class ExchangeReleasePublicationAdapter(
             catalogKey = request.catalogKey,
             version = request.version,
             fingerprint = request.fingerprint,
-            namespace = namespaceBinder.resolveAndBind(handle, request.tenantKey, request.catalogKey),
+            namespace = requireNotNull(namespaceBinder.existingBinding(handle, request.tenantKey, request.catalogKey)) {
+                "A release reached the outbox without a namespace; isPublicationAvailable should have refused it"
+            },
             archive = request.archive,
             idempotencyKey = UUIDv7.generate(),
         )

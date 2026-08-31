@@ -21,8 +21,13 @@ import java.util.UUID
  * release path is exactly what it was before publication existed.
  */
 interface CatalogReleasePublicationPort {
-    /** True when this deployment and tenant may publish at all. Consulted before any archive is built. */
-    fun isPublicationAvailable(tenantKey: TenantKey): Boolean
+    /**
+     * True when this release could actually be published: the integration is enabled for the tenant,
+     * the caller is allowed to publish, and the catalog has somewhere to publish to. Consulted
+     * before any archive is built, and before a release is queued — work with nowhere to go is not
+     * queued at all.
+     */
+    fun isPublicationAvailable(tenantKey: TenantKey, catalogKey: CatalogKey): Boolean
 
     /** Records durable publication intent for a release being committed on [handle]. */
     fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID

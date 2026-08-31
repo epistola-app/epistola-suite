@@ -26,12 +26,14 @@ enum class ExchangeConnectionStatus(val label: String, val badgeClass: String) {
 /**
  * Lifecycle of one release in the publication outbox.
  *
+ * A publication is only ever created once its catalog has a namespace, so there is no state for
+ * "queued but with nowhere to go" — work that cannot move is not queued in the first place.
+ *
  * [isActive] states are the worker's work set; [clearsArchive] states are the terminal
  * decisions after which the retained ZIP is no longer needed. `FAILED` deliberately keeps
  * its archive: an administrator can retry it with a fresh idempotency key.
  */
 enum class CatalogPublicationStatus(val label: String, val badgeClass: String) {
-    WAITING_SETUP("Waiting for setup", "badge-muted"),
     READY("Ready to submit", "badge-info"),
     SUBMITTED("Submitted", "badge-info"),
     RETRY("Retrying", "badge-warning"),
@@ -41,7 +43,7 @@ enum class CatalogPublicationStatus(val label: String, val badgeClass: String) {
     CANCELLED("Cancelled", "badge-muted"),
     ;
 
-    val isActive: Boolean get() = this == WAITING_SETUP || this == READY || this == SUBMITTED || this == RETRY
+    val isActive: Boolean get() = this == READY || this == SUBMITTED || this == RETRY
 
     val clearsArchive: Boolean get() = this == ACCEPTED || this == REJECTED
 
@@ -52,7 +54,7 @@ enum class CatalogPublicationStatus(val label: String, val badgeClass: String) {
      * reason: Exchange holds it and may still publish it, so dropping it locally would abandon an
      * outcome rather than prevent one.
      */
-    val isCancellable: Boolean get() = this == WAITING_SETUP || this == READY || this == RETRY || this == FAILED
+    val isCancellable: Boolean get() = this == READY || this == RETRY || this == FAILED
 
     companion object {
         val active: List<CatalogPublicationStatus> = entries.filter { it.isActive }

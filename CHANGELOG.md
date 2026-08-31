@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** feat!(exchange): **Publishing to Exchange is now its own permission, and a release is never queued without a destination.** `CATALOG_PUBLISH` covers sending a release out of this installation and choosing the namespace it lands in; `TEMPLATE_PUBLISH` still means cutting a release here. Releasing and publishing are different acts, so someone can be trusted with one and not the other. The publisher role gains the new permission.
+- **[user]** feat!(exchange): **A catalog's namespace is always chosen explicitly.** The tenant default no longer binds a catalog behind the scenes — it only pre-fills the picker, because the choice becomes permanent once a release reaches Exchange and a fallback should not make that decision. Until a catalog has a namespace nothing is queued at all, so there is no longer a queue of work that cannot move; the local release is unaffected either way, and the release can be published later once a namespace is set. The per-catalog namespace _preference_ is gone: the binding is now the single setting.
+
 - **[user]** feat(exchange): **Publishing asks which namespace when there is no default.** A connection granting several namespaces leaves the tenant default unset, so a first release had nowhere to go and simply waited. The release dialog and the catalog's publish action now offer the granted namespaces directly, so choosing where a catalog publishes is part of publishing it rather than a setting to go and find. Moving an already-bound catalog stays a separate, management-level action.
 - **[user]** feat(exchange): **Publication history on the catalog page matches the Exchange page.** The catalog's own publication section is now a proper panel with status badges, attempt counts, the bound namespace, and — when its releases cannot proceed — the reason, so an author who just pressed publish sees what is wrong where they are rather than on a settings page.
 

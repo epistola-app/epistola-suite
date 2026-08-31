@@ -27,7 +27,7 @@ data class CatalogReleasePublication(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val version: String,
-    val namespace: String?,
+    val namespace: String,
     val status: CatalogPublicationStatus,
     val idempotencyKey: UUID,
     val remotePublicationId: UUID?,
@@ -61,7 +61,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         catalogKey: CatalogKey,
         version: String,
         fingerprint: String,
-        namespace: String?,
+        namespace: String,
         archive: ByteArray,
         idempotencyKey: UUID,
     ) {
@@ -73,7 +73,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             """,
         ).bind("id", id).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
             .bind("fingerprint", fingerprint).bind("namespace", namespace).bind("archive", archive)
-            .bind("status", initialStatus(namespace)).bind("idempotencyKey", idempotencyKey).execute()
+            .bind("status", CatalogPublicationStatus.READY).bind("idempotencyKey", idempotencyKey).execute()
     }
 
     /**
@@ -81,7 +81,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
      * the new attempt against the old one. [archive] replaces the stored bytes when the caller had
      * to rebuild them — a cancelled publication released its archive, a failed one kept it.
      */
-    fun requeue(handle: Handle, id: UUID, namespace: String?, idempotencyKey: UUID, archive: ByteArray? = null) {
+    fun requeue(handle: Handle, id: UUID, namespace: String, idempotencyKey: UUID, archive: ByteArray? = null) {
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
@@ -91,7 +91,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
                 claimed_at = NULL, last_error = NULL, updated_at = NOW()
             WHERE id = :id
             """,
-        ).bind("namespace", namespace).bind("status", initialStatus(namespace)).bind("archive", archive)
+        ).bind("namespace", namespace).bind("status", CatalogPublicationStatus.READY).bind("archive", archive)
             .bind("idempotencyKey", idempotencyKey).bind("id", id).execute()
     }
 
@@ -148,12 +148,6 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
     fun loadArchive(id: UUID): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
         handle.createQuery("SELECT archive FROM catalog_release_publications WHERE id = :id")
             .bind("id", id).map { rs, _ -> rs.getBytes("archive") }.findOne().orElse(null)
-    }
-
-    fun markNamespaceResolved(handle: Handle, id: UUID, namespace: String) {
-        handle.createUpdate(
-            "UPDATE catalog_release_publications SET namespace = :namespace, status = 'READY', updated_at = NOW() WHERE id = :id",
-        ).bind("namespace", namespace).bind("id", id).execute()
     }
 
     /**
@@ -301,8 +295,6 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         .execute()
 
     private fun activeNames() = CatalogPublicationStatus.active.map(CatalogPublicationStatus::name).toTypedArray()
-
-    private fun initialStatus(namespace: String?) = if (namespace == null) CatalogPublicationStatus.WAITING_SETUP else CatalogPublicationStatus.READY
 
     private fun map(rs: ResultSet, _context: StatementContext) = CatalogReleasePublication(
         id = rs.getObject("id", UUID::class.java),

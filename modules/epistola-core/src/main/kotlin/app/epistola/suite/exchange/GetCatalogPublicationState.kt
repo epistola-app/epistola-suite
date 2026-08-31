@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -30,7 +31,6 @@ data class CatalogPublicationState(
     val policy: CatalogPublicationPolicy,
     val allowsReleaseOverride: Boolean,
     val defaultPublish: Boolean,
-    val namespacePreference: String?,
     val boundNamespace: String?,
     val publications: List<CatalogReleasePublication>,
     /** True when "publish current release" is a legitimate action right now. */
@@ -41,18 +41,17 @@ data class CatalogPublicationState(
     val namespaceLocked: Boolean,
     /** Namespaces the tenant's connection currently grants, for the namespace picker. */
     val availableNamespaces: List<String>,
+    /** Whether this principal may publish this catalog at all, and therefore set its namespace. */
+    val canPublish: Boolean,
     /**
-     * Why this catalog's queued work cannot proceed, when something is queued and nothing can carry
-     * it. The catalog page is where an author looks after pressing publish, so the reason belongs
-     * here and not only on the Exchange settings page.
+     * The value a namespace picker should start on: the catalog's own choice once made, otherwise
+     * the tenant default. The tenant default only ever pre-fills — it never binds a catalog by
+     * itself, because a binding becomes permanent and a fallback should not make that decision.
      */
-    val setupBlocker: String?,
-    /**
-     * True when publishing right now would have nowhere to go, but the connection does offer a
-     * choice. The publish action asks instead of queueing work that cannot move.
-     */
-    val needsNamespaceChoice: Boolean,
+    val suggestedNamespace: String?,
 ) {
+    /** True while the catalog has nowhere to publish and this principal could give it one. */
+    val needsNamespaceChoice: Boolean get() = available && canPublish && boundNamespace == null
     val policyOptions: List<CatalogPublicationPolicy> get() = CatalogPublicationPolicy.entries
     val namespacePattern: String get() = CatalogPublicationPolicy.NAMESPACE_PATTERN
 }
@@ -78,6 +77,7 @@ class GetCatalogPublicationStateHandler(
         val tenant = GetTenant(query.tenantKey).query() ?: return null
         val policy = catalog.exchangePublicationPolicy
         val available = availability.isAvailable(query.tenantKey)
+        val canPublish = SecurityContext.current().hasPermission(query.tenantKey, Permission.CATALOG_PUBLISH)
         // History stays visible while the feature is paused: an administrator turning it off
         // still needs to see what is queued and what already went out.
         val publications = store.list(query.tenantKey, query.catalogKey)
@@ -85,36 +85,41 @@ class GetCatalogPublicationStateHandler(
         val current = publications.firstOrNull { it.version == releaseStatus.latestVersion }
         val isRetry = current?.status == CatalogPublicationStatus.FAILED && current.archiveRetained
 
+        val binding = jdbi.withHandle<Binding, Exception> { handle ->
+            Binding(
+                namespace = namespaceBinder.existingBinding(handle, query.tenantKey, query.catalogKey),
+                locked = namespaceBinder.isLocked(handle, query.tenantKey, query.catalogKey),
+                granted = namespaceBinder.grantedNamespaces(handle, query.tenantKey).sorted(),
+                tenantDefault = namespaceBinder.tenantDefault(handle, query.tenantKey),
+            )
+        }
+
         return CatalogPublicationState(
             available = available,
             policy = policy,
             allowsReleaseOverride = policy.allowsReleaseOverride(),
             defaultPublish = policy.defaultPublish(tenant.publishCatalogsByDefault),
-            namespacePreference = catalog.exchangeNamespacePreference,
-            boundNamespace = jdbi.withHandle<String?, Exception> { handle ->
-                namespaceBinder.existingBinding(handle, query.tenantKey, query.catalogKey)
-            },
+            boundNamespace = binding.namespace,
             publications = publications,
-            namespaceLocked = jdbi.withHandle<Boolean, Exception> { handle ->
-                namespaceBinder.isLocked(handle, query.tenantKey, query.catalogKey)
-            },
-            availableNamespaces = jdbi.withHandle<List<String>, Exception> { handle ->
-                namespaceBinder.grantedNamespaces(handle, query.tenantKey).sorted()
-            },
-            needsNamespaceChoice = available &&
-                jdbi.withHandle<Boolean, Exception> { handle ->
-                    namespaceBinder.existingBinding(handle, query.tenantKey, query.catalogKey) == null &&
-                        namespaceBinder.resolvable(handle, query.tenantKey, query.catalogKey) == null &&
-                        namespaceBinder.grantedNamespaces(handle, query.tenantKey).isNotEmpty()
-                },
-            setupBlocker = publications.firstOrNull { it.status.isActive && it.namespace == null }?.let {
-                jdbi.withHandle<String, Exception> { handle -> namespaceBinder.unresolvedReason(handle, query.tenantKey) }
-            },
+            namespaceLocked = binding.locked,
+            availableNamespaces = binding.granted,
+            canPublish = canPublish,
+            suggestedNamespace = binding.namespace ?: binding.tenantDefault,
+            // Nothing is queued without a destination, so the action is only offered once there is one.
             canPublishCurrentRelease = available &&
+                canPublish &&
+                binding.namespace != null &&
                 policy != CatalogPublicationPolicy.NEVER &&
                 releaseStatus.latestVersion != null &&
                 (isRetry || (current == null && !releaseStatus.hasUnreleasedChanges)),
             isRetry = isRetry,
         )
     }
+
+    private data class Binding(
+        val namespace: String?,
+        val locked: Boolean,
+        val granted: List<String>,
+        val tenantDefault: String?,
+    )
 }

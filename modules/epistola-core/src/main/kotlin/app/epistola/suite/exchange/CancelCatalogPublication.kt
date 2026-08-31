@@ -30,7 +30,7 @@ data class CancelCatalogPublication(
     val publicationId: UUID,
 ) : Command<Unit>,
     RequiresPermission {
-    override val permission = Permission.TEMPLATE_PUBLISH
+    override val permission = Permission.CATALOG_PUBLISH
 }
 
 @Component

@@ -66,7 +66,7 @@ class CatalogPublicationWorker(
     }
 
     private fun process(publication: CatalogReleasePublication) {
-        val namespace = publication.namespace ?: resolveSetup(publication) ?: return
+        val namespace = publication.namespace
         val connection = credentials.activeConnection(publication.tenantKey)
         if (connection == null) {
             store.defer(
@@ -122,25 +122,6 @@ class CatalogPublicationWorker(
 
     private fun grantedNamespaces(tenantKey: TenantKey) = jdbi.withHandle<Set<String>, Exception> { handle ->
         namespaceBinder.grantedNamespaces(handle, tenantKey)
-    }
-
-    /**
-     * Binds the catalog's namespace once enrollment can supply one. Until then the publication
-     * waits — that is configuration, not a failed release — and is rechecked on a slow cadence
-     * rather than at the poll interval.
-     */
-    private fun resolveSetup(publication: CatalogReleasePublication): String? {
-        val namespace = jdbi.inTransaction<String?, Exception> { handle ->
-            namespaceBinder.resolveAndBind(handle, publication.tenantKey, publication.catalogKey)
-                ?.also { store.markNamespaceResolved(handle, publication.id, it) }
-        }
-        if (namespace == null) {
-            val reason = jdbi.withHandle<String, Exception> { handle ->
-                namespaceBinder.unresolvedReason(handle, publication.tenantKey)
-            }
-            store.defer(publication.id, properties.setupRetryInterval, reason)
-        }
-        return namespace
     }
 
     /**

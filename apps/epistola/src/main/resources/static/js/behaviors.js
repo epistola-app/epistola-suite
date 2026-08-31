@@ -41,6 +41,36 @@ document.addEventListener('htmx:responseError', function (event) {
   }
 });
 
+// ── Require a field only while a checkbox is ticked ────────────────────────
+// Usage: <input type="checkbox" name="publishToExchange">
+//        <select name="chosenNamespace" data-required-when="publishToExchange">
+// Some choices are mandatory only for the branch of a form the user actually
+// took — a namespace is required when a release publishes and meaningless when
+// it does not. A plain `required` would block the other branch, so the
+// constraint follows the checkbox. Applied on load and on every swap too, so a
+// dialog rendered with the box already ticked starts in the right state.
+function syncConditionallyRequired(root) {
+  const scope = root && root.querySelectorAll ? root : document;
+  scope.querySelectorAll('[data-required-when]').forEach(function (field) {
+    const form = field.closest('form');
+    if (!form) return;
+    const trigger = form.querySelector('[name="' + field.getAttribute('data-required-when') + '"]');
+    // No trigger means this form has no such branch (a policy that always publishes, say) —
+    // leave whatever the server rendered.
+    if (!trigger) return;
+    field.required = trigger.checked;
+  });
+}
+
+document.addEventListener('change', function (event) {
+  const form = event.target.closest && event.target.closest('form');
+  if (form) syncConditionallyRequired(form);
+});
+
+document.addEventListener('htmx:load', function (event) {
+  syncConditionallyRequired(event.target);
+});
+
 // ── Dialog open / close ─────────────────────────────────────────────────────
 // Usage: <button data-open-dialog="my-dialog">            → showModal()
 //        <button data-close-dialog>                       → closes closest <dialog>

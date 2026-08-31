@@ -213,17 +213,25 @@
                         <p class="form-hint">The Suite release succeeds even when Exchange is unavailable; publication continues in the background.</p>
                     </div>
                     <div class="form-group"
-                         th:if="${publication != null && publication.available && publication.needsNamespaceChoice}">
-                        <label class="ep-label" for="release-namespace">Publish to namespace</label>
-                        <select id="release-namespace" class="ep-select" name="chosenNamespace">
-                            <option value="">Choose a namespace</option>
-                            <option th:each="option : ${publication.availableNamespaces}"
-                                    th:value="${option}" th:text="${option}">community</option>
-                        </select>
-                        <p class="form-hint">
-                            This tenant has no default namespace, so this catalog needs one of its own. It becomes
-                            permanent once a release reaches Exchange. Leave it blank and the release still succeeds
-                            &mdash; its publication just waits until a namespace is chosen.
+                         th:if="${publication != null && publication.available && publication.canPublish
+                                  && publication.policy.name() != 'NEVER'}">
+                        <th:block th:if="${publication.needsNamespaceChoice}">
+                            <label class="ep-label" for="release-namespace">Publish to namespace</label>
+                            <select id="release-namespace" class="ep-select" name="chosenNamespace"
+                                    data-required-when="publishToExchange"
+                                    th:required="${!publication.allowsReleaseOverride}">
+                                <option value="" th:if="${publication.suggestedNamespace == null}">Choose a namespace</option>
+                                <option th:each="option : ${publication.availableNamespaces}"
+                                        th:value="${option}" th:text="${option}"
+                                        th:selected="${option == publication.suggestedNamespace}">community</option>
+                            </select>
+                            <p class="form-hint">
+                                This catalog has not published before. The namespace becomes permanent once a
+                                release reaches Exchange.
+                            </p>
+                        </th:block>
+                        <p class="form-hint" th:unless="${publication.needsNamespaceChoice}">
+                            Publishes to <code th:text="${publication.boundNamespace}">namespace</code>.
                         </p>
                     </div>
 

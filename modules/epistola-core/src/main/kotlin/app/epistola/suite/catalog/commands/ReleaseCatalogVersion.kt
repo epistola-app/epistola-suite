@@ -218,7 +218,7 @@ class ReleaseCatalogVersionHandler(
             ReleasePublication.PUBLISH -> true
             ReleasePublication.SKIP -> false
         }
-        if (!port.isPublicationAvailable(command.tenantKey)) return false
+        if (!port.isPublicationAvailable(command.tenantKey, command.catalogKey)) return false
         val tenantDefault = requireNotNull(GetTenant(command.tenantKey).query()).publishCatalogsByDefault
         return catalog.exchangePublicationPolicy.resolve(tenantDefault, override)
     }

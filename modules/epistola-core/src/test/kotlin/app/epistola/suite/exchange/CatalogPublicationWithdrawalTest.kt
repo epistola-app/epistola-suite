@@ -51,8 +51,10 @@ class CatalogPublicationWithdrawalTest : IntegrationTestBase() {
         val catalogKey = CatalogKey.of("withdraw-queued")
 
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
+            // A namespace can only be chosen from what the connection grants, so this needs enrolling.
+            enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw queued").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             CancelCatalogPublication(tenant.id, publication(tenant.id, catalogKey).id).execute()
@@ -80,6 +82,7 @@ class CatalogPublicationWithdrawalTest : IntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw submitted").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
             assertThat(publication(tenant.id, catalogKey).status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
@@ -100,22 +103,21 @@ class CatalogPublicationWithdrawalTest : IntegrationTestBase() {
 
         withMediator {
             enroll(tenant)
-            SetExchangeDefaultNamespace(tenant.id, "public-services").execute()
             CreateCatalog(tenant.id, catalogKey, "Recreate me").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
 
             // The catalog is deleted locally. Exchange still holds what it published.
             deleteCatalog(tenant, catalogKey)
-            SetExchangeDefaultNamespace(tenant.id, "internal-forms").execute()
             CreateCatalog(tenant.id, catalogKey, "Recreate me").execute()
 
             // The binding outlived the catalog, so the recreated one cannot claim a second namespace.
             val revived = state(tenant.id, catalogKey)
             assertThat(revived.boundNamespace).isEqualTo("public-services")
             assertThat(revived.namespaceLocked).isTrue()
-            assertThatThrownBy { RebindCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute() }
+            assertThatThrownBy { SetCatalogPublicationNamespace(tenant.id, catalogKey, "internal-forms").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_LOCKED)
                 }

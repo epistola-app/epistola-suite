@@ -100,26 +100,23 @@
                             th:value="${option.name()}" th:selected="${option == publication.policy}"
                             th:text="${option.label}">Inherit tenant default</option>
                 </select>
-                <label class="ep-label" for="catalog-exchange-namespace">Preferred namespace</label>
-                <input id="catalog-exchange-namespace" class="ep-input" name="namespacePreference"
-                       th:pattern="${publication.namespacePattern}"
-                       th:value="${publication.namespacePreference}"
-                       list="catalog-exchange-namespace-options"
-                       th:disabled="${publication.namespaceLocked}" />
-                <datalist id="catalog-exchange-namespace-options">
-                    <option th:each="option : ${publication.availableNamespaces}" th:value="${option}"></option>
-                </datalist>
-                <p class="form-hint" th:if="${!publication.namespaceLocked && publication.boundNamespace == null}">
-                    Optional. The tenant default is used when blank.
-                </p>
-                <p class="form-hint" th:if="${!publication.namespaceLocked && publication.boundNamespace != null}">
-                    Currently <code th:text="${publication.boundNamespace}">namespace</code>. It can still be changed:
-                    no release of this catalog has reached Exchange yet. It becomes permanent once one does.
-                </p>
-                <p class="form-hint" th:if="${publication.namespaceLocked}">
-                    Permanently <code th:text="${publication.boundNamespace}">namespace</code> — a release has reached
-                    Exchange, so the catalog's published coordinates cannot move.
-                </p>
+                <th:block th:if="${publication.canPublish}">
+                    <label class="ep-label" for="catalog-exchange-namespace">Exchange namespace</label>
+                    <select id="catalog-exchange-namespace" class="ep-select" name="chosenNamespace"
+                            th:disabled="${publication.namespaceLocked}">
+                        <option value="" th:if="${publication.suggestedNamespace == null}">Not chosen yet</option>
+                        <option th:each="option : ${publication.availableNamespaces}"
+                                th:value="${option}" th:text="${option}"
+                                th:selected="${option == publication.suggestedNamespace}">community</option>
+                    </select>
+                    <p class="form-hint" th:if="${publication.namespaceLocked}">
+                        Permanent: a release of this catalog has reached Exchange, so its published coordinates
+                        cannot move.
+                    </p>
+                    <p class="form-hint" th:unless="${publication.namespaceLocked}">
+                        Where this catalog publishes. It can still be changed until a release reaches Exchange.
+                    </p>
+                </th:block>
             </div>
         </div>
         <div class="ep-dialog-footer">

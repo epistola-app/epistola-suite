@@ -37,6 +37,15 @@ enum class Permission {
     CATALOG_VIEW,
     CATALOG_MANAGE,
 
+    /**
+     * Publish a catalog release to Epistola Exchange, and decide the namespace it publishes into.
+     *
+     * Deliberately separate from [TEMPLATE_PUBLISH], which cuts an immutable release inside this
+     * installation. Sending one to Exchange leaves the building and cannot be taken back, so being
+     * trusted to release is not the same as being trusted to publish.
+     */
+    CATALOG_PUBLISH,
+
     /** Observability: application logs and diagnostics. */
     DIAGNOSTICS_VIEW,
 
@@ -88,6 +97,7 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
     TenantRole.CONTENT_PUBLISHER -> setOf(
         Permission.TEMPLATE_PUBLISH,
         Permission.STENCIL_PUBLISH,
+        Permission.CATALOG_PUBLISH,
     )
     TenantRole.TENANT_ADMINISTRATOR -> setOf(
         Permission.TENANT_SETTINGS,
