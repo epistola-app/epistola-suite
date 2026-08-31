@@ -38,9 +38,11 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
+import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
+import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.Node
@@ -500,6 +502,82 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             .bind("tenantKey", tenantKey)
             .mapTo(String::class.java)
             .list()
+    }
+
+    @Test
+    fun `a template reopened after a move republishes against the new address`() {
+        val tenant = createTenant("Reopen after move")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
+        val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val address = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateStencil(stencilId, "Header").execute()
+            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
+            CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
+            UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
+            PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
+        }
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
+        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+
+        // Reopening copies the published model, which still names the vacated address. The copy is
+        // mutable, so it is canonicalised; the published version itself keeps its original bytes.
+        val draft = withMediator {
+            CreateVersion(variantId).execute()
+            GetDraft(variantId).query()!!
+        }
+        assertThat(draft.templateModel.nodes.getValue("stencil-instance").props?.get("catalogKey"))
+            .isEqualTo(targetCatalog.value)
+
+        // Without that, publish validation looks for the stencil at an address nothing occupies and
+        // the template becomes permanently unpublishable.
+        withMediator { PublishVersion(VersionId(draft.id, variantId)).execute() }
+    }
+
+    @Test
+    fun `usage still reports templates that reference a moved stencil by its old address`() {
+        val tenant = createTenant("Usage after move")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
+        val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val address = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateStencil(stencilId, "Header").execute()
+            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
+            CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
+            UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
+            PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
+        }
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
+        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+
+        // The published version keeps naming letters/header. Asking the moved stencil what uses it
+        // must still surface that template, or a delete-with-force would look safe when the alias is
+        // the only thing keeping those references resolvable.
+        val movedStencil = StencilId(stencilId.key, CatalogId(targetCatalog, tenantId))
+        val usage = withMediator { GetStencilUsagePage(movedStencil).query() }
+
+        assertThat(usage.items).isNotEmpty()
+        assertThat(usage.items).anySatisfy { item ->
+            assertThat(item.templateId).isEqualTo(templateId.key)
+        }
     }
 
     private fun variantAttributes(tenantKey: TenantKey, templateId: TemplateId, variantId: VariantId): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->

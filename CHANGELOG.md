@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **A template reopened after a relocation can be republished again.**
+  Reopening copied the published model verbatim, so the new draft still named the address the moved
+  resource had left; publish validation then looked for it there and refused, leaving the template
+  permanently unpublishable with nothing in the move preview hinting at it. Mutable content is now
+  canonicalised through the alias when it is written, while published versions keep their original
+  bytes.
+- **[dev]** test(catalogs): **Guard against registering a render-time-resolved type as movable.**
+  Stencil references are provenance — content is inlined at insert — so moving a stencil cannot
+  break generation. Themes, fonts and assets are resolved by address while rendering, so registering
+  one before its runtime lookup follows aliases would break every published template that uses it.
+  The guard makes that a build failure.
 - **[user]** feat(catalogs): **Templates can be moved between catalogs.** Variants, versions,
   contract versions, environment activations, quality findings and load-test runs follow the
   template. Generation history does not — it records the catalog a document was produced from, and

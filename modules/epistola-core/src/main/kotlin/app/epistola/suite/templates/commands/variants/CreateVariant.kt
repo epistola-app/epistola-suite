@@ -109,7 +109,7 @@ class CreateVariantHandler(
 
                 // Create an initial draft version for the new variant with default template model (version ID = 1)
                 val versionId = VersionKey.of(1) // First version is always 1
-                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variant.id), command.id.catalogKey)
+                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variant.id), command.id.tenantKey, command.id.catalogKey)
 
                 // Resolve contract version: prefer draft (user may be editing), fall back to published
                 val contractVersionId = handle.createQuery(

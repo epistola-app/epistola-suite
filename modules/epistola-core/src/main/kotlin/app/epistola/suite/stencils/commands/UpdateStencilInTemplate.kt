@@ -126,7 +126,7 @@ class UpdateStencilInTemplateHandler(
             )
 
             // 5. Validate and save the modified draft with its derived path index.
-            val prepared = templateDocumentPreparation.prepareDraft(upgrade.document, command.variantId.catalogKey)
+            val prepared = templateDocumentPreparation.prepareDraft(upgrade.document, command.variantId.tenantKey, command.variantId.catalogKey)
             handle.createUpdate(
                 """
             UPDATE template_versions
