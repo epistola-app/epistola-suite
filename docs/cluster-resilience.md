@@ -198,16 +198,57 @@ The warmup and gate are cheap and harmless regardless, and — importantly — t
 #723 hardening above means a wedge **from any cause** no longer starves the
 fleet, so the resilience guarantee does not hinge on this diagnosis being exact.
 
+## Database pressure protection
+
+Every JDBI statement — across the whole application, not just document
+generation — feeds `DatabasePressureMonitor` a round-trip duration via the
+`Jdbi` bean's `SqlLogger` (`JdbiConfig`). It combines a rolling p95 latency
+window with Hikari's `threadsAwaitingConnection`, and recognizes connection
+failures, statement cancellations, and lock timeouts (SQL states `08*`,
+`57014`, `53300`) as critical.
+
+`DatabasePressureAdmissionController` turns that signal into an effective
+render concurrency limit via a hysteretic state machine
+(`NORMAL → THROTTLED → PAUSED → RECOVERING → NORMAL`): sustained pressure
+halves the limit (rate-limited, with a floor); a critical failure pauses
+admissions to zero immediately; recovery requires a sustained healthy period
+before stepping the limit back up by one, one step at a time.
+
+`JobPoller.drain()` consults the controller only when deciding whether to
+claim more work. **It controls only future claims — a lower limit never
+interrupts a document that is already rendering**, preserving the generator's
+at-least-once and cancellation semantics.
+
+### Testing
+
+- `DatabasePressureMonitorTest`, `DatabasePressureAdmissionControllerTest`:
+  unit coverage of the rolling window (including expiry), critical-SQL-state
+  recognition, Hikari pool-waiter detection, and every state transition
+  (including THROTTLED→RECOVERING recovery that never passes through PAUSED).
+- `JdbiConfigDatabasePressureIntegrationTest`: the `SqlLogger` wiring against a
+  real `Jdbi` bean, including a genuine Postgres statement-timeout cancellation.
+- `JobPollerDatabasePressureIntegrationTest`: reducing the effective limit
+  mid-drain blocks new claims but never touches an already in-flight request.
+
 ## Configuration reference
 
-| Property                                                     | Default | Purpose                                                                                                      |
-| ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------ |
-| `epistola.cluster.idle-timeout-ms`                           | 10000   | Heartbeat freshness window for "active".                                                                     |
-| `epistola.cluster.scheduled-tasks.scheduler-idle-timeout-ms` | 30000   | Poll-completion freshness for single-owner election (#723).                                                  |
-| `epistola.cluster.scheduled-tasks.lease-duration-ms`         | 30000   | Lease held on a claimed task; renewed while in-flight.                                                       |
-| `epistola.cluster.scheduled-tasks.max-run-duration-ms`       | 900000  | Hard deadline after which a single-owner run is force-reclaimed. Set well above the longest handler runtime. |
-| `epistola.generation.polling.stale-timeout-minutes`          | 10      | IN_PROGRESS document age after which `StaleJobRecovery` re-queues it.                                        |
-| `epistola.loadtest.polling.stale-timeout-minutes`            | 10      | No-progress window after which a load-test run is recovered (#725).                                          |
+| Property                                                                        | Default | Purpose                                                                                                      |
+| ------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `epistola.cluster.idle-timeout-ms`                                              | 10000   | Heartbeat freshness window for "active".                                                                     |
+| `epistola.cluster.scheduled-tasks.scheduler-idle-timeout-ms`                    | 30000   | Poll-completion freshness for single-owner election (#723).                                                  |
+| `epistola.cluster.scheduled-tasks.lease-duration-ms`                            | 30000   | Lease held on a claimed task; renewed while in-flight.                                                       |
+| `epistola.cluster.scheduled-tasks.max-run-duration-ms`                          | 900000  | Hard deadline after which a single-owner run is force-reclaimed. Set well above the longest handler runtime. |
+| `epistola.generation.polling.stale-timeout-minutes`                             | 10      | IN_PROGRESS document age after which `StaleJobRecovery` re-queues it.                                        |
+| `epistola.generation.polling.database-pressure.enabled`                         | true    | Enables admission throttling under database pressure.                                                        |
+| `epistola.generation.polling.database-pressure.observation-window-ms`           | 10000   | Rolling window over which statement latency and critical-failure signals are aggregated.                     |
+| `epistola.generation.polling.database-pressure.minimum-samples`                 | 3       | Statements required in the window before latency-based throttling/recovery acts.                             |
+| `epistola.generation.polling.database-pressure.slow-statement-threshold-ms`     | 500     | p95 statement latency that triggers throttling.                                                              |
+| `epistola.generation.polling.database-pressure.recovery-statement-threshold-ms` | 200     | p95 statement latency required (with zero pool waiters) to count as healthy.                                 |
+| `epistola.generation.polling.database-pressure.minimum-concurrent-jobs`         | 1       | Floor effective concurrency never drops below outside a full pause.                                          |
+| `epistola.generation.polling.database-pressure.backoff-interval-ms`             | 1000    | Minimum time between successive halvings while pressured.                                                    |
+| `epistola.generation.polling.database-pressure.recovery-period-ms`              | 30000   | Sustained healthy time required before recovery stepping begins.                                             |
+| `epistola.generation.polling.database-pressure.recovery-step-interval-ms`       | 10000   | Time between successive +1 recovery steps.                                                                   |
+| `epistola.loadtest.polling.stale-timeout-minutes`                               | 10      | No-progress window after which a load-test run is recovered (#725).                                          |
 
 New columns (additive, nullable, data-preserving migrations):
 

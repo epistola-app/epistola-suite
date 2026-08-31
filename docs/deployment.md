@@ -69,6 +69,33 @@ tool has no resource-level hook, prefer `initContainer` or `embedded`.
 
 ## Usage
 
+### Local Kubernetes chart smoke test
+
+Use the local smoke test to verify the application chart against a real,
+disposable Kubernetes API server before handing it to an operator. It creates a
+temporary [Kind](https://kind.sigs.k8s.io/) cluster, starts one ephemeral
+`postgres:18` container inside it, runs the chart's migration hook, waits for
+the application, verifies the Service through `helm test`, and confirms that the
+native HPA resource can be created. It does **not** install a database operator,
+VPA components, or Grafana Operator, and it is not part of CI yet.
+
+Docker must be running. Install the repository's pinned tools once, then run:
+
+```bash
+mise install
+scripts/test-helm-chart.sh
+```
+
+The test removes its cluster on success or failure. To inspect a failed run,
+keep it instead:
+
+```bash
+scripts/test-helm-chart.sh --keep-cluster
+```
+
+The default application image is the chart's `appVersion`. To test another
+published image without rebuilding locally, pass `--image-tag <tag>`.
+
 ### Production, external Postgres (default `job` mode)
 
 `migration.mode=job` is the default, so it can be omitted:
@@ -386,6 +413,114 @@ truststore` — a quick confirmation your certs were picked up.
 - A TLS failure against a CA-signed endpoint shows up as
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.
+
+## Generation load profile and resource sizing
+
+The following representative load test used a four-core worker and generated
+PDF documents with the standard application configuration. Treat it as a
+sizing baseline, not a throughput guarantee: document complexity, templates,
+fonts, database latency, and concurrent interactive traffic all affect the
+result.
+
+| Measure |         Idle | 100-document burst | 10,000-document burst | Settled after burst |
+| ------- | -----------: | -----------------: | --------------------: | ------------------: |
+| Memory  |       763 MB |           2,384 MB |              3,933 MB |            1,252 MB |
+| CPU     | ~0.007 cores |        ~0.40 cores |       2.70 of 4 cores |        back to idle |
+
+| Workload         | Wall time |   Throughput | Average queue wait | p95 queue wait | Failures |
+| ---------------- | --------: | -----------: | -----------------: | -------------: | -------: |
+| 100 documents    |      8.5s | ~11.7 docs/s |               7.0s |           8.0s |        0 |
+| 10,000 documents |     85.2s |  ~117 docs/s |              47.5s |          81.4s |        0 |
+
+### Resource profiles
+
+Use the chart defaults for production generation capacity. The smaller profile
+is deliberately for test, preview, and low-volume environments; it remains
+functional but documents generate more slowly under load.
+
+| Profile                               | CPU request / limit | Memory request / limit | Intended use                                                                                                                                                                                     |
+| ------------------------------------- | ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Production generation (chart default) | `750m` / `3`        | `1536Mi` / `4Gi`       | About 5,000 documents/minute per node; sustained bursts can still affect UI responsiveness.                                                                                                      |
+| Test, preview, or low volume          | `100m` / `1`        | `512Mi` / `1Gi`        | About 1,000 documents in two minutes (~500/minute); chart verification, manual testing, and occasional generation. Do not use this profile when generation latency or UI responsiveness matters. |
+
+To select the small profile, override the defaults in your values file:
+
+```yaml
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+```
+
+For workloads above the production baseline, benchmark representative document
+templates and concurrent UI traffic. Increase capacity, introduce separate
+worker capacity, or limit generation concurrency when interactive
+responsiveness is a priority.
+
+## Pod autoscaling
+
+The chart can optionally render either a `HorizontalPodAutoscaler` (HPA) or a
+`VerticalPodAutoscaler` (VPA) for the application Deployment. HPA is built into
+Kubernetes; VPA is not. Before enabling VPA, install its CRD and the VPA
+recommender, updater, and admission-controller components in the cluster.
+
+VPA is disabled by default. Start with `updateMode: Off`, which records
+recommendations without changing any pods:
+
+```yaml
+vpa:
+  enabled: true
+  updateMode: "Off"
+  minReplicas: 1
+  controlledValues: RequestsOnly
+  resourcePolicy:
+    minAllowed:
+      cpu: 750m
+      memory: 1536Mi
+    maxAllowed:
+      cpu: "3"
+      memory: 4Gi
+```
+
+### VPA rollout recommendation
+
+VPA rendering is supported by this chart, but live VPA-controller behavior has
+not yet been tested by Epistola. Treat it as an operator-evaluated feature:
+
+1. Enable it with `updateMode: Off` and observe recommendations over
+   representative PDF-generation bursts, document complexity, and normal UI
+   traffic. Use Epistola Suite's built-in **Operations → Load Tests** facility
+   to run the same templates, data, document count, and concurrency expected
+   in production; record the resulting VPA recommendations, queue waits, and
+   UI responsiveness.
+2. If recommendations are stable, trial `Initial` in a non-critical
+   environment. It applies the recommendation only when a pod is created, so
+   it does not evict a running application pod.
+3. Evaluate `Recreate` or `Auto` only after confirming that pod evictions are
+   safe for active users and document-generation jobs.
+
+The default `RequestsOnly` leaves `resources.limits` under operator control.
+Its recommendations must stay at or below those limits, so increasing a VPA
+`maxAllowed` value also requires increasing the corresponding Helm resource
+limit.
+
+Do not enable VPA together with this chart's default CPU HPA configuration.
+The chart's VPA currently manages CPU and memory requests together; it does
+not yet expose VPA `controlledResources` to restrict VPA to memory while HPA
+controls CPU. In production, use the CPU HPA and leave VPA disabled. For a
+fixed-size or exploratory environment, disable HPA and use VPA `Off` first,
+then potentially `Initial`. Test and preview environments normally need
+neither controller.
+
+The HPA is disabled by default. When enabled, it scales on average CPU use at
+80% of the `750m` request—about `600m` per pod—and keeps one to ten replicas.
+Memory scaling is disabled by default: after a generation burst the JVM retains
+heap (the measured process settled at 1,252 MB), which would otherwise keep an
+HPA above its intended threshold. Enable a memory target only after measuring
+your own steady-state workload.
 
 ## Connection pool (HikariCP)
 

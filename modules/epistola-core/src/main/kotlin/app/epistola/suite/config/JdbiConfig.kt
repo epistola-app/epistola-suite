@@ -15,9 +15,11 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.crypto.CredentialCipher
 import app.epistola.suite.crypto.Secret
+import app.epistola.suite.database.DatabasePressureMonitor
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.core.mapper.ColumnMapper
+import org.jdbi.v3.core.statement.SqlLogger
 import org.jdbi.v3.core.statement.StatementContext
 import org.jdbi.v3.jackson3.Jackson3Config
 import org.jdbi.v3.jackson3.Jackson3Plugin
@@ -27,6 +29,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import tools.jackson.databind.ObjectMapper
 import java.sql.ResultSet
+import java.sql.SQLException
+import java.time.Duration
 import javax.sql.DataSource
 
 @Configuration
@@ -36,6 +40,7 @@ class JdbiConfig {
         dataSource: DataSource,
         mapper: ObjectMapper,
         credentialCipher: CredentialCipher,
+        databasePressureMonitor: DatabasePressureMonitor,
     ): Jdbi = Jdbi.create(SpringConnectionFactory(dataSource))
         .installPlugin(KotlinPlugin())
         .installPlugin(PostgresPlugin())
@@ -44,6 +49,23 @@ class JdbiConfig {
             // Join Spring-managed transactions (the mediator's per-command transaction)
             // instead of committing them mid-flight from nested jdbi.inTransaction calls.
             setTransactionHandler(SpringAwareTransactionHandler())
+            setSqlLogger(object : SqlLogger {
+                override fun logBeforeExecution(context: StatementContext) {
+                    context.define(DATABASE_START_NANOS, System.nanoTime())
+                }
+
+                override fun logAfterExecution(context: StatementContext) {
+                    duration(context)?.let(databasePressureMonitor::recordSuccess)
+                }
+
+                override fun logException(context: StatementContext, ex: SQLException) {
+                    databasePressureMonitor.recordFailure(duration(context) ?: Duration.ZERO, ex)
+                }
+
+                private fun duration(context: StatementContext): Duration? = (context.getAttribute(DATABASE_START_NANOS) as? Long)?.let { startedAt ->
+                    Duration.ofNanos((System.nanoTime() - startedAt).coerceAtLeast(0))
+                }
+            })
             // fix: use the spring boot mapper as this is preconfigured with kotlin support
             getConfig(Jackson3Config::class.java).mapper = mapper
 
@@ -94,4 +116,8 @@ class JdbiConfig {
             registerArgument(SecretArgumentFactory(credentialCipher))
             registerColumnMapper(Secret::class.java, SecretColumnMapper(credentialCipher))
         }
+
+    private companion object {
+        const val DATABASE_START_NANOS = "epistola.database.start-nanos"
+    }
 }

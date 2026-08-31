@@ -76,6 +76,43 @@
 - **[user]** feat(exchange): **Catalog releases publish through a durable background outbox.** The local release transaction stores the exact portable ZIP and succeeds independently of Exchange availability. Catalog pages show attempt history and allow an unchanged current release to be published later, or a remote failure to be retried with a fresh idempotency key. Cluster-safe workers pause tenant work while its feature is off, retain archives until a terminal Exchange decision, and maintain expiring connection credentials independently.
 - **[user]** feat(exchange): **Added opt-in Exchange discovery and tenant enrollment storage.** The deployment gate defaults off and discovers the official Exchange through epistola.app. Application secrets, access and refresh tokens, and the pending PKCE verifier are encrypted at rest, one logical Exchange connection is retained per Suite tenant across reauthorization, and the UI displays Exchange's stable `tc_`-prefixed connection reference instead of requiring a raw UUID. Connection/runtime publication state is deliberately excluded from portable tenant backups.
 
+- **[dev]** feat(generation): **Document workers now yield to a degraded
+  database.** Every JDBI statement records a safe aggregate round-trip timer
+  (bound through Micrometer after bootstrap, so it never joins the
+  JDBI-to-installation-metadata startup cycle); workers combine its rolling
+  latency with Hikari pool contention to lower their effective render
+  concurrency under sustained pressure via a hysteretic
+  NORMAL→THROTTLED→PAUSED→RECOVERING state machine. A database cancellation,
+  timeout, or connectivity failure pauses only new claims until a healthy
+  recovery window has elapsed — in-flight documents continue normally.
+  Enabled by default; exports pressure state, effective concurrency, and
+  throttle/pause counters for Prometheus, and logs once on entering/leaving a
+  pause rather than on every poll cycle.
+
+- **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
+  Start in recommendation-only mode; production uses CPU HPA while VPA remains
+  disabled because its controller behavior has not yet been runtime-tested and
+  the chart cannot yet restrict VPA to memory-only control. Use the suite's
+  built-in Load Tests facility to gather representative recommendations.
+- **[dev]** fix(chart): **The chart's resource defaults now match measured
+  document-generation demand.** Pods request 750m CPU and 1536Mi memory, with
+  3 CPU / 4Gi limits; the default HPA targets 600m CPU and does not scale on
+  retained JVM memory. This supports about 5,000 documents per minute per node;
+  the Kind fixture documents and uses the smaller test / preview profile,
+  which supports about 1,000 documents in two minutes.
+- **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
+  smoke test.** Pull requests run the local chart installation harness only
+  when the Epistola chart, its test harness, or its workflow changes; unrelated
+  application and chart changes do not create a Kubernetes cluster.
+- **[dev]** fix(chart): **The local Kubernetes chart smoke test supplies its
+  required authentication configuration.** Its disposable staging/test
+  installation enables the self-contained form-login profile instead of needing
+  a full OIDC provider.
+- **[dev]** test(chart): **A local Kubernetes chart smoke test is available.**
+  `scripts/test-helm-chart.sh` creates and removes a disposable Kind cluster,
+  starts one ephemeral PostgreSQL container, installs the application chart,
+  validates migration/readiness/HPA admission, and prints diagnostics on failure.
+  It is intentionally not part of CI yet.
 - **[dev]** feat(embedding): **Epistola's UI can be embedded in an iframe on epistola.app, demo-mode only.** Adds a `postMessage` bridge (`epistola.embedding.*` config, gated CSP `frame-ancestors`) so a host page can request typed-identity navigation and receive navigation/resource-changed notifications; epistola-suite ships no training content itself.
 - **[dev]** chore(editor): **Editor sources reformatted for oxfmt 0.63.0.** The non-major
   dependency update bumped oxfmt past a template-literal formatting rule change; reformatted the

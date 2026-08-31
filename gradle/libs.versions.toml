@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.3.21"
-spring-boot = "4.1.0"
+spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
 graalvm-native = "1.1.10"
 ktlint = "14.2.0"
@@ -9,16 +9,16 @@ cyclonedx = "3.4.1"
 dependency-license-report = "3.1.4"
 kover = "0.9.9"
 jdbi = "3.54.0"
-json-schema-validator = "3.0.6"
+json-schema-validator = "3.0.7"
 jsonata = "0.9.10"
 uuid-creator = "6.1.1"
-spring-web = "7.0.8"
+spring-web = "7.0.9"
 playwright = "1.62.0"
 epistola-contract = "1.1.0"
 epistola-hub-client = "0.7.0"
-aws-sdk = "2.53.3"
+aws-sdk = "2.54.2"
 guava = "33.7.1-jre"
-spring-ai = "2.0.0"
+spring-ai = "2.0.1"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }

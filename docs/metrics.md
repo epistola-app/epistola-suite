@@ -73,6 +73,23 @@ tag — see [Per-tenant tagging](#per-tenant-tagging).
 | `epistola.jobs.drain.batches`   | Counter           | `outcome` (`found`/`empty`) |
 | `epistola.jobs.active`          | Gauge             | —                           |
 
+### Database-pressure protection
+
+| Meter                                                   | Type    | Tags      |
+| ------------------------------------------------------- | ------- | --------- |
+| `epistola.database.statement.duration`                  | Timer   | `outcome` |
+| `epistola.generation.concurrency.effective`             | Gauge   | —         |
+| `epistola.generation.database_pressure.state`           | Gauge   | —         |
+| `epistola.generation.database_pressure.throttled.total` | Counter | —         |
+| `epistola.generation.database_pressure.paused.total`    | Counter | —         |
+
+`epistola.database.statement.duration` measures JDBI execution round trips only;
+it never includes SQL text or parameters. The pressure controller combines its
+rolling p95 with Hikari pool waiters. State values are `0=normal`, `1=throttled`,
+`2=paused`, and `3=recovering`. Throttling limits only **new** render-job claims;
+in-flight documents finish normally. A cancellation/timeout/connectivity failure
+pauses admissions until the database has had a sustained healthy recovery period.
+
 ### Storage
 
 | Meter                                 | Type                | Tags                              |
