@@ -370,14 +370,12 @@ class CatalogHandler {
                 publication = publicationChoice,
             ).execute()
 
+            // Releasing is the start of something to watch, not the end of a dialog: publication
+            // runs in the background, so land on the catalog where its progress is shown.
             request.htmx {
-                fragment("catalogs/list", "release-done") {}
-                oob("catalogs/list", "catalog-list") {
-                    catalogListModel(request)
-                    "oob" to true
-                }
+                dialogLocation("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 onNonHtmx {
-                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                    redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 }
             }
         } catch (e: CatalogReleaseVersionException) {

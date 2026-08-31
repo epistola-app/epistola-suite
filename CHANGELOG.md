@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalog): **Releasing now takes you to the catalog, where you can watch the publication run.** The release dialog previously closed onto the catalog list, which shows nothing about what happens next; publication is a background process worth following.
+- **[user]** fix(catalog): **Reworked the catalog detail page.** The Exchange publication section was nested inside the catalog-details panel, so the two ran together as one block, and it repeated itself in the metadata grid below. It is now its own panel stating the policy, the namespace and every queued release. Actions that were rendered as bare text — Change, Withdraw — are buttons.
+
 - **[user]** fix(exchange): **Removed the "choose a default namespace" warning, which no longer described anything.** A tenant default is now only the value a namespace picker starts on, so its absence is not a problem and nothing waits on it. The Exchange page says what it is for instead of warning about it, and the namespace field in the release dialog appears only when the release is actually being published.
 
 - **[user]** feat!(exchange): **Publishing to Exchange is now its own permission, and a release is never queued without a destination.** `CATALOG_PUBLISH` covers sending a release out of this installation and choosing the namespace it lands in; `TEMPLATE_PUBLISH` still means cutting a release here. Releasing and publishing are different acts, so someone can be trusted with one and not the other. The publisher role gains the new permission.
