@@ -267,6 +267,15 @@ The release dialog and the catalog's publish action offer the granted namespaces
 `CATALOG_PUBLISH`, so choosing happens at the moment of publishing rather than on a settings page;
 once chosen, the same forms show where the release will go instead of asking again.
 
+**When there is nowhere to publish, the release form does not offer to.** Publishing is shown as
+unavailable, with the reason and whose problem it is: the tenant is not connected to Exchange (fixed
+under Settings → Exchange), its organization has granted it no namespace (only the organization can
+fix that), or the catalog is bound to a namespace the connection has since lost (re-point it on the
+catalog page). Offering the instruction regardless is the one combination that strands an author:
+asking to publish makes the namespace field required, and with nothing granted that field has no
+options, so the form refuses to submit saying only that a selection is needed. Releasing locally is
+never blocked by any of this.
+
 Releasing and publishing are separate acts with separate permissions. `TEMPLATE_PUBLISH` cuts an
 immutable release inside this installation; `CATALOG_PUBLISH` sends one to Exchange and decides the
 namespace it lands in. Someone can be trusted with the first and not the second.

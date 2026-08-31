@@ -199,8 +199,39 @@
                         <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
                                   placeholder="What changed in this release?"></textarea>
                     </div>
-                    <div class="form-group" th:if="${publication != null && publication.available}">
-                        <label th:if="${publication.allowsReleaseOverride}">
+                    <!--
+                      Nothing to publish into. Offering the instruction anyway is what strands
+                      someone: ticking it makes the namespace field required, and that field has no
+                      options to offer, so the form refuses to submit saying only "please select an
+                      item in the list". State the reason instead, and leave the release itself
+                      alone - it succeeds either way.
+                    -->
+                    <div class="form-group"
+                         th:if="${publication != null && publication.available
+                                  && publication.policy.name() != 'NEVER' && !publication.hasPublishableDestination}">
+                        <label class="text-muted">
+                            <input type="checkbox" disabled>
+                            Publish this version to Epistola Exchange
+                        </label>
+                        <p class="form-hint" th:if="${!publication.connected}">
+                            This tenant is not connected to Epistola Exchange. Connect it under
+                            <a th:href="@{/tenants/{tenantId}/exchange(tenantId=${tenantId})}">Settings &rarr; Exchange</a>,
+                            then publish this release from the catalog page.
+                        </p>
+                        <p class="form-hint" th:if="${publication.connected && publication.noNamespacesGranted}">
+                            This tenant's Exchange organization has not granted it a namespace to publish
+                            into. It has to grant one before anything from this catalog can be published.
+                        </p>
+                        <p class="form-hint" th:if="${publication.connected && !publication.noNamespacesGranted}">
+                            This catalog is bound to <code th:text="${publication.boundNamespace}">namespace</code>,
+                            which the Exchange connection no longer grants. Point it at a namespace this tenant
+                            still holds on the catalog page, and this release can be published afterwards.
+                        </p>
+                        <p class="form-hint">Releasing is unaffected: this version is created either way.</p>
+                    </div>
+                    <div class="form-group" th:if="${publication != null && publication.available
+                                  && (publication.hasPublishableDestination || publication.policy.name() == 'NEVER')}">
+                        <label th:if="${publication.allowsReleaseOverride && publication.canPublish}">
                             <input type="checkbox" name="publishToExchange" value="true"
                                    th:checked="${publication.defaultPublish}">
                             Publish this version to Epistola Exchange
@@ -214,7 +245,7 @@
                     </div>
                     <div class="form-group" data-shown-when="publishToExchange"
                          th:if="${publication != null && publication.available && publication.canPublish
-                                  && publication.policy.name() != 'NEVER'}"
+                                  && publication.policy.name() != 'NEVER' && publication.hasPublishableDestination}"
                          th:hidden="${publication.allowsReleaseOverride && !publication.defaultPublish}">
                         <th:block th:if="${publication.needsNamespaceChoice}">
                             <label class="ep-label" for="release-namespace">Publish to namespace</label>

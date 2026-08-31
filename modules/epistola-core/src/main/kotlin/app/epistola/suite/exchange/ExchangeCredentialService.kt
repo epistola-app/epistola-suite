@@ -41,6 +41,18 @@ class ExchangeCredentialService(
     fun activeConnection(tenantKey: TenantKey): ExchangeTenantConnection? = connection(tenantKey)?.takeIf { it.status == ExchangeConnectionStatus.ACTIVE }
 
     /**
+     * Whether the tenant holds a usable enrollment, without loading it.
+     *
+     * A caller that only needs the fact should not pull the row: mapping it decrypts the access
+     * token, refresh token and application secret to answer a question none of them bear on.
+     */
+    fun hasActiveConnection(tenantKey: TenantKey): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        handle.createQuery(
+            "SELECT EXISTS(SELECT 1 FROM exchange_tenant_connections WHERE tenant_key = :tenantKey AND status = 'ACTIVE')",
+        ).bind("tenantKey", tenantKey).mapTo(Boolean::class.java).one()
+    }
+
+    /**
      * Returns a token good for at least [renewWithin], refreshing first if needed. Null when the
      * connection cannot produce one — the caller defers rather than failing the work.
      *

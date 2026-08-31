@@ -20,6 +20,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -39,6 +40,13 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
+
+    /**
+     * One stand-in Exchange is shared by the whole class, so a test that changes what it grants
+     * would otherwise decide what every later test sees.
+     */
+    @BeforeEach
+    fun resetExchange() = exchange.reset()
 
     @Test
     fun `an unconnected tenant is offered authorization as a top-level navigation`() {
@@ -144,6 +152,74 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         @JvmStatic
         @AfterAll
         fun stopExchange() = exchange.close()
+    }
+
+    /**
+     * The release dialog must never take an instruction it cannot carry out. Ticking "publish"
+     * makes the namespace field required, and with nothing granted that field has no options — so
+     * the form simply refuses to submit, saying only "please select an item in the list".
+     */
+    @Test
+    fun `a release cannot be sent to Exchange when the tenant is not connected`() {
+        val tenant = createTenant("Release No Connection")
+        val catalogKey = CatalogKey.of("no-connection")
+        enablePublishing(tenant)
+        withMediator { CreateCatalog(tenant.id, catalogKey, "No connection").execute() }
+
+        val body = releaseDialog(tenant, catalogKey)
+
+        // The instruction is shown as unavailable rather than offered and then refused.
+        assertThat(body).contains("Publish this version to Epistola Exchange")
+        assertThat(body).doesNotContain("""name="publishToExchange"""")
+        assertThat(body).doesNotContain("""name="chosenNamespace"""")
+        assertThat(body).contains("not connected to Epistola Exchange")
+        // Releasing locally is a separate act and is unaffected.
+        assertThat(body).contains("this version is created either way")
+    }
+
+    @Test
+    fun `a release cannot be sent to Exchange when the organization grants no namespace`() {
+        val tenant = createTenant("Release No Namespace")
+        val catalogKey = CatalogKey.of("no-namespace")
+        exchange.namespaces = emptyList()
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "No namespace").execute()
+        }
+
+        val body = releaseDialog(tenant, catalogKey)
+
+        assertThat(body).doesNotContain("""name="publishToExchange"""")
+        assertThat(body).doesNotContain("""name="chosenNamespace"""")
+        // Connected, so the fix is not "connect" — it is the organization's to make.
+        assertThat(body).doesNotContain("not connected to Epistola Exchange")
+        assertThat(body).contains("has not granted it a namespace")
+    }
+
+    @Test
+    fun `a release is offered to Exchange once there is somewhere for it to go`() {
+        val tenant = createTenant("Release Publishable")
+        val catalogKey = CatalogKey.of("publishable")
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Publishable").execute()
+        }
+
+        val body = releaseDialog(tenant, catalogKey)
+
+        assertThat(body).contains("""name="publishToExchange"""")
+        assertThat(body).contains("""name="chosenNamespace"""")
+        assertThat(body).contains("public-services")
+        assertThat(body).doesNotContain("not connected to Epistola Exchange")
+    }
+
+    private fun releaseDialog(tenant: Tenant, catalogKey: CatalogKey): String {
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/release",
+            String::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return requireNotNull(response.body)
     }
 
     @Test

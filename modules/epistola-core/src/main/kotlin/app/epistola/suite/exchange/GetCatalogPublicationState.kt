@@ -54,6 +54,14 @@ data class CatalogPublicationState(
     /** Whether this principal may publish this catalog at all, and therefore set its namespace. */
     val canPublish: Boolean,
     /**
+     * Whether the tenant holds a usable Exchange enrollment.
+     *
+     * Separate from [availableNamespaces] being empty, because the two are different problems with
+     * different fixes: nobody has connected this tenant yet, versus the organization it belongs to
+     * has granted it nothing to publish into. Only the first is solvable inside Suite.
+     */
+    val connected: Boolean,
+    /**
      * The value a namespace picker should start on: the catalog's own choice once made, otherwise
      * the tenant default. The tenant default only ever pre-fills — it never binds a catalog by
      * itself, because a binding becomes permanent and a fallback should not make that decision.
@@ -73,6 +81,20 @@ data class CatalogPublicationState(
 
     /** No namespace is available to move to, so waiting for the organization is the only option. */
     val noNamespacesGranted: Boolean get() = available && availableNamespaces.isEmpty()
+
+    /**
+     * Whether a release could actually reach Exchange right now — whether there is anywhere for it
+     * to go.
+     *
+     * Offering to publish without this is the one combination that strands someone: the release
+     * form would take the instruction, then refuse to submit because the namespace it must ask for
+     * has no options, saying only "please select an item in the list". A catalog already bound to a
+     * namespace the connection has since lost is the same dead end reached from the other side.
+     */
+    val hasPublishableDestination: Boolean
+        get() = available &&
+            connected &&
+            if (boundNamespace != null) boundNamespace in availableNamespaces else availableNamespaces.isNotEmpty()
     val policyOptions: List<CatalogPublicationPolicy> get() = CatalogPublicationPolicy.entries
     val namespacePattern: String get() = CatalogPublicationPolicy.NAMESPACE_PATTERN
 }
@@ -91,6 +113,7 @@ class GetCatalogPublicationStateHandler(
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
+    private val credentials: ExchangeCredentialService,
 ) : QueryHandler<GetCatalogPublicationState, CatalogPublicationState?> {
 
     override fun handle(query: GetCatalogPublicationState): CatalogPublicationState? {
@@ -125,6 +148,7 @@ class GetCatalogPublicationStateHandler(
             namespaceLocked = binding.locked,
             availableNamespaces = binding.granted,
             canPublish = canPublish,
+            connected = available && credentials.hasActiveConnection(query.tenantKey),
             suggestedNamespace = binding.namespace ?: binding.tenantDefault,
             // Nothing is queued without a destination, so the action is only offered once there is one.
             canPublishCurrentRelease = available &&
