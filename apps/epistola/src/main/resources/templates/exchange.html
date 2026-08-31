@@ -10,15 +10,23 @@
     <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
 
     <div class="alert alert-warning" th:if="${!settings.deploymentEnabled}">
-        <strong>Catalog publishing is disabled for this deployment.</strong>
-        Set <code>epistola.exchange.enabled=true</code> before connecting a tenant.
+        <div>
+            <div class="alert-title">Catalog publishing is disabled for this deployment.</div>
+            <p style="margin: var(--ep-space-1) 0 0;">
+                Set <code>epistola.exchange.enabled=true</code> before connecting a tenant.
+            </p>
+        </div>
     </div>
 
     <div class="alert alert-warning" th:if="${settings.deploymentEnabled && !settings.featureEnabled}">
-        <strong>The Catalog publishing feature is off for this tenant.</strong>
-        Enable it under
-        <a th:href="@{/tenants/{tenantId}/features(tenantId=${tenantId})}">Settings &rarr; Features</a>
-        to connect. An existing connection can still be disconnected below.
+        <div>
+            <div class="alert-title">The Catalog publishing feature is off for this tenant.</div>
+            <p style="margin: var(--ep-space-1) 0 0;">
+                Enable it under
+                <a th:href="@{/tenants/{tenantId}/features(tenantId=${tenantId})}">Settings &rarr; Features</a>
+                to connect. An existing connection can still be disconnected below.
+            </p>
+        </div>
     </div>
 
     <th:block th:if="${settings.deploymentEnabled}">
@@ -116,10 +124,14 @@
             </div>
             <div class="detail-section-body">
                 <div class="alert alert-warning" th:if="${activity.stalled}">
-                    <strong>Publications are not progressing.</strong>
-                    The oldest unfinished publication has been queued since
-                    <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</span>.
-                    Check that this tenant's connection is active and that a namespace is available.
+                    <div>
+                        <div class="alert-title">Publications are not progressing.</div>
+                        <p style="margin: var(--ep-space-1) 0 0;">
+                            The oldest unfinished publication has been queued since
+                            <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</span>.
+                            Check that this tenant's connection is active and that a namespace is available.
+                        </p>
+                    </div>
                 </div>
                 <p class="text-muted" style="margin-top: 0;">
                     Every catalog in this tenant. Releases publish in the background, so this is where a stalled or

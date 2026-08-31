@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.exchange.CompleteExchangeConnection
 import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.exchange.StartExchangeConnection
@@ -80,6 +81,35 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body).contains("activity-alpha")
         assertThat(response.body).contains("activity-beta")
         assertThat(response.body).contains("Ready to submit")
+    }
+
+    @Test
+    fun `the catalog page names a release that can no longer be published`() {
+        val tenant = createTenant("Exchange Drifted")
+        val catalogKey = CatalogKey.of("drifted")
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Drifted").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Drifted",
+                description = "Changed after releasing",
+                attributes = emptyList(),
+            ).execute()
+        }
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            String::class.java,
+        )
+
+        // Asserted on the rendered page, not the query: a state field nothing renders explains nothing.
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("v1.0.0 can no longer be published")
+        assertThat(response.body).contains("Release the current state as a new version")
     }
 
     /** Connecting requires the tenant feature as well as the deployment gate. */

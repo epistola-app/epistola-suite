@@ -162,10 +162,28 @@
             <div class="detail-section-body">
                 <div class="alert alert-danger" th:if="${publicationError != null}" th:text="${publicationError}"></div>
 
+                <div class="alert alert-warning" th:if="${publication.unpublishableRelease != null}">
+                    <div>
+                        <div class="alert-title"
+                             th:text="'v' + ${publication.unpublishableRelease} + ' can no longer be published'">
+                            v1.0.0 can no longer be published
+                        </div>
+                        <p style="margin: var(--ep-space-1) 0 0;">
+                            It was never sent to Exchange, and the catalog has changed since it was released. A
+                            release is published exactly as it was cut, so this one cannot be reproduced now.
+                            Release the current state as a new version and publish that instead.
+                        </p>
+                    </div>
+                </div>
+
                 <div class="alert alert-warning" th:if="${publication.needsNamespaceChoice}">
-                    <strong>This catalog has no Exchange namespace yet.</strong>
-                    Choose one when you publish. Nothing is queued until it has one, so releases are simply
-                    not sent rather than held up.
+                    <div>
+                        <div class="alert-title">This catalog has no Exchange namespace yet</div>
+                        <p style="margin: var(--ep-space-1) 0 0;">
+                            Choose one when you publish. Nothing is queued until it has one, so releases are
+                            simply not sent rather than held up.
+                        </p>
+                    </div>
                 </div>
 
                 <dl class="description-list">
