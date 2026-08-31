@@ -248,11 +248,23 @@ Two rules keep that honest:
 
 Nothing stops two installations — or two tenants — publishing into the same namespace, and Suite
 does not try to. It cannot see the other publishers, so reserving coordinates locally would be a
-guess. Exchange arbitrates, and the release fingerprint is the material it needs: it travels inside
-the manifest of every archive, so Exchange can treat a re-submission of identical content under the
-same coordinates as the same release, and differing content under the same coordinates as a
-conflict to refuse. Suite needs no additional wire field for this; the rule is Exchange-side and is
-tracked separately.
+guess. Exchange decides it, because Exchange is the side that sees them all.
+
+Its rule is one appointed publisher **per catalog**, not per namespace: different catalogs in one
+namespace may come from different publishers, but a given catalog's version sequence has a single
+writer. A second publisher is refused at submission — the publication is `REJECTED` with
+`CATALOG_PUBLICATION_REJECTED` and a reason naming the installation that holds the authority, which
+appears on the catalog page like any other refusal.
+
+That matters for one situation this guide already describes. Catalog authority is held by the
+tenant connection that first published, so a Suite arriving as a _new_ connection is refused by its
+own catalog. Recent Exchange versions resume the connection when the same installation and tenant
+reauthorize, and an organization administrator can reappoint a catalog's publisher when it is still
+wrong. Neither is something Suite can do for itself; both are Exchange-side.
+
+The release fingerprint still travels inside the manifest of every archive, but for a narrower
+purpose than arbitration: it lets the appointed publisher re-submit identical bytes safely after an
+ambiguous outcome. Suite needs no additional wire field for any of this.
 
 ## Namespace selection and immutable binding
 

@@ -86,6 +86,15 @@ data class CatalogPublicationState(
     val namespaceRevoked: Boolean
         get() = available && boundNamespace != null && boundNamespace !in availableNamespaces
 
+    /**
+     * Publications that have been in flight far too long.
+     *
+     * The tenant-wide settings page already says this, but an author who has just published is on
+     * the catalog page, where a stalled release is indistinguishable from a healthy one — it simply
+     * carries an in-progress badge, for as long as it takes to give up on it.
+     */
+    val stalledPublications: List<CatalogReleasePublication> get() = publications.filter { it.isStalled }
+
     /** No namespace is available to move to, so waiting for the organization is the only option. */
     val noNamespacesGranted: Boolean get() = available && availableNamespaces.isEmpty()
 

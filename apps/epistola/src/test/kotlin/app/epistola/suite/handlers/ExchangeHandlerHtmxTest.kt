@@ -45,6 +45,9 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var worker: CatalogPublicationWorker
 
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
     /**
      * One stand-in Exchange is shared by the whole class, so a test that changes what it grants
      * would otherwise decide what every later test sees.
@@ -93,6 +96,46 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body).contains("activity-alpha")
         assertThat(response.body).contains("activity-beta")
         assertThat(response.body).contains("Ready to submit")
+    }
+
+    /**
+     * A release that is not progressing has to say so where it was published from.
+     *
+     * The tenant-wide settings page already warned, but the catalog page — where an author is
+     * standing after pressing publish — showed an in-progress badge and nothing else, for the
+     * twenty-four hours it takes to give up on a submission Exchange never decides.
+     */
+    @Test
+    fun `a release that has been waiting too long says so on the catalog page`() {
+        val tenant = createTenant("Exchange Stalled")
+        val catalogKey = CatalogKey.of("stalled")
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Stalled").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+        }
+
+        assertThat(catalogPage(tenant, catalogKey)).doesNotContain("waiting to publish for over an hour")
+
+        // `created_at` is written and aged by the database, so the test clock cannot reach it;
+        // planting the historical timestamp is the documented exception.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                "UPDATE catalog_release_publications SET created_at = NOW() - INTERVAL '3 hours' WHERE tenant_key = :tenantKey",
+            ).bind("tenantKey", tenant.id).execute()
+        }
+
+        assertThat(catalogPage(tenant, catalogKey)).contains("A release has been waiting to publish for over an hour")
+    }
+
+    private fun catalogPage(tenant: Tenant, catalogKey: CatalogKey): String {
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            String::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return requireNotNull(response.body)
     }
 
     /**

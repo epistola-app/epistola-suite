@@ -200,6 +200,23 @@
                     </div>
                 </div>
 
+                <div class="alert alert-warning" th:if="${!publication.stalledPublications.isEmpty()}">
+                    <div>
+                        <div class="alert-title"
+                             th:with="stalled=${#lists.size(publication.stalledPublications)}"
+                             th:text="${stalled == 1
+                                 ? 'A release has been waiting to publish for over an hour'
+                                 : stalled + ' releases have been waiting to publish for over an hour'}">
+                            A release has been waiting to publish for over an hour
+                        </div>
+                        <p style="margin: var(--ep-space-1) 0 0;">
+                            Publishing normally takes seconds once a release is queued, so this is a connection,
+                            namespace or Exchange problem rather than a slow one. Each attempt below records what
+                            it is waiting for; &quot;View on Exchange&quot; shows what Exchange itself made of it.
+                        </p>
+                    </div>
+                </div>
+
                 <div class="alert alert-warning" th:if="${publication.needsNamespaceChoice}">
                     <div>
                         <div class="alert-title">This catalog has no Exchange namespace yet</div>

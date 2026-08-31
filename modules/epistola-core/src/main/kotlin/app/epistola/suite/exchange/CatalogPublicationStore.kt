@@ -38,10 +38,32 @@ data class CatalogReleasePublication(
      * clock because `submitted_at` is a database-owned timestamp. Null until it is submitted.
      */
     val submittedFor: Duration?,
+    /**
+     * How long this publication has been in flight, by the database clock that wrote `created_at`.
+     *
+     * Measured from when it was queued rather than from its last change: a submission Exchange is
+     * holding is re-polled every thirty seconds, so anything based on the last update would keep
+     * looking healthy for exactly as long as it kept failing to finish.
+     */
+    val inFlightFor: Duration,
     val lastError: String?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
-)
+) {
+    /**
+     * Still unfinished long after it should have been decided.
+     *
+     * Queued work moves within seconds once enrollment is complete, so this is a configuration,
+     * credential or remote problem rather than a slow Exchange — and it is worth saying so where
+     * the release was published from, not only on a settings page nobody has open.
+     */
+    val isStalled: Boolean get() = status.isActive && inFlightFor > STALL_THRESHOLD
+
+    companion object {
+        /** Shared with the tenant-wide activity summary, so both surfaces call the same wait long. */
+        val STALL_THRESHOLD: Duration = Duration.ofHours(1)
+    }
+}
 
 /** The longest-outstanding unfinished publication, with its age measured by the database clock. */
 data class OldestActivePublication(val since: OffsetDateTime, val age: Duration)
@@ -331,6 +353,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         attempts = rs.getInt("attempts"),
         archiveRetained = rs.getBoolean("archive_retained"),
         submittedFor = rs.getLong("submitted_age_seconds").takeUnless { rs.wasNull() }?.let(Duration::ofSeconds),
+        inFlightFor = Duration.ofSeconds(rs.getLong("in_flight_age_seconds")),
         lastError = rs.getString("last_error"),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
@@ -342,6 +365,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             SELECT id, tenant_key, catalog_key, version, namespace, status, idempotency_key,
                    remote_publication_id, attempts, archive IS NOT NULL AS archive_retained,
                    EXTRACT(EPOCH FROM (NOW() - submitted_at))::BIGINT AS submitted_age_seconds,
+                   EXTRACT(EPOCH FROM (NOW() - created_at))::BIGINT AS in_flight_age_seconds,
                    last_error, created_at, updated_at
             FROM catalog_release_publications
         """

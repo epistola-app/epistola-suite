@@ -101,9 +101,17 @@ remote identifiers.
   before anything is published it protects nothing, and freezing a typo forever is the worse
   failure.
 - Several publishers may target one namespace, and Exchange arbitrates. Suite does not attempt to
-  reserve coordinates it cannot see: the release fingerprint travels inside the manifest, so
-  Exchange can treat a re-submission of identical content as the same release and differing content
-  under the same coordinates as a conflict. That rule belongs on the side that sees every publisher.
+  reserve coordinates it cannot see; that rule belongs on the side that sees every publisher.
+  Exchange has since decided it, in
+  [its ADR-0027](https://github.com/epistola-app/epistola-exchange/blob/main/docs/adr/0027-catalog-write-authority-and-transfer.md):
+  a **catalog** has one appointed publisher, so a second publisher is refused when it submits rather
+  than reconciled afterwards. Different catalogs in one namespace may still have different
+  publishers. An organization administrator reappoints a catalog's publisher when that is wrong,
+  which is the recovery path when a Suite reconnects and arrives as a new tenant connection.
+  The release fingerprint that travels in the manifest keeps a narrower job than this ADR first
+  gave it: it lets the appointed publisher re-submit identical bytes safely after an ambiguous
+  outcome. That is idempotency, not arbitration — comparing content cannot detect a second
+  publisher appending a _higher_ version, which is the case that actually needed preventing.
 - Stable REST and MCP contracts do not change in this delivery. REST override
   support needs separate compatibility work.
 

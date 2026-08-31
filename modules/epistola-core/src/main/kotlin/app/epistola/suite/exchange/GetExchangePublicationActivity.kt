@@ -54,7 +54,8 @@ data class ExchangePublicationActivity(
         }
 
     private companion object {
-        val STALL_THRESHOLD: Duration = Duration.ofHours(1)
+        /** One definition of "too long", shared with the per-publication view on the catalog page. */
+        val STALL_THRESHOLD: Duration = CatalogReleasePublication.STALL_THRESHOLD
     }
 }
 
