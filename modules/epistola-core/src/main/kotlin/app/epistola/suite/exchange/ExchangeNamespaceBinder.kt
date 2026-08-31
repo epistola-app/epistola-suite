@@ -43,6 +43,24 @@ class ExchangeNamespaceBinder {
      * proof of a present grant: an organization can withdraw one, and a reauthorization can arrive
      * with a different set.
      */
+    /**
+     * Why this catalog has no namespace yet, in words an administrator can act on. "Waiting for
+     * setup" on its own is the least useful thing the page could say: the two causes need opposite
+     * responses, and one of them is a single dropdown away.
+     */
+    fun unresolvedReason(handle: Handle, tenantKey: TenantKey): String = handle.createQuery(
+        "SELECT namespaces, default_namespace FROM exchange_tenant_connections WHERE tenant_key = :tenantKey AND status = 'ACTIVE'",
+    ).bind("tenantKey", tenantKey).map { rs, _ ->
+        val granted = (rs.getArray("namespaces").array as Array<*>).mapNotNull { it?.toString() }
+        when {
+            granted.isEmpty() -> "The Exchange connection grants this tenant no namespace to publish into."
+            rs.getString("default_namespace") == null ->
+                "No default namespace is chosen. Pick one under Settings → Exchange, or give this catalog its own preference. " +
+                    "Available: ${granted.sorted().joinToString(", ")}."
+            else -> "This catalog's preferred namespace is not one the Exchange connection grants."
+        }
+    }.findOne().orElse("This tenant is not connected to Exchange yet.")
+
     fun grantedNamespaces(handle: Handle, tenantKey: TenantKey): Set<String> = handle.createQuery(
         "SELECT namespaces FROM exchange_tenant_connections WHERE tenant_key = :tenantKey AND status = 'ACTIVE'",
     ).bind("tenantKey", tenantKey)

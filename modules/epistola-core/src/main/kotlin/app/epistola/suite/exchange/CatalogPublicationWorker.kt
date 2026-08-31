@@ -69,7 +69,11 @@ class CatalogPublicationWorker(
         val namespace = publication.namespace ?: resolveSetup(publication) ?: return
         val connection = credentials.activeConnection(publication.tenantKey)
         if (connection == null) {
-            store.defer(publication.id, properties.setupRetryInterval)
+            store.defer(
+                publication.id,
+                properties.setupRetryInterval,
+                "This tenant has no active Exchange connection.",
+            )
             return
         }
         val token = credentials.accessToken(connection)
@@ -130,7 +134,12 @@ class CatalogPublicationWorker(
             namespaceBinder.resolveAndBind(handle, publication.tenantKey, publication.catalogKey)
                 ?.also { store.markNamespaceResolved(handle, publication.id, it) }
         }
-        if (namespace == null) store.defer(publication.id, properties.setupRetryInterval)
+        if (namespace == null) {
+            val reason = jdbi.withHandle<String, Exception> { handle ->
+                namespaceBinder.unresolvedReason(handle, publication.tenantKey)
+            }
+            store.defer(publication.id, properties.setupRetryInterval, reason)
+        }
         return namespace
     }
 

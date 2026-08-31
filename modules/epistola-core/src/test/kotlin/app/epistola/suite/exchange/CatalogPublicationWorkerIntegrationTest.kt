@@ -113,6 +113,38 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
             assertThat(waiting.attempts).isZero()
             assertThat(waiting.archiveRetained).isTrue()
             assertThat(exchange.submittedIdempotencyKeys).isEmpty()
+            // "Waiting for setup" alone is not actionable; the row says what is missing.
+            assertThat(waiting.lastError).contains("not connected to Exchange")
+        }
+    }
+
+    @Test
+    fun `an enrolled tenant with several namespaces and no default is told which to choose`() {
+        val tenant = createTenant("Worker Needs Default")
+        val catalogKey = CatalogKey.of("worker-needs-default")
+        // Two granted namespaces, so enrollment cannot pick a default and does not guess.
+        exchange.namespaces = listOf("community", "epistola")
+
+        withMediator {
+            enroll(tenant)
+            releaseWithPublication(tenant, catalogKey)
+
+            worker.run()
+
+            val waiting = publication(tenant.id, catalogKey)
+            assertThat(waiting.status).isEqualTo(CatalogPublicationStatus.WAITING_SETUP)
+            assertThat(waiting.lastError).contains("No default namespace is chosen")
+            // It names the options, so the fix does not require going to look them up.
+            assertThat(waiting.lastError).contains("community, epistola")
+            assertThat(requireNotNull(GetExchangeSettings(tenant.id).query()).needsDefaultNamespace).isTrue()
+
+            // Choosing one releases the queue on the next sweep.
+            SetExchangeDefaultNamespace(tenant.id, "community").execute()
+            forceDue(waiting.id)
+            worker.run()
+
+            assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("community")
+            assertThat(requireNotNull(GetExchangeSettings(tenant.id).query()).needsDefaultNamespace).isFalse()
         }
     }
 

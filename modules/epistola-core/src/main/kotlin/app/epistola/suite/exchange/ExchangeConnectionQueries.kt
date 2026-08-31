@@ -37,6 +37,16 @@ data class ExchangeSettings(
 
     /** A default only has to be chosen when the connection grants more than one namespace. */
     val choosableNamespaces: List<String> get() = connection?.namespaces?.takeIf { it.size > 1 }.orEmpty()
+
+    /**
+     * A connected tenant that cannot publish, because nothing has said where to.
+     *
+     * Enrollment picks the default itself when exactly one namespace is granted, and stays silent
+     * when there are several — so the connection looks healthy while every release quietly waits.
+     * That is the first thing a new tenant hits, so the page says it rather than leaving it to be
+     * inferred from a queue that is not moving.
+     */
+    val needsDefaultNamespace: Boolean get() = connected && connection?.defaultNamespace == null && choosableNamespaces.isNotEmpty()
 }
 
 data class GetExchangeSettings(override val tenantKey: TenantKey) :

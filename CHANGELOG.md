@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **A release waiting for setup now says what is missing.** A connection granting more than one namespace leaves the default unset, because Suite will not guess a choice that becomes permanent — but nothing said so, and every release from a catalog without its own preference waited silently behind a connection that looked healthy. The Exchange page now asks for a default while releases are waiting on it, and each waiting publication records why it cannot proceed, naming the namespaces available.
+
 - **[user]** feat(exchange): **A queued publication can be withdrawn.** Queueing the wrong release previously had no way out but waiting for Exchange, exhausting the retries, or disconnecting the tenant. Withdrawing releases the retained archive, leaves the attempt in the history, and lets the release be queued again while the working copy still matches. A publication Exchange is already holding cannot be withdrawn — that would abandon the outcome rather than prevent it.
 - **[user]** fix(exchange): **A catalog recreated under the same key keeps the namespace it published under.** Deleting a catalog discarded its namespace binding while Exchange kept everything published under those coordinates, so a new catalog with the same key could claim a second namespace. The binding now outlives the local catalog and records when a release first reached Exchange.
 

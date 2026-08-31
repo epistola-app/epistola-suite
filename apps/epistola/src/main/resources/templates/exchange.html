@@ -38,6 +38,14 @@
                      th:text="${settings.connection.lastError}"></div>
 
                 <th:block th:if="${settings.connected}" th:with="connection=${settings.connection}">
+                    <div class="alert alert-warning" th:if="${settings.needsDefaultNamespace}">
+                        <strong>Choose a default namespace before publishing.</strong>
+                        This connection grants more than one, so Suite cannot pick for you. Until one is set,
+                        releases from catalogs without their own preference wait instead of publishing<span
+                            th:if="${settings.activity.active > 0}"
+                            th:text="' — ' + ${settings.activity.active} + ' already waiting'"></span>.
+                    </div>
+
                     <dl class="description-list">
                         <dt>Organization</dt>
                         <dd>

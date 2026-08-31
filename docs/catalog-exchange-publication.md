@@ -405,7 +405,9 @@ Useful failure distinctions:
 
 - a climbing `exchange_publication_oldest_active_age_seconds`, or the stalled
   warning on the Exchange page, means work is queued that cannot proceed;
-- `WAITING_SETUP` is configuration, not a failed release;
+- `WAITING_SETUP` is configuration, not a failed release, and the publication records which piece
+  is missing — most often a default namespace that enrollment could not choose because the
+  connection grants several;
 - `RETRY` is transient and automatic;
 - `REAUTHORIZATION_REQUIRED` requires redirect authorization again;
 - `BLOCKED` means Exchange denied the connection/scopes;
