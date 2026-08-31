@@ -35,7 +35,7 @@ and audit/runtime/membership tables. These are never read or written by
 backup/restore.
 
 Exchange authoring preferences are portable: the tenant publish default and
-each catalog's policy/namespace preference ride in the included `tenants` and
+each catalog's publication policy ride in the included `tenants` and
 `catalogs` rows. Exchange connections, pending redirect authorizations,
 encrypted OAuth credentials, namespace bindings, publication jobs, retained
 ZIPs, and remote state are excluded. They describe installation-specific trust and external

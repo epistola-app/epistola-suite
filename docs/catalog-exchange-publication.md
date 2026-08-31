@@ -262,25 +262,21 @@ Only the **current** release can be published after the fact. The exact archive 
 releases that were queued, and anything else has to be rebuilt from the working copy — which
 reproduces the release only while that copy still matches it.
 
-Exchange addresses a catalog by namespace, catalog key, and version. Suite
-chooses the namespace in this order:
+Exchange addresses a catalog by namespace, catalog key, and version. The
+namespace is recorded once in `catalog_exchange_bindings(tenant, catalog,
+namespace)` and never inferred: someone holding `CATALOG_PUBLISH` picks it, from
+the namespaces the connection grants. The tenant default supplies the value the
+picker starts on and nothing more.
 
-1. the catalog's existing binding;
-2. an allowed catalog namespace preference;
-3. the tenant connection's allowed default namespace;
-4. otherwise no selection is possible and the job waits for setup.
+The binding is changeable until a release of that catalog reaches Exchange, and
+fixed from that moment — recorded on the binding itself as `published_at`, so the
+fact survives the catalog being deleted, exactly as Exchange's copy of what was
+published does. A catalog recreated under the same key therefore returns to the
+same namespace instead of claiming a second one.
 
-The first resolvable publication transaction creates
-`catalog_exchange_bindings(tenant, catalog, namespace)`. That binding is
-immutable through the product commands. Later changes to the tenant default or
-the catalog preference cannot move an already-published catalog to a different
-Exchange coordinate. The catalog settings UI therefore disables the preference
-after binding and shows the bound namespace.
-
-If a release is queued before enrollment or before a multi-namespace tenant has
-selected a default, its state is `WAITING_SETUP`. Connecting the tenant or
-selecting a namespace is enough; the worker resolves and binds it later without
-releasing the catalog again.
+A catalog with no namespace queues nothing. Its releases still succeed; they are
+simply not sent anywhere, and can be published later once a namespace is chosen —
+so there is never a queue of work waiting on configuration.
 
 ## Release and publication transaction
 
@@ -291,7 +287,7 @@ by export. When the resolved policy says publish, one database transaction:
 1. inserts the immutable `catalog_releases` row;
 2. advances the catalog's released-version pointer;
 3. stores the exact ZIP in `catalog_release_publications` with a fresh
-   idempotency key and `WAITING_SETUP` or `READY` state.
+   idempotency key, `READY` to submit.
 
 The release command reaches step 3 through `CatalogReleasePublicationPort`, a
 catalog-owned seam handed the open transaction. Catalog decides _whether_ to
@@ -315,16 +311,15 @@ on `ReleaseCatalogVersion`.
 
 ## Worker state machine
 
-| Local state     | Meaning                                                             | Archive retained? | Next action                                                                     |
-| --------------- | ------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- |
-| `WAITING_SETUP` | Enrollment/default namespace is incomplete.                         | Yes               | Recheck setup without failing the release.                                      |
-| `READY`         | Namespace and archive are ready to submit.                          | Yes               | Submit with the stored idempotency key.                                         |
-| `SUBMITTED`     | Exchange accepted the request but has not made a terminal decision. | Yes               | Poll the remote submission.                                                     |
-| `RETRY`         | A transient local/network call failed.                              | Yes               | Retry with exponential backoff, capped at one hour.                             |
-| `ACCEPTED`      | Exchange validation/scanning/publication accepted the release.      | No                | Terminal success.                                                               |
-| `REJECTED`      | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                                      |
-| `FAILED`        | Exchange failed the attempt, or local retries were exhausted.       | Yes               | Terminal until an administrator selects **Retry publication**.                  |
-| `CANCELLED`     | An administrator withdrew it before Exchange published it.          | No                | Terminal; the release can be queued again while the working copy still matches. |
+| Local state | Meaning                                                             | Archive retained? | Next action                                                                     |
+| ----------- | ------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `READY`     | Namespace and archive are ready to submit.                          | Yes               | Submit with the stored idempotency key.                                         |
+| `SUBMITTED` | Exchange accepted the request but has not made a terminal decision. | Yes               | Poll the remote submission.                                                     |
+| `RETRY`     | A transient local/network call failed.                              | Yes               | Retry with exponential backoff, capped at one hour.                             |
+| `ACCEPTED`  | Exchange validation/scanning/publication accepted the release.      | No                | Terminal success.                                                               |
+| `REJECTED`  | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                                      |
+| `FAILED`    | Exchange failed the attempt, or local retries were exhausted.       | Yes               | Terminal until an administrator selects **Retry publication**.                  |
+| `CANCELLED` | An administrator withdrew it before Exchange published it.          | No                | Terminal; the release can be queued again while the working copy still matches. |
 
 The worker is a single-owner cluster scheduled task and also uses
 `FOR UPDATE SKIP LOCKED` plus expiring `claimed_at` leases. Those two layers make processing
@@ -388,9 +383,10 @@ archives, so re-enabling resumes safely.
 
 ## Backup and restore boundary
 
-Portable tenant backups include the tenant default and the catalog policy and
-namespace preference because those columns belong to the normal `tenants` and
-`catalogs` authoring rows.
+Portable tenant backups include the tenant publish default and each catalog's
+publication policy, because those columns belong to the normal `tenants` and
+`catalogs` authoring rows. The namespace binding is not among them: it names a
+coordinate in an organization the restoring installation may not be.
 
 They deliberately exclude:
 
@@ -417,7 +413,7 @@ For a newly enabled installation, verify in this order:
 3. **Settings → Features** has `catalog-publishing` enabled for the tenant;
 4. **Settings → Exchange** shows an active connection, `read` and `publish`, an
    organization, allowed namespaces, and a default namespace;
-5. the catalog page shows the intended policy and namespace preference/binding;
+5. the catalog page shows the intended policy and the chosen namespace;
 6. release a test version with publishing selected and confirm its history moves
    from `READY`/`SUBMITTED` to `ACCEPTED` or a visible terminal error.
 
@@ -425,9 +421,8 @@ Useful failure distinctions:
 
 - a climbing `exchange_publication_oldest_active_age_seconds`, or the stalled
   warning on the Exchange page, means work is queued that cannot proceed;
-- `WAITING_SETUP` is configuration, not a failed release, and the publication records which piece
-  is missing — most often a default namespace that enrollment could not choose because the
-  connection grants several;
+- no publication at all means the catalog has no namespace yet — releases succeed and simply are
+  not sent, until one is chosen;
 - `RETRY` is transient and automatic;
 - `REAUTHORIZATION_REQUIRED` requires redirect authorization again;
 - `BLOCKED` means Exchange denied the connection/scopes;

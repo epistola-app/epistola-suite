@@ -49,8 +49,11 @@ advance; nothing is built for it now.
 
 The feature has four explicit controls: a default-off deployment gate, a
 default-off Alpha tenant feature, a tenant publish default, and a five-state
-catalog policy with release overrides only for non-hard policies. The first
-resolvable publication binds the catalog immutably to an Exchange namespace.
+catalog policy with release overrides only for non-hard policies, gated by a
+`CATALOG_PUBLISH` permission distinct from releasing locally. A catalog's Exchange
+namespace is always chosen explicitly rather than inferred from a default, and
+becomes immutable once a release reaches Exchange — so a release with no namespace
+is not queued at all rather than queued and left waiting.
 
 Tenant enrollment uses OAuth redirect authorization with state and S256 PKCE,
 and rotating refresh tokens. Suite keeps one remote connection per tenant and
