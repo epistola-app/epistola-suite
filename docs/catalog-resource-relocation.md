@@ -29,9 +29,27 @@ materializes old stencil references as the canonical destination address and emi
 cross-catalog dependency. The moved stencil itself appears only in an export of the destination
 catalog.
 
+## Generation history does not move
+
+Moving a template carries its variants, versions, contract versions, environment activations,
+quality findings and load-test runs with it — those describe the template's current state. Its
+generation history does not: `documents` and `document_generation_requests` record the catalog the
+template lived in when a document was produced, and that stays true afterwards.
+
+The consequence is deliberate: deleting a template no longer purges its generation history, because
+the foreign keys that used to cascade that deletion are the same ones that would have dragged the
+address along. History outliving its template is the better answer for an audit record, and
+partition retention still ages it out.
+
+The link back to the template is kept by identity rather than by address: both tables carry
+`template_resource_id`, filled on insert by a trigger. It is deliberately not backfilled. The column
+is nullable, and because these tables are partitioned by `created_at` with retention, every
+surviving row carries it within one retention window — the backfill completes on its own. Rows
+written before it existed resolve through their recorded address instead.
+
 ## Initial boundaries
 
-- Stencils and variant attributes. Other types produce an `unsupported-resource-type` blocker
+- Stencils, variant attributes and templates. Other types produce an `unsupported-resource-type` blocker
   until their table is re-keyed onto its stable identity — see
   [Catalog resource identity migration](catalog-resource-identity-migration.md). Supported types are
   declared in `MovableResource`; adding an entry is the last step of making a type movable, not the

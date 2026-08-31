@@ -46,6 +46,22 @@ enum class MovableResource(
         "variant_attribute_definitions",
         emptySet(),
     ),
+
+    /**
+     * Nothing references a template as a catalog dependency, so there is no content to re-point.
+     * All of a template's coupling is downstream: its variants, versions, contract versions,
+     * activations, quality findings and load-test runs follow it by `ON UPDATE CASCADE`, while
+     * generation history deliberately does not — see `V20260831161109__core_template_relocation`.
+     *
+     * Unlike stencils and attributes this type is not yet re-keyed onto its identity; the address
+     * still sits in those primary keys and the cascade does the work. That is the same interim
+     * shape stencils are in, not the target model.
+     */
+    TEMPLATE(
+        CatalogResourceType.TEMPLATE,
+        "document_templates",
+        emptySet(),
+    ),
     ;
 
     companion object {

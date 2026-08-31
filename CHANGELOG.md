@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs): **Templates can be moved between catalogs.** Variants, versions,
+  contract versions, environment activations, quality findings and load-test runs follow the
+  template. Generation history does not — it records the catalog a document was produced from, and
+  that stays true, while a new `template_resource_id` keeps the link to the template itself. Deleting
+  a template therefore no longer purges its generation history. Alpha, behind the
+  `resource-relocation` toggle.
+- **[dev]** fix(quality): **Ignored findings survive their template moving catalogs.** Finding and
+  ignore scope URNs embed the subject's address and are the join between the two, so a move would
+  have left ignores stale and silently reopened every ignored finding on the next submission.
+  Quality repoints its own rows through an immediate event handler, so core still knows nothing
+  about the module.
 - **[user]** feat(catalogs): **Variant attributes can be moved between catalogs.** The first type
   re-keyed onto its stable identity, so relocation is a plain column update. Every reference to an
   attribute is a key in a variant's attribute map, which the move rewrites — nothing is left

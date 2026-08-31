@@ -60,6 +60,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.nio.charset.StandardCharsets
+import java.util.UUID
 import java.util.zip.ZipInputStream
 
 class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
@@ -424,6 +425,81 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         assertThat(preview.blockers).anySatisfy { assertThat(it.code).isEqualTo("unsupported-resource-type") }
         assertThat(preview.executable).isFalse()
+    }
+
+    @Test
+    fun `moves a template with its hierarchy while generation history keeps its original address`() {
+        val tenant = createTenant("Move template")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(sourceCatalog, tenantId))
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
+            UpdateDraft(variantId, emptyTemplate()).execute()
+            PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
+        }
+
+        // A generation record predating the move, planted directly: it must survive unchanged, and
+        // no command produces one against an arbitrary historical address.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
+                                       filename, size_bytes, created_at)
+                VALUES (gen_random_uuid(), :tenantKey, :catalogKey, :templateKey, :variantKey, 1,
+                        'invoice.pdf', 1024, NOW())
+                """,
+            )
+                .bind("tenantKey", tenant.id)
+                .bind("catalogKey", sourceCatalog)
+                .bind("templateKey", templateId.key)
+                .bind("variantKey", variantId.key)
+                .execute()
+        }
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, address, targetCatalog).query() }
+        assertThat(preview.blockers).isEmpty()
+
+        withMediator { MoveCatalogResource(tenant.id, address, targetCatalog, preview.planFingerprint).execute() }
+
+        // The template and its owned hierarchy followed.
+        assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }.canonical.catalogKey)
+            .isEqualTo(targetCatalog.value)
+        assertThat(catalogKeysIn("template_variants", tenant.id)).containsExactly(targetCatalog.value)
+        assertThat(catalogKeysIn("template_versions", tenant.id)).containsExactly(targetCatalog.value)
+
+        // Generation history did not: it records where the template lived at the time.
+        assertThat(catalogKeysIn("documents", tenant.id)).containsExactly(sourceCatalog.value)
+
+        // The link back to the template is by identity, so it survives the move that the address
+        // deliberately does not follow.
+        val templateIdentity = withMediator {
+            ResolveCatalogResourceAddress(
+                tenant.id,
+                ResourceAddress(CatalogResourceType.TEMPLATE, targetCatalog.value, templateId.key.value),
+            ).query()!!.resourceId
+        }
+        assertThat(documentTemplateIdentities(tenant.id)).containsExactly(templateIdentity)
+    }
+
+    private fun documentTemplateIdentities(tenantKey: TenantKey): List<UUID> = jdbi.withHandle<List<UUID>, Exception> { handle ->
+        handle.createQuery("SELECT DISTINCT template_resource_id FROM documents WHERE tenant_key = :tenantKey")
+            .bind("tenantKey", tenantKey)
+            .mapTo(UUID::class.java)
+            .list()
+    }
+
+    private fun catalogKeysIn(table: String, tenantKey: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery("SELECT DISTINCT catalog_key::text FROM $table WHERE tenant_key = :tenantKey")
+            .bind("tenantKey", tenantKey)
+            .mapTo(String::class.java)
+            .list()
     }
 
     private fun variantAttributes(tenantKey: TenantKey, templateId: TemplateId, variantId: VariantId): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
