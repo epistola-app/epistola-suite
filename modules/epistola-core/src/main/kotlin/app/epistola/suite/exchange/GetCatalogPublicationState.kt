@@ -62,6 +62,13 @@ data class CatalogPublicationState(
      */
     val connected: Boolean,
     /**
+     * Where this tenant's publishing lives on Exchange, or null when it is not connected.
+     *
+     * Held as the organization root rather than a finished link because Suite links to submissions
+     * that have no release yet — which is exactly when someone most wants to look.
+     */
+    val exchangeOrganizationUrl: String?,
+    /**
      * The value a namespace picker should start on: the catalog's own choice once made, otherwise
      * the tenant default. The tenant default only ever pre-fills — it never binds a catalog by
      * itself, because a binding becomes permanent and a fallback should not make that decision.
@@ -95,6 +102,17 @@ data class CatalogPublicationState(
         get() = available &&
             connected &&
             if (boundNamespace != null) boundNamespace in availableNamespaces else availableNamespaces.isNotEmpty()
+
+    /**
+     * Where this publication can be inspected on Exchange, or null when there is nothing to look at.
+     *
+     * Deliberately the submission rather than the release: a submission page exists from the moment
+     * Exchange accepts the bytes and survives every outcome, so it answers "what happened to this?"
+     * for a rejected or still-undecided publication too. A release page only exists once one was
+     * published, which is the case that needs explaining least.
+     */
+    fun exchangeUrl(publication: CatalogReleasePublication): String? = publication.remotePublicationId?.let { remote -> exchangeOrganizationUrl?.let { "$it/publishing/$remote" } }
+
     val policyOptions: List<CatalogPublicationPolicy> get() = CatalogPublicationPolicy.entries
     val namespacePattern: String get() = CatalogPublicationPolicy.NAMESPACE_PATTERN
 }
@@ -129,6 +147,8 @@ class GetCatalogPublicationStateHandler(
         val current = publications.firstOrNull { it.version == releaseStatus.latestVersion }
         val isRetry = current?.status == CatalogPublicationStatus.FAILED && current.archiveRetained
 
+        val connection = if (available) credentials.activeConnectionSummary(query.tenantKey) else null
+
         val binding = jdbi.withHandle<Binding, Exception> { handle ->
             Binding(
                 namespace = namespaceBinder.existingBinding(handle, query.tenantKey, query.catalogKey),
@@ -148,7 +168,9 @@ class GetCatalogPublicationStateHandler(
             namespaceLocked = binding.locked,
             availableNamespaces = binding.granted,
             canPublish = canPublish,
-            connected = available && credentials.hasActiveConnection(query.tenantKey),
+            connected = available && connection != null,
+            exchangeOrganizationUrl = connection?.organizationSlug
+                ?.let { slug -> "${connection.baseUrl.trimEnd('/')}/organizations/$slug" },
             suggestedNamespace = binding.namespace ?: binding.tenantDefault,
             // Nothing is queued without a destination, so the action is only offered once there is one.
             canPublishCurrentRelease = available &&

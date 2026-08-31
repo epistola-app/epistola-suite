@@ -253,6 +253,17 @@
                         <td th:text="${entry.attempts}">0</td>
                         <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
                         <td class="actions">
+                            <!--
+                              Straight to this submission on Exchange. Exchange is the only side that
+                              knows what became of it, and a publication that is stuck or refused is
+                              exactly when that matters - so this links to the submission, which
+                              exists in every state, not the release, which exists only in one.
+                            -->
+                            <a th:if="${publication.exchangeUrl(entry) != null}"
+                               th:href="${publication.exchangeUrl(entry)}"
+                               class="ep-btn ep-btn-outline ep-btn-sm"
+                               target="_blank" rel="noopener noreferrer"
+                               hx-boost="false">View on Exchange</a>
                             <form th:if="${entry.status.isCancellable}"
                                   th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalog.id},publicationId=${entry.id})}"
                                   method="post">

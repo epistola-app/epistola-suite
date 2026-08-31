@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
+import app.epistola.suite.exchange.CatalogPublicationWorker
 import app.epistola.suite.exchange.CompleteExchangeConnection
 import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.exchange.StartExchangeConnection
@@ -40,6 +41,9 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
+
+    @Autowired
+    private lateinit var worker: CatalogPublicationWorker
 
     /**
      * One stand-in Exchange is shared by the whole class, so a test that changes what it grants
@@ -89,6 +93,36 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body).contains("activity-alpha")
         assertThat(response.body).contains("activity-beta")
         assertThat(response.body).contains("Ready to submit")
+    }
+
+    /**
+     * Exchange is the only side that knows what became of a submission, so the catalog page links
+     * straight to it — and links to the *submission*, which exists in every state, rather than the
+     * release, which exists only once one was published. A stuck or refused publication is exactly
+     * when someone goes looking.
+     */
+    @Test
+    fun `a submitted publication links to itself on Exchange`() {
+        val tenant = createTenant("Exchange Deep Link")
+        val catalogKey = CatalogKey.of("deep-link")
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Deep link").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            // Only once Exchange has taken it does a page exist there to link to.
+            worker.run()
+        }
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("View on Exchange")
+        assertThat(response.body)
+            .contains("${exchange.baseUrl}/organizations/acme/publishing/${exchange.remotePublicationId}")
     }
 
     @Test

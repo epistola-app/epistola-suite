@@ -25,6 +25,17 @@ import java.time.Duration
  * refresh token itself: credential columns are encrypted with a fresh nonce per write, so two
  * ciphertexts of the same secret never compare equal.)
  */
+/**
+ * A tenant's enrollment reduced to what a UI may know about it: never the credentials.
+ *
+ * [organizationSlug] is null only between starting an authorization and completing it, which is why
+ * links into Exchange are built from it rather than assumed to be there.
+ */
+data class ExchangeConnectionSummary(
+    val baseUrl: String,
+    val organizationSlug: String?,
+)
+
 @Component
 class ExchangeCredentialService(
     private val jdbi: Jdbi,
@@ -41,15 +52,18 @@ class ExchangeCredentialService(
     fun activeConnection(tenantKey: TenantKey): ExchangeTenantConnection? = connection(tenantKey)?.takeIf { it.status == ExchangeConnectionStatus.ACTIVE }
 
     /**
-     * Whether the tenant holds a usable enrollment, without loading it.
+     * The non-secret facts about a tenant's enrollment: that it exists, and where it points.
      *
-     * A caller that only needs the fact should not pull the row: mapping it decrypts the access
-     * token, refresh token and application secret to answer a question none of them bear on.
+     * Deliberately a projection rather than the whole row. A caller that needs to know whether a
+     * tenant is connected, or how to link into Exchange, should not cause the access token, refresh
+     * token and application secret to be decrypted to answer it.
      */
-    fun hasActiveConnection(tenantKey: TenantKey): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    fun activeConnectionSummary(tenantKey: TenantKey): ExchangeConnectionSummary? = jdbi.withHandle<ExchangeConnectionSummary?, Exception> { handle ->
         handle.createQuery(
-            "SELECT EXISTS(SELECT 1 FROM exchange_tenant_connections WHERE tenant_key = :tenantKey AND status = 'ACTIVE')",
-        ).bind("tenantKey", tenantKey).mapTo(Boolean::class.java).one()
+            "SELECT base_url, organization_slug FROM exchange_tenant_connections WHERE tenant_key = :tenantKey AND status = 'ACTIVE'",
+        ).bind("tenantKey", tenantKey)
+            .map { rs, _ -> ExchangeConnectionSummary(rs.getString("base_url"), rs.getString("organization_slug")) }
+            .findOne().orElse(null)
     }
 
     /**
