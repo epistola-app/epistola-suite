@@ -162,6 +162,30 @@
             <div class="detail-section-body">
                 <div class="alert alert-danger" th:if="${publicationError != null}" th:text="${publicationError}"></div>
 
+                <div class="alert alert-warning" th:if="${publication.namespaceRevoked}">
+                    <div>
+                        <div class="alert-title"
+                             th:text="'Exchange no longer grants the namespace ' + ${publication.boundNamespace}">
+                            Exchange no longer grants this namespace
+                        </div>
+                        <p style="margin: var(--ep-space-1) 0 0;" th:if="${publication.noNamespacesGranted}">
+                            This tenant has no namespaces at all right now, so there is nowhere to move the
+                            catalog to. Its organization has to grant one before it can publish again.
+                        </p>
+                        <p style="margin: var(--ep-space-1) 0 0;"
+                           th:if="${!publication.noNamespacesGranted && !publication.namespaceLocked}">
+                            Nothing has published from this catalog yet, so point it at one of the namespaces this
+                            tenant still holds and it will carry on.
+                        </p>
+                        <p style="margin: var(--ep-space-1) 0 0;"
+                           th:if="${!publication.noNamespacesGranted && publication.namespaceLocked}">
+                            Versions already published stay where they are. Moving the catalog to a namespace this
+                            tenant still holds lets future releases continue, and is a deliberate change &mdash;
+                            anyone following the old namespace will not see them.
+                        </p>
+                    </div>
+                </div>
+
                 <div class="alert alert-warning" th:if="${publication.unpublishableRelease != null}">
                     <div>
                         <div class="alert-title"

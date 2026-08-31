@@ -62,6 +62,17 @@ data class CatalogPublicationState(
 ) {
     /** True while the catalog has nowhere to publish and this principal could give it one. */
     val needsNamespaceChoice: Boolean get() = available && canPublish && boundNamespace == null
+
+    /**
+     * The catalog is bound to a namespace the connection no longer grants — an organization can
+     * withdraw one, and nothing about the binding changes when it does. Nothing publishes until the
+     * catalog is pointed somewhere it is still allowed, or the grant returns.
+     */
+    val namespaceRevoked: Boolean
+        get() = available && boundNamespace != null && boundNamespace !in availableNamespaces
+
+    /** No namespace is available to move to, so waiting for the organization is the only option. */
+    val noNamespacesGranted: Boolean get() = available && availableNamespaces.isEmpty()
     val policyOptions: List<CatalogPublicationPolicy> get() = CatalogPublicationPolicy.entries
     val namespacePattern: String get() = CatalogPublicationPolicy.NAMESPACE_PATTERN
 }
@@ -119,6 +130,7 @@ class GetCatalogPublicationStateHandler(
             canPublishCurrentRelease = available &&
                 canPublish &&
                 binding.namespace != null &&
+                binding.namespace in binding.granted &&
                 policy != CatalogPublicationPolicy.NEVER &&
                 releaseStatus.latestVersion != null &&
                 (isRetry || (current == null && !releaseStatus.hasUnreleasedChanges)),

@@ -32,7 +32,11 @@ class ExchangeReleasePublicationAdapter(
     override fun isPublicationAvailable(tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = availability.isAvailable(tenantKey) &&
         SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_PUBLISH) &&
         jdbi.withHandle<Boolean, Exception> { handle ->
-            namespaceBinder.existingBinding(handle, tenantKey, catalogKey) != null
+            // Bound is not the same as still permitted: an organization can withdraw a namespace.
+            // Queueing into one we no longer hold would create work that cannot move, which is the
+            // thing this check exists to prevent.
+            val bound = namespaceBinder.existingBinding(handle, tenantKey, catalogKey)
+            bound != null && bound in namespaceBinder.grantedNamespaces(handle, tenantKey)
         }
 
     override fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID {

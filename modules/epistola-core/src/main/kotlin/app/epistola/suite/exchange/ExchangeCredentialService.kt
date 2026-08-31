@@ -125,6 +125,37 @@ class ExchangeCredentialService(
             .list().toMap()
     }
 
+    /**
+     * Re-reads what Exchange currently grants this tenant and stores it, returning the namespaces.
+     *
+     * The granted list is otherwise only written when a tenant authorizes, and Exchange has no way
+     * to tell Suite that an organization has withdrawn one — so between authorizations the local
+     * picture can be confidently wrong. A refusal is the signal that it is, which is when this is
+     * called: the failure repairs the state that caused it. Null when the connection cannot answer
+     * at all, which is a different problem.
+     */
+    fun refreshGrants(tenantKey: TenantKey): Set<String>? {
+        val connection = activeConnection(tenantKey) ?: return null
+        val token = accessToken(connection) ?: return null
+        val context = try {
+            client.context(connection.endpoints, token)
+        } catch (failure: Exception) {
+            logger.warn("Could not re-read Exchange grants for tenant {}: {}", tenantKey, failure.message)
+            return null
+        }
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE exchange_tenant_connections
+                SET scopes = :scopes, namespaces = :namespaces, updated_at = NOW()
+                WHERE tenant_key = :tenantKey
+                """,
+            ).bind("scopes", context.scopes.toTypedArray()).bind("namespaces", context.namespaces.toTypedArray())
+                .bind("tenantKey", tenantKey).execute()
+        }
+        return context.namespaces
+    }
+
     fun markConnection(tenantKey: TenantKey, status: ExchangeConnectionStatus, error: String?) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             "UPDATE exchange_tenant_connections SET status = :status, last_error = :error, updated_at = NOW() WHERE tenant_key = :tenantKey",

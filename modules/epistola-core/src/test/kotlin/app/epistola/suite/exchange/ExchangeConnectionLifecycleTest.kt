@@ -77,6 +77,59 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a namespace withdrawn at Exchange is learned from the refusal, not assumed`() {
+        val tenant = createTenant("exchange-grant-revoked")
+        val catalogKey = CatalogKey.of("grant-revoked")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Grant revoked").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+
+            // The organization withdraws the namespace. Suite is not told and cannot know: the granted
+            // list is only ever written when a tenant authorizes.
+            exchange.namespaces = listOf("internal-forms")
+            exchange.submitResponse = { FakeExchangeServer.Response(403, """{"error":"namespace_forbidden"}""") }
+
+            worker.run()
+
+            // The refusal is what teaches it, and the answer decides: this is one catalog's binding,
+            // not a refused connection, so the connection keeps working for everything else.
+            assertThat(credentials.connection(tenant.id)?.status).isEqualTo(ExchangeConnectionStatus.ACTIVE)
+            val waiting = publication(tenant.id, catalogKey)
+            assertThat(waiting.lastError).contains("no longer grants")
+            assertThat(waiting.attempts).isZero()
+
+            // The grant list was repaired on the way through, so the catalog page can say so.
+            val revoked = state(tenant.id, catalogKey)
+            assertThat(revoked.namespaceRevoked).isTrue()
+            assertThat(revoked.availableNamespaces).containsExactly("internal-forms")
+            assertThat(revoked.canPublishCurrentRelease).isFalse()
+        }
+    }
+
+    @Test
+    fun `a refusal that is not about the namespace still blocks the connection`() {
+        val tenant = createTenant("exchange-connection-refused")
+        val catalogKey = CatalogKey.of("connection-refused")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Connection refused").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+
+            // Refused while the namespace is still granted: the connection itself is the problem.
+            exchange.submitResponse = { FakeExchangeServer.Response(403, """{"error":"forbidden"}""") }
+            worker.run()
+
+            assertThat(credentials.connection(tenant.id)?.status).isEqualTo(ExchangeConnectionStatus.BLOCKED)
+            assertThat(publication(tenant.id, catalogKey).attempts).isEqualTo(1)
+        }
+    }
+
+    @Test
     fun `a binding the connection no longer grants defers that publication instead of blocking the connection`() {
         val tenant = createTenant("exchange-grant-withdrawn")
         val catalogKey = CatalogKey.of("grant-withdrawn")

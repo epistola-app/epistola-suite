@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **A namespace withdrawn by an organization no longer blocks the whole connection.** Suite only learns what a tenant may publish into when that tenant authorizes, so between authorizations it could believe it still held a namespace it had lost — submit anyway, be refused, and mark the entire connection blocked, stopping every other catalog. A refusal now prompts a re-read of what Exchange actually grants: a withdrawn namespace defers that one catalog with the reason recorded and leaves the connection working, while a genuine refusal of the connection still blocks it. The refreshed list then stops anything new being queued there, and the catalog page says the binding was revoked and whether there is anywhere left to move to.
+
 - **[user]** fix(exchange): **The namespace-move warning only appears when the namespace is actually changed.** Opening the catalog's publication settings to change the release policy confronted anyone with a published catalog with a warning about moving it, and a checkbox not to tick. It now follows the selection: shown on a real change, gone again if it is undone. The command already treated an unchanged namespace as a no-op, so only the dialog was noisy.
 - **[dev]** fix(design-system): **The `hidden` attribute now actually hides.** A component that sets its own `display` sits in the `components` layer and beat `[hidden]` on layer order, so hiding an alert or a flex row left it on screen. Three components had each patched this for themselves; the general rule replaces the need to.
 

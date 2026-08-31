@@ -133,8 +133,12 @@ class CatalogPublicationWorker(
         when (failure) {
             is HttpClientErrorException.Unauthorized ->
                 credentials.markConnection(publication.tenantKey, ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED, failure.message)
-            is HttpClientErrorException.Forbidden ->
-                credentials.markConnection(publication.tenantKey, ExchangeConnectionStatus.BLOCKED, failure.message)
+
+            // A refusal is ambiguous until we know whether it was this catalog's namespace or the
+            // connection itself, and the local grant list cannot tell us — Exchange only writes it
+            // when a tenant authorizes. So ask, and let the answer decide.
+            is HttpClientErrorException.Forbidden -> if (withdrawnGrant(publication)) return
+
             else -> Unit
         }
         val status = store.recordFailure(
@@ -154,6 +158,36 @@ class CatalogPublicationWorker(
         } else {
             logger.warn("Exchange publication {} failed, will retry: {}", publication.id, failure.message)
         }
+    }
+
+    /**
+     * Handles a refusal that turns out to be about this catalog's namespace rather than the
+     * connection: the publication waits and no retry is spent, the connection stays usable for every
+     * other catalog, and the refreshed grant list means the pre-submission check catches it next time
+     * instead of another refusal. Returns false when the connection itself was refused.
+     */
+    private fun withdrawnGrant(publication: CatalogReleasePublication): Boolean {
+        val granted = credentials.refreshGrants(publication.tenantKey) ?: return false
+        if (publication.namespace in granted) {
+            credentials.markConnection(
+                publication.tenantKey,
+                ExchangeConnectionStatus.BLOCKED,
+                "Exchange refused this connection.",
+            )
+            return false
+        }
+        store.defer(
+            publication.id,
+            properties.setupRetryInterval,
+            "Exchange no longer grants this tenant the namespace '${publication.namespace}'.",
+        )
+        logger.warn(
+            "Exchange withdrew namespace '{}' from tenant {}; publication {} is waiting",
+            publication.namespace,
+            publication.tenantKey,
+            publication.id,
+        )
+        return true
     }
 
     /** 5s doubling per attempt, capped at an hour. */

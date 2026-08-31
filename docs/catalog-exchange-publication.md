@@ -225,10 +225,21 @@ Two rules keep that honest:
   catalog binding names a namespace of the enrolled organization, and bindings are permanent once
   published, so adopting a new organization silently would strand all of them. Moving a tenant
   between organizations is a deliberate disconnect, and is otherwise deferred work.
-- **A binding is re-checked against current grants.** Before each submission Suite verifies that the
-  catalog's bound namespace is still granted. If it is not, that publication is deferred with the
-  reason recorded — it resumes by itself if the grant returns — instead of being submitted, refused
-  with HTTP 403, and marking the whole connection `BLOCKED` for one catalog's sake. Publications
+- **A binding is re-checked against known grants, and a refusal repairs them.** Suite learns what a
+  tenant may publish into only when that tenant authorizes: Exchange has no way to announce that an
+  organization has withdrawn a namespace, and Suite does not poll for it. Between authorizations the
+  local list can therefore be confidently wrong.
+
+  So a refusal is treated as information. Before each submission the bound namespace is checked
+  against the known grants — which catches it once Suite knows — and an HTTP 403 triggers a re-read
+  of the tenant context before anything is concluded from it. If the namespace has gone, that is one
+  catalog's binding: the publication is deferred with the reason recorded, no retry is spent, and the
+  connection stays usable for every other catalog. If the namespace is still granted, the connection
+  itself was refused and is marked `BLOCKED`. Either way the grant list is now correct, so the
+  pre-submission check catches the next one instead of another refusal.
+
+  Nothing is queued into a namespace the tenant no longer holds, and the catalog page says when a
+  binding has been revoked — including whether there is anywhere left to move to. Publications
   Exchange has already accepted continue to be polled regardless, so an outcome is never lost.
 
 ## Several publishers, one namespace
