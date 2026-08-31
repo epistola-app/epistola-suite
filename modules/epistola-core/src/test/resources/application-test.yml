@@ -3,8 +3,13 @@ spring:
     banner-mode: off
   datasource:
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      # One shared Postgres serves every Spring test context, so these bounds are per context but
+      # the budget is global. `minimum-idle` was the expensive part: a cached context that no test
+      # is using still held its floor open, so the cost grew with the number of contexts rather
+      # than with the work. Idle connections are now released instead.
+      maximum-pool-size: 8
+      minimum-idle: 0
+      idle-timeout: 10000
 
 epistola:
   logs:

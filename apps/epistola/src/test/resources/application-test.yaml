@@ -3,8 +3,11 @@ spring:
     banner-mode: off
   datasource:
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      # See modules/epistola-core/src/test/resources/application-test.yml: one shared Postgres,
+      # many cached contexts, so an idle floor per context is a cost that scales with contexts.
+      maximum-pool-size: 8
+      minimum-idle: 0
+      idle-timeout: 10000
 
 logging:
   level:
