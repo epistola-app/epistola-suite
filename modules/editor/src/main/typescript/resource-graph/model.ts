@@ -56,12 +56,27 @@ export interface ResourceEdge {
   evidenceCount: number;
 }
 
-export interface ResourceMovePreview {
+/** One member of a relocation batch, as previewed. */
+export interface ResourceRelocationPlan {
   source: ResourceAddress;
   target: ResourceAddress;
   mutableRewriteCount: number;
   immutableReferenceCount: number;
-  blockers: Array<{ code: string; message: string }>;
+}
+
+export interface ResourceMoveBlocker {
+  code: string;
+  message: string;
+  /** The member this blocks, or absent when it is a property of the batch as a whole. */
+  source?: ResourceAddress;
+}
+
+export interface ResourceMovePreview {
+  relocations: ResourceRelocationPlan[];
+  /** Totals across the batch; each member's own counts are on its plan. */
+  mutableRewriteCount: number;
+  immutableReferenceCount: number;
+  blockers: ResourceMoveBlocker[];
   planFingerprint: string;
   executable: boolean;
 }

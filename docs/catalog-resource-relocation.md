@@ -68,8 +68,11 @@ written before it existed resolve through their recorded address instead.
   unqualified dependency and blocks its owner's move.
 - Export relativizes references back to their own catalog, so an exported catalog stays installable
   under a different key. Stored form is absolute, wire form is relative.
-- The web resource graph is the only product surface in this alpha. REST and MCP operations are
-  intentionally deferred until the command contract and authorization model have settled.
+- `/tenants/{tenantId}/catalogs/organise` is the product surface: a browser across catalogs that
+  allows moving. Deep-linkable via `?resource=<type>:<catalog>:<key>`, repeatable. The resource
+  graph links to it rather than hosting the operation — the graph diagnoses, this applies. REST and
+  MCP operations are intentionally deferred until the command contract and authorization model have
+  settled.
 - Old public stencil URLs are not redirected yet; the resolver is currently used by graph and
   export paths.
 

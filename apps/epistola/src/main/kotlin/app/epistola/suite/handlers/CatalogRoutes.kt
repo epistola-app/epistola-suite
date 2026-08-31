@@ -11,7 +11,10 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 @Configuration
-class CatalogRoutes(private val handler: CatalogHandler) {
+class CatalogRoutes(
+    private val handler: CatalogHandler,
+    private val organise: CatalogOrganiseHandler,
+) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/catalogs".nest {
@@ -26,6 +29,12 @@ class CatalogRoutes(private val handler: CatalogHandler) {
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
             GET("/{catalogId}/browse", handler::browse)
+            // Reorganising is its own page: a browser across catalogs that allows moving. Deep
+            // linkable via ?resource=<type>:<catalog>:<key>, repeatable.
+            GET("/organise", organise::page)
+            GET("/organise/resources", organise::resources)
+            POST("/organise/preview", organise::preview)
+            POST("/organise/execute", organise::execute)
             GET("/{catalogId}/metadata", handler::metadataForm)
             POST("/{catalogId}/metadata", handler::updateMetadata)
             GET("/{catalogId}/usages", handler::resourceUsages)

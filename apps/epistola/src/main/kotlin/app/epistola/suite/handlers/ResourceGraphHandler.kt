@@ -14,16 +14,9 @@ import app.epistola.suite.catalog.graph.TenantResourceGraph
 import app.epistola.suite.catalog.graph.TraversalDirection
 import app.epistola.suite.catalog.graph.traverse
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.relocation.CatalogResourceMoveBlockedException
-import app.epistola.suite.catalog.relocation.CatalogResourceMovePreview
-import app.epistola.suite.catalog.relocation.MoveCatalogResources
-import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
-import app.epistola.suite.catalog.relocation.ResourceRelocation
-import app.epistola.suite.catalog.relocation.StaleCatalogResourceMovePlanException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.http.MediaType
@@ -68,33 +61,6 @@ class ResourceGraphHandler {
             mapOf("key" to it.id.value, "name" to it.name, "type" to it.type.name.lowercase())
         }
         return json(mapOf("nodes" to nodes, "total" to matches.size, "catalogs" to catalogs))
-    }
-
-    /**
-     * Preview accepts a batch as a POST body rather than query parameters: a relocation now carries
-     * a full destination address per member, which does not fit a URL sensibly.
-     */
-    fun movePreview(request: ServerRequest): ServerResponse {
-        if (!request.resourceGraphEnabled() || !request.resourceRelocationEnabled()) return ServerResponse.notFound().build()
-        val body = request.body(MoveResourcesRequest::class.java)
-        return json(movePreviewDto(PreviewCatalogResourceMove(request.tenantKey(), body.toRelocations()).query()))
-    }
-
-    fun move(request: ServerRequest): ServerResponse {
-        if (!request.resourceGraphEnabled() || !request.resourceRelocationEnabled()) return ServerResponse.notFound().build()
-        val body = request.body(MoveResourcesRequest::class.java)
-        return try {
-            val result = MoveCatalogResources(
-                request.tenantKey(),
-                body.toRelocations(),
-                body.planFingerprint.orEmpty(),
-            ).execute()
-            json(movePreviewDto(result))
-        } catch (_: StaleCatalogResourceMovePlanException) {
-            conflict(mapOf("code" to "stale-plan", "message" to "The move preview is stale; preview it again"))
-        } catch (exception: CatalogResourceMoveBlockedException) {
-            conflict(mapOf("code" to "move-blocked", "blockers" to exception.blockers))
-        }
     }
 
     fun subgraph(request: ServerRequest): ServerResponse {
@@ -201,47 +167,6 @@ class ResourceGraphHandler {
     private fun ServerRequest.resourceRelocationEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_RELOCATION] == true
     private fun ServerRequest.requiredParam(name: String) = param(name).orElseThrow { IllegalArgumentException("Missing query parameter: $name") }
 
-    /** [CatalogResourceMovePreview.resourceId] is the internal surrogate identity and stays server-side. */
-    private fun movePreviewDto(preview: CatalogResourceMovePreview) = mapOf(
-        "relocations" to preview.relocations.map {
-            mapOf(
-                "source" to it.source,
-                "target" to it.target,
-                "mutableRewriteCount" to it.mutableRewriteCount,
-                "immutableReferenceCount" to it.immutableReferenceCount,
-            )
-        },
-        "mutableRewriteCount" to preview.mutableRewriteCount,
-        "immutableReferenceCount" to preview.immutableReferenceCount,
-        "blockers" to preview.blockers,
-        "planFingerprint" to preview.planFingerprint,
-        "executable" to preview.executable,
-    )
-
     private fun json(body: Any) = ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(body)
     private fun conflict(body: Any) = ServerResponse.status(409).contentType(MediaType.APPLICATION_JSON).body(body)
-}
-
-private data class MoveResourcesRequest(
-    val relocations: List<RelocationRequest>,
-    val planFingerprint: String? = null,
-) {
-    fun toRelocations() = relocations.map { it.toRelocation() }
-}
-
-private data class RelocationRequest(
-    val type: String,
-    val catalog: String,
-    val key: String,
-    val targetCatalog: String,
-    /** Omitted to keep the current key: a plain move rather than a move-and-rename. */
-    val targetKey: String? = null,
-) {
-    fun toRelocation(): ResourceRelocation {
-        val resourceType = CatalogResourceType.entries.single { it.wireName == type }
-        return ResourceRelocation(
-            source = ResourceAddress(resourceType, catalog, key),
-            target = ResourceAddress(resourceType, targetCatalog, targetKey ?: key),
-        )
-    }
 }

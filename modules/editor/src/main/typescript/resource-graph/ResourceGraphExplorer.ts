@@ -11,7 +11,6 @@ import {
   type EvidenceResponse,
   type ResourceEdge,
   type ResourceFocusRef,
-  type ResourceMovePreview,
   type ResourceNode,
   type ResourceType,
   type SubgraphResponse,
@@ -79,9 +78,6 @@ export class ResourceGraphExplorer extends LitElement {
   @state() private semanticsFilter = '';
   @state() private loading = false;
   @state() private error = '';
-  @state() private moveTarget = '';
-  @state() private movePreview?: ResourceMovePreview;
-  @state() private moving = false;
   private cy?: Core;
   private searchSequence = 0;
 
@@ -396,8 +392,6 @@ export class ResourceGraphExplorer extends LitElement {
       this.graph = (await response.json()) as SubgraphResponse;
       this.selectedEdge = undefined;
       this.evidence = undefined;
-      this.moveTarget = '';
-      this.movePreview = undefined;
       const url = new URL(window.location.href);
       for (const [key, value] of [
         ['type', node.type],
@@ -529,65 +523,6 @@ export class ResourceGraphExplorer extends LitElement {
     const otherId = edge.source === this.graph?.focus.id ? edge.target : edge.source;
     const node = this.graph?.nodes.find((candidate) => candidate.id === otherId);
     return node?.name ?? edge.targetSelector.key;
-  }
-
-  private async previewResourceMove(): Promise<void> {
-    if (!this.graph || !this.moveTarget) return;
-    this.moving = true;
-    this.error = '';
-    this.movePreview = undefined;
-    const params = new URLSearchParams({
-      type: this.graph.focus.type,
-      catalog: this.graph.focus.catalogKey,
-      key: this.graph.focus.key,
-      targetCatalog: this.moveTarget,
-    });
-    try {
-      const response = await fetch(`${this.baseUrl}/move-preview?${params}`);
-      if (!response.ok) throw new Error(`Could not preview move (${response.status})`);
-      this.movePreview = (await response.json()) as ResourceMovePreview;
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Could not preview move';
-    } finally {
-      this.moving = false;
-    }
-  }
-
-  private async executeResourceMove(): Promise<void> {
-    const graph = this.graph;
-    const preview = this.movePreview;
-    if (!graph || !preview?.executable) return;
-    this.moving = true;
-    this.error = '';
-    try {
-      const response = await fetch(`${this.baseUrl}/move`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-XSRF-TOKEN': window.getCsrfToken?.() ?? '',
-        },
-        body: JSON.stringify({
-          type: graph.focus.type,
-          catalog: graph.focus.catalogKey,
-          key: graph.focus.key,
-          targetCatalog: this.moveTarget,
-          planFingerprint: preview.planFingerprint,
-        }),
-      });
-      if (!response.ok) throw new Error(`Could not move resource (${response.status})`);
-      await this.loadNodes(false);
-      await this.focusResource({
-        id: `${graph.focus.type}:${this.moveTarget}:${graph.focus.key}`,
-        type: graph.focus.type,
-        catalogKey: this.moveTarget,
-        key: graph.focus.key,
-        name: graph.nodes.find((node) => node.id === graph.focus.id)?.name ?? graph.focus.key,
-      });
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Could not move resource';
-    } finally {
-      this.moving = false;
-    }
   }
 
   protected render() {
@@ -815,71 +750,28 @@ export class ResourceGraphExplorer extends LitElement {
       ${list(incoming)} ${this.renderMoveResource()}`;
   }
 
+  /**
+   * The graph notices a misplaced resource; it does not move it.
+   *
+   * Relocation lives on its own page under Catalogs, where catalogs are managed and a whole
+   * selection can be moved at once. This hands off with the focused resource already selected.
+   */
   private renderMoveResource() {
-    // Kept in step with MovableResource on the server. A type absent there is rejected with an
-    // unsupported-resource-type blocker, so offering it would only produce a preview that cannot
-    // execute.
-    const movableTypes: ResourceType[] = ['stencil', 'attribute', 'template'];
-    const focusType = this.graph?.focus.type;
-    if (this.relocationEnabled !== 'true' || !focusType || !movableTypes.includes(focusType)) {
-      return nothing;
-    }
-    const targets = this.catalogOptions.filter(
-      (catalog) => catalog.type === 'authored' && catalog.key !== this.graph?.focus.catalogKey,
+    const focus = this.graph?.focus;
+    if (this.relocationEnabled !== 'true' || !focus) return nothing;
+    const movableTypes = ['stencil', 'attribute', 'template'];
+    if (!movableTypes.includes(focus.type)) return nothing;
+
+    const organiseUrl = this.baseUrl.replace(
+      /\/resource-graph$/,
+      `/catalogs/organise?resource=${encodeURIComponent(`${focus.type}:${focus.catalogKey}:${focus.key}`)}`,
     );
     return html`<h3>Move resource <span class="badge">Alpha</span></h3>
-      <label
-        >Target catalog
-        <input
-          type="search"
-          list="relocation-catalogs"
-          placeholder="Search catalogs"
-          .value=${this.moveTarget}
-          @input=${(event: InputEvent) => {
-            if (!(event.currentTarget instanceof HTMLInputElement)) return;
-            this.moveTarget = event.currentTarget.value;
-            this.movePreview = undefined;
-          }}
-        />
-      </label>
-      <datalist id="relocation-catalogs">
-        ${targets.map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
-      </datalist>
       <p>
-        <button
-          type="button"
-          ?disabled=${this.moving || !targets.some((catalog) => catalog.key === this.moveTarget)}
-          @click=${() => void this.previewResourceMove()}
-        >
-          ${this.moving ? 'Checking…' : 'Preview move'}
-        </button>
-      </p>
-      ${
-        this.movePreview
-          ? html`<div class="evidence">
-              <strong>${this.movePreview.executable ? 'Ready to move' : 'Move is blocked'}</strong>
-              <p>
-                ${this.movePreview.mutableRewriteCount} draft reference(s) will be rewritten;<br />
-                ${this.movePreview.immutableReferenceCount} published reference(s) will resolve
-                through the alias.
-              </p>
-              ${this.movePreview.blockers.map(
-                (blocker) => html`<p class="error">${blocker.message}</p>`,
-              )}
-              ${
-                this.movePreview.executable
-                  ? html`<button
-                      type="button"
-                      ?disabled=${this.moving}
-                      @click=${() => void this.executeResourceMove()}
-                    >
-                      Move to ${this.moveTarget}
-                    </button>`
-                  : nothing
-              }
-            </div>`
-          : nothing
-      }`;
+        <a href=${organiseUrl}>Organise catalogs</a> to move
+        <strong>${focus.catalogKey}/${focus.key}</strong> — and anything else that should move with
+        it.
+      </p>`;
   }
 
   private renderEvidence() {
