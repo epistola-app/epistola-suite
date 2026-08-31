@@ -32,57 +32,49 @@ rather than where it is read.**
 
 ## Decision
 
-`last_error` becomes a typed JSON record. Failures are stored as data; the
-sentence is composed when it is rendered.
+`last_error` is replaced by two columns, `error_code` and `error_detail`.
+Failures are recorded as data; the sentence is composed where it is read.
 
-```json
-{
-  "code": "EXCHANGE_APPLICATION_UNKNOWN",
-  "params": { "namespace": "public-services" },
-  "detail": "401 Unauthorized: {\"error\":\"invalid_client\"}"
-}
-```
+- **`error_code`** is a closed Kotlin vocabulary. It decides the title and the
+  guidance, the way `ExchangeConnectionStatus.guidance` and
+  `KnownFeatures.metadata` already decide theirs: one definition, every surface.
+- **`error_detail`** is what the far side or the transport actually said. Kept,
+  shown as supporting detail, logged in full — never the headline.
 
-- **`code`** is a closed Kotlin vocabulary. It decides the title and the guidance,
-  the way `ExchangeConnectionStatus.guidance` and `KnownFeatures.metadata`
-  already decide theirs: one definition, every surface.
-- **`params`** are the named values a message needs to be specific — the
-  namespace that was withdrawn, the version that cannot follow, how long a
-  submission has gone undecided.
-- **`detail`** is what the far side or the transport actually said. Kept, shown
-  as supporting detail, logged in full — never the headline.
+This is the shape Exchange already uses on `publication_submission`, so both
+sides of the protocol describe a failure the same way, and a remote decision
+crosses without being flattened: Exchange's `errorCode` maps to a Suite code and
+its `errorDetail` is carried as detail.
 
-Typed, not open. The JSON is a Kotlin data class with a code enum, bound through
-the existing `jdbi3-jackson3` JSONB support. The flexibility being bought is
-_that different codes carry different parameters_, not that anything at all may
-be written.
+A message that needs to be specific takes its specifics from the row it is
+rendered beside, not from the error record.
 
-A remote decision is carried, not flattened: Exchange's `errorCode` and
-`errorDetail` become `params` and `detail` under a Suite code, so the remote
-vocabulary survives as data.
+## Why not JSON with parameters
 
-## Why JSON rather than a code and a detail column
+The tempting shape is `{ code, params, detail }`, on the argument that several
+of these messages are specific — the namespace an organization withdrew, the
+namespace a catalog is bound to but no longer granted, how long a submission has
+gone undecided — and that a code with only free text forces those sentences to
+be composed at write time again.
 
-Two columns — `error_code`, `error_detail` — is the obvious simpler option, it
-needs no JSON handling, the code is trivially indexable, and it is exactly what
-Exchange already does on `publication_submission`. It was seriously considered.
+That argument does not survive looking at the rows. `catalog_release_publications`
+already stores `namespace`, `version`, `attempts`, `submitted_at` and
+`created_at`; `exchange_tenant_connections` already stores the organization, the
+granted namespaces and the status. **Every value those messages interpolate is
+already a structured column on the row being rendered**, and the rest are
+configuration the renderer holds anyway, like `submitted-timeout`. A `params`
+object would restate, in a JSON blob, facts the row states properly one column
+to the left — and two copies of the same fact is exactly how they come to
+disagree.
 
-It fails on the cases that motivated this. Several of these messages are
-specific, and their specifics come from the failure, not the code:
-
-- the namespace an organization withdrew,
-- the namespace a catalog is bound to but no longer granted,
-- how long Exchange has held a submission without deciding,
-- the cause of an unreachable host.
-
-With a code and a free-text detail, those sentences have to be composed at
-write time again and stored in `detail` — which is precisely the defect, only
-now with a code beside it. Parameters are what make render-time composition
-possible for _every_ message rather than only the parameterless ones. That is
-the whole decision; everything else about the two shapes is close to a wash.
-
-Indexing is not a real difference at this size: `(last_error ->> 'code')` takes
-an expression index if a query ever needs one, and neither table is large.
+There is one case parameters would genuinely serve: an error describes the state
+**at the time it happened**, while the row describes the state **now**. A
+publication refused for a namespace that has since been re-pointed would render
+against the new namespace and say something untrue. It is a real gap, and it is
+small: a stale reason on a row that has moved on should be cleared rather than
+carefully rendered, and `error_detail` can carry the historical specifics as
+evidence. If a case appears where that is not enough, a `params` column can be
+added then, against a real example rather than an imagined one.
 
 ## Consequences
 
@@ -90,11 +82,15 @@ an expression index if a query ever needs one, and neither table is large.
 - The write path records what happened; it no longer decides what to say.
 - One vocabulary can serve the settings page, the catalog page, logs, metrics
   and — later — REST or MCP, without each re-deriving prose from a string.
-- Codes become alertable and countable, which free text never was.
-- More machinery than a string: a record type, a mapper, and a code-to-copy
-  table that must be kept complete. A missing code must render as the raw detail
-  rather than an empty box, and a test should hold the enum and the copy together
-  the way `ExchangeStatusBadgeTest` holds statuses and badges.
+- Codes become alertable, countable and indexable, which free text never was.
+- The two products describe failures in the same shape, so mapping between them
+  is a lookup rather than a parse.
+- A code-to-copy table has to be kept complete. A missing code must render as
+  the raw detail rather than an empty box, and a test should hold the enum and
+  the copy together the way `ExchangeStatusBadgeTest` holds statuses and badges.
+- Messages are rendered against current row state, so a reason left behind by a
+  row that has since changed can mislead. Reasons are cleared when the thing
+  they describe is resolved.
 - Both columns live in unreleased migrations on this branch, so they are edited
   in place and no data is preserved.
 
@@ -112,6 +108,13 @@ UI concern. A single code may legitimately appear in both, spelled the same way;
 that is a coincidence worth allowing and not a reason to share an enum.
 
 ## Alternatives considered
+
+### JSON with a parameter object
+
+Rejected above, on the evidence that the parameters already exist as columns on
+the rows being rendered. It buys flexibility that is paid for immediately in
+duplicated facts, and its one genuine advantage — describing a past state — is
+better served by clearing reasons that no longer apply.
 
 ### Keep free text, prefix a code
 
