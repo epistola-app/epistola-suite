@@ -89,6 +89,8 @@ epistola:
     setup-retry-interval: 1m
     # Poll cadence for a submission Exchange has accepted but not decided.
     submitted-poll-interval: 30s
+    # How long such a submission is followed before it is given up on.
+    submitted-timeout: 24h
     # Refuse a plaintext Exchange. Only a local checkout should turn this on.
     allow-http: false
 ```
@@ -298,9 +300,13 @@ them the catalog continued elsewhere.
 After a move the new namespace has published nothing, so the catalog is freely
 changeable again until it does.
 
-The binding is otherwise fixed from the moment a release reaches Exchange — recorded on the binding itself as `published_at`, so the
-fact survives the catalog being deleted, exactly as Exchange's copy of what was
-published does. A catalog recreated under the same key therefore returns to the
+The binding is otherwise fixed from the moment a release reaches Exchange —
+recorded on the binding itself as `published_at`, so the fact survives the
+catalog being deleted, exactly as Exchange's copy of what was published does.
+"Reaches Exchange" means **accepted**, not submitted: Exchange taking a
+submission and then rejecting it leaves nothing published under those
+coordinates, so a rejected first attempt leaves the catalog freely movable
+rather than freezing coordinates it never occupied. A catalog recreated under the same key therefore returns to the
 same namespace instead of claiming a second one.
 
 A catalog with no namespace queues nothing. Its releases still succeed; they are
@@ -343,7 +349,7 @@ on `ReleaseCatalogVersion`.
 | Local state | Meaning                                                             | Archive retained? | Next action                                                                     |
 | ----------- | ------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- |
 | `READY`     | Namespace and archive are ready to submit.                          | Yes               | Submit with the stored idempotency key.                                         |
-| `SUBMITTED` | Exchange accepted the request but has not made a terminal decision. | Yes               | Poll the remote submission.                                                     |
+| `SUBMITTED` | Exchange accepted the request but has not made a terminal decision. | Yes               | Poll the remote submission, up to `submitted-timeout`.                          |
 | `RETRY`     | A transient local/network call failed.                              | Yes               | Retry with exponential backoff, capped at one hour.                             |
 | `ACCEPTED`  | Exchange validation/scanning/publication accepted the release.      | No                | Terminal success.                                                               |
 | `REJECTED`  | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                                      |
@@ -374,6 +380,20 @@ reach a host says nothing about the credentials.
 
 Failures that _are_ attributable to the request — an error response, or a reply
 Suite cannot use — still count, which is what the budget is for.
+
+**Following a submission is bounded separately.** Polling spends no retry budget,
+because nothing has failed — which leaves it the one wait in the state machine
+with no natural end. Exchange validates and scans on its own schedule, so a long
+wait is legitimate and `submitted-timeout` is generous (24 hours by default); but
+a submission Exchange never decides would otherwise be polled for ever while
+holding its retained archive, visible only as a queue age climbing for no stated
+reason. Past the timeout the publication becomes `FAILED` with that reason
+recorded. It keeps its archive, so an administrator has both ways out — check it
+in Exchange and retry, or withdraw it and release the bytes.
+
+A state Suite does not recognize is deliberately treated as still in flight
+rather than as a failure: Exchange may add an intermediate state, and a new one
+must not break an older Suite. The timeout is what keeps that safe.
 
 States that are simply not actionable yet — waiting for enrollment or a
 namespace, or a tenant whose feature is paused — are **deferred**, not failed.

@@ -35,6 +35,14 @@ data class ExchangeProperties(
     /** Delay between polls of a submission Exchange has accepted but not yet decided. */
     val submittedPollInterval: Duration = Duration.ofSeconds(30),
     /**
+     * How long a submission Exchange has taken but not decided is followed before it is given up on.
+     *
+     * Polling spends no retry budget — nothing has failed — so without this the one state that can
+     * outlast every other bound would be followed for ever, holding its retained archive. Generous
+     * on purpose: validation and scanning are Exchange's work and may legitimately take hours.
+     */
+    val submittedTimeout: Duration = Duration.ofHours(24),
+    /**
      * Permits a plaintext Exchange, for a local checkout only. Credentials and archives cross this
      * connection, so it is off everywhere else — the same posture as `epistola.catalog.allow-http`.
      */

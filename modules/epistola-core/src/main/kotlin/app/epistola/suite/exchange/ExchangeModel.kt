@@ -59,7 +59,14 @@ enum class CatalogPublicationStatus(val label: String, val badgeClass: String) {
     companion object {
         val active: List<CatalogPublicationStatus> = entries.filter { it.isActive }
 
-        /** Maps Exchange's submission state onto the local lifecycle; anything unrecognized stays in flight. */
+        /**
+         * Maps Exchange's submission state onto the local lifecycle.
+         *
+         * Anything unrecognized stays in flight deliberately: Exchange may add an intermediate state
+         * — scanning, queued behind another publisher — and treating a state we simply have not
+         * heard of as a failure would break on its next release. Waiting for ever is prevented by
+         * `epistola.exchange.submitted-timeout` instead, which bounds the wait whatever the reason.
+         */
         fun fromRemote(state: String): CatalogPublicationStatus = when (state) {
             "ACCEPTED" -> ACCEPTED
             "REJECTED" -> REJECTED

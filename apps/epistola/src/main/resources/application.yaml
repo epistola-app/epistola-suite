@@ -182,6 +182,10 @@ epistola:
     setup-retry-interval: 1m
     # Poll cadence for a submission Exchange has accepted but not yet decided.
     submitted-poll-interval: 30s
+    # How long such a submission is followed before it is given up on. Polling spends no retry
+    # budget, so without this a submission Exchange never decides would be polled forever while
+    # holding its retained archive. Generous: validation and scanning are Exchange's own work.
+    submitted-timeout: 24h
     # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
     allow-http: false
   features:

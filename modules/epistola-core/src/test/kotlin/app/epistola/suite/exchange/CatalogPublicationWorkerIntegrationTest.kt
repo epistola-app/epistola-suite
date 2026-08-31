@@ -74,6 +74,8 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
             assertThat(accepted.archiveRetained).isFalse()
             assertThat(accepted.attempts).isZero()
             assertThat(exchange.submittedIdempotencyKeys).hasSize(1)
+            // Exchange now holds a release under these coordinates, so the namespace is fixed.
+            assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
         }
     }
 
@@ -81,6 +83,8 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
     fun `a rejection is terminal and also releases the archive`() {
         val tenant = createTenant("Worker Rejects")
         val catalogKey = CatalogKey.of("worker-rejects")
+        // A second granted namespace, so the catalog can be shown to still be movable afterwards.
+        exchange.namespaces = listOf("public-services", "internal-forms")
         exchange.submitResponse = {
             FakeExchangeServer.Response(200, exchange.publicationBody(exchange.remotePublicationId, "REJECTED", "SCAN_FAILED", "Unsafe asset"))
         }
@@ -94,6 +98,41 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
             assertThat(rejected.status).isEqualTo(CatalogPublicationStatus.REJECTED)
             assertThat(rejected.archiveRetained).isFalse()
             assertThat(rejected.lastError).isEqualTo("SCAN_FAILED: Unsafe asset")
+
+            // Exchange took the submission and then refused it, so it is holding nothing under
+            // these coordinates. Locking the namespace here would freeze a catalog that has never
+            // published, and tell its author it had.
+            assertThat(state(tenant.id, catalogKey).namespaceLocked).isFalse()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "internal-forms").execute()
+            assertThat(state(tenant.id, catalogKey).boundNamespace).isEqualTo("internal-forms")
+        }
+    }
+
+    @Test
+    fun `a submission Exchange never decides is given up on instead of polled for ever`() {
+        val tenant = createTenant("Worker Waits Out")
+        val catalogKey = CatalogKey.of("worker-waits-out")
+
+        withMediator {
+            enroll(tenant)
+            releaseWithPublication(tenant, catalogKey)
+            worker.run()
+
+            val submitted = publication(tenant.id, catalogKey)
+            assertThat(submitted.status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
+
+            // The default status response accepts, so reaching FAILED rather than ACCEPTED is what
+            // proves the worker stopped polling rather than simply getting a different answer.
+            forceSubmittedLongAgo(submitted.id)
+            forceDue(submitted.id)
+            worker.run()
+
+            val abandoned = publication(tenant.id, catalogKey)
+            assertThat(abandoned.status).isEqualTo(CatalogPublicationStatus.FAILED)
+            assertThat(abandoned.lastError).contains("has not decided this submission")
+            // Terminal, but recoverable: the bytes are still there to retry or withdraw.
+            assertThat(abandoned.archiveRetained).isTrue()
+            assertThat(state(tenant.id, catalogKey).isRetry).isTrue()
         }
     }
 
@@ -218,7 +257,9 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
         ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
     }
 
-    private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query()).publications.single()
+    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
+
+    private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = state(tenantKey, catalogKey).publications.single()
 
     /**
      * The worker defers the next look at a row using the database clock, which the test clock
@@ -226,6 +267,16 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
      */
     private fun forceDue(id: java.util.UUID) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate("UPDATE catalog_release_publications SET next_attempt_at = NOW() WHERE id = :id")
+            .bind("id", id).execute()
+    }
+
+    /**
+     * `submitted_at` is written by the database, and the age the worker reads is computed there too,
+     * so the test clock cannot reach it. Planting the historical timestamp directly is the documented
+     * exception; the alternative is configuring a timeout no deployment would ever use.
+     */
+    private fun forceSubmittedLongAgo(id: java.util.UUID) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate("UPDATE catalog_release_publications SET submitted_at = NOW() - INTERVAL '48 hours' WHERE id = :id")
             .bind("id", id).execute()
     }
 

@@ -100,6 +100,9 @@ class CatalogPublicationWithdrawalTest : IntegrationTestBase() {
         val tenant = createTenant("recreate-catalog")
         val catalogKey = CatalogKey.of("recreate-me")
         exchange.namespaces = listOf("public-services", "internal-forms")
+        // Accepted, not merely taken: only acceptance means Exchange is holding a release under
+        // these coordinates, and that is what the binding has to outlive the catalog to record.
+        exchange.submitResponse = { FakeExchangeServer.Response(200, exchange.publicationBody(exchange.remotePublicationId, "ACCEPTED")) }
 
         withMediator {
             enroll(tenant)

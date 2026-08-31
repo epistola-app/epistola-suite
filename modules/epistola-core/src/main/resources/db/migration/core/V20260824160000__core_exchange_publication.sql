@@ -57,6 +57,10 @@ CREATE TABLE catalog_release_publications (
     status VARCHAR(30) NOT NULL CHECK (status IN ('READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED', 'CANCELLED')),
     idempotency_key UUID NOT NULL,
     remote_publication_id UUID,
+    -- When Exchange first took the submission. Following one is otherwise unbounded: it consumes no
+    -- retry budget (nothing failed), so a submission Exchange never decides would be polled for ever
+    -- while holding its retained archive. Aged in SQL, never against the application clock.
+    submitted_at TIMESTAMPTZ,
     attempts INTEGER NOT NULL DEFAULT 0,
     next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     claimed_at TIMESTAMPTZ,

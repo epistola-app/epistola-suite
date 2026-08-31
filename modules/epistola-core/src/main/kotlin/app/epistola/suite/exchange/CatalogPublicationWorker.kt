@@ -59,7 +59,11 @@ class CatalogPublicationWorker(
         store.claimDue(CLAIM_BATCH).forEach { publication ->
             // Pausing the tenant feature pauses its queue; it never fails or cancels work.
             if (!availability.isAvailable(publication.tenantKey)) {
-                store.defer(publication.id, properties.setupRetryInterval)
+                store.defer(
+                    publication.id,
+                    properties.setupRetryInterval,
+                    "Catalog publishing is turned off for this tenant; this release is waiting for it to be enabled.",
+                )
                 return@forEach
             }
             runCatching { process(publication) }.onFailure { failure -> fail(publication, failure) }
@@ -79,7 +83,11 @@ class CatalogPublicationWorker(
         }
         val token = credentials.accessToken(connection)
         if (token == null) {
-            store.defer(publication.id, properties.setupRetryInterval)
+            store.defer(
+                publication.id,
+                properties.setupRetryInterval,
+                "The Exchange connection could not produce an access token; reauthorize it.",
+            )
             return
         }
         val response = if (publication.remotePublicationId == null) {
@@ -99,19 +107,32 @@ class CatalogPublicationWorker(
             }
             val archive = store.loadArchive(publication.id)
                 ?: error("Publication ${publication.id} has no retained archive to submit")
-            val submitted = client.submit(connection.baseUrl, token, namespace, archive, publication.idempotencyKey)
-            // Exchange now holds a release under these coordinates. That outlives the local catalog,
-            // so the fact is recorded on the binding rather than inferred from rows that would
-            // disappear with it.
-            jdbi.useHandle<Exception> { handle ->
-                namespaceBinder.markPublished(handle, publication.tenantKey, publication.catalogKey)
-            }
-            submitted
+            client.submit(connection.baseUrl, token, namespace, archive, publication.idempotencyKey)
         } else {
+            // Following a submission spends no retry budget, because nothing has failed — which makes
+            // this the one wait in the state machine with no natural end. Exchange validates and scans
+            // on its own schedule, so a long wait is legitimate and the bound is generous; but a
+            // submission it never decides would otherwise be polled for ever while holding its
+            // retained archive, invisible except as a queue age that climbs without explanation.
+            if (publication.submittedFor != null && publication.submittedFor > properties.submittedTimeout) {
+                giveUpOnSubmission(publication)
+                return
+            }
             client.publication(connection.baseUrl, token, publication.remotePublicationId)
         }
         val status = CatalogPublicationStatus.fromRemote(response.state)
         metrics.submissionOutcome(status)
+        if (status == CatalogPublicationStatus.ACCEPTED) {
+            // Exchange now holds a release under these coordinates, and that outlives the local
+            // catalog — so the fact is recorded on the binding rather than inferred from rows that
+            // would disappear with it. Only acceptance means this: a submission Exchange takes and
+            // then rejects has published nothing, and marking it here would freeze the namespace of
+            // a catalog that never reached Exchange at all. Written before the row is updated, and
+            // idempotent, so a crash in between re-marks on the next poll rather than losing it.
+            jdbi.useHandle<Exception> { handle ->
+                namespaceBinder.markPublished(handle, publication.tenantKey, publication.catalogKey)
+            }
+        }
         store.applyRemoteState(
             id = publication.id,
             status = status,
@@ -123,6 +144,25 @@ class CatalogPublicationWorker(
 
     private fun grantedNamespaces(tenantKey: TenantKey) = jdbi.withHandle<Set<String>, Exception> { handle ->
         namespaceBinder.grantedNamespaces(handle, tenantKey)
+    }
+
+    /**
+     * Ends an unbounded wait on a submission Exchange took but never decided. `FAILED` rather than
+     * silence: it is terminal for the worker, keeps the archive, and gives an administrator both
+     * ways out — retry it, or withdraw it and release the bytes.
+     */
+    private fun giveUpOnSubmission(publication: CatalogReleasePublication) {
+        val hours = properties.submittedTimeout.toHours()
+        store.abandon(
+            publication.id,
+            "Exchange has not decided this submission in $hours hours. Check it in Exchange, then retry or withdraw it.",
+        )
+        logger.error(
+            "Exchange publication {} was submitted as {} but undecided after {}; giving up",
+            publication.id,
+            publication.remotePublicationId,
+            properties.submittedTimeout,
+        )
     }
 
     /**

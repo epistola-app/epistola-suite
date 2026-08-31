@@ -33,6 +33,11 @@ data class CatalogReleasePublication(
     val remotePublicationId: UUID?,
     val attempts: Int,
     val archiveRetained: Boolean,
+    /**
+     * How long Exchange has been holding this submission without deciding, measured by the database
+     * clock because `submitted_at` is a database-owned timestamp. Null until it is submitted.
+     */
+    val submittedFor: Duration?,
     val lastError: String?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
@@ -87,7 +92,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             UPDATE catalog_release_publications
             SET namespace = :namespace, status = :status, idempotency_key = :idempotencyKey,
                 archive = COALESCE(:archive, archive),
-                remote_publication_id = NULL, attempts = 0, next_attempt_at = NOW(),
+                remote_publication_id = NULL, submitted_at = NULL, attempts = 0, next_attempt_at = NOW(),
                 claimed_at = NULL, last_error = NULL, updated_at = NOW()
             WHERE id = :id
             """,
@@ -165,6 +170,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             """
             UPDATE catalog_release_publications
             SET status = :status, remote_publication_id = :remoteId,
+                submitted_at = COALESCE(submitted_at, NOW()),
                 archive = CASE WHEN :clearArchive THEN NULL ELSE archive END,
                 last_error = :error, claimed_at = NULL,
                 next_attempt_at = NOW() + :delay * INTERVAL '1 second', updated_at = NOW()
@@ -209,6 +215,23 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             WHERE id = :id
             """,
         ).bind("delay", delay.toSeconds()).bind("reason", reason).bind("id", id).execute()
+    }
+
+    /**
+     * Gives up on one publication without counting an attempt, leaving it `FAILED` — terminal for
+     * the worker, still holding its archive, and still retryable or cancellable by an administrator.
+     *
+     * Distinct from [recordFailure], which accounts for a transient error against the retry budget:
+     * this ends a wait that no amount of retrying would shorten.
+     */
+    fun abandon(id: UUID, reason: String) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET status = :status, last_error = :reason, claimed_at = NULL, updated_at = NOW()
+            WHERE id = :id
+            """,
+        ).bind("status", CatalogPublicationStatus.FAILED).bind("reason", reason).bind("id", id).execute()
     }
 
     /** Re-points every publication that has not reached Exchange at a newly bound namespace. */
@@ -307,6 +330,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         remotePublicationId = rs.getObject("remote_publication_id", UUID::class.java),
         attempts = rs.getInt("attempts"),
         archiveRetained = rs.getBoolean("archive_retained"),
+        submittedFor = rs.getLong("submitted_age_seconds").takeUnless { rs.wasNull() }?.let(Duration::ofSeconds),
         lastError = rs.getString("last_error"),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
@@ -317,6 +341,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         const val SELECT_METADATA = """
             SELECT id, tenant_key, catalog_key, version, namespace, status, idempotency_key,
                    remote_publication_id, attempts, archive IS NOT NULL AS archive_retained,
+                   EXTRACT(EPOCH FROM (NOW() - submitted_at))::BIGINT AS submitted_age_seconds,
                    last_error, created_at, updated_at
             FROM catalog_release_publications
         """

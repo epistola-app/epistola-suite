@@ -159,6 +159,8 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
         val tenant = createTenant("exchange-rebind")
         val catalogKey = CatalogKey.of("rebind-me")
         exchange.namespaces = listOf("public-services", "internal-forms")
+        // What fixes the coordinates is Exchange *accepting* a release, not taking the submission.
+        exchange.submitResponse = { FakeExchangeServer.Response(200, exchange.publicationBody(exchange.remotePublicationId, "ACCEPTED")) }
 
         withMediator {
             enroll(tenant)
@@ -174,7 +176,7 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
             assertThat(state(tenant.id, catalogKey).boundNamespace).isEqualTo("internal-forms")
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("internal-forms")
 
-            // Once Exchange has seen it, the coordinates are fixed.
+            // Once Exchange has accepted it, the coordinates are fixed.
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
 
