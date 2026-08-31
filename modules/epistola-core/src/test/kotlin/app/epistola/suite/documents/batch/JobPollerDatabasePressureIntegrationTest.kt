@@ -16,7 +16,6 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.Awaitility.await
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.junit.jupiter.api.Test
@@ -28,7 +27,6 @@ import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 
 /**
  * Verifies the feature's central safety claim: [DatabasePressureAdmissionController]
@@ -89,7 +87,7 @@ class JobPollerDatabasePressureIntegrationTest : IntegrationTestBase() {
         }.whenever { (inFlightId, blockedId) ->
             // A critical failure pauses admissions to zero immediately, regardless of hysteresis.
             pressureSource.snapshot = DatabasePressureSnapshot(5, null, 0, true)
-            triggerDrainAndAwait()
+            jobPoller.awaitDrain()
 
             val inFlightStatusWhilePaused = statusOf(inFlightId)
             val blockedStatusWhilePaused = statusOf(blockedId)
@@ -99,9 +97,9 @@ class JobPollerDatabasePressureIntegrationTest : IntegrationTestBase() {
             // the clock past recoveryPeriodMs, then draining again, steps PAUSED -> RECOVERING
             // at the minimum, admitting the previously-blocked request.
             pressureSource.snapshot = DatabasePressureSnapshot(5, 50, 0, false)
-            triggerDrainAndAwait()
+            jobPoller.awaitDrain()
             testClock.advanceBy(Duration.ofSeconds(31))
-            triggerDrainAndAwait()
+            jobPoller.awaitDrain()
             jobPoller.awaitIdle()
 
             PressureDrainResult(
@@ -115,20 +113,6 @@ class JobPollerDatabasePressureIntegrationTest : IntegrationTestBase() {
             assertThat(result.blockedStatusWhilePaused).isEqualTo("PENDING")
             assertThat(result.blockedStatusAfterRecovery).isEqualTo("COMPLETED")
             assertThat(result.inFlightStatusAfterRecovery).isEqualTo("IN_PROGRESS")
-        }
-    }
-
-    /**
-     * requestDrain() is async (submitted to JobPoller's dedicated drain thread), so this
-     * confirms a drain pass that started at or after the trigger has actually completed,
-     * rather than racing a stale heartbeat left over from an earlier pass.
-     */
-    private fun triggerDrainAndAwait() {
-        val triggeredAtMs = System.currentTimeMillis()
-        jobPoller.requestDrain()
-        await().atMost(5, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until {
-            val checkedAtMs = System.currentTimeMillis()
-            checkedAtMs - jobPoller.lastPollAgeMillis() >= triggeredAtMs
         }
     }
 
