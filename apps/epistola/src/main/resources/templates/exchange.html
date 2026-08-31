@@ -38,14 +38,6 @@
                      th:text="${settings.connection.lastError}"></div>
 
                 <th:block th:if="${settings.connected}" th:with="connection=${settings.connection}">
-                    <div class="alert alert-warning" th:if="${settings.needsDefaultNamespace}">
-                        <strong>Choose a default namespace before publishing.</strong>
-                        This connection grants more than one, so Suite cannot pick for you. Until one is set,
-                        releases from catalogs without their own preference wait instead of publishing<span
-                            th:if="${settings.activity.active > 0}"
-                            th:text="' — ' + ${settings.activity.active} + ' already waiting'"></span>.
-                    </div>
-
                     <dl class="description-list">
                         <dt>Organization</dt>
                         <dd>
@@ -79,8 +71,9 @@
                                         th:text="${namespace}" th:selected="${namespace == connection.defaultNamespace}"></option>
                             </select>
                             <p class="form-hint">
-                                Used by catalogs that express no preference of their own. A catalog's namespace becomes
-                                immutable once its first release is queued.
+                                Offered as the starting choice when a catalog is first published. It never decides
+                                for a catalog on its own — each one is set deliberately, and becomes permanent once
+                                a release of it reaches Exchange.
                             </p>
                         </div>
                         <div class="form-actions">
@@ -118,7 +111,7 @@
                 <div class="badge-list">
                     <span th:each="entry : ${activity.breakdown}"
                           th:class="${'badge ' + entry.badgeClass}"
-                          th:text="${entry.count} + ' ' + ${entry.label}">2 Waiting for setup</span>
+                          th:text="${entry.count} + ' ' + ${entry.label}">2 Ready to submit</span>
                 </div>
             </div>
             <div class="detail-section-body">

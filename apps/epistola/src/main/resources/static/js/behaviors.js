@@ -41,34 +41,40 @@ document.addEventListener('htmx:responseError', function (event) {
   }
 });
 
-// ── Require a field only while a checkbox is ticked ────────────────────────
+// ── Show / require a field only while a checkbox is ticked ─────────────────
 // Usage: <input type="checkbox" name="publishToExchange">
-//        <select name="chosenNamespace" data-required-when="publishToExchange">
-// Some choices are mandatory only for the branch of a form the user actually
-// took — a namespace is required when a release publishes and meaningless when
-// it does not. A plain `required` would block the other branch, so the
-// constraint follows the checkbox. Applied on load and on every swap too, so a
-// dialog rendered with the box already ticked starts in the right state.
-function syncConditionallyRequired(root) {
+//        <div data-shown-when="publishToExchange">
+//          <select name="chosenNamespace" data-required-when="publishToExchange">
+// Parts of a form belong to one branch of a choice: a namespace matters when a
+// release publishes and is noise when it does not. Hiding is per-container and
+// requiring is per-field, so they are separate attributes, but both follow the
+// same checkbox. Applied on load and on every swap too, so a dialog rendered
+// with the box already ticked starts in the right state.
+// A form without the named control has no such branch (a policy that always
+// publishes, say), and is left exactly as the server rendered it.
+function syncBranchedFields(root) {
   const scope = root && root.querySelectorAll ? root : document;
+  const triggerFor = function (el, attr) {
+    const form = el.closest('form');
+    return form && form.querySelector('[name="' + el.getAttribute(attr) + '"]');
+  };
+  scope.querySelectorAll('[data-shown-when]').forEach(function (group) {
+    const trigger = triggerFor(group, 'data-shown-when');
+    if (trigger) group.hidden = !trigger.checked;
+  });
   scope.querySelectorAll('[data-required-when]').forEach(function (field) {
-    const form = field.closest('form');
-    if (!form) return;
-    const trigger = form.querySelector('[name="' + field.getAttribute('data-required-when') + '"]');
-    // No trigger means this form has no such branch (a policy that always publishes, say) —
-    // leave whatever the server rendered.
-    if (!trigger) return;
-    field.required = trigger.checked;
+    const trigger = triggerFor(field, 'data-required-when');
+    if (trigger) field.required = trigger.checked;
   });
 }
 
 document.addEventListener('change', function (event) {
   const form = event.target.closest && event.target.closest('form');
-  if (form) syncConditionallyRequired(form);
+  if (form) syncBranchedFields(form);
 });
 
 document.addEventListener('htmx:load', function (event) {
-  syncConditionallyRequired(event.target);
+  syncBranchedFields(event.target);
 });
 
 // ── Dialog open / close ─────────────────────────────────────────────────────

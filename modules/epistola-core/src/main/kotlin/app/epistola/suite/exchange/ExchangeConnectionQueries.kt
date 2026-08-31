@@ -35,18 +35,12 @@ data class ExchangeSettings(
     val connected: Boolean get() = connection?.status == ExchangeConnectionStatus.ACTIVE
     val needsReauthorization: Boolean get() = connection?.status == ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED
 
-    /** A default only has to be chosen when the connection grants more than one namespace. */
-    val choosableNamespaces: List<String> get() = connection?.namespaces?.takeIf { it.size > 1 }.orEmpty()
-
     /**
-     * A connected tenant that cannot publish, because nothing has said where to.
-     *
-     * Enrollment picks the default itself when exactly one namespace is granted, and stays silent
-     * when there are several — so the connection looks healthy while every release quietly waits.
-     * That is the first thing a new tenant hits, so the page says it rather than leaving it to be
-     * inferred from a queue that is not moving.
+     * Offering a default is only meaningful when there is more than one namespace to choose between.
+     * Its absence is not a problem: a catalog's namespace is picked when it is first published, and
+     * the default only supplies the value that picker starts on.
      */
-    val needsDefaultNamespace: Boolean get() = connected && connection?.defaultNamespace == null && choosableNamespaces.isNotEmpty()
+    val choosableNamespaces: List<String> get() = connection?.namespaces?.takeIf { it.size > 1 }.orEmpty()
 }
 
 data class GetExchangeSettings(override val tenantKey: TenantKey) :

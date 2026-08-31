@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **Removed the "choose a default namespace" warning, which no longer described anything.** A tenant default is now only the value a namespace picker starts on, so its absence is not a problem and nothing waits on it. The Exchange page says what it is for instead of warning about it, and the namespace field in the release dialog appears only when the release is actually being published.
+
 - **[user]** feat!(exchange): **Publishing to Exchange is now its own permission, and a release is never queued without a destination.** `CATALOG_PUBLISH` covers sending a release out of this installation and choosing the namespace it lands in; `TEMPLATE_PUBLISH` still means cutting a release here. Releasing and publishing are different acts, so someone can be trusted with one and not the other. The publisher role gains the new permission.
 - **[user]** feat!(exchange): **A catalog's namespace is always chosen explicitly.** The tenant default no longer binds a catalog behind the scenes — it only pre-fills the picker, because the choice becomes permanent once a release reaches Exchange and a fallback should not make that decision. Until a catalog has a namespace nothing is queued at all, so there is no longer a queue of work that cannot move; the local release is unaffected either way, and the release can be published later once a namespace is set. The per-catalog namespace _preference_ is gone: the binding is now the single setting.
 

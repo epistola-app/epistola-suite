@@ -72,8 +72,8 @@
 
                     <div class="alert alert-warning" th:if="${publication.needsNamespaceChoice}">
                         <strong>This catalog has no Exchange namespace yet.</strong>
-                        Choose one when you publish. Releases are not queued until it has one, so nothing is
-                        waiting in the meantime.
+                        Choose one when you publish. Nothing is queued until it has one, so releases are simply
+                        not sent rather than held up.
                     </div>
 
                     <p class="text-muted" style="margin: 0; font-size: var(--ep-text-sm);"
