@@ -172,8 +172,14 @@ class CatalogPublicationWorker(
     private fun fail(publication: CatalogReleasePublication, failure: Throwable) {
         metrics.submissionError()
         when (failure) {
+            // Not `failure.message`: that is the transport's own wording, and it ends up on the
+            // settings page as the whole explanation of what an administrator should do.
             is HttpClientErrorException.Unauthorized ->
-                credentials.markConnection(publication.tenantKey, ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED, failure.message)
+                credentials.markConnection(
+                    publication.tenantKey,
+                    ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED,
+                    credentials.authorizationFailure(failure),
+                )
 
             // A refusal is ambiguous until we know whether it was this catalog's namespace or the
             // connection itself, and the local grant list cannot tell us — Exchange only writes it

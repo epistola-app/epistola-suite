@@ -15,17 +15,6 @@ import org.springframework.web.client.HttpClientErrorException
 import java.time.Duration
 
 /**
- * Keeps each tenant's Exchange access token usable.
- *
- * The refresh round-trip happens **outside** any database transaction: a remote call inside one
- * would hold a pooled connection — and, with a row lock, block every other reader of that
- * connection row — for as long as Exchange takes to answer. Instead the row is read, the network
- * call is made unlocked, and the result is written back under an optimistic check on the row
- * version it was read at, so a concurrent rotation cannot be clobbered. (The check cannot be the
- * refresh token itself: credential columns are encrypted with a fresh nonce per write, so two
- * ciphertexts of the same secret never compare equal.)
- */
-/**
  * A tenant's enrollment reduced to what a UI may know about it: never the credentials.
  *
  * [organizationSlug] is null only between starting an authorization and completing it, which is why
@@ -36,6 +25,17 @@ data class ExchangeConnectionSummary(
     val organizationSlug: String?,
 )
 
+/**
+ * Keeps each tenant's Exchange access token usable.
+ *
+ * The refresh round-trip happens **outside** any database transaction: a remote call inside one
+ * would hold a pooled connection — and, with a row lock, block every other reader of that
+ * connection row — for as long as Exchange takes to answer. Instead the row is read, the network
+ * call is made unlocked, and the result is written back under an optimistic check on the row
+ * version it was read at, so a concurrent rotation cannot be clobbered. (The check cannot be the
+ * refresh token itself: credential columns are encrypted with a fresh nonce per write, so two
+ * ciphertexts of the same secret never compare equal.)
+ */
 @Component
 class ExchangeCredentialService(
     private val jdbi: Jdbi,
@@ -88,6 +88,13 @@ class ExchangeCredentialService(
         } catch (failure: HttpClientErrorException.BadRequest) {
             metrics.credentialRefresh(ExchangeMetrics.CredentialRefreshOutcome.REJECTED)
             markConnection(connection.tenantKey, ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED, "Refresh token was rejected")
+            return null
+        } catch (failure: HttpClientErrorException.Unauthorized) {
+            // Exchange will not accept the credentials at all. That is a state to recover from, not
+            // an error to report: returning null lets the caller wait rather than spend a retry on
+            // something no amount of retrying fixes.
+            metrics.credentialRefresh(ExchangeMetrics.CredentialRefreshOutcome.REJECTED)
+            markConnection(connection.tenantKey, ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED, authorizationFailure(failure))
             return null
         } catch (failure: Exception) {
             metrics.credentialRefresh(ExchangeMetrics.CredentialRefreshOutcome.ERROR)
@@ -180,6 +187,23 @@ class ExchangeCredentialService(
                 .bind("tenantKey", tenantKey).execute()
         }
         return context.namespaces
+    }
+
+    /**
+     * What Exchange's refusal means, in terms of what to do about it.
+     *
+     * The transport exception's own message is `401 Unauthorized: "{"error":"invalid_client"}"`,
+     * which is accurate and useless: it is shown on the settings page, where the reader needs to
+     * know whether to reconnect, wait, or call someone. `invalid_client` is worth telling apart —
+     * it means Exchange no longer recognises the application at all, so an ordinary reconnect is
+     * not enough and its credentials have to be reissued.
+     */
+    fun authorizationFailure(failure: HttpClientErrorException): String = if (failure.responseBodyAsString.contains("\"error\":\"invalid_client\"")) {
+        "Exchange no longer recognises this installation's application. Connect again and select " +
+            "'Recover application credentials and revoke its previous tokens' during authorization."
+    } else {
+        "Exchange rejected this tenant's stored credentials. Reconnect to restore the connection; " +
+            "queued publications resume where they left off."
     }
 
     fun markConnection(tenantKey: TenantKey, status: ExchangeConnectionStatus, error: String?) = jdbi.useHandle<Exception> { handle ->

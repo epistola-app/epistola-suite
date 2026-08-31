@@ -32,6 +32,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
+import java.time.Duration
 
 /**
  * Server-contract assertions for the Exchange settings page, made against the rendered response
@@ -47,6 +48,9 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
+    @Autowired
+    private lateinit var credentials: app.epistola.suite.exchange.ExchangeCredentialService
 
     /**
      * One stand-in Exchange is shared by the whole class, so a test that changes what it grants
@@ -96,6 +100,30 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body).contains("activity-alpha")
         assertThat(response.body).contains("activity-beta")
         assertThat(response.body).contains("Ready to submit")
+    }
+
+    /**
+     * Credentials Exchange will not accept are a state to recover from, so the page has to say what
+     * to do about it. The transport's own words — `401 Unauthorized: "{"error":"invalid_client"}"` —
+     * were stored verbatim and shown as the whole explanation, which is accurate and unusable.
+     */
+    @Test
+    fun `credentials Exchange refuses are explained in terms of what to do`() {
+        val tenant = createTenant("Exchange Rejected Credentials")
+        withMediator { enroll(tenant) }
+        // Exchange no longer knows this application at all — what a rebuilt Exchange looks like.
+        exchange.tokenResponse = { FakeExchangeServer.Response(401, """{"error":"invalid_client"}""") }
+
+        withMediator { credentials.accessToken(requireNotNull(credentials.connection(tenant.id)), Duration.ofDays(365)) }
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/exchange", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("Exchange no longer recognises this installation")
+        assertThat(response.body).contains("Recover application credentials")
+        // The transport's wording is not the explanation.
+        assertThat(response.body).doesNotContain("401 Unauthorized")
+        assertThat(response.body).doesNotContain("invalid_client")
     }
 
     /**
