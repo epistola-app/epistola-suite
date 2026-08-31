@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **The namespace-move warning only appears when the namespace is actually changed.** Opening the catalog's publication settings to change the release policy confronted anyone with a published catalog with a warning about moving it, and a checkbox not to tick. It now follows the selection: shown on a real change, gone again if it is undone. The command already treated an unchanged namespace as a no-op, so only the dialog was noisy.
+- **[dev]** fix(design-system): **The `hidden` attribute now actually hides.** A component that sets its own `display` sits in the `components` layer and beat `[hidden]` on layer order, so hiding an alert or a flex row left it on screen. Three components had each patched this for themselves; the general rule replaces the need to.
+
 - **[user]** fix(catalog,exchange): **Warning boxes render as warnings again.** An alert lays out its severity icon beside its content, so it takes one block; five alerts written as loose bold-plus-text became a row of narrow columns instead, with parts of the message pushed outside the dialog. They now use the design system's title-and-body structure. The "this release can no longer be published" message was also missing from the catalog page entirely — the markup edit that added it silently did not apply.
 
 - **[user]** feat(exchange): **A catalog that has already published can be moved to another namespace, deliberately.** It was permanent, which overstated the case: versions already on Exchange stay under the old namespace whatever happens, so a move only changes where future releases go. That is now allowed on an explicit acknowledgement, with the consequence stated — anyone following the old namespace keeps what is there and will not see anything new. Whether a move would actually strand anyone is something only Exchange can answer, and asking it is tracked as deferred work.

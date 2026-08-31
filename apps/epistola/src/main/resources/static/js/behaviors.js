@@ -41,15 +41,20 @@ document.addEventListener('htmx:responseError', function (event) {
   }
 });
 
-// ── Show / require a field only while a checkbox is ticked ─────────────────
+// ── Show / require a field only when the form takes that branch ────────────
 // Usage: <input type="checkbox" name="publishToExchange">
 //        <div data-shown-when="publishToExchange">
 //          <select name="chosenNamespace" data-required-when="publishToExchange">
+//        <select name="chosenNamespace" id="ns">
+//        <div data-shown-when-changed="chosenNamespace">   ← only once it differs
 // Parts of a form belong to one branch of a choice: a namespace matters when a
-// release publishes and is noise when it does not. Hiding is per-container and
-// requiring is per-field, so they are separate attributes, but both follow the
-// same checkbox. Applied on load and on every swap too, so a dialog rendered
-// with the box already ticked starts in the right state.
+// release publishes and is noise when it does not, and a warning about the
+// consequences of moving one is noise until you actually move it. Hiding is
+// per-container and requiring is per-field, so they are separate attributes.
+// `data-shown-when-changed` compares a control against the value the server
+// rendered, so it appears only for a real edit and disappears again if it is
+// undone. Applied on load and on every swap too, so a dialog rendered with the
+// box already ticked starts in the right state.
 // A form without the named control has no such branch (a policy that always
 // publishes, say), and is left exactly as the server rendered it.
 function syncBranchedFields(root) {
@@ -61,6 +66,17 @@ function syncBranchedFields(root) {
   scope.querySelectorAll('[data-shown-when]').forEach(function (group) {
     const trigger = triggerFor(group, 'data-shown-when');
     if (trigger) group.hidden = !trigger.checked;
+  });
+  scope.querySelectorAll('[data-shown-when-changed]').forEach(function (group) {
+    const control = triggerFor(group, 'data-shown-when-changed');
+    if (!control) return;
+    const changed =
+      control.tagName === 'SELECT'
+        ? Array.from(control.options).some(function (o) {
+            return o.selected !== o.defaultSelected;
+          })
+        : control.value !== control.defaultValue;
+    group.hidden = !changed;
   });
   scope.querySelectorAll('[data-required-when]').forEach(function (field) {
     const trigger = triggerFor(field, 'data-required-when');

@@ -109,6 +109,7 @@
                                 th:selected="${option == publication.suggestedNamespace}">community</option>
                     </select>
                     <div th:if="${publication.namespaceLocked}" class="alert alert-warning"
+                         data-shown-when-changed="chosenNamespace" hidden
                          style="margin-top: var(--ep-space-3);">
                         <div>
                             <div class="alert-title">This catalog has already published</div>
