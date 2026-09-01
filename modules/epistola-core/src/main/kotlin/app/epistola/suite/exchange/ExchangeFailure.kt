@@ -56,6 +56,16 @@ enum class ExchangeFailureCode(val message: String) {
     /** Exchange refused the release itself; its own words are the detail. */
     REJECTED_BY_EXCHANGE("Exchange refused this release."),
 
+    /**
+     * Distinct from [REJECTED_BY_EXCHANGE] because it is the one rejection somebody can undo: another
+     * installation holds this catalog's publication authority, and an organization administrator can
+     * reappoint it. Suite offers that route instead of restating the refusal.
+     */
+    CATALOG_AUTHORITY_REQUIRED(
+        "Another installation is Exchange's appointed publisher for this catalog, so this one may not publish it. " +
+            "An organization administrator can reappoint the publisher on Exchange.",
+    ),
+
     /** A transient failure that counts against the retry budget. */
     SUBMISSION_FAILED("The last attempt to publish this release failed."),
 
@@ -93,6 +103,14 @@ data class ExchangeFailure(
 
     /** Shown beneath [message], and only when it adds something the sentence does not already say. */
     val supportingDetail: String? get() = detail?.takeIf { code != null }
+
+    /**
+     * Whether the fix is on Exchange rather than here.
+     *
+     * Named for the remedy rather than the code so a template asks "can this be resolved by
+     * reappointing the publisher?" instead of comparing an enum name in markup.
+     */
+    val needsAuthorityTransfer: Boolean get() = code == ExchangeFailureCode.CATALOG_AUTHORITY_REQUIRED
 
     companion object {
         fun of(code: String?, detail: String?): ExchangeFailure? = if (code == null && detail == null) null else ExchangeFailure(ExchangeFailureCode.parse(code), detail)

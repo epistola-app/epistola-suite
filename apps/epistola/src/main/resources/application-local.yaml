@@ -87,6 +87,10 @@ epistola:
   # target the sibling epistola-exchange checkout without contacting public
   # product discovery. OAuth metadata is still discovered and issuer-checked.
   exchange:
+    # On for local dev: the rest of this block already points at the sibling
+    # epistola-exchange checkout, so leaving the deployment gate off made all of it
+    # dead config and hid the Exchange UI even with the catalog-publishing feature on.
+    enabled: true
     base-url: http://exchange.localhost:4075
     callback-url: http://localhost:4000/oauth/exchange/callback
     # The sibling checkout is plaintext; every other profile refuses http:// so credentials

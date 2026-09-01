@@ -266,6 +266,21 @@
                             <span th:class="${'badge ' + entry.status.badgeClass}" th:text="${entry.status.label}">Ready</span>
                             <div th:if="${entry.failure?.message != null}" class="text-muted"
                                  style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
+                            <!--
+                              The one rejection somebody can undo, so it gets a way to. The link
+                              proposes this installation as the catalog's publisher; the transfer
+                              itself is an administrator's decision on Exchange, which is why this
+                              leads there rather than doing anything here.
+                            -->
+                            <a th:if="${entry.failure?.needsAuthorityTransfer and publication.exchangeAuthorityUrl != null}"
+                               th:href="${publication.exchangeAuthorityUrl}"
+                               class="ep-btn ep-btn-ghost ep-btn-sm"
+                               style="margin-top: var(--ep-space-1);"
+                               target="_blank" rel="noopener noreferrer"
+                               hx-boost="false">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                                <span>Reappoint the publisher on Exchange</span>
+                            </a>
                         </td>
                         <td th:text="${entry.attempts}">0</td>
                         <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>

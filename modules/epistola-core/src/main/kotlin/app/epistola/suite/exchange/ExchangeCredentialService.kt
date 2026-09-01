@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import java.time.Duration
+import java.util.UUID
 
 /**
  * A tenant's enrollment reduced to what a UI may know about it: never the credentials.
@@ -23,6 +24,12 @@ import java.time.Duration
 data class ExchangeConnectionSummary(
     val baseUrl: String,
     val organizationSlug: String?,
+    /**
+     * Who this Suite is on Exchange. Needed to propose *itself* as a catalog's publisher when
+     * Exchange refuses it for lack of authority, so the administrator confirms one named connection
+     * rather than picking from a list where several share a tenant name.
+     */
+    val tenantConnectionId: UUID?,
 )
 
 /**
@@ -60,9 +67,16 @@ class ExchangeCredentialService(
      */
     fun activeConnectionSummary(tenantKey: TenantKey): ExchangeConnectionSummary? = jdbi.withHandle<ExchangeConnectionSummary?, Exception> { handle ->
         handle.createQuery(
-            "SELECT base_url, organization_slug FROM exchange_tenant_connections WHERE tenant_key = :tenantKey AND status = 'ACTIVE'",
+            "SELECT base_url, organization_slug, tenant_connection_id FROM exchange_tenant_connections " +
+                "WHERE tenant_key = :tenantKey AND status = 'ACTIVE'",
         ).bind("tenantKey", tenantKey)
-            .map { rs, _ -> ExchangeConnectionSummary(rs.getString("base_url"), rs.getString("organization_slug")) }
+            .map { rs, _ ->
+                ExchangeConnectionSummary(
+                    rs.getString("base_url"),
+                    rs.getString("organization_slug"),
+                    rs.getString("tenant_connection_id")?.let(UUID::fromString),
+                )
+            }
             .findOne().orElse(null)
     }
 

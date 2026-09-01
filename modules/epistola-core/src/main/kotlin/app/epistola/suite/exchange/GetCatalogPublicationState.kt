@@ -74,6 +74,16 @@ data class CatalogPublicationState(
      * itself, because a binding becomes permanent and a fallback should not make that decision.
      */
     val suggestedNamespace: String?,
+    /**
+     * Where an administrator reappoints this catalog's publisher on Exchange, with this installation
+     * already proposed — or null when there is nothing to link to.
+     *
+     * Only meaningful alongside a [ExchangeFailureCode.CATALOG_AUTHORITY_REQUIRED] failure, and only
+     * a link: the transfer is an administrator-gated action on Exchange, so following it decides
+     * nothing. Suite offers the route because the refusal is discovered here, in Suite, by someone
+     * who otherwise has to know that a page they have never visited exists.
+     */
+    val exchangeAuthorityUrl: String?,
 ) {
     /** True while the catalog has nowhere to publish and this principal could give it one. */
     val needsNamespaceChoice: Boolean get() = available && canPublish && boundNamespace == null
@@ -181,6 +191,11 @@ class GetCatalogPublicationStateHandler(
             exchangeOrganizationUrl = connection?.organizationSlug
                 ?.let { slug -> "${connection.baseUrl.trimEnd('/')}/organizations/$slug" },
             suggestedNamespace = binding.namespace ?: binding.tenantDefault,
+            exchangeAuthorityUrl = binding.namespace?.let { namespace ->
+                connection?.tenantConnectionId?.let { proposed ->
+                    "${connection.baseUrl.trimEnd('/')}/catalogs/$namespace/${query.catalogKey.value}/settings?proposed=$proposed"
+                }
+            },
             // Nothing is queued without a destination, so the action is only offered once there is one.
             canPublishCurrentRelease = available &&
                 canPublish &&

@@ -128,11 +128,31 @@ class CatalogPublicationWorker(
             remotePublicationId = response.id,
             // Exchange's own code and detail cross as data rather than being concatenated into
             // prose that then has to be split by eye to read back.
-            code = if (status == CatalogPublicationStatus.REJECTED) ExchangeFailureCode.REJECTED_BY_EXCHANGE else null,
-            detail = listOfNotNull(response.errorCode, response.errorDetail).joinToString(": ").ifBlank { null },
+            code = if (status == CatalogPublicationStatus.REJECTED) rejectionCode(response.errorCode) else null,
+            // Exchange's own code is dropped from the detail once it has been recognised: repeating
+            // it there would print it twice, since the recognised code carries its own sentence.
+            detail = if (recognised(response.errorCode)) {
+                response.errorDetail
+            } else {
+                listOfNotNull(response.errorCode, response.errorDetail).joinToString(": ").ifBlank { null }
+            },
             pollDelay = properties.submittedPollInterval,
         )
     }
+
+    /**
+     * Exchange's rejection code, where Suite has something better to do with it than restate it.
+     *
+     * Only the authority refusal is singled out, because it is the only rejection an administrator
+     * can undo — every other one is final for these bytes, so telling them apart would buy nothing.
+     */
+    private fun rejectionCode(exchangeCode: String?): ExchangeFailureCode = if (exchangeCode == EXCHANGE_AUTHORITY_REQUIRED) {
+        ExchangeFailureCode.CATALOG_AUTHORITY_REQUIRED
+    } else {
+        ExchangeFailureCode.REJECTED_BY_EXCHANGE
+    }
+
+    private fun recognised(exchangeCode: String?): Boolean = exchangeCode == EXCHANGE_AUTHORITY_REQUIRED
 
     private fun grantedNamespaces(tenantKey: TenantKey) = jdbi.withHandle<Set<String>, Exception> { handle ->
         namespaceBinder.grantedNamespaces(handle, tenantKey)
@@ -242,6 +262,13 @@ class CatalogPublicationWorker(
     private fun backoff(attempts: Int): Duration = Duration.ofSeconds(minOf(3600L, 5L shl minOf(attempts, 9)))
 
     companion object {
+        /**
+         * Exchange's code for "another connection is this catalog's appointed publisher". A string
+         * because it is Exchange's vocabulary, not Suite's; Suite translates it into its own
+         * [ExchangeFailureCode] at the boundary and never spreads the raw value further.
+         */
+        private const val EXCHANGE_AUTHORITY_REQUIRED = "CATALOG_AUTHORITY_REQUIRED"
+
         const val TASK_KEY = "core.exchange-catalog-publication"
         const val ROUTING_KEY = "system:core.exchange-catalog-publication"
         const val TASK_TYPE = "core.exchange-catalog-publication"

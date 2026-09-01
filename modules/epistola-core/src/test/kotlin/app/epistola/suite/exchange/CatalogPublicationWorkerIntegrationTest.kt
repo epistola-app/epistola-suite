@@ -80,6 +80,45 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `an authority refusal offers the transfer instead of restating the rule`() {
+        val tenant = createTenant("Worker Authority")
+        val catalogKey = CatalogKey.of("worker-authority")
+        exchange.submitResponse = {
+            FakeExchangeServer.Response(
+                200,
+                exchange.publicationBody(
+                    exchange.remotePublicationId,
+                    "REJECTED",
+                    "CATALOG_AUTHORITY_REQUIRED",
+                    "Tenant connection is not authoritative for this catalog.",
+                ),
+            )
+        }
+
+        withMediator {
+            enroll(tenant)
+            releaseWithPublication(tenant, catalogKey)
+            worker.run()
+
+            val refused = publication(tenant.id, catalogKey)
+            assertThat(refused.status).isEqualTo(CatalogPublicationStatus.REJECTED)
+            // Translated into Suite's own vocabulary, not carried through as Exchange's string, and
+            // distinct from an ordinary rejection so the UI can offer the one fix that exists.
+            assertThat(refused.failure?.code).isEqualTo(ExchangeFailureCode.CATALOG_AUTHORITY_REQUIRED)
+            assertThat(refused.failure?.needsAuthorityTransfer).isTrue()
+            // The recognised code is not repeated in the detail; it already carries its own sentence.
+            assertThat(refused.failure?.detail).isEqualTo("Tenant connection is not authoritative for this catalog.")
+
+            // A refusal that names a route nobody can follow is the dead end this replaced, so the
+            // link has to be there, aimed at this catalog, and propose this installation by name.
+            val authorityUrl = state(tenant.id, catalogKey).exchangeAuthorityUrl
+            assertThat(authorityUrl).isNotNull()
+            assertThat(authorityUrl).contains("/catalogs/public-services/worker-authority/settings")
+            assertThat(authorityUrl).contains("proposed=")
+        }
+    }
+
+    @Test
     fun `a rejection is terminal and also releases the archive`() {
         val tenant = createTenant("Worker Rejects")
         val catalogKey = CatalogKey.of("worker-rejects")
