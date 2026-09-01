@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** chore(config): **Support tier off by default locally.** The `local` profile no longer enables the commercial support tier, which needs a running epistola-hub and otherwise logs a gRPC `UNAVAILABLE` stack trace on every retry. Start the hub and run with `--epistola.support.enabled=true` when working on Backups, Upgrading or Support → Overview; the local hub host and port are still configured, so that flag is all it takes.
+
 - **[dev]** refactor(exchange): **Typed Exchange client.** Suite now calls Epistola Exchange through the generated `app.epistola.exchange:api-client` instead of hand-parsing `JsonNode`, so the wire contract is checked at compile time. Discovery and the OAuth token endpoints stay hand-written - they implement `.well-known` and RFC 6749, not the Exchange API. Adopting it immediately exposed three ways `FakeExchangeServer` had drifted from the contract, all invisible while the parser only read the fields it wanted: it omitted the required `tenantName`, `NamespaceSummary.name`, `PublicationSubmission.namespace`, `createdAt` and `updatedAt`, and it reported a `PENDING` submission state that Exchange has never defined.
 - **[dev]** fix(exchange): **The fake Exchange answers with what Exchange answers.** A test double emitting less than the real service is a double that lets a broken client ship, which is exactly what it did.
 
