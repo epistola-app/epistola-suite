@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **Catalog page no longer errors for a publication with no failure.** The new authority link tested `failure?.needsAuthorityTransfer`, which evaluates to null for a healthy publication and cannot be converted to a boolean — so every catalog page that had ever published returned 500.
+
 - **[user]** feat(exchange): **A publish refused for authority now offers the fix.** When Exchange refuses a release because another installation is that catalog's appointed publisher, the catalog page links straight to the page where an organization administrator reappoints it, with this installation already proposed. Previously the refusal printed a path and left the reader to find a page they had never visited — and a reader who was not an administrator got a dead end with no way to see what was wrong. The transfer stays an administrator's decision on Exchange; Suite only offers the route.
 
 - **[dev]** chore(config): **Support tier off by default locally.** The `local` profile no longer enables the commercial support tier, which needs a running epistola-hub and otherwise logs a gRPC `UNAVAILABLE` stack trace on every retry. Start the hub and run with `--epistola.support.enabled=true` when working on Backups, Upgrading or Support → Overview; the local hub host and port are still configured, so that flag is all it takes.

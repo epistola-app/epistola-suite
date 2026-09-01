@@ -236,6 +236,61 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `an authority refusal is offered a way out, and an ordinary publication is not`() {
+        val tenant = createTenant("Exchange Authority CTA")
+        val refusedKey = CatalogKey.of("authority-refused")
+        val healthyKey = CatalogKey.of("authority-healthy")
+        withMediator {
+            enroll(tenant)
+            // A healthy publication first, while Exchange still accepts: it carries no failure at
+            // all, which is the row that has to keep rendering. A `failure?.x` test on it evaluates
+            // to null, and SpEL cannot convert null to boolean - so getting this wrong does not
+            // hide a button, it returns 500 for every catalog page that has ever published.
+            CreateCatalog(tenant.id, healthyKey, "Healthy").execute()
+            SetCatalogPublicationNamespace(tenant.id, healthyKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, healthyKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            worker.run()
+
+            exchange.submitResponse = {
+                FakeExchangeServer.Response(
+                    200,
+                    exchange.publicationBody(
+                        exchange.remotePublicationId,
+                        "REJECTED",
+                        "CATALOG_AUTHORITY_REQUIRED",
+                        "Tenant connection is not authoritative for this catalog.",
+                    ),
+                )
+            }
+            CreateCatalog(tenant.id, refusedKey, "Refused").execute()
+            SetCatalogPublicationNamespace(tenant.id, refusedKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, refusedKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            worker.run()
+        }
+
+        val healthy = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${healthyKey.value}/browse",
+            String::class.java,
+        )
+        assertThat(healthy.statusCode).isEqualTo(HttpStatus.OK)
+        // The row has to actually be on the page for its absence of a button to mean anything -
+        // without this the check below passes just as happily on a page with no publications at all.
+        assertThat(healthy.body).contains("View this submission on Exchange")
+        assertThat(healthy.body).doesNotContain("Reappoint the publisher on Exchange")
+
+        val refused = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${refusedKey.value}/browse",
+            String::class.java,
+        )
+        assertThat(refused.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(refused.body).contains("Reappoint the publisher on Exchange")
+        // Aimed at this catalog, and proposing this installation - a link to the page without the
+        // proposal leaves the administrator picking from connections that share a tenant name.
+        assertThat(refused.body)
+            .contains("${exchange.baseUrl}/catalogs/public-services/${refusedKey.value}/settings?proposed=")
+    }
+
+    @Test
     fun `the catalog page names a release that can no longer be published`() {
         val tenant = createTenant("Exchange Drifted")
         val catalogKey = CatalogKey.of("drifted")

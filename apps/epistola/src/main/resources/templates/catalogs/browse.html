@@ -272,7 +272,7 @@
                               itself is an administrator's decision on Exchange, which is why this
                               leads there rather than doing anything here.
                             -->
-                            <a th:if="${entry.failure?.needsAuthorityTransfer and publication.exchangeAuthorityUrl != null}"
+                            <a th:if="${entry.failure != null and entry.failure.needsAuthorityTransfer and publication.exchangeAuthorityUrl != null}"
                                th:href="${publication.exchangeAuthorityUrl}"
                                class="ep-btn ep-btn-ghost ep-btn-sm"
                                style="margin-top: var(--ep-space-1);"
