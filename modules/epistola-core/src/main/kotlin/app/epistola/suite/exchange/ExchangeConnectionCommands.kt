@@ -97,8 +97,10 @@ class StartExchangeConnectionHandler(
         val verifier = randomValue(64)
         val redirectUri = properties.configuredCallbackUrl ?: command.requestRedirectUri
         val installation = installationService.get().id.toString()
-        val startAuthorization = { application: UUID?, connection: UUID? ->
-            client.startAuthorization(endpoints, tenant.name, installation, redirectUri, state, base64Sha256(verifier), application, connection)
+        val startAuthorization = { application: UUID?, connection: UUID?, organization: String? ->
+            client.startAuthorization(
+                endpoints, tenant.name, installation, redirectUri, state, base64Sha256(verifier), application, connection, organization,
+            )
         }
         // Reauthorizing offers the identity this tenant already holds, so Exchange renews it rather
         // than minting another and stranding the catalogs bound to it. Exchange may no longer have
@@ -107,12 +109,14 @@ class StartExchangeConnectionHandler(
         // asked to work out that "forget locally, then connect" was what the dead end meant.
         var enrolledAfresh = false
         val response = try {
-            startAuthorization(existing?.oauthApplicationId, existing?.tenantConnectionId)
+            startAuthorization(existing?.oauthApplicationId, existing?.tenantConnectionId, existing?.organizationSlug)
         } catch (failure: HttpClientErrorException.BadRequest) {
+            // Exchange names the refusal in a `code` field; the substring check tolerates it
+            // appearing there or in the human-readable detail beside it.
             if (!failure.responseBodyAsString.contains("unknown_client_identity")) throw failure
             logger.warn("Exchange does not recognise the stored identity for tenant {}; enrolling afresh", command.tenantKey)
             enrolledAfresh = true
-            startAuthorization(null, null)
+            startAuthorization(null, null, null)
         }
         val now = EpistolaClock.offsetDateTime()
         jdbi.useTransaction<Exception> { handle ->

@@ -222,7 +222,8 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("View on Exchange")
+        // An icon button now, so the wording lives in the title rather than in the label.
+        assertThat(response.body).contains("View this submission on Exchange")
         assertThat(response.body)
             .contains("${exchange.baseUrl}/organizations/acme/publishing/${exchange.remotePublicationId}")
     }

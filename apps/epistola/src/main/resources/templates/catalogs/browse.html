@@ -278,18 +278,25 @@
                             -->
                             <a th:if="${publication.exchangeUrl(entry) != null}"
                                th:href="${publication.exchangeUrl(entry)}"
-                               class="ep-btn ep-btn-outline ep-btn-sm"
+                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                               title="View this submission on Exchange"
                                target="_blank" rel="noopener noreferrer"
-                               hx-boost="false">View on Exchange</a>
+                               hx-boost="false">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                            </a>
                             <form th:if="${entry.status.isCancellable}"
                                   th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalog.id},publicationId=${entry.id})}"
                                   method="post">
-                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                <button type="button"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                        title="Withdraw this publication"
                                         data-confirm-submit
                                         data-confirm-submit-title="Withdraw this publication"
                                         data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."
                                         data-confirm-submit-label="Withdraw"
-                                        data-confirm-submit-class="ep-btn-warning">Withdraw</button>
+                                        data-confirm-submit-class="ep-btn-warning">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='undo-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
                             </form>
                         </td>
                     </tr>

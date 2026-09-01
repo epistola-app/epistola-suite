@@ -123,6 +123,7 @@ class ExchangeClient(
         codeChallenge: String,
         existingApplicationId: UUID?,
         existingConnectionId: UUID?,
+        existingOrganizationSlug: String?,
     ): ExchangeAuthorizationResponse {
         val form = LinkedMultiValueMap<String, String>().apply {
             add("application_name", "Epistola Suite")
@@ -135,6 +136,11 @@ class ExchangeClient(
             add("scope", "read publish")
             existingApplicationId?.let { add("application_id", it.toString()) }
             existingConnectionId?.let { add("tenant_connection_id", it.toString()) }
+            // A reauthorization renews an identity and may not replace one, so the organization is
+            // already decided. Sending it means Exchange states it instead of offering a choice
+            // where only one answer is valid - and where a wrong one is refused after approving,
+            // not before.
+            existingOrganizationSlug?.let { add("organization", it) }
         }
         val node = http.post().uri(endpoints.authorizationRequestEndpoint)
             .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form).retrieve().body(JsonNode::class.java)
