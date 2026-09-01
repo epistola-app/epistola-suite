@@ -53,7 +53,7 @@ class FakeExchangeServer : AutoCloseable {
     var oauthMetadataIssuer: String? = null
 
     var tokenResponse: () -> Response = { Response(200, defaultToken()) }
-    var submitResponse: () -> Response = { Response(200, publicationBody(remotePublicationId, "PENDING")) }
+    var submitResponse: () -> Response = { Response(200, publicationBody(remotePublicationId, "QUEUED")) }
     var statusResponse: () -> Response = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }
 
     val remotePublicationId: UUID = UUID.fromString("00000000-0000-4000-8000-0000000000aa")
@@ -107,9 +107,10 @@ class FakeExchangeServer : AutoCloseable {
                         {
                           "tenantConnectionId": "${UUID(CONNECTION_ID_HIGH, connection.toLong())}",
                           "tenantConnectionReference": "tc_01HWHVGZT1FCF9Y2CE4XP${"%03d".format(connection)}",
+                          "tenantName": "Acme tenant",
                           "organization": {"slug": "$organizationSlug", "name": "Acme"},
-                          "scopes": ["read", "publish"],
-                          "namespaces": [${namespaces.joinToString(",") { """{"slug":"$it"}""" }}]
+                          "scopes": ["READ", "PUBLISH"],
+                          "namespaces": [${namespaces.joinToString(",") { """{"slug":"$it","name":"$it"}""" }}]
                         }
                         """.trimIndent(),
                     ),
@@ -147,10 +148,25 @@ class FakeExchangeServer : AutoCloseable {
         }
     """.trimIndent()
 
-    fun publicationBody(id: UUID, state: String, errorCode: String? = null, errorDetail: String? = null): String = """
+    /**
+     * `namespace`, `createdAt` and `updatedAt` are required by the contract even though Suite reads
+     * none of them, so they are emitted: a fake that answers with less than Exchange does is a fake
+     * that lets a client ship broken. The timestamps are fixed rather than current because nothing
+     * asserts on them and a moving value in a fixture is a flake waiting to happen.
+     */
+    fun publicationBody(
+        id: UUID,
+        state: String,
+        errorCode: String? = null,
+        errorDetail: String? = null,
+        namespace: String = "acme",
+    ): String = """
         {
           "id": "$id",
+          "namespace": "$namespace",
           "state": "$state",
+          "createdAt": "$FIXED_TIMESTAMP",
+          "updatedAt": "$FIXED_TIMESTAMP",
           "errorCode": ${errorCode?.let { "\"$it\"" } ?: "null"},
           "errorDetail": ${errorDetail?.let { "\"$it\"" } ?: "null"}
         }
@@ -168,7 +184,7 @@ class FakeExchangeServer : AutoCloseable {
         discoveryResponse = { Response(200, """{"version":1,"issuer":"$baseUrl","baseUrl":"$baseUrl"}""") }
         oauthMetadataIssuer = null
         tokenResponse = { Response(200, defaultToken()) }
-        submitResponse = { Response(200, publicationBody(remotePublicationId, "PENDING")) }
+        submitResponse = { Response(200, publicationBody(remotePublicationId, "QUEUED")) }
         statusResponse = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }
     }
 
@@ -207,6 +223,9 @@ class FakeExchangeServer : AutoCloseable {
 
     companion object {
         val OAUTH_APPLICATION_ID: UUID = UUID.fromString("00000000-0000-4000-8000-0000000000a1")
+        /** Fixed so publication fixtures never carry a moving value. */
+        private const val FIXED_TIMESTAMP = "2026-01-01T00:00:00Z"
+
         private const val CONNECTION_ID_HIGH = 0x4000_8000_0000_0000L
 
         /** Matches the `namespace` form part past whatever headers the client added to it. */

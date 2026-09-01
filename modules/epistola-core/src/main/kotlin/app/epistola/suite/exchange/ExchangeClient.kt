@@ -4,14 +4,19 @@
 
 package app.epistola.suite.exchange
 
+import app.epistola.exchange.client.api.ConnectionsApi
+import app.epistola.exchange.client.api.PublicationsApi
+import app.epistola.exchange.client.model.PublicationSubmission
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ByteArrayResource
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
+import java.io.File
 import java.time.Duration
 import java.util.UUID
 
@@ -185,26 +190,27 @@ class ExchangeClient(
     )
 
     fun context(endpoints: ExchangeEndpoints, accessToken: String): ExchangeConnectionContext {
-        val node = http.get().uri("${endpoints.baseUrl}/api/v1/tenant-connection")
-            .headers { it.setBearerAuth(accessToken) }.retrieve().body(JsonNode::class.java)
-            ?: throw ExchangeProtocolException("Exchange tenant context returned an empty response")
+        val context = ConnectionsApi(authorized(endpoints.baseUrl, accessToken)).getTenantConnectionContext()
         return ExchangeConnectionContext(
-            UUID.fromString(node.requiredText("tenantConnectionId")),
-            node.requiredText("tenantConnectionReference"),
-            node.path("organization").requiredText("slug"),
-            node.path("organization").requiredText("name"),
-            node.path("scopes").mapTo(mutableSetOf()) { it.stringValue() },
-            node.path("namespaces").mapTo(mutableSetOf()) { it.requiredText("slug") },
+            context.tenantConnectionId,
+            context.tenantConnectionReference,
+            context.organization.slug,
+            context.organization.name,
+            context.scopes.mapTo(mutableSetOf()) { it.value },
+            context.namespaces.mapTo(mutableSetOf()) { it.slug },
         )
     }
 
     fun disconnect(baseUrl: String, accessToken: String) {
-        http.delete().uri("${baseUrl.trimEnd('/')}/api/v1/tenant-connection")
-            .headers { it.setBearerAuth(accessToken) }
-            .retrieve()
-            .toBodilessEntity()
+        ConnectionsApi(authorized(baseUrl, accessToken)).disconnectTenantConnection()
     }
 
+    /**
+     * The generated client takes the archive as a [File], and Suite holds it in memory: a catalog
+     * is not spilled to disk to satisfy a signature. Only the body encoding is ours - the method,
+     * path and headers are read off the generated request config, so a contract change moves them
+     * here too rather than leaving a hand-copied path to rot.
+     */
     fun submit(
         baseUrl: String,
         accessToken: String,
@@ -212,6 +218,9 @@ class ExchangeClient(
         archive: ByteArray,
         idempotencyKey: UUID,
     ): ExchangePublicationResponse {
+        val client = authorized(baseUrl, accessToken)
+        val request = PublicationsApi(client)
+            .submitPublicationRequestConfig(idempotencyKey.toString(), namespace, ARCHIVE_PART_PLACEHOLDER)
         val multipart = MultipartBodyBuilder().apply {
             part("namespace", namespace)
             part(
@@ -221,21 +230,18 @@ class ExchangeClient(
                 },
             ).contentType(MediaType.parseMediaType("application/zip"))
         }.build()
-        val node = http.post().uri("${baseUrl.trimEnd('/')}/api/v1/publication-submissions")
-            .headers {
-                it.setBearerAuth(accessToken)
-                it.set("Idempotency-Key", idempotencyKey.toString())
+        val submission = client.post().uri(request.path)
+            .headers { headers ->
+                request.headers
+                    .filterKeys { !it.equals(HttpHeaders.CONTENT_TYPE, ignoreCase = true) }
+                    .forEach { (name, value) -> headers.set(name, value) }
             }.contentType(MediaType.MULTIPART_FORM_DATA).body(multipart)
-            .retrieve().body(JsonNode::class.java) ?: throw ExchangeProtocolException("Exchange publication returned an empty response")
-        return publication(node)
+            .retrieve().body(PublicationSubmission::class.java)
+            ?: throw ExchangeProtocolException("Exchange publication returned an empty response")
+        return submission.toResponse()
     }
 
-    fun publication(baseUrl: String, accessToken: String, id: UUID): ExchangePublicationResponse {
-        val node = http.get().uri("${baseUrl.trimEnd('/')}/api/v1/publication-submissions/$id")
-            .headers { it.setBearerAuth(accessToken) }.retrieve().body(JsonNode::class.java)
-            ?: throw ExchangeProtocolException("Exchange publication status returned an empty response")
-        return publication(node)
-    }
+    fun publication(baseUrl: String, accessToken: String, id: UUID): ExchangePublicationResponse = PublicationsApi(authorized(baseUrl, accessToken)).getPublicationSubmission(id).toResponse()
 
     private fun token(endpoints: ExchangeEndpoints, values: Map<String, String>): ExchangeTokenResponse {
         val form = LinkedMultiValueMap<String, String>().apply { values.forEach(::add) }
@@ -256,12 +262,33 @@ class ExchangeClient(
 
     private data class DiscoveryDocument(val version: Int, val issuer: String, val baseUrl: String)
 
-    private fun publication(node: JsonNode) = ExchangePublicationResponse(
-        UUID.fromString(node.requiredText("id")),
-        node.requiredText("state"),
-        node.path("errorCode").takeUnless { it.isMissingNode || it.isNull }?.stringValue(),
-        node.path("errorDetail").takeUnless { it.isMissingNode || it.isNull }?.stringValue(),
-    )
+    /**
+     * A [RestClient] aimed at one Exchange and carrying one tenant's bearer token, built by mutating
+     * the configured one so connect and read timeouts are inherited rather than re-declared. The
+     * generated APIs take the client as a constructor argument, so they are per-call objects: the
+     * token is per tenant and rotates, and nothing about them is worth caching.
+     */
+    private fun authorized(baseUrl: String, accessToken: String): RestClient = http.mutate()
+        .baseUrl(baseUrl.trimEnd('/'))
+        .defaultHeaders { it.setBearerAuth(accessToken) }
+        .build()
+
+    /**
+     * [PublicationSubmission.State] is a closed enum, so a newer Exchange reporting a state this
+     * Suite has never heard of fails to deserialize. That surfaces as a transient publication
+     * failure and a retry, which is the same treatment as any other protocol error and is why
+     * `state` stays a [String] on the way out: [CatalogPublicationStatus.fromRemote] treats
+     * anything it does not recognise as still-undecided rather than as a verdict.
+     */
+    private fun PublicationSubmission.toResponse() = ExchangePublicationResponse(id, state.value, errorCode, errorDetail)
+
+    private companion object {
+        /**
+         * Never opened. The generated multipart signature demands a [File]; the bytes are supplied
+         * separately above, and only the request's method, path and headers are taken from it.
+         */
+        val ARCHIVE_PART_PLACEHOLDER = File("catalog.zip")
+    }
 
     private fun JsonNode.requiredText(name: String): String = path(name).stringValue()?.takeIf(String::isNotBlank)
         ?: throw ExchangeProtocolException("Exchange response is missing '$name'")
