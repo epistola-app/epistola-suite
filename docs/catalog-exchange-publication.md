@@ -9,7 +9,7 @@ This document is the canonical description of configuration, tenant enrollment,
 setting resolution, namespace binding, publication processing, credentials,
 failure handling, backup behavior, and the currently deferred API work. The
 architectural rationale is recorded in
-[ADR 0015](adr/0015-durable-catalog-publication-to-exchange.md).
+[ADR 0018](adr/0018-durable-catalog-publication-to-exchange.md).
 
 ## Scope
 

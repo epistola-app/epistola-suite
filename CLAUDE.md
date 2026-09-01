@@ -74,7 +74,7 @@ epistola-suite-modules/
   `ExchangeNamespaceBinder` owns the immutable namespace binding rule; `CatalogPublicationStore`
   owns the outbox SQL. UI reads `GetCatalogPublicationState` / `GetExchangeSettings` rather than
   recomposing any of it. See [`docs/catalog-exchange-publication.md`](docs/catalog-exchange-publication.md)
-  and [ADR 0015](docs/adr/0015-durable-catalog-publication-to-exchange.md).
+  and [ADR 0018](docs/adr/0018-durable-catalog-publication-to-exchange.md).
 - **Resource references**: tenant-wide reference discovery and traversal live in
   `catalog/graph/` and are documented in [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
   New catalog-resource reference shapes must be added to this graph authority with resolution and

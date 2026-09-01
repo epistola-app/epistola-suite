@@ -15,7 +15,7 @@ nodes:
   `CatalogPublicationWorker.kt`) — the most mature: its own `SKIP LOCKED` claim and
   5-minute lease, exponential backoff capped at one hour, a `FAILED` terminal state after
   `max-attempts`, and admin-triggered requeue with a fresh idempotency key. Documented in
-  ADR 0015 and `docs/catalog-exchange-publication.md`.
+  ADR 0018 and `docs/catalog-exchange-publication.md`.
 - **Document generation** (`documents/batch/JobPoller.kt` + `StaleJobRecovery.kt`) — its
   own claim SQL, adaptive batch sizing, a deliberately platform-thread (not virtual-thread)
   executor to avoid a JEP 491 classloader deadlock (#724), and no retry at all: a failure
@@ -51,7 +51,7 @@ suggested first conversion. It was never built.
 
 The mediator's event mechanism (`mediator/SpringMediator.kt`) is synchronous and
 transaction-scoped only (`EventPhase.IMMEDIATE` same-transaction, `AFTER_COMMIT` via
-Spring's `TransactionalEventListener`) — not a durable event bus. ADR 0015 already
+Spring's `TransactionalEventListener`) — not a durable event bus. ADR 0018 already
 rejected using it to drive the exchange outbox for exactly this reason: a process crash
 between commit and handler firing loses the event. Nothing changed that constraint.
 
@@ -114,7 +114,7 @@ for the new primitive:
 
 - The **exchange outbox** is the design reference for its shape (backoff formula, terminal
   states, tenant-facing visibility) but is left as-is — it is already correct, tested, and
-  documented in ADR 0015. It is not rewritten just for consolidation's sake.
+  documented in ADR 0018. It is not rewritten just for consolidation's sake.
 - **Feedback sync** is the first real migration target, per Phase 1D's own original
   suggestion — it is the worst-off duplicate (no lease, no backoff) and the most cleanly
   isolated.

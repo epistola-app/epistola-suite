@@ -1,4 +1,4 @@
-# ADR 0015: Durable catalog publication to Epistola Exchange
+# ADR 0018: Durable catalog publication to Epistola Exchange
 
 - Status: Accepted
 - Date: 2026-08-24
