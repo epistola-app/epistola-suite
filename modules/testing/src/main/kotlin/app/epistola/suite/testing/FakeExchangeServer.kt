@@ -223,6 +223,7 @@ class FakeExchangeServer : AutoCloseable {
 
     companion object {
         val OAUTH_APPLICATION_ID: UUID = UUID.fromString("00000000-0000-4000-8000-0000000000a1")
+
         /** Fixed so publication fixtures never carry a moving value. */
         private const val FIXED_TIMESTAMP = "2026-01-01T00:00:00Z"
 
