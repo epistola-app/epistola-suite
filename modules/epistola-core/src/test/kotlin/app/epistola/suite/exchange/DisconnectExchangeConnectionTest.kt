@@ -54,7 +54,7 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
             ).execute()
 
             assertThat(connection.status).isEqualTo(ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED)
-            assertThat(connection.lastError).contains("Recover application credentials")
+            assertThat(connection.failure?.code).isEqualTo(ExchangeFailureCode.APPLICATION_UNKNOWN)
             assertThat(FindExchangeAuthorizationTenant(requireNotNull(exchange.latestState.get())).query()).isNull()
         }
     }
@@ -137,7 +137,7 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
 
             val abandoned = publication(tenant.id, catalogKey)
             assertThat(abandoned.status).isEqualTo(CatalogPublicationStatus.FAILED)
-            assertThat(abandoned.lastError).contains("disconnected")
+            assertThat(abandoned.failure?.code).isEqualTo(ExchangeFailureCode.CONNECTION_DISCONNECTED)
             // The archive survives, so reconnecting and retrying is still possible.
             assertThat(abandoned.archiveRetained).isTrue()
         }
@@ -173,7 +173,7 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
                 FakeExchangeServer.OAUTH_APPLICATION_ID,
                 exchange.baseUrl,
             ).execute()
-            credentials.markConnection(tenant.id, ExchangeConnectionStatus.BLOCKED, "Exchange revoked us")
+            credentials.markConnection(tenant.id, ExchangeConnectionStatus.BLOCKED, ExchangeFailureCode.CONNECTION_REFUSED)
 
             assertThatThrownBy { DisconnectExchangeConnection(tenant.id).execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {

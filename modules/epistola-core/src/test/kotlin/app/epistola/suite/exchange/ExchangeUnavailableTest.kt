@@ -63,7 +63,7 @@ class ExchangeUnavailableTest : IntegrationTestBase() {
             // Three passes, no retries spent: the outage is not this publication's fault.
             assertThat(waiting.attempts).isZero()
             assertThat(waiting.status.isActive).isTrue()
-            assertThat(waiting.lastError).contains("could not be reached")
+            assertThat(waiting.failure?.code).isEqualTo(ExchangeFailureCode.EXCHANGE_UNREACHABLE)
             // Nor the connection's — it is not marked broken for being unable to reach a dead host.
             assertThat(credentials.connection(tenant.id)?.status).isEqualTo(ExchangeConnectionStatus.ACTIVE)
             // And the archive is still there, so it publishes itself when Exchange returns.

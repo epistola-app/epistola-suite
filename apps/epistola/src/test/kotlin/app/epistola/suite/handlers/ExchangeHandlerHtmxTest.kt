@@ -121,17 +121,21 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         // The state leads, and it says what to do about it.
         assertThat(response.body).contains("Reauthorization required")
-        assertThat(response.body).contains("Reconnecting restores the same connection")
         assertThat(response.body).contains("Recover Exchange connection")
+        // The recorded reason knows more than the status: reconnecting alone will not fix an
+        // application Exchange has forgotten, and only the code can say so.
+        assertThat(response.body).contains("Exchange no longer recognises this installation")
+        assertThat(response.body).doesNotContain("Reconnecting restores the same connection")
         // What the call reported is kept, but as supporting detail rather than the explanation.
         assertThat(response.body).contains("Exchange reported:")
-        assertThat(response.body).contains("Exchange no longer recognises this installation")
     }
 
     /**
-     * Whatever a failed call reported, the page has to read as guidance. Errors recorded before this
-     * page knew how to present them — or by any future path that stores a transport message — must
-     * not become the headline again.
+     * Whatever a failed call reported, the page reads as guidance.
+     *
+     * The code decides the sentence, so improving the wording improves rows already written — which
+     * is the whole point of storing the reason as data. The transport's own words are kept beside
+     * it, labelled, for whoever has to diagnose rather than act.
      */
     @Test
     fun `a raw error recorded earlier is presented as detail, not as the explanation`() {
@@ -142,7 +146,8 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
             handle.createUpdate(
                 """
                 UPDATE exchange_tenant_connections
-                SET status = 'REAUTHORIZATION_REQUIRED', last_error = :error WHERE tenant_key = :tenantKey
+                SET status = 'REAUTHORIZATION_REQUIRED', error_code = 'APPLICATION_UNKNOWN', error_detail = :error
+                WHERE tenant_key = :tenantKey
                 """,
             ).bind("error", "401 Unauthorized: {\"error\":\"invalid_client\"}").bind("tenantKey", tenant.id).execute()
         }
@@ -152,9 +157,11 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
         )
 
         assertThat(body).contains("Reauthorization required")
-        assertThat(body).contains("Reconnecting restores the same connection")
+        // The code decides the sentence, so improving the wording improves rows already written.
+        assertThat(body).contains("Exchange no longer recognises this installation")
         // Kept and labelled, rather than shown alone as though it were the explanation.
         assertThat(body).contains("Exchange reported:")
+        assertThat(body).contains("401 Unauthorized")
     }
 
     /**

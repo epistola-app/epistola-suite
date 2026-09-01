@@ -46,7 +46,8 @@ data class CatalogReleasePublication(
      * looking healthy for exactly as long as it kept failing to finish.
      */
     val inFlightFor: Duration,
-    val lastError: String?,
+    /** Why this is not progressing, or null while nothing has gone wrong. */
+    val failure: ExchangeFailure?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 ) {
@@ -115,7 +116,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             SET namespace = :namespace, status = :status, idempotency_key = :idempotencyKey,
                 archive = COALESCE(:archive, archive),
                 remote_publication_id = NULL, submitted_at = NULL, attempts = 0, next_attempt_at = NOW(),
-                claimed_at = NULL, last_error = NULL, updated_at = NOW()
+                claimed_at = NULL, error_code = NULL, error_detail = NULL, updated_at = NOW()
             WHERE id = :id
             """,
         ).bind("namespace", namespace).bind("status", CatalogPublicationStatus.READY).bind("archive", archive)
@@ -123,14 +124,15 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
     }
 
     /** Withdraws a publication the administrator no longer wants, releasing its retained archive. */
-    fun cancel(handle: Handle, id: UUID, reason: String) {
+    fun cancel(handle: Handle, id: UUID, code: ExchangeFailureCode) {
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
-            SET status = :status, archive = NULL, claimed_at = NULL, last_error = :reason, updated_at = NOW()
+            SET status = :status, archive = NULL, claimed_at = NULL,
+                error_code = :code, error_detail = NULL, updated_at = NOW()
             WHERE id = :id
             """,
-        ).bind("status", CatalogPublicationStatus.CANCELLED).bind("reason", reason).bind("id", id).execute()
+        ).bind("status", CatalogPublicationStatus.CANCELLED).bind("code", code).bind("id", id).execute()
     }
 
     fun find(handle: Handle, id: UUID): CatalogReleasePublication? = handle.createQuery("$SELECT_METADATA WHERE id = :id FOR UPDATE")
@@ -185,7 +187,8 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         id: UUID,
         status: CatalogPublicationStatus,
         remotePublicationId: UUID,
-        error: String?,
+        code: ExchangeFailureCode?,
+        detail: String?,
         pollDelay: Duration,
     ) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
@@ -194,12 +197,12 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             SET status = :status, remote_publication_id = :remoteId,
                 submitted_at = COALESCE(submitted_at, NOW()),
                 archive = CASE WHEN :clearArchive THEN NULL ELSE archive END,
-                last_error = :error, claimed_at = NULL,
+                error_code = :code, error_detail = :detail, claimed_at = NULL,
                 next_attempt_at = NOW() + :delay * INTERVAL '1 second', updated_at = NOW()
             WHERE id = :id
             """,
         ).bind("status", status).bind("remoteId", remotePublicationId)
-            .bind("clearArchive", status.clearsArchive).bind("error", error)
+            .bind("clearArchive", status.clearsArchive).bind("code", code).bind("detail", detail)
             .bind("delay", pollDelay.toSeconds()).bind("id", id).execute()
     }
 
@@ -208,17 +211,25 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
      * reached the row becomes `FAILED` — terminal until an administrator retries it — instead of
      * retrying forever while holding a retained archive.
      */
-    fun recordFailure(id: UUID, error: String, attempts: Int, maxAttempts: Int, delay: Duration): CatalogPublicationStatus {
+    fun recordFailure(
+        id: UUID,
+        code: ExchangeFailureCode,
+        detail: String?,
+        attempts: Int,
+        maxAttempts: Int,
+        delay: Duration,
+    ): CatalogPublicationStatus {
         val status = if (attempts + 1 >= maxAttempts) CatalogPublicationStatus.FAILED else CatalogPublicationStatus.RETRY
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE catalog_release_publications
-                SET status = :status, attempts = attempts + 1, last_error = :error, claimed_at = NULL,
+                SET status = :status, attempts = attempts + 1,
+                    error_code = :code, error_detail = :detail, claimed_at = NULL,
                     next_attempt_at = NOW() + :delay * INTERVAL '1 second', updated_at = NOW()
                 WHERE id = :id
                 """,
-            ).bind("status", status).bind("error", error).bind("delay", delay.toSeconds()).bind("id", id).execute()
+            ).bind("status", status).bind("code", code).bind("detail", detail).bind("delay", delay.toSeconds()).bind("id", id).execute()
         }
         return status
     }
@@ -228,15 +239,15 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
      * simply not actionable yet — enrollment is incomplete, or the tenant paused the feature — so
      * waiting rows do not spin at the poll interval.
      */
-    fun defer(id: UUID, delay: Duration, reason: String? = null) = jdbi.useHandle<Exception> { handle ->
+    fun defer(id: UUID, delay: Duration, code: ExchangeFailureCode? = null, detail: String? = null) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
             SET claimed_at = NULL, next_attempt_at = NOW() + :delay * INTERVAL '1 second',
-                last_error = COALESCE(:reason, last_error)
+                error_code = COALESCE(:code, error_code), error_detail = :detail
             WHERE id = :id
             """,
-        ).bind("delay", delay.toSeconds()).bind("reason", reason).bind("id", id).execute()
+        ).bind("delay", delay.toSeconds()).bind("code", code).bind("detail", detail).bind("id", id).execute()
     }
 
     /**
@@ -246,14 +257,14 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
      * Distinct from [recordFailure], which accounts for a transient error against the retry budget:
      * this ends a wait that no amount of retrying would shorten.
      */
-    fun abandon(id: UUID, reason: String) = jdbi.useHandle<Exception> { handle ->
+    fun abandon(id: UUID, code: ExchangeFailureCode) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
-            SET status = :status, last_error = :reason, claimed_at = NULL, updated_at = NOW()
+            SET status = :status, error_code = :code, error_detail = NULL, claimed_at = NULL, updated_at = NOW()
             WHERE id = :id
             """,
-        ).bind("status", CatalogPublicationStatus.FAILED).bind("reason", reason).bind("id", id).execute()
+        ).bind("status", CatalogPublicationStatus.FAILED).bind("code", code).bind("id", id).execute()
     }
 
     /** Re-points every publication that has not reached Exchange at a newly bound namespace. */
@@ -261,7 +272,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
-            SET namespace = :namespace, status = 'READY', last_error = NULL, updated_at = NOW()
+            SET namespace = :namespace, status = 'READY', error_code = NULL, error_detail = NULL, updated_at = NOW()
             WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
               AND remote_publication_id IS NULL AND status = ANY(:active)
             """,
@@ -328,13 +339,13 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
      * is gone for good — currently a disconnect. `FAILED` is terminal for the worker but keeps the
      * retained archive, so the administrator's normal retry still applies after reconnecting.
      */
-    fun abandonActive(handle: Handle, tenantKey: TenantKey, reason: String): Int = handle.createUpdate(
+    fun abandonActive(handle: Handle, tenantKey: TenantKey, code: ExchangeFailureCode): Int = handle.createUpdate(
         """
         UPDATE catalog_release_publications
-        SET status = :failed, last_error = :reason, claimed_at = NULL, updated_at = NOW()
+        SET status = :failed, error_code = :code, error_detail = NULL, claimed_at = NULL, updated_at = NOW()
         WHERE tenant_key = :tenantKey AND status = ANY(:active)
         """,
-    ).bind("failed", CatalogPublicationStatus.FAILED).bind("reason", reason)
+    ).bind("failed", CatalogPublicationStatus.FAILED).bind("code", code)
         .bind("tenantKey", tenantKey)
         .bind("active", activeNames())
         .execute()
@@ -354,7 +365,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         archiveRetained = rs.getBoolean("archive_retained"),
         submittedFor = rs.getLong("submitted_age_seconds").takeUnless { rs.wasNull() }?.let(Duration::ofSeconds),
         inFlightFor = Duration.ofSeconds(rs.getLong("in_flight_age_seconds")),
-        lastError = rs.getString("last_error"),
+        failure = ExchangeFailure.of(rs.getString("error_code"), rs.getString("error_detail")),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
     )
@@ -366,7 +377,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
                    remote_publication_id, attempts, archive IS NOT NULL AS archive_retained,
                    EXTRACT(EPOCH FROM (NOW() - submitted_at))::BIGINT AS submitted_age_seconds,
                    EXTRACT(EPOCH FROM (NOW() - created_at))::BIGINT AS in_flight_age_seconds,
-                   last_error, created_at, updated_at
+                   error_code, error_detail, created_at, updated_at
             FROM catalog_release_publications
         """
     }

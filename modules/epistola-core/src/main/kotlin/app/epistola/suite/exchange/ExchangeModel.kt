@@ -23,9 +23,7 @@ enum class ExchangeConnectionStatus(val label: String, val badgeClass: String, v
         "Reauthorization required",
         "badge-warning",
         "Exchange no longer accepts this tenant's stored credentials. Reconnecting restores the same " +
-            "connection and queued publications resume where they left off. If Exchange reports that it does " +
-            "not recognise this installation's application, choose to recover the application credentials " +
-            "during authorization.",
+            "connection and queued publications resume where they left off.",
     ),
     BLOCKED(
         "Blocked by Exchange",
@@ -124,12 +122,22 @@ data class ExchangeTenantConnection(
     val refreshToken: Secret?,
     val refreshTokenExpiresAt: OffsetDateTime?,
     val status: ExchangeConnectionStatus,
-    val lastError: String?,
+    /**
+     * Why this connection is not usable, stored as the two columns it is read from.
+     *
+     * Flat rather than a nested value because this row is mapped by reflection, which builds a
+     * property per column; [failure] composes them for anything that renders one.
+     */
+    val errorCode: String?,
+    val errorDetail: String?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 ) {
     val endpoints: ExchangeEndpoints
         get() = ExchangeEndpoints(issuer, baseUrl, authorizationRequestEndpoint, tokenEndpoint)
+
+    /** The recorded failure, ready to render, or null while nothing has gone wrong. */
+    val failure: ExchangeFailure? get() = ExchangeFailure.of(errorCode, errorDetail)
 }
 
 data class ExchangeAuthorizationTransaction(

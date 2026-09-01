@@ -59,11 +59,7 @@ class CatalogPublicationWorker(
         store.claimDue(CLAIM_BATCH).forEach { publication ->
             // Pausing the tenant feature pauses its queue; it never fails or cancels work.
             if (!availability.isAvailable(publication.tenantKey)) {
-                store.defer(
-                    publication.id,
-                    properties.setupRetryInterval,
-                    "Catalog publishing is turned off for this tenant; this release is waiting for it to be enabled.",
-                )
+                store.defer(publication.id, properties.setupRetryInterval, ExchangeFailureCode.FEATURE_PAUSED)
                 return@forEach
             }
             runCatching { process(publication) }.onFailure { failure -> fail(publication, failure) }
@@ -74,20 +70,12 @@ class CatalogPublicationWorker(
         val namespace = publication.namespace
         val connection = credentials.activeConnection(publication.tenantKey)
         if (connection == null) {
-            store.defer(
-                publication.id,
-                properties.setupRetryInterval,
-                "This tenant has no active Exchange connection.",
-            )
+            store.defer(publication.id, properties.setupRetryInterval, ExchangeFailureCode.NO_ACTIVE_CONNECTION)
             return
         }
         val token = credentials.accessToken(connection)
         if (token == null) {
-            store.defer(
-                publication.id,
-                properties.setupRetryInterval,
-                "The Exchange connection could not produce an access token; reauthorize it.",
-            )
+            store.defer(publication.id, properties.setupRetryInterval, ExchangeFailureCode.NO_ACCESS_TOKEN)
             return
         }
         val response = if (publication.remotePublicationId == null) {
@@ -101,7 +89,8 @@ class CatalogPublicationWorker(
                 store.defer(
                     publication.id,
                     properties.setupRetryInterval,
-                    "This catalog is bound to namespace '$namespace', which the Exchange connection no longer grants.",
+                    ExchangeFailureCode.NAMESPACE_NOT_GRANTED,
+                    // The namespace is on the row being rendered, so it is not repeated here.
                 )
                 return
             }
@@ -137,7 +126,10 @@ class CatalogPublicationWorker(
             id = publication.id,
             status = status,
             remotePublicationId = response.id,
-            error = listOfNotNull(response.errorCode, response.errorDetail).joinToString(": ").ifBlank { null },
+            // Exchange's own code and detail cross as data rather than being concatenated into
+            // prose that then has to be split by eye to read back.
+            code = if (status == CatalogPublicationStatus.REJECTED) ExchangeFailureCode.REJECTED_BY_EXCHANGE else null,
+            detail = listOfNotNull(response.errorCode, response.errorDetail).joinToString(": ").ifBlank { null },
             pollDelay = properties.submittedPollInterval,
         )
     }
@@ -152,11 +144,7 @@ class CatalogPublicationWorker(
      * ways out — retry it, or withdraw it and release the bytes.
      */
     private fun giveUpOnSubmission(publication: CatalogReleasePublication) {
-        val hours = properties.submittedTimeout.toHours()
-        store.abandon(
-            publication.id,
-            "Exchange has not decided this submission in $hours hours. Check it in Exchange, then retry or withdraw it.",
-        )
+        store.abandon(publication.id, ExchangeFailureCode.SUBMISSION_UNDECIDED)
         logger.error(
             "Exchange publication {} was submitted as {} but undecided after {}; giving up",
             publication.id,
@@ -179,6 +167,7 @@ class CatalogPublicationWorker(
                     publication.tenantKey,
                     ExchangeConnectionStatus.REAUTHORIZATION_REQUIRED,
                     credentials.authorizationFailure(failure),
+                    failure.message,
                 )
 
             // A refusal is ambiguous until we know whether it was this catalog's namespace or the
@@ -194,7 +183,8 @@ class CatalogPublicationWorker(
                 store.defer(
                     publication.id,
                     properties.setupRetryInterval,
-                    "Exchange could not be reached: ${failure.message}",
+                    ExchangeFailureCode.EXCHANGE_UNREACHABLE,
+                    failure.message,
                 )
                 logger.warn("Exchange unreachable; publication {} waits without spending a retry", publication.id)
                 return
@@ -204,7 +194,8 @@ class CatalogPublicationWorker(
         }
         val status = store.recordFailure(
             id = publication.id,
-            error = failure.message ?: failure.javaClass.simpleName,
+            code = ExchangeFailureCode.SUBMISSION_FAILED,
+            detail = failure.message ?: failure.javaClass.simpleName,
             attempts = publication.attempts,
             maxAttempts = properties.maxAttempts,
             delay = backoff(publication.attempts),
@@ -233,15 +224,11 @@ class CatalogPublicationWorker(
             credentials.markConnection(
                 publication.tenantKey,
                 ExchangeConnectionStatus.BLOCKED,
-                "Exchange refused this connection.",
+                ExchangeFailureCode.CONNECTION_REFUSED,
             )
             return false
         }
-        store.defer(
-            publication.id,
-            properties.setupRetryInterval,
-            "Exchange no longer grants this tenant the namespace '${publication.namespace}'.",
-        )
+        store.defer(publication.id, properties.setupRetryInterval, ExchangeFailureCode.NAMESPACE_NOT_GRANTED)
         logger.warn(
             "Exchange withdrew namespace '{}' from tenant {}; publication {} is waiting",
             publication.namespace,

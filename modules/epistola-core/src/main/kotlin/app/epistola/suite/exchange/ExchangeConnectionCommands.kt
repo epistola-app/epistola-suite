@@ -141,7 +141,7 @@ class StartExchangeConnectionHandler(
                     tenant_connection_id = CASE WHEN :afresh THEN NULL ELSE exchange_tenant_connections.tenant_connection_id END,
                     oauth_application_id = CASE WHEN :afresh THEN NULL ELSE exchange_tenant_connections.oauth_application_id END,
                     client_secret = CASE WHEN :afresh THEN NULL ELSE exchange_tenant_connections.client_secret END,
-                    last_error = NULL, updated_at = NOW()
+                    error_code = NULL, error_detail = NULL, updated_at = NOW()
                 """,
             ).bind("tenantKey", command.tenantKey).bind("issuer", endpoints.issuer).bind("baseUrl", endpoints.baseUrl)
                 .bind("authorizationEndpoint", endpoints.authorizationRequestEndpoint)
@@ -247,7 +247,7 @@ class CompleteExchangeConnectionHandler(
                     default_namespace = COALESCE(:soleNamespace, default_namespace),
                     access_token = :accessToken, access_token_expires_at = :accessExpiresAt,
                     refresh_token = :refreshToken, refresh_token_expires_at = :refreshExpiresAt,
-                    status = 'ACTIVE', last_error = NULL, updated_at = NOW()
+                    status = 'ACTIVE', error_code = NULL, error_detail = NULL, updated_at = NOW()
                 WHERE tenant_key = :tenantKey
                 """,
             ).bind("connectionId", context.tenantConnectionId).bind("connectionReference", context.tenantConnectionReference)
@@ -271,14 +271,10 @@ class CompleteExchangeConnectionHandler(
         handle.createUpdate(
             """
             UPDATE exchange_tenant_connections
-            SET status = 'REAUTHORIZATION_REQUIRED', last_error = :error, updated_at = NOW()
+            SET status = 'REAUTHORIZATION_REQUIRED', error_code = :code, error_detail = NULL, updated_at = NOW()
             WHERE tenant_key = :tenantKey
             """,
-        ).bind(
-            "error",
-            "Exchange rejected the application credentials. Connect again and select " +
-                "'Recover application credentials and revoke its previous tokens' during authorization.",
-        ).bind("tenantKey", tenantKey).execute()
+        ).bind("code", ExchangeFailureCode.APPLICATION_UNKNOWN).bind("tenantKey", tenantKey).execute()
         clearPendingAuthorization(handle, tenantKey)
         requireNotNull(current(handle, tenantKey))
     }
@@ -320,11 +316,7 @@ class DisconnectExchangeConnectionHandler(
             // Queued work has just lost the credentials it needs. Left as-is it would be re-claimed
             // and deferred forever, holding a retained release archive each. Failing it stops that
             // and keeps the archives, so reconnecting and retrying still works.
-            store.abandonActive(
-                handle,
-                command.tenantKey,
-                "The Exchange connection was disconnected before this release was accepted.",
-            )
+            store.abandonActive(handle, command.tenantKey, ExchangeFailureCode.CONNECTION_DISCONNECTED)
         }
     }
 }

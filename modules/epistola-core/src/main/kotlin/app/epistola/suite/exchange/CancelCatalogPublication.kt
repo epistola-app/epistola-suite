@@ -54,6 +54,6 @@ class CancelCatalogPublicationHandler(
                 "This publication has already finished."
             }
         }
-        store.cancel(handle, publication.id, "Withdrawn before it was published.")
+        store.cancel(handle, publication.id, ExchangeFailureCode.WITHDRAWN)
     }
 }

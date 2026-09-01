@@ -98,7 +98,7 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
             // not a refused connection, so the connection keeps working for everything else.
             assertThat(credentials.connection(tenant.id)?.status).isEqualTo(ExchangeConnectionStatus.ACTIVE)
             val waiting = publication(tenant.id, catalogKey)
-            assertThat(waiting.lastError).contains("no longer grants")
+            assertThat(waiting.failure?.code).isEqualTo(ExchangeFailureCode.NAMESPACE_NOT_GRANTED)
             assertThat(waiting.attempts).isZero()
 
             // The grant list was repaired on the way through, so the catalog page can say so.
@@ -147,7 +147,7 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
 
             val deferred = publication(tenant.id, catalogKey)
             // Never submitted, so the connection is not blamed for one catalog's stale binding.
-            assertThat(deferred.lastError).contains("no longer grants")
+            assertThat(deferred.failure?.code).isEqualTo(ExchangeFailureCode.NAMESPACE_NOT_GRANTED)
             assertThat(deferred.attempts).isZero()
             assertThat(credentials.connection(tenant.id)?.status).isEqualTo(ExchangeConnectionStatus.ACTIVE)
             assertThat(deferred.status.isActive).isTrue()

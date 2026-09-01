@@ -97,7 +97,9 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
             val rejected = publication(tenant.id, catalogKey)
             assertThat(rejected.status).isEqualTo(CatalogPublicationStatus.REJECTED)
             assertThat(rejected.archiveRetained).isFalse()
-            assertThat(rejected.lastError).isEqualTo("SCAN_FAILED: Unsafe asset")
+            assertThat(rejected.failure?.code).isEqualTo(ExchangeFailureCode.REJECTED_BY_EXCHANGE)
+            // Exchange's own words survive as detail rather than becoming the explanation.
+            assertThat(rejected.failure?.detail).isEqualTo("SCAN_FAILED: Unsafe asset")
 
             // Exchange took the submission and then refused it, so it is holding nothing under
             // these coordinates. Locking the namespace here would freeze a catalog that has never
@@ -129,7 +131,7 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
 
             val abandoned = publication(tenant.id, catalogKey)
             assertThat(abandoned.status).isEqualTo(CatalogPublicationStatus.FAILED)
-            assertThat(abandoned.lastError).contains("has not decided this submission")
+            assertThat(abandoned.failure?.code).isEqualTo(ExchangeFailureCode.SUBMISSION_UNDECIDED)
             // Terminal, but recoverable: the bytes are still there to retry or withdraw.
             assertThat(abandoned.archiveRetained).isTrue()
             assertThat(state(tenant.id, catalogKey).isRetry).isTrue()

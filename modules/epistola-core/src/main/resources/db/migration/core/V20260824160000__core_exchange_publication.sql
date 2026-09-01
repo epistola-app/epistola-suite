@@ -23,7 +23,12 @@ CREATE TABLE exchange_tenant_connections (
     refresh_token TEXT,
     refresh_token_expires_at TIMESTAMPTZ,
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACTIVE', 'REAUTHORIZATION_REQUIRED', 'BLOCKED')),
-    last_error TEXT,
+    -- Why this is not progressing, as data: a code the UI turns into a sentence, and whatever the
+    -- far side said, kept as supporting detail. Prose composed at failure time put the
+    -- transport's own words in front of people and could never be improved for rows already
+    -- written. See ADR 0017.
+    error_code TEXT,
+    error_detail TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -64,7 +69,12 @@ CREATE TABLE catalog_release_publications (
     attempts INTEGER NOT NULL DEFAULT 0,
     next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     claimed_at TIMESTAMPTZ,
-    last_error TEXT,
+    -- Why this is not progressing, as data: a code the UI turns into a sentence, and whatever the
+    -- far side said, kept as supporting detail. Prose composed at failure time put the
+    -- transport's own words in front of people and could never be improved for rows already
+    -- written. See ADR 0017.
+    error_code TEXT,
+    error_detail TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (tenant_key, catalog_key, version),

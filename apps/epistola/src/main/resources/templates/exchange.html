@@ -51,16 +51,24 @@
                 <div class="alert alert-warning" th:if="${settings.status.needsAttention}">
                     <div>
                         <div class="alert-title" th:text="${settings.status.label}">Reauthorization required</div>
-                        <p style="margin: var(--ep-space-1) 0 0;" th:text="${settings.status.guidance}"></p>
+                        <!-- The recorded reason when there is one: a code knows more than a status.
+                             "Exchange does not recognise this application" tells you reconnecting is
+                             not enough, where the status can only say credentials were refused. -->
+                        <p style="margin: var(--ep-space-1) 0 0;"
+                           th:text="${settings.connection?.failure?.message ?: settings.status.guidance}"></p>
                         <p class="text-muted" style="margin: var(--ep-space-2) 0 0; font-size: var(--ep-text-sm);"
-                           th:if="${settings.connection != null && settings.connection.lastError != null}"
-                           th:text="'Exchange reported: ' + ${settings.connection.lastError}"></p>
+                           th:if="${settings.connection?.failure?.supportingDetail != null}"
+                           th:text="'Exchange reported: ' + ${settings.connection.failure.supportingDetail}"></p>
                     </div>
                 </div>
 
                 <div class="alert alert-error"
-                     th:if="${!settings.status.needsAttention && settings.connection != null && settings.connection.lastError != null}"
-                     th:text="${settings.connection.lastError}"></div>
+                     th:if="${!settings.status.needsAttention && settings.connection?.failure?.message != null}">
+                    <div>
+                        <div class="alert-title">The last Exchange call did not succeed</div>
+                        <p style="margin: var(--ep-space-1) 0 0;" th:text="${settings.connection.failure.message}"></p>
+                    </div>
+                </div>
 
                 <th:block th:if="${settings.connected}" th:with="connection=${settings.connection}">
                     <dl class="description-list">
@@ -169,7 +177,7 @@
                         </td>
                         <td>
                             <span th:class="${'badge ' + entry.status.badgeClass}" th:text="${entry.status.label}">Ready to submit</span>
-                            <div th:if="${entry.lastError != null}" class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${entry.lastError}"></div>
+                            <div th:if="${entry.failure?.message != null}" class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
                         </td>
                         <td th:text="${entry.attempts}">0</td>
                         <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>

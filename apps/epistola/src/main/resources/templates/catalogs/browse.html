@@ -264,8 +264,8 @@
                         </td>
                         <td>
                             <span th:class="${'badge ' + entry.status.badgeClass}" th:text="${entry.status.label}">Ready</span>
-                            <div th:if="${entry.lastError != null}" class="text-muted"
-                                 style="font-size: var(--ep-text-sm);" th:text="${entry.lastError}"></div>
+                            <div th:if="${entry.failure?.message != null}" class="text-muted"
+                                 style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
                         </td>
                         <td th:text="${entry.attempts}">0</td>
                         <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
