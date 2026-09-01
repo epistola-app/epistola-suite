@@ -236,6 +236,38 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `a rejected release says on the catalog page why Exchange refused it`() {
+        val tenant = createTenant("Exchange Refusal Reason")
+        val catalogKey = CatalogKey.of("refusal-reason")
+        exchange.submitResponse = {
+            FakeExchangeServer.Response(
+                200,
+                exchange.publicationBody(
+                    exchange.remotePublicationId,
+                    "REJECTED",
+                    "CATALOG_PUBLICATION_REJECTED",
+                    "Catalog version must be newer than every published version",
+                ),
+            )
+        }
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Refusal reason").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            worker.run()
+        }
+
+        val body = catalogPage(tenant, catalogKey)
+        // Suite's sentence says what kind of failure it was...
+        assertThat(body).contains("Exchange refused this release")
+        // ...and only Exchange's own words say which rule was broken. Showing the first without the
+        // second leaves an author told that publishing failed and given no way to work out why,
+        // which is the whole reason the detail is kept.
+        assertThat(body).contains("Catalog version must be newer than every published version")
+    }
+
+    @Test
     fun `an authority refusal is offered a way out, and an ordinary publication is not`() {
         val tenant = createTenant("Exchange Authority CTA")
         val refusedKey = CatalogKey.of("authority-refused")

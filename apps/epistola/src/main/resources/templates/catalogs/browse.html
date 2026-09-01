@@ -267,6 +267,14 @@
                             <div th:if="${entry.failure?.message != null}" class="text-muted"
                                  style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
                             <!--
+                              What Exchange actually said. Suite's own sentence explains the kind of
+                              failure; only this says which release rule was broken, and a refusal
+                              nobody can act on is the one thing worse than no refusal at all.
+                            -->
+                            <div th:if="${entry.failure?.supportingDetail != null}" class="text-muted"
+                                 style="font-size: var(--ep-text-sm);"
+                                 th:text="'Exchange reported: ' + ${entry.failure.supportingDetail}"></div>
+                            <!--
                               The one rejection somebody can undo, so it gets a way to. The link
                               proposes this installation as the catalog's publisher; the transfer
                               itself is an administrator's decision on Exchange, which is why this

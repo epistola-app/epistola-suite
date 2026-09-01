@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[user]** fix(exchange): **A refused release now says why on the catalog page.** Suite's own sentence names the kind of failure, but the reason Exchange gave — which release rule was broken — was only ever shown on the Exchange settings page. An author looking at the catalog they had just published saw "Exchange refused this release." and nothing more.
+
 - **[user]** fix(exchange): **Catalog page no longer errors for a publication with no failure.** The new authority link tested `failure?.needsAuthorityTransfer`, which evaluates to null for a healthy publication and cannot be converted to a boolean — so every catalog page that had ever published returned 500.
 
 - **[user]** feat(exchange): **A publish refused for authority now offers the fix.** When Exchange refuses a release because another installation is that catalog's appointed publisher, the catalog page links straight to the page where an organization administrator reappoints it, with this installation already proposed. Previously the refusal printed a path and left the reader to find a page they had never visited — and a reader who was not an administrator got a dead end with no way to see what was wrong. The transfer stays an administrator's decision on Exchange; Suite only offers the route.
