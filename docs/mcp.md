@@ -158,4 +158,4 @@ Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
 - [`apps/epistola/src/main/resources/application.yaml`](../apps/epistola/src/main/resources/application.yaml) — `spring.ai.mcp.server.*` settings
 - [`docs/component-registry.md`](component-registry.md) — TS registry → JSON snapshot → backend pipeline that powers `list_component_types`
 - [`scripts/mcp-smoke.sh`](../scripts/mcp-smoke.sh) — end-to-end smoke test against a running instance
-- [`docs/api-keys.md`](api-keys.md) — API key provisioning (if present)
+- [`docs/authorization.md`](authorization.md) — API key scoping and permissions

@@ -1,6 +1,6 @@
 # ADR 0005: Feedback storage — local copy + sync vs. remote-only
 
-- **Status:** Proposed
+- **Status:** Accepted — Option A (local store + sync), implemented in `modules/epistola-support-feedback`
 - **Date:** 2026-06-06
 - **Deciders:** Epistola team
 - **Tags:** feedback, architecture, hub, data-residency, availability
@@ -123,8 +123,9 @@ the same delivery machinery. Recorded as the middle ground, not the primary reco
 
 ## Decision
 
-**Recommendation: Option A (local store + sync), recorded as _Proposed_ for the team to
-ratify.**
+**Option A (local store + sync).** Ratified and implemented: the feedback feature keeps
+PostgreSQL as the source of truth and syncs through `FeedbackSyncPort`, with a no-op adapter
+when the support tier is off.
 
 For an _interactive, in-app_ surface that ships inside customer infrastructure, the dominant
 risk is hard runtime coupling of every read and write to a central service (Option B):

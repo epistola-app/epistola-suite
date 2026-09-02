@@ -4,7 +4,7 @@
 
 Entity IDs (`document_templates`, `template_variants`, `environments`) currently use single-column global primary keys. This means two tenants cannot use the same slug (e.g., both wanting a template called "invoice"). This refactor changes all tenant-owned entities to use composite PKs `(tenant_key, id)`, allowing ID reuse across tenants.
 
-**Prerequisite for**: [Explicit Default Variant Flag](./default_variant.md)
+**Prerequisite for**: [Explicit Default Variant Flag](./default-variant.md)
 
 ## Design Decisions
 
