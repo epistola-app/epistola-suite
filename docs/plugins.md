@@ -1,5 +1,11 @@
 # Plugin Architecture Design Document
 
+> **Status:** Design. The frontend half exists — the editor plugin loader
+> and `EditorPlugin` contract live in
+> `modules/editor/src/main/typescript/plugins/`. The backend half (the
+> `modules/plugins/<name>` module convention and its auto-configuration) is
+> not built; treat backend paths below as proposals.
+
 ## Overview
 
 Epistola plugins are optional, self-contained feature modules that extend the editor and platform with additional capabilities. A plugin can contribute:

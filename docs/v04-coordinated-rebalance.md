@@ -1,10 +1,9 @@
 # v0.4 — Coordinated rebalance for `/generation/collect`
 
-## Status
-
-**Design — not yet implemented.** v0.3 ships with documented "eventual
-affinity, immediate correctness" behavior. This document captures the
-v0.4 design that closes the affinity gap.
+> **Status:** Design — not yet implemented. v0.3 ships with documented
+> "eventual affinity, immediate correctness" behavior; this document captures
+> the v0.4 design that closes the affinity gap. Paths named below are
+> proposals, not current code.
 
 ## Problem
 

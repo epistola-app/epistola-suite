@@ -1,6 +1,6 @@
 # Stencil Placeholders — Design
 
-> Status: implemented; placeholder model refined post-v1 to use two slots
+> **Status:** Implemented; placeholder model refined post-v1 to use two slots
 > (default + fill). See §2.1 and the ADR addendum.
 > Decision record: [`adr/0001-stencil-placeholders.md`](./adr/0001-stencil-placeholders.md)
 

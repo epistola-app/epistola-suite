@@ -1,10 +1,9 @@
 # Consumer Management API — design
 
-## Status
-
-**Design / pre-implementation.** Tracked across three repos via separate
-GitHub issues; this document is the canonical design that those issues
-reference. Not part of v0.3.
+> **Status:** Design / pre-implementation. Tracked across three repos via
+> separate GitHub issues; this document is the canonical design that those
+> issues reference. Not part of v0.3. Paths named below are proposals, not
+> current code.
 
 ## Why this exists
 
