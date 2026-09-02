@@ -51,7 +51,7 @@ epistola-suite-modules/
 │   │   ├── config/        # JDBI, Jackson config
 │   │   └── api/           # REST API controllers
 │   ├── generation/        # Pure PDF rendering
-│   ├── rest-api/          # OpenAPI specs
+│   ├── rest-api/          # REST controllers for the epistola-contract API
 │   ├── editor/            # Lit + ProseMirror editors (template, theme, data contract)
 │   ├── epistola-mcp/      # MCP server for AI assistants (read-only tools at /api/mcp)
 │   └── testing/           # Shared test infrastructure (IntegrationTestBase, fixtures, Testcontainers)
@@ -70,7 +70,7 @@ epistola-suite-modules/
   lifecycle evidence. Existing deletion and upgrade scanners remain independent until deliberately
   migrated and parity-tested.
 - **modules/generation**: Pure PDF rendering (no business logic)
-- **modules/rest-api**: OpenAPI specifications
+- **modules/rest-api**: REST controllers implementing the `epistola-contract` OpenAPI surface
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
 - **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `Authorization: ApiKey` auth, with legacy `X-API-Key` support). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
 - **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …).
@@ -210,7 +210,7 @@ The backend has **two distinct endpoint layers** that must NEVER be mixed:
 - **Authentication**: API key (`Authorization: ApiKey` header, with legacy `X-API-Key` support) or OAuth2 JWT Bearer token. Stateless, no CSRF.
 - **Implementation**: `@RestController` with `@RequestMapping("/api")` in `app.epistola.suite.api.v1` package
 - **Returns**: JSON DTOs (`application/vnd.epistola.v1+json`)
-- **OpenAPI spec**: `/modules/rest-api/src/main/resources/openapi/`
+- **OpenAPI spec**: owned by the external `epistola-contract` package; the suite consumes its generated server interfaces in `modules/rest-api`
 - **Purpose**: External system integration (stable, versioned API)
 
 ### 2. UI Handlers (Internal Use Only)
@@ -493,7 +493,7 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
    - Example: `- **[dev]** fix(logs): **Recursion guard narrowed.** Scoped to the ApplicationLogIngestor logger.`
    - The dialog filters by **Audience** (Users/Developers/All), **Type** (the commit types), and **Scope**. Older released sections still use legacy Keep-a-Changelog `### ` headers (grandfathered — their type is mapped from the section, no scope); do not add `### ` headers to new entries. These conventions apply only to the root `CHANGELOG.md` (the Helm chart changelog is not shown in the UI). See [`CONTRIBUTING.md`](CONTRIBUTING.md#changelog-entries).
 
-8. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns.
+8. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns. A **new** page under `docs/` must be added to the [documentation index](docs/README.md) (and a new ADR to [`docs/adr/README.md`](docs/adr/README.md)); a page that is not current shipped behavior opens with a `> **Status:** …` banner.
 9. **Small commits** - Commit logical units of work separately
 10. **Cut a demo/system catalog release** - When modifying bundled resources in `modules/epistola-core/src/main/resources/epistola/catalogs/{demo,system}/`, bump `release.version` (SemVer, strictly increasing) **and** regenerate `release.fingerprint` in `catalog.json`: run `./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"`, paste the reported "actual" fingerprint, re-run green. The loaders detect changes by **fingerprint**, not the version string. See [`docs/catalog-versioning.md`](docs/catalog-versioning.md).
 11. **Consider catalog impact** - Whenever you add, modify, or remove a resource (template, stencil, theme, data contract, etc.), consider whether the change affects catalog exchange in `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/`. Check if catalog import/export, serialization formats, manifest schemas, or version handling need updating to stay consistent with the resource change. Note that a per-resource setting only round-trips if it is threaded through **all** of `ImportTemplates` (insert **and** both update paths), `CatalogContentBuilder` (the SELECT and the emitted resource), and the `epistola-contract` protocol model — a field missing from any one of those is silently dropped on re-import.

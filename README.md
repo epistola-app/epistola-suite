@@ -38,6 +38,20 @@ The frontend uses a **server-side rendering** approach:
 - **HTMX**: For dynamic interactions without full page reloads
 - **Client components**: Embedded JavaScript modules (like the editor) for features requiring rich client-side interactivity
 
+## Documentation
+
+The full documentation set lives in [`docs/`](docs/) and is indexed in
+**[docs/README.md](docs/README.md)** — every page grouped by topic, each labelled
+with whether it describes shipped behavior, an experimental feature, a design
+proposal, or a point-in-time record. It also links the
+[architecture decision records](docs/adr/README.md) and the
+[catalog wire-format reference](docs/exchange/README.md).
+
+Quick jumps: [Project overview](docs/epistola.md) ·
+[Document generation](docs/generation.md) · [Deployment](docs/deployment.md) ·
+[Authentication](docs/auth.md) · [Testing](docs/testing.md) ·
+[REST/MCP surfaces](docs/mcp.md)
+
 ## Getting Started
 
 ### Prerequisites
