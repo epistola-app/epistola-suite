@@ -40,7 +40,11 @@ The frontend uses a **server-side rendering** approach:
 
 ## Documentation
 
-The full documentation set lives in [`docs/`](docs/) and is indexed in
+**Using Epistola?** User documentation — guides and tutorials for authoring
+templates and running documents — is published at
+**<https://epistola.app/en/learn>**.
+
+**Working on Epistola?** The technical documentation lives in [`docs/`](docs/) and is indexed in
 **[docs/README.md](docs/README.md)** — every page grouped by topic, each labelled
 with whether it describes shipped behavior, an experimental feature, a design
 proposal, or a point-in-time record. It also links the

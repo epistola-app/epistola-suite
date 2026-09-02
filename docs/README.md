@@ -1,8 +1,13 @@
 # Epistola Suite documentation
 
-Everything under `docs/` indexed in one place. Start with
-[Project overview](epistola.md) if you are new; otherwise jump to the topic
-you need below.
+This is the **technical** documentation — how the suite is built, deployed and
+extended. Everything under `docs/` is indexed here in one place; start with
+[Project overview](epistola.md) if you are new, otherwise jump to the topic you
+need below.
+
+Looking for **user** documentation — guides and tutorials for authoring
+templates and running documents? That is published at
+<https://epistola.app/en/learn>.
 
 Repository-level documents live at the root: [`CONTRIBUTING.md`](../CONTRIBUTING.md),
 [`CHANGELOG.md`](../CHANGELOG.md), [`SECURITY.md`](../SECURITY.md),
