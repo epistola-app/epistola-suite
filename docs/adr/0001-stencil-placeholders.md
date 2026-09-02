@@ -1,6 +1,6 @@
 # ADR 0001: Stencil Placeholders
 
-- **Status:** Proposed
+- **Status:** Accepted — implemented (see the post-v1 addendum below)
 - **Date:** 2026-05-06
 - **Deciders:** Epistola team
 - **Tags:** stencils, templates, document model

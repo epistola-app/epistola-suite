@@ -1,5 +1,11 @@
 # Horizontal Scaling Phase 1
 
+> **Status:** Design record. The Phase 1 cluster runtime has since shipped —
+> node registry, cluster timers, and single-owner scheduled tasks. For the
+> implemented behavior read [`timers.md`](timers.md) and
+> [`cluster-resilience.md`](cluster-resilience.md); the later phases below
+> remain design.
+
 ## Summary
 
 Phase 1 adds the minimum cluster runtime Epistola needs for horizontal

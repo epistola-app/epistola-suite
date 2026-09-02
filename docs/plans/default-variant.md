@@ -4,7 +4,7 @@
 
 Default variants are currently determined implicitly by having empty attributes (`{}`). This is fragile: there's no DB enforcement of exactly one default per template, default variants can't have attributes, and the convention is not obvious. This change adds an explicit `is_default` boolean column to decouple the default concept from attributes.
 
-**Depends on**: [Tenant-Scoped Composite Primary Keys](./tenant_scoped.md) (must be implemented first)
+**Depends on**: [Tenant-Scoped Composite Primary Keys](./tenant-scoped.md) (must be implemented first)
 
 ## Design Decisions
 
