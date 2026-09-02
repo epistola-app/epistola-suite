@@ -244,7 +244,12 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             """
             UPDATE catalog_release_publications
             SET claimed_at = NULL, next_attempt_at = NOW() + :delay * INTERVAL '1 second',
-                error_code = COALESCE(:code, error_code), error_detail = :detail
+                error_code = COALESCE(:code, error_code),
+                -- A code and its supporting detail are one reason and are replaced together. Keeping
+                -- the old code while clearing the detail - or worse, pairing a kept code with a
+                -- detail from a different failure - describes something that never happened.
+                error_detail = CASE WHEN CAST(:code AS TEXT) IS NULL THEN error_detail ELSE :detail END,
+                updated_at = NOW()
             WHERE id = :id
             """,
         ).bind("delay", delay.toSeconds()).bind("code", code).bind("detail", detail).bind("id", id).execute()
@@ -322,6 +327,20 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         handle.createQuery("SELECT status, count(*) AS total FROM catalog_release_publications GROUP BY status")
             .map { rs, _ -> CatalogPublicationStatus.valueOf(rs.getString("status")) to rs.getLong("total") }
             .list().toMap()
+    }
+
+    /**
+     * Installation-wide bytes of release archives the outbox is still holding.
+     *
+     * A publication keeps its exact ZIP until Exchange decides, and a `FAILED` one keeps it
+     * indefinitely so an administrator can retry it. That is deliberate, and it is also the only
+     * unbounded thing here: without a number for it, a tenant whose publications have been failing
+     * for weeks shows up as disk that nothing accounts for.
+     */
+    fun installationRetainedArchiveBytes(): Double = jdbi.withHandle<Double, Exception> { handle ->
+        handle.createQuery(
+            "SELECT COALESCE(SUM(OCTET_LENGTH(archive)), 0) AS bytes FROM catalog_release_publications WHERE archive IS NOT NULL",
+        ).mapTo(Double::class.java).one()
     }
 
     /** Installation-wide age of the oldest unfinished publication, in seconds; 0 when there is none. */

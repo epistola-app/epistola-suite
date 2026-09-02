@@ -52,6 +52,15 @@ class FakeExchangeServer : AutoCloseable {
     /** Lets a test make the OAuth metadata disagree with the discovered issuer. */
     var oauthMetadataIssuer: String? = null
 
+    /**
+     * Where the OAuth metadata says its endpoints live, when that is not this server.
+     *
+     * A discovery document names the endpoints, and the token endpoint receives the client
+     * secret and refresh token — so a poisoned one pointing elsewhere is the case worth being
+     * able to reproduce.
+     */
+    var oauthEndpointBaseUrl: String? = null
+
     var tokenResponse: () -> Response = { Response(200, defaultToken()) }
     var submitResponse: () -> Response = { Response(200, publicationBody(remotePublicationId, "QUEUED")) }
     var statusResponse: () -> Response = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }
@@ -73,8 +82,8 @@ class FakeExchangeServer : AutoCloseable {
                     """
                     {
                       "issuer": "${oauthMetadataIssuer ?: baseUrl}",
-                      "authorization_request_endpoint": "$baseUrl/oauth/authorization-requests",
-                      "token_endpoint": "$baseUrl/oauth/token"
+                      "authorization_request_endpoint": "${oauthEndpointBaseUrl ?: baseUrl}/oauth/authorization-requests",
+                      "token_endpoint": "${oauthEndpointBaseUrl ?: baseUrl}/oauth/token"
                     }
                     """.trimIndent(),
                 ),
@@ -183,6 +192,7 @@ class FakeExchangeServer : AutoCloseable {
         rejectCarriedIdentity = false
         discoveryResponse = { Response(200, """{"version":1,"issuer":"$baseUrl","baseUrl":"$baseUrl"}""") }
         oauthMetadataIssuer = null
+        oauthEndpointBaseUrl = null
         tokenResponse = { Response(200, defaultToken()) }
         submitResponse = { Response(200, publicationBody(remotePublicationId, "QUEUED")) }
         statusResponse = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }

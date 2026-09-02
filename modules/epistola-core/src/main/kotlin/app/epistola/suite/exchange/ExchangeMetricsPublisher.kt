@@ -47,6 +47,7 @@ class ExchangeMetricsPublisher(
     private val connections: Map<ExchangeConnectionStatus, AtomicReference<Double>> =
         ExchangeConnectionStatus.entries.associateWith { AtomicReference(Double.NaN) }
     private val oldestActiveAgeSeconds = AtomicReference(Double.NaN)
+    private val retainedArchiveBytes = AtomicReference(Double.NaN)
 
     init {
         publications.forEach { (status, value) ->
@@ -63,6 +64,10 @@ class ExchangeMetricsPublisher(
         }
         Gauge.builder(OLDEST_ACTIVE) { oldestActiveAgeSeconds.get() }
             .description("Age of the oldest catalog publication that has not reached a terminal state")
+            .register(meterRegistry)
+        Gauge.builder(RETAINED_BYTES) { retainedArchiveBytes.get() }
+            .baseUnit("bytes")
+            .description("Release archives the publication outbox is still holding, including those kept for retry")
             .register(meterRegistry)
     }
 
@@ -92,6 +97,7 @@ class ExchangeMetricsPublisher(
             val connectionCounts = credentials.installationCountsByStatus()
             connections.forEach { (status, value) -> value.set((connectionCounts[status] ?: 0L).toDouble()) }
             oldestActiveAgeSeconds.set(store.installationOldestActiveAgeSeconds())
+            retainedArchiveBytes.set(store.installationRetainedArchiveBytes())
             logger.debug("Published Exchange publication gauges: {}", publicationCounts)
         }
     }
@@ -101,12 +107,14 @@ class ExchangeMetricsPublisher(
         publications.values.forEach { it.set(Double.NaN) }
         connections.values.forEach { it.set(Double.NaN) }
         oldestActiveAgeSeconds.set(Double.NaN)
+        retainedArchiveBytes.set(Double.NaN)
     }
 
     private companion object {
         const val PUBLICATIONS = "epistola.installation.exchange_publications"
         const val CONNECTIONS = "epistola.installation.exchange_connections"
         const val OLDEST_ACTIVE = "epistola.installation.exchange_publication_oldest_active_age_seconds"
+        const val RETAINED_BYTES = "epistola.installation.exchange_publication_retained_archive_bytes"
 
         /** Stable bigint key for pg_try_advisory_xact_lock, distinct from the other publishers. "EpExchM1". */
         const val EXCHANGE_METRICS_LOCK_KEY: Long = 0x4570_4578_6368_4D31L

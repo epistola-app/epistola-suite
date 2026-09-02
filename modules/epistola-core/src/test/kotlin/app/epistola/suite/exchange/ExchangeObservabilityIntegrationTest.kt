@@ -66,6 +66,11 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
             assertThat(
                 meterRegistry.get("epistola.installation.exchange_publication_oldest_active_age_seconds").gauge().value(),
             ).isGreaterThanOrEqualTo(0.0)
+            // A queued publication is holding its release ZIP, and that is the point of the gauge:
+            // the bytes are real and nothing else in the installation accounts for them.
+            assertThat(
+                meterRegistry.get("epistola.installation.exchange_publication_retained_archive_bytes").gauge().value(),
+            ).isGreaterThan(0.0)
         }
     }
 
@@ -99,6 +104,16 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
             val errorsBefore = counter("epistola.exchange.publication.submissions", "error")
             worker.run()
             assertThat(counter("epistola.exchange.publication.submissions", "error")).isGreaterThan(errorsBefore)
+
+            // Sending a release and asking about one are counted apart. Without the split, the polls
+            // that follow every submission dominate the outcome and the publication rate is
+            // unrecoverable from the series.
+            assertThat(counter("epistola.exchange.publication.submissions", "accepted", "submit"))
+                .describedAs("the accepted release was sent, so it is counted as a submission")
+                .isGreaterThan(0.0)
+            assertThat(counter("epistola.exchange.publication.submissions", "error", "submit"))
+                .describedAs("the failed attempt never reached Exchange, so it is a submission too")
+                .isGreaterThan(0.0)
         }
     }
 
@@ -155,7 +170,13 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
 
     private fun gauge(name: String, status: String) = meterRegistry.get(name).tag("status", status).gauge().value()
 
-    private fun counter(name: String, outcome: String) = meterRegistry.find(name).tag("outcome", outcome).counter()?.count() ?: 0.0
+    /**
+     * Summed across the `call` tag: an outcome is now recorded separately for a submission and for a
+     * poll, and a total that silently picked one of them would drift as soon as either moved.
+     */
+    private fun counter(name: String, outcome: String) = meterRegistry.find(name).tag("outcome", outcome).counters().sumOf { it.count() }
+
+    private fun counter(name: String, outcome: String, call: String) = meterRegistry.find(name).tag("outcome", outcome).tag("call", call).counter()?.count() ?: 0.0
 
     companion object {
         private val exchange = FakeExchangeServer()

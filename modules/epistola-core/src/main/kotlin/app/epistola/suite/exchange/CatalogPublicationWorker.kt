@@ -110,7 +110,7 @@ class CatalogPublicationWorker(
             client.publication(connection.baseUrl, token, publication.remotePublicationId)
         }
         val status = CatalogPublicationStatus.fromRemote(response.state)
-        metrics.submissionOutcome(status)
+        metrics.submissionOutcome(status, publication.remoteCall)
         if (status == CatalogPublicationStatus.ACCEPTED) {
             // Exchange now holds a release under these coordinates, and that outlives the local
             // catalog — so the fact is recorded on the binding rather than inferred from rows that
@@ -178,7 +178,7 @@ class CatalogPublicationWorker(
      * says the problem is authorization rather than the payload.
      */
     private fun fail(publication: CatalogReleasePublication, failure: Throwable) {
-        metrics.submissionError()
+        metrics.submissionError(publication.remoteCall)
         when (failure) {
             // Not `failure.message`: that is the transport's own wording, and it ends up on the
             // settings page as the whole explanation of what an administrator should do.
@@ -257,6 +257,14 @@ class CatalogPublicationWorker(
         )
         return true
     }
+
+    /**
+     * Whether the next word with Exchange is sending this release or asking about one it already
+     * took. Derived from the same field the state machine branches on, so the metric can never
+     * disagree with the call that was actually made.
+     */
+    private val CatalogReleasePublication.remoteCall: ExchangeMetrics.RemoteCall
+        get() = if (remotePublicationId == null) ExchangeMetrics.RemoteCall.SUBMIT else ExchangeMetrics.RemoteCall.POLL
 
     /** 5s doubling per attempt, capped at an hour. */
     private fun backoff(attempts: Int): Duration = Duration.ofSeconds(minOf(3600L, 5L shl minOf(attempts, 9)))

@@ -17,6 +17,7 @@ import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
 import java.io.File
+import java.net.URI
 import java.time.Duration
 import java.util.UUID
 
@@ -98,9 +99,44 @@ class ExchangeClient(
         return ExchangeEndpoints(
             issuer = issuer,
             baseUrl = baseUrl,
-            authorizationRequestEndpoint = requireSecure(metadata.requiredText("authorization_request_endpoint"), "authorization endpoint"),
-            tokenEndpoint = requireSecure(metadata.requiredText("token_endpoint"), "token endpoint"),
+            authorizationRequestEndpoint =
+            requireIssuerOrigin(metadata.requiredText("authorization_request_endpoint"), issuer, "authorization endpoint"),
+            tokenEndpoint = requireIssuerOrigin(metadata.requiredText("token_endpoint"), issuer, "token endpoint"),
         )
+    }
+
+    /**
+     * Keeps a discovered endpoint on the issuer's own origin.
+     *
+     * The issuer is the thing an operator chose to trust; the endpoints are whatever the document
+     * at that address says. Without this, a poisoned or compromised discovery response names any
+     * host it likes as the token endpoint — and the token endpoint is where the client secret and
+     * the refresh token are sent, so the redirect would be the whole credential. The OAuth metadata
+     * spec permits a different origin; nothing here needs that, and needing it later is a better
+     * problem than trusting it now.
+     */
+    private fun requireIssuerOrigin(url: String, issuer: String, what: String): String {
+        val endpoint = requireSecure(url, what)
+        if (origin(endpoint, what) != origin(issuer, "issuer")) {
+            throw ExchangeProtocolException(
+                "Exchange $what '$endpoint' is not on the issuer's origin ('$issuer'); refusing to send credentials elsewhere",
+            )
+        }
+        return endpoint
+    }
+
+    /** Scheme, host and port, with the scheme's default port made explicit so `:443` compares equal. */
+    private fun origin(url: String, what: String): String {
+        val uri = runCatching { URI(url) }.getOrElse { throw ExchangeProtocolException("Exchange $what is not a valid URL: '$url'") }
+        val host = uri.host ?: throw ExchangeProtocolException("Exchange $what has no host: '$url'")
+        val port = if (uri.port != -1) {
+            uri.port
+        } else if (uri.scheme == "https") {
+            443
+        } else {
+            80
+        }
+        return "${uri.scheme}://${host.lowercase()}:$port"
     }
 
     /**

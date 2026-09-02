@@ -20,6 +20,7 @@ epistola-exchange-client = "0.1.0-SNAPSHOT"
 aws-sdk = "2.54.2"
 guava = "33.7.1-jre"
 spring-ai = "2.0.1"
+archunit = "1.4.1"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -41,6 +42,7 @@ epistola-exchange-client = { module = "app.epistola.exchange:client", version.re
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 
 # Gradle plugins consumed by buildSrc as regular dependencies
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

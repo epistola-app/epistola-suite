@@ -98,16 +98,26 @@ class JdbiConfig {
             // Array (whose identity-based equals silently breaks data classes). Binding the other
             // way already works: JDBI turns a Kotlin Array into a SQL array.
             //
-            // Registered on the erased List type because that is what Kotlin reflection hands JDBI
-            // for a `List<T>` constructor parameter — the element type is not available here. The
-            // elements are therefore passed through as the driver produced them rather than being
-            // coerced to String: a `uuid[]` maps to UUIDs and an `int[]` to Ints, instead of
-            // producing a list whose contents do not match its declared type.
+            // Registered on the *erased* List, which is not a preference. JDBI already maps a
+            // parameterized `List<String>` parameter on its own, and registering only
+            // `GenericType<List<String>>` was tried: `ExchangeTenantConnection` then fails with
+            // "Could not find column mapper for type 'java.util.List' of parameter 'scopes'", so
+            // KotlinMapper does hand some constructor shapes the erased type and this registration
+            // is what answers them.
+            //
+            // The cost of erasure is that this cannot know the element type, and it is the only
+            // thing standing between a `uuid[]` and a field declared `List<String>`. So it refuses
+            // rather than guesses: a non-String element fails here, naming the column, instead of
+            // being passed through to surface as a ClassCastException in unrelated code much later.
             registerColumnMapper(
                 List::class.java,
                 ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
                     val array = r.getArray(columnNumber)
-                    if (r.wasNull() || array == null) null else (array.array as Array<*>).toList()
+                    if (r.wasNull() || array == null) {
+                        null
+                    } else {
+                        sqlArrayAsStringList(r.metaData.getColumnName(columnNumber), array.array as Array<*>)
+                    }
                 },
             )
 
@@ -120,4 +130,24 @@ class JdbiConfig {
     private companion object {
         const val DATABASE_START_NANOS = "epistola.database.start-nanos"
     }
+}
+
+/**
+ * A SQL array's elements as a `List<String>`, refusing anything that is not already a string.
+ *
+ * Split out of the column mapper so the refusal can be tested directly: the mapper it serves is
+ * registered on the erased `List`, and reaching that path needs a constructor shape JDBI happens to
+ * erase, which is not something a test should have to reproduce to pin this rule.
+ *
+ * Refusing rather than coercing is the point. `toString()` on a UUID or an Int would produce a list
+ * that satisfies its declared type and means something else entirely, and the mistake would then
+ * travel — into a comparison, an export, or a stored value — with nothing pointing back at the
+ * column it came from.
+ */
+internal fun sqlArrayAsStringList(columnName: String, elements: Array<*>): List<String> = elements.map { element ->
+    element as? String
+        ?: throw IllegalStateException(
+            "Column '$columnName' holds ${element?.javaClass?.name ?: "a null"} elements but is being read as List<String>; " +
+                "register a column mapper for that element type rather than relying on the generic array mapper",
+        )
 }
