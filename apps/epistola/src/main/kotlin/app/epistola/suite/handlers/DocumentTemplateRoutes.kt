@@ -21,6 +21,7 @@ class DocumentTemplateRoutes(
     private val dataContractTabHandler: DataContractTabHandler,
     private val versionComparisonHandler: VersionComparisonHandler,
     private val contractVersionHandler: ContractVersionHandler,
+    private val templateInspectionHandler: TemplateInspectionHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
@@ -36,6 +37,7 @@ class DocumentTemplateRoutes(
             GET("/{catalogId}/{id}/deployments", deploymentMatrixHandler::deploymentMatrix)
             GET("/{catalogId}/{id}/data-contract", dataContractTabHandler::dataContract)
             GET("/{catalogId}/{id}/settings", settingsTabHandler::settings)
+            GET("/{catalogId}/{id}/default-editor", handler::defaultEditor)
 
             // Template actions
             POST("/{catalogId}/{id}/delete", handler::delete)
@@ -88,5 +90,6 @@ class DocumentTemplateRoutes(
             // Version lifecycle
             POST("/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)
         }
+        POST("/tenants/{tenantId}/training/assessment", templateInspectionHandler::assess)
     }
 }

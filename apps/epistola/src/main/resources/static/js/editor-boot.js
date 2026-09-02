@@ -308,6 +308,15 @@ async function mount(container) {
         err.field = field;
         throw err;
       }
+      window.epistolaEmbedBridge?.notifyResourceMutated(
+        {
+          resourceType: 'template',
+          tenantId: tenantId,
+          catalogKey: catalogId,
+          key: templateId,
+        },
+        'update',
+      );
     },
     onFetchPreview: async (doc, data, signal) => {
       const response = await fetch(

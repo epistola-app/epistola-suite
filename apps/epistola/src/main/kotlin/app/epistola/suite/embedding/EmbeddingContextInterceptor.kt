@@ -11,11 +11,14 @@ import org.springframework.web.servlet.HandlerInterceptor
 import org.springframework.web.servlet.ModelAndView
 
 /**
- * Adds embedding/postMessage-bridge context to shell pages, same idiom as
+ * Adds embedding/postMessage-bridge context to Suite pages that host an
+ * embeddable workspace, same idiom as
  * [app.epistola.suite.config.SiteBannerInterceptor]: `embeddingEnabled` /
  * `allowedParentOrigins`, install-wide from [EmbeddingProperties] directly —
- * the shell renders the bridge `<script>` and its config JSON island only
- * when embedding is on (see docs/embedding.md).
+ * their templates render the bridge `<script>` and config JSON island only
+ * when embedding is on (see docs/embedding.md). The template editor is a
+ * full-page Vite host rather than a `layout/shell` page, but it must receive
+ * the same context: editor saves use the bridge to notify the Website.
  *
  * Does not derive the current page's resource identity — `embed-bridge.js`
  * parses that itself from `location.pathname` (the same URL convention
@@ -33,7 +36,7 @@ class EmbeddingContextInterceptor(
         handler: Any,
         modelAndView: ModelAndView?,
     ) {
-        if (modelAndView == null || modelAndView.viewName != "layout/shell") return
+        if (modelAndView == null || modelAndView.viewName !in setOf("layout/shell", "templates/editor")) return
 
         modelAndView.addObject("embeddingEnabled", embeddingProperties.enabled)
         modelAndView.addObject("allowedParentOrigins", embeddingProperties.allowedParentOrigins)

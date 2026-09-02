@@ -68,7 +68,7 @@ async function mount(container) {
       // never fires for it. Tell the embedding bridge directly instead
       // (docs/embedding.md). No-op when the bridge isn't loaded (embedding
       // disabled, i.e. every non-demo deployment).
-      window.epistolaEmbedBridge?.notifyResourceChanged(
+      window.epistolaEmbedBridge?.notifyResourceMutated(
         { resourceType: 'theme', tenantId: tenantId, catalogKey: catalogId, key: themeId },
         'update',
       );

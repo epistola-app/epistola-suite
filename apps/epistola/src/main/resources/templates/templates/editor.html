@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${templateName + ' - Edit - Epistola'}">Edit Template - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
+    <!-- The editor is a full-page Vite host, not layout/shell. It still needs
+         the trusted embedding bridge so successful draft saves can cause the
+         Website to reassess the active lesson. This must precede htmx.html,
+         which loads embed-bridge.js synchronously. -->
+    <script type="application/json" id="epistola-embed-config" th:if="${embeddingEnabled}" th:inline="javascript">
+        /*[[${allowedParentOrigins}]]*/ []
+    </script>
     <th:block th:replace="~{fragments/htmx :: htmx}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">

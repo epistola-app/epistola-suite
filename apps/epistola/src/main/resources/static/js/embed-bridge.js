@@ -7,9 +7,12 @@
 // (fragments/htmx.html), so none of this exists in a non-embedding deployment.
 //
 // Protocol (both directions always carry `source` so messages are recognizable):
-//   host  -> suite: { source: 'epistola-host',  type: 'navigate', resource: {resourceType, tenantId, catalogKey, key} }
-//   suite -> host:  { source: 'epistola-suite', type: 'navigated', path, resource: {...} | null }
-//   suite -> host:  { source: 'epistola-suite', type: 'resource-changed', resource: {...}, operation: 'create'|'update'|'delete' }
+//   host  -> suite: { source: 'epistola-host', type: 'assess', requestId, resources, predicates }
+//   host  -> suite: { source: 'epistola-host', type: 'navigate', target: { view, resource? } }
+//   suite -> host:  { source: 'epistola-suite', type: 'ready', sessionStatus }
+//   suite -> host:  { source: 'epistola-suite', type: 'assessment-result', requestId, results }
+//   suite -> host:  { source: 'epistola-suite', type: 'resource-mutated' }
+//   suite -> host:  { source: 'epistola-suite', type: 'event', event }
 //
 // Security: the host can only ever hand over a typed resource identity, never a
 // URL — resolveResourcePath() below is a fixed, closed lookup table, and the
@@ -66,11 +69,16 @@
 
   const RESOURCE_PATH_SEGMENT = { template: 'templates', theme: 'themes', stencil: 'stencils' };
   const RESOURCE_TYPE_BY_SEGMENT = { templates: 'template', themes: 'theme', stencils: 'stencil' };
+  const RESOURCE_VIEW_PATH = {
+    template: { detail: '', 'data-contract': '/data-contract', editor: '/default-editor' },
+    theme: { detail: '' },
+    stencil: { detail: '' },
+  };
   const RESOURCE_URL_PATTERN = /^\/tenants\/([^/]+)\/(templates|themes|stencils)(\/.*)?$/;
 
   // The only way a resource identity becomes a URL: a closed lookup of the
   // three known detail-page shapes. The host cannot supply anything else.
-  function resolveResourcePath(resource) {
+  function resolveResourcePath(resource, view) {
     if (!resource) return null;
     const segment = RESOURCE_PATH_SEGMENT[resource.resourceType];
     if (!segment) return null;
@@ -80,6 +88,8 @@
       !isValidSlug(resource.key)
     )
       return null;
+    const viewPath = RESOURCE_VIEW_PATH[resource.resourceType][view || 'detail'];
+    if (viewPath === undefined) return null;
     return (
       '/tenants/' +
       encodeURIComponent(resource.tenantId) +
@@ -88,8 +98,88 @@
       '/' +
       encodeURIComponent(resource.catalogKey) +
       '/' +
-      encodeURIComponent(resource.key)
+      encodeURIComponent(resource.key) +
+      viewPath
     );
+  }
+
+  function assessmentStatus(response) {
+    if (response.status === 200) return 'satisfied';
+    if (response.status === 401 || (response.status >= 300 && response.status < 400))
+      return 'unauthenticated';
+    if (response.status === 403) return 'forbidden';
+    if (response.status === 404) return 'unsatisfied';
+    return 'unknown';
+  }
+
+  // The host submits one closed predicate set. The bridge returns exactly one
+  // status per predicate and never leaks template/document payloads upstream.
+  // The authenticated UI inspection route owns the domain traversal.
+  function assess(data) {
+    if (
+      typeof data.requestId !== 'string' ||
+      !Array.isArray(data.resources) ||
+      !Array.isArray(data.predicates)
+    )
+      return;
+    const resources = new Map(
+      data.resources
+        .filter(function (resource) {
+          return resource && typeof resource.id === 'string' && resolveResourcePath(resource);
+        })
+        .map(function (resource) {
+          return [resource.id, resource];
+        }),
+    );
+    if (resources.size !== data.resources.length) return;
+    if (
+      !data.predicates.every(function (predicate) {
+        return predicate && typeof predicate.type === 'string' && resources.has(predicate.resource);
+      })
+    )
+      return;
+    const tenantId = data.resources[0] && data.resources[0].tenantId;
+    if (
+      !isValidSlug(tenantId) ||
+      !data.resources.every(function (resource) {
+        return resource.tenantId === tenantId;
+      })
+    )
+      return;
+    fetch('/tenants/' + encodeURIComponent(tenantId) + '/training/assessment', {
+      method: 'POST',
+      credentials: 'same-origin',
+      redirect: 'manual',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '',
+      },
+      body: JSON.stringify({ resources: data.resources, predicates: data.predicates }),
+    })
+      .then(function (response) {
+        const status = assessmentStatus(response);
+        if (status !== 'satisfied')
+          return data.predicates.map(function (predicate) {
+            return { predicate: predicate, status: status };
+          });
+        return response.json().then(function (payload) {
+          return payload.results;
+        });
+      })
+      .catch(function () {
+        return data.predicates.map(function (predicate) {
+          return { predicate: predicate, status: 'unknown' };
+        });
+      })
+      .then(function (results) {
+        if (!Array.isArray(results) || results.length !== data.predicates.length) return;
+        postToHost({
+          source: 'epistola-suite',
+          type: 'assessment-result',
+          requestId: data.requestId,
+          results: results,
+        });
+      });
   }
 
   // The reverse direction: a URL path (a request path, or a create response's
@@ -115,9 +205,21 @@
     if (!targetOrigin) targetOrigin = event.origin;
 
     const data = event.data;
-    if (!data || data.source !== 'epistola-host' || data.type !== 'navigate') return;
+    if (!data || data.source !== 'epistola-host') return;
 
-    const path = resolveResourcePath(data.resource);
+    if (data.type === 'assess') {
+      assess(data);
+      return;
+    }
+
+    if (data.type !== 'navigate') return;
+
+    const target = data.target;
+    if (!target || typeof target.view !== 'string') return;
+    const path =
+      target.view === 'templates'
+        ? '/tenants/' + encodeURIComponent((target.resource || {}).tenantId || '') + '/templates'
+        : resolveResourcePath(target.resource, target.view);
     if (!path) return;
 
     // htmx's own ajax navigation path — the same route an in-app <a> click
@@ -160,14 +262,17 @@
       path: path,
       resource: currentResourceFromLocation(),
     });
+    if (/\/data-contract$/.test(location.pathname)) {
+      postToHost({ source: 'epistola-suite', type: 'event', event: 'data-contract-opened' });
+    }
   }
   document.addEventListener('htmx:load', notifyNavigated);
   window.addEventListener('popstate', notifyNavigated);
 
-  function notifyResourceChanged(resource, operation) {
+  function notifyResourceMutated(resource, operation) {
     postToHost({
       source: 'epistola-suite',
-      type: 'resource-changed',
+      type: 'resource-mutated',
       resource: resource,
       operation: operation,
     });
@@ -199,7 +304,7 @@
     if (!parsed) return;
 
     if (verb === 'PATCH' && parsed.rest.length >= 2) {
-      notifyResourceChanged(
+      notifyResourceMutated(
         {
           resourceType: parsed.resourceType,
           tenantId: parsed.tenantId,
@@ -212,7 +317,7 @@
     }
 
     if (verb === 'POST' && parsed.rest.length === 3 && parsed.rest[2] === 'delete') {
-      notifyResourceChanged(
+      notifyResourceMutated(
         {
           resourceType: parsed.resourceType,
           tenantId: parsed.tenantId,
@@ -230,7 +335,7 @@
       if (!createdUrl) return;
       const createdParsed = parseResourcePath(createdUrl.split('?')[0]);
       if (createdParsed && createdParsed.rest.length === 2) {
-        notifyResourceChanged(
+        notifyResourceMutated(
           {
             resourceType: createdParsed.resourceType,
             tenantId: createdParsed.tenantId,
@@ -246,7 +351,7 @@
   // Raw fetch() mutations bypass htmx.js entirely, so the listener above never
   // sees them — those call sites invoke this directly after a successful
   // response (e.g. theme-editor-boot.js's onSave).
-  window.epistolaEmbedBridge = { notifyResourceChanged: notifyResourceChanged };
+  window.epistolaEmbedBridge = { notifyResourceMutated: notifyResourceMutated };
 
   // The one full-page-redirect delete (DocumentTemplateHandler.delete) can't
   // carry a response header across a browser-followed redirect, so it appends
@@ -259,7 +364,7 @@
     const parts = flash.split(':');
     const tenantMatch = /^\/tenants\/([^/]+)\//.exec(location.pathname);
     if (parts.length === 3 && tenantMatch) {
-      notifyResourceChanged(
+      notifyResourceMutated(
         { resourceType: parts[0], tenantId: tenantMatch[1], catalogKey: parts[1], key: parts[2] },
         'delete',
       );
@@ -273,5 +378,10 @@
     );
   })();
 
+  postToHost({
+    source: 'epistola-suite',
+    type: 'ready',
+    sessionStatus: location.pathname === '/login' ? 'unauthenticated' : 'satisfied',
+  });
   notifyNavigated();
 })();

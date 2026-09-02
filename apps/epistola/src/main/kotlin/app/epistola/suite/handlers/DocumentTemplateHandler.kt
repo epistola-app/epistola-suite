@@ -755,6 +755,22 @@ class DocumentTemplateHandler(
         )
     }
 
+    /**
+     * Resolves the default variant on the Suite side before entering the editor.
+     * Embedded hosts deliberately identify templates, never variant URLs.
+     */
+    fun defaultEditor(request: ServerRequest): ServerResponse {
+        val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
+        val variant = GetVariantSummaries(templateId = ctx.templateId).query().firstOrNull { it.isDefault }
+            ?: return ServerResponse.notFound().build()
+        return ServerResponse.status(303)
+            .header(
+                "Location",
+                "/tenants/${ctx.templateId.tenantId.key}/templates/${ctx.templateId.catalogId.key}/${ctx.templateId.key}/variants/${variant.id}/editor",
+            )
+            .build()
+    }
+
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()

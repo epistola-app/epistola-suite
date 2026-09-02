@@ -278,6 +278,17 @@
 
     const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
     const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() };
+    const notifyContractUpdated = () => {
+      window.epistolaEmbedBridge?.notifyResourceMutated(
+        {
+          resourceType: 'template',
+          tenantId: tenantId,
+          catalogKey: catalogId,
+          key: templateId,
+        },
+        'update',
+      );
+    };
 
     mountDataContractEditor({
       container: container,
@@ -308,6 +319,7 @@
                 }
                 const result = await response.json();
                 await refreshStatusBar();
+                notifyContractUpdated();
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false, error: e.message };
@@ -330,6 +342,7 @@
                 }
                 const result = await response.json();
                 await refreshStatusBar();
+                notifyContractUpdated();
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false };

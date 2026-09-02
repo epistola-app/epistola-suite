@@ -5,11 +5,27 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.tenants.Tenant
+import app.epistola.template.model.Node
+import app.epistola.template.model.Slot
+import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRef
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
+import tools.jackson.databind.node.JsonNodeFactory
 import java.util.regex.Pattern
 
 /**
@@ -18,7 +34,7 @@ import java.util.regex.Pattern
  * (embedding turned on) so every other Playwright test class keeps embedding
  * off via [BasePlaywrightTest]'s default.
  *
- * `resource-changed` detection is deliberately client-side only (no Kotlin
+ * `resource-mutated` detection is deliberately client-side only (no Kotlin
  * involvement — see the ADR for why), derived by watching real
  * `htmx:afterRequest` events against the same URL convention the whole app
  * already uses. This test exercises the real htmx runtime end to end instead
@@ -95,15 +111,15 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `creating a template through the UI fires a resource-changed create message, then a navigated message`() {
+    fun `creating a template through the UI fires a resource-mutated create message, then a navigated message`() {
         val tenant = createTestTenant()
         installMessageCapture()
 
         createTemplateViaUi(tenant, "Embed Bridge Template", "embed-bridge-template")
         assertThat(page.locator("#page-title-text")).containsText("Embed Bridge Template")
 
-        val changed = latestMessageOfType("resource-changed")
-        checkNotNull(changed) { "expected a 'resource-changed' message, got: ${capturedMessages()}" }
+        val changed = latestMessageOfType("resource-mutated")
+        checkNotNull(changed) { "expected a 'resource-mutated' message, got: ${capturedMessages()}" }
         val changedMessage = changed["message"] as Map<*, *>
         val resource = changedMessage["resource"] as Map<*, *>
         Assertions.assertThat(changedMessage["operation"]).isEqualTo("create")
@@ -119,7 +135,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `renaming a template's settings fires a resource-changed update message`() {
+    fun `renaming a template's settings fires a resource-mutated update message`() {
         val tenant = createTestTenant()
         installMessageCapture()
 
@@ -131,8 +147,8 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         input.press("Enter")
         page.htmxSettle()
 
-        val changed = latestMessageOfType("resource-changed")
-        checkNotNull(changed) { "expected a 'resource-changed' message, got: ${capturedMessages()}" }
+        val changed = latestMessageOfType("resource-mutated")
+        checkNotNull(changed) { "expected a 'resource-mutated' message, got: ${capturedMessages()}" }
         val message = changed["message"] as Map<*, *>
         val resource = message["resource"] as Map<*, *>
         Assertions.assertThat(message["operation"]).isEqualTo("update")
@@ -142,7 +158,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `deleting a template fires a resource-changed delete message via the flash query param`() {
+    fun `deleting a template fires a resource-mutated delete message via the flash query param`() {
         val tenant = createTestTenant()
         installMessageCapture()
 
@@ -157,8 +173,8 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         // embed-bridge.js fires on that fresh page's own load.
         assertThat(page.locator("h1")).containsText("Templates")
 
-        val changed = latestMessageOfType("resource-changed")
-        checkNotNull(changed) { "expected a 'resource-changed' message, got: ${capturedMessages()}" }
+        val changed = latestMessageOfType("resource-mutated")
+        checkNotNull(changed) { "expected a 'resource-mutated' message, got: ${capturedMessages()}" }
         val message = changed["message"] as Map<*, *>
         val resource = message["resource"] as Map<*, *>
         Assertions.assertThat(message["operation"]).isEqualTo("delete")
@@ -183,7 +199,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
             """
             (resource) => {
                 window.dispatchEvent(new MessageEvent('message', {
-                    data: { source: 'epistola-host', type: 'navigate', resource: resource },
+                    data: { source: 'epistola-host', type: 'navigate', target: { view: 'detail', resource: resource } },
                     origin: 'https://embed-host.test',
                     source: window.parent,
                 }));
@@ -200,5 +216,184 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         assertThat(page.locator("#page-title-text")).containsText("Navigate Target")
         assertThat(page).hasURL(Pattern.compile(".*/templates/default/navigate-target$"))
+    }
+
+    @Test
+    fun `a host navigate message can open a template data contract`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+        createTemplateViaUi(tenant, "Data Contract Target", "data-contract-target")
+        gotoAndReady("/tenants/${tenant.id}/templates")
+
+        page.evaluate(
+            """
+            (resource) => {
+                window.dispatchEvent(new MessageEvent('message', {
+                    data: { source: 'epistola-host', type: 'navigate', target: { view: 'data-contract', resource: resource } },
+                    origin: 'https://embed-host.test',
+                    source: window.parent,
+                }));
+            }
+            """,
+            mapOf(
+                "resourceType" to "template",
+                "tenantId" to tenant.id.value,
+                "catalogKey" to "default",
+                "key" to "data-contract-target",
+            ),
+        )
+        page.htmxSettle()
+
+        assertThat(page).hasURL(Pattern.compile(".*/templates/default/data-contract-target/data-contract$"))
+    }
+
+    @Test
+    fun `a host navigate message resolves a template editor to its default variant`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+        createTemplateViaUi(tenant, "Editor Target", "editor-target")
+        gotoAndReady("/tenants/${tenant.id}/templates")
+
+        page.evaluate(
+            """
+            (resource) => {
+                window.dispatchEvent(new MessageEvent('message', {
+                    data: { source: 'epistola-host', type: 'navigate', target: { view: 'editor', resource: resource } },
+                    origin: 'https://embed-host.test',
+                    source: window.parent,
+                }));
+            }
+            """,
+            mapOf(
+                "resourceType" to "template",
+                "tenantId" to tenant.id.value,
+                "catalogKey" to "default",
+                "key" to "editor-target",
+            ),
+        )
+        page.waitForSelector("epistola-editor")
+
+        assertThat(page).hasURL(Pattern.compile(".*/templates/default/editor-target/variants/[^/]+/editor$"))
+        assertThat(page.locator("#epistola-embed-config")).hasCount(1)
+        Assertions.assertThat(page.evaluate("() => typeof window.epistolaEmbedBridge")).isEqualTo("object")
+    }
+
+    @Test
+    fun `assessment returns one satisfied result for an existing template`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+        createTemplateViaUi(tenant, "Inspectable Template", "inspectable-template")
+
+        page.evaluate(
+            """
+            (resource) => {
+                window.dispatchEvent(new MessageEvent('message', {
+                    data: {
+                        source: 'epistola-host',
+                        type: 'assess',
+                        requestId: 'existing-template',
+                        resources: [resource],
+                        predicates: [{ type: 'resource-exists', resource: 'training-template' }],
+                    },
+                    origin: 'https://embed-host.test',
+                    source: window.parent,
+                }));
+            }
+            """,
+            mapOf(
+                "id" to "training-template",
+                "resourceType" to "template",
+                "tenantId" to tenant.id.value,
+                "catalogKey" to "default",
+                "key" to "inspectable-template",
+            ),
+        )
+        page.waitForFunction(
+            """() => window.__epistolaMessages.some(({ message }) => message?.type === 'assessment-result' && message.requestId === 'existing-template')""",
+        )
+
+        val message = latestMessageOfType("assessment-result")?.get("message") as? Map<*, *>
+        checkNotNull(message) { "expected an assessment result, got: ${capturedMessages()}" }
+        val results = message["results"] as List<*>
+        Assertions.assertThat((results.single() as Map<*, *>)["status"]).isEqualTo("satisfied")
+    }
+
+    @Test
+    fun `Lesson 2 predicate assessment reflects field and heading changes after reload`() {
+        val tenant = createTestTenant()
+        val slug = "lesson-two-template"
+        installMessageCapture()
+        createTemplateViaUi(tenant, "Lesson Two Template", slug)
+        val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenant.id)))
+
+        assertLessonTwoAssessment(tenant, slug, listOf("satisfied", "unsatisfied", "unsatisfied"))
+        withMediator { setRecipientField(templateId, true) }
+        assertLessonTwoAssessment(tenant, slug, listOf("satisfied", "satisfied", "unsatisfied"))
+        withMediator { setHeadingExpression(templateId, true) }
+        assertLessonTwoAssessment(tenant, slug, listOf("satisfied", "satisfied", "satisfied"))
+        withMediator { setHeadingExpression(templateId, false) }
+        assertLessonTwoAssessment(tenant, slug, listOf("satisfied", "satisfied", "unsatisfied"))
+        withMediator { setHeadingExpression(templateId, true) }
+        assertLessonTwoAssessment(tenant, slug, listOf("satisfied", "satisfied", "satisfied"))
+        withMediator { setRecipientField(templateId, false) }
+        assertLessonTwoAssessment(tenant, slug, listOf("satisfied", "unsatisfied", "satisfied"))
+        withMediator { setRecipientField(templateId, true) }
+        assertLessonTwoAssessment(tenant, slug, listOf("satisfied", "satisfied", "satisfied"))
+    }
+
+    private fun assertLessonTwoAssessment(tenant: Tenant, slug: String, expected: List<String>) {
+        gotoAndReady("/tenants/${tenant.id}/templates/default/$slug")
+        val requestId = "lesson-two-${System.nanoTime()}"
+        val resource = mapOf("id" to "training-template", "resourceType" to "template", "tenantId" to tenant.id.value, "catalogKey" to "default", "key" to slug)
+        page.evaluate(
+            """
+            ({ requestId, resource }) => window.dispatchEvent(new MessageEvent('message', {
+                data: { source: 'epistola-host', type: 'assess', requestId, resources: [resource], predicates: [
+                    { type: 'resource-exists', resource: 'training-template' },
+                    { type: 'data-contract-property', resource: 'training-template', path: 'recipientName', required: true },
+                    { type: 'default-variant-heading-expression', resource: 'training-template', path: 'recipientName' },
+                ] }, origin: 'https://embed-host.test', source: window.parent,
+            }))
+            """,
+            mapOf("requestId" to requestId, "resource" to resource),
+        )
+        page.waitForFunction(
+            """(id) => window.__epistolaMessages.some(({ message }) => message?.type === 'assessment-result' && message.requestId === id)""",
+            requestId,
+        )
+        val message = latestMessageOfType("assessment-result")?.get("message") as? Map<*, *>
+        checkNotNull(message) { "expected an assessment result, got: ${capturedMessages()}" }
+        val statuses = (message["results"] as List<*>).map { (it as Map<*, *>)["status"] }
+        Assertions.assertThat(statuses).containsExactlyElementsOf(expected)
+    }
+
+    private fun setRecipientField(templateId: TemplateId, present: Boolean) {
+        CreateContractVersion(templateId).execute()
+        val schema = JsonNodeFactory.instance.objectNode().apply {
+            put("type", "object")
+            set(
+                "properties",
+                JsonNodeFactory.instance.objectNode().apply {
+                    if (present) set("recipientName", JsonNodeFactory.instance.objectNode().put("type", "string"))
+                },
+            )
+            set("required", JsonNodeFactory.instance.arrayNode().apply { if (present) add("recipientName") })
+        }
+        UpdateContractVersion(templateId = templateId, dataModel = schema).execute()
+    }
+
+    private fun setHeadingExpression(templateId: TemplateId, present: Boolean) {
+        val variant = GetVariantSummaries(templateId).query().first { it.isDefault }
+        val content = mapOf("type" to "doc", "content" to listOf(mapOf("type" to "heading", "attrs" to mapOf("level" to 1), "content" to if (present) listOf(mapOf("type" to "expression", "attrs" to mapOf("expression" to "recipientName"))) else emptyList<Any>())))
+        UpdateDraft(
+            variantId = VariantId(variant.id, templateId),
+            templateModel = TemplateDocument(
+                modelVersion = 1,
+                root = "root",
+                nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("root-slot")), "heading" to Node(id = "heading", type = "text", slots = emptyList(), props = mapOf("content" to content))),
+                slots = mapOf("root-slot" to Slot("root-slot", "root", "children", listOf("heading"))),
+                themeRef = ThemeRef.Inherit,
+            ),
+        ).execute()
     }
 }
