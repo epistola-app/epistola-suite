@@ -216,10 +216,24 @@
 
     const target = data.target;
     if (!target || typeof target.view !== 'string') return;
-    const path =
-      target.view === 'templates'
-        ? '/tenants/' + encodeURIComponent((target.resource || {}).tenantId || '') + '/templates'
-        : resolveResourcePath(target.resource, target.view);
+    let path;
+    if (target.view === 'templates') {
+      // A list view has no resource identity of its own. Reuse the tenant of
+      // the current, already authorized Suite page for resource-less lessons;
+      // a resource-bearing target is still validated before its tenant is
+      // used (as it is for Lesson 2's create-template task).
+      const current = parseResourcePath(location.pathname);
+      const resource = target.resource;
+      const tenantId = resource
+        ? resolveResourcePath(resource) && resource.tenantId
+        : current && current.tenantId;
+      path =
+        tenantId && isValidSlug(tenantId)
+          ? '/tenants/' + encodeURIComponent(tenantId) + '/templates'
+          : null;
+    } else {
+      path = resolveResourcePath(target.resource, target.view);
+    }
     if (!path) return;
 
     // htmx's own ajax navigation path — the same route an in-app <a> click
@@ -264,6 +278,9 @@
     });
     if (/\/data-contract$/.test(location.pathname)) {
       postToHost({ source: 'epistola-suite', type: 'event', event: 'data-contract-opened' });
+    }
+    if (/^\/tenants\/[^/]+\/templates$/.test(location.pathname)) {
+      postToHost({ source: 'epistola-suite', type: 'event', event: 'templates-opened' });
     }
   }
   document.addEventListener('htmx:load', notifyNavigated);

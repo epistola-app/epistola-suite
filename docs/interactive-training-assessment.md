@@ -177,10 +177,14 @@ adding a UI mutation path, verify that it is covered by the generic HTMX hook
 or make the explicit call after a successful save.
 
 Suite also emits trusted closed interaction events when the learner reaches a
-supported workspace action. The current example is:
+supported workspace action. Current examples are:
 
 ```json
 { "source": "epistola-suite", "type": "event", "event": "data-contract-opened" }
+```
+
+```json
+{ "source": "epistola-suite", "type": "event", "event": "templates-opened" }
 ```
 
 Events are evidence of interaction, not resource validity. The host may retain
@@ -194,10 +198,10 @@ resource reference. Suite resolves all internal route details itself. In
 particular, navigating to `editor` resolves the template's default variant;
 the host never supplies an editor URL or a variant identifier.
 
-The current `templates` list-view implementation still reads the tenant from
-`target.resource`. A nominal resource-less `{ view: "templates" }` target is
-therefore ignored. Treat this as an implementation discrepancy, not a supported
-shortcut.
+For a resource-less `{ view: "templates" }` target, Suite derives the tenant
+from the current authorized iframe path. A resource-bearing target is still
+validated before Suite uses its tenant. The host cannot provide a standalone
+tenant or URL.
 
 Do not add a generic URL navigation escape hatch. It would turn an assessment
 bridge into a cross-origin routing proxy and weaken the type/permission

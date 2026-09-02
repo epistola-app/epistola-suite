@@ -108,6 +108,10 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         Assertions.assertThat(message["source"]).isEqualTo("epistola-suite")
         Assertions.assertThat(message["resource"]).isNull()
         Assertions.assertThat(navigated["targetOrigin"]).isEqualTo("https://embed-host.test")
+
+        val event = latestMessageOfType("event")
+        checkNotNull(event) { "expected a 'templates-opened' event, got: ${capturedMessages()}" }
+        Assertions.assertThat((event["message"] as Map<*, *>)["event"]).isEqualTo("templates-opened")
     }
 
     @Test
@@ -216,6 +220,30 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         assertThat(page.locator("#page-title-text")).containsText("Navigate Target")
         assertThat(page).hasURL(Pattern.compile(".*/templates/default/navigate-target$"))
+    }
+
+    @Test
+    fun `a resource-less templates navigate message stays in the current tenant`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+
+        gotoAndReady("/tenants/${tenant.id}/templates/new")
+
+        page.evaluate(
+            """
+            () => {
+                window.dispatchEvent(new MessageEvent('message', {
+                    data: { source: 'epistola-host', type: 'navigate', target: { view: 'templates' } },
+                    origin: 'https://embed-host.test',
+                    source: window.parent,
+                }));
+            }
+            """,
+        )
+        page.htmxSettle()
+
+        assertThat(page.locator("h1")).containsText("Templates")
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/templates$"))
     }
 
     @Test

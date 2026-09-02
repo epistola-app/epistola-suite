@@ -48,6 +48,10 @@
   bridge and reports successful saves so hosts can reassess immediately; Suite continues to own no
   courses, task IDs, or learner progress.
 
+- **[dev]** feat(embedding): **Resource-less training lessons can resume in Templates.** The
+  bridge now resolves a closed `templates` target from the current authorized tenant and emits the
+  trusted `templates-opened` event when its list page is reached.
+
 - **[dev]** fix(generation): **Fixed a flaky database-pressure recovery test.**
   `JobPollerDatabasePressureIntegrationTest` synchronized on a drain-loop
   heartbeat that ticks before claiming happens, so on a slow CI runner the
