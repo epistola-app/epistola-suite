@@ -7,7 +7,9 @@ package app.epistola.suite.cluster
 import app.epistola.suite.cluster.ClusterProperties.Companion.DEFAULT_CAPABILITY
 import app.epistola.suite.cluster.ClusterProperties.Companion.PDF_RENDER_CAPABILITY
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.time.Duration
 
 /**
  * The advertised capability set is what routes render jobs: [ClusterProperties.PDF_RENDER_CAPABILITY]
@@ -55,5 +57,96 @@ class ClusterPropertiesTest {
             .normalizedCapabilities(pdfRenderEnabled = true)
 
         assertThat(effective).containsExactlyInAnyOrder(DEFAULT_CAPABILITY, PDF_RENDER_CAPABILITY)
+    }
+
+    /**
+     * Purging a `cluster_nodes` row makes that node stop vouching for its scheduled-task
+     * definitions immediately, because `LIVE_REGISTRATION_EXISTS` inner-joins registrations
+     * to the node row. Retention shorter than the reconciliation grace period would let the
+     * reaper retire definitions earlier than the reconciler would — so the clamp, not the
+     * configured value, is what the reaper must use.
+     */
+    @Nested
+    inner class StaleNodeRetention {
+
+        @Test
+        fun `the default window dwarfs the reconciliation grace period`() {
+            val properties = ClusterProperties()
+            val gracePeriod = Duration.ofMillis(properties.scheduledTasks.reconciliationGracePeriodMs)
+
+            assertThat(properties.effectiveStaleNodeRetention()).isEqualTo(Duration.ofDays(7))
+            assertThat(properties.effectiveStaleNodeRetention()).isGreaterThan(gracePeriod.multipliedBy(24))
+        }
+
+        @Test
+        fun `a window shorter than the grace period is clamped up to the floor`() {
+            val properties = ClusterProperties(
+                nodeReaper = ClusterNodeReaperProperties(staleNodeRetention = Duration.ofMinutes(1)),
+            )
+
+            // 4 x the 15-minute default grace period.
+            assertThat(properties.effectiveStaleNodeRetention()).isEqualTo(Duration.ofMinutes(60))
+        }
+
+        @Test
+        fun `a window longer than the floor is used as configured`() {
+            val properties = ClusterProperties(
+                nodeReaper = ClusterNodeReaperProperties(staleNodeRetention = Duration.ofDays(30)),
+            )
+
+            assertThat(properties.effectiveStaleNodeRetention()).isEqualTo(Duration.ofDays(30))
+        }
+
+        @Test
+        fun `the floor tracks a shortened reconciliation grace period`() {
+            val properties = ClusterProperties(
+                scheduledTasks = ClusterScheduledTaskProperties(reconciliationGracePeriodMs = 60_000),
+                nodeReaper = ClusterNodeReaperProperties(staleNodeRetention = Duration.ofSeconds(1)),
+            )
+
+            assertThat(properties.effectiveStaleNodeRetention()).isEqualTo(Duration.ofMinutes(4))
+        }
+
+        @Test
+        fun `the default reaper cron does not collide with the other nightly maintenance tasks`() {
+            // 02:00 partitions, 03:00 stale consumer nodes, 03:30 application-log retention.
+            assertThat(ClusterNodeReaperProperties().cron).isEqualTo("0 15 4 * * *")
+        }
+    }
+
+    /**
+     * The manual Forget action deletes registration rows that only a restart re-creates, so
+     * it must not fire at the `stale` badge's threshold. Tying it to the reconciliation
+     * grace period means a node is forgettable only once its registrations already stopped
+     * protecting its definitions.
+     */
+    @Nested
+    inner class ForgettableNodeAge {
+
+        @Test
+        fun `is the reconciliation grace period, far above the stale badge threshold`() {
+            val properties = ClusterProperties()
+
+            assertThat(properties.forgettableNodeAge()).isEqualTo(Duration.ofMinutes(15))
+            assertThat(properties.forgettableNodeAge())
+                .isGreaterThan(Duration.ofMillis(properties.idleTimeoutMs))
+        }
+
+        @Test
+        fun `tracks the reconciliation grace period rather than being independently configurable`() {
+            val properties = ClusterProperties(
+                scheduledTasks = ClusterScheduledTaskProperties(reconciliationGracePeriodMs = 300_000),
+            )
+
+            assertThat(properties.forgettableNodeAge()).isEqualTo(Duration.ofMinutes(5))
+        }
+
+        @Test
+        fun `never exceeds the reaper's retention floor, so the reaper stays the broader sweep`() {
+            val properties = ClusterProperties()
+
+            assertThat(properties.forgettableNodeAge())
+                .isLessThan(properties.effectiveStaleNodeRetention())
+        }
     }
 }
