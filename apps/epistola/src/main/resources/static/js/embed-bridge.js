@@ -282,6 +282,15 @@
     if (/^\/tenants\/[^/]+\/templates$/.test(location.pathname)) {
       postToHost({ source: 'epistola-suite', type: 'event', event: 'templates-opened' });
     }
+    if (/^\/tenants\/[^/]+\/templates\/[^/]+\/[^/]+$/.test(location.pathname)) {
+      postToHost({ source: 'epistola-suite', type: 'event', event: 'template-detail-opened' });
+    }
+    if (/\/settings$/.test(location.pathname)) {
+      postToHost({ source: 'epistola-suite', type: 'event', event: 'template-settings-opened' });
+    }
+    if (/\/deployments$/.test(location.pathname)) {
+      postToHost({ source: 'epistola-suite', type: 'event', event: 'template-deployments-opened' });
+    }
   }
   document.addEventListener('htmx:load', notifyNavigated);
   window.addEventListener('popstate', notifyNavigated);

@@ -171,6 +171,11 @@ an instruction to complete a particular task. The host reassesses its whole
 current lesson, which handles one mutation affecting several predicates and
 prevents brittle URL-based inference.
 
+The bridge also emits trusted navigation events derived from the iframe's real
+route. Hosts may use `templates-opened`, `template-detail-opened`,
+`data-contract-opened`, `template-settings-opened`, and
+`template-deployments-opened` for automatic orientation checks.
+
 HTMX success is covered generically, including default-variant publishing. Some
 modules save through raw `fetch`, so their successful save paths call
 `notifyResourceMutated()` explicitly. This includes the Data Contract editor,
