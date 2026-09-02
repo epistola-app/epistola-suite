@@ -256,8 +256,32 @@ Two invariants keep the purge safe, and both are enforced rather than documented
   work until its next heartbeat.
 
 Lease reclaim (`lease_expires_at < now`) never consults `cluster_nodes`, so purging cannot
-strand an in-flight lease. An operator can also forget a single stale node from the
-Cluster page; that path re-checks liveness inside the delete, so a live node is refused.
+strand an in-flight lease.
+
+### Forgetting a node by hand
+
+An operator can also forget a single dead node from the Cluster page. That path is gated on
+`ClusterProperties.forgettableNodeAge()` — the **reconciliation grace period** (15 min), not
+the 10-second `idle-timeout-ms` behind the page's `stale` badge — and re-checks the age
+inside the delete, so the guard holds against a concurrent heartbeat.
+
+The two thresholds answer different questions, and conflating them is a data-loss bug:
+
+- `idle-timeout-ms` (10s) — "is work routed here?" Drives the `stale` badge and every
+  claim path. A live node under database pressure can miss five heartbeats and cross it.
+- `forgettableNodeAge()` (15m) — "is this safe to delete?" A node's
+  `cluster_scheduled_task_registrations` rows are written **only at startup**
+  (`ClusterScheduledTaskRegistrar`, on `ApplicationReadyEvent`); the heartbeat upsert
+  touches only `cluster_nodes`. Forgetting a merely-lagging node would therefore delete
+  registrations it cannot restore while running — its row would return on the next
+  heartbeat while it silently vouched for nothing, and the reconciler would then
+  hard-delete any definition only that node carried.
+
+Tying the manual path to the grace period gives it the same safety property the reaper gets
+from its multi-day window: **a node is forgettable only once its registrations have already
+stopped protecting its definitions**, so forgetting can never cause a loss the reconciler
+would not already have caused. A row therefore reads `stale` for a while before it becomes
+forgettable, and the Forget button appears only at that later point.
 
 ## Configuration reference
 

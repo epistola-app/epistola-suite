@@ -14,9 +14,11 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 /**
  * Lists all known cluster nodes (live and stale) from the node registry.
@@ -63,10 +65,11 @@ class RecordClusterHeartbeatHandler(
  * permission — the same way the Cluster operations page itself is gated. [tenantKey] is
  * therefore the permission scope, not a data scope.
  *
- * Only a node that is already stale can be forgotten: an active node would simply
- * re-register on its next heartbeat, and removing a live node's row briefly stops it
- * claiming cluster work. [ClusterNodeRegistry.forgetNode] re-checks liveness in the same
- * statement that deletes, so the guard holds even against a concurrent heartbeat.
+ * Only a node unseen for [ClusterProperties.forgettableNodeAge] can be forgotten — a far
+ * longer window than the `stale` badge, because this cascade deletes scheduled-task
+ * registration rows that only a restart re-creates.
+ * [ClusterNodeRegistry.forgetNode] re-checks the age in the same statement that deletes,
+ * so the guard holds even against a concurrent heartbeat.
  *
  * Audited: this is a deliberate operator action, unlike the infrastructural
  * [RecordClusterHeartbeat]. Not event-logged — nothing downstream reacts to it.
@@ -83,6 +86,7 @@ data class ForgetClusterNode(
 @Component
 class ForgetClusterNodeHandler(
     private val registry: ClusterNodeRegistry,
+    private val properties: ClusterProperties,
 ) : CommandHandler<ForgetClusterNode, StaleClusterNodePurge> {
     override fun handle(command: ForgetClusterNode): StaleClusterNodePurge {
         val node = registry.findNode(command.nodeId)
@@ -94,14 +98,30 @@ class ForgetClusterNodeHandler(
 
         val purge = registry.forgetNode(node.nodeId)
         if (purge.nodes == 0) {
-            // The delete re-checks liveness, so reaching here means the node is still
-            // heartbeating — report that rather than silently doing nothing.
+            // The delete re-checks the age, so reaching here means the node has been seen
+            // too recently to forget. Say how recently and what the bar is, rather than
+            // silently doing nothing — "stale" on the page is a much shorter window than
+            // "forgettable", and that difference is the whole point of the guard.
+            val age = Duration.between(node.lastSeenAt.toInstant(), EpistolaClock.instant())
             throw ValidationException(
                 field = "nodeId",
-                message = "Cluster node '${command.nodeId}' is still active and cannot be forgotten.",
-                code = ValidationCode.CLUSTER_NODE_ACTIVE,
+                message = "Cluster node '${command.nodeId}' was last seen ${compact(age)} ago; " +
+                    "a node can be forgotten once it has been unseen for " +
+                    "${compact(properties.forgettableNodeAge())}.",
+                code = ValidationCode.CLUSTER_NODE_NOT_FORGETTABLE,
             )
         }
         return purge
+    }
+
+    /** "45s" / "4m" / "2h" / "3d" — coarse on purpose; this only has to orient an operator. */
+    private fun compact(duration: Duration): String {
+        val seconds = duration.seconds.coerceAtLeast(0)
+        return when {
+            seconds < 60 -> "${seconds}s"
+            seconds < 3_600 -> "${seconds / 60}m"
+            seconds < 86_400 -> "${seconds / 3_600}h"
+            else -> "${seconds / 86_400}d"
+        }
     }
 }

@@ -204,12 +204,12 @@
                                   th:text="${entry.ageLabel}">just now</span>
                         </td>
                         <td class="cluster-node-actions">
-                            <button th:if="${!entry.isActive}"
+                            <button th:if="${entry.isForgettable}"
                                     type="button"
                                     class="ep-btn ep-btn-sm"
                                     th:data-confirm-url="@{/tenants/{tenantId}/cluster/nodes/{nodeId}/forget(tenantId=${tenantId},nodeId=${entry.node.nodeId})}"
                                     data-confirm-title="Forget node"
-                                    th:data-confirm-message="'Remove ' + ${entry.node.nodeId} + ' from the cluster registry? It re-registers automatically if it comes back.'"
+                                    th:data-confirm-message="'Remove ' + ${entry.node.nodeId} + ' from the cluster registry, along with the scheduled-task registrations it left behind? If the node is still running it reappears on its next heartbeat, but it will not vouch for its scheduled tasks again until it restarts.'"
                                     data-confirm-target="#cluster-results"
                                     data-confirm-swap="outerHTML"
                                     data-testid="forget-node">Forget</button>

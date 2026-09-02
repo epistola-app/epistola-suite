@@ -94,6 +94,30 @@ data class ClusterProperties(
         Duration.ofMillis(scheduledTasks.reconciliationGracePeriodMs).multipliedBy(RETENTION_GRACE_MULTIPLIER),
     )
 
+    /**
+     * Heartbeat age at which a node may be **manually forgotten** from the Cluster page.
+     *
+     * Deliberately *not* [idleTimeoutMs]. That window (10s, five missed heartbeats) is the
+     * right bar for "don't route work here" and for the page's `stale` badge, but far too
+     * eager for a destructive delete: a node that missed a few heartbeats under database
+     * pressure is alive, and forgetting it deletes the
+     * `cluster_scheduled_task_registrations` rows that **only a restart re-creates** —
+     * `ClusterScheduledTaskRegistrar` registers on `ApplicationReadyEvent`, and the
+     * heartbeat upsert touches only `cluster_nodes`. The node's row would come back on its
+     * next heartbeat while it silently vouched for nothing, and
+     * `ClusterScheduledTaskReconciler` would then hard-delete any definition only that
+     * node carried.
+     *
+     * Reusing the reconciliation grace period gives the manual path the same safety
+     * property the reaper gets from its multi-day window: **a node is forgettable only
+     * once its registrations have already stopped protecting its definitions**, so
+     * forgetting can never cause a loss the reconciler would not already have caused.
+     *
+     * Derived rather than configurable on purpose — an independent knob would just
+     * re-introduce the drift this is here to prevent.
+     */
+    fun forgettableNodeAge(): Duration = Duration.ofMillis(scheduledTasks.reconciliationGracePeriodMs)
+
     companion object {
         const val DEFAULT_CAPABILITY = "suite"
 

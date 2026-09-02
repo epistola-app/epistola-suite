@@ -179,7 +179,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             // 422, not 500: rejected on its merits, so the dialog swaps Delete for Cancel
             // and shows this message instead of a generic internal-error page.
             assertThat(response.statusCode.value()).isEqualTo(422)
-            assertThat(response.body!!).contains("still active")
+            assertThat(response.body!!).contains("can be forgotten once it has been unseen for")
             // The node this request is being served by must survive — every claim path needs its row.
             assertThat(nodeExists(nodeIdentity.nodeId)).isTrue()
         }
@@ -212,13 +212,17 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `GET dashboard offers Forget only for stale nodes`() = fixture {
+    fun `GET dashboard offers Forget only past the forgettable age, not merely when stale`() = fixture {
         lateinit var tenant: Tenant
 
         given {
             tenant = tenant("Cluster Forget Button Tenant")
             deleteNode("stale-forget-button-node")
+            deleteNode("lagging-forget-button-node")
             insertNode("stale-forget-button-node", OffsetDateTime.now().minusMinutes(20))
+            // Reads `stale` (past the 10s idle timeout) but is inside the 15m grace period,
+            // so it could still be a live node lagging its heartbeat.
+            insertNode("lagging-forget-button-node", OffsetDateTime.now().minusMinutes(2))
         }
 
         whenever {
@@ -229,8 +233,41 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             val body = response.body!!
             assertThat(body).contains("/cluster/nodes/stale-forget-button-node/forget")
+            // Listed on the page, but not offered a destructive action.
+            assertThat(body).contains("lagging-forget-button-node")
+            assertThat(body).doesNotContain("/cluster/nodes/lagging-forget-button-node/forget")
             // The current node is active, so it must not be offered a Forget button.
             assertThat(body).doesNotContain("/cluster/nodes/${nodeIdentity.nodeId}/forget")
+        }
+    }
+
+    @Test
+    fun `POST forget refuses a stale node that has not yet passed the forgettable age`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Cluster Forget Lagging Tenant")
+            deleteNode("lagging-cluster-node")
+            insertNode("lagging-cluster-node", OffsetDateTime.now().minusMinutes(2))
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            restTemplate.exchange(
+                "/tenants/${tenant.id}/cluster/nodes/lagging-cluster-node/forget",
+                HttpMethod.POST,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Refused even if the operator reaches the endpoint directly, not just hidden in the UI.
+            assertThat(response.statusCode.value()).isEqualTo(422)
+            assertThat(response.body!!).contains("can be forgotten once it has been unseen for")
+            assertThat(nodeExists("lagging-cluster-node")).isTrue()
         }
     }
 

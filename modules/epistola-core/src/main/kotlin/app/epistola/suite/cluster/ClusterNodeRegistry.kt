@@ -223,15 +223,17 @@ class ClusterNodeRegistry(
      * Removes one specific node that an operator asked to forget, with the same cascade as
      * [purgeNodesLastSeenBefore].
      *
-     * Refuses a node whose heartbeat is still fresh: `last_seen_at <= :activeSince` is the
-     * inverse of the [activeNodes] predicate, so a live node can never be forgotten even if
-     * the caller's own liveness check raced a concurrent heartbeat. Returns a purge with
-     * `nodes == 0` when the node does not exist or is still active.
+     * Gated on [ClusterProperties.forgettableNodeAge], **not** on the much shorter
+     * `idleTimeoutMs` used for the `stale` badge: a node merely lagging its heartbeat is
+     * alive, and this cascade deletes registration rows that only a restart re-creates.
+     * Re-checking the age inside the same statement that deletes means the guard holds
+     * even against a concurrent heartbeat. Returns a purge with `nodes == 0` when the node
+     * does not exist or has not been unseen long enough.
      */
     fun forgetNode(nodeId: String): StaleClusterNodePurge {
-        val activeSince = EpistolaClock.offsetDateTime().minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
+        val forgettableBefore = EpistolaClock.offsetDateTime().minus(properties.forgettableNodeAge())
         return purge(FORGET_NODE_PREDICATE) { query ->
-            query.bind("nodeId", nodeId).bind("activeSince", activeSince)
+            query.bind("nodeId", nodeId).bind("forgettableBefore", forgettableBefore)
         }
     }
 
@@ -294,9 +296,9 @@ class ClusterNodeRegistry(
         /** Every node last seen before the retention cutoff, except this one. */
         const val STALE_NODE_PREDICATE = "last_seen_at < :cutoff AND node_id <> :currentNodeId"
 
-        /** One named node, only while it is not active, and never this one. */
+        /** One named node, only once unseen past the forgettable age, and never this one. */
         const val FORGET_NODE_PREDICATE =
-            "node_id = :nodeId AND last_seen_at <= :activeSince AND node_id <> :currentNodeId"
+            "node_id = :nodeId AND last_seen_at <= :forgettableBefore AND node_id <> :currentNodeId"
 
         /**
          * Builds the cascade purge. [predicate] is one of the code-owned constants above —

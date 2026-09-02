@@ -73,5 +73,5 @@ enum class ValidationCode(val wire: String) {
 
     // Cluster operations.
     CLUSTER_NODE_NOT_FOUND("CLUSTER_NODE_NOT_FOUND"),
-    CLUSTER_NODE_ACTIVE("CLUSTER_NODE_ACTIVE"),
+    CLUSTER_NODE_NOT_FORGETTABLE("CLUSTER_NODE_NOT_FORGETTABLE"),
 }

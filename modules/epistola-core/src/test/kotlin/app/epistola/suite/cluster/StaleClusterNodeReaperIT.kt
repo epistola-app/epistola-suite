@@ -227,6 +227,47 @@ class StaleClusterNodeReaperIT : IntegrationTestBase() {
         assertThat(nodeExists("reaper-it-live")).isTrue()
     }
 
+    /**
+     * The guard that separates "stale" from "forgettable".
+     *
+     * A node lagging its heartbeat reads `stale` after `idle-timeout-ms` (10s), but it may
+     * simply be slow — under database pressure a live node can miss several beats. Its
+     * `cluster_scheduled_task_registrations` rows are only ever written at startup
+     * (`ClusterScheduledTaskRegistrar`, on `ApplicationReadyEvent`); the heartbeat touches
+     * only `cluster_nodes`. So forgetting it here would strip registrations the node
+     * cannot restore while running, and the reconciler would then hard-delete any
+     * definition only it carried.
+     */
+    @Test
+    fun `forgetting refuses a node that is stale but not yet unseen for the grace period`() {
+        val taskKey = "test.stale-node-reaper-lagging"
+        insertScheduledTask(taskKey)
+        // Well past idle-timeout-ms (10s), well inside reconciliation-grace-period-ms (15m).
+        insertNode("reaper-it-lagging", now().minusMinutes(2))
+        insertRegistration(taskKey, "reaper-it-lagging")
+
+        try {
+            val purge = registry.forgetNode("reaper-it-lagging")
+
+            assertThat(purge.nodes).isZero()
+            assertThat(nodeExists("reaper-it-lagging")).isTrue()
+            // The registrations are the thing actually being protected here.
+            assertThat(countRegistrations("reaper-it-lagging")).isEqualTo(1)
+        } finally {
+            deleteScheduledTask(taskKey)
+        }
+    }
+
+    @Test
+    fun `forgetting accepts a node once it passes the grace period`() {
+        insertNode("reaper-it-forgettable", now().minusMinutes(16))
+
+        val purge = registry.forgetNode("reaper-it-forgettable")
+
+        assertThat(purge.nodes).isEqualTo(1)
+        assertThat(nodeExists("reaper-it-forgettable")).isFalse()
+    }
+
     @Test
     fun `forgetting refuses the current node`() {
         // Even aged past the idle timeout, this node must survive — it is about to claim work.

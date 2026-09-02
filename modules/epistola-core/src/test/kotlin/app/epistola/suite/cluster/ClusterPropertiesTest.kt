@@ -113,4 +113,40 @@ class ClusterPropertiesTest {
             assertThat(ClusterNodeReaperProperties().cron).isEqualTo("0 15 4 * * *")
         }
     }
+
+    /**
+     * The manual Forget action deletes registration rows that only a restart re-creates, so
+     * it must not fire at the `stale` badge's threshold. Tying it to the reconciliation
+     * grace period means a node is forgettable only once its registrations already stopped
+     * protecting its definitions.
+     */
+    @Nested
+    inner class ForgettableNodeAge {
+
+        @Test
+        fun `is the reconciliation grace period, far above the stale badge threshold`() {
+            val properties = ClusterProperties()
+
+            assertThat(properties.forgettableNodeAge()).isEqualTo(Duration.ofMinutes(15))
+            assertThat(properties.forgettableNodeAge())
+                .isGreaterThan(Duration.ofMillis(properties.idleTimeoutMs))
+        }
+
+        @Test
+        fun `tracks the reconciliation grace period rather than being independently configurable`() {
+            val properties = ClusterProperties(
+                scheduledTasks = ClusterScheduledTaskProperties(reconciliationGracePeriodMs = 300_000),
+            )
+
+            assertThat(properties.forgettableNodeAge()).isEqualTo(Duration.ofMinutes(5))
+        }
+
+        @Test
+        fun `never exceeds the reaper's retention floor, so the reaper stays the broader sweep`() {
+            val properties = ClusterProperties()
+
+            assertThat(properties.forgettableNodeAge())
+                .isLessThan(properties.effectiveStaleNodeRetention())
+        }
+    }
 }

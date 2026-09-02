@@ -115,6 +115,11 @@ class ClusterStatusHandler(
                 isCurrent = node.nodeId == currentNode.nodeId,
                 isActive = ageMs <= properties.idleTimeoutMs,
                 ageSeconds = ageMs / MILLIS_PER_SECOND,
+                // Not simply `!isActive`: a node lagging its heartbeat is still alive, and
+                // forgetting it deletes registrations only a restart re-creates. The button
+                // appears only once the command would actually accept it.
+                isForgettable = node.nodeId != currentNode.nodeId &&
+                    ageMs >= properties.forgettableNodeAge().toMillis(),
             )
         }
         val scheduledTaskNodeStates = ListClusterScheduledTaskNodeStates.query()
@@ -223,6 +228,15 @@ data class ClusterNodeStatus(
     val isCurrent: Boolean,
     val isActive: Boolean,
     val ageSeconds: Long,
+    /**
+     * Whether the Forget action is offered for this row.
+     *
+     * Deliberately a much older threshold than [isActive]'s: see
+     * [app.epistola.suite.cluster.ClusterProperties.forgettableNodeAge]. A row can read
+     * `stale` for a long time before it becomes forgettable, which is intended — the badge
+     * answers "is work routed here", the button answers "is this safe to delete".
+     */
+    val isForgettable: Boolean = false,
 ) {
     val statusLabel: String = if (isActive) "active" else "stale"
     val capabilitiesLabel: String = node.capabilities.ifEmpty { listOf("suite") }.joinToString(", ")
