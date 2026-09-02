@@ -14,6 +14,7 @@ import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.contracts.model.ContractVersionStatus
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
+import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import org.assertj.core.api.Assertions.assertThat
@@ -186,5 +187,31 @@ class TemplateAssessmentEvaluatorTest {
         assertThat(evaluator.selectVariant(listOf(dutch, default), null)).isEqualTo(default)
         assertThat(evaluator.selectVariant(listOf(default, dutch), "nld")).isEqualTo(dutch)
         assertThat(evaluator.selectVariant(listOf(default), "missing")).isNull()
+    }
+
+    @Test
+    fun `component and image accessibility predicates inspect persisted editor nodes`() {
+        val columns = Node(id = "columns", type = "columns", slots = emptyList(), props = emptyMap())
+        val describedImage = Node(
+            id = "logo",
+            type = "image",
+            slots = emptyList(),
+            props = mapOf("alt" to "Epistola Training"),
+        )
+        val decorativeImage = Node(
+            id = "rule",
+            type = "image",
+            slots = emptyList(),
+            props = mapOf("decorative" to true),
+        )
+
+        assertThat(evaluator.hasComponentType(listOf(columns, describedImage), "columns")).isTrue()
+        assertThat(evaluator.hasComponentType(listOf(columns, describedImage), "table")).isFalse()
+        assertThat(evaluator.hasImageAccessibility(listOf(describedImage), "described")).isTrue()
+        assertThat(evaluator.hasImageAccessibility(listOf(describedImage), "intentional")).isTrue()
+        assertThat(evaluator.hasImageAccessibility(listOf(describedImage), "decorative")).isFalse()
+        assertThat(evaluator.hasImageAccessibility(listOf(decorativeImage), "decorative")).isTrue()
+        assertThat(evaluator.hasImageAccessibility(listOf(decorativeImage), "intentional")).isTrue()
+        assertThat(evaluator.hasImageAccessibility(listOf(decorativeImage), "described")).isFalse()
     }
 }

@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.contracts.model.ContractVersion
@@ -21,10 +22,12 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.themes.queries.GetTheme
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -56,7 +59,7 @@ class TemplateInspectionHandler(
         val results = objectMapper.createArrayNode()
         predicates.forEach { predicate ->
             val resource = byId[predicate.get("resource")?.asString()]
-            val status = resource?.let { evaluate(tenant, it as? ObjectNode, predicate as? ObjectNode) } ?: "unknown"
+            val status = resource?.let { evaluate(tenant, it as? ObjectNode, predicate as? ObjectNode, byId) } ?: "unknown"
             results.addObject().apply {
                 set("predicate", predicate as? ObjectNode ?: objectMapper.createObjectNode())
                 put("status", status)
@@ -66,16 +69,26 @@ class TemplateInspectionHandler(
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(objectMapper.writeValueAsString(response))
     }
 
-    private fun evaluate(tenant: TenantId, resource: ObjectNode?, predicate: ObjectNode?): String {
-        if (resource?.get("resourceType")?.asString() != "template" || predicate == null) return "unknown"
-        val template = try {
-            TemplateId(TemplateKey.of(resource.get("key")?.asString() ?: return "unknown"), CatalogId(CatalogKey.of(resource.get("catalogKey")?.asString() ?: return "unknown"), tenant))
-        } catch (_: IllegalArgumentException) {
-            return "unknown"
+    private fun evaluate(
+        tenant: TenantId,
+        resource: ObjectNode?,
+        predicate: ObjectNode?,
+        resources: Map<String?, JsonNode>,
+    ): String {
+        if (resource == null || predicate == null) return "unknown"
+        if (predicate.get("type")?.asString() == "resource-exists") {
+            return when (resource.get("resourceType")?.asString()) {
+                "template" -> templateId(tenant, resource)?.let { if (GetDocumentTemplate(it).query() != null) "satisfied" else "unsatisfied" }
+                    ?: "unknown"
+                "theme" -> themeId(tenant, resource)?.let { if (GetTheme(it).query() != null) "satisfied" else "unsatisfied" }
+                    ?: "unknown"
+                else -> "unknown"
+            }
         }
+        if (resource.get("resourceType")?.asString() != "template") return "unknown"
+        val template = templateId(tenant, resource) ?: return "unknown"
         if (GetDocumentTemplate(template).query() == null) return "unsatisfied"
         return when (predicate.get("type")?.asString()) {
-            "resource-exists" -> "satisfied"
             "data-contract-published" -> if (hasPublishedContract(GetLatestPublishedContractVersion(template).query())) "satisfied" else "unsatisfied"
             "data-example-valid" -> {
                 val contract = GetLatestContractVersion(template).query()
@@ -91,6 +104,39 @@ class TemplateInspectionHandler(
                 val path = predicate.get("path")?.asString()
                 if (path != null && path in (editor?.let { expressions(it.templateModel.nodes.values.map { node -> node.props }) } ?: emptySet())) "satisfied" else "unsatisfied"
             }
+            "template-theme-assigned" -> {
+                val theme = resources[predicate.get("theme")?.asString()]
+                val themeId = theme?.let { themeId(tenant, it as? ObjectNode) }
+                val templateRecord = GetDocumentTemplate(template).query()
+                if (themeId == null || templateRecord == null || GetTheme(themeId).query() == null) {
+                    "unsatisfied"
+                } else if (
+                    templateRecord.themeKey == themeId.key &&
+                    (templateRecord.themeCatalogKey ?: templateRecord.catalogKey) == themeId.catalogKey
+                ) {
+                    "satisfied"
+                } else {
+                    "unsatisfied"
+                }
+            }
+            "template-component-present" -> {
+                val variant = selectVariant(
+                    GetVariantSummaries(template).query(),
+                    predicate.get("variant")?.asString(),
+                )
+                val editor = variant?.let { GetEditorContext(VariantId(it.id, template)).query() }
+                val componentType = predicate.get("componentType")?.asString()
+                if (componentType != null && editor != null && hasComponentType(editor.templateModel.nodes.values, componentType)) "satisfied" else "unsatisfied"
+            }
+            "template-image-accessibility" -> {
+                val variant = selectVariant(
+                    GetVariantSummaries(template).query(),
+                    predicate.get("variant")?.asString(),
+                )
+                val editor = variant?.let { GetEditorContext(VariantId(it.id, template)).query() }
+                val mode = predicate.get("mode")?.asString()
+                if (mode != null && editor != null && hasImageAccessibility(editor.templateModel.nodes.values, mode)) "satisfied" else "unsatisfied"
+            }
             "data-contract-property" -> {
                 val contract = GetLatestContractVersion(template).query()
                 val path = predicate.get("path")?.asString()
@@ -103,6 +149,43 @@ class TemplateInspectionHandler(
             }
             "default-variant-published" -> if (hasPublishedDefaultVariant(GetVariantSummaries(template).query())) "satisfied" else "unsatisfied"
             else -> "unknown"
+        }
+    }
+
+    private fun templateId(tenant: TenantId, resource: ObjectNode?): TemplateId? = try {
+        TemplateId(
+            TemplateKey.of(resource?.get("key")?.asString() ?: return null),
+            CatalogId(CatalogKey.of(resource.get("catalogKey")?.asString() ?: return null), tenant),
+        )
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    private fun themeId(tenant: TenantId, resource: ObjectNode?): ThemeId? = try {
+        ThemeId(
+            app.epistola.suite.common.ids.ThemeKey.of(resource?.get("key")?.asString() ?: return null),
+            CatalogId(CatalogKey.of(resource.get("catalogKey")?.asString() ?: return null), tenant),
+        )
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    internal fun hasComponentType(
+        nodes: Collection<app.epistola.suite.templates.model.Node>,
+        componentType: String,
+    ): Boolean = nodes.any { it.type == componentType }
+
+    internal fun hasImageAccessibility(
+        nodes: Collection<app.epistola.suite.templates.model.Node>,
+        mode: String,
+    ): Boolean = nodes.filter { it.type == "image" }.any { node ->
+        when (mode) {
+            "described" -> node.props?.get("decorative") != true && !((node.props?.get("alt") as? String).isNullOrBlank())
+            "decorative" -> node.props?.get("decorative") == true
+            "intentional" ->
+                node.props?.get("decorative") == true ||
+                    (node.props?.get("decorative") != true && !((node.props?.get("alt") as? String).isNullOrBlank()))
+            else -> false
         }
     }
 
