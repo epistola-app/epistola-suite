@@ -59,6 +59,12 @@ async function previewPdf(button) {
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
     window.open(blobUrl, '_blank');
+    if (
+      window.epistolaEmbedBridge &&
+      typeof window.epistolaEmbedBridge.notifyEvent === 'function'
+    ) {
+      window.epistolaEmbedBridge.notifyEvent('pdf-previewed');
+    }
     // Revoke blob URL after the new tab has had time to load
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   } catch (error) {

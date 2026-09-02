@@ -52,6 +52,10 @@
   bridge now resolves a closed `templates` target from the current authorized tenant and emits the
   trusted `templates-opened` event when its list page is reached.
 
+- **[dev]** feat(embedding): **Published template work can be assessed in training.** Hosts can
+  assess whether a default variant is published, reassess after a publish mutation, and receive a
+  trusted `pdf-previewed` event after Suite successfully renders a PDF preview.
+
 - **[dev]** fix(generation): **Fixed a flaky database-pressure recovery test.**
   `JobPollerDatabasePressureIntegrationTest` synchronized on a drain-loop
   heartbeat that ticks before claiming happens, so on a slow CI runner the

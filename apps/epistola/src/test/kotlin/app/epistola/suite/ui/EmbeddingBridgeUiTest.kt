@@ -247,6 +247,25 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `publishing a template reports mutation and a successful PDF preview reports its trusted event`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+        createTemplateViaUi(tenant, "Publish Training Template", "publish-training-template")
+
+        page.locator("[title='Publish draft']").click()
+        page.htmxSettle()
+
+        val published = latestMessageOfType("resource-mutated")
+        checkNotNull(published) { "expected a publish mutation, got: ${capturedMessages()}" }
+        Assertions.assertThat((published["message"] as Map<*, *>)["operation"]).isEqualTo("publish")
+
+        page.locator("[data-pdf-preview]").click()
+        page.waitForFunction(
+            """() => window.__epistolaMessages.some(({ message }) => message?.type === 'event' && message.event === 'pdf-previewed')""",
+        )
+    }
+
+    @Test
     fun `a host navigate message can open a template data contract`() {
         val tenant = createTestTenant()
         installMessageCapture()

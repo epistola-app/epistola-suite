@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
@@ -76,9 +77,12 @@ class TemplateInspectionHandler(
                 val editor = variant?.let { GetEditorContext(VariantId(it.id, template)).query() }
                 if (predicate.get("path")?.asString() in (editor?.let { headingExpressions(it.templateModel.nodes.values.map { node -> node.props }) } ?: emptySet())) "satisfied" else "unsatisfied"
             }
+            "default-variant-published" -> if (hasPublishedDefaultVariant(GetVariantSummaries(template).query())) "satisfied" else "unsatisfied"
             else -> "unknown"
         }
     }
+
+    internal fun hasPublishedDefaultVariant(variants: List<VariantSummary>): Boolean = variants.any { it.isDefault && it.publishedVersions.isNotEmpty() }
 
     internal fun requiredFields(schema: tools.jackson.databind.node.ObjectNode?): Set<String> = buildSet {
         fun collect(node: tools.jackson.databind.node.ObjectNode, prefix: String = "") {

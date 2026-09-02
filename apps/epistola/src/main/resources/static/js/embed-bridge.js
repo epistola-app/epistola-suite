@@ -295,6 +295,10 @@
     });
   }
 
+  function notifyEvent(event) {
+    postToHost({ source: 'epistola-suite', type: 'event', event: event });
+  }
+
   // Classifies every real htmx create/update/delete from the request (and, for
   // create, the response) alone — see the file header for why this needs no
   // backend involvement. A PATCH to a resource path is an update; a POST whose
@@ -346,6 +350,26 @@
       return;
     }
 
+    if (
+      verb === 'POST' &&
+      parsed.resourceType === 'template' &&
+      parsed.rest.length === 6 &&
+      parsed.rest[2] === 'variants' &&
+      parsed.rest[4] === 'draft' &&
+      parsed.rest[5] === 'publish'
+    ) {
+      notifyResourceMutated(
+        {
+          resourceType: parsed.resourceType,
+          tenantId: parsed.tenantId,
+          catalogKey: parsed.rest[0],
+          key: parsed.rest[1],
+        },
+        'publish',
+      );
+      return;
+    }
+
     if (verb === 'POST' && parsed.rest.length === 0) {
       const createdUrl =
         xhr.getResponseHeader('HX-Location') || xhr.getResponseHeader('HX-Redirect');
@@ -368,7 +392,10 @@
   // Raw fetch() mutations bypass htmx.js entirely, so the listener above never
   // sees them — those call sites invoke this directly after a successful
   // response (e.g. theme-editor-boot.js's onSave).
-  window.epistolaEmbedBridge = { notifyResourceMutated: notifyResourceMutated };
+  window.epistolaEmbedBridge = {
+    notifyEvent: notifyEvent,
+    notifyResourceMutated: notifyResourceMutated,
+  };
 
   // The one full-page-redirect delete (DocumentTemplateHandler.delete) can't
   // carry a response header across a browser-followed redirect, so it appends

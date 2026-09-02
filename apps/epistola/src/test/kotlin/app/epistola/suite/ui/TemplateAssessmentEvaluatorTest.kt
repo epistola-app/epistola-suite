@@ -4,7 +4,9 @@
 
 package app.epistola.suite.ui
 
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.templates.TemplateInspectionHandler
+import app.epistola.suite.templates.model.VariantSummary
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
@@ -28,5 +30,15 @@ class TemplateAssessmentEvaluatorTest {
             ),
         )
         assertThat(evaluator.headingExpressions(listOf(props))).containsExactly("recipientName")
+    }
+
+    @Test
+    fun `only a published default variant satisfies publication verification`() {
+        val draftDefault = VariantSummary(VariantKey.of("default"), "Default", emptyMap(), true, true, emptyList())
+        val publishedNonDefault = VariantSummary(VariantKey.of("other"), "Other", emptyMap(), false, false, listOf(1))
+        val publishedDefault = draftDefault.copy(hasDraft = false, publishedVersions = listOf(1))
+
+        assertThat(evaluator.hasPublishedDefaultVariant(listOf(draftDefault, publishedNonDefault))).isFalse()
+        assertThat(evaluator.hasPublishedDefaultVariant(listOf(publishedDefault))).isTrue()
     }
 }

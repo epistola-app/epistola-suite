@@ -149,6 +149,7 @@ semantics near the Suite domain queries.
 | `resource-exists`                    | The exact typed template identity resolves for the current tenant and user.                                                                                   |
 | `data-contract-property`             | The exact property path exists in the saved Data Contract and its parent object lists it in `required`. Nested object paths are traversed.                    |
 | `default-variant-heading-expression` | The default variant's persisted editor document contains the exact expression path in a rich-text heading. An expression in ordinary body text is not enough. |
+| `default-variant-published`          | The template's default variant has at least one published version.                                                                                            |
 
 The strict path and heading matching are deliberate. Assessment should verify
 the learning objective, not merely find a similarly named field or expression
@@ -170,11 +171,13 @@ an instruction to complete a particular task. The host reassesses its whole
 current lesson, which handles one mutation affecting several predicates and
 prevents brittle URL-based inference.
 
-HTMX success is covered generically. Some modules save through raw `fetch`, so
-their successful save paths call `notifyResourceMutated()` explicitly. This
-includes the Data Contract editor, theme editor, and template editor. When
-adding a UI mutation path, verify that it is covered by the generic HTMX hook
-or make the explicit call after a successful save.
+HTMX success is covered generically, including default-variant publishing. Some
+modules save through raw `fetch`, so their successful save paths call
+`notifyResourceMutated()` explicitly. This includes the Data Contract editor,
+theme editor, and template editor. A successful PDF-preview fetch emits the
+trusted `pdf-previewed` interaction event. When adding a UI mutation path,
+verify that it is covered by the generic HTMX hook or make the explicit call
+after a successful save.
 
 Suite also emits trusted closed interaction events when the learner reaches a
 supported workspace action. Current examples are:
@@ -185,6 +188,10 @@ supported workspace action. Current examples are:
 
 ```json
 { "source": "epistola-suite", "type": "event", "event": "templates-opened" }
+```
+
+```json
+{ "source": "epistola-suite", "type": "event", "event": "pdf-previewed" }
 ```
 
 Events are evidence of interaction, not resource validity. The host may retain
