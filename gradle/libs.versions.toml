@@ -37,7 +37,7 @@ playwright = { module = "com.microsoft.playwright:playwright", version.ref = "pl
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
 epistola-catalog = { module = "app.epistola.contract:epistola-catalog", version.ref = "epistola-contract" }
 epistola-hub-client = { module = "app.epistola.hub:client", version.ref = "epistola-hub-client" }
-epistola-exchange-client = { module = "app.epistola.exchange:api-client", version.ref = "epistola-exchange-client" }
+epistola-exchange-client = { module = "app.epistola.exchange:client", version.ref = "epistola-exchange-client" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
