@@ -28,6 +28,13 @@
       "automergeType": "pr"
     },
     {
+      "description": "Epistola Exchange client: never automerged. A bump moves the wire contract Suite compiles against, which is the whole reason the client is typed - letting it merge unread would put the review back where it was, at runtime.",
+      "matchPackageNames": ["app.epistola.exchange*"],
+      "groupName": "epistola-exchange-client",
+      "groupSlug": "epistola-exchange-client",
+      "automerge": false
+    },
+    {
       "description": "Group epistola-contract packages (server SDK + editor model) together",
       "matchPackageNames": ["app.epistola.contract*", "@epistola.app/**"],
       "groupName": "epistola-contract",

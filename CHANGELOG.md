@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** chore(deps): **Exchange client updates are never automerged.** A bump moves the wire contract Suite compiles against, and the default rule automerges minor and patch updates — which would put that review back where the typed client was meant to take it from, at runtime.
+
 - **[user]** fix(exchange): **A refused release now says why on the catalog page.** Suite's own sentence names the kind of failure, but the reason Exchange gave — which release rule was broken — was only ever shown on the Exchange settings page. An author looking at the catalog they had just published saw "Exchange refused this release." and nothing more.
 
 - **[user]** fix(exchange): **Catalog page no longer errors for a publication with no failure.** The new authority link tested `failure?.needsAuthorityTransfer`, which evaluates to null for a healthy publication and cannot be converted to a boolean — so every catalog page that had ever published returned 500.
