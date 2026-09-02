@@ -39,6 +39,14 @@
   migration paths, `EntityId`/`JdbiSlugIdSupport` now in `epistola-core`), the
   OpenAPI-spec location is corrected to the external `epistola-contract`, and
   the two snake_case plan files are renamed to kebab-case.
+- **[dev]** feat(embedding): **Embedded training can authoritatively assess Suite resource state.**
+  Extended the iframe bridge with correlated assessment requests, typed resources, closed workspace
+  views, trusted interaction events, and mutation notifications. A new authenticated UI assessment
+  route evaluates template existence, required nested Data Contract properties, and exact
+  default-variant heading expressions through existing domain queries and permissions, returning
+  verdicts rather than exposing template content. The full-page template editor now boots the same
+  bridge and reports successful saves so hosts can reassess immediately; Suite continues to own no
+  courses, task IDs, or learner progress.
 
 - **[dev]** fix(generation): **Fixed a flaky database-pressure recovery test.**
   `JobPollerDatabasePressureIntegrationTest` synchronized on a drain-loop

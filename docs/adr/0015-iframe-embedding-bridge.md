@@ -58,18 +58,18 @@ every modern browser and (unlike `X-Frame-Options`) supports an origin list, so
 leaving `DENY` in place under embedding would just contradict the CSP header for
 no protective benefit.
 
-### Cookies must survive inside a cross-origin iframe (the blocking prerequisite)
+### Cookies are relaxed for potentially cross-site allowlisted hosts
 
-Session (`sid`) and CSRF (`XSRF-TOKEN`) cookies are `SameSite=Lax` today. A
-request's "site for cookies" is computed against the **top-level document**, not
-the frame's own origin — so once epistola.app embeds the suite in an `<iframe>`,
-every request the iframe's own JS/htmx makes back to its own origin (including
-the very first document load) is cross-site for cookie purposes, and
-`SameSite=Lax` cookies are excluded from all of them. Without a change here,
-every embedded page renders a login-wall regardless of how well the `postMessage`
-plumbing works.
+Session (`sid`) and CSRF (`XSRF-TOKEN`) cookies are `SameSite=Lax` by default. A
+request's "site for cookies" is computed against the top-level document, but
+site is not the same as origin: scheme and registrable domain determine
+same-site status, while port does not. The configured production subdomains and
+local localhost ports are therefore cross-origin but same-site. The original
+claim that their iframe requests necessarily exclude Lax cookies was incorrect.
+The normative algorithm is in the
+[cookie specification](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis/#section-5.2.1).
 
-Both cookies switch to `SameSite=None; Secure` — but **only** when
+Both cookies nevertheless switch to `SameSite=None; Secure` — but **only** when
 `epistola.embedding.enabled=true`. `SessionConfig`'s `cookieSerializer()` branches
 explicitly rather than always calling `setUseSecureCookie(embeddingProperties.enabled)`:
 Spring Session's own default for `Secure` mirrors `HttpServletRequest.isSecure()`,
@@ -81,9 +81,10 @@ repository afterward, via `CsrfConfigurer.csrfTokenRepository(...)`, to a
 `CookieCsrfTokenRepository.withHttpOnlyFalse()` with
 `setCookieCustomizer { it.sameSite("None").secure(true) }`.
 
-This is a real defense-in-depth reduction (`Lax` → `None`), explicitly scoped and
-confirmed as an intentional trade-off — not an incidental side effect — before
-implementation. Every other profile keeps today's behavior unchanged.
+This permits genuinely cross-site origins if they are later allowlisted. It is a
+real defense-in-depth reduction (`Lax` → `None`), explicitly scoped to embedding;
+it is not required solely by the two currently configured host relationships.
+Every other profile keeps today's behavior unchanged.
 
 ### Navigation is identity-based, resolved client-side, never a raw URL
 
@@ -99,7 +100,7 @@ chosen over a new server-side "resolve identity → path" endpoint because the
 destination page's existing handler logic already **is** the enforcement point —
 an endpoint would only duplicate it.
 
-### Resource-changed notifications are derived client-side, not emitted by Kotlin
+### Resource mutation notifications are derived client-side, not emitted by Kotlin
 
 An earlier version of this design added an explicit `HtmxResponseBuilder.trigger(...)`
 call to every mutating handler's success path — one Kotlin call site per
@@ -109,7 +110,7 @@ to the embedding feature, required a developer to remember to add the call when
 writing a new mutating handler, and used three inconsistent transports for what
 is conceptually one signal.
 
-Instead, `embed-bridge.js` derives `resource-changed` from a single generic
+Instead, `embed-bridge.js` derives `resource-mutated` from a single generic
 `htmx:afterRequest` listener, because template/theme/stencil mutations already
 follow one uniform URL convention end to end
 (`DocumentTemplateRoutes`/`ThemeRoutes`/`StencilRoutes`):
@@ -126,9 +127,9 @@ same URL convention is covered automatically, with no per-handler edit and
 nothing to keep in sync. Two mutations aren't observable this way and keep one
 small, explicit exception each:
 
-- Raw `fetch()` saves (theme's editor PATCH) bypass htmx.js entirely, so no
+- Raw `fetch()` saves bypass htmx.js entirely, so no
   `htmx:afterRequest` fires for them — that call site invokes
-  `window.epistolaEmbedBridge?.notifyResourceChanged(...)` directly.
+  `window.epistolaEmbedBridge?.notifyResourceMutated(...)` directly.
 - A genuine browser-followed redirect (template's `hx-boost="false"` delete
   form) has no client-observable request/response at all — the handler appends
   a one-shot `?resourceDeleted=type:catalogKey:key` flash query param to the
@@ -144,14 +145,14 @@ above.
 
 ### Where the resource identity for `navigated` comes from
 
-Client-side only, same as `resource-changed`: `embed-bridge.js` runs
+Client-side only, same as `resource-mutated`: `embed-bridge.js` runs
 `location.pathname` through the same `parseResourcePath` matcher used for
 mutation classification. An earlier version had `EmbeddingContextInterceptor`
 derive this server-side (matching the request path against
 `/tenants/{tenantId}/(templates|themes|stencils)/{catalogKey}/{key}` and
 rendering it into a `#epistola-current-resource` JSON island) — removed once
 it became clear the client already had the exact same URL-parsing logic for
-`resource-changed`, so there was nothing left for the server to compute that
+`resource-mutated`, so there was nothing left for the server to compute that
 the client couldn't derive itself. `EmbeddingContextInterceptor` now only
 carries `embeddingEnabled`/`allowedParentOrigins`, which genuinely are
 server-side config with no client-derivable equivalent.
@@ -165,7 +166,7 @@ server-side config with no client-derivable equivalent.
 - `SecurityConfig`, `SessionConfig`, and `WebMvcConfig` all now depend on
   `EmbeddingProperties`. None of their behavior changes when it's disabled.
 - A new `docs/embedding.md` documents the message protocol and the extension
-  pattern for adding `resource-changed` coverage to more handlers.
+  pattern for adding `resource-mutated` coverage to more handlers.
 - No REST API or MCP surface changes — this is UI-only.
 - No training material of any kind ships in epistola-suite.
 

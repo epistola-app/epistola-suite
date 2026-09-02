@@ -1,28 +1,23 @@
-# Iframe embedding + postMessage bridge
+# Iframe embedding + assessment bridge
 
 Epistola's web UI can be embedded in an `<iframe>` on a trusted host page and
-driven from there via `postMessage`. This is the **basis** for a future
-training facility on epistola.app that launches exercises inside an embedded
-Epistola — epistola-suite ships none of that training content itself, only the
-plumbing that lets a host page embed and talk to it. See
-[ADR 0015](adr/0015-iframe-embedding-bridge.md) for the full design rationale.
+driven from there with `postMessage`. Suite provides the generic plumbing only:
+it does not ship courses, lessons, task IDs, or learner progress. A host owns
+that content and asks Suite to assess a closed set of resource predicates in
+the signed-in user's workspace.
 
-## Status
+This is the practical protocol guide. See
+[Interactive training assessment](interactive-training-assessment.md) for the
+Suite-owned assessment boundary, evaluator semantics, and extension checklist,
+and [ADR 0015](adr/0015-iframe-embedding-bridge.md) for the framing and cookie
+security decision.
 
-- **Demo-mode only.** Every capability described here is off by default and
-  only ever turned on by the `demo` and `local` Spring profiles
-  (`application-demo.yaml`, `application-local.yaml` — the latter so the
-  training-facility site can be developed against a local Epistola instance,
-  allowlisting `http://localhost:4321`, its usual local dev port). Self-hosted
-  customer deployments are byte-for-byte unaffected.
-- **No training content ships here.** No exercises, no lesson data, no
-  training-specific UI — only the embedding basis (framing + the message
-  protocol below).
-- **REST API access needs no changes.** Creating tenants and reading resources
-  over the REST API already works for an external caller and isn't part of
-  this feature.
+## Status and configuration
 
-## Configuration
+Embedding is off by default. It is enabled in the `demo` and `local` profiles
+so the hosted and local training environments can embed Suite; a normal
+self-hosted installation remains unframeable and retains its existing cookie
+behavior.
 
 ```yaml
 epistola:
@@ -31,172 +26,264 @@ epistola:
     allowed-parent-origins: [] # e.g. [https://epistola.app] or [http://localhost:4321] for local dev
 ```
 
-`EmbeddingProperties` (`apps/epistola/.../embedding/EmbeddingProperties.kt`).
-Turning `enabled` on changes three things at once, all conditioned on the same
-flag:
+`EmbeddingProperties` applies this one flag consistently:
 
-1. **CSP `frame-ancestors`** becomes the space-joined `allowed-parent-origins`
-   list instead of `'none'`, and Spring Security's default
-   `X-Frame-Options: DENY` is explicitly disabled (CSP `frame-ancestors` is
-   authoritative over it in every modern browser and, unlike XFO, supports an
-   origin list).
-2. **Session (`sid`) and CSRF (`XSRF-TOKEN`) cookies** switch from
-   `SameSite=Lax` to `SameSite=None; Secure`. Required for either cookie to
-   reach the server at all from inside a cross-origin iframe — "site for
-   cookies" is computed against the top-level document, so a `Lax` cookie is
-   dropped on every request the embedded page's own JS/htmx makes back to its
-   own origin. See ADR 0015 for why this is scoped this narrowly.
-3. **The bridge script and its config JSON island** are included in the
-   rendered shell at all (`fragments/htmx.html`, `layout/shell.html`) —
-   entirely absent from the page when embedding is off.
+1. CSP `frame-ancestors` changes from `'none'` to the explicit allowlist, and
+   `X-Frame-Options: DENY` is disabled. CSP supports an origin list; leaving
+   both headers in place would make them contradict each other.
+2. Session and CSRF cookies use `SameSite=None; Secure`. This permits a
+   genuinely cross-site allowlisted host. Cross-origin alone is not enough to
+   require the change: SameSite uses the top-level page's schemeful site, so
+   `epistola.app`/`demo.epistola.app` and localhost ports are same-site. See the
+   [cookie specification's site-for-cookies algorithm](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis/#section-5.2.1).
+3. Suite renders the bridge script and its inert configuration JSON island.
+   They are absent when embedding is disabled.
 
-## The message protocol
+The local profile allowlists `http://localhost:4321`. Add a production host
+origin explicitly; never use a wildcard origin.
 
-Every message carries a `source` so both sides can tell it apart from other
-`postMessage` traffic on the page. The bridge never sends with `"*"` as
-`postMessage` target origin, and validates every inbound message's
-`event.origin` (against `allowed-parent-origins`) and `event.source ===
-window.parent` before acting on it.
+## Shared message rules
 
-### Host → suite: `navigate`
+Every message contains a `source` discriminator. Suite sends to one explicit
+allowlisted origin, never `"*"`. Before acting on any host message, the bridge
+checks both its allowlisted `event.origin` and
+`event.source === window.parent`.
 
-```jsonc
+Hosts supply typed resource identities, never URLs. Suite turns an identity
+into one of its own fixed route shapes and then uses normal HTMX navigation, so
+the destination's ordinary authorization and existence checks still apply.
+There is no special trusted-host route that could bypass the UI permission
+model.
+
+The host should treat messages as protocol data, not proof by themselves:
+correlate assessment responses by request ID, reject malformed result arrays,
+and derive course completion on its own side.
+
+## Session handshake
+
+On every embedding-enabled shell or full-page editor load Suite sends a `ready`
+message before the host attempts assessment:
+
+```json
+{ "source": "epistola-suite", "type": "ready", "sessionStatus": "satisfied" }
+```
+
+The current bridge emits only `satisfied`. The login page does not render the
+bridge/config island, so it emits no `ready` message; an unauthenticated iframe
+therefore remains indistinguishable from a missing bridge or timeout. Hosts may
+accept future `unauthenticated`, `forbidden`, and `unknown` ready values, but
+must not assume Suite currently emits them.
+
+## Host to Suite: `assess`
+
+The host submits all resources and predicates needed for its current lesson in
+one request. All resources must belong to the same tenant, and every predicate
+must reference one declared resource.
+
+```json
+{
+  "source": "epistola-host",
+  "type": "assess",
+  "requestId": "lesson-attempt-42",
+  "resources": [
+    {
+      "id": "training-template",
+      "resourceType": "template",
+      "tenantId": "demo",
+      "catalogKey": "default",
+      "key": "training-confirmation"
+    }
+  ],
+  "predicates": [
+    { "type": "resource-exists", "resource": "training-template" },
+    {
+      "type": "data-contract-property",
+      "resource": "training-template",
+      "path": "recipientName",
+      "required": true
+    }
+  ]
+}
+```
+
+The bridge validates the closed request and makes its own same-origin,
+authenticated UI request:
+
+```text
+POST /tenants/{tenantId}/training/assessment
+Content-Type: application/json
+X-XSRF-TOKEN: <current Suite CSRF token>
+```
+
+The host never calls this endpoint directly. `postMessage` reaches the bridge;
+the bridge uses the learner's Suite session and forwards the CSRF token. A 403
+here normally means that header was not sent, not that Authentik or the public
+REST API needs changing.
+
+## Suite to host: `assessment-result`
+
+Suite returns the host request ID unchanged and sends **one result per submitted
+predicate**:
+
+```json
+{
+  "source": "epistola-suite",
+  "type": "assessment-result",
+  "requestId": "lesson-attempt-42",
+  "results": [
+    {
+      "predicate": { "type": "resource-exists", "resource": "training-template" },
+      "status": "satisfied"
+    },
+    {
+      "predicate": {
+        "type": "data-contract-property",
+        "resource": "training-template",
+        "path": "recipientName",
+        "required": true
+      },
+      "status": "unsatisfied"
+    }
+  ]
+}
+```
+
+`results` is an array, not an object keyed by predicate fields. This is an
+important wire invariant: a partial or object-shaped response must be rejected
+by a host rather than interpreted as progress. The current Website host rejects
+the object shape but does not yet reject a partial array; that is an unresolved
+host correctness gap.
+
+Statuses are `satisfied`, `unsatisfied`, `unauthenticated`, `forbidden`, and
+`unknown`. Suite evaluates the current resource state using authenticated UI
+queries and returns no template/document payload. The currently supported
+template predicates are:
+
+- `resource-exists`;
+- `data-contract-property`, including nested paths and exact requiredness;
+- `default-variant-heading-expression`, requiring the exact expression path in
+  a rich-text heading of the default variant.
+
+The evaluator and the endpoint have no course, lesson, or task identifiers.
+
+## Host to Suite: `navigate`
+
+Navigation accepts a closed workspace target. The host names a view and, for a
+resource-specific view, a typed resource identity:
+
+```json
 {
   "source": "epistola-host",
   "type": "navigate",
-  "resource": {
-    "resourceType": "template",
-    "tenantId": "acme",
-    "catalogKey": "default",
-    "key": "invoice",
-  },
+  "target": {
+    "view": "data-contract",
+    "resource": {
+      "resourceType": "template",
+      "tenantId": "demo",
+      "catalogKey": "default",
+      "key": "training-confirmation"
+    }
+  }
 }
 ```
 
-The host supplies a **typed resource identity only, never a URL** — this is
-deliberate: allowing the host to hand over a raw URL would let it dictate an
-arbitrary destination (open-redirect-shaped risk). `embed-bridge.js` runs the
-identity through a small, closed lookup (`template → templates`,
-`theme → themes`, `stencil → stencils`), validates each identifier against a
-slug-format check, and builds one of exactly three URL shapes. Navigation is
-then performed via `htmx.ajax(...)` — the same boosted-navigation path an
-in-app `<a>` click takes — so the destination page's normal permission and
-existence checks run exactly as usual. There is no separate "trusted host
-navigation" path that could diverge or skip a check.
+The closed views are `templates`, `detail`, `data-contract`, and `editor`.
+`editor` resolves Suite's default variant internally; the host never provides a
+variant ID or editor URL. Unknown resource types, malformed identifiers, and
+unsupported view/resource combinations are ignored.
 
-An unrecognized `resourceType` or a malformed identifier is silently ignored.
+In the current bridge, `templates` also obtains its tenant ID from
+`target.resource`; omitting the resource produces no navigation. This differs
+from the nominal resource-optional list-view shape and must be resolved before
+resource-less hosts rely on it.
 
-### Suite → host: `navigated`
+## Suite to host: navigation and events
 
-```jsonc
+Suite reports navigation so the host can observe, but not control, ordinary
+learner navigation inside the iframe:
+
+```json
 {
   "source": "epistola-suite",
   "type": "navigated",
-  "path": "/tenants/acme/templates/default/invoice",
+  "path": "/tenants/demo/templates/default/training-confirmation/data-contract",
   "resource": {
     "resourceType": "template",
-    "tenantId": "acme",
+    "tenantId": "demo",
     "catalogKey": "default",
-    "key": "invoice",
-  }, // or null
+    "key": "training-confirmation"
+  }
 }
 ```
 
-Fired on every real navigation — the initial load, every boosted (`hx-boost`)
-swap, and browser back/forward — whether triggered by the host's `navigate`
-message or by the user clicking around inside the iframe. `resource` is `null`
-on pages that aren't a single resource's detail view (lists, dashboards).
+`resource` is `null` for a list or other page that is not one resource detail.
+Suite derives it from its own current route, including on initial load, HTMX
+navigation, and browser back/forward.
 
-The resource identity is derived entirely client-side, by running
-`location.pathname` through the same `parseResourcePath` matcher
-`resource-changed` detection already uses (see below) — there's no server
-involvement, no JSON island, and no per-handler edit needed for a new
-resource-detail route: the URL shape is already the shared identity scheme
-(identical to the REST API's), so one client-side matcher covers every
-current and future route that follows it.
+Some closed routes also establish a trusted interaction event:
 
-### Suite → host: `resource-changed`
+```json
+{ "source": "epistola-suite", "type": "event", "event": "data-contract-opened" }
+```
 
-```jsonc
+An event says the interaction occurred; it does not say the resource remains
+valid. Hosts that persist event proof must still invalidate it when a required
+state predicate becomes authoritatively `unsatisfied`.
+
+## Suite to host: `resource-mutated`
+
+After a covered successful catalog-resource create, update, delete, or explicit
+editor save, Suite emits:
+
+```json
 {
   "source": "epistola-suite",
-  "type": "resource-changed",
+  "type": "resource-mutated",
   "resource": {
-    "resourceType": "theme",
-    "tenantId": "acme",
+    "resourceType": "template",
+    "tenantId": "demo",
     "catalogKey": "default",
-    "key": "brand",
+    "key": "training-confirmation"
   },
-  "operation": "create", // | "update" | "delete"
+  "operation": "update"
 }
 ```
 
-Fired whenever a create/update/delete succeeds. No content payload yet —
-identity and operation only — but the shape leaves room for one later.
+The resource and operation are diagnostic metadata, not a host instruction to
+mark a particular task complete. A host reassesses the whole active lesson,
+because one mutation can affect several predicates and the changed resource may
+not be the only relevant one.
 
-`resourceType` values are `"template" | "theme" | "stencil"` in v1 (additive
-later), matching `CatalogResourceType.wireName`
-(`modules/epistola-core/.../catalog/graph/ResourceGraph.kt`).
+### Why most mutation coverage is generic
 
-## How `resource-changed` detection works
+Template, theme, and stencil mutations follow a uniform route convention. A
+single `htmx:afterRequest` listener classifies successful operations without
+per-handler Kotlin calls:
 
-This is **entirely client-side** — no Kotlin/backend involvement, and
-deliberately so. An earlier version of this design added an explicit
-`HtmxResponseBuilder.trigger(...)` call to every mutating handler's success
-path (~8 call sites across three handler files). That coupled every
-template/theme/stencil handler — and every future one — to the embedding
-feature, was easy to forget when adding a new mutating handler, and used three
-inconsistent transports for one conceptual signal. It was replaced with a
-single generic listener in `embed-bridge.js`.
+1. `PATCH /tenants/{tenant}/{type}/{catalogKey}/{key}` is an update.
+2. `POST /tenants/{tenant}/{type}/{catalogKey}/{key}/delete` is a delete.
+3. `POST /tenants/{tenant}/{type}` is a create; the bridge reads the existing
+   `HX-Location` or `HX-Redirect` target to identify the created resource.
 
-Template/theme/stencil mutations already follow one uniform URL convention end
-to end (`DocumentTemplateRoutes`/`ThemeRoutes`/`StencilRoutes`), so a generic
-`htmx:afterRequest` listener classifies every create/update/delete from the
-request (and, for create, the response) alone:
+This avoids coupling every future mutation handler to embedding. Two paths need
+explicit treatment:
 
-1. **`PATCH /tenants/{t}/{type}/{catalogKey}/{key}(/…)?`** → `update`. Identity
-   comes straight from the request path.
-2. **`POST /tenants/{t}/{type}/{catalogKey}/{key}/delete`** → `delete`.
-   Identity from the request path.
-3. **`POST /tenants/{t}/{type}`** (the bare collection root) → `create`.
-   Identity comes from the response's `HX-Location`/`HX-Redirect` header — the
-   same header `dialogLocation`/`dialogRedirect` (`HtmxDsl.kt`) already set for
-   unrelated, pre-existing navigation reasons, read via
-   `xhr.getResponseHeader(...)` inside the `htmx:afterRequest` handler.
+- A raw `fetch()` bypasses HTMX, so a successful Data Contract, theme-editor,
+  or template-editor save calls
+  `window.epistolaEmbedBridge?.notifyResourceMutated(...)` directly.
+- A browser-followed delete redirect has no observable XHR response. The
+  handler adds a one-shot `resourceDeleted` query parameter, which the bridge
+  consumes, emits once, and removes with `history.replaceState` so refreshes do
+  not repeat it.
 
-Any current or future handler that follows this URL shape is covered
-automatically — nothing to wire, nothing to keep in sync. Two mutations aren't
-observable this way and each get one small, explicit exception instead of
-forcing the general mechanism to cover them:
-
-- **Raw `fetch()` from static JS** bypasses htmx.js entirely, so
-  `htmx:afterRequest` never fires for it. That call site invokes
-  `window.epistolaEmbedBridge?.notifyResourceChanged(resource, operation)`
-  directly after a successful response (the `?.` makes it a no-op when the
-  bridge isn't loaded, i.e. embedding disabled). See `theme-editor-boot.js`'s
-  `onSave` for the worked example.
-- **A genuine browser-followed redirect** (`hx-boost="false"` on the form,
-  `form.submit()`) has no client-observable request/response at all — no XHR,
-  no htmx event, nothing. The handler appends a one-shot
-  `?resourceDeleted=type:catalogKey:key` query param to the redirect
-  `Location` instead; `embed-bridge.js` reads it once on load, fires the
-  notification, then strips it via `history.replaceState` so a refresh
-  doesn't re-fire it. See `DocumentTemplateHandler.delete` for the worked
-  example.
-
-v1 covers template, theme, and stencil create/update/delete — the three
-catalog resource types with existing detail pages. `StencilHandler.update()`
-(the plain PATCH name/description/tags endpoint) currently has **no live UI
-caller** anywhere (no `hx-patch` markup, no `fetch()` call), so no mutation
-ever reaches it to classify — nothing to do until a real caller exists.
-Extending coverage to a resource type that follows the same URL convention
-needs no change at all; one that doesn't needs a small addition to
-`embed-bridge.js`'s URL pattern, not a new per-handler Kotlin call.
+The template editor is a full-page Vite mount rather than a shell tab. It must
+receive the same embedding config and bridge as the shell; otherwise raw editor
+saves cannot notify an embedding host until the learner navigates away.
 
 ## Non-goals
 
-- No REST API or MCP surface changes — this is UI-only.
-- No per-tenant `FeatureToggleService`/`KnownFeatures` entry — embedding is
-  install-wide boot-time configuration, not DB-backed per-tenant state.
-- No training material, exercises, or lesson data of any kind in
-  epistola-suite.
+- No training content or learner progress is stored in Suite.
+- No REST API or MCP capability is added for training assessment.
+- No per-tenant feature toggle is used: embedding is install-wide boot-time
+  configuration.
+- No generic URL-navigation escape hatch is available to the host.
