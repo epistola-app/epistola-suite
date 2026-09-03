@@ -31,8 +31,7 @@ class ExchangeMetrics(private val meterRegistry: MeterRegistry) {
      * `call="submit"` alone is the publication rate — so the split is a tag rather than a second
      * meter.
      */
-    fun submissionOutcome(status: CatalogPublicationStatus, call: RemoteCall) =
-        counter(SUBMISSIONS, status.name.lowercase(), call).increment()
+    fun submissionOutcome(status: CatalogPublicationStatus, call: RemoteCall) = counter(SUBMISSIONS, status.name.lowercase(), call).increment()
 
     /** An attempt that failed before Exchange could decide (network, timeout, 4xx/5xx). */
     fun submissionError(call: RemoteCall) = counter(SUBMISSIONS, "error", call).increment()
