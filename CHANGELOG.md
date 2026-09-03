@@ -4,6 +4,35 @@
 
 ## [Unreleased]
 
+- **[user]** feat(demo): **A demo sandbox per person, not per company.** The demo profile derived a
+  tenant from the email _domain_, so everyone at one company landed in the same tenant and
+  overwrote each other's work. A demo is a place to try things, so the unit is now the person: the
+  whole address becomes the tenant key (`sander@degroot.dev` → `sander-degroot-dev`), the tenant is
+  named after the address that created it, and a new one arrives seeded with the bundled demo
+  catalog plus `staging` and `production` environments. Where two addresses would claim the same key
+  — slugifying is lossy, `j.doe+test` and `j.doe.test` collapse together — the second gets a key
+  carrying a hash of their address instead. The grant is now written to `tenant_memberships` rather
+  than living only in the session, so the tenant appears in its own member list. Users get every
+  tenant role on their own tenant and, deliberately, no global or platform roles: they cannot see
+  another person's tenant or create further ones. Roles the identity provider grants still win, and
+  platform roles carried by the token are no longer dropped when this fallback fires. Applies to the
+  OIDC path only — form-login users keep taking their tenant from `epistola.auth.local-users`.
+  Existing demo installs keep their old domain tenant, but people will land in a fresh personal one
+  on their next login.
+- **[dev]** feat(demo,security): **A shared secret that authenticates the whole REST API — demo
+  profile only.** The demo website calls Epistola on behalf of whichever visitor is using it, and
+  those visitors now get a tenant created at the moment they log in, so there is no per-tenant API
+  key to mint and track ahead of time. `EPISTOLA_DEMO_SHAREDSECRET` supplies one credential that
+  works everywhere, presented on the existing `Authorization: ApiKey <secret>` scheme so callers
+  need no new code path. **It is a total bypass of the tenant and permission model** — the principal
+  holds every tenant role as a _global_ role plus every platform role, so it passes for every
+  tenant, including ones that do not exist yet. Three things confine it: the wiring is
+  `@Profile("demo")` rather than the `epistola.demo.enabled` property (which `local` also sets), a
+  secret configured in any other profile **fails the boot** instead of being silently ignored, and
+  it must be at least 32 characters. With no secret configured the demo profile starts exactly as
+  before and the feature does not exist. Not bound to a tenant, so `/api/mcp` and the partition
+  block of `POST /api/ping` are deliberately not usable with it. See
+  [ADR 0019](docs/adr/0019-demo-api-shared-secret.md) and [`docs/auth.md`](docs/auth.md#demo-shared-secret).
 - **[dev]** fix(deps): **Embedded Tomcat bumped to 11.0.25 (CVE-2026-65182,
   CVE-2026-65905, CVE-2026-68525).** Spring Boot 4.1.1 manages
   `org.apache.tomcat.embed:tomcat-embed-core` at 11.0.24, which Trivy flags CRITICAL for all

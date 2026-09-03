@@ -129,6 +129,14 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: {{ include "epistola.otelResourceAttributes" . | quote }}
             {{- end }}
+            {{- /* Demo shared secret — see values.yaml `demo.sharedSecret` and ADR 0019. */}}
+            {{- if .Values.demo.sharedSecret.existingSecret }}
+            - name: EPISTOLA_DEMO_SHAREDSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.demo.sharedSecret.existingSecret }}
+                  key: {{ .Values.demo.sharedSecret.secretKey }}
+            {{- end }}
             {{- /* OIDC / OAuth2 login (provider-neutral — registration id is configurable) */}}
             {{- if .Values.oidc.enabled }}
             {{- $reg := .Values.oidc.registrationId | upper }}

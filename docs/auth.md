@@ -34,7 +34,7 @@ Profiles are orthogonal — each controls a single concern:
 | `local`     | Dev experience: devtools, filesystem serving, editor watch. Implies form login + demo data.                                                                                  |
 | `localauth` | Form login with configurable users (env-var overridable)                                                                                                                     |
 | `keycloak`  | **Local-dev only** — adds an OAuth2/OIDC registration against a local Keycloak. Opt in with `local,keycloak`. Staging/production OIDC comes from env vars, not this profile. |
-| `demo`      | Load demo data only (no auth side effects)                                                                                                                                   |
+| `demo`      | Demo data, a personal tenant per signed-in user, and the optional API shared secret                                                                                          |
 | `prod`      | Production hardening: flyway clean disabled, tuned concurrency                                                                                                               |
 
 ### Environment Matrix
@@ -103,7 +103,10 @@ Override credentials via environment variables:
 
 ## Demo Profile
 
-The `demo` profile **only** loads demo data (tenant, themes, templates). It does not affect authentication. In staging/production, OIDC is supplied by env vars (Helm), so `demo` is combined with `prod` and/or `localauth` rather than a `keycloak` profile:
+The `demo` profile loads demo data (tenant, themes, templates) and adds two demo-only behaviours on
+top: a personal tenant per signed-in user, and an optional shared secret for the REST API. It does
+not change which authentication mechanisms exist. In staging/production, OIDC is supplied by env
+vars (Helm), so `demo` is combined with `prod` and/or `localauth` rather than a `keycloak` profile:
 
 ```bash
 # OAuth2 (from env vars) + demo data
@@ -112,6 +115,35 @@ SPRING_PROFILES_ACTIVE=demo
 # OAuth2 + form login + demo data
 SPRING_PROFILES_ACTIVE=demo,localauth
 ```
+
+### A tenant per user
+
+When `epistola.demo.enabled=true` and an OIDC login carries **no** `/epistola/` groups and no flat
+roles, `DemoLoginMembershipResolver` gives that person a tenant of their own, derived from their
+whole email address:
+
+| Email                | Tenant key           |
+| -------------------- | -------------------- |
+| `sander@degroot.dev` | `sander-degroot-dev` |
+| `j.doe+test@acme.io` | `j-doe-test-acme-io` |
+| `1st@acme.io`        | `u-1st-acme-io`      |
+
+The tenant is named after the address that created it, and a new one is seeded with the bundled demo
+catalog plus `staging` and `production` environments. Slugifying is lossy, so where two addresses
+would claim the same key the second gets one carrying a hash of their address instead —
+`j-doe-test-acme-io-3f9a2c`.
+
+The user gets **all tenant roles on their own tenant, and no global or platform roles**. That is
+what stops a demo user seeing anyone else's tenant (`ListTenants` filters on membership when there
+are no global roles and no `TENANT_MANAGER`) or creating further tenants (`CreateTenant` requires
+`TENANT_MANAGER`). Roles the identity provider grants take precedence: the resolver is only
+consulted when the token carried none, and platform roles from the token survive it.
+
+This applies to the **OIDC** path only. Form-login users (`local` / `localauth`) keep taking their
+tenant from `epistola.auth.local-users`.
+
+> Note that `local` also sets `epistola.demo.enabled=true`, so local development gets this behaviour
+> too — via Keycloak, not via form login.
 
 ## Production (OAuth2/OIDC)
 
@@ -360,6 +392,46 @@ Client                    ApiKeyAuthenticationFilter            Database
 ```
 
 The filter is registered in the `/api/**` security chain. Unlike session-based auth, API key requests are **stateless** — every request is validated independently.
+
+### Demo Shared Secret
+
+**Demo profile only.** A single credential that authenticates **every** `/api/**` endpoint against
+**every** tenant with **every** permission — a deliberate, total bypass of the tenant and permission
+model, so that the demo website can call Epistola on behalf of a visitor whose tenant was created
+moments earlier at login and has no API key of its own.
+
+```bash
+# >= 32 characters. Supplied only through the environment, never committed.
+export EPISTOLA_DEMO_SHAREDSECRET=$(openssl rand -hex 32)
+
+curl -H "Authorization: ApiKey $EPISTOLA_DEMO_SHAREDSECRET" \
+  https://demo.epistola.app/api/tenants/any-tenant/templates
+```
+
+It rides the existing `Authorization: ApiKey` scheme, so callers and SDKs need no new code path.
+Requests that do not carry it are unaffected: a real `epk_…` key, a bearer token or no credential at
+all is answered by `ApiKeyAuthenticationFilter` exactly as before.
+
+What confines it:
+
+| Guard    | Behaviour                                                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Profile  | Wired only under the `demo` profile — **not** the `epistola.demo.enabled` property, which `local` sets too.                         |
+| Startup  | A secret configured in any other profile **fails the boot** (`DemoSharedSecretSafetyValidator`) rather than being silently ignored. |
+| Length   | At least 32 characters, or the boot fails. It is an unauthenticated-guessable bearer credential with no rate limit in front of it.  |
+| Optional | With no secret configured, the demo profile starts exactly as before and the feature does not exist.                                |
+
+Requests are counted on `epistola.api.auth.attempts{result="demo_shared_secret"}`, and writes are
+attributed to a `Demo Shared Secret` service account rather than to a real user.
+
+Two things it deliberately does **not** do, because it is not bound to a tenant
+(`currentTenantId` is null):
+
+- `/api/mcp` — MCP tools take their tenant from the credential, so they cannot be used with it.
+- The partition block of `POST /api/ping` is omitted. `ClientIdentityFilter` also still requires
+  `X-EP-Node-Id` on `/api/ping` and the collect endpoint, as it does for any caller.
+
+See [ADR 0019](adr/0019-demo-api-shared-secret.md).
 
 ### When to Use
 
