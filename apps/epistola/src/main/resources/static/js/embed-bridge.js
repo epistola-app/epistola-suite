@@ -379,6 +379,25 @@
       return;
     }
 
+    if (
+      verb === 'POST' &&
+      parsed.resourceType === 'template' &&
+      parsed.rest.length === 4 &&
+      parsed.rest[2] === 'contract' &&
+      parsed.rest[3] === 'publish'
+    ) {
+      notifyResourceMutated(
+        {
+          resourceType: parsed.resourceType,
+          tenantId: parsed.tenantId,
+          catalogKey: parsed.rest[0],
+          key: parsed.rest[1],
+        },
+        'publish',
+      );
+      return;
+    }
+
     if (verb === 'POST' && parsed.rest.length === 0) {
       const createdUrl =
         xhr.getResponseHeader('HX-Location') || xhr.getResponseHeader('HX-Redirect');
