@@ -374,6 +374,15 @@ val buildRunImage = tasks.register<Exec>("buildRunImage") {
     commandLine("docker", "build", "-t", "epistola-run:noble", file("docker/run-image").absolutePath)
 }
 
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    // Empty directories carry nothing, and a stale one is actively misleading: a cached
+    // `compileKotlin` output can leave behind a package directory whose sources have since moved
+    // (`app/epistola/suite/demo/`, when demo mode became its own app), so this artifact would appear
+    // to contain demo code it does not. Dropping empty directories makes the jar's contents a
+    // function of the sources rather than of the build cache's history.
+    includeEmptyDirs = false
+}
+
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
     dependsOn(buildRunImage)
     runImage.set("epistola-run:noble")

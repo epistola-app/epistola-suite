@@ -24,6 +24,7 @@ Back to the [documentation index](../README.md).
 | [0013](0013-editor-plugin-selection-intents.md) Editor plugin selection intents      | Draft                          | Discussion record on selection intents; not accepted.                       |
 | [0014](0014-safe-catalog-resource-relocation.md) Safe resource relocation            | Draft                          | Discussion record on relocating authored resources; not accepted.           |
 | [0015](0015-iframe-embedding-bridge.md) Iframe embedding bridge                      | Accepted                       | Iframe + `postMessage` bridge, demo-mode only.                              |
+| [0019](0019-demo-api-shared-secret.md) Demo API shared secret                        | Accepted — implemented         | All-tenant credential for the demo website, gated on the `demo` profile.    |
 
 ## Adding an ADR
 

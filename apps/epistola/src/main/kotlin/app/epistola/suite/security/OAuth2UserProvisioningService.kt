@@ -174,10 +174,15 @@ class OAuth2UserProvisioningService(
         } else if (membershipResolver != null) {
             val resolved = membershipResolver.resolve(email, user)
             if (resolved != null) {
+                // The resolver supplies a fallback tenant *membership*; it is not a reason to drop
+                // what the IdP said. This branch is reached when the token carried no tenant and no
+                // global roles — but it may well have carried platform roles, so those are unioned
+                // in rather than replaced. (Tenant memberships are empty here by construction, so
+                // there is nothing to union on that side.)
                 return user.toEpistolaPrincipal(
                     memberships = resolved.tenantMemberships,
                     globalRoles = resolved.globalRoles,
-                    platformRoles = resolved.platformRoles,
+                    platformRoles = resolved.platformRoles + parsed.platformRoles,
                 )
             }
             user.tenantMemberships

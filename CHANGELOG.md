@@ -4,6 +4,68 @@
 
 ## [Unreleased]
 
+- **[user]** feat(demo): **Demo users land in their own tenant, and share the demo one.** With demo
+  mode on, a login now lands the visitor in their own tenant rather than the tenant picker — a
+  customer works across several tenants and should choose, but a demo visitor has one that is
+  theirs, so choosing is a click between them and the product. It is a post-login decision rather
+  than a redirect on `/`, so a deep link someone was bounced off still wins, and the tenant list —
+  which _is_ `/`, and is where "Switch tenant" points — stays reachable. Every demo
+  user is also granted read/write on the shared `demo` tenant, where the showcase content lives (the
+  quality showcase, the seeded findings, the banner) — but **not** `TENANT_ADMINISTRATOR`, because a
+  shared tenant any visitor could reconfigure or restore over is a demo that breaks for everyone
+  else. Their own tenant is where they are an administrator.
+
+- **[user]** feat(demo): **A demo sandbox per person, not per company.** The demo profile derived a
+  tenant from the email _domain_, so everyone at one company landed in the same tenant and overwrote
+  each other's work. A demo is a place to try things, so the unit is now the person. The tenant key
+  is the address's local part followed by six hex characters of `sha256` over the trimmed,
+  lowercased address — `sander@degroot.dev` → `sander-665cdb` — and the tenant is named after the
+  address that created it and arrives seeded with the bundled demo catalog plus `staging` and
+  `production` environments. Every key is hashed rather than only the ones that would clash, which
+  makes uniqueness a property of the key instead of something to check for on each login, and is why
+  a reserved word (`admin@acme.io`), a leading digit (`1st@acme.io`) and a local part with no ASCII
+  in it (`日本@example.jp`) all just work. The recipe is deliberately reproducible from a shell prompt
+  — no salt, no secret — and is documented in
+  [`docs/auth.md`](docs/auth.md#working-out-a-tenant-key-by-hand). The grant is now written to
+  `tenant_memberships` rather than living only in the session, so the tenant appears in its own
+  member list. Users get every tenant role on their own tenant and, deliberately, no global or
+  platform roles: they cannot see another person's tenant or create further ones. Roles the identity
+  provider grants still win, and platform roles carried by the token are no longer dropped when this
+  fallback fires. Applies to the OIDC path only — form-login users keep taking their tenant from
+  `epistola.auth.local-users`. Existing demo installs keep their old domain tenant, but people will
+  land in a fresh personal one on their next login.
+- **[dev]** feat(build,security): **Demo mode ships as a separate application and image.** Demo
+  mode is not a data-loading convenience — it gives every person who logs in a tenant of their own
+  and can carry a shared secret that authenticates every `/api` endpoint against every tenant — so a
+  profile flag is a weak boundary for it: anyone who can edit a deployment's environment is one
+  variable away. It is now its own app, `apps/epistola-demo`, which depends on `apps/epistola` and
+  adds the demo classes, the `demo` profile's configuration and the bundled demo catalog. It
+  publishes **`epistola-suite:{version}-demo`**; `epistola-suite:{version}` contains none of it, so
+  no configuration can turn a production install into a demo, and setting
+  `SPRING_PROFILES_ACTIVE=demo` there **fails the boot** rather than quietly doing nothing. Because
+  the artifact is the boundary, `demo` and `prod` stay freely combinable and a public demo keeps its
+  production hardening. `apps/epistola` never names demo mode: the shared-secret filter reaches the
+  `/api` chain through a new `ApiPreAuthenticationFilter` marker and the landing through
+  `PostLoginTargetResolver`. The demo catalog moved out of `epistola-core` with it; the catalog tests
+  that used it as a realistic fixture now read a deliberately frozen copy in `modules/testing`, which
+  also removes a standing hazard — CLAUDE.md requires every feature to be demonstrated in the demo
+  catalog, so a demo edit could previously break unrelated core tests. Also removes
+  `apps/epistola/src/main/resources/demo/README.md`, which documented a `demo/templates/*.json`
+  loading mechanism that no longer exists.
+- **[dev]** feat(demo,security): **A shared secret that authenticates the whole REST API — demo
+  profile only.** The demo website calls Epistola on behalf of whichever visitor is using it, and
+  those visitors now get a tenant created at the moment they log in, so there is no per-tenant API
+  key to mint and track ahead of time. `EPISTOLA_DEMO_SHAREDSECRET` supplies one credential that
+  works everywhere, presented on the existing `Authorization: ApiKey <secret>` scheme so callers
+  need no new code path. **It is a total bypass of the tenant and permission model** — the principal
+  holds every tenant role as a _global_ role plus every platform role, so it passes for every
+  tenant, including ones that do not exist yet. Three things confine it: the wiring is
+  `@Profile("demo")` rather than the `epistola.demo.enabled` property (which `local` also sets), a
+  secret configured in any other profile **fails the boot** instead of being silently ignored, and
+  it must be at least 32 characters. With no secret configured the demo profile starts exactly as
+  before and the feature does not exist. Not bound to a tenant, so `/api/mcp` and the partition
+  block of `POST /api/ping` are deliberately not usable with it. See
+  [ADR 0019](docs/adr/0019-demo-api-shared-secret.md) and [`docs/auth.md`](docs/auth.md#demo-shared-secret).
 - **[dev]** fix(deps): **Embedded Tomcat bumped to 11.0.25 (CVE-2026-65182,
   CVE-2026-65905, CVE-2026-68525).** Spring Boot 4.1.1 manages
   `org.apache.tomcat.embed:tomcat-embed-core` at 11.0.24, which Trivy flags CRITICAL for all

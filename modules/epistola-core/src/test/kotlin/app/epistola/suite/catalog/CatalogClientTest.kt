@@ -38,7 +38,7 @@ class CatalogClientTest {
         @Test
         fun `accepts classpath URL`() {
             assertDoesNotThrow {
-                CatalogClient.validateUrl("classpath:epistola/catalogs/demo/catalog.json")
+                CatalogClient.validateUrl("classpath:epistola/catalogs/fixture/catalog.json")
             }
         }
 
@@ -96,16 +96,16 @@ class CatalogClientTest {
         fun `relative URL resolved against classpath manifest`() {
             val result = CatalogClient.resolveDetailUrl(
                 "./resources/templates/invoice.json",
-                "classpath:epistola/catalogs/demo/catalog.json",
+                "classpath:epistola/catalogs/fixture/catalog.json",
             )
-            assert(result == "classpath:epistola/catalogs/demo/resources/templates/invoice.json")
+            assert(result == "classpath:epistola/catalogs/fixture/resources/templates/invoice.json")
         }
 
         @Test
         fun `absolute classpath URL is returned as-is`() {
             val result = CatalogClient.resolveDetailUrl(
                 "classpath:other/template.json",
-                "classpath:epistola/catalogs/demo/catalog.json",
+                "classpath:epistola/catalogs/fixture/catalog.json",
             )
             assert(result == "classpath:other/template.json")
         }
