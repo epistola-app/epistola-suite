@@ -122,6 +122,10 @@ class DemoSharedSecretAuthenticationFilter(
      * Extracts the credential from `Authorization: ApiKey <value>`, mirroring
      * [ApiKeyAuthenticationFilter]'s own parsing so both filters agree on what a credential is. Any
      * other scheme — or none — yields null.
+     *
+     * The legacy `X-API-Key` header that [ApiKeyAuthenticationFilter] still accepts is deliberately
+     * not honoured here. It exists for integrations that predate the standard scheme; the demo
+     * website is new code, and a bypass credential should have exactly one way in.
      */
     private fun parseApiKeyScheme(value: String?): String? {
         val trimmed = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
