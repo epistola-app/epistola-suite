@@ -139,23 +139,64 @@ property of the key rather than something to check for on each login, and it is 
 a leading digit or a local part with no ASCII in it all just work — the label in front of the hash is
 free to be whatever is readable, or nothing at all.
 
-#### Working out a tenant key by hand
+#### The key derivation, exactly
 
-The hash is the first six hex characters of `sha256` over the **trimmed, lowercased** address, as
-UTF-8. No salt, no secret, no installation-specific input — this is an identifier, not a credential,
-so anyone can reproduce it:
+Deliberately reproducible without the application — no salt, no secret, no installation-specific
+input. This is an identifier, not a credential: it exists so two addresses cannot land in one
+tenant, and nothing is protected by its being hard to guess.
+
+Given a raw address:
+
+1. **Normalize.** Trim surrounding whitespace, lowercase. Everything below uses this form, including
+   the hash input.
+2. **Split on the first `@`.** The part before it is the _local part_; the part after it is the
+   _domain_. If either is empty or whitespace, there is no key — stop.
+3. **Slugify the local part** into a _label_: replace every run of characters outside `[a-z0-9]` with
+   a single `-`, then strip any leading and trailing `-`.
+4. **Make the label able to lead.** A `TenantKey` must start with a letter, and the label leads, so:
+   an empty label becomes `u`; a label starting with a digit is prefixed with `u-`; otherwise it is
+   used as is. Call the result the _stem_.
+5. **Truncate the stem** to 56 characters (63 − 6 for the hash − 1 for the separator), then strip a
+   trailing `-` again. This second strip matters: truncating can land on a hyphen, and `a--b` is not
+   a valid key.
+6. **Hash.** Take the first 6 hex characters of `sha256` over the normalized address, as UTF-8.
+7. **Join** with a hyphen: `<stem>-<hash>`.
 
 ```bash
-printf %s "sander@degroot.dev" | shasum -a 256 | cut -c1-6    # 665cdb
+# step 6, on its own
+printf %s "sander@degroot.dev" | sha256sum | cut -c1-6    # 665cdb   (shasum -a 256 on macOS)
 ```
 
-The label in front of it is the local part lowercased, with every run of characters outside
-`[a-z0-9]` replaced by a single `-` and any leading/trailing `-` removed. If that leaves something
-empty or starting with a digit, it is replaced by (or prefixed with) `u`. The whole key is capped at
-`TenantKey`'s 63 characters, truncating the label rather than the hash.
+A reference implementation of the whole thing:
 
-Only a string that is not an address at all — nothing on one side of the `@` — is declined, and the
-user then simply keeps whatever memberships they already had.
+```python
+import hashlib, re
+
+def tenant_key(raw_email: str) -> str | None:
+    email = raw_email.strip().lower()
+    local, sep, domain = email.partition("@")
+    if not sep or not local.strip() or not domain.strip():
+        return None
+    label = re.sub(r"[^a-z0-9]+", "-", local).strip("-")
+    stem = "u" if not label else (label if label[0].isalpha() else f"u-{label}")
+    head = stem[:56].strip("-")
+    return f"{head}-{hashlib.sha256(email.encode()).hexdigest()[:6]}"
+```
+
+Worked examples, one per branch:
+
+| Email                | Label        | Stem         | Key                 |
+| -------------------- | ------------ | ------------ | ------------------- |
+| `sander@degroot.dev` | `sander`     | `sander`     | `sander-665cdb`     |
+| `j.doe+test@acme.io` | `j-doe-test` | `j-doe-test` | `j-doe-test-6f7f03` |
+| `admin@acme.io`      | `admin`      | `admin`      | `admin-94039b`      |
+| `1st@acme.io`        | `1st`        | `u-1st`      | `u-1st-a5752e`      |
+| `日本@example.jp`    | _(empty)_    | `u`          | `u-6196c7`          |
+| `a@b@c.com`          | `a`          | `a`          | `a-a2f315`          |
+
+Every step above is pinned by `DemoTenantKeyDerivationTest`, including the two that are easy to get
+wrong — the second `-` strip in step 5, and the fallback prefix counting against the cap — so this
+documentation cannot drift from the code without a test failing.
 
 The user gets **all tenant roles on their own tenant, and no global or platform roles**. That is
 what stops a demo user seeing anyone else's tenant (`ListTenants` filters on membership when there

@@ -166,9 +166,14 @@ class DemoLoginMembershipResolver(
          * domain.
          *
          * Normalizes the address itself rather than trusting the caller to have done it, so
-         * `Sander@Degroot.dev` and `sander@degroot.dev` cannot become two tenants, and so the hash
-         * recipe documented on [shortHash] holds for whatever is passed in. Returns null only when
-         * one side of the `@` is missing entirely — that is not an address.
+         * `Sander@Degroot.dev` and `sander@degroot.dev` cannot become two tenants, and so the recipe
+         * below holds for whatever is passed in. Returns null only when one side of the `@` is
+         * missing entirely — that is not an address.
+         *
+         * The full derivation is written out step by step, with a reference implementation and a
+         * worked example per branch, under "The key derivation, exactly" in `docs/auth.md`. Every
+         * step is pinned by `DemoTenantKeyDerivationTest`, so changing anything here without
+         * updating that section will fail a test — please keep it that way.
          */
         internal fun deriveTenantKeyFromEmail(rawEmail: String): TenantKey? {
             val email = rawEmail.trim().lowercase(Locale.ROOT)

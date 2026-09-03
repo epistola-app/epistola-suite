@@ -95,6 +95,32 @@ class DemoTenantKeyDerivationTest {
     }
 
     @Test
+    fun `splits on the first at sign`() {
+        // Only the local part becomes the label, and only the first `@` separates it.
+        assertThat(keyOf("a@b@c.com")!!.value).isEqualTo("a-a2f315")
+    }
+
+    @Test
+    fun `re-trims a truncation that lands on a hyphen`() {
+        // Load-bearing, and the reason the documented recipe says to trim *after* truncating:
+        // without it the key would carry `--` and TenantKey would reject it outright, leaving the
+        // user with no tenant.
+        val key = keyOf("${"x".repeat(55)}-yyyy@acme.io")!!
+
+        assertThat(key.value).doesNotContain("--")
+        assertThat(key.value).isEqualTo("${"x".repeat(55)}-9a6b15")
+    }
+
+    @Test
+    fun `counts the fallback prefix against the length cap`() {
+        // The stem is truncated after prefixing, so `u-` cannot push the key over 63.
+        val key = keyOf("1${"x".repeat(60)}@acme.io")!!
+
+        assertThat(key.value).startsWith("u-1x")
+        assertThat(key.value).hasSize(63)
+    }
+
+    @Test
     fun `truncates a long local part to a valid key`() {
         val key = keyOf("${"a".repeat(120)}@${"b".repeat(80)}.io")!!
 
