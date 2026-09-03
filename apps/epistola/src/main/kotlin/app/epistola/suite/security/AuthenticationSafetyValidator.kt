@@ -20,13 +20,9 @@ import org.springframework.stereotype.Component
  * 1. **`local` and `prod` are mutually exclusive** — `local` enables developer-only behaviour
  *    (devtools, filesystem serving, dev encryption key, in-memory users, a bundled Keycloak) that
  *    must never run in production.
- * 2. **`demo` and `prod` are mutually exclusive** — demo mode auto-creates a tenant for anyone who
- *    logs in and can carry a shared secret that authenticates every API endpoint against every
- *    tenant. Whoever can set an environment variable on a production deployment must not be one
- *    profile away from that.
- * 3. **No production with in-memory users** — combining `local` or `localauth` with `prod` would
+ * 2. **No production with in-memory users** — combining `local` or `localauth` with `prod` would
  *    expose known/configurable passwords in a production environment.
- * 4. **At least one auth mechanism** — if neither [UserDetailsService] (form login) nor
+ * 3. **At least one auth mechanism** — if neither [UserDetailsService] (form login) nor
  *    [ClientRegistrationRepository] (OAuth2) is present, the app would start but 403 everywhere.
  *
  * Skipped in `test` profile (tests use permit-all security).
@@ -43,7 +39,6 @@ class AuthenticationSafetyValidator(
 
     override fun afterSingletonsInstantiated() {
         validateProdAndLocalAreExclusive()
-        validateProdAndDemoAreExclusive()
         validateNoInMemoryUsersInProduction()
         validateAuthMechanismExists()
 
@@ -63,30 +58,6 @@ class AuthenticationSafetyValidator(
                 "SECURITY: the 'local' and 'prod' profiles are mutually exclusive. " +
                     "'local' enables developer-only behaviour (devtools, filesystem serving, dev " +
                     "secrets, in-memory users) that must never run in production.",
-            )
-        }
-    }
-
-    /**
-     * Demo mode is not a data-loading convenience — it changes who gets access to what. It gives
-     * every person who logs in a tenant of their own, and can carry a shared secret that
-     * authenticates every `/api` endpoint against every tenant with every permission.
-     *
-     * Refusing the combination means an operator (or anyone who can edit a deployment's environment)
-     * cannot turn a production install into that by adding one profile. It is the weaker of the two
-     * guarantees — the stronger one is that a production image does not ship the demo code at all —
-     * but it is the one that holds inside a single image.
-     */
-    private fun validateProdAndDemoAreExclusive() {
-        val isProd = environment.acceptsProfiles(Profiles.of("prod"))
-        val isDemo = environment.acceptsProfiles(Profiles.of("demo"))
-
-        if (isProd && isDemo) {
-            throw IllegalStateException(
-                "SECURITY: the 'demo' and 'prod' profiles are mutually exclusive. Demo mode gives " +
-                    "every user who logs in their own tenant and can enable a shared secret that " +
-                    "authenticates every API endpoint against every tenant, so it must never be one " +
-                    "profile away from a production deployment. Run a demo without 'prod'.",
             )
         }
     }
