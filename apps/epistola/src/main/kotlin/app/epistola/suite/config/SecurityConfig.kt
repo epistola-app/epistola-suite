@@ -9,6 +9,7 @@ import app.epistola.suite.api.security.ClientIdentityFilter
 import app.epistola.suite.api.v1.ApiProblemTypes
 import app.epistola.suite.api.v1.writeProblemDetail
 import app.epistola.suite.apikeys.ApiKeyService
+import app.epistola.suite.demo.DemoSharedSecretAuthenticationFilter
 import app.epistola.suite.embedding.EmbeddingProperties
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
@@ -59,6 +60,9 @@ class SecurityConfig(
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
     private val meterRegistry: MeterRegistry,
     private val objectMapper: ObjectMapper,
+    // Demo-profile only, and absent everywhere else. Deleting the `demo` package means deleting this
+    // parameter and its addFilterBefore below; nothing else here knows about demo mode.
+    private val demoSharedSecretFilter: DemoSharedSecretAuthenticationFilter? = null,
 ) {
     private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler()
 
@@ -142,6 +146,12 @@ class SecurityConfig(
                     writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
                 }
             }
+
+        // Must run before the API-key filter, which it hands a validated principal to rather than
+        // authenticating itself (see DemoSharedSecretAuthenticationFilter). Registered here, after
+        // the addFilterBefore above, because the reference filter's position in the chain is only
+        // known once that filter has itself been registered.
+        demoSharedSecretFilter?.let { http.addFilterBefore(it, ApiKeyAuthenticationFilter::class.java) }
 
         // Add JWT resource server support when OAuth2/OIDC is configured
         if (jwtResourceServerEnabled) {

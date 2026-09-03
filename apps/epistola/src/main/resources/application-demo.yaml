@@ -9,6 +9,10 @@
 epistola:
   demo:
     enabled: true
+    # Optional. Set EPISTOLA_DEMO_SHAREDSECRET (>= 32 chars) to let the demo website call the
+    # REST API as an all-tenant superuser: `Authorization: ApiKey <secret>` on any /api/**
+    # endpoint. It bypasses the tenant and permission model entirely, which is why it works
+    # under this profile and nowhere else — see docs/auth.md and docs/adr/0019.
   # Basis for the future training facility on epistola.app: allows Epistola's
   # UI to be embedded in an <iframe> there, driven by a postMessage bridge.
   # docs/embedding.md. Relaxes CSP frame-ancestors and switches session/CSRF
