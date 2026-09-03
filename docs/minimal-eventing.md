@@ -1,5 +1,10 @@
 # Minimal Eventing
 
+> **Status:** Design record — the original argument for a PostgreSQL-backed
+> event substrate. The append-only event stream it argues for is implemented
+> (see [`eventing.md`](eventing.md)); the stateful-process/saga sections are
+> still design, tracked separately as durable processes.
+
 ## Summary
 
 Epistola should use PostgreSQL as its first distributed event substrate. The

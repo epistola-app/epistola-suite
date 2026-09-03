@@ -1,6 +1,6 @@
 # pdfrender — the slim render worker
 
-> **Beta.** pdfrender is functional but **not yet supported for production**. Its deployment shape
+> **Status:** Beta — pdfrender is functional but **not yet supported for production**. Its deployment shape
 > (published image, Helm wiring, the limited DB role) is still settling, and the `pdf-render`
 > capability and `epistola.generation.pdf-render.enabled` property may change. Per the project's
 > maturity policy, breaking changes to it may ship in a MINOR release.

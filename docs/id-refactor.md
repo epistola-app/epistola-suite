@@ -44,7 +44,7 @@ sealed interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
 
 #### 1. Update EntityId.kt
 
-Location: `apps/epistola/src/main/kotlin/app/epistola/suite/common/ids/EntityId.kt`
+Location: `modules/epistola-core/src/main/kotlin/app/epistola/suite/common/ids/EntityId.kt`
 
 Change the ID class from `UuidId` to `SlugId`:
 
@@ -87,7 +87,7 @@ Key differences:
 
 #### 2. Create JDBI Support (if first SlugId)
 
-Location: `apps/epistola/src/main/kotlin/app/epistola/suite/config/JdbiSlugIdSupport.kt`
+Location: `modules/epistola-core/src/main/kotlin/app/epistola/suite/config/JdbiSlugIdSupport.kt`
 
 ```kotlin
 class SlugIdArgumentFactory : AbstractArgumentFactory<SlugId<*>>(Types.VARCHAR) {

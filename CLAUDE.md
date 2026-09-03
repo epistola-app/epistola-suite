@@ -51,7 +51,7 @@ epistola-suite-modules/
 │   │   ├── config/        # JDBI, Jackson config
 │   │   └── api/           # REST API controllers
 │   ├── generation/        # Pure PDF rendering
-│   ├── rest-api/          # OpenAPI specs
+│   ├── rest-api/          # REST controllers for the epistola-contract API
 │   ├── editor/            # Lit + ProseMirror editors (template, theme, data contract)
 │   ├── epistola-mcp/      # MCP server for AI assistants (read-only tools at /api/mcp)
 │   └── testing/           # Shared test infrastructure (IntegrationTestBase, fixtures, Testcontainers)
@@ -81,7 +81,7 @@ epistola-suite-modules/
   lifecycle evidence. Existing deletion and upgrade scanners remain independent until deliberately
   migrated and parity-tested.
 - **modules/generation**: Pure PDF rendering (no business logic)
-- **modules/rest-api**: OpenAPI specifications
+- **modules/rest-api**: REST controllers implementing the `epistola-contract` OpenAPI surface
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
 - **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `Authorization: ApiKey` auth, with legacy `X-API-Key` support). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
 - **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …).
@@ -221,7 +221,7 @@ The backend has **two distinct endpoint layers** that must NEVER be mixed:
 - **Authentication**: API key (`Authorization: ApiKey` header, with legacy `X-API-Key` support) or OAuth2 JWT Bearer token. Stateless, no CSRF.
 - **Implementation**: `@RestController` with `@RequestMapping("/api")` in `app.epistola.suite.api.v1` package
 - **Returns**: JSON DTOs (`application/vnd.epistola.v1+json`)
-- **OpenAPI spec**: `/modules/rest-api/src/main/resources/openapi/`
+- **OpenAPI spec**: owned by the external `epistola-contract` package; the suite consumes its generated server interfaces in `modules/rest-api`
 - **Purpose**: External system integration (stable, versioned API)
 
 ### 2. UI Handlers (Internal Use Only)
@@ -504,7 +504,7 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
    - Example: `- **[dev]** fix(logs): **Recursion guard narrowed.** Scoped to the ApplicationLogIngestor logger.`
    - The dialog filters by **Audience** (Users/Developers/All), **Type** (the commit types), and **Scope**. Older released sections still use legacy Keep-a-Changelog `### ` headers (grandfathered — their type is mapped from the section, no scope); do not add `### ` headers to new entries. These conventions apply only to the root `CHANGELOG.md` (the Helm chart changelog is not shown in the UI). See [`CONTRIBUTING.md`](CONTRIBUTING.md#changelog-entries).
 
-8. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns.
+8. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns. A **new** page under `docs/` must be added to the [documentation index](docs/README.md) (and a new ADR to [`docs/adr/README.md`](docs/adr/README.md)); a page that is not current shipped behavior opens with a `> **Status:** …` banner.
 9. **Small commits** - Commit logical units of work separately
 10. **Cut a demo/system catalog release** - When modifying bundled resources in `modules/epistola-core/src/main/resources/epistola/catalogs/{demo,system}/`, bump `release.version` (SemVer, strictly increasing) **and** regenerate `release.fingerprint` in `catalog.json`: run `./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"`, paste the reported "actual" fingerprint, re-run green. The loaders detect changes by **fingerprint**, not the version string. See [`docs/catalog-versioning.md`](docs/catalog-versioning.md).
 11. **Consider catalog impact** - Whenever you add, modify, or remove a resource (template, stencil, theme, data contract, etc.), consider whether the change affects catalog exchange in `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/`. Check if catalog import/export, serialization formats, manifest schemas, or version handling need updating to stay consistent with the resource change. Note that a per-resource setting only round-trips if it is threaded through **all** of `ImportTemplates` (insert **and** both update paths), `CatalogContentBuilder` (the SELECT and the emitted resource), and the `epistola-contract` protocol model — a field missing from any one of those is silently dropped on re-import.
@@ -527,6 +527,7 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
     - GitHub synchronization is opt-in per record through `database_specific.github.sync`. While preparing the record privately, use `state: draft`. Before the record reaches a public branch, populate `patched_release`, `patched_versions`, and the assigned GHSA alias. Set `state: published` only after the patched release exists; the validator rejects publication without `patched_versions`. Add any assigned CVE identifier to `aliases` as well.
     - Synchronizing or publishing the GitHub mirror is an explicit maintainer action after the advisory, patched release, and disclosure details are ready. Run `scripts/vulnerability_advisories.py sync-github` with `GITHUB_REPOSITORY` and a `SECURITY_ADVISORY_TOKEN` that has only `Repository security advisories: write` permission. The CLI never deletes advisories or requests CVEs.
     - Do not add automatic advisory synchronization to GitHub Actions. The `Vulnerability Advisories` workflow validates records and exports OSV artifacts only. Validation, rendering, and export must remain independent of GitHub and advisory credentials.
+    - **Third-party findings are a second record kind, not a second system.** A CVE a scanner reports against a component we ship is recorded under `vulnerabilities/` with `"kind": "dependency"` — the component (version-pinned purl), the findings, and an [OpenVEX](https://openvex.dev) `assessment` (`not_affected` / `affected` / `fixed` / `under_investigation`, with a justification for `not_affected`). They are **not** restated in `VULNERABILITIES.md` (the folder plus the VEX document are the index), are **excluded from the OSV export**, and can **never** sync to GitHub — the validator rejects a `sync: true` or a stray `affected` block. An OSV document asserts the named package is vulnerable, and neither "Epistola is vulnerable to someone else's CVE" nor an advisory about someone else's project is ours to publish. `pnpm vulnerabilities:export-vex` emits the VEX document that CI (via `TRIVY_VEX`) and operators apply to our SBOM. Prefer upgrading over arguing non-exploitability; record the reachability evidence either way. See [`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
     - See [`VULNERABILITIES.md`](VULNERABILITIES.md) and [`scripts/vulnerability_advisories.py`](scripts/vulnerability_advisories.py) for the generated index and tooling contract.
 
 ## Don'ts

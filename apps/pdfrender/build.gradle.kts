@@ -10,9 +10,9 @@ plugins {
 }
 
 // Security override: mirrors apps:epistola. epistola-core pulls spring-boot-starter-web,
-// so the embedded Tomcat (CVE-2026-41293 / CVE-2026-43512) must be pinned to 11.0.22 here too
-// until the Spring Boot BOM catches up. Read by io.spring.dependency-management.
-extra["tomcat.version"] = "11.0.22"
+// so the embedded Tomcat (CVE-2026-65182 / CVE-2026-65905 / CVE-2026-68525) must be pinned to
+// 11.0.25 here too until the Spring Boot BOM catches up. Read by io.spring.dependency-management.
+extra["tomcat.version"] = "11.0.25"
 
 dependencies {
     // The whole render/job pipeline (JobPoller, StaleJobRecovery, DocumentGenerationExecutor,

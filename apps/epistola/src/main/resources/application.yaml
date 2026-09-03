@@ -253,6 +253,17 @@ epistola:
       candidate-scan-size: 250
     capabilities:
       - suite
+    # Daily purge of dead node rows. The node id is the pod hostname, so on Kubernetes
+    # every rollout leaves a permanent ghost row behind — plus one scheduled-task
+    # registration row per definition. Retention is deliberately days, not minutes:
+    # deleting a node row instantly stops it vouching for its scheduled-task definitions
+    # (ClusterScheduledTaskRegistry.LIVE_REGISTRATION_EXISTS inner-joins to cluster_nodes),
+    # so the window must stay well above scheduled-tasks.reconciliation-grace-period-ms.
+    # ClusterProperties.effectiveStaleNodeRetention() clamps it to 4x that grace period.
+    node-reaper:
+      enabled: true
+      cron: "0 15 4 * * *"
+      stale-node-retention: P7D
 
   # Postgres declarative-partitioning maintenance.
   # `retention-months` applies to documents + document_generation_requests.

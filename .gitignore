@@ -59,3 +59,9 @@ plan.md
 # workspace as a Docker volume). Never commit store blobs; reuse lint skips
 # gitignored files.
 .pnpm-store/
+
+### Python ###
+# scripts/vulnerability_advisories.py is imported by its unittest module, so
+# `pnpm vulnerabilities:check` leaves a bytecode cache behind.
+__pycache__/
+*.pyc

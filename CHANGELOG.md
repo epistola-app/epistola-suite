@@ -115,6 +115,81 @@
 - **[user]** feat(exchange): **Added the catalog publication policy hierarchy.** Exchange publishing is an Alpha tenant feature that defaults off. Tenant administrators can choose whether authored catalogs publish by default, while each catalog can inherit, force publishing, default yes/no, or forbid publishing; non-hard policies support a per-release override. Catalogs can also prefer an Exchange namespace before their first immutable publication binding.
 - **[user]** feat(exchange): **Catalog releases publish through a durable background outbox.** The local release transaction stores the exact portable ZIP and succeeds independently of Exchange availability. Catalog pages show attempt history and allow an unchanged current release to be published later, or a remote failure to be retried with a fresh idempotency key. Cluster-safe workers pause tenant work while its feature is off, retain archives until a terminal Exchange decision, and maintain expiring connection credentials independently.
 - **[user]** feat(exchange): **Added opt-in Exchange discovery and tenant enrollment storage.** The deployment gate defaults off and discovers the official Exchange through epistola.app. Application secrets, access and refresh tokens, and the pending PKCE verifier are encrypted at rest, one logical Exchange connection is retained per Suite tenant across reauthorization, and the UI displays Exchange's stable `tc_`-prefixed connection reference instead of requiring a raw UUID. Connection/runtime publication state is deliberately excluded from portable tenant backups.
+- **[dev]** fix(deps): **Embedded Tomcat bumped to 11.0.25 (CVE-2026-65182,
+  CVE-2026-65905, CVE-2026-68525).** Spring Boot 4.1.1 manages
+  `org.apache.tomcat.embed:tomcat-embed-core` at 11.0.24, which Trivy flags CRITICAL for all
+  three, failing the CI vulnerability gate. None are reachable from this suite: all three are
+  container-managed servlet security (a `web.xml` security-constraint ordering bypass, the
+  DIGEST authenticator's nonce-replay window, and a FORM-authentication redirect that skips a
+  method-scoped constraint), while every filter chain here is Spring Security — there is no
+  `web.xml`, no `login-config`, and no `SecurityConstraint` in the tree. Apache itself rates
+  the two authenticator issues Low. 11.0.25 fixes all three, so both `apps/epistola` and
+  `apps/pdfrender` take the upgrade via `extra["tomcat.version"]` rather than suppressing the
+  finding; drop the pins once the Spring Boot BOM manages 11.0.25 or later. The pin that
+  preceded this one had silently become a _downgrade_ — it held 11.0.22 while the BOM had
+  moved to 11.0.24 — so both comments now state the current BOM version and the condition
+  for removing them.
+- **[dev]** feat(security): **Third-party scanner findings are now first-class records with
+  an OpenVEX assessment.** A CVE reported against a component we ship had nowhere to live: the
+  reachability analysis existed only in a build-file comment and a CHANGELOG line, which is how
+  the Tomcat pin above rotted into a downgrade unnoticed. Records under `vulnerabilities/` gain
+  a `kind` discriminator — the existing OSV/GHSA-shaped advisories are `advisory` (unchanged,
+  and the field defaults so no record needed editing), while a scanner finding is `dependency`:
+  the affected component purls, the CVE identifiers, and an [OpenVEX](https://openvex.dev)
+  `assessment` (`not_affected` / `affected` / `fixed` / `under_investigation`). They are not
+  restated in [`VULNERABILITIES.md`](VULNERABILITIES.md) — the folder is browsable and the VEX
+  document is the machine-readable list, so adding a record never touches the generated index —
+  are **excluded from the OSV export**, and can **never** reach GitHub Security Advisories — the
+  validator rejects a `sync: true` or a stray `affected` block outright, because an OSV document
+  asserts the named package is vulnerable and neither "Epistola is vulnerable to someone else's
+  CVE" nor an advisory about Apache Tomcat is ours to publish. New
+  `pnpm vulnerabilities:export-vex` emits the VEX document; CI generates it before the Trivy
+  steps and applies it via `TRIVY_VEX` (the `trivy-action` has no `vex` input and a `vex:` key in
+  `trivy.yaml` is silently ignored), and it ships as a release artifact next to the SBOMs so
+  operators can apply our assessments to what they scan. **A record is only written when we are
+  asserting something** — that a finding is unreachable, or that we are knowingly shipping an
+  unfixed one. A finding closed by a routine upgrade gets none: the dependency bump is its own
+  record. Products are version-pinned (a versionless statement would cover future releases
+  nobody has assessed) and must name **every affected version we shipped**, not just the one the
+  scanner reported — the Tomcat finding was flagged against 11.0.24, but the pin held 11.0.22
+  through v1.1.0, so a VEX naming only the scanned version would have matched no artifact anyone
+  runs. See [`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
+- **[user]** feat(cluster): **Dead cluster nodes are cleaned up automatically.** A node id is
+  the pod hostname, so every rollout left a permanent row in the registry — an installation
+  could show dozens of stale nodes going back weeks on the Cluster page, each also leaking a
+  scheduled-task registration per definition. A daily `single_owner` task now purges nodes
+  unseen for `epistola.cluster.node-reaper.stale-node-retention` (default 7 days) together
+  with the registration and per-node task-state rows they orphaned. Retention is deliberately
+  measured in days and clamped to at least 4x the reconciliation grace period: a node row is
+  what vouches for that node's scheduled-task definitions, so purging too eagerly would turn a
+  routine pod restart into lost schedules. The current node is never purged.
+- **[user]** feat(cluster): **Forget a dead node from the Cluster page.** Dead rows get a
+  Forget action so an operator does not have to wait for the nightly purge. It is gated on
+  the reconciliation grace period (15 minutes) rather than the 10-second window behind the
+  `stale` badge, re-checking the age inside the delete itself: a node's scheduled-task
+  registrations are written only at startup, so forgetting a node that is merely lagging its
+  heartbeat would strip registrations it cannot restore while running, and the reconciler
+  would then retire any schedule only that node carried. A row therefore reads `stale`
+  before it becomes forgettable. Gated on the new `DIAGNOSTICS_MANAGE` permission so reading
+  the operations pages never implies mutating the registries they show.
+- **[user]** fix(cluster): **Node ages read in days and hours.** A month-old node rendered as
+  "33474m ago"; ages now read "23d 5h ago", with the exact timestamp still on hover.
+- **[dev]** docs(readme): **Documentation index added and the docs reviewed for
+  consistency.** [`docs/README.md`](docs/README.md) indexes every page under
+  `docs/` by topic, labelling each as current behavior, alpha/beta, a design
+  proposal, or a point-in-time record; [`docs/adr/README.md`](docs/adr/README.md)
+  and [`docs/plans/README.md`](docs/plans/README.md) index the decision records
+  and the historical plans. The root `README.md` and `CONTRIBUTING.md` link it,
+  and both the root README and the index now point at
+  <https://epistola.app/en/learn> for user documentation.
+  Status markers are now one form (a `> **Status:** …` banner under the title)
+  across every non-current page, ADR 0001 and 0005 are marked accepted and
+  implemented rather than proposed, broken and stale links are fixed
+  (`api-spec` → `rest-api`, the dangling `api-keys.md`, load-test and stencil
+  migration paths, `EntityId`/`JdbiSlugIdSupport` now in `epistola-core`), the
+  OpenAPI-spec location is corrected to the external `epistola-contract`, and
+  the two snake_case plan files are renamed to kebab-case.
+
 - **[dev]** fix(generation): **Fixed a flaky database-pressure recovery test.**
   `JobPollerDatabasePressureIntegrationTest` synchronized on a drain-loop
   heartbeat that ticks before claiming happens, so on a slow CI runner the
