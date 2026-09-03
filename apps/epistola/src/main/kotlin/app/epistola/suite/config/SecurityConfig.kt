@@ -63,8 +63,11 @@ class SecurityConfig(
     // Demo-profile only, and absent everywhere else. Deleting the `demo` package means deleting this
     // parameter and its addFilterBefore below; nothing else here knows about demo mode.
     private val demoSharedSecretFilter: DemoSharedSecretAuthenticationFilter? = null,
+    // Optional per-user landing page for logins with no saved request. Absent unless something
+    // contributes one (today: demo mode).
+    private val postLoginTargetResolver: app.epistola.suite.security.PostLoginTargetResolver? = null,
 ) {
-    private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler()
+    private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler(postLoginTargetResolver)
 
     /**
      * Check if OAuth2 is configured (has client registrations).

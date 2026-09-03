@@ -221,15 +221,24 @@ roles from the token survive it.
 
 #### Landing straight in their own tenant
 
-With demo mode on, `GET /` redirects a signed-in user to `/tenants/<their own>` instead of rendering
-the tenant picker. Everywhere else the picker is right — a customer works across several tenants and
-should choose. A demo visitor has exactly one that is theirs, so choosing is a click between them and
-the product.
+With demo mode on, a login lands the visitor in `/tenants/<their own>` instead of the tenant picker.
+Everywhere else the picker is right — a customer works across several tenants and should choose. A
+demo visitor has one that is theirs, so choosing is a click between them and the product.
 
-`DemoLandingRoutes` registers a `GET /` at `Ordered.HIGHEST_PRECEDENCE`, ahead of the one
-`TenantRoutes` declares; `RouterFunctionMapping` sorts router beans and takes the first match. When
-there is no personal tenant to open — a principal whose memberships came from the identity provider
-rather than from this resolver — it delegates to the normal handler, so the picker is still there.
+This is a **post-login** decision, not a redirect on `GET /`. `DemoPostLoginTarget` implements
+`PostLoginTargetResolver`, which `PopupAwareAuthenticationSuccessHandler` consults for the default
+success URL. Two consequences follow, both deliberate:
+
+- **A saved request still wins.** Someone bounced to the login page from a deep link goes back to
+  that link, not to their tenant.
+- **The tenant list stays reachable.** The list _is_ `GET /` — there is no `GET /tenants` — and
+  "Switch tenant" in the nav, "Back to tenants" in the platform banner and the error pages' "Back to
+  Home" all point there. Redirecting the route would make the switcher a no-op and put the shared
+  `demo` tenant out of reach, which is the one every demo user was just granted read/write on.
+  `DemoTenantListReachableIT` guards this.
+
+When there is no personal tenant to land in — a principal whose memberships came from the identity
+provider rather than from this resolver — the resolver declines and login lands on `/` as usual.
 
 This applies to the **OIDC** path only. Form-login users (`local` / `localauth`) keep taking their
 tenant from `epistola.auth.local-users`.

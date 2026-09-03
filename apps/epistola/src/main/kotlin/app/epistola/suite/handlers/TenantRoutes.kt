@@ -14,8 +14,6 @@ import org.springframework.web.servlet.function.router
 class TenantRoutes(private val handler: TenantHandler) {
     @Bean
     fun tenantRouterFunction(): RouterFunction<ServerResponse> = router {
-        // The demo profile overrides this with a redirect to the signed-in user's own tenant, via a
-        // higher-precedence router — see app.epistola.suite.demo.DemoLandingRoutes.
         GET("/", handler::list)
         "/tenants".nest {
             GET("/search", handler::search)

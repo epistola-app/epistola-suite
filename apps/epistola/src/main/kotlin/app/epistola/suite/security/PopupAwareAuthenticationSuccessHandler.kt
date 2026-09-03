@@ -18,8 +18,14 @@ import org.springframework.security.web.authentication.SavedRequestAwareAuthenti
  *
  * For normal logins, delegates to the default SavedRequestAwareAuthenticationSuccessHandler
  * which redirects to the originally requested URL or the default success URL.
+ *
+ * An optional [PostLoginTargetResolver] can replace that default success URL per user — see
+ * [determineTargetUrl]. A saved request still wins, so it only ever decides where someone who came
+ * straight to the login page ends up.
  */
-class PopupAwareAuthenticationSuccessHandler : SavedRequestAwareAuthenticationSuccessHandler() {
+class PopupAwareAuthenticationSuccessHandler(
+    private val postLoginTarget: PostLoginTargetResolver? = null,
+) : SavedRequestAwareAuthenticationSuccessHandler() {
 
     companion object {
         const val POPUP_PARAM = "popup"
@@ -52,6 +58,28 @@ class PopupAwareAuthenticationSuccessHandler : SavedRequestAwareAuthenticationSu
             // Normal login - use default behavior (redirect to saved request or /)
             super.onAuthenticationSuccess(request, response, authentication)
         }
+    }
+
+    /**
+     * The default success URL, with [PostLoginTargetResolver] given first refusal.
+     *
+     * Reached only when [SavedRequestAwareAuthenticationSuccessHandler] found no saved request, so a
+     * deep link the user was bounced off still wins. A resolver that returns null — or no resolver
+     * at all — leaves the configured default (`/`) untouched.
+     */
+    override fun determineTargetUrl(
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+        authentication: Authentication?,
+    ): String {
+        val resolver = postLoginTarget ?: return super.determineTargetUrl(request, response, authentication)
+        val principal = when (val p = authentication?.principal) {
+            is EpistolaPrincipalHolder -> p.epistolaPrincipal
+            is EpistolaPrincipal -> p
+            else -> null
+        }
+        return principal?.let { resolver.resolve(it) }
+            ?: super.determineTargetUrl(request, response, authentication)
     }
 
     /**
