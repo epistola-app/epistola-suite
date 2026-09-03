@@ -25,9 +25,10 @@
   a `kind` discriminator — the existing OSV/GHSA-shaped advisories are `advisory` (unchanged,
   and the field defaults so no record needed editing), while a scanner finding is `dependency`:
   the affected component purls, the CVE identifiers, and an [OpenVEX](https://openvex.dev)
-  `assessment` (`not_affected` / `affected` / `fixed` / `under_investigation`). They render into
-  a separate **Dependency findings** table in [`VULNERABILITIES.md`](VULNERABILITIES.md), are
-  **excluded from the OSV export**, and can **never** reach GitHub Security Advisories — the
+  `assessment` (`not_affected` / `affected` / `fixed` / `under_investigation`). They are not
+  restated in [`VULNERABILITIES.md`](VULNERABILITIES.md) — the folder is browsable and the VEX
+  document is the machine-readable list, so adding a record never touches the generated index —
+  are **excluded from the OSV export**, and can **never** reach GitHub Security Advisories — the
   validator rejects a `sync: true` or a stray `affected` block outright, because an OSV document
   asserts the named package is vulnerable and neither "Epistola is vulnerable to someone else's
   CVE" nor an advisory about Apache Tomcat is ours to publish. New

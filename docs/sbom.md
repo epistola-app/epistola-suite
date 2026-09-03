@@ -180,9 +180,10 @@ and nothing in the tree recorded enough to notice.
 ### Record shape
 
 Dependency records live alongside Epistola's own advisories in
-[`vulnerabilities/`](../vulnerabilities/), discriminated by `"kind": "dependency"`, and are
-rendered into the **Dependency findings** table in
-[`VULNERABILITIES.md`](../VULNERABILITIES.md). They carry an
+[`vulnerabilities/`](../vulnerabilities/), discriminated by `"kind": "dependency"`. They are
+deliberately not restated in [`VULNERABILITIES.md`](../VULNERABILITIES.md): the folder is
+browsable and `epistola.openvex.json` is the machine-readable list, so a markdown table would
+be a worse copy needing a re-render and a commit on every change. Each record carries an
 [OpenVEX](https://openvex.dev) assessment:
 
 | Field                      | Meaning                                                                                  |

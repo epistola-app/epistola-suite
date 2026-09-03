@@ -72,7 +72,7 @@ This security policy applies to:
 
 That is about **reporting** — an upstream bug belongs with its maintainers. Vulnerabilities
 in components we ship are still ours to assess: see
-[Dependency findings](VULNERABILITIES.md#dependency-findings).
+the `kind: dependency` records under [`vulnerabilities/`](vulnerabilities/).
 
 ## Security Best Practices
 

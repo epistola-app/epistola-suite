@@ -11,9 +11,12 @@ repository becomes the canonical public record and the GitHub advisory becomes i
 publication mirror. A GHSA or CVE identifier is added to the record's `aliases` after
 assignment.
 
-The table below is Epistola's own vulnerabilities. Scanner findings against
-third-party components we ship are tracked separately under
-[Dependency findings](#dependency-findings).
+Vulnerabilities in third-party components we ship — and our assessment of whether
+they are reachable here — are recorded under [`vulnerabilities/`](vulnerabilities/)
+as `kind: dependency` records, and published as an [OpenVEX](https://openvex.dev)
+document with each release. They are not Epistola advisories: they are never
+exported as OSV and never mirrored to GitHub Security Advisories. See
+[`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
 
 | Published  | ID                                                           | Severity | Affected releases   | Patched release | Summary                                          |
 | ---------- | ------------------------------------------------------------ | -------- | ------------------- | --------------- | ------------------------------------------------ |
@@ -21,19 +24,6 @@ third-party components we ship are tracked separately under
 
 To validate the records and generated index, run `pnpm vulnerabilities:check`. To
 regenerate this index, run `pnpm vulnerabilities:render`.
-
-## Dependency findings
-
-CVEs in third-party components Epistola Suite ships, where we are asserting something:
-that the vulnerable code is unreachable here, or that we are knowingly shipping an
-unfixed one. Findings closed by a routine upgrade are not listed — the dependency bump
-is its own record. These are not Epistola advisories and are never published as OSV or
-to GitHub. Each carries an [OpenVEX](https://openvex.dev) assessment, released as
-`epistola.openvex.json` so you can apply it to an artifact you scan yourself.
-
-| Published  | ID                                                                   | Component                                   | Vulnerabilities                                | Assessment   | Action                           |
-| ---------- | -------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------- | ------------ | -------------------------------- |
-| 2026-09-03 | [EPIS-DEP-2026-001](vulnerabilities/2026-09-03-epis-dep-2026-001.md) | `org.apache.tomcat.embed:tomcat-embed-core` | CVE-2026-65182, CVE-2026-65905, CVE-2026-68525 | Not affected | Upgraded to 11.0.25 (unreleased) |
 
 ## GitHub publication mirror
 
