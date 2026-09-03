@@ -20,11 +20,15 @@ if (buildNativeImage) {
     apply(plugin = "org.graalvm.buildtools.native")
 }
 
-// Security override: Spring Boot 4.0.6 manages tomcat-embed-core 11.0.21,
-// affected by CVE-2026-41293 and CVE-2026-43512 (both CRITICAL). Pin the
-// embedded Tomcat to the fixed 11.0.22 until the Spring Boot BOM catches up.
+// Security override: Spring Boot 4.1.1 manages tomcat-embed-core 11.0.24, which
+// Trivy flags CRITICAL for CVE-2026-65182 (security-constraint bypass),
+// CVE-2026-65905 (DIGEST replay) and CVE-2026-68525 (FORM auth bypass). None are
+// reachable here — the suite uses Spring Security filter chains, not container-
+// managed security (no web.xml, no DIGEST/FORM authenticator) — but 11.0.25 fixes
+// all three, so take the free upgrade rather than suppress. Drop this pin once the
+// Spring Boot BOM manages 11.0.25 or later.
 // Read by io.spring.dependency-management to override the managed version.
-extra["tomcat.version"] = "11.0.22"
+extra["tomcat.version"] = "11.0.25"
 
 dependencies {
     // Core business logic module (includes template-model, generation transitively)
