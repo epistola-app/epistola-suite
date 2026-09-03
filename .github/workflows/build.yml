@@ -112,8 +112,17 @@ jobs:
           pnpm --filter @epistola/editor notices
           gradle :apps:epistola:generateThirdPartyNotices
 
+      # Our recorded assessments of scanner findings against third-party components
+      # (vulnerabilities/*.md, kind: dependency), as an OpenVEX document. Trivy applies
+      # it below via TRIVY_VEX, so a finding we have assessed as not_affected no longer
+      # fails the gate and the reason is in git rather than in someone's memory.
+      - name: Generate VEX document
+        run: pnpm vulnerabilities:export-vex
+
       - name: Scan backend SBOM for vulnerabilities
         uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        env:
+          TRIVY_VEX: build/vex/epistola.openvex.json
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -124,6 +133,8 @@ jobs:
 
       - name: Scan frontend SBOM for vulnerabilities
         uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        env:
+          TRIVY_VEX: build/vex/epistola.openvex.json
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
@@ -161,6 +172,7 @@ jobs:
           path: |
             apps/epistola/build/sbom/bom.json
             modules/editor/build/sbom.json
+            build/vex/epistola.openvex.json
           retention-days: 7
 
       - name: Upload vulnerability reports
@@ -638,6 +650,8 @@ jobs:
           cp apps/epistola/build/sbom/bom.json release-artifacts/epistola-backend-sbom.json
           cp modules/editor/build/sbom.json release-artifacts/epistola-editor-sbom.json
           cp apps/epistola/build/notices/THIRD-PARTY-NOTICES.md release-artifacts/THIRD-PARTY-NOTICES.md
+          pnpm vulnerabilities:export-vex
+          cp build/vex/epistola.openvex.json release-artifacts/epistola.openvex.json
 
       - name: Upload release artifacts
         if: ${{ matrix.enabled && matrix.variant == 'JVM' && startsWith(github.ref, 'refs/tags/v') }}
