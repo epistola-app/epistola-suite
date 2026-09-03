@@ -4,8 +4,12 @@
 
 package app.epistola.suite.demo
 
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
@@ -13,13 +17,17 @@ import app.epistola.suite.security.LoginMembershipResolver
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
+import app.epistola.suite.users.commands.CreateUser
+import app.epistola.suite.users.queries.GetUserByExternalId
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -29,8 +37,13 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
-import java.time.OffsetDateTime
+import java.util.UUID
 
+/**
+ * Covers what needs a database: the tenant the resolver builds, what it is seeded with, and the
+ * membership it writes. The slug rules themselves are pinned down without Spring in
+ * [DemoTenantKeyDerivationTest].
+ */
 @Import(
     TestcontainersConfiguration::class,
     UnloggedTablesTestConfiguration::class,
@@ -65,17 +78,28 @@ class DemoLoginMembershipResolverTest {
         currentTenantId = null,
     )
 
-    private fun dummyUser(email: String) = User(
-        id = UserKey.of("00000000-0000-0000-0000-000000000042"),
-        externalId = "demo-user",
-        email = email,
-        displayName = "Demo User",
-        provider = AuthProvider.KEYCLOAK,
-        enabled = true,
-        createdAt = OffsetDateTime.now(),
-        lastLoginAt = null,
-        tenantMemberships = emptyMap(),
-    )
+    /** A real `users` row, so the membership the resolver writes has an FK to satisfy. */
+    private fun user(email: String): User = asSystem {
+        val externalId = "demo-user-${UUID.randomUUID()}"
+        mediator.send(
+            CreateUser(
+                externalId = externalId,
+                email = email,
+                displayName = "Demo User",
+                provider = AuthProvider.KEYCLOAK,
+            ),
+        )
+    }
+
+    private fun <T> asSystem(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(systemPrincipal, block)
+    }
+
+    private fun resolve(email: String) = MediatorContext.runWithMediator(mediator) {
+        resolver.resolve(email, user(email))
+    }
+
+    private fun track(vararg keys: String) = keys.forEach { createdTenants.add(TenantKey.of(it)) }
 
     @BeforeEach
     fun ensureSystemPrincipalUser() {
@@ -84,14 +108,12 @@ class DemoLoginMembershipResolverTest {
 
     @AfterEach
     fun cleanup() {
-        MediatorContext.runWithMediator(mediator) {
-            SecurityContext.runWithPrincipal(systemPrincipal) {
-                createdTenants.forEach { key ->
-                    try {
-                        mediator.send(DeleteTenant(key))
-                    } catch (_: Exception) {
-                        // ignore if already deleted
-                    }
+        asSystem {
+            createdTenants.forEach { key ->
+                try {
+                    mediator.send(DeleteTenant(key))
+                } catch (_: Exception) {
+                    // ignore if already deleted
                 }
             }
         }
@@ -99,86 +121,126 @@ class DemoLoginMembershipResolverTest {
     }
 
     @Test
-    fun `resolves tenant from email domain`() {
-        val result = MediatorContext.runWithMediator(mediator) {
-            resolver.resolve("user@acme-corp.io", dummyUser("user@acme-corp.io"))
-        }
+    fun `gives each person their own tenant, not one per company`() {
+        val alice = resolve("alice@acme-corp.io")
+        val bob = resolve("bob@acme-corp.io")
+        track("alice-acme-corp-io", "bob-acme-corp-io")
 
-        assertThat(result).isNotNull()
-        val tenantKey = TenantKey.of("acme-corp-io")
-        createdTenants.add(tenantKey)
-        assertThat(result!!.tenantMemberships).containsKey(tenantKey)
-        assertThat(result.tenantMemberships[tenantKey]).containsExactlyInAnyOrderElementsOf(TenantRole.entries)
+        assertThat(alice!!.tenantMemberships.keys).containsExactly(TenantKey.of("alice-acme-corp-io"))
+        assertThat(bob!!.tenantMemberships.keys).containsExactly(TenantKey.of("bob-acme-corp-io"))
     }
 
     @Test
-    fun `does not grant platform roles`() {
-        val result = MediatorContext.runWithMediator(mediator) {
-            resolver.resolve("user@noplat.io", dummyUser("user@noplat.io"))
-        }
+    fun `grants every tenant role on that tenant`() {
+        val result = resolve("roles@acme.io")
+        val tenantKey = TenantKey.of("roles-acme-io")
+        track(tenantKey.value)
 
-        assertThat(result).isNotNull()
-        createdTenants.add(TenantKey.of("noplat-io"))
-        assertThat(result!!.platformRoles).isEmpty()
+        assertThat(result!!.tenantMemberships[tenantKey]).containsExactlyInAnyOrderElementsOf(TenantRole.entries)
     }
 
     @Test
-    fun `auto-creates tenant if it does not exist`() {
-        MediatorContext.runWithMediator(mediator) {
-            resolver.resolve("user@newcorp.io", dummyUser("user@newcorp.io"))
-        }
+    fun `grants no platform or global roles, so the user cannot reach or create other tenants`() {
+        val result = resolve("scoped@acme.io")
+        track("scoped-acme-io")
 
-        val tenantKey = TenantKey.of("newcorp-io")
-        createdTenants.add(tenantKey)
+        // Global roles would grant access to every tenant (EpistolaPrincipal.hasAccessToTenant) and
+        // would make ListTenants return the whole installation; TENANT_MANAGER would let them create
+        // more tenants. A demo sandbox is neither.
+        assertThat(result!!.globalRoles).isEmpty()
+        assertThat(result.platformRoles).isEmpty()
+    }
 
-        val tenant = MediatorContext.runWithMediator(mediator) {
-            SecurityContext.runWithPrincipal(systemPrincipal) {
-                mediator.query(GetTenant(tenantKey))
-            }
+    @Test
+    fun `the resulting principal sees only its own tenant`() {
+        val otherTenant = TenantKey.of("someone-elses-tenant")
+        asSystem { mediator.send(CreateTenant(id = otherTenant, name = "Someone Else")) }
+        val tenantKey = TenantKey.of("isolated-acme-io")
+        track(otherTenant.value, tenantKey.value)
+
+        val result = resolve("isolated@acme.io")!!
+        val principal = systemPrincipal.copy(
+            tenantMemberships = result.tenantMemberships,
+            globalRoles = result.globalRoles,
+            platformRoles = result.platformRoles,
+        )
+
+        val visible = MediatorContext.runWithMediator(mediator) {
+            SecurityContext.runWithPrincipal(principal) { mediator.query(ListTenants()) }
         }
+        assertThat(visible.map { it.id }).containsExactly(tenantKey)
+    }
+
+    @Test
+    fun `names the tenant after the email that created it`() {
+        resolve("named@newcorp.io")
+        val tenantKey = TenantKey.of("named-newcorp-io")
+        track(tenantKey.value)
+
+        val tenant = asSystem { mediator.query(GetTenant(tenantKey)) }
         assertThat(tenant).isNotNull()
-        assertThat(tenant!!.name).isEqualTo("newcorp-io")
+        assertThat(tenant!!.name).isEqualTo("named@newcorp.io")
     }
 
     @Test
-    fun `reuses existing tenant`() {
-        val tenantKey = TenantKey.of("existing-co")
-        createdTenants.add(tenantKey)
+    fun `seeds the new tenant with the demo catalog and both environments`() {
+        resolve("seeded@newcorp.io")
+        val tenantKey = TenantKey.of("seeded-newcorp-io")
+        track(tenantKey.value)
 
-        // Create tenant first
-        MediatorContext.runWithMediator(mediator) {
-            SecurityContext.runWithPrincipal(systemPrincipal) {
-                mediator.send(app.epistola.suite.tenants.commands.CreateTenant(id = tenantKey, name = "Existing Co"))
-            }
+        asSystem {
+            assertThat(mediator.query(GetCatalog(tenantKey, CatalogKey.of("epistola-demo")))).isNotNull()
+            val environments = mediator.query(ListEnvironments(TenantId(tenantKey)))
+            assertThat(environments.map { it.id.value }).containsExactlyInAnyOrder("staging", "production")
         }
-
-        // Resolve should succeed without error
-        val result = MediatorContext.runWithMediator(mediator) {
-            resolver.resolve("user@existing.co", dummyUser("user@existing.co"))
-        }
-
-        assertThat(result).isNotNull()
-        assertThat(result!!.tenantMemberships).containsKey(tenantKey)
     }
 
     @Test
-    fun `returns null for invalid email domain`() {
-        val result = MediatorContext.runWithMediator(mediator) {
-            resolver.resolve("invalid-email", dummyUser("invalid-email"))
+    fun `persists the membership so the tenant survives a differently-routed login`() {
+        val email = "persisted@acme.io"
+        val tenantKey = TenantKey.of("persisted-acme-io")
+        track(tenantKey.value)
+
+        val user = MediatorContext.runWithMediator(mediator) {
+            val u = user(email)
+            resolver.resolve(email, u)
+            u
         }
 
-        assertThat(result).isNull()
+        val reloaded = asSystem { mediator.query(GetUserByExternalId(user.externalId, AuthProvider.KEYCLOAK)) }
+        assertThat(reloaded!!.tenantMemberships[tenantKey]).containsExactlyInAnyOrderElementsOf(TenantRole.entries)
     }
 
     @Test
-    fun `converts dots to hyphens in domain`() {
-        val result = MediatorContext.runWithMediator(mediator) {
-            resolver.resolve("user@my.company.co.uk", dummyUser("user@my.company.co.uk"))
-        }
+    fun `reuses the tenant on a later login instead of rebuilding it`() {
+        val email = "returning@acme.io"
+        val tenantKey = TenantKey.of("returning-acme-io")
+        track(tenantKey.value)
 
-        assertThat(result).isNotNull()
-        val tenantKey = TenantKey.of("my-company-co-uk")
-        createdTenants.add(tenantKey)
-        assertThat(result!!.tenantMemberships).containsKey(tenantKey)
+        val first = resolve(email)
+        val second = resolve(email)
+
+        assertThat(first!!.tenantMemberships.keys).containsExactly(tenantKey)
+        assertThat(second!!.tenantMemberships.keys).containsExactly(tenantKey)
+    }
+
+    @Test
+    fun `falls back to a hashed key when another address already owns the readable one`() {
+        // Both addresses slugify to j-doe-test-acme-io; the second must not land in the first's
+        // sandbox.
+        val first = resolve("j.doe+test@acme.io")
+        val second = resolve("j.doe.test@acme.io")
+        val shared = TenantKey.of("j-doe-test-acme-io")
+        track(shared.value)
+        second!!.tenantMemberships.keys.forEach { createdTenants.add(it) }
+
+        assertThat(first!!.tenantMemberships.keys).containsExactly(shared)
+        assertThat(second.tenantMemberships.keys).doesNotContain(shared)
+        assertThat(second.tenantMemberships.keys.single().value).startsWith("j-doe-test-acme-io-")
+    }
+
+    @Test
+    fun `declines an address it cannot derive a key from`() {
+        assertThat(resolve("invalid-email")).isNull()
     }
 }

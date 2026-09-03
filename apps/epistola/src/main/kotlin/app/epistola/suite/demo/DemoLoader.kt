@@ -270,7 +270,8 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
+        /** Also seeded into every personal tenant by [DemoLoginMembershipResolver]. */
+        internal const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
         private const val DEMO_CATALOG_KEY = "epistola-demo"
         private const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
