@@ -262,7 +262,14 @@ class TemplateInspectionHandler(
     }
 
     internal fun expressions(nodeProps: Collection<Map<String, Any?>?>): Set<String> = buildSet {
-        nodeProps.forEach { props -> collectExpressions(props?.get("content"), this) }
+        nodeProps.forEach { props ->
+            collectExpressions(props?.get("content"), this)
+
+            // Components such as Data List store their binding in expression.raw,
+            // rather than as a rich-text expression node in content.
+            val source = (props?.get("expression") as? Map<*, *>)?.get("raw") as? String
+            source?.takeIf { it.isNotBlank() }?.let(::add)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")

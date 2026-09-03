@@ -190,6 +190,16 @@ class TemplateAssessmentEvaluatorTest {
     }
 
     @Test
+    fun `template expressions include component source bindings`() {
+        val props = listOf(
+            mapOf("expression" to mapOf("raw" to "people")),
+            mapOf("expression" to mapOf("raw" to "")),
+        )
+
+        assertThat(evaluator.expressions(props)).containsExactly("people")
+    }
+
+    @Test
     fun `component and image accessibility predicates inspect persisted editor nodes`() {
         val columns = Node(id = "columns", type = "columns", slots = emptyList(), props = emptyMap())
         val describedImage = Node(
