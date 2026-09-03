@@ -119,19 +119,43 @@ SPRING_PROFILES_ACTIVE=demo,localauth
 ### A tenant per user
 
 When `epistola.demo.enabled=true` and an OIDC login carries **no** `/epistola/` groups and no flat
-roles, `DemoLoginMembershipResolver` gives that person a tenant of their own, derived from their
-whole email address:
+roles, `DemoLoginMembershipResolver` gives that person a tenant of their own. The key is their email
+address's local part, then a short hash of the whole address:
 
-| Email                | Tenant key           |
-| -------------------- | -------------------- |
-| `sander@degroot.dev` | `sander-degroot-dev` |
-| `j.doe+test@acme.io` | `j-doe-test-acme-io` |
-| `1st@acme.io`        | `u-1st-acme-io`      |
+| Email                | Tenant key          |                                       |
+| -------------------- | ------------------- | ------------------------------------- |
+| `sander@degroot.dev` | `sander-665cdb`     |                                       |
+| `j.doe+test@acme.io` | `j-doe-test-6f7f03` |                                       |
+| `j.doe.test@acme.io` | `j-doe-test-9db5b1` | same label, different address         |
+| `admin@acme.io`      | `admin-94039b`      | reserved words are fine with a suffix |
+| `1st@acme.io`        | `u-1st-a5752e`      | a key must start with a letter        |
+| `日本@example.jp`    | `u-6196c7`          | nothing ASCII in the local part       |
 
 The tenant is named after the address that created it, and a new one is seeded with the bundled demo
-catalog plus `staging` and `production` environments. Slugifying is lossy, so where two addresses
-would claim the same key the second gets one carrying a hash of their address instead —
-`j-doe-test-acme-io-3f9a2c`.
+catalog plus `staging` and `production` environments.
+
+**Every** key is hashed, not only the ones that would otherwise clash. That makes uniqueness a
+property of the key rather than something to check for on each login, and it is why a reserved word,
+a leading digit or a local part with no ASCII in it all just work — the label in front of the hash is
+free to be whatever is readable, or nothing at all.
+
+#### Working out a tenant key by hand
+
+The hash is the first six hex characters of `sha256` over the **trimmed, lowercased** address, as
+UTF-8. No salt, no secret, no installation-specific input — this is an identifier, not a credential,
+so anyone can reproduce it:
+
+```bash
+printf %s "sander@degroot.dev" | shasum -a 256 | cut -c1-6    # 665cdb
+```
+
+The label in front of it is the local part lowercased, with every run of characters outside
+`[a-z0-9]` replaced by a single `-` and any leading/trailing `-` removed. If that leaves something
+empty or starting with a digit, it is replaced by (or prefixed with) `u`. The whole key is capped at
+`TenantKey`'s 63 characters, truncating the label rather than the hash.
+
+Only a string that is not an address at all — nothing on one side of the `@` — is declined, and the
+user then simply keeps whatever memberships they already had.
 
 The user gets **all tenant roles on their own tenant, and no global or platform roles**. That is
 what stops a demo user seeing anyone else's tenant (`ListTenants` filters on membership when there

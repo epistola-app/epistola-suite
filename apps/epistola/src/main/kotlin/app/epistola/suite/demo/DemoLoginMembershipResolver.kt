@@ -61,8 +61,10 @@ class DemoLoginMembershipResolver(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun resolve(email: String, user: User): ResolvedMemberships? {
+        // Normalized here for the tenant's display name; [deriveTenantKeyFromEmail] normalizes the
+        // key independently, so the two cannot drift.
         val normalizedEmail = email.trim().lowercase(Locale.ROOT)
-        val tenantKey = claimTenantKey(normalizedEmail) ?: return null
+        val tenantKey = deriveTenantKeyFromEmail(normalizedEmail) ?: return null
         val roles = TenantRole.entries.toSet()
 
         ensureTenant(tenantKey, normalizedEmail)
@@ -70,28 +72,6 @@ class DemoLoginMembershipResolver(
 
         log.info("Demo mode: assigned user {} to personal tenant {} with all roles", email, tenantKey.value)
         return ResolvedMemberships(tenantMemberships = mapOf(tenantKey to roles))
-    }
-
-    /**
-     * Picks the tenant key this email owns.
-     *
-     * Slugifying is lossy — `j.doe+test@acme.io` and `j.doe.test@acme.io` both reduce to
-     * `j-doe-test-acme-io` — so the readable key is only used when it is free or already this
-     * person's. The tenant's `name` is the email that created it, which is what makes "already
-     * this person's" answerable. Anyone who loses the race falls back to a key carrying a hash of
-     * their address, so two people never silently share a sandbox.
-     */
-    private fun claimTenantKey(email: String): TenantKey? {
-        val preferred = deriveTenantKeyFromEmail(email) ?: return null
-        return SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
-            val existing = mediator.query(GetTenant(preferred))
-            when {
-                existing == null || existing.name == email -> preferred
-                else -> hashedTenantKeyForEmail(email).also {
-                    log.info("Demo mode: {} is taken by another address, falling back to {}", preferred.value, it?.value)
-                }
-            }
-        }
     }
 
     private fun ensureTenant(tenantKey: TenantKey, email: String) {
@@ -161,54 +141,73 @@ class DemoLoginMembershipResolver(
     companion object {
         /** [TenantKey]'s own upper bound. */
         private const val MAX_SLUG_LENGTH = 63
-        private const val HASH_SUFFIX_LENGTH = 6
 
-        /** Longest stem that still leaves room for `-` plus [HASH_SUFFIX_LENGTH] hex characters. */
-        private const val MAX_HASHED_STEM_LENGTH = MAX_SLUG_LENGTH - HASH_SUFFIX_LENGTH - 1
+        /** 24 bits — ample for the number of tenants a demo installation will ever hold. */
+        private const val HASH_LENGTH = 6
+
+        /** Stands in for a label that cannot lead a [TenantKey]: empty, or starting with a digit. */
+        private const val LABEL_FALLBACK = "u"
 
         private val NON_SLUG_CHARS = Regex("[^a-z0-9]+")
 
         /**
-         * Slugifies a whole email address into a [TenantKey]: `sander@degroot.dev` →
-         * `sander-degroot-dev`, `j.doe+test@acme.io` → `j-doe-test-acme-io`.
+         * Derives this address's tenant key: the local part for identification, then a short hash of
+         * the whole address — `sander@degroot.dev` → `sander-6196c7`.
          *
-         * Local part and domain are slugified separately and both must survive, so an address whose
-         * local part is entirely non-ASCII (`日本@example.jp`) does not quietly collapse to the
-         * domain and hand every such user the same tenant. [TenantKey] stays the sole authority on
-         * what is valid — anything produced here is offered to [TenantKey.validateOrNull], and a
-         * rejection falls back to [hashedTenantKeyForEmail].
+         * Every key is hashed, not just the ones that would otherwise clash. Deriving a readable key
+         * and only hashing on collision meant a second code path, a "is this key already someone
+         * else's?" lookup on every login, and a special case for each way slugifying can go wrong.
+         * Hashing unconditionally makes uniqueness a property of the key rather than something to
+         * check for, so the label in front of it is free to be whatever is readable — a reserved
+         * word (`admin@acme.io` → `admin-…`), or nothing at all (`日本@example.jp` → `u-…`).
          *
-         * Expects an already lowercased, trimmed address. Returns null when there is nothing usable
-         * on one side of the `@`.
+         * The label is the **local part only**. The hash covers the whole address, so
+         * `sander@a.com` and `sander@b.com` are already distinct without spending key length on the
+         * domain.
+         *
+         * Normalizes the address itself rather than trusting the caller to have done it, so
+         * `Sander@Degroot.dev` and `sander@degroot.dev` cannot become two tenants, and so the hash
+         * recipe documented on [shortHash] holds for whatever is passed in. Returns null only when
+         * one side of the `@` is missing entirely — that is not an address.
          */
-        internal fun deriveTenantKeyFromEmail(email: String): TenantKey? {
-            val local = email.substringBefore('@', "").slugify()
-            val domain = email.substringAfter('@', "").slugify()
+        internal fun deriveTenantKeyFromEmail(rawEmail: String): TenantKey? {
+            val email = rawEmail.trim().lowercase(Locale.ROOT)
+            val local = email.substringBefore('@', "")
+            val domain = email.substringAfter('@', "")
             if (local.isBlank() || domain.isBlank()) return null
 
-            val slug = "$local-$domain".truncateSlug(MAX_SLUG_LENGTH)
-            val candidate = if (slug.first().isLetter()) slug else "u-$slug".truncateSlug(MAX_SLUG_LENGTH)
-            return TenantKey.validateOrNull(candidate) ?: hashedTenantKeyForEmail(email)
+            val label = local.slugify()
+            // [TenantKey] must start with a letter. The label leads, so it is the only part that can
+            // break that — an empty one (nothing ASCII to slugify) or one starting with a digit.
+            val stem = when {
+                label.isBlank() -> LABEL_FALLBACK
+                label.first().isLetter() -> label
+                else -> "$LABEL_FALLBACK-$label"
+            }
+            // Truncated after prefixing, so the fallback cannot push the key over the limit.
+            val head = stem.truncateSlug(MAX_SLUG_LENGTH - HASH_LENGTH - 1)
+            return TenantKey.validateOrNull("$head-${shortHash(email)}")
         }
 
         /**
-         * The collision-proof form: a readable stem plus a hash of the full address. Used when the
-         * plain slug is invalid, or when another address already owns it.
+         * The first [HASH_LENGTH] hex characters of `sha256(email)`.
+         *
+         * Deliberately something anyone can reproduce without the application — no salt, no secret,
+         * no installation-specific input — so an operator can work out which tenant an address maps
+         * to from a shell prompt:
+         *
+         * ```
+         * printf %s "sander@degroot.dev" | shasum -a 256 | cut -c1-6   # 665cdb
+         * ```
+         *
+         * The input is the address **lowercased and trimmed** (see [resolve]), hashed as UTF-8. This
+         * is an identifier, not a credential: it exists so two addresses cannot land in one tenant,
+         * and nothing is protected by its being hard to guess. Documented in `docs/auth.md`.
          */
-        internal fun hashedTenantKeyForEmail(email: String): TenantKey? {
-            val local = email.substringBefore('@', "").slugify()
-            val domain = email.substringAfter('@', "").slugify()
-            if (local.isBlank() || domain.isBlank()) return null
-
-            val stem = "$local-$domain".truncateSlug(MAX_HASHED_STEM_LENGTH)
-            val prefixed = if (stem.isNotEmpty() && stem.first().isLetter()) stem else "u-$stem".truncateSlug(MAX_HASHED_STEM_LENGTH)
-            return TenantKey.validateOrNull("$prefixed-${shortHash(email)}")
-        }
-
-        private fun shortHash(value: String): String = MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray())
+        private fun shortHash(email: String): String = MessageDigest.getInstance("SHA-256")
+            .digest(email.toByteArray())
             .joinToString("") { "%02x".format(it) }
-            .take(HASH_SUFFIX_LENGTH)
+            .take(HASH_LENGTH)
 
         private fun String.slugify(): String = lowercase(Locale.ROOT).replace(NON_SLUG_CHARS, "-").trim('-')
 

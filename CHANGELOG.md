@@ -5,20 +5,24 @@
 ## [Unreleased]
 
 - **[user]** feat(demo): **A demo sandbox per person, not per company.** The demo profile derived a
-  tenant from the email _domain_, so everyone at one company landed in the same tenant and
-  overwrote each other's work. A demo is a place to try things, so the unit is now the person: the
-  whole address becomes the tenant key (`sander@degroot.dev` → `sander-degroot-dev`), the tenant is
-  named after the address that created it, and a new one arrives seeded with the bundled demo
-  catalog plus `staging` and `production` environments. Where two addresses would claim the same key
-  — slugifying is lossy, `j.doe+test` and `j.doe.test` collapse together — the second gets a key
-  carrying a hash of their address instead. The grant is now written to `tenant_memberships` rather
-  than living only in the session, so the tenant appears in its own member list. Users get every
-  tenant role on their own tenant and, deliberately, no global or platform roles: they cannot see
-  another person's tenant or create further ones. Roles the identity provider grants still win, and
-  platform roles carried by the token are no longer dropped when this fallback fires. Applies to the
-  OIDC path only — form-login users keep taking their tenant from `epistola.auth.local-users`.
-  Existing demo installs keep their old domain tenant, but people will land in a fresh personal one
-  on their next login.
+  tenant from the email _domain_, so everyone at one company landed in the same tenant and overwrote
+  each other's work. A demo is a place to try things, so the unit is now the person. The tenant key
+  is the address's local part followed by six hex characters of `sha256` over the trimmed,
+  lowercased address — `sander@degroot.dev` → `sander-665cdb` — and the tenant is named after the
+  address that created it and arrives seeded with the bundled demo catalog plus `staging` and
+  `production` environments. Every key is hashed rather than only the ones that would clash, which
+  makes uniqueness a property of the key instead of something to check for on each login, and is why
+  a reserved word (`admin@acme.io`), a leading digit (`1st@acme.io`) and a local part with no ASCII
+  in it (`日本@example.jp`) all just work. The recipe is deliberately reproducible from a shell prompt
+  — no salt, no secret — and is documented in
+  [`docs/auth.md`](docs/auth.md#working-out-a-tenant-key-by-hand). The grant is now written to
+  `tenant_memberships` rather than living only in the session, so the tenant appears in its own
+  member list. Users get every tenant role on their own tenant and, deliberately, no global or
+  platform roles: they cannot see another person's tenant or create further ones. Roles the identity
+  provider grants still win, and platform roles carried by the token are no longer dropped when this
+  fallback fires. Applies to the OIDC path only — form-login users keep taking their tenant from
+  `epistola.auth.local-users`. Existing demo installs keep their old domain tenant, but people will
+  land in a fresh personal one on their next login.
 - **[dev]** feat(demo,security): **A shared secret that authenticates the whole REST API — demo
   profile only.** The demo website calls Epistola on behalf of whichever visitor is using it, and
   those visitors now get a tenant created at the moment they log in, so there is no per-tenant API

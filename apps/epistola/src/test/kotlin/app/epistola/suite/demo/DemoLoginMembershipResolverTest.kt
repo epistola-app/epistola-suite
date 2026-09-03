@@ -99,7 +99,10 @@ class DemoLoginMembershipResolverTest {
         resolver.resolve(email, user(email))
     }
 
-    private fun track(vararg keys: String) = keys.forEach { createdTenants.add(TenantKey.of(it)) }
+    /** The key this address maps to — pinned exhaustively in [DemoTenantKeyDerivationTest]. */
+    private fun keyFor(email: String): TenantKey = DemoLoginMembershipResolver.deriveTenantKeyFromEmail(email) ?: error("no key for $email")
+
+    private fun track(vararg emails: String) = emails.forEach { createdTenants.add(keyFor(it)) }
 
     @BeforeEach
     fun ensureSystemPrincipalUser() {
@@ -124,17 +127,17 @@ class DemoLoginMembershipResolverTest {
     fun `gives each person their own tenant, not one per company`() {
         val alice = resolve("alice@acme-corp.io")
         val bob = resolve("bob@acme-corp.io")
-        track("alice-acme-corp-io", "bob-acme-corp-io")
+        track("alice@acme-corp.io", "bob@acme-corp.io")
 
-        assertThat(alice!!.tenantMemberships.keys).containsExactly(TenantKey.of("alice-acme-corp-io"))
-        assertThat(bob!!.tenantMemberships.keys).containsExactly(TenantKey.of("bob-acme-corp-io"))
+        assertThat(alice!!.tenantMemberships.keys).containsExactly(keyFor("alice@acme-corp.io"))
+        assertThat(bob!!.tenantMemberships.keys).containsExactly(keyFor("bob@acme-corp.io"))
     }
 
     @Test
     fun `grants every tenant role on that tenant`() {
         val result = resolve("roles@acme.io")
-        val tenantKey = TenantKey.of("roles-acme-io")
-        track(tenantKey.value)
+        val tenantKey = keyFor("roles@acme.io")
+        track("roles@acme.io")
 
         assertThat(result!!.tenantMemberships[tenantKey]).containsExactlyInAnyOrderElementsOf(TenantRole.entries)
     }
@@ -142,7 +145,7 @@ class DemoLoginMembershipResolverTest {
     @Test
     fun `grants no platform or global roles, so the user cannot reach or create other tenants`() {
         val result = resolve("scoped@acme.io")
-        track("scoped-acme-io")
+        track("scoped@acme.io")
 
         // Global roles would grant access to every tenant (EpistolaPrincipal.hasAccessToTenant) and
         // would make ListTenants return the whole installation; TENANT_MANAGER would let them create
@@ -155,8 +158,9 @@ class DemoLoginMembershipResolverTest {
     fun `the resulting principal sees only its own tenant`() {
         val otherTenant = TenantKey.of("someone-elses-tenant")
         asSystem { mediator.send(CreateTenant(id = otherTenant, name = "Someone Else")) }
-        val tenantKey = TenantKey.of("isolated-acme-io")
-        track(otherTenant.value, tenantKey.value)
+        val tenantKey = keyFor("isolated@acme.io")
+        createdTenants.add(otherTenant)
+        track("isolated@acme.io")
 
         val result = resolve("isolated@acme.io")!!
         val principal = systemPrincipal.copy(
@@ -174,8 +178,8 @@ class DemoLoginMembershipResolverTest {
     @Test
     fun `names the tenant after the email that created it`() {
         resolve("named@newcorp.io")
-        val tenantKey = TenantKey.of("named-newcorp-io")
-        track(tenantKey.value)
+        val tenantKey = keyFor("named@newcorp.io")
+        track("named@newcorp.io")
 
         val tenant = asSystem { mediator.query(GetTenant(tenantKey)) }
         assertThat(tenant).isNotNull()
@@ -185,8 +189,8 @@ class DemoLoginMembershipResolverTest {
     @Test
     fun `seeds the new tenant with the demo catalog and both environments`() {
         resolve("seeded@newcorp.io")
-        val tenantKey = TenantKey.of("seeded-newcorp-io")
-        track(tenantKey.value)
+        val tenantKey = keyFor("seeded@newcorp.io")
+        track("seeded@newcorp.io")
 
         asSystem {
             assertThat(mediator.query(GetCatalog(tenantKey, CatalogKey.of("epistola-demo")))).isNotNull()
@@ -198,8 +202,8 @@ class DemoLoginMembershipResolverTest {
     @Test
     fun `persists the membership so the tenant survives a differently-routed login`() {
         val email = "persisted@acme.io"
-        val tenantKey = TenantKey.of("persisted-acme-io")
-        track(tenantKey.value)
+        val tenantKey = keyFor(email)
+        track(email)
 
         val user = MediatorContext.runWithMediator(mediator) {
             val u = user(email)
@@ -214,8 +218,8 @@ class DemoLoginMembershipResolverTest {
     @Test
     fun `reuses the tenant on a later login instead of rebuilding it`() {
         val email = "returning@acme.io"
-        val tenantKey = TenantKey.of("returning-acme-io")
-        track(tenantKey.value)
+        val tenantKey = keyFor(email)
+        track(email)
 
         val first = resolve(email)
         val second = resolve(email)
@@ -225,18 +229,15 @@ class DemoLoginMembershipResolverTest {
     }
 
     @Test
-    fun `falls back to a hashed key when another address already owns the readable one`() {
-        // Both addresses slugify to j-doe-test-acme-io; the second must not land in the first's
-        // sandbox.
+    fun `keeps apart two addresses whose local parts slugify alike`() {
+        // Both reduce to the label "j-doe-test"; the hash is what stops them sharing a sandbox.
         val first = resolve("j.doe+test@acme.io")
         val second = resolve("j.doe.test@acme.io")
-        val shared = TenantKey.of("j-doe-test-acme-io")
-        track(shared.value)
-        second!!.tenantMemberships.keys.forEach { createdTenants.add(it) }
+        track("j.doe+test@acme.io", "j.doe.test@acme.io")
 
-        assertThat(first!!.tenantMemberships.keys).containsExactly(shared)
-        assertThat(second.tenantMemberships.keys).doesNotContain(shared)
-        assertThat(second.tenantMemberships.keys.single().value).startsWith("j-doe-test-acme-io-")
+        assertThat(first!!.tenantMemberships.keys.single().value).startsWith("j-doe-test-")
+        assertThat(second!!.tenantMemberships.keys.single().value).startsWith("j-doe-test-")
+        assertThat(first.tenantMemberships.keys).isNotEqualTo(second.tenantMemberships.keys)
     }
 
     @Test
