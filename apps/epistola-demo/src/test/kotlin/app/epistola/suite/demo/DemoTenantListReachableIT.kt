@@ -4,7 +4,6 @@
 
 package app.epistola.suite.demo
 
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
@@ -32,10 +31,10 @@ import org.springframework.http.HttpStatus
 @Import(
     TestcontainersConfiguration::class,
     UnloggedTablesTestConfiguration::class,
-    app.epistola.suite.config.TestSecurityContextConfiguration::class,
+    app.epistola.suite.testing.TestSecurityContextConfiguration::class,
 )
 @SpringBootTest(
-    classes = [EpistolaSuiteApplication::class],
+    classes = [EpistolaDemoApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "epistola.demo.enabled=true",

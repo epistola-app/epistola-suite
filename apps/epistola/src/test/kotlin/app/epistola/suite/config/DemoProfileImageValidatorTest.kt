@@ -12,9 +12,11 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.mock.env.MockEnvironment
 
 /**
- * The demo module IS on this test's classpath (the app takes it on `testAndDevelopmentOnly`), so the
- * "present" cases are real. The absent case is covered by a class loader that hides it — which is
- * exactly what the default image's classpath does.
+ * The production side of the guard, tested against the real thing: demo mode is genuinely absent
+ * from this project's classpath, so nothing is stubbed or hidden here. If someone were to put demo
+ * mode back into `apps/epistola`, this test would start failing — which is the point.
+ *
+ * The other branch lives in `apps/epistola-demo`, where the classes are present.
  */
 @Tag("unit")
 class DemoProfileImageValidatorTest {
@@ -23,33 +25,20 @@ class DemoProfileImageValidatorTest {
         MockEnvironment().apply { setActiveProfiles(*profiles) },
     )
 
-    /** Reproduces the default image's classpath: nothing under the demo package resolves. */
-    private val withoutDemoModule = object : ClassLoader(javaClass.classLoader) {
-        override fun loadClass(name: String, resolve: Boolean): Class<*> {
-            if (name.startsWith("app.epistola.suite.demo.")) throw ClassNotFoundException(name)
-            return super.loadClass(name, resolve)
-        }
-    }
-
     @Test
-    fun `the demo profile passes on an image that contains demo mode`() {
-        assertDoesNotThrow { validator("demo").validate(javaClass.classLoader) }
-    }
-
-    @Test
-    fun `no demo profile passes on either image`() {
-        assertDoesNotThrow { validator("prod").validate(withoutDemoModule) }
-        assertDoesNotThrow { validator().validate(withoutDemoModule) }
-        assertDoesNotThrow { validator("prod").validate(javaClass.classLoader) }
-    }
-
-    @Test
-    fun `the demo profile fails on an image without demo mode`() {
+    fun `the demo profile fails on this image, which does not contain demo mode`() {
         val error = assertThrows<IllegalStateException> {
-            validator("demo").validate(withoutDemoModule)
+            validator("demo").validate(javaClass.classLoader)
         }
 
         assertThat(error).hasMessageContaining("does not contain demo mode")
         assertThat(error).hasMessageContaining("-demo")
+    }
+
+    @Test
+    fun `every other profile starts normally`() {
+        assertDoesNotThrow { validator("prod").validate(javaClass.classLoader) }
+        assertDoesNotThrow { validator("local", "localauth").validate(javaClass.classLoader) }
+        assertDoesNotThrow { validator().validate(javaClass.classLoader) }
     }
 }

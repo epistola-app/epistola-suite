@@ -21,6 +21,12 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
+    // TestSecurityContextConfiguration binds a principal per request, so it needs the servlet
+    // filter API and Spring Security's context holder. `api` because the tests that @Import it are
+    // in other projects and reference the same types.
+    api("org.springframework.boot:spring-boot-starter-webmvc")
+    api("org.springframework.boot:spring-boot-starter-security")
+
     // JDBI (needed by FakeDocumentGenerationExecutor and test contract version helpers)
     api(libs.jdbi.core)
     api(libs.jdbi.kotlin)

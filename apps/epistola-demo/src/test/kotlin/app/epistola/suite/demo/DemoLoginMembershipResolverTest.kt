@@ -47,10 +47,10 @@ import java.util.UUID
 @Import(
     TestcontainersConfiguration::class,
     UnloggedTablesTestConfiguration::class,
-    app.epistola.suite.config.TestSecurityContextConfiguration::class,
+    app.epistola.suite.testing.TestSecurityContextConfiguration::class,
 )
 @SpringBootTest(
-    classes = [app.epistola.suite.EpistolaSuiteApplication::class],
+    classes = [EpistolaDemoApplication::class],
     properties = [
         "epistola.demo.enabled=true",
     ],

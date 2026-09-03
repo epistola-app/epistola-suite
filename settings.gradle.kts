@@ -19,13 +19,13 @@ dependencyResolutionManagement {
 }
 
 include(":apps:epistola")
+include(":apps:epistola-demo")
 include(":apps:pdfrender")
 include(":modules:epistola-core")
 include(":modules:epistola-crypto")
 include(":modules:epistola-web")
 include(":modules:epistola-version-check")
 include(":modules:epistola-quality")
-include(":modules:epistola-demo")
 include(":modules:epistola-audit")
 include(":modules:loadtest")
 include(":modules:editor")

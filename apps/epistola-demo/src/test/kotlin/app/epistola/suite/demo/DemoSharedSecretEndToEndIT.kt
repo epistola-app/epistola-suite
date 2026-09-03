@@ -4,7 +4,6 @@
 
 package app.epistola.suite.demo
 
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -42,7 +41,7 @@ import org.springframework.http.ResponseEntity
     DemoSharedSecretSecurityConfig::class,
 )
 @SpringBootTest(
-    classes = [EpistolaSuiteApplication::class],
+    classes = [EpistolaDemoApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "epistola.demo.enabled=false",

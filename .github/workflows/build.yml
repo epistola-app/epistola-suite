@@ -477,18 +477,22 @@ jobs:
       matrix:
         include:
           - variant: JVM
+            project: ":apps:epistola"
             gradle-args: ""
             image-suffix: ""
             enabled: true
           - variant: Demo
-            gradle-args: -PdemoImage=true
+            project: ":apps:epistola-demo"
+            gradle-args: ""
             image-suffix: "-demo"
-            # The only image containing modules:epistola-demo. Demo mode gives every user who logs
-            # in their own tenant and can carry a shared secret that authenticates every /api
-            # endpoint against every tenant, so it ships as a separate artifact rather than a
-            # profile flag on the production image. See docs/auth.md.
+            # A separate app that depends on apps/epistola and adds demo mode. Demo mode gives every
+            # user who logs in their own tenant and can carry a shared secret that authenticates
+            # every /api endpoint against every tenant, so it ships as its own artifact rather than a
+            # profile flag on the production image — the production image does not contain the code.
+            # See docs/auth.md "Two images".
             enabled: true
           - variant: Native
+            project: ":apps:epistola"
             gradle-args: -PnativeImage=true
             image-suffix: "-native"
             # Disabled: JDBI/Kotlin reflection doesn't work with GraalVM native images
@@ -604,7 +608,7 @@ jobs:
         if: ${{ matrix.enabled }}
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: gradle :apps:epistola:bootBuildImage -PreleaseVersion=$VERSION ${{ matrix.gradle-args }} --imageName=epistola-suite:$VERSION${{ matrix.image-suffix }}
+        run: gradle ${{ matrix.project }}:bootBuildImage -PreleaseVersion=$VERSION ${{ matrix.gradle-args }} --imageName=epistola-suite:$VERSION${{ matrix.image-suffix }}
 
       - name: Tag and push Docker image (PR)
         if: ${{ matrix.enabled && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish') }}

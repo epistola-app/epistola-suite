@@ -38,10 +38,12 @@ class DemoProfileImageValidator(
     override fun afterSingletonsInstantiated() = validate(javaClass.classLoader)
 
     /**
-     * The class loader is an explicit input so a test can hide the demo package and exercise the
-     * failure — the case that only otherwise occurs in a differently-built artifact.
+     * The class loader is an explicit input so each app can test the branch that is true for it:
+     * `apps/epistola` asserts the failure against its own classpath, which genuinely lacks demo
+     * mode, and `apps/epistola-demo` asserts the pass against one that has it. Neither has to stub
+     * anything, which is why this is worth a parameter.
      */
-    internal fun validate(classLoader: ClassLoader) {
+    fun validate(classLoader: ClassLoader) {
         if (!environment.acceptsProfiles(Profiles.of(DEMO_PROFILE))) return
         if (ClassUtils.isPresent(DEMO_MARKER_CLASS, classLoader)) return
 

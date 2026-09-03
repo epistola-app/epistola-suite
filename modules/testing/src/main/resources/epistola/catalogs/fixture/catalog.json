@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 6,
+  "catalog": {
+    "slug": "epistola-demo",
+    "name": "Epistola Demo Catalog",
+    "description": "Sample templates, themes, stencils, and attributes for getting started with Epistola.",
+    "attributes": [
+      {
+        "catalog": "system",
+        "key": "locale",
+        "value": "nl-NL"
+      }
+    ],
+    "keywords": ["Letters", "Dutch", "Getting Started"],
+    "presentation": {
+      "iconAssetSlug": "01966a00-0000-7000-8000-000000000001",
+      "imageAssetSlugs": [
+        "01966a00-0000-7000-8000-000000000001",
+        "01966a00-0000-7000-8000-000000000002"
+      ]
+    },
+    "license": {
+      "name": "Creative Commons Attribution 4.0 International",
+      "spdxExpression": "CC-BY-4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "copyrightText": "Copyright Epistola Nederland B.V."
+    }
+  },
+  "publisher": {
+    "name": "Epistola",
+    "url": "https://github.com/epistola-app"
+  },
+  "release": {
+    "version": "5.17.1",
+    "releasedAt": "2026-08-21T00:00:00Z",
+    "fingerprint": "b70caaaf5d5804ec78399352c6c0a49e4cdcd81a610520cb4c26c1c77e6df0a0"
+  },
+  "resources": [
+    {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000001",
+      "name": "Epistola Logo",
+      "description": "Small brand logo for use in templates.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/assets/epistola-logo.json"
+    },
+    {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000002",
+      "name": "Epistola Catalog Preview",
+      "description": "Preview illustration for the demo catalog gallery.",
+      "updatedAt": "2026-08-20T00:00:00Z",
+      "detailUrl": "./resources/assets/catalog-preview.json"
+    },
+    {
+      "type": "attribute",
+      "slug": "language",
+      "name": "Language",
+      "description": "Document language for multi-language template variants.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/attributes/language.json"
+    },
+    {
+      "type": "theme",
+      "slug": "corporate",
+      "name": "Corporate Theme",
+      "description": "A clean corporate theme with professional styling.",
+      "updatedAt": "2026-05-17T00:00:00Z",
+      "detailUrl": "./resources/themes/corporate.json"
+    },
+    {
+      "type": "stencil",
+      "slug": "company-header",
+      "name": "Company Header",
+      "description": "Reusable company header block with logo placeholder and company name.",
+      "updatedAt": "2026-06-25T00:00:00Z",
+      "detailUrl": "./resources/stencils/company-header.json"
+    },
+    {
+      "type": "stencil",
+      "slug": "letter-shell",
+      "name": "Letter Shell",
+      "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
+      "updatedAt": "2026-05-16T00:00:00Z",
+      "detailUrl": "./resources/stencils/letter-shell.json"
+    },
+    {
+      "type": "template",
+      "slug": "hello-world",
+      "name": "Hello World",
+      "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
+      "updatedAt": "2026-07-27T00:00:00Z",
+      "detailUrl": "./resources/templates/hello-world.json"
+    },
+    {
+      "type": "template",
+      "slug": "advanced-data-contract",
+      "name": "Advanced Data Contract",
+      "description": "A focused test template for editing local references, schema compositions, nullable unions, mixed object variants, deeply nested arrays, and nested-loop expression scopes.",
+      "updatedAt": "2026-08-21T00:00:00Z",
+      "detailUrl": "./resources/templates/advanced-data-contract.json"
+    },
+    {
+      "type": "template",
+      "slug": "quality-showcase",
+      "name": "Quality Showcase",
+      "description": "Deliberately flawed: an empty block, an overlong one, and an image with no alt text, so the quality report and editor panel have real findings to show. Enable the alpha 'quality' feature to see them.",
+      "updatedAt": "2026-07-17T00:00:00Z",
+      "detailUrl": "./resources/templates/quality-showcase.json"
+    },
+    {
+      "type": "template",
+      "slug": "simple-letter",
+      "name": "Simple Letter",
+      "description": "A basic letter template with sender, recipient, subject, and body.",
+      "updatedAt": "2026-04-18T00:00:00Z",
+      "detailUrl": "./resources/templates/simple-letter.json"
+    },
+    {
+      "type": "template",
+      "slug": "demo-invoice",
+      "name": "Invoice Template",
+      "description": "Professional invoice with line items, tax calculation, QR payment code, and conditional notes. Demonstrates datatables, columns, tables, conditionals, expressions, and the cover-page + running pageheader pattern.",
+      "updatedAt": "2026-05-17T00:00:00Z",
+      "detailUrl": "./resources/templates/demo-invoice.json"
+    },
+    {
+      "type": "template",
+      "slug": "officiele-snelheidsbekeuring",
+      "name": "Verkeersboete",
+      "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
+      "updatedAt": "2026-05-21T00:00:00Z",
+      "detailUrl": "./resources/templates/traffic-fine.json"
+    }
+  ]
+}
