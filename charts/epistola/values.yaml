@@ -325,7 +325,9 @@ support:
     # is distinct automatically. (The app property epistola.support.hub.node-id
     # still exists for rare single-instance overrides outside Kubernetes.)
 
-# Demo-profile options. Only meaningful when config.profiles includes "demo".
+# Demo-profile options. Only meaningful when config.profiles includes "demo", which in turn only
+# works on the `-demo` image (image.tag: "{version}-demo"). The default image does not contain the
+# demo code and refuses to start with that profile — see docs/auth.md "Two images".
 demo:
   # A single credential that authenticates EVERY /api/** endpoint against EVERY tenant with every
   # permission, so the demo website can call Epistola on behalf of a visitor whose tenant was
@@ -346,7 +348,8 @@ demo:
 config:
   # Spring profiles to activate. OIDC login is configured via oidc.* (env vars), not a profile.
   # Production:    "prod"
-  # Staging/Test:  "demo" or "demo,localauth"
+  # Staging/Test:  "demo" or "demo,localauth" — requires the `-demo` image tag; the default image
+  #                does not contain demo mode and will refuse to start with that profile.
   profiles: ""
   # Additional environment variables
   env: {}

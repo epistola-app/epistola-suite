@@ -116,6 +116,43 @@ SPRING_PROFILES_ACTIVE=demo
 SPRING_PROFILES_ACTIVE=demo,localauth
 ```
 
+**It only works on the `-demo` image** — see below.
+
+### Two images
+
+Demo mode is not a data-loading convenience. It gives every person who logs in a tenant of their
+own, and can carry a shared secret that authenticates every `/api` endpoint against every tenant
+with every permission. A profile flag is a weak boundary for that: anyone who can edit a
+deployment's environment is one variable away from it.
+
+So it ships as a separate artifact:
+
+| Image                           | Contains `modules:epistola-demo` | `SPRING_PROFILES_ACTIVE=demo` |
+| ------------------------------- | -------------------------------- | ----------------------------- |
+| `epistola-suite:{version}`      | no                               | **refuses to start**          |
+| `epistola-suite:{version}-demo` | yes                              | enables demo mode             |
+
+The default image does not contain the demo classes, so no amount of configuration can turn a
+production install into a demo — the code is not there to configure. `DemoProfileImageValidator`
+turns the mistake into a boot failure rather than a silently normal install, because a profile that
+nothing responds to is otherwise indistinguishable from demo mode being broken.
+
+Because the image is the boundary, `demo` and `prod` remain freely combinable — a public demo can
+still have production hardening.
+
+Mechanically: `apps/epistola/build.gradle.kts` takes the demo module on `testAndDevelopmentOnly`, so
+`bootRun` and the test suite have it (Spring Boot excludes that configuration from the boot jar, the
+same way it does devtools), and promotes it to `implementation` under `-PdemoImage=true`. CI builds
+that as the `Demo` matrix variant. `SecurityConfig` never names the demo module — the shared-secret
+filter reaches the `/api` chain through the `ApiPreAuthenticationFilter` marker, and the landing
+through `PostLoginTargetResolver` — which is what makes leaving it out possible.
+
+Running a demo locally:
+
+```bash
+./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=demo,local,localauth'
+```
+
 ### A tenant per user
 
 When `epistola.demo.enabled=true` and an OIDC login carries **no** `/epistola/` groups and no flat

@@ -5,6 +5,7 @@
 package app.epistola.suite.demo
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
+import app.epistola.suite.api.security.ApiPreAuthenticationFilter
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.EpistolaPrincipal
@@ -60,7 +61,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class DemoSharedSecretAuthenticationFilter(
     secret: String,
     private val meterRegistry: MeterRegistry,
-) : OncePerRequestFilter() {
+) : OncePerRequestFilter(),
+    ApiPreAuthenticationFilter {
 
     private val log = LoggerFactory.getLogger(javaClass)
 

@@ -480,6 +480,14 @@ jobs:
             gradle-args: ""
             image-suffix: ""
             enabled: true
+          - variant: Demo
+            gradle-args: -PdemoImage=true
+            image-suffix: "-demo"
+            # The only image containing modules:epistola-demo. Demo mode gives every user who logs
+            # in their own tenant and can carry a shared secret that authenticates every /api
+            # endpoint against every tenant, so it ships as a separate artifact rather than a
+            # profile flag on the production image. See docs/auth.md.
+            enabled: true
           - variant: Native
             gradle-args: -PnativeImage=true
             image-suffix: "-native"

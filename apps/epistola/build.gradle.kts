@@ -30,6 +30,14 @@ if (buildNativeImage) {
 // Read by io.spring.dependency-management to override the managed version.
 extra["tomcat.version"] = "11.0.25"
 
+/**
+ * Whether this build produces the demo image (`-PdemoImage=true`).
+ *
+ * Only that image contains `modules:epistola-demo`; see the dependency block below and
+ * `docs/auth.md`. CI passes it for the `-demo` matrix variant.
+ */
+val buildsDemoImage: Boolean = providers.gradleProperty("demoImage").orNull?.toBoolean() ?: false
+
 dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
@@ -47,6 +55,19 @@ dependencies {
     // Quality checks — the findings ledger, its source SPI and the daily sweep. OSS feature,
     // alpha and off by default (epistola.features.quality).
     implementation(project(":modules:epistola-quality"))
+
+    // Demo mode — deliberately NOT on `implementation` by default.
+    //
+    // It gives every person who logs in a tenant of their own, and can carry a shared secret that
+    // authenticates every /api endpoint against every tenant. A profile flag is a weak boundary for
+    // that: anyone able to edit a deployment's environment is one variable away. So the default
+    // image does not contain these classes at all, and no configuration can conjure them.
+    //
+    // `testAndDevelopmentOnly` keeps `bootRun` and the test suite working (Spring Boot excludes that
+    // configuration from the boot jar, the same way it does devtools), while `-PdemoImage=true`
+    // promotes it to `implementation` for the `epistola-suite:{version}-demo` image.
+    testAndDevelopmentOnly(project(":modules:epistola-demo"))
+    if (buildsDemoImage) implementation(project(":modules:epistola-demo"))
 
     // Support module (optional commercial-tier hub integration; off by default)
     implementation(project(":modules:epistola-support"))
@@ -372,6 +393,15 @@ val buildRunImage = tasks.register<Exec>("buildRunImage") {
     group = "docker"
     description = "Build custom CNB run image with fontconfig and fonts"
     commandLine("docker", "build", "-t", "epistola-run:noble", file("docker/run-image").absolutePath)
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    // Empty directories carry nothing, and a stale one is actively misleading: a cached
+    // `compileKotlin` output can leave behind a package directory whose sources have since moved
+    // (`app/epistola/suite/demo/` after demo mode became its own module), so the default image would
+    // appear to contain demo code it does not. Dropping empty directories makes the jar's contents a
+    // function of the sources rather than of the build cache's history.
+    includeEmptyDirs = false
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {

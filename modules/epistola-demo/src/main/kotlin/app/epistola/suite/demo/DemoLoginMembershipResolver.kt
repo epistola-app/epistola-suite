@@ -209,8 +209,12 @@ class DemoLoginMembershipResolver(
          * worked example per branch, under "The key derivation, exactly" in `docs/auth.md`. Every
          * step is pinned by `DemoTenantKeyDerivationTest`, so changing anything here without
          * updating that section will fail a test — please keep it that way.
+         *
+         * Public because it is that documented rule rather than an implementation detail: the host
+         * app's demo integration tests derive the key they expect from it rather than hard-coding
+         * hashes, which is what keeps them honest about what the app actually does.
          */
-        internal fun deriveTenantKeyFromEmail(rawEmail: String): TenantKey? {
+        fun deriveTenantKeyFromEmail(rawEmail: String): TenantKey? {
             val email = rawEmail.trim().lowercase(Locale.ROOT)
             val local = email.substringBefore('@', "")
             val domain = email.substringAfter('@', "")
