@@ -6,6 +6,7 @@ package app.epistola.suite.demo
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
 import app.epistola.suite.api.security.ApiPreAuthenticationFilter
+import app.epistola.suite.api.security.sanitizeForLog
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.EpistolaPrincipal
@@ -96,7 +97,9 @@ class DemoSharedSecretAuthenticationFilter(
         // this filter does not set the SecurityContext itself.
         request.setAttribute(ApiKeyAuthenticationFilter.REQUEST_ATTR_PRINCIPAL, SHARED_SECRET_PRINCIPAL)
         authCounter().increment()
-        log.debug("Demo shared secret accepted for {} {}", request.method, request.requestURI)
+        // Sanitized: both come straight from the caller, and a newline in either would let them
+        // forge log lines — including a plausible "authentication succeeded" for someone else.
+        log.debug("Demo shared secret accepted for {} {}", sanitizeForLog(request.method), sanitizeForLog(request.requestURI))
 
         filterChain.doFilter(request, response)
     }
