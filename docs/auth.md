@@ -57,6 +57,8 @@ Staging/production run in Kubernetes, where the Helm chart supplies the OIDC reg
 A `SmartInitializingSingleton` that runs at startup and fails fast if:
 
 - **In-memory users in production**: `local` or `localauth` profile combined with `prod` → blocks startup.
+- **Demo mode in production**: `demo` combined with `prod` → blocks startup. Demo mode changes who
+  can reach what, so it must not be one environment variable away from a production install.
 - **No authentication configured**: Neither `UserDetailsService` nor `ClientRegistrationRepository` exists → blocks startup (all requests would 403).
 
 Skipped in `test` profile (tests use permit-all security).
@@ -105,8 +107,15 @@ Override credentials via environment variables:
 
 The `demo` profile loads demo data (tenant, themes, templates) and adds two demo-only behaviours on
 top: a personal tenant per signed-in user, and an optional shared secret for the REST API. It does
-not change which authentication mechanisms exist. In staging/production, OIDC is supplied by env
-vars (Helm), so `demo` is combined with `prod` and/or `localauth` rather than a `keycloak` profile:
+not change which authentication mechanisms exist.
+
+> **`demo` and `prod` are mutually exclusive** and the app refuses to start with both. Demo mode
+> gives every person who logs in a tenant of their own and can carry a credential that authenticates
+> every `/api` endpoint against every tenant, so nobody who can edit a deployment's environment
+> should be one profile away from it. A demo deployment therefore runs without `prod` hardening.
+
+OIDC is supplied by env vars (Helm), so `demo` is combined with `localauth` rather than a `keycloak`
+profile:
 
 ```bash
 # OAuth2 (from env vars) + demo data

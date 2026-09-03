@@ -82,9 +82,24 @@ class AuthenticationSafetyValidatorTest {
     }
 
     @Test
-    fun `demo profile with prod and keycloak passes`() {
+    fun `demo profile with prod throws`() {
+        // Demo mode hands every user who logs in their own tenant and can carry a shared secret that
+        // authenticates every API endpoint against every tenant. Nobody who can edit a production
+        // deployment's environment should be one profile away from that.
         val validator = AuthenticationSafetyValidator(
             environment = envWith("demo", "prod", "keycloak"),
+            userDetailsService = null,
+            clientRegistrationRepository = mockClientRegistrationRepository(),
+        )
+
+        val error = assertThrows<IllegalStateException> { validator.afterSingletonsInstantiated() }
+        assertThat(error).hasMessageContaining("'demo' and 'prod' profiles are mutually exclusive")
+    }
+
+    @Test
+    fun `demo profile without prod passes`() {
+        val validator = AuthenticationSafetyValidator(
+            environment = envWith("demo", "keycloak"),
             userDetailsService = null,
             clientRegistrationRepository = mockClientRegistrationRepository(),
         )

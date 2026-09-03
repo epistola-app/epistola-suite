@@ -34,6 +34,12 @@
   fallback fires. Applies to the OIDC path only — form-login users keep taking their tenant from
   `epistola.auth.local-users`. Existing demo installs keep their old domain tenant, but people will
   land in a fresh personal one on their next login.
+- **[dev]** fix(security): **The `demo` and `prod` profiles are now mutually exclusive.** Startup
+  fails when both are active, alongside the existing `local`/`localauth` + `prod` rule. Demo mode is
+  not a data-loading convenience — it gives every person who logs in a tenant of their own and can
+  carry a shared secret that authenticates every `/api` endpoint against every tenant — so nobody
+  who can edit a deployment's environment should be one profile away from it. The combination was
+  previously allowed; a demo deployment now runs without `prod` hardening.
 - **[dev]** feat(demo,security): **A shared secret that authenticates the whole REST API — demo
   profile only.** The demo website calls Epistola on behalf of whichever visitor is using it, and
   those visitors now get a tenant created at the moment they log in, so there is no per-tenant API
