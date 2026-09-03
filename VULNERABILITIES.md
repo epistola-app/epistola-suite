@@ -11,6 +11,13 @@ repository becomes the canonical public record and the GitHub advisory becomes i
 publication mirror. A GHSA or CVE identifier is added to the record's `aliases` after
 assignment.
 
+Vulnerabilities in third-party components we ship — and our assessment of whether
+they are reachable here — are recorded under [`vulnerabilities/`](vulnerabilities/)
+as `kind: dependency` records, and published as an [OpenVEX](https://openvex.dev)
+document with each release. They are not Epistola advisories: they are never
+exported as OSV and never mirrored to GitHub Security Advisories. See
+[`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
+
 | Published  | ID                                                           | Severity | Affected releases   | Patched release | Summary                                          |
 | ---------- | ------------------------------------------------------------ | -------- | ------------------- | --------------- | ------------------------------------------------ |
 | 2026-06-25 | [EPIS-2026-001](vulnerabilities/2026-06-25-epis-2026-001.md) | Medium   | 0.0.0 through 1.0.1 | Unreleased      | Stored HTML injection in editor resource pickers |
