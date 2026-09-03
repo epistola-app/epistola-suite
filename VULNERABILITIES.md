@@ -37,8 +37,8 @@ to our SBOM or container image — including yours, if you scan what we publish.
 | Published  | ID                                                                   | Component                                   | Vulnerabilities                                | Assessment   | Action                             |
 | ---------- | -------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------- | ------------ | ---------------------------------- |
 | 2026-09-03 | [EPIS-DEP-2026-003](vulnerabilities/2026-09-03-epis-dep-2026-003.md) | `org.apache.tomcat.embed:tomcat-embed-core` | CVE-2026-65182, CVE-2026-65905, CVE-2026-68525 | Not affected | Upgraded to 11.0.25 (unreleased)   |
-| 2026-05-20 | [EPIS-DEP-2026-001](vulnerabilities/2026-05-20-epis-dep-2026-001.md) | `org.apache.tomcat.embed:tomcat-embed-core` | CVE-2026-41293, CVE-2026-43512                 | Fixed        | Upgraded to 11.0.22 (0.21.0)       |
-| 2026-04-20 | [EPIS-DEP-2026-002](vulnerabilities/2026-04-20-epis-dep-2026-002.md) | `org.thymeleaf:thymeleaf`                   | CVE-2026-40477, CVE-2026-40478                 | Fixed        | Upgraded to 3.1.4.RELEASE (0.15.0) |
+| 2026-05-20 | [EPIS-DEP-2026-002](vulnerabilities/2026-05-20-epis-dep-2026-002.md) | `org.apache.tomcat.embed:tomcat-embed-core` | CVE-2026-41293, CVE-2026-43512                 | Fixed        | Upgraded to 11.0.22 (0.21.0)       |
+| 2026-04-20 | [EPIS-DEP-2026-001](vulnerabilities/2026-04-20-epis-dep-2026-001.md) | `org.thymeleaf:thymeleaf`                   | CVE-2026-40477, CVE-2026-40478                 | Fixed        | Upgraded to 3.1.4.RELEASE (0.15.0) |
 
 ## GitHub publication mirror
 

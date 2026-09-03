@@ -24,8 +24,8 @@
   is how the Tomcat pin above rotted into a downgrade unnoticed. Records under
   `vulnerabilities/` gain a `kind` discriminator — the existing OSV/GHSA-shaped advisories
   are `advisory` (unchanged, and the field defaults so no record needed editing), while a
-  scanner finding is `dependency`: the version-pinned component purl, one entry per CVE with
-  scanner _and_ upstream severity, and an [OpenVEX](https://openvex.dev) `assessment`
+  scanner finding is `dependency`: the version-pinned component purl, the CVE identifiers,
+  and an [OpenVEX](https://openvex.dev) `assessment`
   (`not_affected` / `affected` / `fixed` / `under_investigation`). They render into a
   separate **Dependency findings** table in [`VULNERABILITIES.md`](VULNERABILITIES.md), are
   **excluded from the OSV export**, and can **never** reach GitHub Security Advisories — the

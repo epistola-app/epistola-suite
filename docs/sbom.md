@@ -177,10 +177,14 @@ rendered into the **Dependency findings** table in
 | Field                      | Meaning                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
 | `component.purl`           | The component, **version-pinned**                                                        |
-| `findings[]`               | One entry per CVE: scanner severity, upstream severity, preconditions                    |
+| `vulnerabilities[]`        | The CVE identifiers this record covers                                                   |
 | `assessment.status`        | `not_affected`, `affected`, `fixed`, or `under_investigation`                            |
 | `assessment.justification` | For `not_affected`, one of the five OpenVEX justifications                               |
 | `remediation`              | What we did — typically `upgraded`, with the fixed version and the release it shipped in |
+
+CVE titles, upstream severities and exploitation preconditions go in the Markdown body, not
+the frontmatter: they are the argument a reader needs, and structured copies of them would
+only duplicate the body and rot.
 
 Dependency records are **excluded from the OSV export and can never sync to GitHub Security
 Advisories**, and the validator rejects both a `sync: true` and a stray `affected` block. An
