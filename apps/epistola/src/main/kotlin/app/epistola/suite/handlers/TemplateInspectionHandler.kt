@@ -235,7 +235,8 @@ class TemplateInspectionHandler(
                 if (requestedFormat != null && property.get("format")?.takeIf { it.isString }?.asString() != requestedFormat) return false
 
                 val requestedMinimum = predicate.get("minimum")?.takeIf { it.isNumber }?.asDouble()
-                if (requestedMinimum != null && property.get("minimum")?.takeIf { it.isNumber }?.asDouble() != requestedMinimum) return false
+                val actualMinimum = property.get("minimum")?.takeIf { it.isNumber }?.asDouble()
+                if (requestedMinimum != null && (actualMinimum == null || requestedMinimum.compareTo(actualMinimum) != 0)) return false
 
                 return true
             }
