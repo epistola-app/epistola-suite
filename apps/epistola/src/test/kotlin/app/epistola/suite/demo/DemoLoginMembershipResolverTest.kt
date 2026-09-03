@@ -67,6 +67,9 @@ class DemoLoginMembershipResolverTest {
 
     private val createdTenants = mutableListOf<TenantKey>()
 
+    /** Seeded by [DemoLoader] at boot; this context runs it (`epistola.demo.enabled=true`). */
+    private val sharedDemo = TenantKey.of(DemoLoader.DEMO_TENANT_ID)
+
     private val systemPrincipal = EpistolaPrincipal(
         userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
         externalId = "demo-resolver-test-system",
@@ -129,8 +132,10 @@ class DemoLoginMembershipResolverTest {
         val bob = resolve("bob@acme-corp.io")
         track("alice@acme-corp.io", "bob@acme-corp.io")
 
-        assertThat(alice!!.tenantMemberships.keys).containsExactly(keyFor("alice@acme-corp.io"))
-        assertThat(bob!!.tenantMemberships.keys).containsExactly(keyFor("bob@acme-corp.io"))
+        assertThat(alice!!.tenantMemberships.keys).contains(keyFor("alice@acme-corp.io"))
+        assertThat(bob!!.tenantMemberships.keys).contains(keyFor("bob@acme-corp.io"))
+        assertThat(alice.tenantMemberships.keys).doesNotContain(keyFor("bob@acme-corp.io"))
+        assertThat(bob.tenantMemberships.keys).doesNotContain(keyFor("alice@acme-corp.io"))
     }
 
     @Test
@@ -172,7 +177,46 @@ class DemoLoginMembershipResolverTest {
         val visible = MediatorContext.runWithMediator(mediator) {
             SecurityContext.runWithPrincipal(principal) { mediator.query(ListTenants()) }
         }
-        assertThat(visible.map { it.id }).containsExactly(tenantKey)
+        assertThat(visible.map { it.id }).containsExactlyInAnyOrder(tenantKey, sharedDemo)
+        assertThat(visible.map { it.id }).doesNotContain(otherTenant)
+    }
+
+    @Test
+    fun `also grants read and write on the shared demo tenant, but not administration`() {
+        val result = resolve("shared@acme.io")
+        track("shared@acme.io")
+
+        val shared = result!!.tenantMemberships[sharedDemo]
+        assertThat(shared).isNotNull()
+        // Author, generate and publish, so a visitor can actually use the showcase content — but no
+        // administration: a shared tenant any visitor could reconfigure or restore over is a demo
+        // that breaks for everyone else.
+        assertThat(shared).doesNotContain(TenantRole.TENANT_ADMINISTRATOR)
+        assertThat(shared).containsExactlyInAnyOrderElementsOf(TenantRole.entries - TenantRole.TENANT_ADMINISTRATOR)
+    }
+
+    @Test
+    fun `keeps full administration on the user's own tenant`() {
+        val result = resolve("owner@acme.io")
+        track("owner@acme.io")
+
+        assertThat(result!!.tenantMemberships[keyFor("owner@acme.io")])
+            .contains(TenantRole.TENANT_ADMINISTRATOR)
+    }
+
+    @Test
+    fun `persists the shared demo membership too`() {
+        val email = "sharedpersist@acme.io"
+        track(email)
+
+        val user = MediatorContext.runWithMediator(mediator) {
+            val u = user(email)
+            resolver.resolve(email, u)
+            u
+        }
+
+        val reloaded = asSystem { mediator.query(GetUserByExternalId(user.externalId, AuthProvider.KEYCLOAK)) }
+        assertThat(reloaded!!.tenantMemberships).containsKeys(keyFor(email), sharedDemo)
     }
 
     @Test
@@ -224,8 +268,8 @@ class DemoLoginMembershipResolverTest {
         val first = resolve(email)
         val second = resolve(email)
 
-        assertThat(first!!.tenantMemberships.keys).containsExactly(tenantKey)
-        assertThat(second!!.tenantMemberships.keys).containsExactly(tenantKey)
+        assertThat(first!!.tenantMemberships.keys).containsExactlyInAnyOrder(tenantKey, sharedDemo)
+        assertThat(second!!.tenantMemberships.keys).containsExactlyInAnyOrder(tenantKey, sharedDemo)
     }
 
     @Test
@@ -235,9 +279,12 @@ class DemoLoginMembershipResolverTest {
         val second = resolve("j.doe.test@acme.io")
         track("j.doe+test@acme.io", "j.doe.test@acme.io")
 
-        assertThat(first!!.tenantMemberships.keys.single().value).startsWith("j-doe-test-")
-        assertThat(second!!.tenantMemberships.keys.single().value).startsWith("j-doe-test-")
-        assertThat(first.tenantMemberships.keys).isNotEqualTo(second.tenantMemberships.keys)
+        val firstPersonal = (first!!.tenantMemberships.keys - sharedDemo).single()
+        val secondPersonal = (second!!.tenantMemberships.keys - sharedDemo).single()
+
+        assertThat(firstPersonal.value).startsWith("j-doe-test-")
+        assertThat(secondPersonal.value).startsWith("j-doe-test-")
+        assertThat(firstPersonal).isNotEqualTo(secondPersonal)
     }
 
     @Test

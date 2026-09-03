@@ -198,11 +198,38 @@ Every step above is pinned by `DemoTenantKeyDerivationTest`, including the two t
 wrong — the second `-` strip in step 5, and the fallback prefix counting against the cap — so this
 documentation cannot drift from the code without a test failing.
 
-The user gets **all tenant roles on their own tenant, and no global or platform roles**. That is
-what stops a demo user seeing anyone else's tenant (`ListTenants` filters on membership when there
-are no global roles and no `TENANT_MANAGER`) or creating further tenants (`CreateTenant` requires
-`TENANT_MANAGER`). Roles the identity provider grants take precedence: the resolver is only
-consulted when the token carried none, and platform roles from the token survive it.
+#### What they can do
+
+| Tenant                | Roles                                                |
+| --------------------- | ---------------------------------------------------- |
+| Their own             | every `TenantRole`, including `TENANT_ADMINISTRATOR` |
+| The shared `demo` one | every `TenantRole` **except** `TENANT_ADMINISTRATOR` |
+| Globally / platform   | none                                                 |
+
+They also get read/write on the shared `demo` tenant because that is where the showcase content
+lives — the demo catalog's quality showcase, the seeded findings, the banner — so a visitor who only
+ever saw their own sandbox would miss most of what the demo is for. Not administration, though:
+`TENANT_ADMINISTRATOR` is what carries `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE` and
+`TENANT_RESTORE`, and a shared tenant any visitor could reconfigure or restore over is a demo that
+breaks for everyone else. Their own tenant is where they get to be an administrator.
+
+No global and no platform roles is what stops a demo user seeing a _third_ person's tenant
+(`ListTenants` filters on membership when there are no global roles and no `TENANT_MANAGER`) or
+creating further tenants (`CreateTenant` requires `TENANT_MANAGER`). Roles the identity provider
+grants take precedence: the resolver is only consulted when the token carried none, and platform
+roles from the token survive it.
+
+#### Landing straight in their own tenant
+
+With demo mode on, `GET /` redirects a signed-in user to `/tenants/<their own>` instead of rendering
+the tenant picker. Everywhere else the picker is right — a customer works across several tenants and
+should choose. A demo visitor has exactly one that is theirs, so choosing is a click between them and
+the product.
+
+`DemoLandingRoutes` registers a `GET /` at `Ordered.HIGHEST_PRECEDENCE`, ahead of the one
+`TenantRoutes` declares; `RouterFunctionMapping` sorts router beans and takes the first match. When
+there is no personal tenant to open — a principal whose memberships came from the identity provider
+rather than from this resolver — it delegates to the normal handler, so the picker is still there.
 
 This applies to the **OIDC** path only. Form-login users (`local` / `localauth`) keep taking their
 tenant from `epistola.auth.local-users`.

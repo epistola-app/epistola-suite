@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- **[user]** feat(demo): **Demo users land in their own tenant, and share the demo one.** With demo
+  mode on, `GET /` now redirects a signed-in user straight to their own tenant rather than rendering
+  the tenant picker — a customer works across several tenants and should choose, but a demo visitor
+  has exactly one that is theirs, so choosing is a click between them and the product. Everywhere
+  else the picker is unchanged, and a principal with no personal tenant still gets it. Every demo
+  user is also granted read/write on the shared `demo` tenant, where the showcase content lives (the
+  quality showcase, the seeded findings, the banner) — but **not** `TENANT_ADMINISTRATOR`, because a
+  shared tenant any visitor could reconfigure or restore over is a demo that breaks for everyone
+  else. Their own tenant is where they are an administrator.
+
 - **[user]** feat(demo): **A demo sandbox per person, not per company.** The demo profile derived a
   tenant from the email _domain_, so everyone at one company landed in the same tenant and overwrote
   each other's work. A demo is a place to try things, so the unit is now the person. The tenant key

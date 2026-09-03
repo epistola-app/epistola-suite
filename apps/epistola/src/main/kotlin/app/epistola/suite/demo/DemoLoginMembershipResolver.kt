@@ -65,13 +65,41 @@ class DemoLoginMembershipResolver(
         // key independently, so the two cannot drift.
         val normalizedEmail = email.trim().lowercase(Locale.ROOT)
         val tenantKey = deriveTenantKeyFromEmail(normalizedEmail) ?: return null
-        val roles = TenantRole.entries.toSet()
 
         ensureTenant(tenantKey, normalizedEmail)
-        persistMembership(user, tenantKey, roles)
+        val memberships = buildMap {
+            put(tenantKey, TenantRole.entries.toSet())
+            sharedDemoMembership()?.let { (key, roles) -> put(key, roles) }
+        }
+        persistMemberships(user, memberships)
 
-        log.info("Demo mode: assigned user {} to personal tenant {} with all roles", email, tenantKey.value)
-        return ResolvedMemberships(tenantMemberships = mapOf(tenantKey to roles))
+        log.info("Demo mode: assigned user {} to {} with all roles", email, tenantKey.value)
+        return ResolvedMemberships(tenantMemberships = memberships)
+    }
+
+    /**
+     * Read/write on the shared `demo` tenant, on top of the user's own.
+     *
+     * The demo catalog's showcase content lives there — the quality demo, the seeded findings, the
+     * banner — so a visitor who only ever saw their own empty-ish sandbox would miss most of what
+     * the demo is for. They can author and generate in it, but not administer it:
+     * [TenantRole.TENANT_ADMINISTRATOR] is what carries `TENANT_SETTINGS`, `TENANT_USERS`,
+     * `CATALOG_MANAGE` and `TENANT_RESTORE`, and a shared tenant that any visitor can reconfigure or
+     * restore over is a demo that breaks for everyone else. Their own tenant is where they get to be
+     * an administrator.
+     *
+     * Returns null when the shared tenant does not exist — `tenant_memberships.tenant_key` is a real
+     * foreign key, so granting membership of a missing tenant would fail the login. [DemoLoader]
+     * creates it at boot, so this is a guard against a failed bootstrap, not an expected path.
+     */
+    private fun sharedDemoMembership(): Pair<TenantKey, Set<TenantRole>>? {
+        val sharedKey = TenantKey.of(DemoLoader.DEMO_TENANT_ID)
+        val exists = SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) { mediator.query(GetTenant(sharedKey)) != null }
+        if (!exists) {
+            log.warn("Demo mode: shared tenant {} does not exist; granting personal access only", sharedKey.value)
+            return null
+        }
+        return sharedKey to SHARED_DEMO_ROLES
     }
 
     private fun ensureTenant(tenantKey: TenantKey, email: String) {
@@ -129,16 +157,23 @@ class DemoLoginMembershipResolver(
      * [SyncTenantMemberships] only upserts the rows it is given; it never removes a grant made
      * elsewhere.
      */
-    private fun persistMembership(user: User, tenantKey: TenantKey, roles: Set<TenantRole>) {
+    private fun persistMemberships(user: User, memberships: Map<TenantKey, Set<TenantRole>>) {
         try {
-            mediator.send(SyncTenantMemberships(user.id, mapOf(tenantKey to roles)))
+            mediator.send(SyncTenantMemberships(user.id, memberships))
         } catch (e: Exception) {
-            // The session principal already carries the grant, so the login still works.
-            log.warn("Demo mode: could not persist membership of {} in {}: {}", user.email, tenantKey.value, e.message)
+            // The session principal already carries the grants, so the login still works.
+            log.warn("Demo mode: could not persist memberships for {}: {}", user.email, e.message)
         }
     }
 
     companion object {
+        /**
+         * Every role except [TenantRole.TENANT_ADMINISTRATOR] — read, author, generate and publish,
+         * but no administration. The same shape as the non-admin `user@local` in
+         * `application-localauth.yaml`.
+         */
+        private val SHARED_DEMO_ROLES = TenantRole.entries.toSet() - TenantRole.TENANT_ADMINISTRATOR
+
         /** [TenantKey]'s own upper bound. */
         private const val MAX_SLUG_LENGTH = 63
 
