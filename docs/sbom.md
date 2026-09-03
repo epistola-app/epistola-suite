@@ -157,16 +157,27 @@ nothing about whether the suite is exposed.
 3. **Prefer upgrading over arguing.** If a fixed release exists and is a drop-in, take it even
    when the finding is unreachable. Non-exploitability is an argument you have to keep making;
    a version bump ends it.
-4. **Write the record** — a `kind: dependency` file under [`vulnerabilities/`](../vulnerabilities/),
-   plus a CHANGELOG entry and a comment on any version override saying when it can be dropped.
+4. **Write a record only if you are asserting something.** See below.
 
-That last step is not bookkeeping. An override outlives the reason for it: the pin that
-preceded the September 2026 one had silently become a _downgrade_ (it held Tomcat 11.0.22
-while the Spring Boot BOM had moved to 11.0.24), and nothing in the tree recorded enough to
-notice. Operators scanning the SBOM and image we publish also hit these CVEs against the same
-coordinates, and need our reachability statement rather than a version number.
+### When a record is needed
 
-### Recording the finding
+Most findings do not need one. If an upgrade fixes it and the gate goes green, **you are
+done** — the dependency bump and its CHANGELOG entry already say what happened, and a record
+restating that is pure overhead.
+
+Write a `kind: dependency` record under [`vulnerabilities/`](../vulnerabilities/) only when
+you are making a claim someone might need to check:
+
+- **`not_affected`** — you are suppressing a finding via VEX, and the record is what justifies
+  the suppression.
+- **`affected`** — you are knowingly shipping an unfixed finding, and someone has to own that.
+
+Either way, also add a CHANGELOG entry and a comment on any version override saying when it
+can be dropped. That comment matters: the pin preceding the September 2026 one had silently
+become a _downgrade_ (it held Tomcat 11.0.22 while the Spring Boot BOM had moved to 11.0.24),
+and nothing in the tree recorded enough to notice.
+
+### Record shape
 
 Dependency records live alongside Epistola's own advisories in
 [`vulnerabilities/`](../vulnerabilities/), discriminated by `"kind": "dependency"`, and are
@@ -176,7 +187,7 @@ rendered into the **Dependency findings** table in
 
 | Field                      | Meaning                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
-| `component.purl`           | The component, **version-pinned**                                                        |
+| `component.purls[]`        | Every affected version, each **version-pinned** (see below)                              |
 | `vulnerabilities[]`        | The CVE identifiers this record covers                                                   |
 | `assessment.status`        | `not_affected`, `affected`, `fixed`, or `under_investigation`                            |
 | `assessment.justification` | For `not_affected`, one of the five OpenVEX justifications                               |
@@ -185,6 +196,11 @@ rendered into the **Dependency findings** table in
 CVE titles, upstream severities and exploitation preconditions go in the Markdown body, not
 the frontmatter: they are the argument a reader needs, and structured copies of them would
 only duplicate the body and rot.
+
+**List every affected version you shipped, not just the one the scanner reported.** These are
+rarely the same. The September 2026 Tomcat finding was flagged against 11.0.24, but the pin
+held 11.0.22 through v1.1.0, so 11.0.24 was never released — a VEX naming only the scanned
+version would have matched nothing anyone runs.
 
 Dependency records are **excluded from the OSV export and can never sync to GitHub Security
 Advisories**, and the validator rejects both a `sync: true` and a stray `affected` block. An

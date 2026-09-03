@@ -70,14 +70,9 @@ This security policy applies to:
 - Issues in development/test environments only
 - Social engineering attempts
 
-"Out of scope" here is about **reporting**: a vulnerability in Apache Tomcat or Thymeleaf
-belongs with its maintainers, not in our inbox. It does not mean we ignore such
-vulnerabilities in what we ship. When a scanner flags a component of ours, the finding and
-our assessment of whether it is reachable are recorded as a `kind: dependency` record under
-[`vulnerabilities/`](vulnerabilities/) and listed in
-[`VULNERABILITIES.md`](VULNERABILITIES.md), with a machine-readable
-[OpenVEX](https://openvex.dev) document published alongside each release. See
-[`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
+That is about **reporting** — an upstream bug belongs with its maintainers. Vulnerabilities
+in components we ship are still ours to assess: see
+[Dependency findings](VULNERABILITIES.md#dependency-findings).
 
 ## Security Best Practices
 

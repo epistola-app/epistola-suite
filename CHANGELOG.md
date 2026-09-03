@@ -19,28 +19,29 @@
   moved to 11.0.24 — so both comments now state the current BOM version and the condition
   for removing them.
 - **[dev]** feat(security): **Third-party scanner findings are now first-class records with
-  an OpenVEX assessment.** A CVE reported against a component we ship had nowhere to live:
-  the reachability analysis existed only in a build-file comment and a CHANGELOG line, which
-  is how the Tomcat pin above rotted into a downgrade unnoticed. Records under
-  `vulnerabilities/` gain a `kind` discriminator — the existing OSV/GHSA-shaped advisories
-  are `advisory` (unchanged, and the field defaults so no record needed editing), while a
-  scanner finding is `dependency`: the version-pinned component purl, the CVE identifiers,
-  and an [OpenVEX](https://openvex.dev) `assessment`
-  (`not_affected` / `affected` / `fixed` / `under_investigation`). They render into a
-  separate **Dependency findings** table in [`VULNERABILITIES.md`](VULNERABILITIES.md), are
+  an OpenVEX assessment.** A CVE reported against a component we ship had nowhere to live: the
+  reachability analysis existed only in a build-file comment and a CHANGELOG line, which is how
+  the Tomcat pin above rotted into a downgrade unnoticed. Records under `vulnerabilities/` gain
+  a `kind` discriminator — the existing OSV/GHSA-shaped advisories are `advisory` (unchanged,
+  and the field defaults so no record needed editing), while a scanner finding is `dependency`:
+  the affected component purls, the CVE identifiers, and an [OpenVEX](https://openvex.dev)
+  `assessment` (`not_affected` / `affected` / `fixed` / `under_investigation`). They render into
+  a separate **Dependency findings** table in [`VULNERABILITIES.md`](VULNERABILITIES.md), are
   **excluded from the OSV export**, and can **never** reach GitHub Security Advisories — the
-  validator rejects a `sync: true` or a stray `affected` block outright, because an OSV
-  document asserts the named package is vulnerable and neither "Epistola is vulnerable to
-  someone else's CVE" nor an advisory about Apache Tomcat is ours to publish. New
+  validator rejects a `sync: true` or a stray `affected` block outright, because an OSV document
+  asserts the named package is vulnerable and neither "Epistola is vulnerable to someone else's
+  CVE" nor an advisory about Apache Tomcat is ours to publish. New
   `pnpm vulnerabilities:export-vex` emits the VEX document; CI generates it before the Trivy
-  steps and applies it via `TRIVY_VEX` (the `trivy-action` has no `vex` input and a `vex:`
-  key in `trivy.yaml` is silently ignored), and it ships as a release artifact next to the
-  SBOMs so operators can apply our assessments to what they scan. VEX products are
-  version-pinned deliberately: a versionless statement would outlive the analysis and
-  suppress findings in versions nobody assessed. Seeded with the Tomcat finding above plus
-  the two earlier overrides (Tomcat 11.0.22 in 0.21.0, Thymeleaf 3.1.4 in 0.15.0 — the
-  latter recorded as genuinely reachable, since Thymeleaf renders every UI response). See
-  [`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
+  steps and applies it via `TRIVY_VEX` (the `trivy-action` has no `vex` input and a `vex:` key in
+  `trivy.yaml` is silently ignored), and it ships as a release artifact next to the SBOMs so
+  operators can apply our assessments to what they scan. **A record is only written when we are
+  asserting something** — that a finding is unreachable, or that we are knowingly shipping an
+  unfixed one. A finding closed by a routine upgrade gets none: the dependency bump is its own
+  record. Products are version-pinned (a versionless statement would cover future releases
+  nobody has assessed) and must name **every affected version we shipped**, not just the one the
+  scanner reported — the Tomcat finding was flagged against 11.0.24, but the pin held 11.0.22
+  through v1.1.0, so a VEX naming only the scanned version would have matched no artifact anyone
+  runs. See [`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
 - **[user]** feat(cluster): **Dead cluster nodes are cleaned up automatically.** A node id is
   the pod hostname, so every rollout left a permanent row in the registry — an installation
   could show dozens of stale nodes going back weeks on the Cluster page, each also leaking a
