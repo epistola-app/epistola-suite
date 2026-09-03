@@ -5,6 +5,8 @@
 package app.epistola.suite.demo
 
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
@@ -104,6 +106,38 @@ class DemoSharedSecretEndToEndIT : IntegrationTestBase() {
         // Regression guard: the demo filter must not swallow or alter the normal key path.
         assertThat(getTenant("ApiKey epk_notarealkey0000000000000000000000000").statusCode)
             .isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `a real api key still authenticates while the demo filter is in the chain`() {
+        // The headline compatibility question: adding a filter ahead of ApiKeyAuthenticationFilter
+        // must leave ordinary key auth exactly as it was.
+        val key = withMediator {
+            CreateApiKey(tenantId = targetTenant.id, name = "Regression key").execute()
+        }
+
+        val response = getTenant("ApiKey ${key.plaintextKey}")
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains(TARGET_TENANT_NAME)
+    }
+
+    @Test
+    fun `a real api key is still confined to its own tenant`() {
+        // And must not be quietly elevated by sharing a chain with an all-tenant credential.
+        val otherTenant = createTenant("Some Other Tenant")
+        val key = withMediator {
+            CreateApiKey(tenantId = otherTenant.id, name = "Other tenant key").execute()
+        }
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${targetTenant.id.value}",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set(HttpHeaders.AUTHORIZATION, "ApiKey ${key.plaintextKey}") }),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
     }
 
     @Test
