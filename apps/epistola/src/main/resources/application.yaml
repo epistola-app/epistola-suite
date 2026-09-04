@@ -168,8 +168,36 @@ epistola:
     # When false, the whole Spring AI MCP server is disabled (see
     # spring.ai.mcp.server.enabled above) and the endpoint returns 404.
     enabled: true
+  exchange:
+    # Hard deployment gate. Tenant/catalog settings are inert while disabled.
+    enabled: false
+    discovery-url: https://epistola.app/.well-known/epistola/exchange.json
+    # Optional direct base URL for local development only; production discovers the issuer above.
+    # Leave blank to use discovery — a blank value is treated as unset.
+    base-url:
+    # Optional browser-reachable callback. If absent, Suite derives it from the setup request.
+    callback-url:
+    # How often the publication worker looks for due work.
+    poll-interval-ms: 5000
+    # Every Exchange call is bounded so a slow remote cannot pin a worker or request thread.
+    connect-timeout: 5s
+    read-timeout: 30s
+    # Consecutive transient failures after which a publication becomes an administrator-retryable
+    # FAILED instead of retrying forever while holding its retained archive.
+    max-attempts: 10
+    # Recheck cadence for work that is not actionable yet (enrollment incomplete, feature paused).
+    setup-retry-interval: 1m
+    # Poll cadence for a submission Exchange has accepted but not yet decided.
+    submitted-poll-interval: 30s
+    # How long such a submission is followed before it is given up on. Polling spends no retry
+    # budget, so without this a submission Exchange never decides would be polled forever while
+    # holding its retained archive. Generous: validation and scanning are Exchange's own work.
+    submitted-timeout: 24h
+    # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
+    allow-http: false
   features:
     ai-chat: false
+    catalog-publishing: false
   generation:
     # Whether THIS node performs PDF rendering. When true (default) the node advertises the
     # cluster `pdf-render` capability and claims render jobs; set false to keep the suite as a

@@ -4,6 +4,10 @@
 
 ### Added
 
+- **`exchange.*` — opt-in catalog publication configuration.** The chart exposes the hard
+  deployment gate (off by default), the stable epistola.app discovery URL, and an optional
+  browser-reachable OAuth callback URL to application pods; tenant-level feature and publication
+  settings remain inert until the gate is enabled.
 - **Optional demo API shared secret (`demo.sharedSecret`).** Renders
   `EPISTOLA_DEMO_SHAREDSECRET` from an existing Kubernetes Secret, for demo
   deployments whose website calls the REST API on a visitor's behalf. As with

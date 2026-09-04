@@ -59,6 +59,13 @@ object TestRuntimeLifecycle {
             check(!shutdownStarted.get()) { "Test runtime is already shutting down" }
             val container = PostgreSQLContainer(DockerImageName.parse("postgres:17"))
                 .withTmpFs(mapOf("/var/lib/postgresql/data" to "rw"))
+                // Every Spring test context gets its own database inside this one server, so they all
+                // draw on one connection budget. Postgres defaults to 100, which the suite outgrew:
+                // enough cached contexts holding pooled connections and the next context to start
+                // fails to connect at all with "sorry, too many clients already", taking every test
+                // sharing it down as a context-load failure. The pools are also bounded (see each
+                // module's application-test) — this is the headroom, not the fix.
+                .withCommand("postgres", "-c", "max_connections=400")
             val startNanos = System.nanoTime()
             container.start()
             TestRunMetrics.recordPostgresStartupNanos(System.nanoTime() - startNanos)

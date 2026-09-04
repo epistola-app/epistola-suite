@@ -4,6 +4,15 @@
   "description": "Partial schema: constrains operational values that have hard render-time requirements. Other values are validated by the templates.",
   "type": "object",
   "properties": {
+    "exchange": {
+      "type": "object",
+      "required": ["enabled", "discoveryUrl"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "discoveryUrl": { "type": "string", "format": "uri", "minLength": 1 },
+        "callbackUrl": { "type": "string" }
+      }
+    },
     "database": {
       "type": "object",
       "properties": {

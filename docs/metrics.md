@@ -124,6 +124,28 @@ persistently non-zero value means the mark-and-sweep reclaim is not keeping up
 | ---------------------------- | ------- | -------- |
 | `epistola.api.auth.attempts` | Counter | `result` |
 
+### Catalog publication (Exchange)
+
+Only present when `epistola.exchange.enabled=true`.
+
+| Meter                                       | Type    | Tags              |
+| ------------------------------------------- | ------- | ----------------- |
+| `epistola.exchange.publication.submissions` | Counter | `outcome`, `call` |
+| `epistola.exchange.credential.refresh`      | Counter | `outcome`         |
+
+`submissions{outcome}` counts round-trips that produced a decision (`accepted`,
+`rejected`, `failed`, `submitted`) plus `error` for attempts that never reached
+one. `call` says which kind of round-trip it was: `submit` for sending a release,
+`poll` for asking about one Exchange already took. The split matters because one
+submission is followed by as many polls as its decision takes, so the sum over
+`call` is the request rate while `call="submit"` alone is the publication rate.
+`credential.refresh{outcome}` is `renewed`, `rejected` (the tenant must
+reauthorize) or `error`.
+
+Publication is asynchronous and default-off, so nothing tells an operator it has
+stopped working: a tenant whose credentials lapsed simply stops publishing. The
+installation gauges below — particularly the queue age — are the signal for that.
+
 ### Installation-wide gauges
 
 Published by a single leader replica (advisory-lock elected); non-leaders
@@ -134,6 +156,35 @@ keyed by `installation_id` as leadership moves.
 `epistola.installation.{tenants,templates,themes,catalogs,stencils,fonts,environments}`
 — one Gauge each, no per-instance/per-tenant tags (they are install-wide
 aggregates).
+
+Catalog publication adds four more, published the same way (own advisory lock,
+only when `epistola.exchange.enabled=true`):
+
+| Meter                                                                  | Type  | Tags     |
+| ---------------------------------------------------------------------- | ----- | -------- |
+| `epistola.installation.exchange_publications`                          | Gauge | `status` |
+| `epistola.installation.exchange_connections`                           | Gauge | `status` |
+| `epistola.installation.exchange_publication_oldest_active_age_seconds` | Gauge | —        |
+| `epistola.installation.exchange_publication_retained_archive_bytes`    | Gauge | —        |
+
+`exchange_publications{status}` and `exchange_connections{status}` use the
+lifecycle names (`waiting_setup`, `ready`, `submitted`, `retry`, `accepted`,
+`rejected`, `failed`; `pending`, `active`, `reauthorization_required`,
+`blocked`). Cardinality is bounded and there is no `tenant` tag.
+
+**The one to alert on is `exchange_publication_oldest_active_age_seconds`.**
+Counts tell you how much work exists; the age tells you whether any of it is
+stuck. A queued release normally reaches a terminal state in seconds, so a value
+that keeps climbing means enrollment lapsed, a namespace is unavailable, or the
+tenant feature was switched off with work outstanding. It is measured by the
+database clock and is `0` when nothing is outstanding.
+
+`exchange_publication_retained_archive_bytes` is the second one worth watching.
+A publication holds the exact release ZIP until Exchange decides, and a `FAILED`
+one keeps it so an administrator can retry — so the bytes are bounded by how
+promptly failures are dealt with, not by anything the worker does. A total that
+only grows means publications are failing and nobody is withdrawing or retrying
+them.
 
 ## Per-tenant tagging
 

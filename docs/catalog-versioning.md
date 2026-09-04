@@ -175,6 +175,16 @@ byte-identical, a re-publish of unchanged content) and the only **under-warn**
 is a deletion-only change (no surviving row's timestamp moves) — in every case
 the export's `-dev` label/fingerprint is the authoritative backstop.
 
+## Publishing a release to Epistola Exchange
+
+An AUTHORED catalog release can also create a durable Exchange publication
+outbox entry in the same database transaction. The outbox retains the exact ZIP
+for that immutable release; Exchange availability never determines whether the
+local release succeeds. Imported releases suppress publication, and an existing
+unchanged current release can be queued explicitly. Setting precedence,
+namespace binding, status transitions, and retries are specified in
+[`catalog-exchange-publication.md`](catalog-exchange-publication.md).
+
 ## Importing a ZIP
 
 A ZIP import always targets a catalog **type**. A slug that already exists with

@@ -17,6 +17,7 @@ class DefaultsRoutes(private val handler: DefaultsHandler) {
         "/tenants/{tenantId}/defaults".nest {
             GET("", handler::defaults)
             POST("/locale", handler::updateLocale)
+            POST("/catalog-publishing", handler::updateCatalogPublishing)
         }
     }
 }

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers.nav
 
+import app.epistola.suite.exchange.ResolveCatalogPublishingAvailability
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.KnownFeatures.FeatureStage
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -86,6 +87,18 @@ class CoreNavContributor : NavContributor {
         if (context.hasPermission(Permission.TENANT_SETTINGS)) {
             add(NavItem("settings", "features", "Features", "features", 10))
             add(NavItem("settings", "defaults", "Defaults", "defaults", 20))
+            if (ResolveCatalogPublishingAvailability(context.tenantKey).query()) {
+                add(
+                    NavItem(
+                        "settings",
+                        "exchange",
+                        "Exchange",
+                        "exchange",
+                        30,
+                        stage = KnownFeatures.stageOf(KnownFeatures.CATALOG_PUBLISHING),
+                    ),
+                )
+            }
         }
     }
 }
