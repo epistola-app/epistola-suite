@@ -38,6 +38,18 @@ object KnownFeatures {
     val CATALOG_PUBLISHING = FeatureKey.of("catalog-publishing")
 
     /**
+     * Browsing Epistola Exchange and installing catalogs from it.
+     *
+     * Its own key rather than a second meaning for [CATALOG_PUBLISHING]. The two directions are
+     * different conversations — publishing sends this tenant's content out; installing brings a
+     * third party's content in, through the schema migrator and into templates people generate
+     * from — and an operator can reasonably want one without the other. Sharing a key would also
+     * mean that switching off publishing silently stopped upgrade checks for catalogs already
+     * installed, which is the opposite of harmless.
+     */
+    val CATALOG_INSTALLING = FeatureKey.of("catalog-installing")
+
+    /**
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
      *
      * A purely client-side onboarding aid: no hub, no server component. Like [QUALITY] it is
@@ -48,7 +60,17 @@ object KnownFeatures {
      */
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
-    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY, AI_CHAT, EDITOR_WALKTHROUGH, RESOURCE_GRAPH, CATALOG_PUBLISHING)
+    val all: List<FeatureKey> = listOf(
+        SUPPORT_FEEDBACK,
+        SUPPORT_BACKUPS,
+        SUPPORT_COMPATIBILITY_CHECK,
+        QUALITY,
+        AI_CHAT,
+        EDITOR_WALKTHROUGH,
+        RESOURCE_GRAPH,
+        CATALOG_PUBLISHING,
+        CATALOG_INSTALLING,
+    )
 
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
@@ -129,6 +151,12 @@ object KnownFeatures {
         CATALOG_PUBLISHING to FeatureMetadata(
             "Catalog publishing",
             "Enables publishing authored catalog releases from Suite to Epistola Exchange.",
+            stage = FeatureStage.ALPHA,
+        ),
+        CATALOG_INSTALLING to FeatureMetadata(
+            "Catalog installing",
+            "Enables browsing Epistola Exchange and installing catalogs published there. Installed " +
+                "catalogs are read-only mirrors and are checked for newer releases in the background.",
             stage = FeatureStage.ALPHA,
         ),
     )
