@@ -80,7 +80,7 @@ Recorded here once taken; each has a recommendation in the review.
       changes stored content for everyone, exports now emit stencil-borne dependencies.
 - [ ] CHANGELOG entries exist per commit; re-read them as one block before the PR — several describe
       intermediate states ("first alpha supports stencils").
-- [ ] Final gate: `./gradlew ktlintCheck unitTest integrationTest` fresh (check test-result mtimes
+- [x] Final gate (2026-09-04, all fresh: 2967 unit+integration, UI suite green): `./gradlew ktlintCheck unitTest integrationTest` fresh (check test-result mtimes
       against source mtimes — Gradle's UP-TO-DATE has fooled us once), `pnpm format:check`,
       `pnpm license:check`, then `./gradlew uiTest`.
 - [ ] Delete this file.
