@@ -5,7 +5,8 @@ resource to another authored catalog without invalidating references to its old 
 Enable both `resource-graph` and `resource-relocation` for a tenant to use it. The relocation toggle
 is alpha and defaults off.
 
-The first vertical slice supports stencils. A preview is required before execution and reports:
+The alpha supports stencils, variant attributes and templates. A preview is required before
+execution and reports:
 
 - draft references that will be rewritten to the destination catalog;
 - immutable published references that will continue to resolve through an alias;

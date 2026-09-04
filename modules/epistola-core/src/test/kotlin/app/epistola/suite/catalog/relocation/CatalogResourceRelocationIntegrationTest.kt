@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ReferenceSelector
@@ -200,6 +201,39 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { ReleaseCatalogResourceAlias(tenant.id, sourceAddress).execute() }
         withMediator { CreateStencil(stencilId, "Replacement").execute() }
 
+        val reused = withMediator { ResolveCatalogResourceAddress(tenant.id, sourceAddress).query()!! }
+        assertThat(reused.canonical.catalogKey).isEqualTo(sourceCatalog.value)
+        assertThat(reused.resolvedViaAlias).isFalse()
+    }
+
+    @Test
+    fun `deleting a catalog drops the aliases it left behind`() {
+        val tenant = createTenant("Delete catalog aliases")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val stencilId = StencilId(StencilKey.of("header"), CatalogId(sourceCatalog, tenantId))
+        val sourceAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateStencil(stencilId, "Header").execute()
+        }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(sourceAddress.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(sourceAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+        assertThat(aliasCatalogKeys(tenant.id)).containsExactly(sourceCatalog.value)
+
+        // The alias points at a resource in another catalog, so no foreign key removes it with the
+        // catalog. Left behind, it would reserve the address for a catalog registered later under
+        // the same key, with nothing visible to release it from.
+        withMediator { UnregisterCatalog(tenant.id, sourceCatalog).execute() }
+        assertThat(aliasCatalogKeys(tenant.id)).isEmpty()
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters again").execute()
+            CreateStencil(stencilId, "Header again").execute()
+        }
         val reused = withMediator { ResolveCatalogResourceAddress(tenant.id, sourceAddress).query()!! }
         assertThat(reused.canonical.catalogKey).isEqualTo(sourceCatalog.value)
         assertThat(reused.resolvedViaAlias).isFalse()

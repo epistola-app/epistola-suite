@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **A vacated attribute address is reserved too.** `CreateAttributeDefinition`
+  now calls the shared address reservation, as stencil and template creation already did, so the
+  planner's "retained alias occupies the target" rule and the create path agree for every movable
+  type. A test moves one resource of each movable type and expects the replacement to be refused;
+  registering a new type without wiring the guard fails it.
+- **[user]** fix(catalogs): **Deleting a catalog drops the aliases it left behind.** Aliases at the
+  addresses of resources moved out of a catalog have no foreign key on it, so they outlived its
+  deletion and reserved those addresses for a catalog registered later under the same key, with no
+  page to release them from. `UnregisterCatalog` removes them with the catalog; published references
+  to those addresses stop resolving from then on.
 - **[user]** feat(catalogs): **Reorganising catalogs has its own page.** Relocation moves out of the
   resource graph — a read-only diagnostic tool an author reorganising catalogs would not think to
   open, and which could only act on one node — and onto `/catalogs/organise`: a browser across

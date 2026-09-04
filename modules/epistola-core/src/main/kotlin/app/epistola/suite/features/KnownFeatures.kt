@@ -138,7 +138,7 @@ object KnownFeatures {
         RESOURCE_RELOCATION to FeatureMetadata(
             "Resource relocation",
             "Enables previewing and moving authored catalog resources while preserving old references " +
-                "through stable identities and aliases. The first alpha supports stencils only.",
+                "through stable identities and aliases. The alpha supports stencils, variant attributes and templates.",
             stage = FeatureStage.ALPHA,
         ),
     )
