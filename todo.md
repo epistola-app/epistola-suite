@@ -11,7 +11,7 @@
       old `(catalog, template)` address after a move. **Decided: wire
       `ResolveCatalogResourceAddress` into the template lookups now** (ADR 0014 step 7) — UI GETs
       redirect to the canonical URL, REST/MCP resolve transparently.
-- [ ] **2. Read `template_resource_id`.** It is written by trigger and never read. `ListDocuments.kt:61`
+- [x] **2. Read `template_resource_id`.** It is written by trigger and never read. `ListDocuments.kt:61`
       and `CountDocuments.kt:38` filter on `template_key` alone, so a rename hides a template's
       generation history. Filter on `template_resource_id`, falling back to the address for rows
       that predate the column
@@ -26,7 +26,7 @@
       Published references to the deleted catalog's addresses stop resolving from then on.
 - [x] **5. Stale copy.** `KnownFeatures.kt:141` ("supports stencils only") and
       `docs/catalog-resource-relocation.md:8` ("first vertical slice supports stencils").
-- [ ] **12. `DataPreservationMigrationIT` seeds no `documents` and no `variant_attribute_definitions`**
+- [x] **12. `DataPreservationMigrationIT` seeds no `documents` and no `variant_attribute_definitions`**
       — the tables touched by the PK swap (`V20260828132828`) and the FK drops on partitioned
       tables (`V20260831161109`). Add a row of each.
 - [ ] **14. `docs/engineering-review-brief.html`** is untracked and unrelated (post-1.1.0 review).

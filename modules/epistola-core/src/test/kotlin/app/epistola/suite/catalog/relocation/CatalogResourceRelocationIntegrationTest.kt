@@ -33,6 +33,8 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.queries.CountDocuments
+import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
@@ -477,23 +479,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
         }
 
-        // A generation record predating the move, planted directly: it must survive unchanged, and
-        // no command produces one against an arbitrary historical address.
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
-                                       filename, size_bytes, created_at)
-                VALUES (gen_random_uuid(), :tenantKey, :catalogKey, :templateKey, :variantKey, 1,
-                        'invoice.pdf', 1024, NOW())
-                """,
-            )
-                .bind("tenantKey", tenant.id)
-                .bind("catalogKey", sourceCatalog)
-                .bind("templateKey", templateId.key)
-                .bind("variantKey", variantId.key)
-                .execute()
-        }
+        // A generation record predating the move: it must survive unchanged.
+        plantGenerationRecord(tenant.id, sourceCatalog, templateId.key, variantId.key)
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
@@ -520,6 +507,28 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(documentTemplateIdentities(tenant.id)).containsExactly(templateIdentity)
     }
 
+    /**
+     * Planted directly: no command produces a generation record against an arbitrary historical
+     * address, and the insert trigger fills `template_resource_id` from the template at that address.
+     */
+    private fun plantGenerationRecord(tenantKey: TenantKey, catalogKey: CatalogKey, templateKey: TemplateKey, variantKey: VariantKey) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
+                                       filename, size_bytes, created_at)
+                VALUES (gen_random_uuid(), :tenantKey, :catalogKey, :templateKey, :variantKey, 1,
+                        'invoice.pdf', 1024, NOW())
+                """,
+            )
+                .bind("tenantKey", tenantKey)
+                .bind("catalogKey", catalogKey)
+                .bind("templateKey", templateKey)
+                .bind("variantKey", variantKey)
+                .execute()
+        }
+    }
+
     private fun documentTemplateIdentities(tenantKey: TenantKey): List<UUID> = jdbi.withHandle<List<UUID>, Exception> { handle ->
         handle.createQuery("SELECT DISTINCT template_resource_id FROM documents WHERE tenant_key = :tenantKey")
             .bind("tenantKey", tenantKey)
@@ -532,6 +541,32 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             .bind("tenantKey", tenantKey)
             .mapTo(String::class.java)
             .list()
+    }
+
+    @Test
+    fun `generation history follows a renamed template by identity`() {
+        val tenant = createTenant("History after rename")
+        val tenantId = TenantId(tenant.id)
+        val catalog = CatalogKey.of("letters")
+        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(catalog, tenantId))
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val address = ResourceAddress(CatalogResourceType.TEMPLATE, catalog.value, templateId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, catalog, "Letters").execute()
+            CreateDocumentTemplate(templateId, "Invoice").execute()
+        }
+        plantGenerationRecord(tenant.id, catalog, templateId.key, variantId.key)
+
+        val renamed = address.renamedTo("invoice-v2")
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
+
+        // The record keeps the key it was generated under, so a lookup by address would miss it;
+        // the identity the insert trigger recorded still ties it to the template.
+        val newKey = TemplateKey.of("invoice-v2")
+        assertThat(withMediator { ListDocuments(tenant.id, templateId = newKey).query() }).hasSize(1)
+        assertThat(withMediator { CountDocuments(tenant.id, templateId = newKey).query() }).isEqualTo(1L)
     }
 
     @Test
