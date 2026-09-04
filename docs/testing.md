@@ -413,9 +413,11 @@ also prints the slowest classes and costliest commands at the end of each run.
   4-core CI runner has always had; JUnit's default of one thread per core overruns the small
   per-context Hikari pools and surfaces as `Could not open JDBC Connection`); `-PtestParallelism=N`
   overrides it
-- **JVM flags per task** — `unitTest` runs C1-only (`-XX:TieredStopAtLevel=1`, 512m) because it is
-  short-lived; `test`, `integrationTest`, `uiTest` and `perfTest` run full tiered compilation with a
-  2g heap because they live for minutes and cache many contexts
+- **JVM flags per task** — `unitTest` runs C1-only (`-XX:TieredStopAtLevel=1`, 512m); `test` and
+  `integrationTest` also run C1-only with 1g: on the 4-core CI runner, full tiered compilation
+  doubled every context boot because the C2 compiler threads of four concurrent JVMs compete with
+  the boots for the same cores (measured on PR #896). `uiTest` and `perfTest` run full tiered
+  compilation with 2g, as their own hardening intended
 - **`stress` tag** — `@Tag("stress")` tests (e.g. `StressIT`) run in `test` (so CI covers them) but
   not in the local `integrationTest` loop
 

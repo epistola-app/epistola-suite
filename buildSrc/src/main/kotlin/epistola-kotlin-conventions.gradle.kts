@@ -129,11 +129,12 @@ tasks.register<Test>("unitTest") {
     filter { isFailOnNoMatchingTests = false }
 }
 
-// Spring + Testcontainers JVMs live for minutes and cache a dozen or more
-// contexts, so they get full tiered compilation (C1-only made steady-state
-// work like Flyway, Hikari and the mediator markedly slower for a one-off
-// startup gain) and a 2g heap (1g held 16 cached contexts with little room).
-val springTestJvmArgs = listOf("-Xms256m", "-Xmx2g")
+// Spring + Testcontainers JVMs. Measured on CI (PR #896): letting these JVMs run
+// full tiered compilation with a 2g heap doubled every context boot on the
+// 4-core runner (single-context modules went from 24-30 s to 52-61 s), because
+// four JVMs' C2 compiler threads compete with the boots for the same cores. The
+// C1-only cap and the 1g heap are the configuration whose numbers are known.
+val springTestJvmArgs = listOf("-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx1g")
 
 tasks.register<Test>("integrationTest") {
     description = "Runs integration tests (Spring + Testcontainers, no browser)"
