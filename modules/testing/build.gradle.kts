@@ -20,6 +20,8 @@ dependencies {
     api("org.jetbrains.kotlin:kotlin-test-junit5")
 
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    // TemplateDatabase migrates the per-JVM template with Flyway directly.
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
 
     // TestSecurityContextConfiguration binds a principal per request, so it needs the servlet
     // filter API and Spring Security's context holder. `api` because the tests that @Import it are

@@ -397,6 +397,10 @@ also prints the slowest classes and costliest commands at the end of each run.
 - **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:17` container per
   Gradle test task JVM and each Spring context gets its own logical database inside it (there is no
   cross-run container reuse; Ryuk or the launcher-session hook stops it at the end)
+- **Template database** — `TemplateDatabase` migrates one `ctx_template` per JVM (Flyway with the
+  same default inputs Spring Boot uses, then the UNLOGGED conversion) and every context's database
+  is a `CREATE DATABASE … TEMPLATE` clone of it. Flyway in the context finds a complete history and
+  only validates, so the 40-plus migrations run once per JVM instead of once per context
 - **UNLOGGED tables** — `UnloggedTablesTestConfiguration` converts all tables to UNLOGGED after migrations, eliminating WAL writes
 - **tmpfs** — PostgreSQL data directory is on tmpfs (in-memory)
 - **Fake PDF generation** — `FakeDocumentGenerationExecutor` creates minimal valid PDFs instantly
