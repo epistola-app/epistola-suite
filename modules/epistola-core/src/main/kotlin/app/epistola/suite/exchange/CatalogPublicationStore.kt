@@ -96,12 +96,36 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         handle.createUpdate(
             """
             INSERT INTO catalog_release_publications
-                (id, tenant_key, catalog_key, version, fingerprint, namespace, archive, status, idempotency_key)
-            VALUES (:id, :tenantKey, :catalogKey, :version, :fingerprint, :namespace, :archive, :status, :idempotencyKey)
+                (id, tenant_key, catalog_key, version, fingerprint, namespace, status, idempotency_key)
+            VALUES (:id, :tenantKey, :catalogKey, :version, :fingerprint, :namespace, :status, :idempotencyKey)
             """,
         ).bind("id", id).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
-            .bind("fingerprint", fingerprint).bind("namespace", namespace).bind("archive", archive)
+            .bind("fingerprint", fingerprint).bind("namespace", namespace)
             .bind("status", CatalogPublicationStatus.READY).bind("idempotencyKey", idempotencyKey).execute()
+        storeArchive(handle, id, archive)
+    }
+
+    /**
+     * Writes the retained bytes, replacing anything already held for this publication.
+     *
+     * Always in the caller's handle: for a release this is the transaction that creates the outbox
+     * row, and the archive is no more optional than the row is — a publication whose bytes did not
+     * survive the same commit is one the worker would claim and then fail to submit.
+     */
+    private fun storeArchive(handle: Handle, id: UUID, archive: ByteArray) {
+        handle.createUpdate(
+            """
+            INSERT INTO catalog_release_publication_archives (publication_id, bytes, size_bytes)
+            VALUES (:id, :bytes, :size)
+            ON CONFLICT (publication_id) DO UPDATE SET bytes = EXCLUDED.bytes, size_bytes = EXCLUDED.size_bytes
+            """,
+        ).bind("id", id).bind("bytes", archive).bind("size", archive.size.toLong()).execute()
+    }
+
+    /** Releases the retained bytes. A DELETE, so the space comes back without waiting on a vacuum. */
+    private fun releaseArchive(handle: Handle, id: UUID) {
+        handle.createUpdate("DELETE FROM catalog_release_publication_archives WHERE publication_id = :id")
+            .bind("id", id).execute()
     }
 
     /**
@@ -114,13 +138,15 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             """
             UPDATE catalog_release_publications
             SET namespace = :namespace, status = :status, idempotency_key = :idempotencyKey,
-                archive = COALESCE(:archive, archive),
                 remote_publication_id = NULL, submitted_at = NULL, attempts = 0, next_attempt_at = NOW(),
                 claimed_at = NULL, error_code = NULL, error_detail = NULL, updated_at = NOW()
             WHERE id = :id
             """,
-        ).bind("namespace", namespace).bind("status", CatalogPublicationStatus.READY).bind("archive", archive)
+        ).bind("namespace", namespace).bind("status", CatalogPublicationStatus.READY)
             .bind("idempotencyKey", idempotencyKey).bind("id", id).execute()
+        // Null means the caller had nothing to rebuild because the archive was never released —
+        // a failed publication keeps its bytes, so leaving them untouched is the whole point.
+        archive?.let { storeArchive(handle, id, it) }
     }
 
     /** Withdraws a publication the administrator no longer wants, releasing its retained archive. */
@@ -128,11 +154,12 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
-            SET status = :status, archive = NULL, claimed_at = NULL,
+            SET status = :status, claimed_at = NULL,
                 error_code = :code, error_detail = NULL, updated_at = NOW()
             WHERE id = :id
             """,
         ).bind("status", CatalogPublicationStatus.CANCELLED).bind("code", code).bind("id", id).execute()
+        releaseArchive(handle, id)
     }
 
     fun find(handle: Handle, id: UUID): CatalogReleasePublication? = handle.createQuery("$SELECT_METADATA WHERE id = :id FOR UPDATE")
@@ -175,8 +202,8 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
 
     /** Loads the retained ZIP for one publication. Null once a terminal decision cleared it. */
     fun loadArchive(id: UUID): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
-        handle.createQuery("SELECT archive FROM catalog_release_publications WHERE id = :id")
-            .bind("id", id).map { rs, _ -> rs.getBytes("archive") }.findOne().orElse(null)
+        handle.createQuery("SELECT bytes FROM catalog_release_publication_archives WHERE publication_id = :id")
+            .bind("id", id).map { rs, _ -> rs.getBytes("bytes") }.findOne().orElse(null)
     }
 
     /**
@@ -196,14 +223,14 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             UPDATE catalog_release_publications
             SET status = :status, remote_publication_id = :remoteId,
                 submitted_at = COALESCE(submitted_at, NOW()),
-                archive = CASE WHEN :clearArchive THEN NULL ELSE archive END,
                 error_code = :code, error_detail = :detail, claimed_at = NULL,
                 next_attempt_at = NOW() + :delay * INTERVAL '1 second', updated_at = NOW()
             WHERE id = :id
             """,
         ).bind("status", status).bind("remoteId", remotePublicationId)
-            .bind("clearArchive", status.clearsArchive).bind("code", code).bind("detail", detail)
+            .bind("code", code).bind("detail", detail)
             .bind("delay", pollDelay.toSeconds()).bind("id", id).execute()
+        if (status.clearsArchive) releaseArchive(handle, id)
     }
 
     /**
@@ -339,7 +366,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
      */
     fun installationRetainedArchiveBytes(): Double = jdbi.withHandle<Double, Exception> { handle ->
         handle.createQuery(
-            "SELECT COALESCE(SUM(OCTET_LENGTH(archive)), 0) AS bytes FROM catalog_release_publications WHERE archive IS NOT NULL",
+            "SELECT COALESCE(SUM(size_bytes), 0) AS bytes FROM catalog_release_publication_archives",
         ).mapTo(Double::class.java).one()
     }
 
@@ -390,10 +417,12 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
     )
 
     private companion object {
-        /** Never selects `archive`; only whether one is still retained. */
+        /** Never reads the retained bytes; only whether any are still held. */
         const val SELECT_METADATA = """
             SELECT id, tenant_key, catalog_key, version, namespace, status, idempotency_key,
-                   remote_publication_id, attempts, archive IS NOT NULL AS archive_retained,
+                   remote_publication_id, attempts,
+                   EXISTS(SELECT 1 FROM catalog_release_publication_archives a
+                          WHERE a.publication_id = catalog_release_publications.id) AS archive_retained,
                    EXTRACT(EPOCH FROM (NOW() - submitted_at))::BIGINT AS submitted_age_seconds,
                    EXTRACT(EPOCH FROM (NOW() - created_at))::BIGINT AS in_flight_age_seconds,
                    error_code, error_detail, created_at, updated_at

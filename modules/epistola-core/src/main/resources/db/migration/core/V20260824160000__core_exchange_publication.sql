@@ -3,10 +3,17 @@
 --
 -- SPDX-License-Identifier: AGPL-3.0-only
 
+-- Identifiers and vocabularies Exchange owns are stored as TEXT rather than mirrored
+-- with its length limits. varchar(n) and text are the same storage in PostgreSQL, so a
+-- length here buys no space — only a constraint on a value this side does not define.
+-- If Exchange ever lengthens a connection reference or relaxes a namespace limit, a
+-- mirrored limit turns that into an insert failure during enrollment or publication,
+-- fixable only by shipping a Suite migration. Status columns keep their CHECK: those
+-- are this application's own state machine, not someone else's vocabulary.
 CREATE TABLE exchange_tenant_connections (
     tenant_key TENANT_KEY PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
     tenant_connection_id UUID UNIQUE,
-    tenant_connection_reference VARCHAR(29) UNIQUE,
+    tenant_connection_reference TEXT UNIQUE,
     issuer TEXT NOT NULL,
     base_url TEXT NOT NULL,
     authorization_request_endpoint TEXT NOT NULL,
@@ -15,9 +22,9 @@ CREATE TABLE exchange_tenant_connections (
     organization_name TEXT,
     oauth_application_id UUID,
     client_secret TEXT,
-    scopes VARCHAR(30)[] NOT NULL DEFAULT ARRAY[]::VARCHAR[],
-    namespaces VARCHAR(63)[] NOT NULL DEFAULT ARRAY[]::VARCHAR[],
-    default_namespace VARCHAR(63),
+    scopes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    namespaces TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    default_namespace TEXT,
     access_token TEXT,
     access_token_expires_at TIMESTAMPTZ,
     refresh_token TEXT,
@@ -45,7 +52,7 @@ CREATE TABLE exchange_oauth_authorizations (
 CREATE TABLE catalog_exchange_bindings (
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     catalog_key CATALOG_KEY NOT NULL,
-    namespace VARCHAR(63) NOT NULL,
+    namespace TEXT NOT NULL,
     bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     published_at TIMESTAMPTZ,
     PRIMARY KEY (tenant_key, catalog_key)
@@ -57,8 +64,7 @@ CREATE TABLE catalog_release_publications (
     catalog_key CATALOG_KEY NOT NULL,
     version VARCHAR(50) NOT NULL,
     fingerprint CHAR(64) NOT NULL,
-    namespace VARCHAR(63) NOT NULL,
-    archive BYTEA,
+    namespace TEXT NOT NULL,
     status VARCHAR(30) NOT NULL CHECK (status IN ('READY', 'SUBMITTED', 'RETRY', 'ACCEPTED', 'REJECTED', 'FAILED', 'CANCELLED')),
     idempotency_key UUID NOT NULL,
     remote_publication_id UUID,
@@ -82,6 +88,25 @@ CREATE TABLE catalog_release_publications (
         REFERENCES catalog_releases(tenant_key, catalog_key, version) ON DELETE CASCADE
 );
 
+-- The retained release ZIP lives beside the outbox row rather than inside it.
+--
+-- catalog_release_publications is a work queue the cluster worker polls on a fixed
+-- delay, and mixing multi-megabyte values into the table being polled makes releasing
+-- one an UPDATE to NULL: a dead tuple plus orphaned TOAST chunks in the hot table,
+-- waiting on autovacuum. Here it is a DELETE that reclaims cleanly, and the row that
+-- decides what to do next stays small.
+--
+-- Same shape as document_content, which was split out for the same reason (see #738),
+-- and size_bytes is stored rather than measured so retention and the installation-wide
+-- gauge read a number instead of detoasting every archive to weigh it.
+CREATE TABLE catalog_release_publication_archives (
+    publication_id UUID PRIMARY KEY
+        REFERENCES catalog_release_publications(id) ON DELETE CASCADE,
+    bytes BYTEA NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX catalog_release_publications_work
     ON catalog_release_publications(status, next_attempt_at)
     WHERE status IN ('READY', 'SUBMITTED', 'RETRY');
@@ -101,4 +126,8 @@ COMMENT ON TABLE catalog_exchange_bindings IS
 COMMENT ON COLUMN catalog_exchange_bindings.published_at IS
     'When a release of this catalog first reached Exchange, fixing the namespace. NULL while the choice is still local and correctable.';
 COMMENT ON TABLE catalog_release_publications IS
-    'Durable publication outbox containing the exact release ZIP until Exchange accepts or rejects it.';
+    'Durable publication outbox: one row per release queued for Exchange, holding only what the worker needs to decide what to do next. The release ZIP itself is in catalog_release_publication_archives.';
+COMMENT ON TABLE catalog_release_publication_archives IS
+    'The exact release ZIP retained until Exchange accepts or rejects the publication, or an administrator withdraws it. Separate from the outbox row so releasing the bytes is a DELETE rather than an UPDATE to NULL in a table the worker polls continuously.';
+COMMENT ON COLUMN catalog_release_publication_archives.size_bytes IS
+    'Stored rather than derived: retention and the installation-wide retained-bytes gauge read this instead of detoasting every archive to measure it.';
