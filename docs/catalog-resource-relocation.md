@@ -78,8 +78,12 @@ written before it existed resolve through their recorded address instead.
   graph links to it rather than hosting the operation — the graph diagnoses, this applies. REST and
   MCP operations are intentionally deferred until the command contract and authorization model have
   settled.
-- Old public stencil URLs are not redirected yet; the resolver is currently used by graph and
-  export paths.
+- An address a template, stencil or attribute has moved away from keeps working on every surface.
+  REST and MCP resolve it to the canonical address before dispatching
+  (`ResolveCanonicalResourceAddress`, deliberately authorisation-free: the operation that follows
+  carries the permission, and gating the resolution would fail a generate-only key on every
+  address). A UI `GET` redirects to the canonical URL, and everything beneath the resource —
+  variants, versions, contract — redirects with it.
 
 This operation cannot be demonstrated by adding static content to the bundled demo catalog: the
 feature is a state transition between two tenant-owned catalogs. Its representative scenario lives

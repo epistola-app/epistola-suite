@@ -13,10 +13,14 @@ import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
+import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -116,10 +120,11 @@ internal fun GenerateDocumentRequest.toCommand(
     require(variantId == null || attributes == null) {
         "Cannot specify both variantId and attributes"
     }
+    val template = canonicalTemplate(tenantId, catalogId, templateId)
     return app.epistola.suite.documents.commands.GenerateDocument(
         tenantId = TenantKey.of(tenantId),
-        catalogKey = CatalogKey.of(catalogId),
-        templateId = TemplateKey.of(templateId),
+        catalogKey = template.catalogKey,
+        templateId = template.key,
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
         versionId = versionId?.let { VersionKey.of(it) },
@@ -132,14 +137,16 @@ internal fun GenerateDocumentRequest.toCommand(
 }
 
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
+    tenantId: String,
     objectMapper: ObjectMapper,
 ): app.epistola.suite.documents.commands.BatchGenerationItem {
     require(variantId == null || attributes == null) {
         "Cannot specify both variantId and attributes"
     }
+    val template = canonicalTemplate(tenantId, catalogId, templateId)
     return app.epistola.suite.documents.commands.BatchGenerationItem(
-        catalogKey = CatalogKey.of(catalogId),
-        templateId = TemplateKey.of(templateId),
+        catalogKey = template.catalogKey,
+        templateId = template.key,
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
         versionId = versionId?.let { VersionKey.of(it) },
@@ -192,7 +199,7 @@ internal fun GenerateBatchRequest.toCommand(
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantKey.of(tenantId),
-    items = items.map { it.toBatchItem(objectMapper) },
+    items = items.map { it.toBatchItem(tenantId, objectMapper) },
     batchRoutingKey = routingKey,
 )
 
@@ -200,13 +207,19 @@ internal fun GenerateBatchRequest.toCommand(
 
 internal fun PreviewDocumentRequest.toQuery(
     tenantId: String,
-) = PreviewDocument(
-    tenantId = TenantKey.of(tenantId),
-    catalogKey = CatalogKey.of(catalogId),
-    templateId = TemplateKey.of(templateId),
-    variantId = variantId?.let { VariantKey.of(it) },
-    variantSelectionCriteria = attributes?.toSelectionCriteria(),
-    data = data,
-    versionId = versionId?.let { VersionKey.of(it) },
-    environmentId = environmentId?.let { EnvironmentKey.of(it) },
-)
+): PreviewDocument {
+    val template = canonicalTemplate(tenantId, catalogId, templateId)
+    return PreviewDocument(
+        tenantId = TenantKey.of(tenantId),
+        catalogKey = template.catalogKey,
+        templateId = template.key,
+        variantId = variantId?.let { VariantKey.of(it) },
+        variantSelectionCriteria = attributes?.toSelectionCriteria(),
+        data = data,
+        versionId = versionId?.let { VersionKey.of(it) },
+        environmentId = environmentId?.let { EnvironmentKey.of(it) },
+    )
+}
+
+/** The template's current address, for a request that may name the one it had before a move. */
+private fun canonicalTemplate(tenantId: String, catalogId: String, templateId: String): TemplateId = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), TenantId(TenantKey.of(tenantId)))).canonical()

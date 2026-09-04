@@ -14,6 +14,7 @@ import app.epistola.api.model.PublishContractRequest
 import app.epistola.api.model.PublishContractResponse
 import app.epistola.api.model.UpdateContractDraftRequest
 import app.epistola.api.model.UpdateContractDraftResponse
+import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -126,7 +127,7 @@ class EpistolaContractsApi : ContractsApi {
 
     private fun templateId(tenantId: String, catalogId: String, templateId: String): TemplateId {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        return TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        return TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
     }
 
     private fun ContractVersionSummary.toDto() = ContractVersionSummaryDto(

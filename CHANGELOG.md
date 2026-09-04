@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs,api,mcp): **Old addresses keep working after a move.** Only export and the
+  resource graph consulted aliases; every other surface answered 404 at a moved template's, stencil's
+  or attribute's previous `(catalog, key)`, which would have broken each integration generating from
+  a moved template. REST and MCP now resolve the address to the canonical one before dispatching —
+  through an authorisation-free `ResolveCanonicalResourceAddress`, so a generate-only key is not
+  refused at the resolution step — and UI `GET`s redirect to the canonical URL, variants and
+  versions included.
 - **[user]** feat(catalogs): **A resource whose published versions carry relative references can move.**
   Content published before references were qualified on write stored a same-catalog dependency
   relatively, and the `immutable-relative-reference` blocker then made its owner permanently

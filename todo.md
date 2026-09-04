@@ -5,7 +5,7 @@
 
 ## Before merge
 
-- [ ] **1. Old template addresses must keep working on REST, UI and MCP.** Aliases are only
+- [x] **1. Old template addresses must keep working on REST, UI and MCP.** Aliases are only
       consulted by export (`CatalogContentBuilder`), the graph (`GetTenantResourceGraph`) and
       write-time canonicalisation (`TemplateDocumentPreparation`); every other surface 404s on the
       old `(catalog, template)` address after a move. **Decided: wire
