@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 6,
+  "resource": {
+    "type": "stencil",
+    "slug": "company-header",
+    "name": "Company Header",
+    "version": 2,
+    "description": "Reusable company header block with company name and separator.",
+    "tags": ["header", "branding"],
+    "parameterSchema": {
+      "type": "object",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Company name shown in the header",
+          "default": "Acme Corporation"
+        }
+      },
+      "required": ["companyName"]
+    },
+    "content": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-heading": {
+          "id": "n-heading",
+          "type": "text",
+          "slots": [],
+          "styles": {
+            "marginBottom": "2sp"
+          },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 1 },
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "params.companyName" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-rule": {
+          "id": "n-rule",
+          "type": "container",
+          "slots": [],
+          "styles": {
+            "borderBottom": "1pt solid #cbd5e1",
+            "marginBottom": "4sp"
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-heading", "n-rule"]
+        }
+      }
+    }
+  }
+}

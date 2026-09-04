@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.config
+package app.epistola.suite.testing
 
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
-import app.epistola.suite.testing.TestPrincipalUser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -29,7 +28,7 @@ const val TEST_TENANT_ROLES_HEADER = "X-Test-Tenant-Roles"
  * Test configuration that provides a fully-privileged test principal for every HTTP request.
  *
  * In the test profile, Spring Security permits all requests without authentication,
- * so the production [SecurityFilter] doesn't find an authenticated user. This filter
+ * so the production `SecurityFilter` doesn't find an authenticated user. This filter
  * runs after SecurityFilter and does two things:
  *
  * 1. Populates [SecurityContextHolder] with a [TestingAuthenticationToken] so Thymeleaf's

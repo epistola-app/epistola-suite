@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.quality
+package app.epistola.suite.demo
 
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -14,6 +14,8 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.quality.QualitySeverity
+import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.commands.RunQualityChecks
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.quality.sources.AccessibilityQualitySource

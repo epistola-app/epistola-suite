@@ -149,6 +149,13 @@ epistola:
     auto-provision: false
   demo:
     enabled: false # Opt-in: activate via 'demo' or 'local' profile
+    # A single credential that authenticates EVERY /api/** endpoint against EVERY tenant with
+    # every permission, for the demo website to call Epistola on a visitor's behalf. Supplied
+    # only through the environment (EPISTOLA_DEMO_SHAREDSECRET), never committed, minimum 32
+    # characters. Honoured ONLY under the 'demo' profile — note that 'local' sets demo.enabled
+    # but is not the demo profile. Setting it anywhere else fails the boot rather than being
+    # silently ignored (DemoSharedSecretSafetyValidator).
+    shared-secret: ""
   embedding:
     # Basis for embedding Epistola's UI in an <iframe> + a postMessage bridge —
     # docs/embedding.md. Off everywhere except the 'demo' profile: relaxes CSP

@@ -8,6 +8,18 @@
   deployment gate (off by default), the stable epistola.app discovery URL, and an optional
   browser-reachable OAuth callback URL to application pods; tenant-level feature and publication
   settings remain inert until the gate is enabled.
+- **Optional demo API shared secret (`demo.sharedSecret`).** Renders
+  `EPISTOLA_DEMO_SHAREDSECRET` from an existing Kubernetes Secret, for demo
+  deployments whose website calls the REST API on a visitor's behalf. As with
+  `oidc` and `encryption`, the chart never takes an inline value — set
+  `demo.sharedSecret.existingSecret` (and optionally `secretKey`, default
+  `shared-secret`) and create the Secret yourself. Nothing is rendered when it is
+  left empty. The credential authenticates every `/api/**` endpoint against every
+  tenant with every permission, so it is only honoured when `config.profiles`
+  includes `demo`; setting it under any other profile fails the application's
+  startup deliberately rather than being ignored. See
+  `docs/adr/0019-demo-api-shared-secret.md`.
+
 - **GitHub Kind smoke test for Epistola chart changes.** Pull requests run the
   local chart installation harness only when this chart, its test harness, or
   its workflow changes. Other charts do not create a Kubernetes cluster.

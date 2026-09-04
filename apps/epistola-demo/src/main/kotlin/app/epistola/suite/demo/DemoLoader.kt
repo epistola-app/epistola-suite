@@ -270,9 +270,12 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
+        /** Also seeded into every personal tenant by [DemoLoginMembershipResolver]. */
+        const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
         private const val DEMO_CATALOG_KEY = "epistola-demo"
-        private const val DEMO_TENANT_ID = "demo"
+
+        /** The shared demo tenant every demo user also gets read/write on — see [DemoLoginMembershipResolver]. */
+        const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
 
         /** The deliberately-flawed template the quality demo hangs off. */

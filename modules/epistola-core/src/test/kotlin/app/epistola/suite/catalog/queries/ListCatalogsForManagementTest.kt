@@ -25,7 +25,7 @@ import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 /**
  * The catalog-management list query, focused on its only non-trivial column:

@@ -325,6 +325,25 @@ support:
     # is distinct automatically. (The app property epistola.support.hub.node-id
     # still exists for rare single-instance overrides outside Kubernetes.)
 
+# Demo-profile options. Only meaningful when config.profiles includes "demo", which in turn only
+# works on the `-demo` image (image.tag: "{version}-demo"). The default image does not contain the
+# demo code and refuses to start with that profile — see docs/auth.md "Two images".
+demo:
+  # A single credential that authenticates EVERY /api/** endpoint against EVERY tenant with every
+  # permission, so the demo website can call Epistola on behalf of a visitor whose tenant was
+  # created at login. It is a deliberate, total bypass of the tenant and permission model — see
+  # docs/adr/0019-demo-api-shared-secret.md.
+  #
+  # Leave existingSecret empty to not have one; the app starts normally without it. Setting it
+  # WITHOUT the "demo" profile fails the app's startup on purpose rather than being ignored.
+  # As with oidc and encryption, the chart never takes an inline secret: the value must be at
+  # least 32 characters and live in a Kubernetes Secret you create.
+  sharedSecret:
+    # Name of an existing Secret holding the shared secret.
+    existingSecret: ""
+    # Key within that Secret.
+    secretKey: shared-secret
+
 # Application configuration
 exchange:
   # Hard deployment gate for Suite-to-Exchange catalog publication.
@@ -337,7 +356,8 @@ exchange:
 config:
   # Spring profiles to activate. OIDC login is configured via oidc.* (env vars), not a profile.
   # Production:    "prod"
-  # Staging/Test:  "demo" or "demo,localauth"
+  # Staging/Test:  "demo" or "demo,localauth" — requires the `-demo` image tag; the default image
+  #                does not contain demo mode and will refuse to start with that profile.
   profiles: ""
   # Additional environment variables
   env: {}
