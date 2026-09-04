@@ -155,9 +155,14 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-// Enable BuildProperties bean by generating build-info.properties
+// Enable the BuildProperties bean by generating build-info.properties. `time` is
+// excluded: its default is "now", which made bootBuildInfo, and through
+// resources/main also jar, bootJar and every test task of this app and the demo
+// app, never up-to-date. Nothing reads it; version, group, artifact and name stay.
 springBoot {
-    buildInfo()
+    buildInfo {
+        excludes.add("time")
+    }
 }
 
 // Configure CycloneDX SBOM generation for backend dependencies
@@ -299,12 +304,7 @@ val verifyHtmxVendored = tasks.register("verifyHtmxVendored") {
 }
 
 tasks.processResources {
-    // Copy SBOM to JAR resources for Docker embedding
-    dependsOn(tasks.cyclonedxDirectBom)
     dependsOn(verifyHtmxVendored)
-    from(layout.buildDirectory.file("sbom/bom.json")) {
-        into("META-INF/sbom")
-    }
     // Best-effort embed of the consolidated third-party notices for Docker distribution.
     // Deliberately NOT wired to generateThirdPartyNotices: the jk1 license-report task is
     // not configuration-cache compatible, so a hard dependency would discard the config
@@ -344,6 +344,26 @@ tasks.processResources {
     }
 }
 
+// The SBOM ships inside the distributable archives, not in resources/main. As a
+// processResources input it sat on the path of `classes`, which made every module
+// jar and the CycloneDX run a prerequisite of compiling and running this app's
+// tests (and, in CI, of every job that reuses the compiled classes). Embedding at
+// archive level keeps the same META-INF/sbom/bom.json in the jar, the boot jar and
+// (nested) the demo boot jar without gating anything else on it.
+val sbomJson = tasks.cyclonedxDirectBom.map { it.jsonOutput }
+tasks.named<Jar>("jar") {
+    from(sbomJson) {
+        into("META-INF/sbom")
+    }
+}
+
+// This is the only module with `@Tag("ui")` tests, so it is the one that makes
+// `check` (and therefore `gradle build`) run the hardened `uiTest` task. See the
+// convention plugin for why `test` excludes the ui tag.
+tasks.named("check") {
+    dependsOn("uiTest")
+}
+
 // Convenience task for generating SBOM standalone
 tasks.register("generateSbom") {
     group = "verification"
@@ -381,6 +401,13 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     // to contain demo code it does not. Dropping empty directories makes the jar's contents a
     // function of the sources rather than of the build cache's history.
     includeEmptyDirs = false
+    // BOOT-INF/classes is the application classpath inside the boot jar and the
+    // image (docs/sbom.md reads /workspace/BOOT-INF/classes/META-INF/sbom/bom.json).
+    // Spring Boot's own CycloneDX integration additionally places
+    // META-INF/sbom/application.cdx.json at the archive root.
+    from(sbomJson) {
+        into("BOOT-INF/classes/META-INF/sbom")
+    }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
