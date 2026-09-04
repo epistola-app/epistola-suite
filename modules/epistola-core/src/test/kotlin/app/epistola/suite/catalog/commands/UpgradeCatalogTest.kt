@@ -341,6 +341,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             val after = GetCatalog(tenant.id, depKey).query()!!
             assertThat(after.installedReleaseVersion).isEqualTo(before.installedReleaseVersion)
             assertThat(after.installedFingerprint).isEqualTo(before.installedFingerprint)
+            // Nothing was installed, so the install stamp must not move either.
+            assertThat(after.installedAt).isEqualTo(before.installedAt)
         }
     }
 }
