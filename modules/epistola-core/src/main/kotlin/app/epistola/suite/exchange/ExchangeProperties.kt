@@ -43,6 +43,14 @@ data class ExchangeProperties(
      */
     val submittedTimeout: Duration = Duration.ofHours(24),
     /**
+     * Read timeout for downloading a release archive, kept apart from [readTimeout].
+     *
+     * That one is sized for an OAuth round-trip; a catalog archive is megabytes over whatever link
+     * the installation has, and governing it by the same 30 seconds would fail installs that were
+     * only slow. `RestClient.mutate()` cannot change a read timeout, so this needs its own client.
+     */
+    val archiveReadTimeout: Duration = Duration.ofMinutes(2),
+    /**
      * Permits a plaintext Exchange, for a local checkout only. Credentials and archives cross this
      * connection, so it is off everywhere else — the same posture as `epistola.catalog.allow-http`.
      */

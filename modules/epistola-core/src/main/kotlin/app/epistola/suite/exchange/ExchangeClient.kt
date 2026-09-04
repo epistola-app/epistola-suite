@@ -4,8 +4,11 @@
 
 package app.epistola.suite.exchange
 
+import app.epistola.exchange.client.api.CatalogsApi
 import app.epistola.exchange.client.api.ConnectionsApi
 import app.epistola.exchange.client.api.PublicationsApi
+import app.epistola.exchange.client.model.CatalogRelease
+import app.epistola.exchange.client.model.CatalogSummary
 import app.epistola.exchange.client.model.PublicationSubmission
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ByteArrayResource
@@ -14,7 +17,10 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
+import org.springframework.web.client.HttpClientErrorException
+import org.springframework.web.client.HttpServerErrorException
 import org.springframework.web.client.RestClient
+import org.springframework.web.util.UriComponentsBuilder
 import tools.jackson.databind.JsonNode
 import java.io.File
 import java.net.URI
@@ -31,6 +37,19 @@ import java.util.UUID
  * The messages are safe to show: they name URLs and protocol fields, never credentials.
  */
 class ExchangeProtocolException(message: String) : RuntimeException(message)
+
+/**
+ * A release archive is larger than this installation will import.
+ *
+ * Its own type because the remedy is an operator's (`epistola.catalog.max-zip-size`), not a retry.
+ * [declaredBytes] is null when the server never said and the cap was hit while reading.
+ */
+class ExchangeArchiveTooLargeException(val declaredBytes: Long?, val maxBytes: Long) :
+    RuntimeException(
+        "Release archive is larger than the ${maxBytes / 1024 / 1024} MB this installation imports" +
+            (declaredBytes?.let { " (Exchange reported ${it / 1024 / 1024} MB)" } ?: "") +
+            ". Raise epistola.catalog.max-zip-size to install it.",
+    )
 
 data class ExchangeEndpoints(
     val issuer: String,
@@ -75,6 +94,7 @@ data class ExchangePublicationResponse(
 class ExchangeClient(
     private val properties: ExchangeProperties,
     @Qualifier("exchangeRestClient") private val http: RestClient,
+    @Qualifier("exchangeArchiveRestClient") private val archiveHttp: RestClient,
 ) {
 
     fun endpoints(): ExchangeEndpoints {
@@ -279,6 +299,118 @@ class ExchangeClient(
 
     fun publication(baseUrl: String, accessToken: String, id: UUID): ExchangePublicationResponse = PublicationsApi(authorized(baseUrl, accessToken)).getPublicationSubmission(id).toResponse()
 
+    /**
+     * Catalogs on Exchange matching [query], newest-first by however Exchange orders them.
+     *
+     * `READ` is enough for this and for everything else an install needs; nothing here asks for the
+     * `USAGE` or `UPGRADES` scopes, which would mean reauthorizing every existing connection.
+     */
+    fun searchCatalogs(
+        baseUrl: String,
+        accessToken: String,
+        query: String?,
+        cursor: String?,
+        limit: Int,
+    ): ExchangeCatalogPage {
+        val page = CatalogsApi(authorized(baseUrl, accessToken))
+            .searchCatalogs(query?.takeIf(String::isNotBlank), cursor, limit)
+        return ExchangeCatalogPage(page.items.map { it.toSummary() }, cursorOf(page.links.next))
+    }
+
+    fun catalog(baseUrl: String, accessToken: String, namespace: String, catalogKey: String): ExchangeCatalogSummary = CatalogsApi(authorized(baseUrl, accessToken)).getCatalog(namespace, catalogKey).toSummary()
+
+    fun releases(
+        baseUrl: String,
+        accessToken: String,
+        namespace: String,
+        catalogKey: String,
+        cursor: String? = null,
+        limit: Int = RELEASE_PAGE_SIZE,
+    ): List<ExchangeCatalogRelease> = CatalogsApi(authorized(baseUrl, accessToken))
+        .listCatalogReleases(namespace, catalogKey, cursor, limit)
+        .items
+        .map { it.toRelease() }
+
+    /**
+     * The release archive, as bytes.
+     *
+     * The generated method returns a [File] through a JSON converter and cannot carry a zip, so
+     * only the body handling is ours — method and path come off the generated request config, as
+     * they do for [submit], so a contract change moves them rather than leaving a copied path to
+     * rot.
+     *
+     * [maxBytes] is enforced here rather than left to the importer. `Content-Length` is checked
+     * first because it is free, but it is the server's claim about its own body, so the read is
+     * capped as well: one byte over the limit is enough to know, and buffering a hostile or
+     * misconfigured response to find out is exactly what the limit exists to prevent.
+     */
+    fun downloadArchive(
+        baseUrl: String,
+        accessToken: String,
+        namespace: String,
+        catalogKey: String,
+        version: String,
+        maxBytes: Long,
+    ): ByteArray {
+        val request = CatalogsApi(archiveHttp).downloadCatalogReleaseRequestConfig(namespace, catalogKey, version)
+        // `path` is still a template and the values sit beside it in `params`, so both come from the
+        // generated config rather than being interpolated here.
+        return archiveHttp.get()
+            .uri("${baseUrl.trimEnd('/')}${request.path}", request.params)
+            .headers { headers -> request.headers.forEach { (name, value) -> headers.set(name, value) } }
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
+            .exchange { _, response ->
+                // `exchange` turns off the default status handling, so refusals are re-raised as the
+                // same exceptions every other call produces - that is what ExchangeFailure reads to
+                // tell "reconnect" apart from "this catalog is gone".
+                if (response.statusCode.isError) {
+                    val detail = runCatching { response.body.readNBytes(ERROR_BODY_SNIPPET) }.getOrDefault(ByteArray(0))
+                    throw if (response.statusCode.is4xxClientError) {
+                        HttpClientErrorException.create(response.statusCode, response.statusText, response.headers, detail, null)
+                    } else {
+                        HttpServerErrorException.create(response.statusCode, response.statusText, response.headers, detail, null)
+                    }
+                }
+                val declared = response.headers.contentLength
+                if (declared > maxBytes) throw ExchangeArchiveTooLargeException(declared, maxBytes)
+                val bytes = response.body.readNBytes((maxBytes + 1).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+                if (bytes.size > maxBytes) throw ExchangeArchiveTooLargeException(null, maxBytes)
+                bytes
+            }
+            ?: throw ExchangeProtocolException("Exchange returned an empty archive for $namespace/$catalogKey $version")
+    }
+
+    private fun CatalogSummary.toSummary() = ExchangeCatalogSummary(
+        namespace = namespace,
+        catalogKey = key,
+        name = name,
+        description = description,
+        organizationName = ownerOrganizationName,
+        visibility = visibility.value,
+        latestVersion = latestVersion,
+    )
+
+    private fun CatalogRelease.toRelease() = ExchangeCatalogRelease(
+        namespace = namespace,
+        catalogKey = catalogKey,
+        version = version,
+        fingerprint = fingerprint,
+        sha256 = sha256,
+        sizeBytes = propertySize,
+        scanState = scanState.value,
+        availability = availability.value,
+        publishedAt = publishedAt,
+    )
+
+    /**
+     * Exchange returns the next page as a URL, not a cursor. Only the cursor is kept: following an
+     * absolute URL would let a response choose the host the next request goes to, which is the
+     * discipline [requireIssuerOrigin] exists to hold everywhere else.
+     */
+    private fun cursorOf(next: String?): String? = next
+        ?.let { runCatching { UriComponentsBuilder.fromUriString(it).build().queryParams.getFirst("cursor") }.getOrNull() }
+        ?.takeIf(String::isNotBlank)
+
     private fun token(endpoints: ExchangeEndpoints, values: Map<String, String>): ExchangeTokenResponse {
         val form = LinkedMultiValueMap<String, String>().apply { values.forEach(::add) }
         val node = http.post().uri(endpoints.tokenEndpoint).contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -319,6 +451,12 @@ class ExchangeClient(
     private fun PublicationSubmission.toResponse() = ExchangePublicationResponse(id, state.value, errorCode, errorDetail)
 
     private companion object {
+        /** Enough releases for a version picker without paging; the newest are what anyone installs. */
+        const val RELEASE_PAGE_SIZE = 50
+
+        /** How much of a refusal body is kept for the recorded reason. Enough for a ProblemDetail. */
+        const val ERROR_BODY_SNIPPET = 4096
+
         /**
          * Never opened. The generated multipart signature demands a [File]; the bytes are supplied
          * separately above, and only the request's method, path and headers are taken from it.
