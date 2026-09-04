@@ -397,10 +397,11 @@ also prints the slowest classes and costliest commands at the end of each run.
 - **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:17` container per
   Gradle test task JVM and each Spring context gets its own logical database inside it (there is no
   cross-run container reuse; Ryuk or the launcher-session hook stops it at the end)
-- **Template database** — `TemplateDatabase` migrates one `ctx_template` per JVM (Flyway with the
-  same default inputs Spring Boot uses, then the UNLOGGED conversion) and every context's database
-  is a `CREATE DATABASE … TEMPLATE` clone of it. Flyway in the context finds a complete history and
-  only validates, so the 40-plus migrations run once per JVM instead of once per context
+- **Not a template database** — cloning each context's database from one migrated template
+  (`CREATE DATABASE … TEMPLATE`) was measured on PR #896 and dropped: the 40-plus migrations cost
+  about a second per context, so the clone plus Flyway's validate pass saved 0.4 s per boot locally
+  and lost 2 to 4 s per boot on CI. Context boot cost is Spring itself plus CPU contention between
+  concurrent test JVMs; that is where to look
 - **UNLOGGED tables** — `UnloggedTablesTestConfiguration` converts all tables to UNLOGGED after migrations, eliminating WAL writes
 - **tmpfs** — PostgreSQL data directory is on tmpfs (in-memory)
 - **Fake PDF generation** — `FakeDocumentGenerationExecutor` creates minimal valid PDFs instantly
