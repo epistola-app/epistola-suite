@@ -12,6 +12,7 @@ import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
@@ -20,6 +21,7 @@ import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
+import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -39,17 +41,15 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
-import app.epistola.suite.catalog.queries.CatalogSchemaSyncState
-import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
-import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
+import app.epistola.suite.exchange.ExchangeSourceUri
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
 import app.epistola.suite.exchange.SetCatalogPublicationNamespace
@@ -449,46 +449,42 @@ class CatalogHandler {
      * (no source URL) catalogs can't be polled — they upgrade by re-importing
      * a newer ZIP, so we say so instead of erroring.
      */
+    /**
+     * The per-row "check for updates" button.
+     *
+     * Asks the source now and records the answer, so the next page load already knows it and the
+     * background check does not immediately re-ask. Returns the same fragment the list renders from,
+     * which is what keeps one definition of the Version cell.
+     */
     fun upgradeCheck(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         val catalog = GetCatalog(tenantId.key, catalogKey).query()
+            ?: return ServerResponse.ok().render(
+                "catalogs/list :: version-status",
+                mapOf("tenantId" to tenantId.key, "catalogId" to catalogKey.value, "status" to null),
+            )
 
-        val model = HashMap<String, Any?>()
-        model["tenantId"] = tenantId.key
-        model["catalogId"] = catalogKey.value
-        model["installedVersion"] = catalog?.installedReleaseVersion
-        model["availableVersion"] = null
-
-        when {
-            catalog == null -> model["state"] = "CHECK_FAILED"
-            catalog.sourceUrl == null -> model["state"] = "ZIP_MANAGED"
-            else -> try {
-                val a = CheckCatalogUpgrade(tenantId.key, catalogKey).query()
-                model["installedVersion"] = a.installedVersion
-                model["availableVersion"] = a.availableVersion
-                model["sourceSchemaVersion"] = a.sourceSchemaVersion
-                model["currentSchemaVersion"] = a.currentSchemaVersion
-                // A schema mismatch (source must republish, or this Epistola is
-                // behind) takes priority over the release-version upgrade state.
-                model["state"] = when (a.schemaSyncState) {
-                    CatalogSchemaSyncState.SOURCE_BEHIND -> "NOT_IN_SYNC"
-                    CatalogSchemaSyncState.SOURCE_AHEAD -> "SOURCE_AHEAD"
-                    CatalogSchemaSyncState.IN_SYNC -> if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
-                }
-            } catch (e: CatalogSchemaTooNewException) {
-                // The source publishes a wire schema newer than this instance can
-                // read — `fetchMigratedManifest` throws before a sync state can be
-                // derived, so surface the intended "upgrade Epistola" state here.
-                model["sourceSchemaVersion"] = e.version
-                model["currentSchemaVersion"] = e.current
-                model["state"] = "SOURCE_AHEAD"
-            } catch (e: Exception) {
-                logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
-                model["state"] = "CHECK_FAILED"
-            }
+        val check = try {
+            CheckCatalogUpstream(tenantId.key, catalogKey).execute()
+        } catch (e: Exception) {
+            logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
+            null
         }
-        return ServerResponse.ok().render("catalogs/list :: version-status", model)
+        val status = CatalogVersionStatusView.of(
+            catalog,
+            check,
+            CATALOG_SCHEMA_VERSION,
+            fromExchange = ExchangeSourceUri.matches(catalog.sourceUrl),
+        )
+        return ServerResponse.ok().render(
+            "catalogs/list :: version-status",
+            mapOf(
+                "tenantId" to tenantId.key,
+                "catalogId" to catalogKey.value,
+                "status" to status,
+            ),
+        )
     }
 
     private fun upgradeDialog(tenantId: app.epistola.suite.common.ids.TenantId, catalogKey: CatalogKey, error: String? = null): ServerResponse {
@@ -1200,11 +1196,7 @@ class CatalogHandler {
      *    computed in one SQL join. No parallel id set, no template-side
      *    cross-reference, no content build.
      */
-    private fun ModelBuilder.catalogListModel(request: ServerRequest) {
-        val tenantKey = request.tenantId().key
-        "tenantId" to tenantKey
-        "catalogs" to ListCatalogsForManagement(tenantKey).query()
-    }
+    private fun ModelBuilder.catalogListModel(request: ServerRequest) = catalogListModel(request.tenantId().key)
 
     /**
      * The full-page list model used by the newForm / createCatalog non-HTMX
