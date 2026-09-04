@@ -29,7 +29,7 @@ import org.springframework.context.annotation.Import
     properties = ["epistola.demo.enabled=false"],
 )
 @AutoConfigureTestRestTemplate
-@Import(app.epistola.suite.config.TestSecurityContextConfiguration::class)
+@Import(app.epistola.suite.testing.TestSecurityContextConfiguration::class)
 abstract class BaseIntegrationTest : IntegrationTestBase() {
 
     private val classNamespace = this::class.simpleName!!.lowercase().take(20)

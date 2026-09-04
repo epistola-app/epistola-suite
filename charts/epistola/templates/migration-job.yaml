@@ -48,7 +48,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "epistola.serviceAccountName" . }}
+      {{- /* This is a pre-install hook, so the chart-managed ServiceAccount has
+             not been created yet. The Job makes no Kubernetes API calls; use
+             the namespace's built-in ServiceAccount and do not mount its token. */}}
+      serviceAccountName: default
+      automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- if ne (include "epistola.database.effectiveType" .) "none" }}

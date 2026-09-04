@@ -11,5 +11,5 @@ spec:
     - name: health-check
       image: busybox
       command: ['wget']
-      args: ['--spider', '-q', '{{ include "epistola.fullname" . }}:{{ .Values.service.port }}/actuator/health']
+      args: ['--spider', '-q', '{{ include "epistola.fullname" . }}:{{ .Values.service.port }}/readyz']
   restartPolicy: Never

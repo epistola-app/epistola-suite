@@ -108,6 +108,12 @@ class UiExceptionFilter(
                 log.warn("Platform access denied: {}", cause.message)
                 UiError(403, ApiProblemTypes.PLATFORM_ACCESS_DENIED, "This action requires platform administrator access.")
             }
+            "ValidationException" -> {
+                // Command validation that a handler chose not to catch and re-render: the input
+                // was wrong, not the server. Without this it would surface as an opaque 500.
+                log.warn("Validation failed on UI request: {}", cause.message)
+                UiError(400, ApiProblemTypes.BAD_REQUEST, cause.message ?: "The request is invalid.")
+            }
             "CatalogReadOnlyException" -> {
                 log.warn("Catalog read-only: {}", cause.message)
                 UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")

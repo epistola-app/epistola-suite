@@ -149,6 +149,13 @@ epistola:
     auto-provision: false
   demo:
     enabled: false # Opt-in: activate via 'demo' or 'local' profile
+    # A single credential that authenticates EVERY /api/** endpoint against EVERY tenant with
+    # every permission, for the demo website to call Epistola on a visitor's behalf. Supplied
+    # only through the environment (EPISTOLA_DEMO_SHAREDSECRET), never committed, minimum 32
+    # characters. Honoured ONLY under the 'demo' profile — note that 'local' sets demo.enabled
+    # but is not the demo profile. Setting it anywhere else fails the boot rather than being
+    # silently ignored (DemoSharedSecretSafetyValidator).
+    shared-secret: ""
   embedding:
     # Basis for embedding Epistola's UI in an <iframe> + a postMessage bridge —
     # docs/embedding.md. Off everywhere except the 'demo' profile: relaxes CSP
@@ -161,8 +168,36 @@ epistola:
     # When false, the whole Spring AI MCP server is disabled (see
     # spring.ai.mcp.server.enabled above) and the endpoint returns 404.
     enabled: true
+  exchange:
+    # Hard deployment gate. Tenant/catalog settings are inert while disabled.
+    enabled: false
+    discovery-url: https://epistola.app/.well-known/epistola/exchange.json
+    # Optional direct base URL for local development only; production discovers the issuer above.
+    # Leave blank to use discovery — a blank value is treated as unset.
+    base-url:
+    # Optional browser-reachable callback. If absent, Suite derives it from the setup request.
+    callback-url:
+    # How often the publication worker looks for due work.
+    poll-interval-ms: 5000
+    # Every Exchange call is bounded so a slow remote cannot pin a worker or request thread.
+    connect-timeout: 5s
+    read-timeout: 30s
+    # Consecutive transient failures after which a publication becomes an administrator-retryable
+    # FAILED instead of retrying forever while holding its retained archive.
+    max-attempts: 10
+    # Recheck cadence for work that is not actionable yet (enrollment incomplete, feature paused).
+    setup-retry-interval: 1m
+    # Poll cadence for a submission Exchange has accepted but not yet decided.
+    submitted-poll-interval: 30s
+    # How long such a submission is followed before it is given up on. Polling spends no retry
+    # budget, so without this a submission Exchange never decides would be polled forever while
+    # holding its retained archive. Generous: validation and scanning are Exchange's own work.
+    submitted-timeout: 24h
+    # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
+    allow-http: false
   features:
     ai-chat: false
+    catalog-publishing: false
     resource-graph: false
     resource-relocation: false
   generation:
@@ -183,6 +218,18 @@ epistola:
         max-batch-size: 50 # Claim more per poll for efficient draining
         fast-threshold-ms: 2000 # < 2s avg = increase batch size
         slow-threshold-ms: 5000 # > 5s avg = decrease batch size
+      # Keeps background renders from monopolising a degraded database. It limits
+      # new admissions only; documents already rendering are allowed to finish.
+      database-pressure:
+        enabled: true
+        observation-window-ms: 10000
+        minimum-samples: 3
+        slow-statement-threshold-ms: 500
+        recovery-statement-threshold-ms: 200
+        minimum-concurrent-jobs: 1
+        backoff-interval-ms: 1000
+        recovery-period-ms: 30000
+        recovery-step-interval-ms: 10000
     async:
       concurrency: 10 # Items processed concurrently per job
     jobs:
@@ -215,6 +262,17 @@ epistola:
       candidate-scan-size: 250
     capabilities:
       - suite
+    # Daily purge of dead node rows. The node id is the pod hostname, so on Kubernetes
+    # every rollout leaves a permanent ghost row behind — plus one scheduled-task
+    # registration row per definition. Retention is deliberately days, not minutes:
+    # deleting a node row instantly stops it vouching for its scheduled-task definitions
+    # (ClusterScheduledTaskRegistry.LIVE_REGISTRATION_EXISTS inner-joins to cluster_nodes),
+    # so the window must stay well above scheduled-tasks.reconciliation-grace-period-ms.
+    # ClusterProperties.effectiveStaleNodeRetention() clamps it to 4x that grace period.
+    node-reaper:
+      enabled: true
+      cron: "0 15 4 * * *"
+      stale-node-retention: P7D
 
   # Postgres declarative-partitioning maintenance.
   # `retention-months` applies to documents + document_generation_requests.
@@ -357,6 +415,7 @@ management:
         epistola.mediator.command.duration: true
         epistola.mediator.query.duration: true
         epistola.jobs.duration: true
+        epistola.database.statement.duration: true
   otlp:
     metrics:
       export:

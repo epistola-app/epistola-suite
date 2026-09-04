@@ -9,7 +9,7 @@
           hx-target="#dialog-mount" hx-swap="innerHTML">
         <input type="hidden" name="section" th:value="${section}" />
         <div class="ep-dialog-body">
-            <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+            <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
             <th:block th:if="${section == 'details'}">
                 <div class="form-group">
@@ -91,6 +91,43 @@
                 <label class="ep-label" for="catalog-license-copyright">Copyright</label>
                 <textarea id="catalog-license-copyright" class="ep-input" name="licenseCopyright" rows="2"
                           th:text="${catalog.catalogMetadata.license?.copyrightText}"></textarea>
+            </div>
+
+            <div th:if="${section == 'publication' && publication != null}" class="ep-stack ep-gap-2">
+                <label class="ep-label" for="catalog-publication-policy">Release policy</label>
+                <select id="catalog-publication-policy" class="ep-input" name="publicationPolicy">
+                    <option th:each="option : ${publication.policyOptions}"
+                            th:value="${option.name()}" th:selected="${option == publication.policy}"
+                            th:text="${option.label}">Inherit tenant default</option>
+                </select>
+                <th:block th:if="${publication.canPublish}">
+                    <label class="ep-label" for="catalog-exchange-namespace">Exchange namespace</label>
+                    <select id="catalog-exchange-namespace" class="ep-select" name="chosenNamespace">
+                        <option value="" th:if="${publication.suggestedNamespace == null}">Not chosen yet</option>
+                        <option th:each="option : ${publication.availableNamespaces}"
+                                th:value="${option}" th:text="${option}"
+                                th:selected="${option == publication.suggestedNamespace}">community</option>
+                    </select>
+                    <div th:if="${publication.namespaceLocked}" class="alert alert-warning"
+                         data-shown-when-changed="chosenNamespace" hidden
+                         style="margin-top: var(--ep-space-3);">
+                        <div>
+                            <div class="alert-title">This catalog has already published</div>
+                            <p style="margin: var(--ep-space-1) 0 0;">
+                                Versions already on Exchange stay under
+                                <code th:text="${publication.boundNamespace}">namespace</code>. Moving changes only
+                                where future releases go, and anyone following the old namespace will not see them.
+                            </p>
+                            <label style="display: block; margin-top: var(--ep-space-3);">
+                                <input type="checkbox" name="acknowledgeAlreadyPublished" value="true">
+                                Move future releases to the namespace selected above
+                            </label>
+                        </div>
+                    </div>
+                    <p class="form-hint" th:unless="${publication.namespaceLocked}">
+                        Where this catalog publishes. It can still be changed until a release reaches Exchange.
+                    </p>
+                </th:block>
             </div>
         </div>
         <div class="ep-dialog-footer">

@@ -129,6 +129,14 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: {{ include "epistola.otelResourceAttributes" . | quote }}
             {{- end }}
+            {{- /* Demo shared secret — see values.yaml `demo.sharedSecret` and ADR 0019. */}}
+            {{- if .Values.demo.sharedSecret.existingSecret }}
+            - name: EPISTOLA_DEMO_SHAREDSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.demo.sharedSecret.existingSecret }}
+                  key: {{ .Values.demo.sharedSecret.secretKey }}
+            {{- end }}
             {{- /* OIDC / OAuth2 login (provider-neutral — registration id is configurable) */}}
             {{- if .Values.oidc.enabled }}
             {{- $reg := .Values.oidc.registrationId | upper }}
@@ -197,6 +205,16 @@ spec:
                    never provide per-pod identity. Node identity is resolved at
                    runtime by NodeIdentity (hostname → pod name), giving each
                    pod a distinct id automatically. */}}
+            {{- end }}
+
+            {{- /* Suite-to-Exchange publication (hard deployment gate) */}}
+            - name: EPISTOLA_EXCHANGE_ENABLED
+              value: {{ .Values.exchange.enabled | quote }}
+            - name: EPISTOLA_EXCHANGE_DISCOVERYURL
+              value: {{ .Values.exchange.discoveryUrl | quote }}
+            {{- with .Values.exchange.callbackUrl }}
+            - name: EPISTOLA_EXCHANGE_CALLBACKURL
+              value: {{ . | quote }}
             {{- end }}
 
             {{- /* Database configuration (shared with the migration Job / init container) */}}

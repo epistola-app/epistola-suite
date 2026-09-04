@@ -4,6 +4,15 @@
   "description": "Partial schema: constrains operational values that have hard render-time requirements. Other values are validated by the templates.",
   "type": "object",
   "properties": {
+    "exchange": {
+      "type": "object",
+      "required": ["enabled", "discoveryUrl"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "discoveryUrl": { "type": "string", "format": "uri", "minLength": 1 },
+        "callbackUrl": { "type": "string" }
+      }
+    },
     "database": {
       "type": "object",
       "properties": {
@@ -57,6 +66,24 @@
         "mode": {
           "description": "How schema migrations run.",
           "enum": ["job", "initContainer", "embedded"]
+        }
+      }
+    },
+    "vpa": {
+      "type": "object",
+      "properties": {
+        "updateMode": {
+          "description": "How the Vertical Pod Autoscaler applies recommendations.",
+          "enum": ["Off", "Initial", "Recreate", "Auto"]
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Minimum number of replicas required before VPA may evict pods."
+        },
+        "controlledValues": {
+          "description": "Whether VPA controls resource requests only or requests and limits.",
+          "enum": ["RequestsOnly", "RequestsAndLimits"]
         }
       }
     },

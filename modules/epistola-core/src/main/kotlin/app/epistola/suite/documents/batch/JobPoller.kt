@@ -61,6 +61,7 @@ class JobPoller(
     private val jobExecutor: DocumentGenerationExecutor,
     private val properties: JobPollingProperties,
     private val batchSizer: AdaptiveBatchSizer,
+    private val admissionController: DatabasePressureAdmissionController,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
 ) : ClusterScheduledTaskHandler {
@@ -231,6 +232,20 @@ class JobPoller(
     fun lastPollAgeMillis(): Long = System.currentTimeMillis() - lastPollAtMs.get()
 
     /**
+     * Test-only: runs one drain pass on the dedicated drain thread and blocks until it
+     * returns, so a caller can assert on state that pass is guaranteed to have already
+     * produced. Deliberately does not go through [requestDrain]'s coalescing flag —
+     * [drainExecutor] is single-threaded, so this always queues strictly after any
+     * already-submitted pass and still gives an exact happens-before guarantee, unlike
+     * polling [lastPollAgeMillis] (set at the *top* of [drain], before it claims or
+     * dispatches anything — proof a pass started, never proof one finished claiming).
+     */
+    fun awaitDrain(timeout: Duration = Duration.ofSeconds(5)) {
+        drainExecutor.submit(MediatorContext.runnable(mediator) { drain() })
+            .get(timeout.toMillis(), TimeUnit.MILLISECONDS)
+    }
+
+    /**
      * Continuously claim and process jobs until queue empty or at capacity.
      * Runs on dedicated single thread - no concurrency issues with claiming.
      */
@@ -243,8 +258,10 @@ class JobPoller(
             updatePendingCount()
 
             // Keep claiming until at capacity or no more work
-            while (activeJobs.get() < properties.maxConcurrentJobs) {
-                val availableSlots = properties.maxConcurrentJobs - activeJobs.get()
+            while (true) {
+                val effectiveLimit = admissionController.effectiveLimit()
+                val availableSlots = effectiveLimit - activeJobs.get()
+                if (availableSlots <= 0) break
                 val requestedBatchSize = batchSizer.getCurrentBatchSize()
                 val actualBatchSize = minOf(requestedBatchSize, availableSlots)
 
@@ -260,7 +277,7 @@ class JobPoller(
                         "No pending jobs available | Batch size: {}, Active: {}/{}",
                         requestedBatchSize,
                         activeJobs.get(),
-                        properties.maxConcurrentJobs,
+                        effectiveLimit,
                     )
                     break // Queue empty
                 }
@@ -272,7 +289,7 @@ class JobPoller(
                     requestedBatchSize,
                     availableSlots,
                     activeJobs.get(),
-                    properties.maxConcurrentJobs,
+                    effectiveLimit,
                 )
 
                 // Increment counter for all claimed jobs

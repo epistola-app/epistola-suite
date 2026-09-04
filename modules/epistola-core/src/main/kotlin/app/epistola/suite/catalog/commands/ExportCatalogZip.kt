@@ -4,14 +4,11 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.catalog.archive.CatalogArchive
-import app.epistola.catalog.archive.CatalogArchivePolicy
-import app.epistola.catalog.archive.CatalogArchiveWriter
 import app.epistola.catalog.protocol.ReleaseInfo
+import app.epistola.suite.catalog.CatalogArchiveBuilder
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
@@ -24,8 +21,6 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 
 /**
  * Exports all resources in a catalog as a self-contained ZIP archive.
@@ -49,7 +44,7 @@ data class ExportCatalogZipResult(
 class ExportCatalogZipHandler(
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
-    private val sizeLimits: CatalogSizeLimits,
+    private val archiveBuilder: CatalogArchiveBuilder,
 ) : CommandHandler<ExportCatalogZip, ExportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -91,31 +86,10 @@ class ExportCatalogZipHandler(
             else -> release.latestVersion
         }
         val releasedAt = if (version.endsWith("-dev")) null else EpistolaClock.offsetDateTime().toString()
-        val manifest = content.toManifest(
+        val zipBytes = archiveBuilder.build(
+            content,
             ReleaseInfo(version = version, releasedAt = releasedAt, fingerprint = fingerprint),
         )
-
-        val assetContent = content.assetContents.mapKeys { (filename, _) -> "resources/asset/$filename" }
-        val portableArchive = CatalogArchive(
-            manifest = manifest,
-            resourceDetails = content.resourceDetails,
-            paths = assetContent.keys,
-            content = { path ->
-                ByteArrayInputStream(requireNotNull(assetContent[path]) { "Missing catalog asset: $path" })
-            },
-        )
-        val output = ByteArrayOutputStream()
-        portableArchive.use {
-            CatalogArchiveWriter.write(
-                it,
-                output,
-                CatalogArchivePolicy(
-                    maxCompressedBytes = sizeLimits.maxZipSize.toBytes(),
-                    maxExpandedBytes = sizeLimits.maxDecompressedSize.toBytes(),
-                ),
-            )
-        }
-        val zipBytes = output.toByteArray()
 
         val filename = "${command.catalogKey.value}-$version.zip"
         return ExportCatalogZipResult(zipBytes = zipBytes, filename = filename)

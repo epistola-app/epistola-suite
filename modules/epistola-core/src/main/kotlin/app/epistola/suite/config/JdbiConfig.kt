@@ -15,9 +15,11 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.crypto.CredentialCipher
 import app.epistola.suite.crypto.Secret
+import app.epistola.suite.database.DatabasePressureMonitor
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.core.mapper.ColumnMapper
+import org.jdbi.v3.core.statement.SqlLogger
 import org.jdbi.v3.core.statement.StatementContext
 import org.jdbi.v3.jackson3.Jackson3Config
 import org.jdbi.v3.jackson3.Jackson3Plugin
@@ -27,6 +29,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import tools.jackson.databind.ObjectMapper
 import java.sql.ResultSet
+import java.sql.SQLException
+import java.time.Duration
 import javax.sql.DataSource
 
 @Configuration
@@ -36,6 +40,7 @@ class JdbiConfig {
         dataSource: DataSource,
         mapper: ObjectMapper,
         credentialCipher: CredentialCipher,
+        databasePressureMonitor: DatabasePressureMonitor,
     ): Jdbi = Jdbi.create(SpringConnectionFactory(dataSource))
         .installPlugin(KotlinPlugin())
         .installPlugin(PostgresPlugin())
@@ -44,6 +49,23 @@ class JdbiConfig {
             // Join Spring-managed transactions (the mediator's per-command transaction)
             // instead of committing them mid-flight from nested jdbi.inTransaction calls.
             setTransactionHandler(SpringAwareTransactionHandler())
+            setSqlLogger(object : SqlLogger {
+                override fun logBeforeExecution(context: StatementContext) {
+                    context.define(DATABASE_START_NANOS, System.nanoTime())
+                }
+
+                override fun logAfterExecution(context: StatementContext) {
+                    duration(context)?.let(databasePressureMonitor::recordSuccess)
+                }
+
+                override fun logException(context: StatementContext, ex: SQLException) {
+                    databasePressureMonitor.recordFailure(duration(context) ?: Duration.ZERO, ex)
+                }
+
+                private fun duration(context: StatementContext): Duration? = (context.getAttribute(DATABASE_START_NANOS) as? Long)?.let { startedAt ->
+                    Duration.ofNanos((System.nanoTime() - startedAt).coerceAtLeast(0))
+                }
+            })
             // fix: use the spring boot mapper as this is preconfigured with kotlin support
             getConfig(Jackson3Config::class.java).mapper = mapper
 
@@ -72,9 +94,60 @@ class JdbiConfig {
                 },
             )
 
+            // SQL arrays as a List, so a row model can hold an idiomatic list rather than an
+            // Array (whose identity-based equals silently breaks data classes). Binding the other
+            // way already works: JDBI turns a Kotlin Array into a SQL array.
+            //
+            // Registered on the *erased* List, which is not a preference. JDBI already maps a
+            // parameterized `List<String>` parameter on its own, and registering only
+            // `GenericType<List<String>>` was tried: `ExchangeTenantConnection` then fails with
+            // "Could not find column mapper for type 'java.util.List' of parameter 'scopes'", so
+            // KotlinMapper does hand some constructor shapes the erased type and this registration
+            // is what answers them.
+            //
+            // The cost of erasure is that this cannot know the element type, and it is the only
+            // thing standing between a `uuid[]` and a field declared `List<String>`. So it refuses
+            // rather than guesses: a non-String element fails here, naming the column, instead of
+            // being passed through to surface as a ClassCastException in unrelated code much later.
+            registerColumnMapper(
+                List::class.java,
+                ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
+                    val array = r.getArray(columnNumber)
+                    if (r.wasNull() || array == null) {
+                        null
+                    } else {
+                        sqlArrayAsStringList(r.metaData.getColumnName(columnNumber), array.array as Array<*>)
+                    }
+                },
+            )
+
             // Transparent credential encryption-at-rest: Secret values are encrypted
             // on bind and decrypted on read by the credential cipher.
             registerArgument(SecretArgumentFactory(credentialCipher))
             registerColumnMapper(Secret::class.java, SecretColumnMapper(credentialCipher))
         }
+
+    private companion object {
+        const val DATABASE_START_NANOS = "epistola.database.start-nanos"
+    }
+}
+
+/**
+ * A SQL array's elements as a `List<String>`, refusing anything that is not already a string.
+ *
+ * Split out of the column mapper so the refusal can be tested directly: the mapper it serves is
+ * registered on the erased `List`, and reaching that path needs a constructor shape JDBI happens to
+ * erase, which is not something a test should have to reproduce to pin this rule.
+ *
+ * Refusing rather than coercing is the point. `toString()` on a UUID or an Int would produce a list
+ * that satisfies its declared type and means something else entirely, and the mistake would then
+ * travel — into a comparison, an export, or a stored value — with nothing pointing back at the
+ * column it came from.
+ */
+internal fun sqlArrayAsStringList(columnName: String, elements: Array<*>): List<String> = elements.map { element ->
+    element as? String
+        ?: throw IllegalStateException(
+            "Column '$columnName' holds ${element?.javaClass?.name ?: "a null"} elements but is being read as List<String>; " +
+                "register a column mapper for that element type rather than relying on the generic array mapper",
+        )
 }

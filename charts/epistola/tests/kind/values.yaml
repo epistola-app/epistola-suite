@@ -1,0 +1,33 @@
+config:
+  # The documented staging/test profile supplies self-contained form login.
+  # The chart still exercises its external database and migration Job wiring.
+  profiles: demo,localauth
+
+# The smoke environment is disposable. Exercise the chart's production database
+# wiring and migration hook without provisioning a test encryption keyset.
+encryption:
+  enabled: false
+
+# Keep the disposable smoke environment small. It validates chart wiring and
+# readiness, not document-generation throughput; use the chart defaults for
+# the production generation profile documented in docs/deployment.md.
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
+database:
+  type: external
+  external:
+    host: postgres
+    port: 5432
+    database: epistola
+    username: epistola
+    existingSecret: epistola-chart-test-db
+    secretKey: password
+
+migration:
+  mode: job

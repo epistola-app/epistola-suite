@@ -16,6 +16,7 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 dependencies {
     // Existing modules
     api(libs.epistola.catalog)
+    implementation(libs.epistola.exchange.client)
     api(project(":modules:generation"))
 
     // Credential encryption-at-rest primitives (CredentialCipher, Secret). `api`
@@ -76,5 +77,6 @@ dependencies {
     // Test-only: cross-check the inline murmur3 helper in `generation/collect/domain/Partition.kt`
     // against Guava's implementation, which the contract docstring guarantees we must match.
     testImplementation(libs.guava)
+    testImplementation(libs.archunit.junit5)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

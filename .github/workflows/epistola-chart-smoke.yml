@@ -1,0 +1,30 @@
+name: Epistola Chart Smoke Test
+
+# The application chart gets an end-to-end Kind check only when its rendering
+# or the test harness changes. Keep it separate from the generic chart lint so
+# changes to other charts do not create a Kubernetes cluster unnecessarily.
+on:
+  pull_request:
+    paths:
+      - "charts/epistola/**"
+      - "scripts/test-helm-chart.sh"
+      - ".github/workflows/epistola-chart-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    name: Install Epistola chart in Kind
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up tools with mise
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+
+      - name: Run chart smoke test
+        run: scripts/test-helm-chart.sh

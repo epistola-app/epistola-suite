@@ -37,6 +37,7 @@ data class Catalog(
     val releasedVersion: String? = null,
     val releasedFingerprint: String? = null,
     val releasedAt: OffsetDateTime? = null,
+    val exchangePublicationPolicy: CatalogPublicationPolicy = CatalogPublicationPolicy.INHERIT,
     /**
      * When catalog content was last set wholesale by a ZIP import. With
      * [releasedAt] it forms the AUTHORED drift baseline
@@ -104,4 +105,41 @@ enum class AuthType {
     NONE,
     API_KEY,
     BEARER,
+}
+
+/**
+ * Controls the default and override rules for publishing releases to Exchange.
+ *
+ * [label] is the single wording every surface shows, so the option list cannot drift between the
+ * edit form and the places that display the current choice.
+ */
+enum class CatalogPublicationPolicy(val label: String) {
+    INHERIT("Inherit tenant default"),
+    ALWAYS("Always publish (no release override)"),
+    DEFAULT_YES("Publish by default"),
+    DEFAULT_NO("Do not publish by default"),
+    NEVER("Never publish (no release override)"),
+    ;
+
+    fun allowsReleaseOverride(): Boolean = this !in setOf(ALWAYS, NEVER)
+
+    fun defaultPublish(tenantDefault: Boolean): Boolean = when (this) {
+        INHERIT -> tenantDefault
+        ALWAYS, DEFAULT_YES -> true
+        DEFAULT_NO, NEVER -> false
+    }
+
+    fun resolve(tenantDefault: Boolean, releaseOverride: Boolean?): Boolean = when (this) {
+        ALWAYS -> true
+        NEVER -> false
+        else -> releaseOverride ?: defaultPublish(tenantDefault)
+    }
+
+    companion object {
+        /**
+         * The one definition of a valid Exchange namespace slug — mirrored by the `catalogs`
+         * CHECK constraint and reused as the browser-side `pattern`, so the three cannot diverge.
+         */
+        const val NAMESPACE_PATTERN = "[a-z][a-z0-9-]{0,62}"
+    }
 }

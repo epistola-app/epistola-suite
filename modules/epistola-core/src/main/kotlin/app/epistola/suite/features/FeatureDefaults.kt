@@ -40,6 +40,8 @@ data class FeatureDefaults(
     val resourceGraph: Boolean = false,
     /** Moving resources between authored catalogs. Off while the feature is ALPHA. */
     val resourceRelocation: Boolean = false,
+    /** Publishing catalog releases to Exchange. Off while the feature is ALPHA. */
+    val catalogPublishing: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
@@ -48,6 +50,7 @@ data class FeatureDefaults(
         KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough
         KnownFeatures.RESOURCE_GRAPH -> resourceGraph
         KnownFeatures.RESOURCE_RELOCATION -> resourceRelocation
+        KnownFeatures.CATALOG_PUBLISHING -> catalogPublishing
         else -> false
     }
 }

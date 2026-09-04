@@ -40,6 +40,11 @@ Have an idea? [Open a feature request](../../issues/new?template=feature_request
 
 Documentation improvements are always welcome! [Open a documentation issue](../../issues/new?template=documentation.yml) or submit a PR directly.
 
+Everything under `docs/` is indexed in [`docs/README.md`](docs/README.md) — start there to find
+the right page. When you add a page, add it to that index too, and give it a
+`> **Status:** …` banner if it describes a design or a point-in-time record rather than
+shipped behavior.
+
 ### Submitting Code
 
 1. Fork the repository

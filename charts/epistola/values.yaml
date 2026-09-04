@@ -67,11 +67,13 @@ ingress:
 
 resources:
   limits:
-    cpu: 1000m
-    memory: 1Gi
+    cpu: "3"
+    memory: 4Gi
   requests:
-    cpu: 100m
-    memory: 256Mi
+    # The JVM retains heap after generation bursts. These defaults are sized
+    # for the documented PDF-generation load profile in docs/deployment.md.
+    cpu: 750m
+    memory: 1536Mi
 
 # Liveness and readiness probes. These hit the MAIN application port (http)
 # at /livez and /readyz — the add-additional-paths probe endpoints — NOT the
@@ -108,7 +110,28 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
-  targetMemoryUtilizationPercentage: 80
+  # Heap retention makes memory a poor scale-down signal for JVM generation
+  # workloads. Enable only after observing your own steady-state memory use.
+  targetMemoryUtilizationPercentage: 0
+
+# Optional Vertical Pod Autoscaler (VPA) for the application Deployment. Requires
+# the VPA CRD and recommender/updater/admission-controller components to be
+# installed in the cluster. `Off` only publishes recommendations; review those
+# before using `Initial` or `Recreate`.
+vpa:
+  enabled: false
+  updateMode: "Off"
+  minReplicas: 1
+  # Keep limits operator-managed. With RequestsOnly, maxAllowed must not exceed
+  # the matching value in resources.limits.
+  controlledValues: RequestsOnly
+  resourcePolicy:
+    minAllowed:
+      cpu: 750m
+      memory: 1536Mi
+    maxAllowed:
+      cpu: "3"
+      memory: 4Gi
 
 # Additional volumes on the output Deployment definition.
 # Note: tmp-dir is required for readOnlyRootFilesystem since Java needs a writable /tmp
@@ -302,11 +325,39 @@ support:
     # is distinct automatically. (The app property epistola.support.hub.node-id
     # still exists for rare single-instance overrides outside Kubernetes.)
 
+# Demo-profile options. Only meaningful when config.profiles includes "demo", which in turn only
+# works on the `-demo` image (image.tag: "{version}-demo"). The default image does not contain the
+# demo code and refuses to start with that profile — see docs/auth.md "Two images".
+demo:
+  # A single credential that authenticates EVERY /api/** endpoint against EVERY tenant with every
+  # permission, so the demo website can call Epistola on behalf of a visitor whose tenant was
+  # created at login. It is a deliberate, total bypass of the tenant and permission model — see
+  # docs/adr/0019-demo-api-shared-secret.md.
+  #
+  # Leave existingSecret empty to not have one; the app starts normally without it. Setting it
+  # WITHOUT the "demo" profile fails the app's startup on purpose rather than being ignored.
+  # As with oidc and encryption, the chart never takes an inline secret: the value must be at
+  # least 32 characters and live in a Kubernetes Secret you create.
+  sharedSecret:
+    # Name of an existing Secret holding the shared secret.
+    existingSecret: ""
+    # Key within that Secret.
+    secretKey: shared-secret
+
 # Application configuration
+exchange:
+  # Hard deployment gate for Suite-to-Exchange catalog publication.
+  enabled: false
+  # Stable Epistola discovery document. Override only for a private Exchange deployment.
+  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
+  # Optional browser-reachable HTTPS callback; useful when proxy headers do not expose the public origin.
+  callbackUrl: ""
+
 config:
   # Spring profiles to activate. OIDC login is configured via oidc.* (env vars), not a profile.
   # Production:    "prod"
-  # Staging/Test:  "demo" or "demo,localauth"
+  # Staging/Test:  "demo" or "demo,localauth" — requires the `-demo` image tag; the default image
+  #                does not contain demo mode and will refuse to start with that profile.
   profiles: ""
   # Additional environment variables
   env: {}

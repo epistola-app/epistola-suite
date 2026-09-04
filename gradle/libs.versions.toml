@@ -1,24 +1,26 @@
 [versions]
 kotlin = "2.3.21"
-spring-boot = "4.1.0"
+spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
-graalvm-native = "1.1.10"
+graalvm-native = "1.1.11"
 ktlint = "14.2.0"
 htmx-spring-boot = "5.1.0"
 cyclonedx = "3.4.1"
 dependency-license-report = "3.1.4"
 kover = "0.9.9"
 jdbi = "3.54.0"
-json-schema-validator = "3.0.6"
+json-schema-validator = "3.0.7"
 jsonata = "0.9.10"
 uuid-creator = "6.1.1"
-spring-web = "7.0.8"
+spring-web = "7.0.9"
 playwright = "1.62.0"
 epistola-contract = "1.1.0"
 epistola-hub-client = "0.7.0"
-aws-sdk = "2.53.3"
+epistola-exchange-client = "0.1.1"
+aws-sdk = "2.54.6"
 guava = "33.7.1-jre"
-spring-ai = "2.0.0"
+spring-ai = "2.0.1"
+archunit = "1.4.1"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -36,9 +38,11 @@ playwright = { module = "com.microsoft.playwright:playwright", version.ref = "pl
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
 epistola-catalog = { module = "app.epistola.contract:epistola-catalog", version.ref = "epistola-contract" }
 epistola-hub-client = { module = "app.epistola.hub:client", version.ref = "epistola-hub-client" }
+epistola-exchange-client = { module = "app.epistola.exchange:client", version.ref = "epistola-exchange-client" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 
 # Gradle plugins consumed by buildSrc as regular dependencies
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

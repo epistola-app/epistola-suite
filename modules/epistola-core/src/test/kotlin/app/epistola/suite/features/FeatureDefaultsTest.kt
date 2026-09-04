@@ -26,6 +26,7 @@ class FeatureDefaultsTest {
         assertFalse(defaults.isEnabled(KnownFeatures.QUALITY))
         assertFalse(defaults.isEnabled(KnownFeatures.AI_CHAT))
         assertFalse(defaults.isEnabled(KnownFeatures.RESOURCE_RELOCATION))
+        assertFalse(defaults.isEnabled(KnownFeatures.CATALOG_PUBLISHING))
     }
 
     @Test

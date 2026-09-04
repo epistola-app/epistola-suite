@@ -1,5 +1,8 @@
 # Epistola Suite Roadmap
 
+> **Status:** Proposed. A statement of direction and phasing, not a
+> commitment or a description of what is built. Dates and ordering change.
+
 This document provides a high-level overview of planned features and development phases.
 
 ## Vision

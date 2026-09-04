@@ -14,7 +14,7 @@ import { createTestDocument, testRegistry } from '../engine/test-helpers.js';
 
 const ADVANCED_DATA_CONTRACT_PATH = resolvePath(
   process.cwd(),
-  '../epistola-core/src/main/resources/epistola/catalogs/demo/resources/templates/advanced-data-contract.json',
+  '../testing/src/main/resources/epistola/catalogs/fixture/resources/templates/advanced-data-contract.json',
 );
 
 function loadAdvancedDataModel(): object {

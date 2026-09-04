@@ -19,6 +19,7 @@ dependencyResolutionManagement {
 }
 
 include(":apps:epistola")
+include(":apps:epistola-demo")
 include(":apps:pdfrender")
 include(":modules:epistola-core")
 include(":modules:epistola-crypto")

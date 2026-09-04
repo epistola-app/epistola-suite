@@ -128,6 +128,302 @@
   0014 accepts stable resource IDs as the target of internal relationships and typed reference
   records, while retaining catalog/slug addresses for authoring and exchange and aliases for
   historical compatibility.
+- **[dev]** refactor(exchange): **The retained release ZIP lives beside the outbox row, not inside it.** `catalog_release_publications` is a work queue the cluster worker polls on a fixed delay, and holding multi-megabyte archives in it made releasing one an `UPDATE ... SET archive = NULL` — a dead tuple plus orphaned TOAST chunks in the hot table, waiting on autovacuum. The bytes move to `catalog_release_publication_archives`, so releasing them is a `DELETE` that reclaims cleanly, `size_bytes` is stored rather than measured by detoasting every archive to weigh it, and there is now something a retention sweep could be built against. Same shape as `document_content`, split out for the same reason in #738. Changed before release because it is the one part of this schema that is genuinely expensive to change afterwards: a live outbox would need a new table, a backfill of in-flight rows, and a column drop with work in the queue throughout.
+- **[dev]** refactor(exchange): **Identifiers Exchange owns are stored as `TEXT`, not mirrored with its length limits.** The connection reference, namespaces and scopes were typed to Exchange's exact sizes — `VARCHAR(29)` fits `tc_` plus 26 Crockford characters precisely. In PostgreSQL that is identical storage to `TEXT`, so the limit bought no space and only re-enforced a rule this side does not define: if Exchange ever lengthens a reference or relaxes a namespace limit, a mirrored limit turns that into an insert failure during enrollment or publication. Status columns keep their `CHECK` — those are this application's own state machine.
+
+- **[dev]** test(exchange): **The outbox claim is covered under real concurrency.** `claimDue` uses `FOR UPDATE SKIP LOCKED` and an expiring lease so two nodes can never submit the same release twice, and nothing tested it. Racing two threads and hoping they collide turned out to prove nothing — written that way the test passes with no row locking at all — so one node now claims inside a transaction the test holds open and the other claims while its locks are held. Both the step-over and the lease takeover fail if their guarantee is removed.
+- **[dev]** test(exchange,config): **The generic SQL-array column mapper has tests.** It is registered on the erased `List`, so it is reachable by every JDBI-mapped list field in the application while two columns motivated it; a narrower `List<String>` registration was tried and `ExchangeTenantConnection` cannot be mapped with it. That breadth is now written down rather than rediscovered from a failure.
+- **[dev]** fix(config): **A SQL array of the wrong element type is refused where it can be understood.** The generic array mapper cannot see the declared type, so it passed the driver's objects straight through — a `uuid[]` read into a `List<String>` became a ClassCastException somewhere else entirely. It now fails at the mapping, naming the column and the element type it found.
+- **[dev]** test(architecture): **The catalog domain is held apart from Exchange by a test.** ADR 0018 and CLAUDE.md both say the catalog domain must not reference the Exchange integration, and nothing enforced it. ArchUnit checks bytecode rather than imports, so a fully qualified reference — which carries no import line for a grep to find — fails the build too.
+- **[user]** fix(exchange): **A discovered OAuth endpoint must be on the issuer's own origin.** The issuer is what an operator chose to trust; the endpoints came from whatever document answered at that address, and the token endpoint is where the client secret and refresh token are sent. A poisoned discovery response could name any host it liked and be handed the credentials.
+- **[dev]** fix(exchange): **A deferred publication keeps a reason that matches itself.** `defer` replaced the supporting detail unconditionally while preserving the previous failure code, so a row could end up describing a code from one failure with the detail of another. A reason is now replaced as a unit, and the row stamps `updated_at` like every other write.
+- **[user]** feat(exchange): **The outbox reports how many archive bytes it is holding.** A publication keeps its exact release ZIP until Exchange decides, and a `FAILED` one keeps it indefinitely so an administrator can retry — deliberate, and the only unbounded thing in the feature. `epistola.installation.exchange_publication_retained_archive_bytes` makes it visible instead of showing up as disk nothing accounts for.
+- **[dev]** fix(exchange): **Submission metrics tell a submission apart from a poll.** One submission is followed by however many polls its decision takes, so the `submitted` outcome counted mostly polls and "how many releases did we send" had no answer. A `call` tag now separates them.
+
+- **[dev]** chore(deps): **Exchange client updates are never automerged.** A bump moves the wire contract Suite compiles against, and the default rule automerges minor and patch updates — which would put that review back where the typed client was meant to take it from, at runtime.
+
+- **[user]** fix(exchange): **A refused release now says why on the catalog page.** Suite's own sentence names the kind of failure, but the reason Exchange gave — which release rule was broken — was only ever shown on the Exchange settings page. An author looking at the catalog they had just published saw "Exchange refused this release." and nothing more.
+
+- **[user]** fix(exchange): **Catalog page no longer errors for a publication with no failure.** The new authority link tested `failure?.needsAuthorityTransfer`, which evaluates to null for a healthy publication and cannot be converted to a boolean — so every catalog page that had ever published returned 500.
+
+- **[user]** feat(exchange): **A publish refused for authority now offers the fix.** When Exchange refuses a release because another installation is that catalog's appointed publisher, the catalog page links straight to the page where an organization administrator reappoints it, with this installation already proposed. Previously the refusal printed a path and left the reader to find a page they had never visited — and a reader who was not an administrator got a dead end with no way to see what was wrong. The transfer stays an administrator's decision on Exchange; Suite only offers the route.
+
+- **[dev]** chore(config): **Support tier off by default locally.** The `local` profile no longer enables the commercial support tier, which needs a running epistola-hub and otherwise logs a gRPC `UNAVAILABLE` stack trace on every retry. Start the hub and run with `--epistola.support.enabled=true` when working on Backups, Upgrading or Support → Overview; the local hub host and port are still configured, so that flag is all it takes.
+
+- **[dev]** refactor(exchange): **Typed Exchange client.** Suite now calls Epistola Exchange through the generated `app.epistola.exchange:api-client` instead of hand-parsing `JsonNode`, so the wire contract is checked at compile time. Discovery and the OAuth token endpoints stay hand-written - they implement `.well-known` and RFC 6749, not the Exchange API. Adopting it immediately exposed three ways `FakeExchangeServer` had drifted from the contract, all invisible while the parser only read the fields it wanted: it omitted the required `tenantName`, `NamespaceSummary.name`, `PublicationSubmission.namespace`, `createdAt` and `updatedAt`, and it reported a `PENDING` submission state that Exchange has never defined.
+- **[dev]** fix(exchange): **The fake Exchange answers with what Exchange answers.** A test double emitting less than the real service is a double that lets a broken client ship, which is exactly what it did.
+
+- **[user]** fix(exchange): **Reconnecting recovers when Exchange no longer knows this installation.** Reauthorizing offers the application and connection this tenant already holds, so Exchange renews that identity rather than minting another and stranding the catalogs bound to it. If Exchange has been rebuilt — or restored from before the enrollment — those ids mean nothing to it, and the attempt dead-ended with "Exchange could not be reached or refused the request", leaving "forget locally, then connect" as something to work out. Suite now recognises that answer, drops the stale identity and enrolls afresh in the same click.
+
+- **[user]** fix(exchange): **Failure reasons are recorded as data, so improving the wording improves what is already there.** `last_error` held a sentence composed inside a background worker, which is how the transport's own words — `401 Unauthorized: {"error":"invalid_client"}` — became the whole explanation, and why fixing the wording only ever helped failures that had not happened yet. Connections and publications now store an `error_code` and the far side's `error_detail` separately; the page turns the code into a sentence and shows the detail beneath it, labelled. A recorded reason also beats the connection status now, because a code knows more than a status does: "Exchange no longer recognises this installation's application" tells you reconnecting is not enough, where the status can only say credentials were refused. Implements ADR 0017.
+
+- **[user]** fix(exchange): **Publication row actions are icon buttons.** "View on Exchange" and "Withdraw" were full-width outline buttons in a table of otherwise icon-only actions, so a row of publications looked unlike every other list in the suite. They now match, with the wording kept as the button title.
+
+- **[user]** fix(ui): **Error messages look like errors again.** Eight alerts across the Exchange and catalog pages used `alert-danger`, a class the design system has never defined — `.alert` supplies only layout, so the colour, the border and the colour-blind-safe severity icon all come from the variant, and these rendered as plain text with nothing marking them as failures. They now use `alert-error`. Every one was on an error path, which is why it survived: the twenty-two alerts that already used the right class looked correct. A test now holds the variants used in templates against the ones the design system defines, the way `ExchangeStatusBadgeTest` already does for badges.
+
+- **[user]** fix(exchange): **Credentials Exchange refuses now explain what to do about them.** The Exchange page reported `401 Unauthorized: "{"error":"invalid_client"}"` — the transport's own words, stored verbatim and shown as the entire explanation. It now says whether the connection simply needs reconnecting, or whether Exchange no longer recognises the installation's application at all, in which case reconnecting is not enough and its credentials have to be reissued during authorization. Credentials Exchange will not accept also stop being treated as a failure of whichever publication happened to notice: that publication waits instead of spending a retry on something no amount of retrying fixes.
+
+- **[user]** fix(exchange): **A release that is not publishing now says so on the catalog page.** A stalled publication looked exactly like a healthy one where an author actually stands — an in-progress badge and nothing else — for as long as it took to give up on it. The catalog page now warns when a release has been in flight for over an hour, the same threshold the Exchange settings page already used, and points at the recorded reason and the submission on Exchange. Measured from when the release was queued rather than from its last change, because a submission Exchange is holding is re-polled every thirty seconds and would otherwise look busy indefinitely.
+
+- **[dev]** docs(exchange): **Recorded that Exchange appoints one publisher per catalog.** ADR 0018 and the publication guide described several publishers sharing a namespace with the release fingerprint arbitrating collisions afterwards. Exchange has since decided the question the other way (its ADR 0027): a catalog has one appointed publisher and a second is refused when it submits. Comparing fingerprints could never have caught the case that mattered — a second publisher appending a _higher_ version — so it keeps the narrower job of letting the appointed publisher re-submit identical bytes after an ambiguous outcome. The guide also now names the reconnect case and its recovery, both of which are Exchange-side.
+
+- **[user]** feat(exchange): **Each publication links straight to itself on Exchange.** Suite records what it sent and what it was told; Exchange is the only side that knows what became of it, and following that up meant finding the catalog there by hand. The catalog page now links each queued release directly to its submission on Exchange. It links to the submission rather than the release deliberately: a submission page exists from the moment Exchange takes the bytes and survives every outcome, so it answers "what happened to this?" for a refused or still-undecided publication too — which is when the question actually gets asked.
+
+- **[user]** fix(exchange): **Releasing no longer offers to publish when there is nowhere to publish to.** Asking to publish made the namespace field required, and with no Exchange connection — or an organization that has granted none — that field had no options, so the release form refused to submit and said only that a selection was needed, with no way forward. Publishing is now shown as unavailable with the reason and whose problem it is to fix: connect the tenant, ask the organization for a namespace, or re-point a catalog bound to one the connection has since lost. Releasing locally is unaffected, and the publish control is no longer shown at all to someone without permission to use it.
+
+- **[user]** fix(exchange): **A rejected first publication no longer freezes the catalog's namespace.** The namespace was fixed as soon as Exchange accepted the submission, but accepting a submission is not publishing it — a release Exchange then rejected left the catalog permanently bound to coordinates it had never occupied, and told its author a release had reached Exchange when none had. The namespace is now fixed on acceptance, so a rejected attempt leaves it as freely changeable as it was before.
+
+- **[user]** fix(exchange): **A submission Exchange never decides is now given up on.** Following one spends no retry budget, because nothing has failed, which left it the one wait with no end: a submission Exchange took but never resolved was polled every thirty seconds indefinitely while holding its retained release archive, visible only as a queue age climbing for no stated reason. It is now followed for `epistola.exchange.submitted-timeout` (24 hours by default) and then failed with that reason recorded, keeping the archive so it can be retried or withdrawn. A state Suite does not recognize still counts as in flight, so a new Exchange state cannot break an older Suite.
+
+- **[user]** fix(exchange): **A waiting publication always says what it is waiting for.** Two of the reasons a release can be deferred — the tenant's publishing feature being switched off, and a connection that cannot produce an access token — left whatever explanation the row happened to carry before, so the catalog page could show a stale cause for a current wait.
+
+- **[user]** fix(exchange): **An Exchange outage no longer turns every queued release into a failure.** Being unable to reach Exchange was counted against each publication's retry budget, so about three quarters of an hour of downtime exhausted it and left every queued release terminally failed, to be retried by hand one at a time. An unreachable Exchange now defers on the slow cadence with the reason recorded, spends no retries, keeps its archive and resumes on its own when Exchange returns; the connection is not marked broken either. Error responses still count, which is what the budget is for.
+
+- **[user]** fix(exchange): **A namespace withdrawn by an organization no longer blocks the whole connection.** Suite only learns what a tenant may publish into when that tenant authorizes, so between authorizations it could believe it still held a namespace it had lost — submit anyway, be refused, and mark the entire connection blocked, stopping every other catalog. A refusal now prompts a re-read of what Exchange actually grants: a withdrawn namespace defers that one catalog with the reason recorded and leaves the connection working, while a genuine refusal of the connection still blocks it. The refreshed list then stops anything new being queued there, and the catalog page says the binding was revoked and whether there is anywhere left to move to.
+
+- **[user]** fix(exchange): **The namespace-move warning only appears when the namespace is actually changed.** Opening the catalog's publication settings to change the release policy confronted anyone with a published catalog with a warning about moving it, and a checkbox not to tick. It now follows the selection: shown on a real change, gone again if it is undone. The command already treated an unchanged namespace as a no-op, so only the dialog was noisy.
+- **[dev]** fix(design-system): **The `hidden` attribute now actually hides.** A component that sets its own `display` sits in the `components` layer and beat `[hidden]` on layer order, so hiding an alert or a flex row left it on screen. Three components had each patched this for themselves; the general rule replaces the need to.
+
+- **[user]** fix(catalog,exchange): **Warning boxes render as warnings again.** An alert lays out its severity icon beside its content, so it takes one block; five alerts written as loose bold-plus-text became a row of narrow columns instead, with parts of the message pushed outside the dialog. They now use the design system's title-and-body structure. The "this release can no longer be published" message was also missing from the catalog page entirely — the markup edit that added it silently did not apply.
+
+- **[user]** feat(exchange): **A catalog that has already published can be moved to another namespace, deliberately.** It was permanent, which overstated the case: versions already on Exchange stay under the old namespace whatever happens, so a move only changes where future releases go. That is now allowed on an explicit acknowledgement, with the consequence stated — anyone following the old namespace keeps what is there and will not see anything new. Whether a move would actually strand anyone is something only Exchange can answer, and asking it is tracked as deferred work.
+
+- **[user]** fix(exchange): **A release that can no longer be published now says so.** Publishing an existing release rebuilds it from the working copy and refuses unless that still matches, because a release is published exactly as it was cut — so a release left unpublished while the catalog moved on cannot be sent at all. The action used to disappear with no explanation; the catalog page now names the version, says why, and points at releasing the current state instead.
+
+- **[user]** feat(catalog): **Releasing now takes you to the catalog, where you can watch the publication run.** The release dialog previously closed onto the catalog list, which shows nothing about what happens next; publication is a background process worth following.
+- **[user]** fix(catalog): **Reworked the catalog detail page.** The Exchange publication section was nested inside the catalog-details panel, so the two ran together as one block, and it repeated itself in the metadata grid below. It is now its own panel stating the policy, the namespace and every queued release. Actions that were rendered as bare text — Change, Withdraw — are buttons.
+
+- **[user]** fix(exchange): **Removed the "choose a default namespace" warning, which no longer described anything.** A tenant default is now only the value a namespace picker starts on, so its absence is not a problem and nothing waits on it. The Exchange page says what it is for instead of warning about it, and the namespace field in the release dialog appears only when the release is actually being published.
+
+- **[user]** feat!(exchange): **Publishing to Exchange is now its own permission, and a release is never queued without a destination.** `CATALOG_PUBLISH` covers sending a release out of this installation and choosing the namespace it lands in; `TEMPLATE_PUBLISH` still means cutting a release here. Releasing and publishing are different acts, so someone can be trusted with one and not the other. The publisher role gains the new permission.
+- **[user]** feat!(exchange): **A catalog's namespace is always chosen explicitly.** The tenant default no longer binds a catalog behind the scenes — it only pre-fills the picker, because the choice becomes permanent once a release reaches Exchange and a fallback should not make that decision. Until a catalog has a namespace nothing is queued at all, so there is no longer a queue of work that cannot move; the local release is unaffected either way, and the release can be published later once a namespace is set. The per-catalog namespace _preference_ is gone: the binding is now the single setting.
+
+- **[user]** feat(exchange): **Publishing asks which namespace when there is no default.** A connection granting several namespaces leaves the tenant default unset, so a first release had nowhere to go and simply waited. The release dialog and the catalog's publish action now offer the granted namespaces directly, so choosing where a catalog publishes is part of publishing it rather than a setting to go and find. Moving an already-bound catalog stays a separate, management-level action.
+- **[user]** feat(exchange): **Publication history on the catalog page matches the Exchange page.** The catalog's own publication section is now a proper panel with status badges, attempt counts, the bound namespace, and — when its releases cannot proceed — the reason, so an author who just pressed publish sees what is wrong where they are rather than on a settings page.
+
+- **[user]** fix(exchange): **A release waiting for setup now says what is missing.** A connection granting more than one namespace leaves the default unset, because Suite will not guess a choice that becomes permanent — but nothing said so, and every release from a catalog without its own preference waited silently behind a connection that looked healthy. The Exchange page now asks for a default while releases are waiting on it, and each waiting publication records why it cannot proceed, naming the namespaces available.
+
+- **[user]** feat(exchange): **A queued publication can be withdrawn.** Queueing the wrong release previously had no way out but waiting for Exchange, exhausting the retries, or disconnecting the tenant. Withdrawing releases the retained archive, leaves the attempt in the history, and lets the release be queued again while the working copy still matches. A publication Exchange is already holding cannot be withdrawn — that would abandon the outcome rather than prevent it.
+- **[user]** fix(exchange): **A catalog recreated under the same key keeps the namespace it published under.** Deleting a catalog discarded its namespace binding while Exchange kept everything published under those coordinates, so a new catalog with the same key could claim a second namespace. The binding now outlives the local catalog and records when a release first reached Exchange.
+
+- **[user]** fix(exchange): **Reauthorizing can no longer move a tenant to a different Exchange organization by accident.** Every catalog binding names a namespace of the organization the tenant enrolled with, and bindings are permanent once published, so an authorization returning a different organization is now refused and the existing connection kept. Moving a tenant between organizations is a deliberate disconnect.
+- **[user]** fix(exchange): **A namespace the connection no longer grants no longer blocks the whole connection.** A catalog bound to a withdrawn namespace used to be submitted anyway, refused with HTTP 403, and mark the connection blocked — stopping every other catalog in the tenant and blaming the wrong thing. That publication is now deferred with the reason recorded and resumes by itself if the grant returns; publications Exchange already accepted are still followed to their outcome.
+- **[user]** feat(exchange): **A catalog's Exchange namespace can be corrected until a release has reached Exchange.** Immutability protects published coordinates; before anything is published it protected nothing but a typo. Queued publications follow the catalog to its new namespace, and the namespace field is fixed permanently once Exchange has seen a release.
+- **[dev]** docs(exchange): **Recorded "one Suite tenant is one Exchange organization" as an invariant.** ADR 0018 and the publication guide now state the boundary, what follows from it (one tenant per client organization for a provider), how several publishers targeting one namespace are arbitrated by Exchange using the release fingerprint, and what a future multi-organization tenant would cost.
+
+- **[user]** feat(exchange): **Reworked the Exchange settings page.** The connection state is now stated as a badge rather than left to be inferred, its details read as a key/value list instead of a run of sentences, and scopes and namespaces are chips with the default namespace marked. Publication status is a coloured badge everywhere it appears, the per-state counts sit in the section header, and disconnecting has its own section with confirmation dialogs instead of a bare disclosure triangle. Reauthorizing moved to the card header, where it reads as an action on the connection rather than a step in the namespace form.
+
+- **[user]** fix(exchange): **A rejected Exchange response now explains itself on the settings page.** Reaching Exchange and getting back something unusable — a discovery document version Suite does not understand, OAuth metadata advertising a different issuer than discovery, a missing field, a non-HTTPS endpoint — produced an unexpected-error page with no indication of what disagreed. These now raise a distinct failure that the Exchange page reports in full, naming both sides of the mismatch, so the most likely first-connection problem is readable rather than a stack trace in the log.
+
+- **[dev]** test(exchange): **Enrollment through the public discovery document is now covered.** Every existing test configured `base-url`, the local-development escape hatch, which is how a production-only defect survived: discovery was skipped and nothing exercised it. The new tests leave `base-url` unset, serve the document shape epistola.app actually publishes, and cover the version guard, the issuer-mismatch guard, and the refusal of a plaintext Exchange.
+
+- **[user]** feat(exchange): **The Exchange page now shows publication activity across every catalog.** Releases publish in the background, so a lapsed enrollment or an unavailable namespace previously left work queued with nothing to indicate it. Settings → Exchange now reports a count per state, the most recently touched publications across all catalogs with a link back to each, and a warning when the oldest unfinished publication has been queued for over an hour.
+- **[dev]** feat(exchange): **Added metrics for catalog publication.** `epistola.exchange.publication.submissions` and `epistola.exchange.credential.refresh` count what each node did; `epistola.installation.exchange_publications`, `epistola.installation.exchange_connections` and `epistola.installation.exchange_publication_oldest_active_age_seconds` describe the installation and are published once per installation by an advisory-lock elected replica. Alert on the queue age — it is the reliable signal that publication has stopped progressing. See `docs/metrics.md`.
+
+- **[user]** fix(exchange): **Setup failures stay on the Exchange page instead of becoming error pages.** The authorization callback — where a reused code, an expired state or a mismatched application is most likely — now reports on the settings page like every other setup action, and an unreachable or misbehaving Exchange is reported there too rather than as an unexpected error. A malformed callback is a bad request instead of a server error. Rejecting a publish of the current release likewise returns the catalog page with the reason.
+- **[user]** fix(exchange): **Starting a reauthorization no longer disables a working connection.** The connection stayed usable only if the browser flow completed; abandoning it left valid credentials behind a connection that looked unenrolled and silently stalled publishing. It now keeps working until a new authorization actually completes.
+- **[user]** fix(exchange): **Disconnecting resolves queued publications instead of leaving them to retry forever.** Work that had lost its credentials was re-claimed indefinitely, holding a retained release archive each. It is now failed with the reason, keeping the archive so reconnecting and retrying still works.
+- **[user]** fix(exchange): **Connecting requires the tenant's Catalog publishing feature, not just the deployment gate.** The Exchange page was reachable directly and fully functional for a tenant whose feature was off. Disconnecting stays available so an existing connection can always be cleaned up.
+- **[dev]** fix(exchange): **Background credential renewal actually renews.** The sweep selected connections expiring within five minutes and then declined to refresh anything with more than thirty seconds left, so tokens were only ever renewed at the wire; it also compared an application-clock expiry against the database clock. Both are fixed.
+- **[dev]** perf(catalog): **A published release no longer serializes its manifest twice, and publication state is resolved once per release request.** Saving catalog publication settings reads and writes the row once instead of three times.
+
+- **[user]** fix(exchange): **Exchange discovery works without a manually configured base URL.** `epistola.exchange.base-url` ships blank as the signal to use the public discovery document, but a valueless YAML key binds to an empty string rather than nothing, so the escape hatch read as configured and every deployment that had not set it explicitly failed to connect. Blank optional URLs are now treated as unset. The `local` profile sets the base URL, which is why the local flow always worked and the production path was never exercised.
+- **[user]** fix(exchange): **Exchange must be reached over HTTPS.** The client secret, refresh token and full catalog archive cross this connection, so a plaintext discovery document, base URL or token endpoint is refused. `epistola.exchange.allow-http` opts a local Exchange checkout out, matching `epistola.catalog.allow-http`; the `local` profile sets it and no other profile does.
+
+- **[user]** fix(exchange): **Rejected application credentials now lead to a guided recovery flow.** Suite records that reauthorization is required, discards the failed one-time authorization, and tells the administrator to rotate the selected Exchange application's credentials instead of showing a generic unexpected-error page.
+- **[user]** fix(exchange): **Connect and reauthorize now navigate to Exchange normally.** The authorization forms bypass HTMX so the browser follows the cross-origin redirect as a top-level navigation instead of attempting a CSP-blocked background request.
+- **[user]** feat(exchange): **Tenant administrators can disconnect Suite from Exchange.** The normal action first revokes the remote tenant connection and its refresh credentials, then removes locally stored application credentials, tokens, and pending authorization state. An explicit local-only recovery action remains available when Exchange cannot be reached; applications, publication history, and immutable catalog namespace bindings are retained for later administrator-approved reconnection.
+- **[dev]** feat(exchange): **The local profile targets the local Exchange by default.** Exchange remains disabled until explicitly enabled, but opting in now uses `http://exchange.localhost:4075` without contacting the production discovery endpoint or requiring a repeated command-line URL override.
+- **[user]** feat(exchange): **Exchange setup now follows secure browser redirects.** Suite registers state and S256 PKCE, redirects to Exchange to create or select an OAuth application and tenant connection, and completes through an authenticated callback. New and recovered application secrets, access tokens, refresh tokens, and PKCE verifiers are encrypted at rest; the local profile uses `localhost:4000` by default, while self-hosted deployments may configure any browser-reachable HTTPS callback.
+- **[dev]** refactor(exchange): **Publication reaches the outbox through a catalog-owned port.** Catalog release code no longer references the Exchange integration: it hands the open release transaction to `CatalogReleasePublicationPort`, so the outbox write stays atomic while the dependency points the right way. Availability, namespace binding, outbox SQL and the UI's publication rules each gained a single owner, and publication status is a typed lifecycle instead of strings spread across the schema, worker, queries and templates.
+- **[user]** fix(exchange): **Failing publications now stop retrying and ask for a decision.** After `epistola.exchange.max-attempts` consecutive transient failures a publication becomes a retryable `Failed` rather than retrying forever while holding its retained release archive. Work that is merely not ready yet — enrollment incomplete, or a tenant that paused the feature — is deferred on a slow cadence instead, and consumes no retry budget.
+- **[dev]** fix(exchange): **Every Exchange call is bounded and made outside a database transaction.** Connect and read timeouts are configurable (`epistola.exchange.connect-timeout`, `read-timeout`), and token exchange, refresh and revocation no longer run while holding a pooled connection or a row lock. Token refresh writes the rotated pair back under an optimistic version check. The OAuth endpoints advertised by the issuer are stored on the connection, so refreshes never reconstruct a hard-coded path.
+- **[dev]** docs(exchange): **Documented the complete Suite-to-Exchange contract.** The canonical guide covers deployment and tenant gates, redirect application authorization and credential recovery, setting precedence, immutable namespace binding, the transactional outbox and state machine, retry and credential behavior, backup exclusions, operations, and explicitly deferred inbound/REST/MCP work. ADR 0018 records why publication is asynchronous, why the catalog domain reaches the outbox through a port instead of calling the integration, and why encryption columns are domain-contributed instead of hard-coded in core rotation.
+- **[user]** feat(exchange): **Added the catalog publication policy hierarchy.** Exchange publishing is an Alpha tenant feature that defaults off. Tenant administrators can choose whether authored catalogs publish by default, while each catalog can inherit, force publishing, default yes/no, or forbid publishing; non-hard policies support a per-release override. Catalogs can also prefer an Exchange namespace before their first immutable publication binding.
+- **[user]** feat(exchange): **Catalog releases publish through a durable background outbox.** The local release transaction stores the exact portable ZIP and succeeds independently of Exchange availability. Catalog pages show attempt history and allow an unchanged current release to be published later, or a remote failure to be retried with a fresh idempotency key. Cluster-safe workers pause tenant work while its feature is off, retain archives until a terminal Exchange decision, and maintain expiring connection credentials independently.
+- **[user]** feat(exchange): **Added opt-in Exchange discovery and tenant enrollment storage.** The deployment gate defaults off and discovers the official Exchange through epistola.app. Application secrets, access and refresh tokens, and the pending PKCE verifier are encrypted at rest, one logical Exchange connection is retained per Suite tenant across reauthorization, and the UI displays Exchange's stable `tc_`-prefixed connection reference instead of requiring a raw UUID. Connection/runtime publication state is deliberately excluded from portable tenant backups.
+- **[user]** feat(demo): **Demo users land in their own tenant, and share the demo one.** With demo
+  mode on, a login now lands the visitor in their own tenant rather than the tenant picker — a
+  customer works across several tenants and should choose, but a demo visitor has one that is
+  theirs, so choosing is a click between them and the product. It is a post-login decision rather
+  than a redirect on `/`, so a deep link someone was bounced off still wins, and the tenant list —
+  which _is_ `/`, and is where "Switch tenant" points — stays reachable. Every demo
+  user is also granted read/write on the shared `demo` tenant, where the showcase content lives (the
+  quality showcase, the seeded findings, the banner) — but **not** `TENANT_ADMINISTRATOR`, because a
+  shared tenant any visitor could reconfigure or restore over is a demo that breaks for everyone
+  else. Their own tenant is where they are an administrator.
+
+- **[user]** feat(demo): **A demo sandbox per person, not per company.** The demo profile derived a
+  tenant from the email _domain_, so everyone at one company landed in the same tenant and overwrote
+  each other's work. A demo is a place to try things, so the unit is now the person. The tenant key
+  is the address's local part followed by six hex characters of `sha256` over the trimmed,
+  lowercased address — `sander@degroot.dev` → `sander-665cdb` — and the tenant is named after the
+  address that created it and arrives seeded with the bundled demo catalog plus `staging` and
+  `production` environments. Every key is hashed rather than only the ones that would clash, which
+  makes uniqueness a property of the key instead of something to check for on each login, and is why
+  a reserved word (`admin@acme.io`), a leading digit (`1st@acme.io`) and a local part with no ASCII
+  in it (`日本@example.jp`) all just work. The recipe is deliberately reproducible from a shell prompt
+  — no salt, no secret — and is documented in
+  [`docs/auth.md`](docs/auth.md#working-out-a-tenant-key-by-hand). The grant is now written to
+  `tenant_memberships` rather than living only in the session, so the tenant appears in its own
+  member list. Users get every tenant role on their own tenant and, deliberately, no global or
+  platform roles: they cannot see another person's tenant or create further ones. Roles the identity
+  provider grants still win, and platform roles carried by the token are no longer dropped when this
+  fallback fires. Applies to the OIDC path only — form-login users keep taking their tenant from
+  `epistola.auth.local-users`. Existing demo installs keep their old domain tenant, but people will
+  land in a fresh personal one on their next login.
+- **[dev]** feat(build,security): **Demo mode ships as a separate application and image.** Demo
+  mode is not a data-loading convenience — it gives every person who logs in a tenant of their own
+  and can carry a shared secret that authenticates every `/api` endpoint against every tenant — so a
+  profile flag is a weak boundary for it: anyone who can edit a deployment's environment is one
+  variable away. It is now its own app, `apps/epistola-demo`, which depends on `apps/epistola` and
+  adds the demo classes, the `demo` profile's configuration and the bundled demo catalog. It
+  publishes **`epistola-suite:{version}-demo`**; `epistola-suite:{version}` contains none of it, so
+  no configuration can turn a production install into a demo, and setting
+  `SPRING_PROFILES_ACTIVE=demo` there **fails the boot** rather than quietly doing nothing. Because
+  the artifact is the boundary, `demo` and `prod` stay freely combinable and a public demo keeps its
+  production hardening. `apps/epistola` never names demo mode: the shared-secret filter reaches the
+  `/api` chain through a new `ApiPreAuthenticationFilter` marker and the landing through
+  `PostLoginTargetResolver`. The demo catalog moved out of `epistola-core` with it; the catalog tests
+  that used it as a realistic fixture now read a deliberately frozen copy in `modules/testing`, which
+  also removes a standing hazard — CLAUDE.md requires every feature to be demonstrated in the demo
+  catalog, so a demo edit could previously break unrelated core tests. Also removes
+  `apps/epistola/src/main/resources/demo/README.md`, which documented a `demo/templates/*.json`
+  loading mechanism that no longer exists.
+- **[dev]** feat(demo,security): **A shared secret that authenticates the whole REST API — demo
+  profile only.** The demo website calls Epistola on behalf of whichever visitor is using it, and
+  those visitors now get a tenant created at the moment they log in, so there is no per-tenant API
+  key to mint and track ahead of time. `EPISTOLA_DEMO_SHAREDSECRET` supplies one credential that
+  works everywhere, presented on the existing `Authorization: ApiKey <secret>` scheme so callers
+  need no new code path. **It is a total bypass of the tenant and permission model** — the principal
+  holds every tenant role as a _global_ role plus every platform role, so it passes for every
+  tenant, including ones that do not exist yet. Three things confine it: the wiring is
+  `@Profile("demo")` rather than the `epistola.demo.enabled` property (which `local` also sets), a
+  secret configured in any other profile **fails the boot** instead of being silently ignored, and
+  it must be at least 32 characters. With no secret configured the demo profile starts exactly as
+  before and the feature does not exist. Not bound to a tenant, so `/api/mcp` and the partition
+  block of `POST /api/ping` are deliberately not usable with it. See
+  [ADR 0019](docs/adr/0019-demo-api-shared-secret.md) and [`docs/auth.md`](docs/auth.md#demo-shared-secret).
+- **[dev]** fix(deps): **Embedded Tomcat bumped to 11.0.25 (CVE-2026-65182,
+  CVE-2026-65905, CVE-2026-68525).** Spring Boot 4.1.1 manages
+  `org.apache.tomcat.embed:tomcat-embed-core` at 11.0.24, which Trivy flags CRITICAL for all
+  three, failing the CI vulnerability gate. None are reachable from this suite: all three are
+  container-managed servlet security (a `web.xml` security-constraint ordering bypass, the
+  DIGEST authenticator's nonce-replay window, and a FORM-authentication redirect that skips a
+  method-scoped constraint), while every filter chain here is Spring Security — there is no
+  `web.xml`, no `login-config`, and no `SecurityConstraint` in the tree. Apache itself rates
+  the two authenticator issues Low. 11.0.25 fixes all three, so both `apps/epistola` and
+  `apps/pdfrender` take the upgrade via `extra["tomcat.version"]` rather than suppressing the
+  finding; drop the pins once the Spring Boot BOM manages 11.0.25 or later. The pin that
+  preceded this one had silently become a _downgrade_ — it held 11.0.22 while the BOM had
+  moved to 11.0.24 — so both comments now state the current BOM version and the condition
+  for removing them.
+- **[dev]** feat(security): **Third-party scanner findings are now first-class records with
+  an OpenVEX assessment.** A CVE reported against a component we ship had nowhere to live: the
+  reachability analysis existed only in a build-file comment and a CHANGELOG line, which is how
+  the Tomcat pin above rotted into a downgrade unnoticed. Records under `vulnerabilities/` gain
+  a `kind` discriminator — the existing OSV/GHSA-shaped advisories are `advisory` (unchanged,
+  and the field defaults so no record needed editing), while a scanner finding is `dependency`:
+  the affected component purls, the CVE identifiers, and an [OpenVEX](https://openvex.dev)
+  `assessment` (`not_affected` / `affected` / `fixed` / `under_investigation`). They are not
+  restated in [`VULNERABILITIES.md`](VULNERABILITIES.md) — the folder is browsable and the VEX
+  document is the machine-readable list, so adding a record never touches the generated index —
+  are **excluded from the OSV export**, and can **never** reach GitHub Security Advisories — the
+  validator rejects a `sync: true` or a stray `affected` block outright, because an OSV document
+  asserts the named package is vulnerable and neither "Epistola is vulnerable to someone else's
+  CVE" nor an advisory about Apache Tomcat is ours to publish. New
+  `pnpm vulnerabilities:export-vex` emits the VEX document; CI generates it before the Trivy
+  steps and applies it via `TRIVY_VEX` (the `trivy-action` has no `vex` input and a `vex:` key in
+  `trivy.yaml` is silently ignored), and it ships as a release artifact next to the SBOMs so
+  operators can apply our assessments to what they scan. **A record is only written when we are
+  asserting something** — that a finding is unreachable, or that we are knowingly shipping an
+  unfixed one. A finding closed by a routine upgrade gets none: the dependency bump is its own
+  record. Products are version-pinned (a versionless statement would cover future releases
+  nobody has assessed) and must name **every affected version we shipped**, not just the one the
+  scanner reported — the Tomcat finding was flagged against 11.0.24, but the pin held 11.0.22
+  through v1.1.0, so a VEX naming only the scanned version would have matched no artifact anyone
+  runs. See [`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
+- **[user]** feat(cluster): **Dead cluster nodes are cleaned up automatically.** A node id is
+  the pod hostname, so every rollout left a permanent row in the registry — an installation
+  could show dozens of stale nodes going back weeks on the Cluster page, each also leaking a
+  scheduled-task registration per definition. A daily `single_owner` task now purges nodes
+  unseen for `epistola.cluster.node-reaper.stale-node-retention` (default 7 days) together
+  with the registration and per-node task-state rows they orphaned. Retention is deliberately
+  measured in days and clamped to at least 4x the reconciliation grace period: a node row is
+  what vouches for that node's scheduled-task definitions, so purging too eagerly would turn a
+  routine pod restart into lost schedules. The current node is never purged.
+- **[user]** feat(cluster): **Forget a dead node from the Cluster page.** Dead rows get a
+  Forget action so an operator does not have to wait for the nightly purge. It is gated on
+  the reconciliation grace period (15 minutes) rather than the 10-second window behind the
+  `stale` badge, re-checking the age inside the delete itself: a node's scheduled-task
+  registrations are written only at startup, so forgetting a node that is merely lagging its
+  heartbeat would strip registrations it cannot restore while running, and the reconciler
+  would then retire any schedule only that node carried. A row therefore reads `stale`
+  before it becomes forgettable. Gated on the new `DIAGNOSTICS_MANAGE` permission so reading
+  the operations pages never implies mutating the registries they show.
+- **[user]** fix(cluster): **Node ages read in days and hours.** A month-old node rendered as
+  "33474m ago"; ages now read "23d 5h ago", with the exact timestamp still on hover.
+- **[dev]** docs(readme): **Documentation index added and the docs reviewed for
+  consistency.** [`docs/README.md`](docs/README.md) indexes every page under
+  `docs/` by topic, labelling each as current behavior, alpha/beta, a design
+  proposal, or a point-in-time record; [`docs/adr/README.md`](docs/adr/README.md)
+  and [`docs/plans/README.md`](docs/plans/README.md) index the decision records
+  and the historical plans. The root `README.md` and `CONTRIBUTING.md` link it,
+  and both the root README and the index now point at
+  <https://epistola.app/en/learn> for user documentation.
+  Status markers are now one form (a `> **Status:** …` banner under the title)
+  across every non-current page, ADR 0001 and 0005 are marked accepted and
+  implemented rather than proposed, broken and stale links are fixed
+  (`api-spec` → `rest-api`, the dangling `api-keys.md`, load-test and stencil
+  migration paths, `EntityId`/`JdbiSlugIdSupport` now in `epistola-core`), the
+  OpenAPI-spec location is corrected to the external `epistola-contract`, and
+  the two snake_case plan files are renamed to kebab-case.
+
+- **[dev]** fix(generation): **Fixed a flaky database-pressure recovery test.**
+  `JobPollerDatabasePressureIntegrationTest` synchronized on a drain-loop
+  heartbeat that ticks before claiming happens, so on a slow CI runner the
+  test could check `JobPoller.awaitIdle()` before the claim it was waiting on
+  had even landed. Added `JobPoller.awaitDrain()`, a test-only synchronous
+  drain that blocks on the drain pass's own `Future`, giving an exact
+  happens-before guarantee with no added polling latency.
+
+- **[dev]** feat(generation): **Document workers now yield to a degraded
+  database.** Every JDBI statement records a safe aggregate round-trip timer
+  (bound through Micrometer after bootstrap, so it never joins the
+  JDBI-to-installation-metadata startup cycle); workers combine its rolling
+  latency with Hikari pool contention to lower their effective render
+  concurrency under sustained pressure via a hysteretic
+  NORMAL→THROTTLED→PAUSED→RECOVERING state machine. A database cancellation,
+  timeout, or connectivity failure pauses only new claims until a healthy
+  recovery window has elapsed — in-flight documents continue normally.
+  Enabled by default; exports pressure state, effective concurrency, and
+  throttle/pause counters for Prometheus, and logs once on entering/leaving a
+  pause rather than on every poll cycle.
+
+- **[dev]** docs(chart): **VPA is documented as an operator-evaluated feature.**
+  Start in recommendation-only mode; production uses CPU HPA while VPA remains
+  disabled because its controller behavior has not yet been runtime-tested and
+  the chart cannot yet restrict VPA to memory-only control. Use the suite's
+  built-in Load Tests facility to gather representative recommendations.
+- **[dev]** fix(chart): **The chart's resource defaults now match measured
+  document-generation demand.** Pods request 750m CPU and 1536Mi memory, with
+  3 CPU / 4Gi limits; the default HPA targets 600m CPU and does not scale on
+  retained JVM memory. This supports about 5,000 documents per minute per node;
+  the Kind fixture documents and uses the smaller test / preview profile,
+  which supports about 1,000 documents in two minutes.
+- **[dev]** test(chart): **Application-chart changes now receive a GitHub Kind
+  smoke test.** Pull requests run the local chart installation harness only
+  when the Epistola chart, its test harness, or its workflow changes; unrelated
+  application and chart changes do not create a Kubernetes cluster.
+- **[dev]** fix(chart): **The local Kubernetes chart smoke test supplies its
+  required authentication configuration.** Its disposable staging/test
+  installation enables the self-contained form-login profile instead of needing
+  a full OIDC provider.
+- **[dev]** test(chart): **A local Kubernetes chart smoke test is available.**
+  `scripts/test-helm-chart.sh` creates and removes a disposable Kind cluster,
+  starts one ephemeral PostgreSQL container, installs the application chart,
+  validates migration/readiness/HPA admission, and prints diagnostics on failure.
+  It is intentionally not part of CI yet.
 - **[dev]** feat(embedding): **Epistola's UI can be embedded in an iframe on epistola.app, demo-mode only.** Adds a `postMessage` bridge (`epistola.embedding.*` config, gated CSP `frame-ancestors`) so a host page can request typed-identity navigation and receive navigation/resource-changed notifications; epistola-suite ships no training content itself.
 - **[dev]** chore(editor): **Editor sources reformatted for oxfmt 0.63.0.** The non-major
   dependency update bumped oxfmt past a template-literal formatting rule change; reformatted the

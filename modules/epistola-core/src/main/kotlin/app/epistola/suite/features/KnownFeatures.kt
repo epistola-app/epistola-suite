@@ -36,6 +36,7 @@ object KnownFeatures {
     val AI_CHAT = FeatureKey.of("ai-chat")
     val RESOURCE_GRAPH = FeatureKey.of("resource-graph")
     val RESOURCE_RELOCATION = FeatureKey.of("resource-relocation")
+    val CATALOG_PUBLISHING = FeatureKey.of("catalog-publishing")
 
     /**
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
@@ -57,6 +58,7 @@ object KnownFeatures {
         EDITOR_WALKTHROUGH,
         RESOURCE_GRAPH,
         RESOURCE_RELOCATION,
+        CATALOG_PUBLISHING,
     )
 
     /**
@@ -139,6 +141,11 @@ object KnownFeatures {
             "Resource relocation",
             "Enables previewing and moving authored catalog resources while preserving old references " +
                 "through stable identities and aliases. The alpha supports stencils, variant attributes and templates.",
+            stage = FeatureStage.ALPHA,
+        ),
+        CATALOG_PUBLISHING to FeatureMetadata(
+            "Catalog publishing",
+            "Enables publishing authored catalog releases from Suite to Epistola Exchange.",
             stage = FeatureStage.ALPHA,
         ),
     )
