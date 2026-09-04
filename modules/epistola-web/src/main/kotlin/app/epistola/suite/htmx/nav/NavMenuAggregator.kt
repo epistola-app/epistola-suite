@@ -16,6 +16,7 @@ data class NavItemView(
     val pathSuffix: String,
     val active: Boolean,
     val stage: FeatureStage = FeatureStage.STABLE,
+    val indicator: NavIndicator? = null,
 )
 
 /** A dropdown group as rendered by the shell template; [active] when any child is active. */
@@ -76,6 +77,7 @@ class NavMenuAggregator(
                             pathSuffix = it.pathSuffix,
                             active = it.sectionKey == activeSection,
                             stage = it.stage,
+                            indicator = it.indicator,
                         )
                     }
                 NavGroupView(

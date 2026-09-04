@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers.nav
 
+import app.epistola.suite.catalog.queries.CountCatalogsWithUpgradeAvailable
 import app.epistola.suite.exchange.ResolveCatalogPublishingAvailability
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.KnownFeatures.FeatureStage
@@ -11,6 +12,7 @@ import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
+import app.epistola.suite.htmx.nav.NavIndicator
 import app.epistola.suite.htmx.nav.NavItem
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -39,7 +41,7 @@ class CoreNavContributor : NavContributor {
         add(NavItem("authoring", "themes", "Themes", "themes", 20))
         add(NavItem("authoring", "stencils", "Stencils", "stencils", 30))
         if (context.hasPermission(Permission.CATALOG_VIEW)) {
-            add(NavItem("authoring", "catalogs", "Catalogs", "catalogs", 40))
+            add(NavItem("authoring", "catalogs", "Catalogs", "catalogs", 40, indicator = catalogUpdates(context)))
         }
 
         // Resources
@@ -100,5 +102,21 @@ class CoreNavContributor : NavContributor {
                 )
             }
         }
+    }
+
+    /**
+     * How many subscribed catalogs have an update waiting, or null when none do.
+     *
+     * This runs on every page render for every signed-in user, so it is one indexed count over
+     * state the background check already recorded — never a call to anybody's server. It is the
+     * whole reason that check persists what it finds instead of asking while a page loads.
+     */
+    private fun catalogUpdates(context: UiRequestContext): NavIndicator? {
+        val waiting = CountCatalogsWithUpgradeAvailable(context.tenantKey).query()
+        if (waiting <= 0) return null
+        return NavIndicator(
+            count = waiting,
+            label = if (waiting == 1) "1 catalog has an update available" else "$waiting catalogs have updates available",
+        )
     }
 }
