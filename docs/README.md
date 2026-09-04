@@ -74,6 +74,8 @@ under its title. That banner, not this table, is authoritative.
 | [Catalog contract compatibility](catalog-contract-compatibility.md) | Current | Suite impact of adopting the portable `epistola-catalog` aggregate.          |
 | [Resource reference graph](resource-reference-graph.md)             | Alpha   | Tenant-wide view of which resources depend on which.                         |
 | [Version axes](version-axes.md)                                     | Current | The independent "version" concepts and which question each answers.          |
+| [Exchange publication](catalog-exchange-publication.md)             | Alpha   | Publishing authored catalog releases to Epistola Exchange.                   |
+| [Exchange installation](catalog-exchange-installation.md)           | Alpha   | Browsing Epistola Exchange, installing from it, and how updates are noticed. |
 
 ## Platform runtime
 

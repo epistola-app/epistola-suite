@@ -24,7 +24,11 @@ Back to the [documentation index](../README.md).
 | [0013](0013-editor-plugin-selection-intents.md) Editor plugin selection intents      | Draft                          | Discussion record on selection intents; not accepted.                       |
 | [0014](0014-safe-catalog-resource-relocation.md) Safe resource relocation            | Draft                          | Discussion record on relocating authored resources; not accepted.           |
 | [0015](0015-iframe-embedding-bridge.md) Iframe embedding bridge                      | Accepted                       | Iframe + `postMessage` bridge, demo-mode only.                              |
+| [0016](0016-durable-process-runtime-in-house-vs-dbos.md) Durable process runtime     | Accepted                       | Build the `durable_processes` primitive in-house rather than adopting DBOS. |
+| [0017](0017-structured-failure-reasons.md) Structured failure reasons                | Accepted — implemented         | Failures stored as a code plus the far side's detail, never composed prose. |
+| [0018](0018-durable-catalog-publication-to-exchange.md) Durable catalog publication  | Accepted — implemented         | Transactional outbox + retained archive + cluster worker for publishing.    |
 | [0019](0019-demo-api-shared-secret.md) Demo API shared secret                        | Accepted — implemented         | All-tenant credential for the demo website, gated on the `demo` profile.    |
+| [0020](0020-catalog-upstream-release-discovery.md) Upstream release discovery        | Accepted — implemented         | Poll and persist what a catalog's source offers; render without a call.     |
 
 ## Adding an ADR
 

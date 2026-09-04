@@ -16,6 +16,12 @@ epistola:
     # Don't attach the DB log appender across the whole suite — capture/retention
     # tests opt in per-class with properties = ["epistola.logs.enabled=true"].
     enabled: false
+  catalog:
+    upstream-check:
+      # Off across the suite. It is a background task that reaches out to every subscribed
+      # catalog's source, so leaving it on would have unrelated tests making network calls and
+      # holding pooled connections. Tests that exercise it drive the worker directly.
+      enabled: false
   generation:
     polling:
       enabled: true

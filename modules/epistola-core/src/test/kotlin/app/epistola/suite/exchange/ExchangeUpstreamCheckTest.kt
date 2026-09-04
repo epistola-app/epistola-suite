@@ -208,6 +208,10 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
             registry.add("epistola.exchange.enabled") { "true" }
             registry.add("epistola.exchange.base-url") { exchange.baseUrl }
             registry.add("epistola.exchange.allow-http") { "true" }
+            // Off across the suite so unrelated tests make no outbound calls; on here, because
+            // this is the class that exercises it. The worker is still driven directly rather
+            // than waited for, so the schedule never makes these non-deterministic.
+            registry.add("epistola.catalog.upstream-check.enabled") { "true" }
         }
 
         @JvmStatic

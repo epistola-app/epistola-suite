@@ -27,6 +27,12 @@ epistola:
     auto-provision: false # Not needed for in-memory test users
   demo:
     enabled: false # Disable demo loading in tests
+  catalog:
+    upstream-check:
+      # Off across the suite. It is a background task that reaches out to every subscribed
+      # catalog's source, so leaving it on would have unrelated tests making network calls and
+      # holding pooled connections. Tests that exercise it drive the worker directly.
+      enabled: false
   generation:
     polling:
       enabled: false # App tests use the fake executor; no JobPoller needed
