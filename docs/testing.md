@@ -409,9 +409,10 @@ also prints the slowest classes and costliest commands at the end of each run.
 - **Bounded test JVMs** — a shared Gradle build service (`TestJvmSlots`, in the Kotlin convention
   plugin) caps how many Spring + Testcontainers JVMs run at once. Compilation stays fully parallel.
   Default: Gradle's worker count on CI (`CI` is set), one slot per three cores elsewhere. Override
-  with `-PtestJvmSlots=N`. To also pin JUnit's class-level concurrency inside each JVM (default:
-  one thread per core), pass `-PtestParallelism=N`; a value at or under the module's Hikari pool
-  size avoids `SQLTransientConnectionException` on a busy machine
+  with `-PtestJvmSlots=N`. JUnit's class-level concurrency inside each JVM is pinned to 4 (what the
+  4-core CI runner has always had; JUnit's default of one thread per core overruns the small
+  per-context Hikari pools and surfaces as `Could not open JDBC Connection`); `-PtestParallelism=N`
+  overrides it
 - **JVM flags per task** — `unitTest` runs C1-only (`-XX:TieredStopAtLevel=1`, 512m) because it is
   short-lived; `test`, `integrationTest`, `uiTest` and `perfTest` run full tiered compilation with a
   2g heap because they live for minutes and cache many contexts

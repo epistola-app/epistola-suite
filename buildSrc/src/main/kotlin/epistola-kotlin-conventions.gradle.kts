@@ -73,17 +73,17 @@ val testJvmSlots = gradle.sharedServices.registerIfAbsent("testJvmSlots", TestJv
     )
 }
 
-// Optional cap on JUnit's class-level concurrency inside each test JVM. The
-// default is JUnit's dynamic strategy (one thread per core); `-PtestParallelism=4`
-// pins it, e.g. to stay under a module's Hikari pool size on a busy machine.
-// uiTest and perfTest own their own settings.
-val testParallelism = providers.gradleProperty("testParallelism")
+// JUnit's class-level concurrency inside each test JVM. JUnit's default is one
+// thread per core, which on a 10-core machine overruns the deliberately small
+// per-context Hikari pools (apps:epistola: 8; a web test thread holds its own
+// connection plus the one the request thread takes) and fails tests with
+// "Could not open JDBC Connection". Four is what CI's 4-core runner has always
+// run with; `-PtestParallelism=N` overrides. uiTest and perfTest own their own.
+val testParallelism = providers.gradleProperty("testParallelism").orElse("4")
 
 fun Test.capJUnitParallelism() {
-    if (testParallelism.isPresent) {
-        systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
-        systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
-    }
+    systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
+    systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
 }
 
 tasks.withType<Test>().configureEach {
