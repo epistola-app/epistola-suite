@@ -21,3 +21,10 @@ epistola:
       enabled: true
       interval-ms: 100
       max-concurrent-jobs: 2
+  # Tests fetch catalogs and code lists from loopback HTTP fakes. Allowing plain http here is what
+  # lets those tests share the base context instead of booting one each; the refusal-by-default
+  # rule itself is covered by CatalogClientTest, a unit test with its own configuration.
+  catalog:
+    allow-http: true
+  codelists:
+    allow-http: true

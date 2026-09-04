@@ -29,9 +29,9 @@ import java.util.UUID
  * node first so the real startup definitions (vouched by the current node in
  * `@BeforeEach`) stay protected and only the test's deliberate orphan is removed.
  */
-@TestPropertySource(
-    properties = ["epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms=60000"],
-)
+// Advances the clock past the reconciliation grace period and deletes the tasks of nodes it then
+// considers unseen, which in a shared database are every other class's tasks; it needs its own.
+@TestPropertySource(properties = ["epistola.test.private-context=cluster-scheduled-task-lifecycle"])
 class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
 
     @Autowired

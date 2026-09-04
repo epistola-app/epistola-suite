@@ -5,6 +5,7 @@
 package app.epistola.suite.cluster.schedules
 
 import app.epistola.suite.cluster.ClusterNode
+import app.epistola.suite.cluster.ClusterRecordingHandlersConfiguration
 import app.epistola.suite.cluster.timers.ClusterTimerOwnership
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -16,8 +17,6 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import java.time.Duration
@@ -25,13 +24,10 @@ import java.time.OffsetDateTime
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-@TestPropertySource(
-    properties = [
-        "epistola.cluster.scheduled-tasks.lease-duration-ms=30000",
-        "epistola.cluster.scheduled-tasks.retry-delay-ms=30000",
-    ],
-)
-@Import(ClusterScheduledTaskSchedulerIT.TaskHandlerConfiguration::class)
+// Dispatches and reclaims installation-wide cluster rows; sharing a database with the other
+// scheduler test made polls see each other's state. Needs a database of its own.
+@TestPropertySource(properties = ["epistola.test.private-context=cluster-scheduled-task-scheduler"])
+@Import(ClusterRecordingHandlersConfiguration::class)
 class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
 
     @Autowired
@@ -401,12 +397,6 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
                 .bind("nodeId", nodeId)
                 .execute()
         }
-    }
-
-    @TestConfiguration
-    class TaskHandlerConfiguration {
-        @Bean
-        fun recordingClusterScheduledTaskHandler(): RecordingClusterScheduledTaskHandler = RecordingClusterScheduledTaskHandler()
     }
 }
 

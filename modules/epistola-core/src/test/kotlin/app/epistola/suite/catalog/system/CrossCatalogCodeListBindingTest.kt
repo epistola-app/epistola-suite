@@ -27,7 +27,6 @@ import app.epistola.suite.testing.IntegrationTestBase
 import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.springframework.test.context.TestPropertySource
 import tools.jackson.databind.json.JsonMapper
 import java.net.InetSocketAddress
 
@@ -46,7 +45,6 @@ import java.net.InetSocketAddress
  *    not just the in-process classpath/file shortcuts — also wires the
  *    cross-catalog FK correctly.
  */
-@TestPropertySource(properties = ["epistola.catalog.allow-http=true"])
 class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     @Test

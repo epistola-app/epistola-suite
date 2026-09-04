@@ -14,14 +14,10 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.UUID
@@ -42,7 +38,7 @@ import java.util.concurrent.TimeUnit
  * claiming the same row both submit it, and a duplicate submission is a release sent to Exchange
  * twice. The idempotency key makes that survivable, not correct.
  */
-class CatalogPublicationClaimConcurrencyTest : IntegrationTestBase() {
+class CatalogPublicationClaimConcurrencyTest : ExchangeIntegrationTestBase() {
     @Autowired
     private lateinit var store: CatalogPublicationStore
 
@@ -51,9 +47,6 @@ class CatalogPublicationClaimConcurrencyTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var transactionManager: PlatformTransactionManager
-
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
 
     @Test
     fun `a poller steps over rows another node is holding rather than waiting for them`() {
@@ -168,14 +161,5 @@ class CatalogPublicationClaimConcurrencyTest : IntegrationTestBase() {
 
         /** Long enough to be a real wait, short enough that a blocked claim fails instead of hanging. */
         private const val HOLD_SECONDS = 15L
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
     }
 }

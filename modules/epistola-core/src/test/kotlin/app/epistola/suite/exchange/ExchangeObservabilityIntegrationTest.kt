@@ -13,16 +13,11 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import java.time.Duration
 
 /**
@@ -30,7 +25,7 @@ import java.time.Duration
  * working. These cover the two things that do: the installation gauges a monitoring system reads,
  * and the tenant-wide activity an administrator sees on the Exchange page.
  */
-class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
+class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
 
     @Autowired
     private lateinit var worker: CatalogPublicationWorker
@@ -43,9 +38,6 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
-
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
 
     @Test
     fun `installation gauges report the outbox state and are published by one replica`() {
@@ -177,20 +169,4 @@ class ExchangeObservabilityIntegrationTest : IntegrationTestBase() {
     private fun counter(name: String, outcome: String) = meterRegistry.find(name).tag("outcome", outcome).counters().sumOf { it.count() }
 
     private fun counter(name: String, outcome: String, call: String) = meterRegistry.find(name).tag("outcome", outcome).tag("call", call).counter()?.count() ?: 0.0
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
-    }
 }
