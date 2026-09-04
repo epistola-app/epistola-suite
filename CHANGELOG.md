@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **Organise is reachable from the navigation.** Enabling the relocation
+  toggle revealed a button on the Catalogs page and nothing in the menu, so the feature looked
+  missing to anyone who turned it on and went looking for it — the resource graph, which it sits
+  beside conceptually, has had a nav item all along. Organise now appears under Authoring next to
+  Catalogs with its Alpha badge, and claims its own active section instead of highlighting Catalogs.
 - **[dev]** fix(migrations): **Relocation's schema changes land as one block, last.** They were
   timestamped `20260822`–`20260831`, straddling the `20260824` Exchange migrations that `main`
   already carries. Flyway runs with the default `outOfOrder=false`, so an installation that had

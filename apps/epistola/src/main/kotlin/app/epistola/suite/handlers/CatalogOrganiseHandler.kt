@@ -50,7 +50,7 @@ class CatalogOrganiseHandler {
                 "pageTitle" to "Organise catalogs - Epistola",
                 "tenantId" to tenantKey.value,
                 "tenant" to GetTenant(tenantKey).query(),
-                "activeNavSection" to "catalogs",
+                "activeNavSection" to "catalog-organise",
                 // Deep link: ?resource=stencil:letters:header, repeatable. Rendered into the page so
                 // the component starts with a selection instead of fetching then reconciling.
                 "preselected" to request.params()["resource"].orEmpty().joinToString(","),
