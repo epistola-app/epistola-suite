@@ -86,9 +86,20 @@ fun Test.capJUnitParallelism() {
     systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
 }
 
+// Gradle starts ready tasks in project order, which is alphabetical, so the two
+// longest test JVMs (epistola-core, then apps:epistola) start after a handful of
+// short ones and finish last. Measured on CI (PR #896): core's test JVM ran for
+// 246 s and started at 150 s, 50 s after the first test task, and the job ended
+// when it did. Soft ordering: every other module's test task of the same name
+// prefers to start after those two, so they get the first workers.
+val longestTestProjects = listOf(":modules:epistola-core", ":apps:epistola")
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     usesService(testJvmSlots)
+    if (project.path !in longestTestProjects) {
+        shouldRunAfter(longestTestProjects.map { "$it:$name" })
+    }
 
     // Shared GC choice only. Heap and JIT flags are per task below: `jvmArgs`
     // appends, so a flag set here cannot be taken back by a task that needs the
