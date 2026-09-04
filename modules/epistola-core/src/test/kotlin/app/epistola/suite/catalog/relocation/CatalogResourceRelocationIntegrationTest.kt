@@ -8,6 +8,8 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
@@ -800,6 +802,35 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         slots = emptyMap(),
         themeRef = ThemeRefOverride(themeId = themeKey, catalogKey = catalogKey),
     )
+
+    @Test
+    fun `a released catalog warns rather than blocking the move`() {
+        val tenant = createTenant("Released warns")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val stencilId = StencilId(StencilKey.of("header"), CatalogId(sourceCatalog, tenantId))
+        val address = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateStencil(stencilId, "Header").execute()
+            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
+            ReleaseCatalogVersion(tenant.id, sourceCatalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
+        }
+
+        // A subscriber cannot follow the move -- aliases are tenant-local -- but that is the
+        // operator's judgement, not something the suite can decide for them.
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
+        assertThat(preview.blockers).isEmpty()
+        assertThat(preview.executable).isTrue()
+        assertThat(preview.warnings).anySatisfy { assertThat(it.code).isEqualTo("released-source") }
+
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+        assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }.canonical.catalogKey)
+            .isEqualTo(targetCatalog.value)
+    }
 
     @Test
     fun `a relocation can rename as well as move`() {

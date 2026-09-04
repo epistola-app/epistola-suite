@@ -12,8 +12,8 @@ execution and reports:
 - immutable published references that will continue to resolve through an alias;
 - relative references inside the moving resource's own versions, published ones included, that
   will be pinned to the catalog they resolve against today; and
-- blockers such as a destination collision, subscribed catalogs, released source catalogs, or an
-  unsupported resource type.
+- blockers such as a destination collision, subscribed catalogs, or an unsupported resource type;
+  and warnings, which inform without stopping the move — currently a released source catalog.
 
 Execution obtains a tenant-scoped transaction lock, rebuilds the preview, and rejects a stale plan
 fingerprint. It then updates mutable references, creates a typed alias from the old slug address,
@@ -57,11 +57,19 @@ written before it existed resolve through their recorded address instead.
   declared in `MovableResource`; adding an entry is the last step of making a type movable, not the
   first.
 - Source and destination must be different authored catalogs in the same tenant.
-- A source catalog with a release is blocked until subscriber/release handoff semantics exist.
+- A source catalog with a release **warns rather than blocks**. Within the installation the move is
+  well-defined — the alias keeps local references resolving — but aliases are tenant-local, so a
+  subscriber that upgrades to a later release sees the resource gone rather than moved. Only the
+  operator knows whether anyone consumes the catalog, and blocking made a catalog permanently
+  unmovable after a single local release nobody ever pulled. The portable handoff (ADR 0014 step 11)
+  is still the real answer; the warning is what carries the risk until then.
 - Immutable version JSON is never edited, with one exception: when a resource leaves a catalog, the
   relative references inside its own versions — published ones included — are pinned to the catalog
-  they already resolve against. The bytes change; the meaning does not. A catalog with a release
-  cannot be moved out of, so released content is never touched.
+  they already resolve against. The bytes change; the meaning does not. Note this is no longer
+  bounded by the released-catalog rule: since a released catalog only warns, a move out of one can
+  rewrite bytes that a release already covered. Only legacy content written before references were
+  qualified on write has anything left to pin, so the exposure shrinks to zero over time rather
+  than growing.
 - A move that would leave two catalogs depending on each other is blocked. Catalog ordering is
   load-bearing for snapshot restore, which orders catalogs topologically and throws on a cycle, so
   an unchecked move could make a tenant's snapshots unrestorable — surfacing later, to whoever is

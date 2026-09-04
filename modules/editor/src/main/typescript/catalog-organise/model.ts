@@ -16,7 +16,8 @@ export interface OrganiseResource {
   key: string;
   name: string;
   catalogName: string;
-  catalogType: string;
+  /** Why moving this has a consequence worth knowing, or absent when unremarkable. */
+  note?: string | null;
 }
 
 /** A destination chosen for one selected resource. Empty fields mean "unchanged". */
@@ -38,11 +39,19 @@ export interface Blocker {
   source?: { type: string; catalogKey: string; key: string };
 }
 
+/** Surfaced before applying, but does not stop the move. */
+export interface Warning {
+  code: string;
+  message: string;
+  source?: { type: string; catalogKey: string; key: string };
+}
+
 export interface RelocationPreview {
   relocations: RelocationPlan[];
   mutableRewriteCount: number;
   immutableReferenceCount: number;
   blockers: Blocker[];
+  warnings: Warning[];
   planFingerprint: string;
   executable: boolean;
 }

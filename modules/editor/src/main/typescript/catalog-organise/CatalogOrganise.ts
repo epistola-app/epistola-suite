@@ -185,10 +185,14 @@ export class CatalogOrganise extends LitElement {
           ? html`<p class="ep-alert ep-alert-success" role="status">Resources moved.</p>`
           : nothing
       }
-      <div class="ep-panel" style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4);">
-        <label
+      <div
+        class="ep-panel"
+        style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-4); flex-wrap: wrap;"
+      >
+        <label class="ep-label"
           >Search
           <input
+            class="ep-input ep-input-sm"
             type="search"
             .value=${this.search}
             placeholder="Filter by name or key"
@@ -199,9 +203,10 @@ export class CatalogOrganise extends LitElement {
             }}
           />
         </label>
-        <label
+        <label class="ep-label"
           >Catalog
           <select
+            class="ep-input ep-input-sm"
             .value=${this.catalogFilter}
             @change=${(event: Event) => {
               if (!(event.currentTarget instanceof HTMLSelectElement)) return;
@@ -222,7 +227,15 @@ export class CatalogOrganise extends LitElement {
 
   private renderResources(visible: OrganiseResource[], authored: OrganiseCatalog[]) {
     if (this.busy && visible.length === 0) return html`<p class="ep-text-muted">Loading…</p>`;
-    if (visible.length === 0) return html`<p class="ep-text-muted">No relocatable resources.</p>`;
+    if (visible.length === 0) {
+      return html`<p class="ep-text-muted">
+        ${
+          this.search || this.catalogFilter
+            ? 'No resources match this filter.'
+            : 'No relocatable resources. Only stencils, attributes and templates in authored catalogs can be moved.'
+        }
+      </p>`;
+    }
 
     return html`<table class="ep-table">
       <thead>
@@ -239,14 +252,13 @@ export class CatalogOrganise extends LitElement {
         ${visible.map((resource) => {
           const destination = this.selected.get(resource.id);
           const blockers = this.blockersFor(resource);
-          const readOnly = resource.catalogType !== 'authored';
+
           return html`<tr>
             <td>
               <input
                 type="checkbox"
                 aria-label=${`Select ${resource.name}`}
                 ?checked=${destination !== undefined}
-                ?disabled=${readOnly}
                 @change=${() => this.toggle(resource)}
               />
             </td>
@@ -257,7 +269,7 @@ export class CatalogOrganise extends LitElement {
             <td>${resource.type}</td>
             <td>
               ${resource.catalogName}
-              ${readOnly ? html`<br /><small class="ep-text-muted">read-only</small>` : nothing}
+              ${resource.note ? html`<br /><small class="ep-text-muted">${resource.note}</small>` : nothing}
             </td>
             <td>
               ${
@@ -312,7 +324,12 @@ export class CatalogOrganise extends LitElement {
     >
       <strong>${this.selected.size} selected</strong>
       <p>
-        <button type="button" ?disabled=${this.busy} @click=${() => void this.runPreview()}>
+        <button
+          type="button"
+          class="ep-btn ep-btn-outline"
+          ?disabled=${this.busy}
+          @click=${() => void this.runPreview()}
+        >
           ${this.busy ? 'Checking…' : 'Preview'}
         </button>
       </p>
@@ -337,10 +354,14 @@ export class CatalogOrganise extends LitElement {
               ${this.batchBlockers.map(
                 (blocker) => html`<p class="ep-text-error">${blocker.message}</p>`,
               )}
+              ${(this.preview.warnings ?? []).map(
+                (warning) => html`<p class="ep-text-warning">⚠ ${warning.message}</p>`,
+              )}
               ${
                 this.preview.executable
                   ? html`<button
                       type="button"
+                      class="ep-btn ep-btn-primary"
                       ?disabled=${this.busy}
                       @click=${() => void this.apply()}
                     >

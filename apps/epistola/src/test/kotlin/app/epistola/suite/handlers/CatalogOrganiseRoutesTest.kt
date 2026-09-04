@@ -92,6 +92,28 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the browser offers only what the tenant can rearrange`() {
+        val tenantId = tenantWithStencil("Organise authored only")
+        // A system catalog is installed for every tenant and is not the tenant's to rearrange.
+        val body = objectMapper.readTree(
+            restTemplate.getForEntity("/tenants/$tenantId/catalogs/organise/resources", String::class.java).body,
+        )
+
+        val offeredCatalogs = buildList {
+            body.path("resources").forEach { add(it.path("catalogKey").stringValue()) }
+        }
+        assertThat(offeredCatalogs).isNotEmpty()
+        assertThat(offeredCatalogs).doesNotContain("system")
+
+        // Nothing listed is read-only, so no resource carries a note saying so; the note is
+        // reserved for consequences of moving, not reasons it cannot be moved.
+        val notes = buildList {
+            body.path("resources").forEach { node -> node.path("note").takeIf { it.isString }?.let { add(it.stringValue()) } }
+        }
+        assertThat(notes).allSatisfy { assertThat(it).doesNotContainIgnoringCase("read-only") }
+    }
+
+    @Test
     fun `preview then execute moves the selection`() {
         val tenantId = tenantWithStencil("Organise move")
         val body = """{"relocations":[{"type":"stencil","catalog":"letters","key":"header","targetCatalog":"shared"}]}"""

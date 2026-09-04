@@ -58,10 +58,11 @@ Recorded here once taken; each has a recommendation in the review.
 
 ## Deferred (tracked, not for this PR)
 
-- **7. Released catalogs block all moves** (`released-resource`). Kept blocked by decision. The
-  handoff design (ADR 0014 step 11) is what makes the feature usable on mature catalogs —
-  minimal version: allow the move, carry the alias in the next release manifest, warn that
-  subscribers on the previous release see the old address until they upgrade.
+- **7. Released catalogs — RESOLVED 2026-09-04: warn, do not block.** A release now produces a
+  `released-source` warning and the move proceeds; blocking made a catalog permanently unmovable
+  after one local release nobody ever pulled. Still open: the portable handoff (ADR 0014 step 11) —
+  carry the alias in the next release manifest so subscribers follow. Note the published-bytes pin
+  is no longer bounded by this rule; see `docs/catalog-resource-relocation.md`.
 - **8. Planner cost scales with the tenant.** A stencil move parses every `template_versions` and
   `stencil_versions` row (`loadTemplateVersions` / `loadStencilVersions`, unfiltered) and builds
   the full graph for the cycle check — at preview and again under the lock. Log the row counts so

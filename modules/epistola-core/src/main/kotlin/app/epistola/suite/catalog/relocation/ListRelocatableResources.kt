@@ -18,16 +18,24 @@ data class RelocatableResource(
     val address: ResourceAddress,
     val name: String,
     val catalogName: String,
-    val catalogType: String,
+    /**
+     * Why moving this will have a consequence worth knowing about, or null when it is unremarkable.
+     * Not a reason it cannot move -- anything listed here can.
+     */
+    val note: String? = null,
 )
 
 /**
  * The resources a relocation batch can be built from.
  *
  * Only types registered in [MovableResource] are listed: offering anything else would produce a
- * preview that cannot execute. Resources in non-authored catalogs are listed too — they cannot be
- * moved, but omitting them would make an author think the resource had vanished rather than
- * understand why it is unavailable.
+ * preview that cannot execute. Non-authored catalogs are excluded for the same reason — a
+ * subscribed or system catalog is not the tenant's to rearrange, so listing its resources would
+ * only offer choices that cannot be taken.
+ *
+ * A resource whose catalog has been released is still listed, carrying a [RelocatableResource.note]:
+ * it can move, but subscribers will not follow it. That is a judgement for the operator rather than
+ * a reason to hide the resource.
  */
 data class ListRelocatableResources(
     override val tenantKey: TenantKey,
@@ -46,19 +54,28 @@ class ListRelocatableResourcesHandler(
         val types = MovableResource.entries.map { it.type.wireName }
         handle.createQuery(
             """
-            SELECT resource_type, catalog_key, resource_key, resource_name, catalog_name, catalog_type
+            WITH authored AS (
+                SELECT c.id, c.name,
+                       EXISTS(
+                           SELECT 1 FROM catalog_releases r
+                           WHERE r.tenant_key = c.tenant_key AND r.catalog_key = c.id
+                       ) released
+                FROM catalogs c
+                WHERE c.tenant_key = :tenantKey AND c.type = 'AUTHORED'
+            )
+            SELECT resource_type, catalog_key, resource_key, resource_name, catalog_name, released
             FROM (
                 SELECT 'stencil' resource_type, s.catalog_key::text, s.id::text resource_key, s.name resource_name,
-                       c.name catalog_name, c.type::text catalog_type
-                FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key
+                       c.name catalog_name, c.released
+                FROM stencils s JOIN authored c ON c.id = s.catalog_key
                 WHERE s.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'attribute', a.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text
-                FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
+                SELECT 'attribute', a.catalog_key::text, a.id::text, a.display_name, c.name, c.released
+                FROM variant_attribute_definitions a JOIN authored c ON c.id = a.catalog_key
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'template', t.catalog_key::text, t.id::text, t.name, c.name, c.type::text
-                FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key
+                SELECT 'template', t.catalog_key::text, t.id::text, t.name, c.name, c.released
+                FROM document_templates t JOIN authored c ON c.id = t.catalog_key
                 WHERE t.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)
@@ -80,7 +97,7 @@ class ListRelocatableResourcesHandler(
                     ),
                     name = rs.getString("resource_name"),
                     catalogName = rs.getString("catalog_name"),
-                    catalogType = rs.getString("catalog_type"),
+                    note = "Released — subscribers will not follow this move".takeIf { rs.getBoolean("released") },
                 )
             }
             .list()

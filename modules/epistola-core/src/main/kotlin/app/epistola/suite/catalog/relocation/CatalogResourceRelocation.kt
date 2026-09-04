@@ -34,6 +34,21 @@ data class ResourceMoveBlocker(
 )
 
 /**
+ * Something the operator should know before applying, which does not stop the move.
+ *
+ * The distinction is whether the suite can still guarantee a correct result. A blocker means it
+ * cannot -- the move would corrupt something or could not be applied at all. A warning means the
+ * move is well-defined here but has a consequence beyond this installation, which only the
+ * operator can judge.
+ */
+data class ResourceMoveWarning(
+    val code: String,
+    val message: String,
+    /** The relocation this concerns, or null when it is a property of the batch as a whole. */
+    val source: ResourceAddress? = null,
+)
+
+/**
  * One resource's destination: a full address, so a relocation can change the catalog, the key, or
  * both.
  *
@@ -81,6 +96,7 @@ data class ResourceRelocationPlan(
 data class CatalogResourceMovePreview(
     val relocations: List<ResourceRelocationPlan>,
     val blockers: List<ResourceMoveBlocker>,
+    val warnings: List<ResourceMoveWarning>,
     val planFingerprint: String,
 ) {
     val executable: Boolean get() = blockers.isEmpty()
@@ -265,6 +281,7 @@ class CatalogResourceMovePlanner(
         relocations: List<ResourceRelocation>,
     ): CatalogResourceMovePlan {
         val blockers = mutableListOf<ResourceMoveBlocker>()
+        val warnings = mutableListOf<ResourceMoveWarning>()
         if (relocations.isEmpty()) blockers += blocker("empty-batch", "Select at least one resource to move")
         relocations.groupBy { it.source }.filterValues { it.size > 1 }.keys.forEach {
             blockers += blocker("duplicate-source", "${it.id} is listed more than once", it)
@@ -308,10 +325,16 @@ class CatalogResourceMovePlanner(
             if (target !in vacated && isAddressTaken(handle, tenantKey, target, resourceId)) {
                 blockers += blocker("target-occupied", "${target.id} is already a resource or retained alias", source)
             }
+            // A warning, not a blocker. Within this installation the move is well-defined -- the
+            // alias keeps every local reference resolving. What it cannot reach is a *subscriber*:
+            // aliases are tenant-local, so an installation that upgrades to a later release of this
+            // catalog sees the resource gone rather than moved. Whether that matters depends on who
+            // consumes the catalog, which only the operator knows, and blocking on it made a
+            // catalog permanently unmovable after a single local release nobody ever pulled.
             if (hasRelease(handle, tenantKey, source.catalogKey)) {
-                blockers += blocker(
-                    "released-resource",
-                    "${source.catalogKey} has a release; relocation needs a portable subscriber handoff",
+                warnings += ResourceMoveWarning(
+                    "released-source",
+                    "${source.catalogKey} has been released; anyone subscribed to it will not follow this move until they re-import",
                     source,
                 )
             }
@@ -366,9 +389,9 @@ class CatalogResourceMovePlanner(
                 immutableReferenceCount = immutableBySource[relocation.source] ?: 0,
             )
         }
-        val fingerprint = fingerprint(plans, blockers, rewrites)
+        val fingerprint = fingerprint(plans, blockers, warnings, rewrites)
         return CatalogResourceMovePlan(
-            preview = CatalogResourceMovePreview(plans, blockers.distinct(), fingerprint),
+            preview = CatalogResourceMovePreview(plans, blockers.distinct(), warnings.distinct(), fingerprint),
             rewrites = rewrites,
         )
     }
@@ -690,6 +713,7 @@ class CatalogResourceMovePlanner(
     private fun fingerprint(
         plans: List<ResourceRelocationPlan>,
         blockers: List<ResourceMoveBlocker>,
+        warnings: List<ResourceMoveWarning>,
         rewrites: List<JsonRewrite>,
     ): String {
         val input = buildString {
@@ -697,6 +721,9 @@ class CatalogResourceMovePlanner(
                 appendLine("${it.source.id}->${it.target.id}:${it.resourceId}:${it.immutableReferenceCount}")
             }
             blockers.sortedBy { it.code + it.message }.forEach { appendLine("${it.code}:${it.source?.id}:${it.message}") }
+            // Warnings are consent, not just information: a warning appearing between preview and
+            // execute must invalidate the plan the same way a blocker would.
+            warnings.sortedBy { it.code + it.message }.forEach { appendLine("warn:${it.code}:${it.source?.id}:${it.message}") }
             rewrites.sortedBy(JsonRewrite::identity).forEach { appendLine("${it.identity}:${it.expected}:${it.replacement}") }
         }
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray()).joinToString("") { "%02x".format(it) }

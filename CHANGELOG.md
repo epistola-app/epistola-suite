@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **The organise browser offered nothing but read-only resources.** Every
+  row was disabled: the listing sent `catalogType` as `AUTHORED` while the page compared it against
+  `authored`, so the check was always true and no resource could be selected. Read-only catalogs are
+  now excluded server-side instead of being listed and disabled, which removes the comparison
+  altogether rather than correcting it.
+- **[user]** feat(catalogs): **Releasing a catalog no longer freezes its resources.** A released
+  source catalog produced a blocker, so a single local release — one nobody had ever pulled — made
+  every resource in that catalog permanently unmovable. It is now a `released-source` warning: the
+  move is well-defined locally, and whether a subscriber is affected is the operator's judgement.
+  Previews carry warnings alongside blockers, and a warning appearing between preview and execute
+  invalidates the plan just as a blocker does.
+- **[user]** fix(catalogs): **Organise uses the app's form controls.** Its search and catalog filter
+  were unstyled inputs; they now use the shared input styling, the buttons use the shared button
+  styling, and the empty state says which filter is hiding things.
 - **[user]** fix(catalogs): **Organise is reachable from the navigation.** Enabling the relocation
   toggle revealed a button on the Catalogs page and nothing in the menu, so the feature looked
   missing to anyone who turned it on and went looking for it — the resource graph, which it sits

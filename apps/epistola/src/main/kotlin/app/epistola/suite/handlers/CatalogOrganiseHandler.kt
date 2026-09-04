@@ -76,7 +76,7 @@ class CatalogOrganiseHandler {
                         "key" to it.address.key,
                         "name" to it.name,
                         "catalogName" to it.catalogName,
-                        "catalogType" to it.catalogType,
+                        "note" to it.note,
                     )
                 },
             ),
@@ -114,6 +114,7 @@ class CatalogOrganiseHandler {
         "mutableRewriteCount" to preview.mutableRewriteCount,
         "immutableReferenceCount" to preview.immutableReferenceCount,
         "blockers" to preview.blockers,
+        "warnings" to preview.warnings,
         "planFingerprint" to preview.planFingerprint,
         "executable" to preview.executable,
     )
