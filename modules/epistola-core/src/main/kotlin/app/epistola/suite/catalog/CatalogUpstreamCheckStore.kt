@@ -93,16 +93,39 @@ class CatalogUpstreamCheckStore(
     }
 
     /**
+     * Makes sure a catalog is tracked, without disturbing an answer already recorded.
+     *
+     * Catalogs subscribed before this existed have no row, and the on-demand check must be able to
+     * create one. `DO NOTHING` rather than an upsert: an existing row's cadence and last answer are
+     * the point, and resetting them because somebody pressed a button would lose exactly what the
+     * button is meant to refresh.
+     */
+    fun ensureTracked(tenantKey: TenantKey, catalogKey: CatalogKey) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO catalog_upstream_checks (tenant_key, catalog_key)
+                VALUES (:t, :c)
+                ON CONFLICT (tenant_key, catalog_key) DO NOTHING
+                """,
+            ).bind("t", tenantKey).bind("c", catalogKey).execute()
+        }
+    }
+
+    /**
      * Claims catalogs whose next check is due, leasing them so a second node steps over them.
      *
      * `FOR UPDATE SKIP LOCKED` plus an expiring `claimed_at` rather than relying on the task being
      * single-owner: a check that is merely duplicated wastes a request, but a node that dies
      * holding claims must not stop its catalogs being checked ever again.
      */
-    fun claimDue(limit: Int, lease: Duration): List<CatalogUpstreamCheckClaim> = jdbi.inTransaction<List<CatalogUpstreamCheckClaim>, Exception> { handle ->
+    fun claimDue(limit: Int, lease: Duration): List<Catalog> = jdbi.inTransaction<List<Catalog>, Exception> { handle ->
+        // The catalog itself is returned rather than its key: a probe needs the source and the
+        // installed version anyway, and reading those through the permission-gated query would need
+        // the scheduler to hold a principal it has no business holding.
         val rows = handle.createQuery(
             """
-                SELECT u.tenant_key, u.catalog_key
+                SELECT c.*
                 FROM catalog_upstream_checks u
                 JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.id = u.catalog_key
                 WHERE u.next_check_at <= NOW()
@@ -113,16 +136,11 @@ class CatalogUpstreamCheckStore(
                 LIMIT :limit
                 """,
         ).bind("lease", lease.toSeconds()).bind("limit", limit)
-            .map { rs, _ ->
-                CatalogUpstreamCheckClaim(
-                    TenantKey.of(rs.getString("tenant_key")),
-                    CatalogKey.of(rs.getString("catalog_key")),
-                )
-            }.list()
-        rows.forEach { claim ->
+            .mapTo(Catalog::class.java).list()
+        rows.forEach { catalog ->
             handle.createUpdate(
                 "UPDATE catalog_upstream_checks SET claimed_at = NOW() WHERE tenant_key = :t AND catalog_key = :c",
-            ).bind("t", claim.tenantKey).bind("c", claim.catalogKey).execute()
+            ).bind("t", catalog.tenantKey).bind("c", catalog.id).execute()
         }
         rows
     }
@@ -244,9 +262,6 @@ class CatalogUpstreamCheckStore(
         const val DEFAULT_INTERVAL_SECONDS = 86400
     }
 }
-
-/** One catalog the worker has taken responsibility for checking. */
-data class CatalogUpstreamCheckClaim(val tenantKey: TenantKey, val catalogKey: CatalogKey)
 
 /** The last recorded answer for one catalog, as the UI reads it. */
 data class CatalogUpstreamCheck(

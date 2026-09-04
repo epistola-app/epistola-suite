@@ -193,11 +193,30 @@ epistola:
     # budget, so without this a submission Exchange never decides would be polled forever while
     # holding its retained archive. Generous: validation and scanning are Exchange's own work.
     submitted-timeout: 24h
+    # Downloading a release archive gets its own read timeout: read-timeout above is sized for an
+    # OAuth round-trip, and a multi-megabyte catalog over a slow link is not a hung request.
+    archive-read-timeout: 2m
     # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
     allow-http: false
+  catalog:
+    upstream-check:
+      # Ask each subscribed catalog's source, on a schedule, whether it has published anything
+      # newer, so a release can be noticed without anyone opening the catalogs page. On by
+      # default: subscribing to a catalog is already a decision to talk to its source, and the
+      # on-demand check has always made the same request. Turn it off to make every check manual.
+      enabled: true
+      # How often the worker looks for catalogs that are *due* — not how often any one is asked.
+      poll-interval-ms: 60000
+      # How long one catalog's answer is treated as current. Jittered by 15% when scheduling, so
+      # catalogs installed together do not come due together for ever.
+      interval: 6h
+      # How many catalogs a single tick will check.
+      batch-size: 25
+      claim-lease: 5m
   features:
     ai-chat: false
     catalog-publishing: false
+    catalog-installing: false
   generation:
     # Whether THIS node performs PDF rendering. When true (default) the node advertises the
     # cluster `pdf-render` capability and claims render jobs; set false to keep the suite as a
