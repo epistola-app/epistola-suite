@@ -116,7 +116,7 @@ A type becomes movable once its own two axes are done; it does not wait for the 
    qualification. Keep a preview for policy checks only — permissions, released
    catalogs, slug collisions.
 
-> **Step 1 complete.** `variant_attribute_definitions` is re-keyed (`V20260828132828`) and movable.
+> **Step 1 complete.** `variant_attribute_definitions` is re-keyed (`V20260904090300`) and movable.
 > Its references are keys in `template_variants.attributes` — live mutable configuration — so the
 > move rewrites every one and none survives on an alias. No owned children, which is what made it
 > the right subject for proving the recipe.
@@ -125,7 +125,7 @@ A type becomes movable once its own two axes are done; it does not wait for the 
 
 For resource table `R` with dependants `D₁…Dₙ`:
 
-1. **Add** — `R.resource_id` already exists for all seven types (`V20260825090000`). Add
+1. **Add** — `R.resource_id` already exists for all seven types (`V20260904090000`). Add
    `Dᵢ.<r>_resource_id UUID` nullable.
 2. **Backfill** — populate each `Dᵢ` from `R` by the current composite address; assert every row
    was matched.
@@ -142,7 +142,7 @@ catalog, moving the parent is a single column update.
 
 `stencil_versions` is midway through this recipe today — it has the stable parent key (step 3) but
 kept its address columns, currently held true by an `ON UPDATE CASCADE` added in
-`V20260827121153`. That cascade is the interim; step 6 removes the columns and the cascade with them.
+`V20260904090200`. That cascade is the interim; step 6 removes the columns and the cascade with them.
 
 ## Templates: the case that needs a decision, not just a migration
 
