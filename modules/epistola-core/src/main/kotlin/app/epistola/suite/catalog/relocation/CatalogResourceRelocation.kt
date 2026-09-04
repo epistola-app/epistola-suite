@@ -138,6 +138,9 @@ class MoveCatalogResourcesHandler(
         }
         if (!plan.preview.executable) throw CatalogResourceMoveBlockedException(plan.preview.blockers)
 
+        // A rewrite may target a published version -- only ever the pin of a moving resource's own
+        // relative references, never a re-pointing (see CatalogResourceMovePlanner.rewriteContent).
+        // The expected-bytes guard is what makes touching one safe.
         for (rewrite in plan.rewrites) {
             val changed = when (rewrite) {
                 is JsonRewrite.TemplateVersion -> handle.createUpdate(
@@ -145,7 +148,7 @@ class MoveCatalogResourcesHandler(
                     UPDATE template_versions SET template_model = :replacement::jsonb
                     WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                       AND template_key = :templateKey AND variant_key = :variantKey AND id = :version
-                      AND status = 'draft' AND template_model = :expected::jsonb
+                      AND template_model = :expected::jsonb
                     """,
                 )
                     .bind("templateKey", rewrite.ownerKey)
@@ -159,7 +162,7 @@ class MoveCatalogResourcesHandler(
                     UPDATE stencil_versions SET content = :replacement::jsonb
                     WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                       AND stencil_key = :stencilKey AND id = :version
-                      AND status = 'draft' AND content = :expected::jsonb
+                      AND content = :expected::jsonb
                     """,
                 )
                     .bind("stencilKey", rewrite.ownerKey)
@@ -333,9 +336,7 @@ class CatalogResourceMovePlanner(
 
         val rewrites = mutableListOf<JsonRewrite>()
         val immutableBySource = mutableMapOf<ResourceAddress, Int>()
-        if (contentMoves.isNotEmpty()) {
-            rewriteContentReferences(handle, tenantKey, contentMoves, relocations, rewrites, immutableBySource, blockers)
-        }
+        rewriteContent(handle, tenantKey, contentMoves, relocations, rewrites, immutableBySource)
         for (relocation in relocations) {
             if (MovableResource.of(relocation.source.type) == MovableResource.ATTRIBUTE && relocation.source in identities) {
                 rewrites += attributeKeyRewrites(handle, tenantKey, relocation.source, relocation.target)
@@ -475,71 +476,76 @@ class CatalogResourceMovePlanner(
         .mapTo(Boolean::class.java)
         .one()
 
-    private fun rewriteContentReferences(
+    /**
+     * One pass over versioned content for two rewrites.
+     *
+     * References *to* a moving resource are re-pointed at its destination where the holder is a
+     * draft; a published holder keeps its bytes, resolves through the alias, and is counted as such.
+     * Relative references *inside* a moving resource are pinned to the catalog they resolve against
+     * today -- published versions included, because the owner leaving is exactly what would change
+     * their meaning, and versions never age out. A catalog with a release cannot be moved out of, so
+     * the pin never touches released content. Content written since references became qualified on
+     * write has nothing left to pin.
+     */
+    private fun rewriteContent(
         handle: Handle,
         tenantKey: TenantKey,
         contentMoves: Map<ResourceAddress, ResourceAddress>,
         relocations: List<ResourceRelocation>,
         rewrites: MutableList<JsonRewrite>,
         immutableBySource: MutableMap<ResourceAddress, Int>,
-        blockers: MutableList<ResourceMoveBlocker>,
     ) {
-        val movingStencils = relocations
-            .filter { it.source.type == CatalogResourceType.STENCIL }
-            .associateBy { it.source.key to it.source.catalogKey }
+        val movingTemplates = relocations.filter { it.source.type == CatalogResourceType.TEMPLATE }.associateBy { it.source }
+        val movingStencils = relocations.filter { it.source.type == CatalogResourceType.STENCIL }.associateBy { it.source }
+        if (contentMoves.isEmpty() && movingTemplates.isEmpty() && movingStencils.isEmpty()) return
 
-        for (row in loadTemplateVersions(handle, tenantKey)) {
-            val rewritten = applyContentMoves(row.json, row.catalogKey, contentMoves)
-            if (!rewritten.changed) continue
-            if (row.status == "draft") {
+        // Only a batch that moves a referenced type has to look at every holder in the tenant; one
+        // that moves templates alone needs nothing but the templates' own versions.
+        val everyHolder = contentMoves.isNotEmpty()
+        for (row in loadTemplateVersions(handle, tenantKey, if (everyHolder) null else movingTemplates.keys)) {
+            val owner = movingTemplates[ResourceAddress(CatalogResourceType.TEMPLATE, row.catalogKey, row.ownerKey)]
+            rewriteRow(row, owner, contentMoves, immutableBySource)?.let { result ->
                 rewrites += JsonRewrite.TemplateVersion(
                     row.catalogKey,
                     row.ownerKey,
                     row.variantKey!!,
                     row.version,
                     row.rawJson,
-                    rewritten.json.toString(),
-                    rewritten.attributedTo,
+                    result.json.toString(),
+                    result.attributedTo,
                 )
-            } else {
-                rewritten.attributedTo?.let { immutableBySource.merge(it, 1, Int::plus) }
             }
         }
-
-        for (row in loadStencilVersions(handle, tenantKey)) {
-            var rewritten = applyContentMoves(row.json, row.catalogKey, contentMoves)
-            // Rows here are stencil_versions, so ownerKey is a stencil key. Only the versions of a
-            // stencil that is itself moving need their own unqualified dependencies pinned.
-            val owner = movingStencils[row.ownerKey to row.catalogKey]
-            if (owner != null) {
-                if (row.status == "draft") {
-                    rewritten = RewriteResult(
-                        qualifyRelativeOutgoingReferences(rewritten.json, row.catalogKey, rewritten.changed).json,
-                        qualifyRelativeOutgoingReferences(rewritten.json, row.catalogKey, rewritten.changed).changed,
-                        rewritten.attributedTo ?: owner.source,
-                    )
-                } else if (containsRelativeOutgoingReference(rewritten.json)) {
-                    blockers += blocker(
-                        "immutable-relative-reference",
-                        "Stencil version ${row.version} has a relative dependency whose meaning would change",
-                        owner.source,
-                    )
-                }
-            }
-            if (!rewritten.changed) continue
-            if (row.status == "draft") {
+        for (row in loadStencilVersions(handle, tenantKey, if (everyHolder) null else movingStencils.keys)) {
+            val owner = movingStencils[ResourceAddress(CatalogResourceType.STENCIL, row.catalogKey, row.ownerKey)]
+            rewriteRow(row, owner, contentMoves, immutableBySource)?.let { result ->
                 rewrites += JsonRewrite.StencilVersion(
                     row.catalogKey,
                     row.ownerKey,
                     row.version,
                     row.rawJson,
-                    rewritten.json.toString(),
-                    rewritten.attributedTo,
+                    result.json.toString(),
+                    result.attributedTo,
                 )
-            } else {
-                rewritten.attributedTo?.let { immutableBySource.merge(it, 1, Int::plus) }
             }
         }
+    }
+
+    /** The rewritten payload for one version, or null when it needs no change. */
+    private fun rewriteRow(
+        row: JsonOwnerRow,
+        owner: ResourceRelocation?,
+        contentMoves: Map<ResourceAddress, ResourceAddress>,
+        immutableBySource: MutableMap<ResourceAddress, Int>,
+    ): RewriteResult? {
+        var result = applyContentMoves(row.json, row.catalogKey, contentMoves)
+        if (row.status != "draft") {
+            // Published: references to moved resources keep their bytes and resolve through the alias.
+            result.attributedTo?.let { immutableBySource.merge(it, 1, Int::plus) }
+            result = RewriteResult(row.json.deepCopy(), changed = false)
+        }
+        if (owner != null) result = result.pinningRelative(row.catalogKey, owner.source)
+        return result.takeIf { it.changed }
     }
 
     /** Points every reference to a moving resource at that resource's destination. */
@@ -604,76 +610,73 @@ class CatalogResourceMovePlanner(
             .list()
     }
 
-    private fun loadTemplateVersions(handle: Handle, tenantKey: TenantKey): List<JsonOwnerRow> = handle.createQuery(
-        """
-        SELECT catalog_key::text, template_key::text owner_key, variant_key::text, id, status, template_model::text json
-        FROM template_versions
-        WHERE tenant_key = :tenantKey
-        ORDER BY catalog_key, template_key, variant_key, id
-        """,
-    )
-        .bind("tenantKey", tenantKey)
-        .map { rs, _ ->
-            val raw = rs.getString("json")
-            JsonOwnerRow(rs.getString("catalog_key"), rs.getString("owner_key"), rs.getString("variant_key"), rs.getInt("id"), rs.getString("status"), raw, objectMapper.readTree(raw))
-        }.list()
+    private fun loadTemplateVersions(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
+        if (owners != null && owners.isEmpty()) return emptyList()
+        return handle.createQuery(
+            """
+            SELECT catalog_key::text, template_key::text owner_key, variant_key::text, id, status, template_model::text json
+            FROM template_versions
+            WHERE tenant_key = :tenantKey ${ownerFilter(owners, "template_key")}
+            ORDER BY catalog_key, template_key, variant_key, id
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bindOwners(owners)
+            .map { rs, _ ->
+                val raw = rs.getString("json")
+                JsonOwnerRow(rs.getString("catalog_key"), rs.getString("owner_key"), rs.getString("variant_key"), rs.getInt("id"), rs.getString("status"), raw, objectMapper.readTree(raw))
+            }.list()
+    }
 
-    private fun loadStencilVersions(handle: Handle, tenantKey: TenantKey): List<JsonOwnerRow> = handle.createQuery(
-        """
-        SELECT catalog_key::text, stencil_key::text owner_key, id, status, content::text json
-        FROM stencil_versions
-        WHERE tenant_key = :tenantKey
-        ORDER BY catalog_key, stencil_key, id
-        """,
-    )
-        .bind("tenantKey", tenantKey)
-        .map { rs, _ ->
-            val raw = rs.getString("json")
-            JsonOwnerRow(rs.getString("catalog_key"), rs.getString("owner_key"), null, rs.getInt("id"), rs.getString("status"), raw, objectMapper.readTree(raw))
-        }.list()
-
-    /** Points content references to the moving resource at its destination catalog. */
-    private fun rewriteIncomingContentReferences(
-        root: JsonNode,
-        ownerCatalog: String,
-        source: ResourceAddress,
-        targetCatalog: String,
-        movable: MovableResource,
-    ): RewriteResult {
-        val copy = root.deepCopy()
-        var changed = false
-        for (site in ResourceReferenceSites.scan(copy)) {
-            if (site.kind !in movable.contentReferenceKinds || site.key != source.key) continue
-            val explicitCatalog = site.catalogKey
-            if (explicitCatalog == source.catalogKey || (explicitCatalog == null && ownerCatalog == source.catalogKey)) {
-                site.setCatalogKey(targetCatalog)
-                changed = true
-            }
-        }
-        return RewriteResult(copy, changed)
+    private fun loadStencilVersions(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
+        if (owners != null && owners.isEmpty()) return emptyList()
+        return handle.createQuery(
+            """
+            SELECT catalog_key::text, stencil_key::text owner_key, id, status, content::text json
+            FROM stencil_versions
+            WHERE tenant_key = :tenantKey ${ownerFilter(owners, "stencil_key")}
+            ORDER BY catalog_key, stencil_key, id
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bindOwners(owners)
+            .map { rs, _ ->
+                val raw = rs.getString("json")
+                JsonOwnerRow(rs.getString("catalog_key"), rs.getString("owner_key"), null, rs.getInt("id"), rs.getString("status"), raw, objectMapper.readTree(raw))
+            }.list()
     }
 
     /**
-     * Pins the moving stencil's own unqualified dependencies to the catalog they resolve against
-     * today, so they keep their meaning once the stencil resolves relative to its destination.
-     *
-     * Content written since references became qualified on write has nothing left to pin, so this
-     * only does work for drafts predating that rule. Its published counterpart is the
-     * `immutable-relative-reference` blocker, which cannot rewrite and so refuses the move.
+     * Restricts a version query to the versions owned by [owners]; null means every version in the
+     * tenant. Only the column name is interpolated, and it is a literal from the caller; the
+     * addresses are bound.
      */
-    private fun qualifyRelativeOutgoingReferences(root: JsonNode, sourceCatalog: String, alreadyChanged: Boolean): RewriteResult {
-        var changed = alreadyChanged
-        for (site in relativeReferences(root)) {
-            site.setCatalogKey(sourceCatalog)
-            changed = true
-        }
-        return RewriteResult(root, changed)
+    private fun ownerFilter(owners: Set<ResourceAddress>?, keyColumn: String): String = if (owners == null) {
+        ""
+    } else {
+        owners.indices.joinToString(" OR ", prefix = "AND (", postfix = ")") { "(catalog_key = :ownerCatalog$it AND $keyColumn = :ownerKey$it)" }
     }
 
-    private fun containsRelativeOutgoingReference(root: JsonNode): Boolean = relativeReferences(root).isNotEmpty()
+    private fun org.jdbi.v3.core.statement.Query.bindOwners(owners: Set<ResourceAddress>?) = apply {
+        owners?.forEachIndexed { index, owner ->
+            bind("ownerCatalog$index", owner.catalogKey)
+            bind("ownerKey$index", owner.key)
+        }
+    }
 
-    private fun relativeReferences(root: JsonNode) = ResourceReferenceSites.scan(root)
-        .filter { it.kind.relativeWhenUnqualified && it.catalogKey == null }
+    /**
+     * Pins this payload's relative references to [catalogKey] -- the catalog they resolve against
+     * before their owner moves -- attributing the change to [owner].
+     */
+    private fun RewriteResult.pinningRelative(catalogKey: String, owner: ResourceAddress): RewriteResult {
+        var pinned = changed
+        for (site in ResourceReferenceSites.scan(json)) {
+            if (!site.kind.relativeWhenUnqualified || site.catalogKey != null) continue
+            site.setCatalogKey(catalogKey)
+            pinned = true
+        }
+        return RewriteResult(json, pinned, attributedTo ?: owner)
+    }
 
     /**
      * Covers exactly what the operator approved in the preview, not the state of the tenant.

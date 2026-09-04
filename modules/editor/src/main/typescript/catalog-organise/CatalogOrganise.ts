@@ -330,7 +330,7 @@ export class CatalogOrganise extends LitElement {
                 (plan) => html`<p>
                   ${plan.source.catalogKey}/${plan.source.key} →
                   <strong>${plan.target.catalogKey}/${plan.target.key}</strong> —
-                  ${plan.mutableRewriteCount} draft reference(s) rewritten,
+                  ${plan.mutableRewriteCount} reference(s) rewritten,
                   ${plan.immutableReferenceCount} published reference(s) resolve through the alias
                 </p>`,
               )}

@@ -501,6 +501,19 @@ semantics must remain part of the format, template and stencil versions need an 
 `reference_base_catalog_key` (or equivalent resolution snapshot) that does not change when their
 owning resource moves. Existing immutable versions require a safe backfill or remain non-movable.
 
+**Decided 2026-09-04: pin at move time.** The blocker made any stencil or template with a published
+version carrying an unqualified reference permanently immovable — publishing a new version does not
+retire the old one, and versions have no retention. So when a resource leaves a catalog, the
+relative references inside its own versions, published ones included, are rewritten to name the
+catalog they already resolve against. That changes bytes, not meaning: a relative reference _is_
+"my own catalog", and the rewrite spells it out before the owner leaves. It is the one exception to
+"immutable payloads are never edited", and it is bounded by the released-catalog rule: a catalog
+with a release cannot be moved out of, so no released content is ever rewritten and no release
+fingerprint changes. Alternatives considered: a one-time migration over every catalog (changes
+release fingerprints for every subscriber) and leaving the blocker (measurably strands legacy
+content). Option F's `target` does not remove the need — it is populated on write, so old payloads
+would need the same pass.
+
 ### Published templates and dependency semantics
 
 A move does not edit a published or archived template version. For a historical template that

@@ -111,9 +111,9 @@ A type becomes movable once its own two axes are done; it does not wait for the 
 4. **Carry `target` in content references** — independent of steps 1 and 3, runnable in parallel.
    Only the four content-referenced types need it.
 5. **Templates**, applying the pin/follow decisions recorded below.
-6. **Delete the interim machinery**: plan/preview/fingerprint, rewrite strategies, the
-   `immutable-relative-reference` blocker, address reservation and its release command, and
-   write-time qualification. Keep a preview for policy checks only — permissions, released
+6. **Delete the interim machinery**: plan/preview/fingerprint, rewrite strategies, the move-time
+   pin of relative references, address reservation and its release command, and write-time
+   qualification. Keep a preview for policy checks only — permissions, released
    catalogs, slug collisions.
 
 > **Step 1 complete.** `variant_attribute_definitions` is re-keyed (`V20260828132828`) and movable.
@@ -209,15 +209,21 @@ Separate track from the relational work, and independent of it:
    what keeps an exported catalog installable under a different key; a test pins it
    (`StencilCrossCatalogDependencyTest`). Import re-resolves address → `target`.
 
-Immutable published payloads are never rewritten. They resolve by address until they age out; a
-version published after this lands carries `target` and survives any move of its dependencies.
+Immutable published payloads are not rewritten to carry `target`; a version published after this
+lands carries it and survives any move of its dependencies. Two things keep that from stranding
+older content. A published reference to a dependency that moved resolves through its alias. A
+published _relative_ reference inside a resource that itself moves cannot — its meaning is "my own
+catalog", which is exactly what changed — and since template and stencil versions never age out,
+relocation pins such references to the catalog they resolved against, at move time, published
+versions included (decided 2026-09-04; see ADR 0014). That is the same pass a later `target`
+backfill would make, restricted to the resource being moved.
 
 ## What this deletes
 
 Once a type completes the recipe, its relocation needs none of the machinery the alpha required:
 
 - the plan/preview/fingerprint protocol — nothing to preview when nothing is rewritten
-- typed rewrite strategies and the `immutable-relative-reference` blocker
+- typed rewrite strategies and the move-time pin of relative references
 - address reservation, `requireAddressAvailable`, and the alias-release command
 - write-time qualification, once `target` is populated
 

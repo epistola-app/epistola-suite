@@ -62,6 +62,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.nio.charset.StandardCharsets
@@ -385,8 +386,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(headerAddress.movedTo(targetCatalog))).query() }
 
-        assertThat(preview.blockers).noneSatisfy { assertThat(it.code).isEqualTo("immutable-relative-reference") }
-        assertThat(preview.executable).isTrue()
+        assertThat(preview.blockers).isEmpty()
 
         withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
@@ -395,6 +395,112 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(graph.edges)
             .filteredOn { it.targetSelector.type == CatalogResourceType.THEME }
             .allSatisfy { assertThat(it.target?.catalogKey).isEqualTo(sourceCatalog.value) }
+    }
+
+    @Test
+    fun `a stencil whose published version predates qualification can still move`() {
+        val tenant = createTenant("Legacy relative stencil")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val header = StencilId(StencilKey.of("header"), sourceCatalogId)
+        val headerAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, header.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), sourceCatalogId), "Brand").execute()
+            CreateStencil(header, "Header").execute()
+            UpdateStencilDraft(StencilVersionId(VersionKey.of(1), header), dependsOnThemeRelatively()).execute()
+            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
+        }
+        // Content published before references were qualified on write stored this relatively. No
+        // command writes that shape any more, so the qualification is stripped from the row.
+        stripQualification("stencil_versions", "content", "{themeRef,catalogKey}", tenant.id, sourceCatalog, "stencil_key", header.key.value)
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(headerAddress.movedTo(targetCatalog))).query() }
+        assertThat(preview.blockers).isEmpty()
+        assertThat(preview.relocations.single().mutableRewriteCount).isEqualTo(1)
+
+        withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+
+        // The published version now says what it always meant: the theme in the catalog it left.
+        val published = publishedJson("stencil_versions", "content", tenant.id, targetCatalog, "stencil_key", header.key.value)
+        assertThat(published.path("themeRef").path("catalogKey").stringValue()).isEqualTo(sourceCatalog.value)
+        val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
+        assertThat(graph.edges)
+            .filteredOn { it.targetSelector.type == CatalogResourceType.THEME }
+            .isNotEmpty
+            .allSatisfy { assertThat(it.target?.catalogKey).isEqualTo(sourceCatalog.value) }
+    }
+
+    @Test
+    fun `a template's legacy relative references keep their meaning when it moves`() {
+        val tenant = createTenant("Legacy relative template")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
+        val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateStencil(stencilId, "Header").execute()
+            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
+            CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
+            UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
+            PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
+        }
+        stripQualification("template_versions", "template_model", "{nodes,stencil-instance,props,catalogKey}", tenant.id, sourceCatalog, "template_key", templateId.key.value)
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
+        assertThat(preview.blockers).isEmpty()
+        assertThat(preview.relocations.single().mutableRewriteCount).isEqualTo(1)
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+
+        // Relative meant "letters" when it was published. After the move that is spelled out, so
+        // neither the published version nor a draft reopened from it resolves against "shared".
+        val published = publishedJson("template_versions", "template_model", tenant.id, targetCatalog, "template_key", templateId.key.value)
+        assertThat(published.path("nodes").path("stencil-instance").path("props").path("catalogKey").stringValue()).isEqualTo(sourceCatalog.value)
+        val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(templateId.key, CatalogId(targetCatalog, tenantId)))
+        val draft = withMediator {
+            CreateVersion(movedVariant).execute()
+            GetDraft(movedVariant).query()!!
+        }
+        assertThat(draft.templateModel.nodes.getValue("stencil-instance").props?.get("catalogKey")).isEqualTo(sourceCatalog.value)
+        withMediator { PublishVersion(VersionId(draft.id, movedVariant)).execute() }
+    }
+
+    /** Removes a qualification the write path added, to plant content in its pre-qualification shape. */
+    private fun stripQualification(table: String, column: String, path: String, tenantKey: TenantKey, catalogKey: CatalogKey, ownerColumn: String, ownerKey: String) {
+        jdbi.useHandle<Exception> { handle ->
+            val stripped = handle.createUpdate(
+                "UPDATE $table SET $column = $column #- :path::text[] WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND $ownerColumn = :ownerKey AND status = 'published'",
+            )
+                .bind("path", path)
+                .bind("tenantKey", tenantKey)
+                .bind("catalogKey", catalogKey)
+                .bind("ownerKey", ownerKey)
+                .execute()
+            assertThat(stripped).isEqualTo(1)
+        }
+    }
+
+    private fun publishedJson(table: String, column: String, tenantKey: TenantKey, catalogKey: CatalogKey, ownerColumn: String, ownerKey: String): JsonNode = jdbi.withHandle<JsonNode, Exception> { handle ->
+        val raw = handle.createQuery(
+            "SELECT $column::text FROM $table WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND $ownerColumn = :ownerKey AND status = 'published'",
+        )
+            .bind("tenantKey", tenantKey)
+            .bind("catalogKey", catalogKey)
+            .bind("ownerKey", ownerKey)
+            .mapTo(String::class.java)
+            .one()
+        objectMapper.readTree(raw)
     }
 
     private fun dependsOnThemeRelatively(): TemplateDocument = TemplateDocument(

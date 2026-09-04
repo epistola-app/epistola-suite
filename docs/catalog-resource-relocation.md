@@ -10,7 +10,8 @@ execution and reports:
 
 - draft references that will be rewritten to the destination catalog;
 - immutable published references that will continue to resolve through an alias;
-- relative references inside the moving stencil that must be qualified; and
+- relative references inside the moving resource's own versions, published ones included, that
+  will be pinned to the catalog they resolve against today; and
 - blockers such as a destination collision, subscribed catalogs, released source catalogs, or an
   unsupported resource type.
 
@@ -57,7 +58,10 @@ written before it existed resolve through their recorded address instead.
   first.
 - Source and destination must be different authored catalogs in the same tenant.
 - A source catalog with a release is blocked until subscriber/release handoff semantics exist.
-- Immutable version JSON is never edited.
+- Immutable version JSON is never edited, with one exception: when a resource leaves a catalog, the
+  relative references inside its own versions — published ones included — are pinned to the catalog
+  they already resolve against. The bytes change; the meaning does not. A catalog with a release
+  cannot be moved out of, so released content is never touched.
 - A move that would leave two catalogs depending on each other is blocked. Catalog ordering is
   load-bearing for snapshot restore, which orders catalogs topologically and throws on a cycle, so
   an unchecked move could make a tenant's snapshots unrestorable — surfacing later, to whoever is
@@ -65,8 +69,8 @@ written before it existed resolve through their recorded address instead.
 - An address a moved resource left behind is reserved: creating a resource there is rejected until
   the alias is explicitly released, which previews what stops resolving first.
 - References are qualified with their catalog when content is written, so a published reference
-  keeps its meaning after its owner moves. Content written before that rule may still carry an
-  unqualified dependency and blocks its owner's move.
+  keeps its meaning after its owner moves. Content written before that rule is pinned the same way
+  when its owner moves, per the exception above.
 - Export relativizes references back to their own catalog, so an exported catalog stays installable
   under a different key. Stored form is absolute, wire form is relative.
 - `/tenants/{tenantId}/catalogs/organise` is the product surface: a browser across catalogs that

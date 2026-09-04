@@ -36,7 +36,8 @@
 
 Recorded here once taken; each has a recommendation in the review.
 
-- [x] **6. Legacy relative references — decided: backfill unreleased catalogs.** The `immutable-relative-reference` blocker fires for any
+- [x] **6. Legacy relative references — decided: backfill unreleased catalogs; implemented as a
+      move-time pin of the moving resource's own versions (same scope, no mass migration).** The `immutable-relative-reference` blocker fires for any
       published stencil version, ever, with an unqualified nested-stencil reference — so such a
       stencil can never move. Option F does not fix it (`target` is only populated on write; stencil
       versions have no retention). Only fix: a one-time, meaning-preserving qualification backfill

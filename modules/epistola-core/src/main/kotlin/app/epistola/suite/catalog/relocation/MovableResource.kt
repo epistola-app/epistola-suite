@@ -28,8 +28,9 @@ enum class MovableResource(
     val contentReferenceKinds: Set<ReferenceSiteKind>,
 ) {
     /**
-     * Referenced from template and stencil content. Published versions keep their old address and
-     * resolve through the alias, so a move leaves immutable payloads untouched.
+     * Referenced from template and stencil content. Published references to it keep their old
+     * address and resolve through the alias; the only published bytes a move touches are the
+     * relative references inside the moving stencil's own versions, pinned to the catalog it leaves.
      */
     STENCIL(
         CatalogResourceType.STENCIL,
