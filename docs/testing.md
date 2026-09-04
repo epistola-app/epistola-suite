@@ -394,12 +394,25 @@ also prints the slowest classes and costliest commands at the end of each run.
 
 ## Performance Optimizations
 
-- **Testcontainers reuse** — containers persist across test runs (`withReuse(true)`)
+- **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:17` container per
+  Gradle test task JVM and each Spring context gets its own logical database inside it (there is no
+  cross-run container reuse; Ryuk or the launcher-session hook stops it at the end)
 - **UNLOGGED tables** — `UnloggedTablesTestConfiguration` converts all tables to UNLOGGED after migrations, eliminating WAL writes
 - **tmpfs** — PostgreSQL data directory is on tmpfs (in-memory)
 - **Fake PDF generation** — `FakeDocumentGenerationExecutor` creates minimal valid PDFs instantly
 - **Parallel execution** — test classes run concurrently, methods within a class run sequentially
 - **Namespace isolation** — each test class uses a unique slug prefix, no cross-class interference
+- **Bounded test JVMs** — a shared Gradle build service (`TestJvmSlots`, in the Kotlin convention
+  plugin) caps how many Spring + Testcontainers JVMs run at once. Compilation stays fully parallel.
+  Default: Gradle's worker count on CI (`CI` is set), one slot per three cores elsewhere. Override
+  with `-PtestJvmSlots=N`. To also pin JUnit's class-level concurrency inside each JVM (default:
+  one thread per core), pass `-PtestParallelism=N`; a value at or under the module's Hikari pool
+  size avoids `SQLTransientConnectionException` on a busy machine
+- **JVM flags per task** — `unitTest` runs C1-only (`-XX:TieredStopAtLevel=1`, 512m) because it is
+  short-lived; `test`, `integrationTest`, `uiTest` and `perfTest` run full tiered compilation with a
+  2g heap because they live for minutes and cache many contexts
+- **`stress` tag** — `@Tag("stress")` tests (e.g. `StressIT`) run in `test` (so CI covers them) but
+  not in the local `integrationTest` loop
 
 ## Adding Tests to a New Module
 

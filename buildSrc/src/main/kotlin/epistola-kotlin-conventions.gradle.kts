@@ -1,3 +1,5 @@
+import org.gradle.api.services.BuildService
+import org.gradle.api.services.BuildServiceParameters
 import java.time.Duration
 
 plugins {
@@ -38,20 +40,60 @@ configurations {
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+// A consumer's test task takes the producer's runtime classpath as an input, and
+// Spring Boot's build-info.properties travels on it. Both apps exclude its
+// build.time; this keeps a reappearing timestamp from invalidating every
+// downstream test run regardless.
+normalization {
+    runtimeClasspath {
+        metaInf {
+            ignoreProperty("build.time")
+        }
+    }
+}
 
-    // Baseline heap for the catch-all `test` task, which boots full Spring Boot
-    // contexts (e.g. apps:epistola observability tests). 512m was too tight under
-    // parallel forks on the 2-core CI runner and intermittently OOM'd while loading
-    // a context (surfacing as a spurious PrometheusEndpointTest failure). 1g gives
-    // headroom. unitTest/integrationTest/uiTest/perfTest re-declare their own heap.
-    jvmArgs(
-        "-XX:+UseParallelGC",
-        "-XX:TieredStopAtLevel=1",
-        "-Xms256m",
-        "-Xmx1g",
+/**
+ * Caps how many test JVMs run at once across the whole build. Compilation and
+ * ktlint stay fully parallel; only tasks holding a slot queue. A Spring +
+ * Testcontainers test JVM saturates a machine long before Gradle's worker count
+ * does (each one boots contexts on every core and runs its own Postgres), and on
+ * a developer machine the IDE and the container VM compete for the same cores.
+ */
+abstract class TestJvmSlots : BuildService<BuildServiceParameters.None>
+
+val testJvmSlots = gradle.sharedServices.registerIfAbsent("testJvmSlots", TestJvmSlots::class) {
+    val cores = Runtime.getRuntime().availableProcessors()
+    maxParallelUsages.set(
+        providers.gradleProperty("testJvmSlots").map { it.toInt() }.orElse(
+            // CI runners are dedicated, so Gradle's own worker limit is the right
+            // cap there. Locally, one slot per three cores leaves room for the
+            // JUnit threads inside each JVM and for everything else on the box.
+            providers.environmentVariable("CI").map { cores }.orElse(maxOf(1, cores / 3)),
+        ),
     )
+}
+
+// Optional cap on JUnit's class-level concurrency inside each test JVM. The
+// default is JUnit's dynamic strategy (one thread per core); `-PtestParallelism=4`
+// pins it, e.g. to stay under a module's Hikari pool size on a busy machine.
+// uiTest and perfTest own their own settings.
+val testParallelism = providers.gradleProperty("testParallelism")
+
+fun Test.capJUnitParallelism() {
+    if (testParallelism.isPresent) {
+        systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
+        systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    usesService(testJvmSlots)
+
+    // Shared GC choice only. Heap and JIT flags are per task below: `jvmArgs`
+    // appends, so a flag set here cannot be taken back by a task that needs the
+    // opposite (uiTest thought it had dropped -XX:TieredStopAtLevel=1; it had not).
+    jvmArgs("-XX:+UseParallelGC")
 
     // Cross-cutting test-run metrics (see modules/testing .../metrics). A JUnit
     // Platform listener + Spring context-boot counter write a per-task JSON report
@@ -80,10 +122,18 @@ tasks.register<Test>("unitTest") {
     testClassesDirs = testSourceSet.get().output.classesDirs
     classpath = testSourceSet.get().runtimeClasspath
     useJUnitPlatform { excludeTags("integration", "ui") }
-    jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
+    // Short-lived JVM: C1-only JIT buys startup and costs nothing here.
+    jvmArgs("-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
+    capJUnitParallelism()
     testLogging { events("passed", "skipped", "failed") }
     filter { isFailOnNoMatchingTests = false }
 }
+
+// Spring + Testcontainers JVMs live for minutes and cache a dozen or more
+// contexts, so they get full tiered compilation (C1-only made steady-state
+// work like Flyway, Hikari and the mediator markedly slower for a one-off
+// startup gain) and a 2g heap (1g held 16 cached contexts with little room).
+val springTestJvmArgs = listOf("-Xms256m", "-Xmx2g")
 
 tasks.register<Test>("integrationTest") {
     description = "Runs integration tests (Spring + Testcontainers, no browser)"
@@ -92,11 +142,10 @@ tasks.register<Test>("integrationTest") {
     classpath = testSourceSet.get().runtimeClasspath
     useJUnitPlatform {
         includeTags("integration")
-        excludeTags("ui", "perf")
+        excludeTags("ui", "perf", "stress")
     }
-    // Heap/GC flags inherited from the `tasks.withType<Test>` baseline above (1g) —
-    // JUnit class-level concurrency boots distinct Spring contexts in parallel and
-    // each context load's component scan transiently costs ~100MB+, so 512m OOMs.
+    jvmArgs(springTestJvmArgs)
+    capJUnitParallelism()
     testLogging { events("passed", "skipped", "failed") }
     filter { isFailOnNoMatchingTests = false }
 }
@@ -129,15 +178,17 @@ tasks.register<Test>("uiTest") {
 
 // CRITICAL: `gradle build` → `check` → the catch-all `test` task, which by
 // default runs *every* tagged test — including `@Tag("ui")` — under the generic
-// 512m / uncapped-parallel config. That is exactly the #418 flake environment,
-// and it silently bypassed all of uiTest's hardening on CI. Keep UI (and opt-in
-// perf) tests OUT of `test`, and make `check` depend on the hardened `uiTest`
-// so `gradle build` still covers UI end-to-end — through the right task.
+// uncapped-parallel config. That is exactly the #418 flake environment, and it
+// silently bypassed all of uiTest's hardening on CI. Keep UI (and opt-in perf)
+// tests OUT of `test`. The module that owns UI tests (apps:epistola) wires its
+// hardened `uiTest` into `check` itself, so `gradle build` still covers UI
+// end-to-end through the right task without forking an empty UI JVM in every
+// other module. `stress` stays in `test` (so CI runs it) and out of the local
+// `integrationTest` loop, which is what the tag was introduced for.
 tasks.named<Test>("test") {
     useJUnitPlatform { excludeTags("ui", "perf") }
-}
-tasks.named("check") {
-    dependsOn("uiTest")
+    jvmArgs(springTestJvmArgs)
+    capJUnitParallelism()
 }
 
 // Perf tests — opt-in via `@Tag("perf")`. Excluded from `integrationTest` so the
