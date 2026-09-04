@@ -125,7 +125,7 @@ A type becomes movable once its own two axes are done; it does not wait for the 
 
 For resource table `R` with dependants `D₁…Dₙ`:
 
-1. **Add** — `R.resource_id` already exists for all seven types (`V20260822130709`). Add
+1. **Add** — `R.resource_id` already exists for all seven types (`V20260825090000`). Add
    `Dᵢ.<r>_resource_id UUID` nullable.
 2. **Backfill** — populate each `Dᵢ` from `R` by the current composite address; assert every row
    was matched.

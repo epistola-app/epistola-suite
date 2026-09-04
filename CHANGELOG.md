@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(migrations): **Relocation's identity migrations sort after the Exchange ones.** They
+  were timestamped `20260822`, below the `20260824` Exchange migrations already applied everywhere
+  tracking `main`. Flyway runs with the default `outOfOrder=false`, so an installation upgrading to a
+  build carrying both would have failed validation at startup on a lower-versioned pending migration.
+  Renamed to `20260825` — legitimate because they have never been part of a release; the rule against
+  editing a migration applies from the moment one ships.
 - **[user]** feat(catalogs,api,mcp): **Old addresses keep working after a move.** Only export and the
   resource graph consulted aliases; every other surface answered 404 at a moved template's, stencil's
   or attribute's previous `(catalog, key)`, which would have broken each integration generating from
