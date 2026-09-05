@@ -4,6 +4,9 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -12,6 +15,8 @@ import app.epistola.suite.catalog.identity.CatalogResourceAddressReservedExcepti
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
@@ -49,6 +54,17 @@ class MovableResourceReservationTest : IntegrationTestBase() {
                 MovableResource.STENCIL -> ({ CreateStencil(StencilId(StencilKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.ATTRIBUTE -> ({ CreateAttributeDefinition(AttributeId(AttributeKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.TEMPLATE -> ({ CreateDocumentTemplate(TemplateId(TemplateKey.of("moved"), sourceCatalogId), "Moved").execute() })
+                MovableResource.CODE_LIST -> (
+                    {
+                        CreateCodeList(
+                            CodeListId(CodeListKey.of("moved"), sourceCatalogId),
+                            displayName = "Moved",
+                            sourceType = CodeListSource.INLINE,
+                            // An inline code list must have at least one entry.
+                            entries = listOf(CodeListEntry("only", "Only")),
+                        ).execute()
+                    }
+                    )
             }
             withMediator { create() }
 

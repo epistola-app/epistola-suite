@@ -4,6 +4,9 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -22,6 +25,8 @@ import app.epistola.suite.catalog.identity.ResolveCatalogResourceAddress
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
@@ -830,6 +835,69 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
         assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }.canonical.catalogKey)
             .isEqualTo(targetCatalog.value)
+    }
+
+    @Test
+    fun `moving a code list carries its entries and the attributes bound to it`() {
+        val tenant = createTenant("Move code list")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val codeListId = CodeListId(CodeListKey.of("languages"), sourceCatalogId)
+        val attributeId = AttributeId(AttributeKey.of("language"), sourceCatalogId)
+        val address = ResourceAddress(CatalogResourceType.CODE_LIST, sourceCatalog.value, codeListId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            CreateCodeList(
+                codeListId,
+                displayName = "Languages",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("nl", "Nederlands"), CodeListEntry("en", "English")),
+            ).execute()
+            // The binding is deliberately from a different catalog: it is the cross-catalog case
+            // that a move has to keep pointing at the right place.
+            CreateAttributeDefinition(attributeId, "Language", codeListId = codeListId).execute()
+        }
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
+        assertThat(preview.blockers).isEmpty()
+        // Nothing in versioned content names a code list, so there is nothing to rewrite.
+        assertThat(preview.mutableRewriteCount).isZero()
+
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+
+        assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }.canonical.catalogKey)
+            .isEqualTo(targetCatalog.value)
+        // Owned entries and the binding follow by ON UPDATE CASCADE rather than by the command
+        // touching either table, so this is what proves the cascade is actually in place.
+        assertThat(entryCatalogsFor(tenant.id, codeListId.key.value)).containsOnly(targetCatalog.value)
+        assertThat(boundCodeListCatalog(tenant.id, attributeId)).isEqualTo(targetCatalog.value)
+    }
+
+    private fun entryCatalogsFor(tenantKey: TenantKey, slug: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery("SELECT catalog_key::text FROM code_list_entries WHERE tenant_key = :tenantKey AND code_list_slug = :slug")
+            .bind("tenantKey", tenantKey)
+            .bind("slug", slug)
+            .mapTo(String::class.java)
+            .list()
+    }
+
+    private fun boundCodeListCatalog(tenantKey: TenantKey, attributeId: AttributeId): String? = jdbi.withHandle<String?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT code_list_catalog_key::text FROM variant_attribute_definitions
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :id
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bind("catalogKey", attributeId.catalogKey)
+            .bind("id", attributeId.key)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null)
     }
 
     @Test

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs): **Code lists can be moved between catalogs.** The fourth relocatable
+  type, and the cheapest: nothing in versioned content names a code list, so a move rewrites no
+  payloads. Its entries and any attribute bound to it — including from another catalog — follow by
+  `ON UPDATE CASCADE`, so a rename carries them too.
 - **[dev]** feat(demo): **Running the demo app locally comes with a shared secret.** Exercising the
   all-tenant `/api` credential meant exporting `EPISTOLA_DEMO_SHAREDSECRET` by hand every time. A
   second document in `application-demo.yaml`, gated on `local`, now supplies a fixed placeholder —

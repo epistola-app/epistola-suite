@@ -68,6 +68,19 @@ enum class MovableResource(
         "id",
         emptySet(),
     ),
+
+    /**
+     * Referenced by a relational binding from `variant_attribute_definitions` rather than from
+     * versioned content, so nothing has to be rewritten: the binding and the owned entries follow
+     * by `ON UPDATE CASCADE` — see `V20260905090600__core_code_list_relocation`. That is also why
+     * moving one cannot break a published document: no payload names a code list.
+     */
+    CODE_LIST(
+        CatalogResourceType.CODE_LIST,
+        "code_lists",
+        "slug",
+        emptySet(),
+    ),
     ;
 
     companion object {

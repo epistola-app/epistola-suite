@@ -84,7 +84,7 @@ Two independent axes determine the work for a type, and they rank differently:
 | Type                            | Who points at me                           | What I own                            |
 | ------------------------------- | ------------------------------------------ | ------------------------------------- |
 | `variant_attribute_definitions` | variant attributes JSONB map — **done**    | — **done**                            |
-| `code_lists`                    | 1 relational FK                            | `code_list_entries`                   |
+| `code_lists`                    | 1 relational FK — **done**                 | `code_list_entries` — **done**        |
 | `assets`                        | content `IMAGE_ASSET`, `font_faces`        | —                                     |
 | `fonts`                         | content `FONT_FAMILY`, theme fingerprints  | `font_faces`                          |
 | `themes`                        | content `THEME_OVERRIDE`, 2 relational FKs | —                                     |

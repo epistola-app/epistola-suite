@@ -77,6 +77,10 @@ class ListRelocatableResourcesHandler(
                 SELECT 'template', t.catalog_key::text, t.id::text, t.name, c.name, c.released
                 FROM document_templates t JOIN authored c ON c.id = t.catalog_key
                 WHERE t.tenant_key = :tenantKey
+                UNION ALL
+                SELECT 'codeList', l.catalog_key::text, l.slug::text, l.display_name, c.name, c.released
+                FROM code_lists l JOIN authored c ON c.id = l.catalog_key
+                WHERE l.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)
               AND (:search IS NULL OR resource_name ILIKE :search OR resource_key ILIKE :search)
