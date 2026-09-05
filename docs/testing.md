@@ -357,6 +357,42 @@ the result. Tests that only need the created request (PENDING status, metadata,
 validation) should not call it. See
 [`docs/timers.md`](timers.md#scheduling-substrate-trigger-vs-engine).
 
+## One Spring context per configuration
+
+A Spring test context boots once per distinct configuration and is cached for the JVM, and every
+extra configuration is a full boot (5 s idle, 20 to 40 s on a loaded machine or a saturated CI
+runner) plus its own database. Context boots are the largest share of integration-test time, so
+the rule is: **a test class gets its own configuration only when it tests that configuration.**
+
+What makes a configuration distinct, and what to do instead:
+
+- `@TestPropertySource` / `@SpringBootTest(properties = …)` with values that **equal the defaults**
+  (the cluster lease and retry knobs were 30 000 ms, which is what production uses): drop them.
+- Properties that every test can live with (`allow-http` for loopback fakes, the Prometheus
+  endpoint): put them in the module's `application-test.yml` and drop the per-class source.
+- A per-class fake server registered through `@DynamicPropertySource`: one shared server per JVM
+  (`SharedFakeExchange`) behind a base class that owns the single `@DynamicPropertySource`, holds a
+  `@ResourceLock` so the classes that script the fake never overlap, resets it and purges the
+  installation-wide rows before every test (`ExchangeIntegrationTestBase`,
+  `ExchangeDiscoveryIntegrationTestBase`, the app's `ExchangeHandlerTestBase`).
+- A nested `@TestConfiguration` that several classes need: one shared configuration class imported
+  by all of them (`ClusterRecordingHandlersConfiguration`). Whether they can then share the context
+  is a separate question, answered by the next point.
+- A class that **mutates installation-wide rows** (reclaims cluster leases, deletes another node's
+  tasks, disables scheduled tasks) needs a database of its own, which only a private context gives
+  it. Say so explicitly rather than through a property that happens to differ:
+
+  ```kotlin
+  // Reclaims leases and disables tasks installation-wide: needs a database of its own.
+  @TestPropertySource(properties = ["epistola.test.private-context=cluster-timer-registry"])
+  ```
+
+  The property is read by nothing; its value names the context so two classes never share one by
+  accident.
+
+The `contextBoots` figure in `build/test-metrics/<module>-<task>.json` is the number to watch; a
+class that adds one should be able to say which configuration it is testing.
+
 ## Test-run metrics (cross-cutting)
 
 Test performance is captured automatically on **every** run by a cross-cutting

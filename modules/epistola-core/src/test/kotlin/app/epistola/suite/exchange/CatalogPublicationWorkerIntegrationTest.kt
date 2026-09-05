@@ -15,15 +15,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * The worker half of publication, driven against [FakeExchangeServer].
@@ -33,7 +28,7 @@ import org.springframework.test.context.DynamicPropertySource
  * actionable yet" (which must not burn a retry) from "Exchange refused us" (which must mark the
  * connection).
  */
-class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
+class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
 
     @Autowired
     private lateinit var worker: CatalogPublicationWorker
@@ -43,9 +38,6 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
-
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
 
     @Test
     fun `a queued release is submitted, followed, and its archive released on acceptance`() {
@@ -319,22 +311,5 @@ class CatalogPublicationWorkerIntegrationTest : IntegrationTestBase() {
     private fun forceSubmittedLongAgo(id: java.util.UUID) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate("UPDATE catalog_release_publications SET submitted_at = NOW() - INTERVAL '48 hours' WHERE id = :id")
             .bind("id", id).execute()
-    }
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            // The loopback stand-in is plaintext.
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

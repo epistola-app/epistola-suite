@@ -16,26 +16,18 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /** Enrollment and its two exits: a guided recovery, and disconnecting. */
-class DisconnectExchangeConnectionTest : IntegrationTestBase() {
+class DisconnectExchangeConnectionTest : ExchangeIntegrationTestBase() {
 
     @Autowired
     private lateinit var credentials: ExchangeCredentialService
-
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
 
     @Test
     fun `rejected application credentials become a guided recovery state`() {
@@ -234,19 +226,5 @@ class DisconnectExchangeConnectionTest : IntegrationTestBase() {
 
     companion object {
         private const val CALLBACK = "https://suite.example/oauth/exchange/callback"
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            // The loopback stand-in is plaintext.
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

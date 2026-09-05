@@ -14,18 +14,13 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * What happens to a tenant's catalogs when the connection underneath them changes.
@@ -34,7 +29,7 @@ import org.springframework.test.context.DynamicPropertySource
  * namespaces it may publish into. The last two can change after catalogs have already bound to a
  * namespace, and a binding is deliberately hard to move. These cover the cases where that collides.
  */
-class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
+class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
 
     @Autowired
     private lateinit var worker: CatalogPublicationWorker
@@ -44,9 +39,6 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
-
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
 
     @Test
     fun `a reauthorization into a different organization is refused rather than silently adopted`() {
@@ -248,18 +240,5 @@ class ExchangeConnectionLifecycleTest : IntegrationTestBase() {
 
     companion object {
         private const val CALLBACK = "https://suite.example/oauth/exchange/callback"
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }
