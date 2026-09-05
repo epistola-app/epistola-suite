@@ -9,6 +9,16 @@ spring:
       minimum-idle: 0
       idle-timeout: 10000
 
+# PrometheusEndpointTest reads these; setting them for every test lets it share the base context.
+management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  endpoint:
+    health:
+      show-components: always
+
 logging:
   level:
     app.epistola.suite.documents.batch: INFO

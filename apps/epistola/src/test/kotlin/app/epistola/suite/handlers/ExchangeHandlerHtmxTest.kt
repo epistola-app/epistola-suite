@@ -4,7 +4,6 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
@@ -20,8 +19,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -29,8 +26,6 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
 import java.time.Duration
 
@@ -38,7 +33,7 @@ import java.time.Duration
  * Server-contract assertions for the Exchange settings page, made against the rendered response
  * rather than the template source, so they keep holding if the markup is reorganized.
  */
-class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
+class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
@@ -56,8 +51,6 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
      * One stand-in Exchange is shared by the whole class, so a test that changes what it grants
      * would otherwise decide what every later test sees.
      */
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
 
     @Test
     fun `an unconnected tenant is offered authorization as a top-level navigation`() {
@@ -367,22 +360,6 @@ class ExchangeHandlerHtmxTest : BaseIntegrationTest() {
             FakeExchangeServer.OAUTH_APPLICATION_ID,
             exchange.baseUrl,
         ).execute()
-    }
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 
     /**

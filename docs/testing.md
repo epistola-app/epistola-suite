@@ -357,6 +357,42 @@ the result. Tests that only need the created request (PENDING status, metadata,
 validation) should not call it. See
 [`docs/timers.md`](timers.md#scheduling-substrate-trigger-vs-engine).
 
+## One Spring context per configuration
+
+A Spring test context boots once per distinct configuration and is cached for the JVM, and every
+extra configuration is a full boot (5 s idle, 20 to 40 s on a loaded machine or a saturated CI
+runner) plus its own database. Context boots are the largest share of integration-test time, so
+the rule is: **a test class gets its own configuration only when it tests that configuration.**
+
+What makes a configuration distinct, and what to do instead:
+
+- `@TestPropertySource` / `@SpringBootTest(properties = …)` with values that **equal the defaults**
+  (the cluster lease and retry knobs were 30 000 ms, which is what production uses): drop them.
+- Properties that every test can live with (`allow-http` for loopback fakes, the Prometheus
+  endpoint): put them in the module's `application-test.yml` and drop the per-class source.
+- A per-class fake server registered through `@DynamicPropertySource`: one shared server per JVM
+  (`SharedFakeExchange`) behind a base class that owns the single `@DynamicPropertySource`, holds a
+  `@ResourceLock` so the classes that script the fake never overlap, resets it and purges the
+  installation-wide rows before every test (`ExchangeIntegrationTestBase`,
+  `ExchangeDiscoveryIntegrationTestBase`, the app's `ExchangeHandlerTestBase`).
+- A nested `@TestConfiguration` that several classes need: one shared configuration class imported
+  by all of them (`ClusterRecordingHandlersConfiguration`). Whether they can then share the context
+  is a separate question, answered by the next point.
+- A class that **mutates installation-wide rows** (reclaims cluster leases, deletes another node's
+  tasks, disables scheduled tasks) needs a database of its own, which only a private context gives
+  it. Say so explicitly rather than through a property that happens to differ:
+
+  ```kotlin
+  // Reclaims leases and disables tasks installation-wide: needs a database of its own.
+  @TestPropertySource(properties = ["epistola.test.private-context=cluster-timer-registry"])
+  ```
+
+  The property is read by nothing; its value names the context so two classes never share one by
+  accident.
+
+The `contextBoots` figure in `build/test-metrics/<module>-<task>.json` is the number to watch; a
+class that adds one should be able to say which configuration it is testing.
+
 ## Test-run metrics (cross-cutting)
 
 Test performance is captured automatically on **every** run by a cross-cutting
@@ -394,12 +430,33 @@ also prints the slowest classes and costliest commands at the end of each run.
 
 ## Performance Optimizations
 
-- **Testcontainers reuse** — containers persist across test runs (`withReuse(true)`)
+- **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:17` container per
+  Gradle test task JVM and each Spring context gets its own logical database inside it (there is no
+  cross-run container reuse; Ryuk or the launcher-session hook stops it at the end)
+- **Not a template database** — cloning each context's database from one migrated template
+  (`CREATE DATABASE … TEMPLATE`) was measured on PR #896 and dropped: the 40-plus migrations cost
+  about a second per context, so the clone plus Flyway's validate pass saved 0.4 s per boot locally
+  and lost 2 to 4 s per boot on CI. Context boot cost is Spring itself plus CPU contention between
+  concurrent test JVMs; that is where to look
 - **UNLOGGED tables** — `UnloggedTablesTestConfiguration` converts all tables to UNLOGGED after migrations, eliminating WAL writes
 - **tmpfs** — PostgreSQL data directory is on tmpfs (in-memory)
 - **Fake PDF generation** — `FakeDocumentGenerationExecutor` creates minimal valid PDFs instantly
 - **Parallel execution** — test classes run concurrently, methods within a class run sequentially
 - **Namespace isolation** — each test class uses a unique slug prefix, no cross-class interference
+- **Bounded test JVMs** — a shared Gradle build service (`TestJvmSlots`, in the Kotlin convention
+  plugin) caps how many Spring + Testcontainers JVMs run at once. Compilation stays fully parallel.
+  Default: Gradle's worker count on CI (`CI` is set), one slot per three cores elsewhere. Override
+  with `-PtestJvmSlots=N`. JUnit's class-level concurrency inside each JVM is pinned to 4 (what the
+  4-core CI runner has always had; JUnit's default of one thread per core overruns the small
+  per-context Hikari pools and surfaces as `Could not open JDBC Connection`); `-PtestParallelism=N`
+  overrides it
+- **JVM flags per task** — `unitTest` runs C1-only (`-XX:TieredStopAtLevel=1`, 512m); `test` and
+  `integrationTest` also run C1-only with 1g: on the 4-core CI runner, full tiered compilation
+  doubled every context boot because the C2 compiler threads of four concurrent JVMs compete with
+  the boots for the same cores (measured on PR #896). `uiTest` and `perfTest` run full tiered
+  compilation with 2g, as their own hardening intended
+- **`stress` tag** — `@Tag("stress")` tests (e.g. `StressIT`) run in `test` (so CI covers them) but
+  not in the local `integrationTest` loop
 
 ## Adding Tests to a New Module
 
