@@ -247,7 +247,8 @@ class MoveCatalogResourcesHandler(
             val moved = handle.createUpdate(
                 """
                 UPDATE ${movable.table}
-                SET catalog_key = :targetCatalogKey, ${movable.keyColumn} = :targetKey
+                SET catalog_key = :targetCatalogKey,
+                    ${movable.keyColumn} = ${movable.keyColumnType?.let { "CAST(:targetKey AS $it)" } ?: ":targetKey"}
                 WHERE tenant_key = :tenantKey AND resource_id = :resourceId
                 """,
             )

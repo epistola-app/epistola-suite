@@ -51,7 +51,8 @@ written before it existed resolve through their recorded address instead.
 
 ## Initial boundaries
 
-- Stencils, variant attributes, templates and code lists. Other types produce an `unsupported-resource-type` blocker
+- Stencils, variant attributes, templates, code lists, assets and fonts. Themes are the one
+  remaining type, and produce an `unsupported-resource-type` blocker
   until their table is re-keyed onto its stable identity — see
   [Catalog resource identity migration](catalog-resource-identity-migration.md). Supported types are
   declared in `MovableResource`; adding an entry is the last step of making a type movable, not the

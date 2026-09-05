@@ -50,7 +50,15 @@ class MovableResourceReservationTest : IntegrationTestBase() {
                 CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
                 CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             }
-            val create: () -> Unit = when (movable) {
+            // Address reservation only means something where a caller can choose the address a new
+            // resource lands on. Two types cannot, for different reasons, so they have nothing to
+            // reserve rather than a guard someone forgot:
+            //   ASSET — addresses carry a generated UUID, so a vacated one is never reissued.
+            //   FONT  — the only creation path is ImportFont, shared with catalog import, which has
+            //           to reproduce stored state faithfully rather than refuse a held address.
+            //           Reserving belongs on an authoring-only path, which does not exist yet.
+            val create: (() -> Unit)? = when (movable) {
+                MovableResource.ASSET, MovableResource.FONT -> null
                 MovableResource.STENCIL -> ({ CreateStencil(StencilId(StencilKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.ATTRIBUTE -> ({ CreateAttributeDefinition(AttributeId(AttributeKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.TEMPLATE -> ({ CreateDocumentTemplate(TemplateId(TemplateKey.of("moved"), sourceCatalogId), "Moved").execute() })
@@ -66,6 +74,7 @@ class MovableResourceReservationTest : IntegrationTestBase() {
                     }
                     )
             }
+            if (create == null) continue
             withMediator { create() }
 
             val address = ResourceAddress(movable.type, sourceCatalog.value, "moved")

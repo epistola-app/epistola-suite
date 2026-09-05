@@ -26,6 +26,14 @@ enum class MovableResource(
     val keyColumn: String,
     /** Content reference kinds that target this type and must be re-pointed at the destination. */
     val contentReferenceKinds: Set<ReferenceSiteKind>,
+    /**
+     * SQL type to cast the target key to, when [keyColumn] is not string-backed.
+     *
+     * Keys bind as text, which Postgres accepts for the varchar-backed key domains but not for a
+     * UUID-backed one. Naming the domain here keeps that a property of the type rather than a
+     * special case in the executor. Never interpolated from caller input.
+     */
+    val keyColumnType: String? = null,
 ) {
     /**
      * Referenced from template and stencil content. Published references to it keep their old
@@ -80,6 +88,38 @@ enum class MovableResource(
         "code_lists",
         "slug",
         emptySet(),
+    ),
+
+    /**
+     * Resolved at render time, so moving one could have left a published document unable to load
+     * its image. `GetAssetContent` follows the alias when a qualified reference misses, which is
+     * what makes this safe; an unqualified reference resolves by id alone and never noticed.
+     *
+     * References are not rewritten: `IMAGE_ASSET` resolves tenant-globally rather than relative to
+     * the containing catalog, so a stored reference means the same thing wherever its owner lives.
+     */
+    ASSET(
+        CatalogResourceType.ASSET,
+        "assets",
+        "id",
+        emptySet(),
+        // assets.id is the UUID-backed ASSET_KEY domain, unlike every other key here.
+        keyColumnType = "ASSET_KEY",
+    ),
+
+    /**
+     * Also resolved at render time, through `ResolveFontFace`, which follows the alias when the
+     * family is not at the address the content names — otherwise a moved family would silently
+     * render as the built-in fallback rather than failing.
+     *
+     * Its faces follow by `ON UPDATE CASCADE`. A face's backing asset does not: it has its own
+     * `asset_catalog_key` since `V20260905090700`, so a font and its asset move independently.
+     */
+    FONT(
+        CatalogResourceType.FONT,
+        "fonts",
+        "slug",
+        setOf(ReferenceSiteKind.FONT_FAMILY),
     ),
     ;
 

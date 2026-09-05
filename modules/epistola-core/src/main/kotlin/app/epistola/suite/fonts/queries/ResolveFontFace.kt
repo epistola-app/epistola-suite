@@ -5,6 +5,9 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.resolveCatalogResourceAddress
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -15,6 +18,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.util.UUID
@@ -96,28 +100,19 @@ class ResolveFontFaceHandler(
 
     override fun handle(query: ResolveFontFace): ByteArray? {
         val rows = jdbi.withHandle<List<FaceRow>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT weight, italic, source, asset_key, classpath_location
-                FROM font_variants
-                WHERE tenant_key = :tenantKey
-                  AND catalog_key = :catalogKey
-                  AND font_slug = :slug
-                """,
-            )
-                .bind("tenantKey", query.tenantId)
-                .bind("catalogKey", query.catalogKey)
-                .bind("slug", query.slug)
-                .map { rs, _ ->
-                    FaceRow(
-                        weight = rs.getInt("weight"),
-                        italic = rs.getBoolean("italic"),
-                        source = FontVariantSource.valueOf(rs.getString("source")),
-                        assetKey = rs.getObject("asset_key", UUID::class.java)?.let(::AssetKey),
-                        classpathLocation = rs.getString("classpath_location"),
-                    )
-                }
-                .list()
+            handle.loadFaces(query.tenantId, query.catalogKey, query.slug).ifEmpty {
+                // The reference names the catalog the family lived in when the content was
+                // written. A relocated family leaves an alias there, and a published document
+                // must keep rendering in its own typeface rather than silently falling back to
+                // the built-in font, which is what an empty list here would cause.
+                handle.resolveCatalogResourceAddress(
+                    query.tenantId,
+                    ResourceAddress(CatalogResourceType.FONT, query.catalogKey.value, query.slug.value),
+                )
+                    ?.takeIf { it.resolvedViaAlias }
+                    ?.let { handle.loadFaces(query.tenantId, CatalogKey.of(it.canonical.catalogKey), query.slug) }
+                    ?: emptyList()
+            }
         }
 
         val best = pickBestFace(rows, query.weight, query.italic) ?: return null
@@ -132,3 +127,26 @@ class ResolveFontFaceHandler(
         }
     }
 }
+
+private fun Handle.loadFaces(tenantId: TenantKey, catalogKey: CatalogKey, slug: FontKey): List<FaceRow> = createQuery(
+    """
+    SELECT weight, italic, source, asset_key, classpath_location
+    FROM font_variants
+    WHERE tenant_key = :tenantKey
+      AND catalog_key = :catalogKey
+      AND font_slug = :slug
+    """,
+)
+    .bind("tenantKey", tenantId)
+    .bind("catalogKey", catalogKey)
+    .bind("slug", slug)
+    .map { rs, _ ->
+        FaceRow(
+            weight = rs.getInt("weight"),
+            italic = rs.getBoolean("italic"),
+            source = FontVariantSource.valueOf(rs.getString("source")),
+            assetKey = rs.getObject("asset_key", UUID::class.java)?.let(::AssetKey),
+            classpathLocation = rs.getString("classpath_location"),
+        )
+    }
+    .list()

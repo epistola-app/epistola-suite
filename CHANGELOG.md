@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs,fonts): **Assets and fonts can be moved between catalogs.** Both are
+  resolved while rendering, by the address the content names, so a move risked what no earlier
+  movable type could: a published document that renders _successfully_ but wrongly — a missing
+  image, or silently falling back to the built-in typeface. `GetAssetContent` and `ResolveFontFace`
+  now follow the alias when the address they are given no longer holds the resource.
+- **[dev]** fix(fonts): **A font face's asset is no longer pinned to the font's catalog.**
+  `font_variants.catalog_key` backed two foreign keys at once — the family's catalog and the
+  backing asset's — so one column could not follow two parents and moving either resource would
+  have dragged the other's reference along. The asset's catalog is now its own column, which also
+  lifts an undocumented restriction that a face's asset had to live in the font's catalog.
 - **[user]** feat(catalogs): **Code lists can be moved between catalogs.** The fourth relocatable
   type, and the cheapest: nothing in versioned content names a code list, so a move rewrites no
   payloads. Its entries and any attribute bound to it — including from another catalog — follow by

@@ -7,6 +7,9 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.assetContentScope
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.resolveCatalogResourceAddress
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -16,6 +19,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.storage.backfill.LegacyBlobFallback
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.util.UUID
@@ -53,30 +57,20 @@ class GetAssetContentHandler(
     override fun handle(query: GetAssetContent): AssetContent? {
         // 1. Get metadata (including the content-addressable pointer) from DB
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT id, tenant_key, catalog_key, media_type, content_hash, sensitive
-                FROM assets
-                WHERE id = :assetId
-                  AND tenant_key = :tenantId
-                  ${if (query.catalogKey != null) "AND catalog_key = :catalogKey" else ""}
-                """,
-            )
-                .bind("assetId", query.assetId.value)
-                .bind("tenantId", query.tenantId)
-                .apply { query.catalogKey?.let { bind("catalogKey", it.value) } }
-                .map { rs, _ ->
-                    AssetMeta(
-                        id = AssetKey(rs.getObject("id", UUID::class.java)),
-                        tenantId = TenantKey(rs.getString("tenant_key")),
-                        catalogKey = CatalogKey.of(rs.getString("catalog_key")),
-                        mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
-                        contentHash = rs.getString("content_hash"),
-                        sensitive = rs.getBoolean("sensitive"),
+            handle.loadAssetMeta(query.tenantId, query.assetId, query.catalogKey)
+                // A qualified reference names the catalog the asset lived in when it was written.
+                // If the asset has since been relocated, that address is now an alias, and the
+                // reference has to follow it or a published document stops rendering its image.
+                // Only the qualified case needs this: an unqualified reference is resolved by id
+                // alone above, which a move does not change.
+                ?: query.catalogKey?.let { requested ->
+                    handle.resolveCatalogResourceAddress(
+                        query.tenantId,
+                        ResourceAddress(CatalogResourceType.ASSET, requested.value, query.assetId.value.toString()),
                     )
+                        ?.takeIf { it.resolvedViaAlias }
+                        ?.let { handle.loadAssetMeta(query.tenantId, query.assetId, CatalogKey.of(it.canonical.catalogKey)) }
                 }
-                .findOne()
-                .orElse(null)
         } ?: return null
 
         // 2. Read content: from the content-addressable store by (scope, hash), or —
@@ -96,13 +90,38 @@ class GetAssetContentHandler(
             content = bytes,
         )
     }
-
-    private data class AssetMeta(
-        val id: AssetKey,
-        val tenantId: TenantKey,
-        val catalogKey: CatalogKey,
-        val mediaType: AssetMediaType,
-        val contentHash: String?,
-        val sensitive: Boolean,
-    )
 }
+
+private data class AssetMeta(
+    val id: AssetKey,
+    val tenantId: TenantKey,
+    val catalogKey: CatalogKey,
+    val mediaType: AssetMediaType,
+    val contentHash: String?,
+    val sensitive: Boolean,
+)
+
+private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalogKey: CatalogKey?): AssetMeta? = createQuery(
+    """
+    SELECT id, tenant_key, catalog_key, media_type, content_hash, sensitive
+    FROM assets
+    WHERE id = :assetId
+      AND tenant_key = :tenantId
+      ${if (catalogKey != null) "AND catalog_key = :catalogKey" else ""}
+    """,
+)
+    .bind("assetId", assetId.value)
+    .bind("tenantId", tenantId)
+    .apply { catalogKey?.let { bind("catalogKey", it.value) } }
+    .map { rs, _ ->
+        AssetMeta(
+            id = AssetKey(rs.getObject("id", UUID::class.java)),
+            tenantId = TenantKey(rs.getString("tenant_key")),
+            catalogKey = CatalogKey.of(rs.getString("catalog_key")),
+            mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
+            contentHash = rs.getString("content_hash"),
+            sensitive = rs.getBoolean("sensitive"),
+        )
+    }
+    .findOne()
+    .orElse(null)

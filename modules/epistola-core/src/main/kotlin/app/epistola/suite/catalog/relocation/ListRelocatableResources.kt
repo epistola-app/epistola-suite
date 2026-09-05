@@ -81,6 +81,14 @@ class ListRelocatableResourcesHandler(
                 SELECT 'codeList', l.catalog_key::text, l.slug::text, l.display_name, c.name, c.released
                 FROM code_lists l JOIN authored c ON c.id = l.catalog_key
                 WHERE l.tenant_key = :tenantKey
+                UNION ALL
+                SELECT 'asset', a.catalog_key::text, a.id::text, a.name, c.name, c.released
+                FROM assets a JOIN authored c ON c.id = a.catalog_key
+                WHERE a.tenant_key = :tenantKey
+                UNION ALL
+                SELECT 'font', f.catalog_key::text, f.slug::text, f.name, c.name, c.released
+                FROM fonts f JOIN authored c ON c.id = f.catalog_key
+                WHERE f.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)
               AND (:search IS NULL OR resource_name ILIKE :search OR resource_key ILIKE :search)

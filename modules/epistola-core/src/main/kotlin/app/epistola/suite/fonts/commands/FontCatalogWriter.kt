@@ -109,8 +109,8 @@ class FontCatalogWriter {
         val batch = handle.prepareBatch(
             """
             INSERT INTO font_variants
-                (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, classpath_location, content_hash)
-            VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :source, :assetKey, :classpathLocation, :contentHash)
+                (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, asset_catalog_key, classpath_location, content_hash)
+            VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :source, :assetKey, :assetCatalogKey, :classpathLocation, :contentHash)
             """,
         )
         var faces = 0
@@ -123,6 +123,9 @@ class FontCatalogWriter {
                     .bind("italic", variant.italic)
                     .bind("source", variant.source.name)
                     .bind("assetKey", variant.assetKey?.value)
+                    // A face's asset is written into the same catalog as the family; the column is
+                    // separate so a later relocation of either can move without the other.
+                    .bind("assetCatalogKey", variant.assetKey?.let { catalogKey })
                     .bind("classpathLocation", variant.classpathLocation)
                     .bind("contentHash", contentHash(variant, assetBytes))
                     .add()
