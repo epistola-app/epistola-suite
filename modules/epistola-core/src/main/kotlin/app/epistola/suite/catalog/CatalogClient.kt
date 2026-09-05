@@ -9,6 +9,7 @@ import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.migrations.CatalogMigrationContext
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.MigratedManifest
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ResourceLoader
@@ -27,6 +28,24 @@ class CatalogClient(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    // Bundled catalogs live on the classpath, which cannot change while this JVM runs, yet the same
+    // manifest, resource details and binaries were read, schema-migrated and hashed again for every
+    // tenant that installs them, every catalogs-page render and every boot. Cached like FontByteCache:
+    // one Caffeine cache, weighed by the raw bytes each entry was loaded from, with an explicit
+    // ceiling (every classpath catalog in the repo is under half a megabyte; the ceiling is the bound
+    // stated out loud, not something that is expected to evict). No TTL: classpath content is
+    // immutable. Only `classpath:` sources are cached; `file:` and HTTP sources can change underneath
+    // a running process. Cached manifests and details are shared across tenants and threads: callers
+    // read them and map them into their own structures; nothing writes into a fetched object.
+    private val classpathCache = Caffeine.newBuilder()
+        .maximumWeight(MAX_CACHED_CLASSPATH_BYTES)
+        .weigher<String, CachedClasspathEntry> { _, entry -> entry.weight }
+        .build<String, CachedClasspathEntry>()
+
+    private class CachedClasspathEntry(val value: Any, val weight: Int)
+
+    private inline fun <reified T : Any> cachedClasspath(key: String, crossinline load: () -> Pair<T, Int>): T = classpathCache.get(key) { load().let { (value, weight) -> CachedClasspathEntry(value, weight) } }.value as T
+
     private val allowedSchemes = buildSet {
         add("https")
         add("file")
@@ -44,13 +63,21 @@ class CatalogClient(
      */
     fun fetchMigratedManifest(url: String, authType: AuthType, credential: String?): MigratedManifest {
         validateUrl(url, allowedSchemes)
+        if (url.startsWith("classpath:")) {
+            return cachedClasspath("manifest:$url") { loadManifest(url, authType, credential) }
+        }
+        return loadManifest(url, authType, credential).first
+    }
+
+    /** The bound manifest plus the size of the bytes it came from (the cache weight). */
+    private fun loadManifest(url: String, authType: AuthType, credential: String?): Pair<MigratedManifest, Int> {
         logger.debug("Fetching catalog manifest from {}", url)
         // Fetch raw bytes and route through the schema migrator (version gate +
         // wire-format upgrade chain) before binding. This is the single remote
         // chokepoint, so every consumer — install, browse, upgrade-check,
         // fingerprint — sees a current-shape manifest.
         val bytes = readLocalBinary(url) ?: fetchHttpBinary(url, authType, credential)
-        return schemaMigrator.migrateAndBindManifest(bytes)
+        return schemaMigrator.migrateAndBindManifest(bytes) to bytes.size
     }
 
     /**
@@ -70,13 +97,39 @@ class CatalogClient(
     ): ResourceDetail {
         val resolvedUrl = resolveDetailUrl(detailUrl, manifestUrl)
         validateUrl(resolvedUrl, allowedSchemes)
+        if (resolvedUrl.startsWith("classpath:")) {
+            // The migration context comes from the manifest, so the manifest URL is part of the key.
+            return cachedClasspath("detail:$type\n$manifestUrl\n$resolvedUrl") {
+                loadResourceDetail(type, resolvedUrl, authType, credential, catalog)
+            }
+        }
+        return loadResourceDetail(type, resolvedUrl, authType, credential, catalog).first
+    }
+
+    private fun loadResourceDetail(
+        type: String,
+        resolvedUrl: String,
+        authType: AuthType,
+        credential: String?,
+        catalog: CatalogMigrationContext,
+    ): Pair<ResourceDetail, Int> {
         logger.debug("Fetching resource detail from {}", resolvedUrl)
         val bytes = readLocalBinary(resolvedUrl) ?: fetchHttpBinary(resolvedUrl, authType, credential)
-        return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog)
+        return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog) to bytes.size
     }
 
     fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
         val resolvedUrl = resolveContentUrl(contentUrl, manifestUrl)
+        if (resolvedUrl.startsWith("classpath:")) {
+            // Copied out so a caller that keeps the array cannot alter what the next tenant reads.
+            return cachedClasspath<ByteArray>("binary:$resolvedUrl") {
+                loadBinary(resolvedUrl, authType, credential).let { it to it.size }
+            }.copyOf()
+        }
+        return loadBinary(resolvedUrl, authType, credential)
+    }
+
+    private fun loadBinary(resolvedUrl: String, authType: AuthType, credential: String?): ByteArray {
         logger.debug("Fetching binary content from {}", resolvedUrl)
         return readLocalBinary(resolvedUrl)
             ?: fetchHttpBinary(resolvedUrl, authType, credential)
@@ -112,6 +165,9 @@ class CatalogClient(
     }
 
     companion object {
+        /** Ceiling of the classpath cache, in bytes of source content. Every bundled catalog together is well under 1 MiB. */
+        private const val MAX_CACHED_CLASSPATH_BYTES: Long = 32L * 1024 * 1024
+
         fun validateUrl(url: String, allowedSchemes: Set<String> = setOf("https", "file", "classpath")) {
             require(url.substringAfterLast(".").equals("json", ignoreCase = true)) {
                 "Catalog URLs must point to .json files"

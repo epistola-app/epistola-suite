@@ -4,12 +4,96 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
+import org.springframework.core.io.DefaultResourceLoader
+import org.springframework.core.io.Resource
+import org.springframework.core.io.ResourceLoader
+import org.springframework.web.client.RestClient
+import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.io.path.writeBytes
+
+private const val FIXTURE_MANIFEST = "classpath:epistola/catalogs/fixture/catalog.json"
 
 class CatalogClientTest {
+    /**
+     * A classpath source is read once per JVM and served from the cache afterwards; a file source
+     * is read on every call, because it can change underneath a running process; a missing
+     * classpath resource fails every time and caches nothing.
+     */
+    @Nested
+    inner class ClasspathCache {
+        private val reads = AtomicInteger()
+        private val countingLoader = object : ResourceLoader {
+            private val delegate = DefaultResourceLoader()
+
+            override fun getResource(location: String): Resource {
+                reads.incrementAndGet()
+                return delegate.getResource(location)
+            }
+
+            override fun getClassLoader(): ClassLoader? = delegate.classLoader
+        }
+        private val client = CatalogClient(
+            catalogRestClient = RestClient.create(),
+            resourceLoader = countingLoader,
+            schemaMigrator = CatalogSchemaMigrator(),
+        )
+
+        @Test
+        fun `a classpath manifest is read once`() {
+            val first = client.fetchManifest(FIXTURE_MANIFEST, AuthType.NONE, null)
+            val second = client.fetchManifest(FIXTURE_MANIFEST, AuthType.NONE, null)
+
+            assertThat(reads.get()).isEqualTo(1)
+            assertThat(second).isSameAs(first)
+        }
+
+        @Test
+        fun `a classpath binary is read once and handed out as a copy`() {
+            val manifest = client.fetchManifest(FIXTURE_MANIFEST, AuthType.NONE, null)
+            val detailUrl = manifest.resources.first().detailUrl
+            reads.set(0)
+
+            val first = client.fetchBinaryContent(detailUrl, FIXTURE_MANIFEST, AuthType.NONE, null)
+            val second = client.fetchBinaryContent(detailUrl, FIXTURE_MANIFEST, AuthType.NONE, null)
+
+            assertThat(reads.get()).isEqualTo(1)
+            assertThat(second).isEqualTo(first).isNotSameAs(first)
+        }
+
+        @Test
+        fun `a file manifest is read on every call`(
+            @TempDir dir: Path,
+        ) {
+            val source = DefaultResourceLoader().getResource(FIXTURE_MANIFEST).contentAsByteArray
+            val file = dir.resolve("catalog.json").also { it.writeBytes(source) }
+            val url = file.toUri().toString()
+
+            val first = client.fetchManifest(url, AuthType.NONE, null)
+            file.writeBytes(String(source).replace(first.catalog.name, "Renamed").toByteArray())
+            val second = client.fetchManifest(url, AuthType.NONE, null)
+
+            assertThat(second.catalog.name).isEqualTo("Renamed")
+        }
+
+        @Test
+        fun `a missing classpath resource fails every time and caches nothing`() {
+            repeat(2) {
+                assertThrows<CatalogFetchException> {
+                    client.fetchManifest("classpath:epistola/catalogs/nowhere/catalog.json", AuthType.NONE, null)
+                }
+            }
+
+            assertThat(reads.get()).isEqualTo(2)
+        }
+    }
 
     @Nested
     inner class ValidateUrl {
