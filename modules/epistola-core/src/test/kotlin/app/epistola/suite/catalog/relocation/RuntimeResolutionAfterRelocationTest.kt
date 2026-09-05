@@ -11,8 +11,13 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.FontKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
@@ -20,7 +25,14 @@ import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.themes.ThemeStyleResolver
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,6 +51,9 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var resourceLoader: ResourceLoader
+
+    @Autowired
+    private lateinit var themeStyleResolver: ThemeStyleResolver
 
     private fun ttfBytes(): ByteArray = resourceLoader
         .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
@@ -79,6 +94,48 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
             .describedAs("a qualified reference to the asset's old catalog must follow the alias")
             .isNotNull()
     }
+
+    @Test
+    fun `a template still finds its theme after the theme moves`() {
+        val tenant = createTenant("Theme relocation runtime")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val shared = CatalogKey.of("shared")
+        val themeKey = ThemeKey.of("brand")
+        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, tenantId))
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateCatalog(tenant.id, shared, "Shared").execute()
+            CreateTheme(ThemeId(themeKey, CatalogId(letters, tenantId)), "Brand").execute()
+            CreateDocumentTemplate(templateId, "Invoice").execute()
+            UpdateDocumentTemplate(id = templateId, themeId = themeKey, themeCatalogKey = letters).execute()
+        }
+        val address = ResourceAddress(CatalogResourceType.THEME, letters.value, themeKey.value)
+
+        val relocation = address.movedTo(shared)
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query() }
+        assertThat(preview.blockers).isEmpty()
+        withMediator { MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute() }
+
+        // The template's own binding follows by ON UPDATE CASCADE rather than being rewritten.
+        val template = withMediator { GetDocumentTemplate(templateId).query()!! }
+        assertThat(template.themeCatalogKey).isEqualTo(shared)
+        assertThat(template.themeKey).isEqualTo(themeKey)
+
+        // Content that still names the old catalog resolves through the alias. Without it the
+        // template silently falls back to the tenant default rather than failing.
+        assertThat(themeStyleResolver.resolveTheme(tenant.id, themeKey, null, emptyTemplate(), templateCatalogKey = letters))
+            .describedAs("a themeRef naming the theme's old catalog must follow the alias")
+            .isNotNull()
+    }
+
+    private fun emptyTemplate(): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root")),
+        slots = emptyMap(),
+    )
 
     @Test
     fun `a published document keeps its typeface after the font family moves`() {

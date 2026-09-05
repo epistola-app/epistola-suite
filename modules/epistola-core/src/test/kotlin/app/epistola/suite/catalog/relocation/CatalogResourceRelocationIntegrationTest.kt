@@ -555,23 +555,17 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             .containsExactlyEntriesOf(mapOf("shared.brand" to "acme"))
     }
 
+    /**
+     * Every catalog resource type is now movable, so `unsupported-resource-type` has no subject
+     * left to fire on. The blocker stays as the answer for a type added to [CatalogResourceType]
+     * before it is registered in [MovableResource]; this asserts the set is currently complete,
+     * which is what makes that blocker unreachable rather than merely unused.
+     */
     @Test
-    fun `a resource type that is still keyed by address cannot move`() {
-        val tenant = createTenant("Unsupported move")
-        val sourceCatalog = CatalogKey.of("letters")
-        val targetCatalog = CatalogKey.of("shared")
-        withMediator {
-            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
-            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(sourceCatalog, TenantId(tenant.id))), "Brand").execute()
-        }
-
-        val preview = withMediator {
-            PreviewCatalogResourceMove(tenant.id, listOf(ResourceAddress(CatalogResourceType.THEME, sourceCatalog.value, "brand").movedTo(targetCatalog))).query()
-        }
-
-        assertThat(preview.blockers).anySatisfy { assertThat(it.code).isEqualTo("unsupported-resource-type") }
-        assertThat(preview.executable).isFalse()
+    fun `every catalog resource type is relocatable`() {
+        assertThat(CatalogResourceType.entries.filter { MovableResource.of(it) == null })
+            .describedAs("a type with no MovableResource entry would be blocked as unsupported")
+            .isEmpty()
     }
 
     @Test

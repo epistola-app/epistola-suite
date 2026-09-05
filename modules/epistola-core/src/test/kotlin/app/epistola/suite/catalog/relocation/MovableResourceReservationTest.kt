@@ -22,11 +22,14 @@ import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -62,6 +65,7 @@ class MovableResourceReservationTest : IntegrationTestBase() {
                 MovableResource.STENCIL -> ({ CreateStencil(StencilId(StencilKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.ATTRIBUTE -> ({ CreateAttributeDefinition(AttributeId(AttributeKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.TEMPLATE -> ({ CreateDocumentTemplate(TemplateId(TemplateKey.of("moved"), sourceCatalogId), "Moved").execute() })
+                MovableResource.THEME -> ({ CreateTheme(ThemeId(ThemeKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.CODE_LIST -> (
                     {
                         CreateCodeList(

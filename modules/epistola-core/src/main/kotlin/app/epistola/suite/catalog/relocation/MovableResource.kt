@@ -121,6 +121,24 @@ enum class MovableResource(
         "slug",
         setOf(ReferenceSiteKind.FONT_FAMILY),
     ),
+
+    /**
+     * The last type, and the only one referenced three different ways at once: from content
+     * (`themeRef`), from a template's own binding, and from the tenant-wide default. The two
+     * relational ones follow by `ON UPDATE CASCADE` (`V20260905090800`); content references are
+     * rewritten in drafts and resolved through the alias in published versions, exactly as stencil
+     * references are.
+     *
+     * Live resolution runs through `ThemeStyleResolver`, which follows the alias — without it a
+     * template would quietly fall back to the tenant default theme instead of the one it names.
+     * Published versions carry a frozen `resolved_theme` snapshot and are unaffected either way.
+     */
+    THEME(
+        CatalogResourceType.THEME,
+        "themes",
+        "id",
+        setOf(ReferenceSiteKind.THEME_OVERRIDE),
+    ),
     ;
 
     companion object {

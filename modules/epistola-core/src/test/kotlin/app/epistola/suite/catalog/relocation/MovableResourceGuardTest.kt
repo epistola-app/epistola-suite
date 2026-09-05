@@ -24,6 +24,8 @@ class MovableResourceGuardTest {
         CatalogResourceType.ASSET to "GetAssetContent",
         // `a published document keeps its typeface after the font family moves`
         CatalogResourceType.FONT to "ResolveFontFace",
+        // `a template still finds its theme after the theme moves`
+        CatalogResourceType.THEME to "ThemeStyleResolver.getTheme",
     )
 
     /**

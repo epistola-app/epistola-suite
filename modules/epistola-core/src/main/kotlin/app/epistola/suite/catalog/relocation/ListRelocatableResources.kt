@@ -89,6 +89,10 @@ class ListRelocatableResourcesHandler(
                 SELECT 'font', f.catalog_key::text, f.slug::text, f.name, c.name, c.released
                 FROM fonts f JOIN authored c ON c.id = f.catalog_key
                 WHERE f.tenant_key = :tenantKey
+                UNION ALL
+                SELECT 'theme', th.catalog_key::text, th.id::text, th.name, c.name, c.released
+                FROM themes th JOIN authored c ON c.id = th.catalog_key
+                WHERE th.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)
               AND (:search IS NULL OR resource_name ILIKE :search OR resource_key ILIKE :search)
