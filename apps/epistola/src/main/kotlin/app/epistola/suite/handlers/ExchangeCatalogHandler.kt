@@ -91,9 +91,12 @@ class ExchangeCatalogHandler {
                 "tenantId" to tenantKey,
                 "detail" to detail,
                 // What the local catalog id would be, so the dialog can say so before anyone
-                // discovers it by colliding with something.
+                // discovers it by colliding with something. Only a catalog held by something
+                // *else* counts: re-opening this dialog for a catalog already installed from these
+                // same coordinates is a re-install or an upgrade, not a collision.
                 "localCatalogId" to catalogKey,
-                "existing" to GetCatalog(tenantKey, CatalogKey.of(catalogKey)).query(),
+                "existing" to GetCatalog(tenantKey, CatalogKey.of(catalogKey)).query()
+                    ?.takeIf { it.sourceUrl != ExchangeSourceUri.of(namespace, catalogKey) },
                 "canInstall" to canInstall(tenantKey),
             ),
         )
@@ -110,11 +113,17 @@ class ExchangeCatalogHandler {
             val result = InstallExchangeCatalog(tenantId.key, namespace, catalogKey, version).execute()
             if (result.aborted) {
                 val failed = result.imported.results.filter { it.status == InstallStatus.FAILED }
+                val names = failed.take(FAILED_RESOURCES_SHOWN).joinToString(", ") { "${it.type}/${it.slug}" }
+                val reason = failed.firstNotNullOfOrNull { it.errorMessage }
                 return installError(
                     request,
-                    "Nothing was changed. ${failed.size} resource(s) in ${result.release.version} could not be " +
-                        "installed, so the catalog was left exactly as it was: " +
-                        failed.take(FAILED_RESOURCES_SHOWN).joinToString(", ") { "${it.type}/${it.slug}" },
+                    "${result.release.version} was not installed: ${failed.size} resource(s) could not be " +
+                        "imported — $names" + (reason?.let { " ($it)" } ?: "") + ". " +
+                        if (result.rolledBack) {
+                            "Nothing was left behind."
+                        } else {
+                            "This catalog is unchanged and still on the release it was running."
+                        },
                 )
             }
             request.htmx {
@@ -171,10 +180,13 @@ class ExchangeCatalogHandler {
             val result = UpgradeExchangeCatalog(tenantId.key, catalogKey, version).execute()
             if (result.aborted) {
                 val failed = result.imported.results.filter { it.status == InstallStatus.FAILED }
+                val names = failed.take(FAILED_RESOURCES_SHOWN).joinToString(", ") { "${it.type}/${it.slug}" }
+                val reason = failed.firstNotNullOfOrNull { it.errorMessage }
                 return installError(
                     request,
-                    "Nothing was changed. ${failed.size} resource(s) in ${result.release.version} could not be " +
-                        "installed, so the catalog stays on the version it was already running.",
+                    "${result.release.version} was not applied: ${failed.size} resource(s) could not be " +
+                        "imported — $names" + (reason?.let { " ($it)" } ?: "") + ". " +
+                        "This catalog stays on the release it was already running.",
                 )
             }
             request.htmx {

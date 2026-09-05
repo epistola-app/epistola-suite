@@ -33,6 +33,9 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * Installing a catalog published on Epistola Exchange, end to end over a real socket.
@@ -165,6 +168,51 @@ class ExchangeCatalogInstallTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * The import creates the catalog row before it installs anything into it, and its abort path
+     * does not undo that. Left alone, a first install that failed would leave an empty catalog
+     * occupying the ID — claiming nothing had changed while blocking the retry that would fix it.
+     */
+    @Test
+    fun `a first install that aborts leaves no catalog behind`() {
+        val consumer = connectedTenant("install-abort-clean")
+        // An archive whose asset the importer cannot accept: asset ids are UUIDs in Suite, so a
+        // slug-named one fails to import and aborts the whole install.
+        exchange.publish("acme", "broken", brokenAssetArchive(), version = "1.0.0")
+
+        withMediator {
+            val result = InstallExchangeCatalog(consumer, "acme", "broken").execute()
+
+            assertThat(result.aborted).isTrue()
+            assertThat(result.rolledBack).isTrue()
+            assertThat(GetCatalog(consumer, CatalogKey.of("broken")).query()).isNull()
+        }
+    }
+
+    /**
+     * Retrying already worked at this level — the conflict check lets the same coordinates through —
+     * so this guards the end state rather than the rollback. What the stale row actually blocked
+     * was the *dialog*, which is covered in `ExchangeCatalogHandlerTest`.
+     */
+    @Test
+    fun `an aborted install can simply be retried once the release is fixed`() {
+        val consumer = connectedTenant("install-abort-retry")
+        exchange.publish("acme", "broken", brokenAssetArchive(), version = "1.0.0")
+
+        withMediator {
+            assertThat(InstallExchangeCatalog(consumer, "acme", "broken").execute().aborted).isTrue()
+
+            // The publisher fixes it. Nothing from the failed attempt stands in the way.
+            exchange.hostedCatalogs.clear()
+            exchange.publish("acme", "broken", releaseArchive("broken", "1.1.0"), version = "1.1.0")
+
+            val retry = InstallExchangeCatalog(consumer, "acme", "broken").execute()
+
+            assertThat(retry.aborted).isFalse()
+            assertThat(GetCatalog(consumer, CatalogKey.of("broken")).query()!!.installedReleaseVersion).isEqualTo("1.1.0")
+        }
+    }
+
     @Test
     fun `an archive that does not match its published digest is refused`() {
         val consumer = connectedTenant("install-digest")
@@ -246,6 +294,48 @@ class ExchangeCatalogInstallTest : IntegrationTestBase() {
             ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
             ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
         }
+    }
+
+    /**
+     * A minimal, *valid* archive whose one asset cannot be imported.
+     *
+     * Suite addresses assets by UUID, so a slug-named one fails at import — which is the shape
+     * every catalog currently seeded on Epistola Exchange happens to have. Modelled on a real
+     * Exchange archive, including its null `release.fingerprint`, because the point is to reach the
+     * abort path: an archive the *validator* rejects never gets far enough to leave a catalog
+     * behind, and would not test this at all.
+     */
+    private fun brokenAssetArchive(): ByteArray {
+        val manifest = """
+            {"schemaVersion":6,
+             "catalog":{"slug":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
+             "publisher":{"name":"Test","url":null},
+             "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
+             "compatibility":null,"includes":null,"dependencies":[],
+             "resources":[{"type":"asset","slug":"municipality-mark","name":"Municipality mark",
+                           "description":null,"updatedAt":null,
+                           "detailUrl":"./resources/asset/municipality-mark.json","compatibility":null}]}
+        """.trimIndent()
+        val detail = """
+            {"schemaVersion":6,"resource":{"slug":"municipality-mark","name":"Municipality mark",
+             "mediaType":"image/svg+xml","width":96,"height":96,
+             "contentUrl":"./resources/asset/municipality-mark.svg","type":"asset"}}
+        """.trimIndent()
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"></svg>"""
+
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            mapOf(
+                "catalog.json" to manifest,
+                "resources/asset/municipality-mark.json" to detail,
+                "resources/asset/municipality-mark.svg" to svg,
+            ).forEach { (name, body) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(body.toByteArray())
+                zip.closeEntry()
+            }
+        }
+        return out.toByteArray()
     }
 
     companion object {

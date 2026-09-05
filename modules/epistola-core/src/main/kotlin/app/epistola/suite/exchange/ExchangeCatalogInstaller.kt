@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.CatalogUpstreamCheckStore
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -60,6 +61,9 @@ class ExchangeCatalogInstaller(
         val sourceUri = ExchangeSourceUri.of(namespace, catalogKey)
 
         val release = resolveRelease(baseUrl, token, namespace, catalogKey, version)
+        // Whether this catalog is already here decides what an abort has to undo, so it is
+        // established before anything is fetched rather than inferred afterwards.
+        val existedBefore = GetCatalog(tenantKey, CatalogKey.of(catalogKey)).query() != null
         requireNoLocalConflict(tenantKey, catalogKey, sourceUri)
         requireImportableSize(release)
 
@@ -83,7 +87,15 @@ class ExchangeCatalogInstaller(
                 tenantKey.value,
                 imported.results.count { it.status == InstallStatus.FAILED },
             )
-            return ExchangeInstallResult(imported, release, aborted = true)
+            // The import creates the catalog row before it installs anything into it, and an abort
+            // does not undo that — so a first install that fails would otherwise leave an empty
+            // catalog behind, claiming nothing had changed while occupying the ID that the retry
+            // needs. Only a catalog this attempt brought into being is removed; an upgrade that
+            // aborts leaves the existing catalog exactly where it was.
+            if (!existedBefore) {
+                UnregisterCatalog(tenantKey, imported.catalogKey, force = true).execute()
+            }
+            return ExchangeInstallResult(imported, release, aborted = true, rolledBack = !existedBefore)
         }
 
         upstreamChecks.recordInstalled(tenantKey, imported.catalogKey, release.version, release.sha256)
@@ -219,4 +231,12 @@ data class ExchangeInstallResult(
     val imported: ImportCatalogZipResult,
     val release: ExchangeCatalogRelease,
     val aborted: Boolean,
+    /**
+     * Whether the aborted attempt also removed the catalog it had just created.
+     *
+     * True for a first install, which leaves nothing behind. False for an upgrade, where the
+     * catalog was already there and stays on the release it was running — so the two cases can be
+     * described accurately rather than both claiming nothing happened.
+     */
+    val rolledBack: Boolean = false,
 )

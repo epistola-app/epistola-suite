@@ -153,6 +153,28 @@ class ExchangeCatalogHandlerTest : BaseIntegrationTest() {
     }
 
     /**
+     * Re-opening the dialog for a catalog already installed from the same coordinates is a
+     * re-install or an upgrade, not a collision. Treating any same-named catalog as a clash meant a
+     * failed first attempt left a row that made its own retry look like somebody else's catalog.
+     */
+    @Test
+    fun `the dialog does not call an already-installed catalog a collision`() {
+        val tenant = connectedTenant("dialog-reinstall")
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
+        withMediator { InstallExchangeCatalog(tenant, "acme", "invoices").execute() }
+
+        val response = restTemplate.exchange(
+            "/tenants/$tenant/catalogs/exchange/acme/invoices",
+            HttpMethod.GET,
+            HttpEntity<Void>(htmxGet()),
+            String::class.java,
+        )
+
+        assertThat(response.body).doesNotContain("exchange-key-taken")
+        assertThat(response.body).contains("exchange-install-submit")
+    }
+
+    /**
      * The assertion that proves the persisted-state design: the badge is there on first paint,
      * with no outbound call made while the page rendered.
      */
