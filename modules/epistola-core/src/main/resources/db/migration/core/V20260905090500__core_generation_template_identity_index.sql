@@ -6,7 +6,7 @@
 -- current address misses everything produced before it moved.
 --
 -- Partial on NOT NULL deliberately. template_resource_id is filled forward only, so every row
--- written before V20260904090400 has NULL and can never be found this way -- indexing those entries
+-- written before V20260905090400 has NULL and can never be found this way -- indexing those entries
 -- would cost space for rows the index can never serve. Partition retention ages them out, and the
 -- predicate is implied by any equality lookup on the column, so the planner matches it without the
 -- query having to mention it.

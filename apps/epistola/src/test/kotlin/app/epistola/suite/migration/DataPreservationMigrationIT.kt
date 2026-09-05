@@ -188,8 +188,8 @@ class DataPreservationMigrationIT {
                 .describedAs("draft stencil references must retain their published base and gain exact draft provenance")
                 .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
 
-            // Relocation re-keyed attributes onto their identity (V20260904090300) and dropped the
-            // generation-history foreign keys into the template hierarchy (V20260904090400).
+            // Relocation re-keyed attributes onto their identity (V20260905090300) and dropped the
+            // generation-history foreign keys into the template hierarchy (V20260905090400).
             assertThat(one("SELECT display_name FROM variant_attribute_definitions WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND id = 'language'"))
                 .describedAs("attribute must survive its primary key moving onto resource_id")
                 .isEqualTo("Language")

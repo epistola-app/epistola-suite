@@ -27,8 +27,8 @@
 - [x] **5. Stale copy.** `KnownFeatures.kt:141` ("supports stencils only") and
       `docs/catalog-resource-relocation.md:8` ("first vertical slice supports stencils").
 - [x] **12. `DataPreservationMigrationIT` seeds no `documents` and no `variant_attribute_definitions`**
-      — the tables touched by the PK swap (`V20260904090300`) and the FK drops on partitioned
-      tables (`V20260904090400`). Add a row of each.
+      — the tables touched by the PK swap (`V20260905090300`) and the FK drops on partitioned
+      tables (`V20260905090400`). Add a row of each.
 - [ ] **14. `docs/engineering-review-brief.html`** is untracked and unrelated (post-1.1.0 review).
       Keep it out of this PR.
 

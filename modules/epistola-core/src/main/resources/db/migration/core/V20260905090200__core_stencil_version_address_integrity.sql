@@ -1,4 +1,4 @@
--- V20260904090100 replaced stencil_versions' parent foreign key with one on the stable
+-- V20260905090100 replaced stencil_versions' parent foreign key with one on the stable
 -- (tenant_key, stencil_resource_id), but left catalog_key and stencil_key behind as unconstrained
 -- copies of the parent's address. Roughly ten queries still filter on them and relocation updated
 -- them by hand, so nothing but that hand-written statement kept them true.
