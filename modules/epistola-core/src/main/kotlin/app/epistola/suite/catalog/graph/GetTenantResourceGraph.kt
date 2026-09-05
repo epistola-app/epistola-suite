@@ -27,31 +27,77 @@ data class GetTenantResourceGraph(
 @Component
 class GetTenantResourceGraphHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
+    private val builder: TenantResourceGraphBuilder,
 ) : QueryHandler<GetTenantResourceGraph, TenantResourceGraph> {
-
     override fun handle(query: GetTenantResourceGraph): TenantResourceGraph = jdbi.inTransaction<TenantResourceGraph, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
-        val nodes = loadNodes(handle, query.tenantKey)
-        val occurrences = buildList {
-            addAll(loadRelationalReferences(handle, query.tenantKey))
-            addAll(loadThemeReferences(handle, query.tenantKey))
-            addAll(loadTemplateReferences(handle, query.tenantKey, query.includeHistory))
-            addAll(loadStencilReferences(handle, query.tenantKey, query.includeHistory))
-        }
-        TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences))
+        builder.buildOn(handle, query.tenantKey, query.includeHistory)
     }
+}
+
+/**
+ * Builds the tenant resource graph on a caller-supplied handle.
+ *
+ * Separate from the query handler because relocation needs the graph too — to decide whether a move
+ * would leave the catalog dependency graph cyclic — and must see exactly the rows its own
+ * transaction sees, including the ones it is about to rewrite. Dispatching the query through the
+ * mediator would open a nested transaction with its own isolation level for a decision that has to
+ * be part of the move, and importing the handler directly is what `DomainBoundaryTest` forbids.
+ */
+@Component
+class TenantResourceGraphBuilder(
+    private val objectMapper: ObjectMapper,
+) {
+
+    fun buildOn(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): TenantResourceGraph {
+        val nodes = loadNodes(handle, tenantKey)
+        val aliases = loadAliases(handle, tenantKey)
+        val occurrences = buildList {
+            addAll(loadRelationalReferences(handle, tenantKey))
+            addAll(loadThemeReferences(handle, tenantKey))
+            addAll(loadTemplateReferences(handle, tenantKey, includeHistory))
+            addAll(loadStencilReferences(handle, tenantKey, includeHistory))
+        }
+        return TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences, aliases))
+    }
+
+    private fun loadAliases(handle: Handle, tenantKey: TenantKey): Map<ResourceAddress, ResourceAddress> = handle.createQuery(
+        """
+        SELECT aliases.resource_type, aliases.catalog_key::text, aliases.resource_key,
+               resources.catalog_key::text canonical_catalog_key, resources.resource_key canonical_resource_key
+        FROM catalog_resource_aliases aliases
+        JOIN catalog_resources resources
+          ON resources.tenant_key = aliases.tenant_key
+         AND resources.resource_id = aliases.target_resource_id
+         AND resources.resource_type = aliases.resource_type
+        WHERE aliases.tenant_key = :tenantKey
+          -- A canonical resource re-created at an aliased address shadows the alias.
+          AND NOT EXISTS (
+              SELECT 1 FROM catalog_resources shadow
+              WHERE shadow.tenant_key = aliases.tenant_key
+                AND shadow.resource_type = aliases.resource_type
+                AND shadow.catalog_key = aliases.catalog_key
+                AND shadow.resource_key = aliases.resource_key
+          )
+        """,
+    )
+        .bind("tenantKey", tenantKey)
+        .map { rs, _ ->
+            val type = resourceType(rs.getString("resource_type"))
+            ResourceAddress(type, rs.getString("catalog_key"), rs.getString("resource_key")) to
+                ResourceAddress(type, rs.getString("canonical_catalog_key"), rs.getString("canonical_resource_key"))
+        }.list().toMap()
 
     private fun loadNodes(handle: Handle, tenantKey: TenantKey): List<ResourceNode> = handle.createQuery(
         """
-            SELECT resource_type, catalog_key, resource_key, resource_name, catalog_name, catalog_type
+            SELECT resource_id, resource_type, catalog_key, resource_key, resource_name, catalog_name, catalog_type
             FROM (
-                SELECT 'asset' resource_type, a.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
-                UNION ALL SELECT 'codeList', l.catalog_key::text, l.slug::text, l.display_name, c.name, c.type::text FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.id = l.catalog_key WHERE l.tenant_key = :tenantKey
-                UNION ALL SELECT 'font', f.catalog_key::text, f.slug::text, f.name, c.name, c.type::text FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.id = f.catalog_key WHERE f.tenant_key = :tenantKey
-                UNION ALL SELECT 'attribute', a.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
-                UNION ALL SELECT 'theme', t.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantKey
-                UNION ALL SELECT 'stencil', s.catalog_key::text, s.id::text, s.name, c.name, c.type::text FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key WHERE s.tenant_key = :tenantKey
-                UNION ALL SELECT 'template', t.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantKey
+                SELECT a.resource_id, 'asset' resource_type, a.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
+                UNION ALL SELECT l.resource_id, 'codeList', l.catalog_key::text, l.slug::text, l.display_name, c.name, c.type::text FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.id = l.catalog_key WHERE l.tenant_key = :tenantKey
+                UNION ALL SELECT f.resource_id, 'font', f.catalog_key::text, f.slug::text, f.name, c.name, c.type::text FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.id = f.catalog_key WHERE f.tenant_key = :tenantKey
+                UNION ALL SELECT a.resource_id, 'attribute', a.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
+                UNION ALL SELECT t.resource_id, 'theme', t.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantKey
+                UNION ALL SELECT s.resource_id, 'stencil', s.catalog_key::text, s.id::text, s.name, c.name, c.type::text FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key WHERE s.tenant_key = :tenantKey
+                UNION ALL SELECT t.resource_id, 'template', t.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantKey
             ) resources
             ORDER BY catalog_name, resource_type, resource_name
         """,
@@ -59,6 +105,7 @@ class GetTenantResourceGraphHandler(
         .bind("tenantKey", tenantKey)
         .map { rs, _ ->
             ResourceNode(
+                resourceId = rs.getObject("resource_id", java.util.UUID::class.java),
                 address = ResourceAddress(resourceType(rs.getString("resource_type")), rs.getString("catalog_key"), rs.getString("resource_key")),
                 name = rs.getString("resource_name"),
                 catalogName = rs.getString("catalog_name"),
@@ -198,24 +245,8 @@ class GetTenantResourceGraphHandler(
         destination: MutableList<Occurrence>,
         owner: String = source.key,
     ) {
-        if (node.isObject) {
-            val type = node.path("type").textOrNull().orEmpty()
-            val props = node.path("props")
-            if (type == "stencil" && props.path("stencilId").textOrNull() != null) {
-                destination += jsonOccurrence(source, CatalogResourceType.STENCIL, props.path("catalogKey").textOrNull(), props.path("stencilId").stringValue(), "stencil-insertion", ReferenceSemantics.PROVENANCE, "$path.props.stencilId", lifecycle, status, version, owner, props.path("version").intOrNull())
-            }
-            if (type == "image" && props.path("assetId").textOrNull() != null) {
-                destination += jsonOccurrence(source, CatalogResourceType.ASSET, props.path("catalogKey").textOrNull(), props.path("assetId").stringValue(), "image-asset", ReferenceSemantics.RUNTIME, "$path.props.assetId", lifecycle, status, version, owner)
-            }
-            node.path("themeRef").takeIf { it.isObject && it.path("themeId").textOrNull() != null }?.let { ref ->
-                destination += jsonOccurrence(source, CatalogResourceType.THEME, ref.path("catalogKey").textOrNull(), ref.path("themeId").stringValue(), "theme-override", ReferenceSemantics.RUNTIME, "$path.themeRef", lifecycle, status, version, owner)
-            }
-            node.path("fontFamily").takeIf { it.isObject && it.path("slug").textOrNull() != null }?.let { ref ->
-                destination += jsonOccurrence(source, CatalogResourceType.FONT, ref.path("catalogKey").textOrNull(), ref.path("slug").stringValue(), "font-family", ReferenceSemantics.RUNTIME, "$path.fontFamily", lifecycle, status, version, owner)
-            }
-            node.properties().forEach { (key, child) -> scanJson(source, child, "$path.$key", lifecycle, status, version, destination, owner) }
-        } else if (node.isArray) {
-            node.forEachIndexed { index, child -> scanJson(source, child, "$path[$index]", lifecycle, status, version, destination, owner) }
+        ResourceReferenceSites.scan(node, path).forEach { site ->
+            destination += jsonOccurrence(source, site, lifecycle, status, version, owner)
         }
     }
 
@@ -226,35 +257,62 @@ class GetTenantResourceGraphHandler(
             val separator = rawKey.indexOf('/')
             val catalog = rawKey.substring(0, separator.coerceAtLeast(0)).ifBlank { null }
             val slug = if (separator >= 0) rawKey.substring(separator + 1) else rawKey
-            destination += jsonOccurrence(source, CatalogResourceType.FONT, catalog, slug, "published-font-snapshot", ReferenceSemantics.PROVENANCE, "resolvedTheme.fontFingerprints.$rawKey", lifecycle, status, version, owner)
+            // Not a node-embedded reference: the published theme snapshot keys fonts as
+            // "catalog/slug", so it is read here rather than through ResourceReferenceSites.
+            destination += Occurrence(
+                source,
+                ReferenceSelector(CatalogResourceType.FONT, catalog ?: source.catalogKey, slug),
+                "published-font-snapshot",
+                ReferenceSemantics.PROVENANCE,
+                if (catalog != null) ReferenceQualification.EXPLICIT else ReferenceQualification.RELATIVE,
+                ReferenceEvidence(owner, lifecycle, status, version, "resolvedTheme.fontFingerprints.$rawKey", null),
+            )
         }
     }
 
-    private fun jsonOccurrence(source: ResourceAddress, type: CatalogResourceType, catalog: String?, key: String, kind: String, semantics: ReferenceSemantics, location: String, lifecycle: ReferenceLifecycle, status: String?, version: Int?, owner: String, pinnedVersion: Int? = null): Occurrence {
-        val qualification = if (catalog != null) {
-            ReferenceQualification.EXPLICIT
-        } else if (type == CatalogResourceType.ASSET) {
-            ReferenceQualification.TENANT_GLOBAL
-        } else {
-            ReferenceQualification.RELATIVE
+    private fun jsonOccurrence(
+        source: ResourceAddress,
+        site: ReferenceSite,
+        lifecycle: ReferenceLifecycle,
+        status: String?,
+        version: Int?,
+        owner: String,
+    ): Occurrence {
+        val catalog = site.catalogKey
+        val qualification = when {
+            catalog != null -> ReferenceQualification.EXPLICIT
+            site.kind.relativeWhenUnqualified -> ReferenceQualification.RELATIVE
+            else -> ReferenceQualification.TENANT_GLOBAL
         }
         val effectiveCatalog = if (qualification == ReferenceQualification.RELATIVE) source.catalogKey else catalog
         return Occurrence(
             source,
-            ReferenceSelector(type, effectiveCatalog, key),
-            kind,
-            semantics,
+            ReferenceSelector(site.kind.type, effectiveCatalog, site.key),
+            site.kind.wireKind,
+            site.kind.semantics,
             qualification,
-            ReferenceEvidence(owner, lifecycle, status, version, location, pinnedVersion),
+            ReferenceEvidence(
+                owner,
+                lifecycle,
+                status,
+                version,
+                site.location,
+                site.pinnedVersion.takeIf { site.kind == ReferenceSiteKind.STENCIL_INSERTION },
+            ),
         )
     }
 
-    private fun resolveAndAggregate(nodes: List<ResourceNode>, occurrences: List<Occurrence>): List<ResourceEdge> {
+    private fun resolveAndAggregate(
+        nodes: List<ResourceNode>,
+        occurrences: List<Occurrence>,
+        aliases: Map<ResourceAddress, ResourceAddress>,
+    ): List<ResourceEdge> {
         val byAddress = nodes.associateBy { it.address }
         val byTypeAndKey = nodes.groupBy { it.address.type to it.address.key }
         return occurrences.groupBy { occurrence ->
             val candidates = if (occurrence.selector.catalogKey != null) {
-                listOfNotNull(byAddress[ResourceAddress(occurrence.selector.type, occurrence.selector.catalogKey, occurrence.selector.key)])
+                val requested = ResourceAddress(occurrence.selector.type, occurrence.selector.catalogKey, occurrence.selector.key)
+                listOfNotNull(byAddress[requested] ?: aliases[requested]?.let(byAddress::get))
             } else {
                 byTypeAndKey[occurrence.selector.type to occurrence.selector.key].orEmpty()
             }.map { it.address }.sortedBy { it.id }
@@ -271,18 +329,30 @@ class GetTenantResourceGraphHandler(
                 qualification = occurrence.qualification,
                 candidates = candidates,
                 resolution = resolution,
+                resolvedViaAlias = occurrence.selector.catalogKey?.let {
+                    ResourceAddress(occurrence.selector.type, it, occurrence.selector.key) in aliases
+                } == true,
             )
         }.map { (key, grouped) ->
             val target = key.candidates.singleOrNull()
             val id = listOf(key.source.id, key.kind, key.selector.type.wireName, key.selector.catalogKey.orEmpty(), key.selector.key).joinToString("|")
-            ResourceEdge(id, key.source, target, key.selector, key.candidates, key.kind, key.semantics, key.qualification, key.resolution, grouped.map { it.evidence }.distinct())
+            ResourceEdge(
+                id,
+                key.source,
+                target,
+                key.selector,
+                key.candidates,
+                key.kind,
+                key.semantics,
+                key.qualification,
+                key.resolution,
+                grouped.map { it.evidence }.distinct(),
+                key.resolvedViaAlias,
+            )
         }.sortedBy { it.id }
     }
 
     private fun resourceType(value: String): CatalogResourceType = CatalogResourceType.entries.single { it.wireName == value }
-
-    private fun JsonNode.textOrNull(): String? = takeUnless { isMissingNode || isNull || !isString }?.stringValue()?.takeIf { it.isNotBlank() }
-    private fun JsonNode.intOrNull(): Int? = takeUnless { isMissingNode || isNull }?.asInt()
 
     private data class Occurrence(
         val source: ResourceAddress,
@@ -301,5 +371,6 @@ class GetTenantResourceGraphHandler(
         val qualification: ReferenceQualification,
         val candidates: List<ResourceAddress>,
         val resolution: ReferenceResolution,
+        val resolvedViaAlias: Boolean,
     )
 }

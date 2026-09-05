@@ -198,6 +198,8 @@ epistola:
   features:
     ai-chat: false
     catalog-publishing: false
+    resource-graph: false
+    resource-relocation: false
   generation:
     # Whether THIS node performs PDF rendering. When true (default) the node advertises the
     # cluster `pdf-render` capability and claims render jobs; set false to keep the suite as a

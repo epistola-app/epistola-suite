@@ -22,6 +22,8 @@ class CoreBackupTables : TenantBackupTableContributor {
     override fun includedTables(): Set<String> = setOf(
         "tenants",
         "catalogs",
+        "catalog_resources",
+        "catalog_resource_aliases",
         "catalog_releases",
         "themes",
         "document_templates",

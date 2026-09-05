@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -135,7 +136,10 @@ class CreateStencilVersionHandler(
             val content = command.content
                 ?: objectMapper.readValue(source!!["content"].toString(), TemplateDocument::class.java)
             templateDocumentValidator.validateStencil(content)
-            val contentJson = objectMapper.writeValueAsString(content)
+            // Idempotent for content copied from an already-qualified version.
+            val contentJson = objectMapper.valueToTree<JsonNode>(content)
+                .also { ResourceReferenceSites.qualifyRelative(it, command.stencilId.catalogKey.value) }
+                .let(objectMapper::writeValueAsString)
 
             // Schema: explicit wins; otherwise carry over the copied version's schema
             // for internal draft-reopen flows unless the caller opts into contract-style
@@ -149,8 +153,12 @@ class CreateStencilVersionHandler(
 
             handle.createQuery(
                 """
-            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, created_at, created_by)
-            VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy)
+            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, stencil_resource_id, content, parameter_schema, status, created_at, created_by)
+            VALUES (
+                :id, :tenantId, :catalogKey, :stencilId,
+                (SELECT resource_id FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :stencilId),
+                :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy
+            )
             RETURNING *
             """,
             )

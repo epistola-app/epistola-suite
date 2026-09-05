@@ -4,6 +4,8 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
@@ -49,7 +51,7 @@ class UpdateStencilDraftHandler(
         templateDocumentValidator.validateStencil(command.content)
         parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<StencilVersion, Exception> { handle ->
-            val contentJson = objectMapper.writeValueAsString(command.content)
+            val contentJson = qualifiedContentJson(command.content, command.versionId.catalogKey)
             val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
 
             handle.createQuery(
@@ -95,5 +97,16 @@ class UpdateStencilDraftHandler(
         } else {
             StencilVersionNotFoundException(versionId.tenantKey, versionId.stencilKey, versionId.catalogKey, versionId.key)
         }
+    }
+
+    /**
+     * Stored references always name the catalog they resolve against, so relocating this stencil
+     * later cannot change what an already-written reference means. Assets stay unqualified: they
+     * resolve tenant-globally.
+     */
+    private fun qualifiedContentJson(content: TemplateDocument, catalogKey: CatalogKey): String {
+        val model = objectMapper.valueToTree<JsonNode>(content)
+        ResourceReferenceSites.qualifyRelative(model, catalogKey.value)
+        return objectMapper.writeValueAsString(model)
     }
 }

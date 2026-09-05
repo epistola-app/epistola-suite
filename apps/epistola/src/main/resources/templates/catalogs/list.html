@@ -507,6 +507,13 @@
          re-checks on load and clears itself). -->
     <th:block th:fragment="upgrade-done"></th:block>
     <th:block th:fragment="catalog-list-actions">
+        <!-- Alpha, and gated on the relocation toggle: absent unless the tenant has it on. -->
+        <a th:if="${resourceRelocationEnabled}" class="ep-btn ep-btn-outline"
+           th:href="@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})}"
+           data-testid="catalog-organise-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='redo-2', class='ep-icon')}" />
+            Organise
+        </a>
         <button type="button" class="ep-btn ep-btn-outline"
                 th:if="${auth.has('TEMPLATE_EDIT')}"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"

@@ -66,8 +66,7 @@ class FindStencilVersionExportConflictsHandler(
                     FROM stencils s
                     JOIN stencil_versions sv
                       ON sv.tenant_key = s.tenant_key
-                     AND sv.catalog_key = s.catalog_key
-                     AND sv.stencil_key = s.id
+                     AND sv.stencil_resource_id = s.resource_id
                      AND sv.status = 'published'
                     WHERE s.tenant_key = :tenantKey
                       AND s.catalog_key = :catalogKey

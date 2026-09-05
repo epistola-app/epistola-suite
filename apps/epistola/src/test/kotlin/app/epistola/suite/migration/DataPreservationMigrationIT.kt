@@ -109,6 +109,19 @@ class DataPreservationMigrationIT {
                        (2, '$TENANT', 'default', 'invoice', 'main',
                         '$DRAFT_TEMPLATE_MODEL'::jsonb, 'draft', NULL, '["customer.name","total"]'::jsonb);
 
+                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values)
+                VALUES ('language', '$TENANT', 'default', 'Language', '["nl","en"]'::jsonb);
+
+                -- documents is partitioned like audit_log below; the fixture owns its partition.
+                CREATE TABLE documents_202606
+                    PARTITION OF documents
+                    FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
+                                       filename, size_bytes, created_at)
+                VALUES ('00000000-0000-0000-0000-000000000201', '$TENANT', 'default', 'invoice', 'main', 1,
+                        'invoice.pdf', 1024, '2026-06-23 10:00:00+00');
+
                 -- An orphaned toggle row for the retired 'stencil-parameters' feature (deleted by
                 -- V20260708110402) plus a control row for a still-live feature that must survive.
                 INSERT INTO feature_toggles (tenant_key, feature_key, enabled)
@@ -174,6 +187,21 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 2"))
                 .describedAs("draft stencil references must retain their published base and gain exact draft provenance")
                 .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
+
+            // Relocation re-keyed attributes onto their identity (V20260905090300) and dropped the
+            // generation-history foreign keys into the template hierarchy (V20260905090400).
+            assertThat(one("SELECT display_name FROM variant_attribute_definitions WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND id = 'language'"))
+                .describedAs("attribute must survive its primary key moving onto resource_id")
+                .isEqualTo("Language")
+            assertThat(one("SELECT count(*) FROM catalog_resources WHERE tenant_key = '$TENANT' AND resource_type = 'attribute' AND catalog_key = 'default' AND resource_key = 'language'"))
+                .describedAs("RC1-era attribute must be registered with a stable identity")
+                .isEqualTo("1")
+            assertThat(one("SELECT filename FROM documents WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND template_key = 'invoice'"))
+                .describedAs("generation history must survive its template foreign keys being dropped")
+                .isEqualTo("invoice.pdf")
+            assertThat(one("SELECT count(*) FROM documents WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND template_resource_id IS NULL"))
+                .describedAs("template identity is filled on insert only, never backfilled")
+                .isEqualTo("1")
 
             // Intentional scoped cleanup (V20260708110402, issue #668): the retired
             // stencil-parameters toggle's orphaned rows are gone, unrelated toggles survive.

@@ -62,6 +62,18 @@ transaction. It reads authoritative relational columns and versioned JSON; no de
 database migration, or cache is involved. `TenantResourceGraph.traverse` supplies the bounded BFS
 used by the UI.
 
+`ResourceReferenceSites` (`catalog/graph/ResourceReferenceSites.kt`) is the single authority for
+which JSON shapes count as a catalog-resource reference, and for whether an unqualified one resolves
+against the containing catalog or tenant-globally. Every consumer that reads or rewrites embedded
+references traverses through it — the graph itself, catalog relocation
+(`catalog/relocation/CatalogResourceRelocation.kt`), and catalog export
+(`catalog/CatalogContentBuilder.kt`). A new embedded reference shape is added as a
+`ReferenceSiteKind`, never as another walker; the shared traversal is what keeps discovery,
+rewriting, and export from disagreeing about what a reference is.
+
+The published-theme font snapshot (`resolvedTheme.fontFingerprints`) is read separately because it
+keys fonts as `catalog/slug` strings rather than as node-embedded references.
+
 The explorer uses internal UI handlers only:
 
 - `GET /tenants/{tenantId}/resource-graph`

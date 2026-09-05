@@ -456,7 +456,7 @@ class ImportTemplatesHandler(
             .bind("variantId", variantId)
             .execute()
 
-        val prepared = templateDocumentPreparation.prepare(templateModel)
+        val prepared = templateDocumentPreparation.prepare(templateModel, tenantId.key, catalogKey)
 
         val nextVersionId = handle.createQuery(
             """
