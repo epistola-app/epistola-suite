@@ -49,8 +49,10 @@ Recorded here once taken; each has a recommendation in the review.
 - [x] **1. Alias-aware REST/UI template lookups — decided: this PR.** Old `(catalog, template)`
       addresses resolve through `ResolveCatalogResourceAddress` on REST and UI routes (and MCP if it
       looks templates up by address). Replaces the preview-warning idea.
-- [x] **10. More types this week? — decided: no.** Freeze at stencils, attributes, templates;
-      `code_lists` is the next PR. `code_lists` is cheapest next (one FK + `code_list_entries`).
+- [x] **10. More types — DONE 2026-09-05: all seven are movable.** code_lists, then assets and
+      fonts (both needed their render-time lookup made alias-aware, and `font_variants.catalog_key`
+      split so a font and its backing asset move independently), then themes. `MovableResourceGuardTest`
+      is now a list of runtime lookups that follow aliases, each naming the test that proves it. `code_lists` is cheapest next (one FK + `code_list_entries`).
       Themes/fonts/assets need their render-time lookup made alias-aware first
       (`MovableResourceGuardTest` enforces this).
 - [ ] **13. `./gradlew resetLocalDb`** — required before manual testing (local DB was last migrated on
