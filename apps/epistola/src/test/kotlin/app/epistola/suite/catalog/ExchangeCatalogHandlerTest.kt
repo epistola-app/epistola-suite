@@ -83,6 +83,21 @@ class ExchangeCatalogHandlerTest : BaseIntegrationTest() {
         assertThat(response.body).contains("Connect this tenant")
     }
 
+    /**
+     * The dialog is swapped into a container and opened by `behaviors.js`, which reacts to
+     * `data-dialog-mount` on the *container*. `data-open-dialog` is a click trigger for a button
+     * and does nothing on the dialog itself — getting that wrong swaps a dialog in that never
+     * becomes visible, which is invisible to every assertion about the fragment's content.
+     */
+    @Test
+    fun `the browse page mounts dialogs where behaviors js will open them`() {
+        val tenant = connectedTenant("dialog-mount")
+
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs/exchange", String::class.java)
+
+        assertThat(response.body).contains("id=\"exchange-dialog-container\" data-dialog-mount")
+    }
+
     @Test
     fun `the install dialog offers only releases that can actually be installed`() {
         val tenant = connectedTenant("detail-dialog")

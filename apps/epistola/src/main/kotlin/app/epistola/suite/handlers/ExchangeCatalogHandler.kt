@@ -81,9 +81,9 @@ class ExchangeCatalogHandler {
         val namespace = request.pathVariable("namespace")
         val catalogKey = request.pathVariable("catalogKey")
         val detail = GetExchangeCatalogDetail(tenantKey, namespace, catalogKey).query()
-            ?: return ServerResponse.status(404).render(
-                "catalogs/exchange-browse :: install-error",
-                mapOf("message" to "Epistola Exchange does not offer $namespace/$catalogKey, or this tenant may not see it."),
+            ?: return installError(
+                request,
+                "Epistola Exchange does not offer $namespace/$catalogKey, or this tenant may not see it.",
             )
         return ServerResponse.ok().render(
             "catalogs/exchange-browse :: detail-dialog",
@@ -111,6 +111,7 @@ class ExchangeCatalogHandler {
             if (result.aborted) {
                 val failed = result.imported.results.filter { it.status == InstallStatus.FAILED }
                 return installError(
+                    request,
                     "Nothing was changed. ${failed.size} resource(s) in ${result.release.version} could not be " +
                         "installed, so the catalog was left exactly as it was: " +
                         failed.take(FAILED_RESOURCES_SHOWN).joinToString(", ") { "${it.type}/${it.slug}" },
@@ -123,10 +124,10 @@ class ExchangeCatalogHandler {
                 onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
             }
         } catch (e: ValidationException) {
-            installError(e.message)
+            installError(request, e.message)
         } catch (e: Exception) {
             logger.warn("Installing {}/{} failed: {}", namespace, catalogKey, e.message, e)
-            installError("The catalog could not be installed from Epistola Exchange. ${e.message ?: ""}".trim())
+            installError(request, "The catalog could not be installed from Epistola Exchange. ${e.message ?: ""}".trim())
         }
     }
 
@@ -144,9 +145,9 @@ class ExchangeCatalogHandler {
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         val catalog = GetCatalog(tenantKey, catalogKey).query()
         val coordinates = ExchangeSourceUri.parse(catalog?.sourceUrl)
-            ?: return installError("This catalog was not installed from Epistola Exchange.")
+            ?: return installError(request, "This catalog was not installed from Epistola Exchange.")
         val detail = GetExchangeCatalogDetail(tenantKey, coordinates.namespace, coordinates.catalogKey).query()
-            ?: return installError("Epistola Exchange no longer offers $coordinates.")
+            ?: return installError(request, "Epistola Exchange no longer offers $coordinates.")
 
         return ServerResponse.ok().render(
             "catalogs/exchange-browse :: upgrade-dialog",
@@ -171,6 +172,7 @@ class ExchangeCatalogHandler {
             if (result.aborted) {
                 val failed = result.imported.results.filter { it.status == InstallStatus.FAILED }
                 return installError(
+                    request,
                     "Nothing was changed. ${failed.size} resource(s) in ${result.release.version} could not be " +
                         "installed, so the catalog stays on the version it was already running.",
                 )
@@ -182,14 +184,24 @@ class ExchangeCatalogHandler {
                 onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
             }
         } catch (e: ValidationException) {
-            installError(e.message)
+            installError(request, e.message)
         } catch (e: Exception) {
             logger.warn("Upgrading {} failed: {}", catalogKey, e.message, e)
-            installError("The catalog could not be upgraded. ${e.message ?: ""}".trim())
+            installError(request, "The catalog could not be upgraded. ${e.message ?: ""}".trim())
         }
     }
 
-    private fun installError(message: String): ServerResponse = ServerResponse.status(422).render("catalogs/exchange-browse :: install-error", mapOf("message" to message))
+    /**
+     * A refusal renders into the dialog's own error slot and leaves it open.
+     *
+     * Replacing the dialog container instead would swap the dialog out for a bare message, taking
+     * the version the reader had chosen with it — the same stay-on-dialog contract the subscribe
+     * dialog already documents.
+     */
+    private fun installError(request: ServerRequest, message: String): ServerResponse = request.htmx {
+        dialogFormError("exchange-install-error", message)
+        onNonHtmx { redirect("/tenants/${request.tenantId().key}/catalogs") }
+    }
 
     private fun canInstall(tenantKey: TenantKey): Boolean = SecurityContext.current().let { principal ->
         principal.hasPermission(tenantKey, Permission.CATALOG_MANAGE) &&
