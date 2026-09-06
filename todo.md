@@ -29,7 +29,7 @@
 - [x] **12. `DataPreservationMigrationIT` seeds no `documents` and no `variant_attribute_definitions`**
       — the tables touched by the PK swap (`V20260905090300`) and the FK drops on partitioned
       tables (`V20260905090400`). Add a row of each.
-- [ ] **14. `docs/engineering-review-brief.html`** is untracked and unrelated (post-1.1.0 review).
+- [x] **14. `docs/engineering-review-brief.html`** is untracked and unrelated (post-1.1.0 review).
       Keep it out of this PR.
 
 ## Decisions
@@ -55,7 +55,7 @@ Recorded here once taken; each has a recommendation in the review.
       is now a list of runtime lookups that follow aliases, each naming the test that proves it. `code_lists` is cheapest next (one FK + `code_list_entries`).
       Themes/fonts/assets need their render-time lookup made alias-aware first
       (`MovableResourceGuardTest` enforces this).
-- [ ] **13. `./gradlew resetLocalDb`** — required before manual testing (local DB was last migrated on
+- [x] **13. `./gradlew resetLocalDb`** — done 2026-09-05 (authorised). — required before manual testing (local DB was last migrated on
       `feat/publish-to-exchange`). Destructive to local data.
 
 ## Deferred (tracked, not for this PR)
@@ -77,12 +77,13 @@ Recorded here once taken; each has a recommendation in the review.
 
 ## Delivery
 
-- [ ] **11. Push and open a draft PR.** 22 commits, +6.6k/−5.2k over 173 files, never pushed; CI has
+- [x] **11. Push and open a draft PR — done: PR #869, green.** Was 22 commits, +6.6k/−5.2k over 173 files, never pushed; CI has
       never seen the branch. Review in commit order. PR description must call out what affects
       tenants with the toggle **off**: identity triggers on 7 tables, write-time qualification
       changes stored content for everyone, exports now emit stencil-borne dependencies.
-- [ ] CHANGELOG entries exist per commit; re-read them as one block before the PR — several describe
-      intermediate states ("first alpha supports stencils").
+- [x] CHANGELOG re-read as one block 2026-09-06: dropped "The move panel offers every relocatable
+      type" (that panel was removed before release) and updated the guard entry now that all three
+      runtime-resolved types are registered.
 - [x] Final gate (2026-09-04, all fresh: 2967 unit+integration, UI suite green): `./gradlew ktlintCheck unitTest integrationTest` fresh (check test-result mtimes
       against source mtimes — Gradle's UP-TO-DATE has fooled us once), `pnpm format:check`,
       `pnpm license:check`, then `./gradlew uiTest`.

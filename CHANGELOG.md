@@ -115,8 +115,6 @@
 - **[dev]** feat(catalogs): **The resource graph carries stable resource identities.** Nodes now
   expose the `resource_id` that survives a relocation, so a caller can follow a resource across a
   move instead of guessing where it landed from its new address.
-- **[user]** fix(catalogs): **The move panel offers every relocatable type.** It still gated on
-  stencils after attributes and templates became movable.
 - **[user]** fix(catalogs): **A template reopened after a relocation can be republished again.**
   Reopening copied the published model verbatim, so the new draft still named the address the moved
   resource had left; publish validation then looked for it there and refused, leaving the template
@@ -127,7 +125,8 @@
   Stencil references are provenance — content is inlined at insert — so moving a stencil cannot
   break generation. Themes, fonts and assets are resolved by address while rendering, so registering
   one before its runtime lookup follows aliases would break every published template that uses it.
-  The guard makes that a build failure.
+  The guard makes that a build failure; all three have since been registered, each recording the
+  lookup that follows aliases and the test that proves it.
 - **[user]** feat(catalogs): **Templates can be moved between catalogs.** Variants, versions,
   contract versions, environment activations, quality findings and load-test runs follow the
   template. Generation history does not — it records the catalog a document was produced from, and
