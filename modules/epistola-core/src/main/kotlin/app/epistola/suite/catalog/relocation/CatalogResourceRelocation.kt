@@ -263,8 +263,9 @@ class MoveCatalogResourcesHandler(
                 .bind("targetKey", relocation.target.key)
                 .execute()
             if (moved != 1) throw StaleCatalogResourceMovePlanException()
-            // Owned hierarchies follow their parent's address by database rule -- the ON UPDATE
-            // CASCADE foreign keys fire on any referenced column, so a rename carries them too.
+            // This one row is the whole relational move. Every type is keyed by its resource_id and
+            // every dependant names that, so nothing else refers to the address being changed --
+            // owned hierarchies included, and a rename no differently from a move.
         }
 
         plan.preview
