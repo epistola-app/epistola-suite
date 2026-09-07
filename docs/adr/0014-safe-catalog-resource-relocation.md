@@ -20,7 +20,8 @@ rewriting every discovered location would mutate published history, while moving
 would break catalog-qualified references.
 
 This ADR defines the semantics and safety boundary for moving resources between catalogs within one
-tenant. Cross-tenant transfer, copying, renaming resource keys, and moving whole catalogs are out of
+tenant, and for renaming a resource's key -- the same operation, since both change the address the
+old one is aliased from. Cross-tenant transfer, copying, and moving whole catalogs are out of
 scope.
 
 ## Decision drivers
@@ -507,9 +508,11 @@ retire the old one, and versions have no retention. So when a resource leaves a 
 relative references inside its own versions, published ones included, are rewritten to name the
 catalog they already resolve against. That changes bytes, not meaning: a relative reference _is_
 "my own catalog", and the rewrite spells it out before the owner leaves. It is the one exception to
-"immutable payloads are never edited", and it is bounded by the released-catalog rule: a catalog
-with a release cannot be moved out of, so no released content is ever rewritten and no release
-fingerprint changes. Alternatives considered: a one-time migration over every catalog (changes
+"immutable payloads are never edited". It was originally bounded by a released-catalog rule -- a
+catalog with a release could not be moved out of, so no released content was ever rewritten. As
+shipped the planner **warns** instead of blocking, so a move out of a released catalog can rewrite
+released content and change a release fingerprint; the warning is fingerprinted into the plan, so
+executing one means having seen it. Alternatives considered: a one-time migration over every catalog (changes
 release fingerprints for every subscriber) and leaving the blocker (measurably strands legacy
 content). Option F's `target` does not remove the need — it is populated on write, so old payloads
 would need the same pass.
@@ -612,8 +615,10 @@ typed declaration in A's release saying that `(STENCIL, A, header)` continues as
 5. advance both catalogs' installed state only through a retry-safe, deterministic protocol.
 
 The exact wire shape and whether coordinated catalog upgrades must be atomic are a separate decision
-before released-catalog moves are enabled. Until then, the planner blocks a resource that is present
-in a release boundary or whose move would need to propagate to subscribers. Option D's frozen
+before released-catalog moves are safe for subscribers. Until then the planner **warns** on a
+resource that is present in a release boundary or whose move would need to propagate to
+subscribers, rather than blocking it: the alpha is for installations that do not yet publish, and
+a blocker there stops them reorganising at all. Option D's frozen
 original remains the simpler alternative when independent catalog upgrades are a hard requirement.
 
 #### Resource-specific exchange gaps
@@ -673,8 +678,8 @@ until the alpha workflow and error model have settled.
   unsupported rewrites are explicit preview blockers.
 - Drafts and new exports contain canonical addresses; old immutable versions work through aliases.
 - A fresh export/import resolves without access to the publisher's internal resource IDs or aliases.
-- A released resource is not relocated until subscribers can reconcile the old and new catalog
-  entries as one local identity through an explicit, retry-safe handoff.
+- A released resource is relocated only against a warning, until subscribers can reconcile the old
+  and new catalog entries as one local identity through an explicit, retry-safe handoff.
 - A move does not introduce a catalog dependency cycle while snapshot restore requires topological
   ordering.
 - Historical alias addresses remain reserved across source-catalog deletion and recreation.
@@ -710,7 +715,7 @@ until the alpha workflow and error model have settled.
 10. Extend exchange dependencies for resource types that cannot yet express a canonical
     cross-catalog reference, and add export/import/snapshot round-trip tests.
 11. Design the released-catalog relocation handoff and coordinated subscriber-upgrade behavior;
-    keep released resources blocked until it is implemented.
+    released resources warn rather than block until it is implemented.
 12. Add preview and execute commands with optimistic plan validation and transactional tests.
 13. Add the alpha UI impact review and execution flow.
 14. Consider alias cleanup, convenience dependency selection, REST, or MCP only after production

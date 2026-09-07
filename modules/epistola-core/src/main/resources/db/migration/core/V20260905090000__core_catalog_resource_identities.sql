@@ -1,3 +1,7 @@
+-- backup-restore-compatibility: backward=false forward=false
+-- reason: Adds an identity column and a registry row for every catalog resource. A backup taken
+-- before this carries neither, and one taken after cannot be read by a suite that has no registry.
+
 -- Stable, tenant-local identity for movable catalog resources.
 -- Public APIs and catalog exchange continue to use (type, catalog_key, resource_key);
 -- resource_id exists only to keep relational identity stable when that address changes.
@@ -8,11 +12,15 @@ CREATE TABLE catalog_resources (
     catalog_key CATALOG_KEY NOT NULL,
     resource_key TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (tenant_key, resource_id),
-    UNIQUE (tenant_key, resource_id, resource_type),
-    UNIQUE (tenant_key, resource_type, catalog_key, resource_key),
-    FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
-    CHECK (resource_type IN ('asset', 'codeList', 'font', 'attribute', 'theme', 'stencil', 'template'))
+    CONSTRAINT catalog_resources_pkey PRIMARY KEY (tenant_key, resource_id),
+    -- Named rather than generated: Postgres truncates a generated name at 63 characters, and both
+    -- of these are longer than that, so the names would be silently clipped and hard to reference.
+    CONSTRAINT uq_catalog_resources_typed_identity UNIQUE (tenant_key, resource_id, resource_type),
+    CONSTRAINT uq_catalog_resources_address UNIQUE (tenant_key, resource_type, catalog_key, resource_key),
+    CONSTRAINT fk_catalog_resources_catalog
+        FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
+    CONSTRAINT chk_catalog_resources_type
+        CHECK (resource_type IN ('asset', 'codeList', 'font', 'attribute', 'theme', 'stencil', 'template'))
 );
 
 COMMENT ON TABLE catalog_resources IS
@@ -22,13 +30,27 @@ COMMENT ON COLUMN catalog_resources.resource_id IS
 COMMENT ON COLUMN catalog_resources.resource_type IS
     'Catalog wire resource type; forms the typed public address with catalog_key and resource_key.';
 
-ALTER TABLE assets ADD COLUMN resource_id UUID DEFAULT gen_random_uuid();
-ALTER TABLE code_lists ADD COLUMN resource_id UUID DEFAULT gen_random_uuid();
-ALTER TABLE fonts ADD COLUMN resource_id UUID DEFAULT gen_random_uuid();
-ALTER TABLE variant_attribute_definitions ADD COLUMN resource_id UUID DEFAULT gen_random_uuid();
-ALTER TABLE themes ADD COLUMN resource_id UUID DEFAULT gen_random_uuid();
-ALTER TABLE stencils ADD COLUMN resource_id UUID DEFAULT gen_random_uuid();
-ALTER TABLE document_templates ADD COLUMN resource_id UUID DEFAULT gen_random_uuid();
+-- Added nullable and backfilled rather than declared with a default. gen_random_uuid() is
+-- volatile, and adding a column with a volatile default rewrites the whole table under ACCESS
+-- EXCLUSIVE -- seven times over, on the tables an upgrading installation can least afford to have
+-- locked. Nor does the column keep a default afterwards: the sync trigger below assigns it, which
+-- is what lets a caller supplying its own identity (a restore) be told apart from one that did
+-- not, and a collision raised rather than silently resolved.
+ALTER TABLE assets ADD COLUMN resource_id UUID;
+ALTER TABLE code_lists ADD COLUMN resource_id UUID;
+ALTER TABLE fonts ADD COLUMN resource_id UUID;
+ALTER TABLE variant_attribute_definitions ADD COLUMN resource_id UUID;
+ALTER TABLE themes ADD COLUMN resource_id UUID;
+ALTER TABLE stencils ADD COLUMN resource_id UUID;
+ALTER TABLE document_templates ADD COLUMN resource_id UUID;
+
+UPDATE assets SET resource_id = gen_random_uuid();
+UPDATE code_lists SET resource_id = gen_random_uuid();
+UPDATE fonts SET resource_id = gen_random_uuid();
+UPDATE variant_attribute_definitions SET resource_id = gen_random_uuid();
+UPDATE themes SET resource_id = gen_random_uuid();
+UPDATE stencils SET resource_id = gen_random_uuid();
+UPDATE document_templates SET resource_id = gen_random_uuid();
 
 INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_key, resource_key)
 SELECT tenant_key, resource_id, 'asset', catalog_key, id::text FROM assets
@@ -44,6 +66,27 @@ UNION ALL
 SELECT tenant_key, resource_id, 'stencil', catalog_key, id::text FROM stencils
 UNION ALL
 SELECT tenant_key, resource_id, 'template', catalog_key, id::text FROM document_templates;
+
+-- The foreign keys below prove a registry row exists for each identity, not that its address
+-- matches the row it was taken from. Count instead: one registry row per resource, no more.
+DO $$
+DECLARE
+    resources BIGINT;
+    registered BIGINT;
+BEGIN
+    SELECT (SELECT count(*) FROM assets)
+         + (SELECT count(*) FROM code_lists)
+         + (SELECT count(*) FROM fonts)
+         + (SELECT count(*) FROM variant_attribute_definitions)
+         + (SELECT count(*) FROM themes)
+         + (SELECT count(*) FROM stencils)
+         + (SELECT count(*) FROM document_templates)
+    INTO resources;
+    SELECT count(*) INTO registered FROM catalog_resources;
+    IF registered <> resources THEN
+        RAISE EXCEPTION 'registered % identities for % catalog resources', registered, resources;
+    END IF;
+END $$;
 
 ALTER TABLE assets ALTER COLUMN resource_id SET NOT NULL;
 ALTER TABLE code_lists ALTER COLUMN resource_id SET NOT NULL;
@@ -91,16 +134,27 @@ BEGIN
     resource_key_value := to_jsonb(NEW) ->> key_column;
 
     IF TG_OP = 'INSERT' THEN
-        -- Domain imports use INSERT .. ON CONFLICT DO UPDATE. PostgreSQL still runs this BEFORE
-        -- INSERT trigger for that path, so retain the identity already registered at the public
-        -- address instead of attempting to register the row's fresh column default.
         SELECT resource_id INTO existing_resource_id
         FROM catalog_resources
         WHERE tenant_key = NEW.tenant_key
           AND resource_type = resource_type_value
           AND catalog_key = NEW.catalog_key
           AND resource_key = resource_key_value;
-        NEW.resource_id := COALESCE(existing_resource_id, NEW.resource_id, gen_random_uuid());
+
+        IF NEW.resource_id IS NULL THEN
+            -- Nothing supplied. Domain imports use INSERT .. ON CONFLICT DO UPDATE, and PostgreSQL
+            -- runs this BEFORE INSERT trigger for that path too, so adopt the identity already
+            -- registered at this address rather than minting a second one for the same resource.
+            NEW.resource_id := COALESCE(existing_resource_id, gen_random_uuid());
+        ELSIF existing_resource_id IS NOT NULL AND existing_resource_id <> NEW.resource_id THEN
+            -- A caller that names an identity means it -- a restore carrying the identities its
+            -- snapshot recorded, so that generation history and aliases still resolve. Silently
+            -- preferring the incumbent would discard exactly that, and leave the restored rows
+            -- pointing at an identity the tenant no longer holds. This is the column having no
+            -- default: NULL means "assign me one", anything else means "use this".
+            RAISE EXCEPTION 'catalog resource % is already registered at %/% under identity %',
+                NEW.resource_id, NEW.catalog_key, resource_key_value, existing_resource_id;
+        END IF;
 
         INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_key, resource_key)
         VALUES (NEW.tenant_key, NEW.resource_id, resource_type_value, NEW.catalog_key, resource_key_value)

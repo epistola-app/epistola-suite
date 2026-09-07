@@ -1,12 +1,19 @@
 # Catalog resource relocation (alpha)
 
 Catalog resource relocation is an experimental, tenant-local operation for moving an authored
-resource to another authored catalog without invalidating references to its old public address.
+resource to another authored catalog, renaming its key, or both, without invalidating references to
+its old public address.
 Enable both `resource-graph` and `resource-relocation` for a tenant to use it. The relocation toggle
 is alpha and defaults off.
 
-The alpha supports stencils, variant attributes and templates. A preview is required before
-execution and reports:
+The alpha supports all seven relocatable resource types: templates, stencils, themes, fonts,
+assets, code lists and variant attributes. Every one of them is keyed by its stable `resource_id`
+rather than by its address, so a move is a single-row update and nothing cascades — see
+[`catalog-resource-identity-migration.md`](catalog-resource-identity-migration.md). An asset is the
+one type that cannot be renamed: its key is a generated UUID, and an unqualified image reference
+resolves by that id alone, with no catalog to find an alias with.
+
+A preview is required before execution and reports:
 
 - draft references that will be rewritten to the destination catalog;
 - immutable published references that will continue to resolve through an alias;
@@ -93,7 +100,7 @@ written before it existed resolve through their recorded address instead.
   graph links to it rather than hosting the operation — the graph diagnoses, this applies. REST and
   MCP operations are intentionally deferred until the command contract and authorization model have
   settled.
-- An address a template, stencil or attribute has moved away from keeps working on every surface.
+- An address a resource has moved away from keeps working on every surface.
   REST and MCP resolve it to the canonical address before dispatching
   (`ResolveCanonicalResourceAddress`, deliberately authorisation-free: the operation that follows
   carries the permission, and gating the resolution would fail a generate-only key on every
