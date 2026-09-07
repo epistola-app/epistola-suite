@@ -54,14 +54,15 @@ class GetEditorContextHandler(
             """
             SELECT
                 dt.name as template_name,
-                dt.theme_key,
-                dt.theme_catalog_key,
+                th.id AS theme_key,
+                th.catalog_key AS theme_catalog_key,
                 cv.data_model,
                 cv.data_examples,
                 tv.attributes as variant_attributes,
                 COALESCE(draft.template_model, published.template_model) as draft_template_model
             FROM template_variants tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
             LEFT JOIN template_versions draft ON draft.tenant_key = tv.tenant_key AND draft.catalog_key = tv.catalog_key AND draft.template_key = tv.template_key AND draft.variant_key = tv.id AND draft.status = 'draft'
             LEFT JOIN LATERAL (
                 SELECT template_model FROM template_versions

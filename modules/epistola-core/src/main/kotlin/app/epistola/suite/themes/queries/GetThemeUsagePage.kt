@@ -87,26 +87,26 @@ class GetThemeUsagePageHandler(
                     CASE
                         WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
                             THEN 'VARIANT_OVERRIDE'
-                        WHEN template.theme_key IS NOT NULL
+                        WHEN template.theme_resource_id IS NOT NULL
                             THEN 'TEMPLATE_DEFAULT'
                         ELSE 'TENANT_DEFAULT'
                     END AS usage_source,
                     CASE
                         WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
                             THEN version.template_model -> 'themeRef' ->> 'themeId'
-                        WHEN template.theme_key IS NOT NULL
-                            THEN template.theme_key::text
-                        ELSE tenant.default_theme_key::text
+                        WHEN template.theme_resource_id IS NOT NULL
+                            THEN template_theme.id::text
+                        ELSE tenant_theme.id::text
                     END AS effective_theme_key,
                     CASE
                         WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
                             THEN COALESCE(
                                 version.template_model -> 'themeRef' ->> 'catalogKey',
-                                template.theme_catalog_key::text
+                                template_theme.catalog_key::text
                             )
-                        WHEN template.theme_key IS NOT NULL
-                            THEN template.theme_catalog_key::text
-                        ELSE tenant.default_theme_catalog_key::text
+                        WHEN template.theme_resource_id IS NOT NULL
+                            THEN template_theme.catalog_key::text
+                        ELSE tenant_theme.catalog_key::text
                     END AS effective_theme_catalog_key
                 FROM template_versions version
                 JOIN template_variants variant
@@ -119,6 +119,12 @@ class GetThemeUsagePageHandler(
                  AND template.catalog_key = variant.catalog_key
                  AND template.id = variant.template_key
                 JOIN tenants tenant ON tenant.id = version.tenant_key
+                LEFT JOIN themes template_theme
+                  ON template_theme.tenant_key = template.tenant_key
+                 AND template_theme.resource_id = template.theme_resource_id
+                LEFT JOIN themes tenant_theme
+                  ON tenant_theme.tenant_key = tenant.id
+                 AND tenant_theme.resource_id = tenant.default_theme_resource_id
                 WHERE version.tenant_key = :tenantKey
                   AND version.status IN ('draft', 'published')
             ),

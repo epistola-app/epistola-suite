@@ -117,9 +117,10 @@ class TenantResourceGraphBuilder(
         val result = mutableListOf<Occurrence>()
         handle.createQuery(
             """
-                SELECT catalog_key::text, id::text, theme_catalog_key::text, theme_key::text
-                FROM document_templates
-                WHERE tenant_key = :tenantKey AND theme_key IS NOT NULL
+                SELECT dt.catalog_key::text, dt.id::text, th.catalog_key::text AS theme_catalog_key, th.id::text AS theme_key
+                FROM document_templates dt
+                JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+                WHERE dt.tenant_key = :tenantKey
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             Occurrence(

@@ -42,12 +42,12 @@ class FindResourceUsagesHandler(
         // Themes referenced by templates in other catalogs
         handle.createQuery(
             """
-                SELECT dt.theme_key AS resource_slug, dt.name AS ref_name, dt.catalog_key AS ref_catalog
+                SELECT th.id AS resource_slug, dt.name AS ref_name, dt.catalog_key AS ref_catalog
                 FROM document_templates dt
+                JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 WHERE dt.tenant_key = :tenantKey
-                  AND dt.theme_catalog_key = :catalogKey
+                  AND th.catalog_key = :catalogKey
                   AND dt.catalog_key != :catalogKey
-                  AND dt.theme_key IS NOT NULL
                 """,
         )
             .bind("tenantKey", query.tenantKey)

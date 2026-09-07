@@ -24,6 +24,7 @@ import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.templates.validation.requireValidDataContractSchema
+import app.epistola.suite.themes.themeAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
@@ -230,10 +231,10 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
+                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, :catalogKey, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
                     ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey,
+                    SET name = :name, theme_resource_id = EXCLUDED.theme_resource_id,
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
@@ -251,7 +252,7 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     UPDATE document_templates
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey,
+                    SET name = :name, theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")},
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,

@@ -38,8 +38,9 @@ class FindCatalogCrossReferencesHandler(
             """
             SELECT DISTINCT dt.name, dt.catalog_key
             FROM document_templates dt
+            JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
             WHERE dt.tenant_key = :tenantKey
-              AND dt.theme_catalog_key = :catalogKey
+              AND th.catalog_key = :catalogKey
               AND dt.catalog_key != :catalogKey
             """,
         )

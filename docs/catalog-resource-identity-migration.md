@@ -81,15 +81,15 @@ Two independent axes determine the work for a type, and they rank differently:
 - **What I own** — child and version tables that must be re-keyed onto the parent's `resource_id`
   and stripped of denormalised address columns.
 
-| Type                            | Who points at me                           | What I own                            |
-| ------------------------------- | ------------------------------------------ | ------------------------------------- |
-| `variant_attribute_definitions` | variant attributes JSONB map — **done**    | — **done**                            |
-| `code_lists`                    | 1 relational FK — **re-keyed**             | `code_list_entries` — **re-keyed**    |
-| `assets`                        | content `IMAGE_ASSET`, `font_faces`        | —                                     |
-| `fonts`                         | content `FONT_FAMILY`, theme fingerprints  | `font_faces`                          |
-| `themes`                        | content `THEME_OVERRIDE`, 2 relational FKs | —                                     |
-| `stencils`                      | content `STENCIL_INSERTION`                | `stencil_versions` (already re-keyed) |
-| `document_templates`            | **nothing**                                | **7 FKs, 3 modules, partitioned**     |
+| Type                            | Who points at me                               | What I own                            |
+| ------------------------------- | ---------------------------------------------- | ------------------------------------- |
+| `variant_attribute_definitions` | variant attributes JSONB map — **done**        | — **done**                            |
+| `code_lists`                    | 1 relational FK — **re-keyed**                 | `code_list_entries` — **re-keyed**    |
+| `assets`                        | content `IMAGE_ASSET`, `font_variants`         | —                                     |
+| `fonts`                         | content `FONT_FAMILY`, theme fingerprints      | `font_variants`                       |
+| `themes`                        | content `THEME_OVERRIDE`, 2 FKs — **re-keyed** | —                                     |
+| `stencils`                      | content `STENCIL_INSERTION`                    | `stencil_versions` (already re-keyed) |
+| `document_templates`            | **nothing**                                    | **7 FKs, 3 modules, partitioned**     |
 
 Templates invert: nothing references a template as a dependency, so their reference work is nil and
 all their difficulty is in what they own.
@@ -187,8 +187,9 @@ findings carry the new one, the join stops matching, and **every ignored finding
 as open** — breaking the "IGNORED is derived from a live ignore row" invariant that
 [`quality.md`](quality.md) calls out as easy to break.
 
-There is no live bug today: quality subjects are templates, variants, and versions, and none of
-those are movable yet. It becomes real the moment templates are.
+Quality subjects are templates, variants, and versions. `OnResourceRelocatedRepointFindings`
+repoints both URNs when one moves, which keeps the join matching today; expressing the join on
+identity is what makes it correct by construction rather than by a listener firing.
 
 Fix by adding identity columns and matching findings to ignores on those, keeping the URN as a
 display and wire value so the remote-source disposition feed contract is unchanged.

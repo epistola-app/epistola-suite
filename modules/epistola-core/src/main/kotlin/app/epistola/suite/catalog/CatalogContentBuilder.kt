@@ -168,9 +168,10 @@ class CatalogContentBuilder(
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT dt.id, dt.name, dt.theme_key, dt.theme_catalog_key, dt.pdfa_enabled,
+                SELECT dt.id, dt.name, th.id AS theme_key, th.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
                        cv.data_model::text, cv.data_examples::text
                 FROM document_templates dt
+                LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 LEFT JOIN LATERAL (
                     SELECT data_model, data_examples FROM contract_versions
                     WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id

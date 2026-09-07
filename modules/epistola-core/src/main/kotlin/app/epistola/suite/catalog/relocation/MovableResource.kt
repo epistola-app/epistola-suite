@@ -134,11 +134,11 @@ enum class MovableResource(
     ),
 
     /**
-     * The last type, and the only one referenced three different ways at once: from content
-     * (`themeRef`), from a template's own binding, and from the tenant-wide default. The two
-     * relational ones follow by `ON UPDATE CASCADE` (`V20260905090800`); content references are
-     * rewritten in drafts and resolved through the alias in published versions, exactly as stencil
-     * references are.
+     * The only type referenced three different ways at once: from content (`themeRef`), from a
+     * template's own binding, and from the tenant-wide default. Keyed by identity
+     * (`V20260905090800`), so the two relational ones name the theme itself and need neither a
+     * cascade nor a rewrite; content references are rewritten in drafts and resolved through the
+     * alias in published versions, exactly as stencil references are.
      *
      * Live resolution runs through `ThemeStyleResolver`, which follows the alias — without it a
      * template would quietly fall back to the tenant default theme instead of the one it names.

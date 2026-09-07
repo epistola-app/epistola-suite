@@ -101,15 +101,20 @@ class CatalogUpgradeAnalyzer(
     private fun findThemeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
-            SELECT name, catalog_key FROM document_templates
-            WHERE tenant_key = :t AND theme_catalog_key = :c AND theme_key = :slug AND catalog_key != :c
+            SELECT dt.name, dt.catalog_key FROM document_templates dt
+            JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+            WHERE dt.tenant_key = :t AND th.catalog_key = :c AND th.id = :slug AND dt.catalog_key != :c
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
 
         handle.createQuery(
-            "SELECT id FROM tenants WHERE id = :t AND default_theme_catalog_key = :c AND default_theme_key = :slug",
+            """
+            SELECT t.id FROM tenants t
+            JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+            WHERE t.id = :t AND th.catalog_key = :c AND th.id = :slug
+            """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .mapTo(String::class.java).findOne().ifPresent {
                 conflicts.add("Theme '$slug' is the tenant default theme")

@@ -168,7 +168,17 @@ class DataPreservationMigrationIT {
                 .isEqualTo("AUTHORED")
             assertThat(one("SELECT document_styles::text FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
                 .isEqualTo(one("SELECT '$THEME_STYLES'::jsonb::text"))
-            assertThat(one("SELECT theme_key FROM document_templates WHERE tenant_key = '$TENANT' AND id = 'invoice'"))
+            assertThat(
+                one(
+                    """
+                    SELECT theme.id FROM document_templates template
+                    JOIN themes theme ON theme.tenant_key = template.tenant_key
+                                     AND theme.resource_id = template.theme_resource_id
+                    WHERE template.tenant_key = '$TENANT' AND template.id = 'invoice'
+                    """,
+                ),
+            )
+                .describedAs("the template's theme address must have been re-keyed onto that theme's identity")
                 .isEqualTo("brand")
             assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'main'"))
                 .isEqualTo("Main Variant")
