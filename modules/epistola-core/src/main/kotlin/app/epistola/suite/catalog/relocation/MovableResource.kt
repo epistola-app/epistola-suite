@@ -49,7 +49,7 @@ enum class MovableResource(
      * address and resolve through the alias; the only published bytes a move touches are the
      * relative references inside the moving stencil's own versions, pinned to the catalog it leaves.
      *
-     * Keyed by identity (`V20260905090900`), as are its versions: they name the stencil rather
+     * Keyed by identity (`V20260905090100`), as are its versions: they name the stencil rather
      * than carrying a copy of its address, so a move updates one row.
      */
     STENCIL(
@@ -77,7 +77,7 @@ enum class MovableResource(
      * All of a template's coupling is downstream: its variants, versions, contract versions,
      * activations, quality findings and load-test runs name its identity and so follow it without
      * a cascade, while generation history deliberately does not -- it keeps the address recorded
-     * at the time, see `V20260905090400__core_template_relocation`.
+     * at the time, see `V20260905090200__core_template_relocation`.
      *
      * The largest of the seven: the address sat in eight tables' primary keys across three
      * modules, so re-keying it is what let every one of relocation's weakened foreign keys go.
@@ -90,7 +90,7 @@ enum class MovableResource(
     ),
 
     /**
-     * Keyed by identity (`V20260905090600`), so its entries and the attributes bound to it
+     * Keyed by identity (`V20260905090100`), so its entries and the attributes bound to it
      * reference the code list itself rather than where it happens to live: a move or a rename
      * updates one row and nothing cascades or is rewritten. Queries that need the address read it
      * from `code_lists`, which keeps the public shape unchanged. No payload names a code list, so
@@ -110,7 +110,7 @@ enum class MovableResource(
      *
      * References are not rewritten: `IMAGE_ASSET` resolves tenant-globally rather than relative to
      * the containing catalog, so a stored reference means the same thing wherever its owner lives.
-     * Keyed by identity (`V20260905090700`), so a font face pointing at one is undisturbed by a
+     * Keyed by identity (`V20260905090100`), so a font face pointing at one is undisturbed by a
      * move.
      */
     ASSET(
@@ -128,7 +128,7 @@ enum class MovableResource(
      * family is not at the address the content names — otherwise a moved family would silently
      * render as the built-in fallback rather than failing.
      *
-     * Keyed by identity (`V20260905090700`), as are its faces: a face names its family and its
+     * Keyed by identity (`V20260905090100`), as are its faces: a face names its family and its
      * backing asset by identity rather than through a shared catalog column, so a font and its
      * asset move independently and neither move touches a face.
      */
@@ -142,7 +142,7 @@ enum class MovableResource(
     /**
      * The only type referenced three different ways at once: from content (`themeRef`), from a
      * template's own binding, and from the tenant-wide default. Keyed by identity
-     * (`V20260905090800`), so the two relational ones name the theme itself and need neither a
+     * (`V20260905090100`), so the two relational ones name the theme itself and need neither a
      * cascade nor a rewrite; content references are rewritten in drafts and resolved through the
      * alias in published versions, exactly as stencil references are.
      *

@@ -5,7 +5,7 @@
 -- Findings and ignores name the template, not where it lives
 --
 -- Both tables carried the template's address purely to let the database collect their rows when
--- the template goes. V20260905090400 releases those foreign keys along with every other one into
+-- the template goes. V20260905090200 releases those foreign keys along with every other one into
 -- the hierarchy and re-keys the template on its identity; this rebuilds quality's two on that
 -- identity, which is the same cleanup with nothing to drift.
 --

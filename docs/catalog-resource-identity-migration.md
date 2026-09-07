@@ -116,10 +116,13 @@ A type becomes movable once its own two axes are done; it does not wait for the 
    qualification. Keep a preview for policy checks only — permissions, released
    catalogs, slug collisions.
 
-> **Step 1 complete.** `variant_attribute_definitions` is re-keyed (`V20260905090300`) and movable.
-> Its references are keys in `template_variants.attributes` — live mutable configuration — so the
-> move rewrites every one and none survives on an alias. No owned children, which is what made it
-> the right subject for proving the recipe.
+> **All seven are re-keyed.** `variant_attribute_definitions` went first — its references are keys
+> in `template_variants.attributes`, live mutable configuration, so the move rewrites every one and
+> none survives on an alias, and it has no owned children. That made it the right subject for
+> proving the recipe, which the other six then followed:
+> `V20260905090100` re-keys attributes, code lists, fonts, assets, themes and stencils;
+> `V20260905090200` re-keys templates, with the quality and load-test modules rebuilding their own
+> foreign keys immediately after.
 
 ## The per-table recipe
 
@@ -140,9 +143,10 @@ For resource table `R` with dependants `D₁…Dₙ`:
 Step 6 is what actually unlocks relocation for that type: once no dependant stores the parent's
 catalog, moving the parent is a single column update.
 
-`stencil_versions` is midway through this recipe today — it has the stable parent key (step 3) but
-kept its address columns, currently held true by an `ON UPDATE CASCADE` added in
-`V20260905090200`. That cascade is the interim; step 6 removes the columns and the cascade with them.
+Step 6 is done everywhere. No dependant of any type stores its parent's address, and no foreign
+key anywhere is `ON UPDATE CASCADE` — the interim shape that carried the address along is gone,
+which is what makes ADR 0014's rule ("no foreign key is weakened or dropped to make a move
+succeed") true rather than aspirational.
 
 ## Templates: the case that needs a decision, not just a migration
 

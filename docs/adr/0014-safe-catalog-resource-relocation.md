@@ -389,7 +389,7 @@ needs type-specific foreign keys where possible or explicit database/application
 The current `font_variants.catalog_key` represents both the owning font and its backing asset.
 Under E2 those become separate stable `font_resource_id` and `asset_resource_id` relationships,
 which removes the accidental same-catalog constraint and permits either resource to move
-independently. (Shipped that way in `V20260905090700`.)
+independently. (Shipped that way in `V20260905090100`.)
 
 #### E3 — Domain-specific surrogate IDs without a shared registry
 

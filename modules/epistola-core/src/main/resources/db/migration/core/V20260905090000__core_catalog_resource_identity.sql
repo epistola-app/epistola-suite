@@ -1,7 +1,22 @@
 -- backup-restore-compatibility: backward=false forward=false
--- reason: Adds an identity column and a registry row for every catalog resource. A backup taken
--- before this carries neither, and one taken after cannot be read by a suite that has no registry.
+-- reason: Adds an identity column and a registry row for every catalog resource, and the table
+-- that retains its historical addresses. A backup taken before this carries neither, and one taken
+-- after cannot be read by a suite that has no registry.
 
+-- Stable, tenant-local identity for movable catalog resources, and the addresses they leave behind.
+--
+-- Three things that used to be one are separated here. IDENTITY (resource_id) is what every
+-- relational reference points at, and never changes. The ADDRESS (type, catalog, key) is the public
+-- name -- URLs, REST, MCP, catalog exchange -- and lives in exactly one place, the resource's own
+-- row. An ALIAS is an address a resource used to occupy, retained so references written against it
+-- keep resolving.
+--
+-- The re-keying that puts each type's primary key on its identity follows in the next two
+-- migrations; this one only establishes the identity and the registry that maps it to an address.
+
+-- ------------------------------------------------------------------------------------------------
+-- Identity registry
+-- ------------------------------------------------------------------------------------------------
 -- Stable, tenant-local identity for movable catalog resources.
 -- Public APIs and catalog exchange continue to use (type, catalog_key, resource_key);
 -- resource_id exists only to keep relational identity stable when that address changes.
@@ -238,3 +253,30 @@ CREATE TRIGGER trg_document_templates_resource_identity
 CREATE TRIGGER trg_document_templates_delete_resource_identity
     AFTER DELETE ON document_templates
     FOR EACH ROW EXECUTE FUNCTION sync_catalog_resource_identity('template', 'id');
+
+-- ------------------------------------------------------------------------------------------------
+-- Retained historical addresses
+-- ------------------------------------------------------------------------------------------------
+-- Historical public addresses preserved after a catalog resource moves.
+--
+-- The source catalog intentionally has no foreign key, so an alias survives its catalog at the
+-- database level. It is not left behind on purpose: UnregisterCatalog deletes the aliases pointing
+-- out of a catalog it removes, because an alias with no page to release it from would keep the
+-- address reserved against a catalog registered later under the same key. The absent FK is what
+-- makes that a decision the application takes rather than one the database takes for it -- an
+-- alias survives a *resource* being deleted, which the FK on the target already handles.
+CREATE TABLE catalog_resource_aliases (
+    tenant_key TENANT_KEY NOT NULL,
+    resource_type VARCHAR(20) NOT NULL,
+    catalog_key CATALOG_KEY NOT NULL,
+    resource_key TEXT NOT NULL,
+    target_resource_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_key, resource_type, catalog_key, resource_key),
+    FOREIGN KEY (tenant_key, target_resource_id, resource_type)
+        REFERENCES catalog_resources(tenant_key, resource_id, resource_type)
+        ON DELETE CASCADE
+);
+
+COMMENT ON TABLE catalog_resource_aliases IS
+    'Tenant-local historical resource addresses. Each alias points directly to the current stable identity.';

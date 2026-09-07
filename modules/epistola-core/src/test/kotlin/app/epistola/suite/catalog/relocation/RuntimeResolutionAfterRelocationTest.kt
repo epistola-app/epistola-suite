@@ -281,7 +281,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
             .isEqualTo(before)
 
         // The faces followed the family, and the backing asset stayed where it was: since
-        // V20260905090700 a face names both by identity, so neither move disturbs the other.
+        // V20260905090100 a face names both by identity, so neither move disturbs the other.
         assertThat(withMediator { ResolveFontFace(tenant.id, shared, slug, 400, italic = false).query() }).isEqualTo(before)
     }
 }

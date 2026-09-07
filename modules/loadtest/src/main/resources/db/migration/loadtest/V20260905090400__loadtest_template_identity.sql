@@ -4,7 +4,7 @@
 
 -- Load-test runs name the template, not where it lives
 --
--- V20260905090400 releases every foreign key into the template hierarchy and re-keys the template
+-- V20260905090200 releases every foreign key into the template hierarchy and re-keys the template
 -- on its identity. This rebuilds the three this table declared, on that identity. ON DELETE is
 -- preserved exactly: a run dies with the template, variant or version it exercised.
 --
