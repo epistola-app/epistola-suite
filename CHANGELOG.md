@@ -4,13 +4,22 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **Organise says what a move did, and stops showing the form afterwards.**
+  "Resources moved." did not say how many or where, and a deep-linked resource was re-selected as
+  soon as the move finished — putting the form back, looking as though nothing had happened. The
+  message now names the count and destination, the shared destination resets, and the single-resource
+  view shows only the outcome once the move is done.
+- **[dev]** refactor(catalogs): **A resource address reads as a path.** `stencil:letters:header`
+  became `stencil:letters/header`, matching `EntityId.path()` — a colon after the type, slashes
+  within the address — so the organise deep link looks like every other identifier in the suite.
+  The tenant stays out of it because every surface carrying one already names the tenant in its URL.
 - **[user]** feat(catalogs): **Organise picks one destination for the whole selection.** Every row
   had its own catalog dropdown, so moving twelve resources to one place meant twelve identical
   choices and twelve chances to pick wrong. The destination is now chosen once above the table and
   a row can still take its own with "Choose separately", which is also where a rename lives. A
   select-all covers everything the current filter shows.
 - **[user]** feat(catalogs): **A single resource can be moved from its own page.**
-  `/catalogs/organise/move?resource=<type>:<catalog>:<key>` shows one resource, where it can go,
+  `/catalogs/organise/move?resource=<type>:<catalog>/<key>` shows one resource, where it can go,
   and what the move would rewrite. It answers with a dialog to HTMX, so a resource page can open it
   in place, and with a full page to a pasted link — one URL that works from either direction.
 - **[user]** fix(catalogs): **The organise page no longer keeps its loading placeholder on screen.**
@@ -112,7 +121,7 @@
   resource graph — a read-only diagnostic tool an author reorganising catalogs would not think to
   open, and which could only act on one node — and onto `/catalogs/organise`: a browser across
   catalogs that lets you select resources, choose where each goes, preview the impact, and apply it
-  as one batch. Deep-linkable via `?resource=<type>:<catalog>:<key>`, so anything that notices a
+  as one batch. Deep-linkable via `?resource=<type>:<catalog>/<key>`, so anything that notices a
   misplaced resource can hand off with it selected; the graph now links here instead of hosting the
   move. Relocation no longer requires the `resource-graph` toggle.
 - **[user]** feat(catalogs): **Resources are relocated in batches, and a relocation can rename.**

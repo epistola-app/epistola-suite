@@ -20,7 +20,7 @@ import type {
  * could only act on the single node in focus. This is the operation's own page — pick resources
  * from anywhere, say where they go, see what it does, apply it as one batch.
  *
- * Deep-linkable via `?resource=<type>:<catalog>:<key>`, repeatable, so anything that notices a
+ * Deep-linkable via `?resource=<type>:<catalog>/<key>`, repeatable, so anything that notices a
  * misplaced resource can hand off here with it already selected.
  */
 @customElement('ep-catalog-organise')
@@ -37,7 +37,7 @@ export class CatalogOrganise extends LitElement {
 
   @property({ attribute: 'data-base-url' }) baseUrl = '';
   @property({ attribute: 'data-preselected' }) preselected = '';
-  /** Focus on one resource: `<type>:<catalog>:<key>`. Empty renders the browser. */
+  /** Focus on one resource: `<type>:<catalog>/<key>`. Empty renders the browser. */
   @property({ attribute: 'data-single' }) single = '';
 
   @state() private catalogs: OrganiseCatalog[] = [];
@@ -50,7 +50,8 @@ export class CatalogOrganise extends LitElement {
   @state() private preview?: RelocationPreview;
   @state() private busy = false;
   @state() private error = '';
-  @state() private applied = false;
+  /** What the last successful move did, for a message that says more than "done". */
+  @state() private applied?: { count: number; destination?: string };
 
   connectedCallback() {
     super.connectedCallback();
@@ -78,10 +79,19 @@ export class CatalogOrganise extends LitElement {
     }
   }
 
-  /** Runs once, after the first load: a deep link names resources that must exist to be selected. */
+  private deepLinkApplied = false;
+
+  /**
+   * Runs once, after the first load: a deep link names resources that must exist to be selected.
+   *
+   * Tracked with a flag rather than "nothing is selected yet" — a completed move clears the
+   * selection, and re-applying the link there would put the form back looking as though nothing
+   * had happened.
+   */
   private applyDeepLink(): void {
     const deepLinked = this.single || this.preselected;
-    if (!deepLinked || this.selected.size > 0) return;
+    if (!deepLinked || this.deepLinkApplied) return;
+    this.deepLinkApplied = true;
     const wanted = new Set(deepLinked.split(',').filter(Boolean));
     for (const resource of this.resources) {
       if (wanted.has(resource.id))
@@ -121,8 +131,18 @@ export class CatalogOrganise extends LitElement {
 
   private invalidatePreview(): void {
     this.preview = undefined;
-    this.applied = false;
+    this.applied = undefined;
     this.requestUpdate();
+  }
+
+  /** Says what moved and where, so the outcome is legible without re-reading the table. */
+  private renderApplied(applied: { count: number; destination?: string }) {
+    const catalog = this.catalogs.find((candidate) => candidate.key === applied.destination);
+    const where = catalog ? ` to ${catalog.name}` : '';
+    const what = applied.count === 1 ? '1 resource' : `${applied.count} resources`;
+    return html`<p class="ep-alert ep-alert-success" role="status" data-testid="organise-applied">
+      Moved ${what}${where}. Old addresses keep resolving, so existing references still work.
+    </p>`;
   }
 
   private setDestination(id: string, patch: Partial<Destination>): void {
@@ -207,10 +227,16 @@ export class CatalogOrganise extends LitElement {
     this.busy = true;
     this.error = '';
     try {
+      const moved = this.preview.relocations;
+      const destinations = new Set(moved.map((plan) => plan.target.catalogKey));
       await this.post('execute', this.preview.planFingerprint);
       this.selected = new Map();
       this.preview = undefined;
-      this.applied = true;
+      this.sharedDestination = '';
+      this.applied = {
+        count: moved.length,
+        destination: destinations.size === 1 ? [...destinations][0] : undefined,
+      };
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : 'Could not move';
@@ -241,6 +267,9 @@ export class CatalogOrganise extends LitElement {
    * with a row preselected.
    */
   private renderSingle() {
+    // The move is done; showing the form again — now pointing at the new catalog — reads as though
+    // it had not been.
+    if (this.applied) return nothing;
     const resource = this.focused;
     if (this.busy && !resource) return html`<p class="ep-text-muted">Loading resource…</p>`;
     if (!resource) {
@@ -311,11 +340,7 @@ export class CatalogOrganise extends LitElement {
 
     const banners = html`
       ${this.error ? html`<p class="ep-alert ep-alert-error" role="alert">${this.error}</p>` : nothing}
-      ${
-        this.applied
-          ? html`<p class="ep-alert ep-alert-success" role="status">Resources moved.</p>`
-          : nothing
-      }
+      ${this.applied ? this.renderApplied(this.applied) : nothing}
     `;
     if (this.single) return html`${banners} ${this.renderSingle()}`;
 

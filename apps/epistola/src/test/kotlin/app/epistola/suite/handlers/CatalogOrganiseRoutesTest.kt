@@ -70,11 +70,11 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
         val tenantId = tenantWithStencil("Organise deep link")
 
         val response = restTemplate.getForEntity(
-            "/tenants/$tenantId/catalogs/organise?resource=stencil:letters:header",
+            "/tenants/$tenantId/catalogs/organise?resource=stencil:letters/header",
             String::class.java,
         )
 
-        assertThat(response.body).contains("data-preselected=\"stencil:letters:header\"")
+        assertThat(response.body).contains("data-preselected=\"stencil:letters/header\"")
     }
 
     @Test
@@ -117,7 +117,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     @Test
     fun `the single-resource move is a dialog for HTMX and a page for a pasted link`() {
         val tenantId = tenantWithStencil("Organise single")
-        val resource = "stencil:letters:header"
+        val resource = "stencil:letters/header"
         val url = "/tenants/$tenantId/catalogs/organise/move?resource=$resource"
 
         val page = restTemplate.getForEntity(url, String::class.java)
@@ -142,7 +142,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
         val tenant = createTenant("Organise single off")
 
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id}/catalogs/organise/move?resource=stencil:letters:header",
+            "/tenants/${tenant.id}/catalogs/organise/move?resource=stencil:letters/header",
             String::class.java,
         )
 

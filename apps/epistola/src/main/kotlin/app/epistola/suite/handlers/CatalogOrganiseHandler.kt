@@ -52,7 +52,7 @@ class CatalogOrganiseHandler {
                 "tenantId" to tenantKey.value,
                 "tenant" to GetTenant(tenantKey).query(),
                 "activeNavSection" to "catalog-organise",
-                // Deep link: ?resource=stencil:letters:header, repeatable. Rendered into the page so
+                // Deep link: ?resource=stencil:letters/header, repeatable. Rendered into the page so
                 // the component starts with a selection instead of fetching then reconciling.
                 "preselected" to request.params()["resource"].orEmpty().joinToString(","),
             ),
@@ -61,7 +61,7 @@ class CatalogOrganiseHandler {
 
     /**
      * The focused move surface for one resource, deep-linked as
-     * `?resource=<type>:<catalog>:<key>`.
+     * `?resource=<type>:<catalog>/<key>`.
      *
      * One endpoint serves both shapes: HTMX gets the dialog, so a resource page can open it in
      * place, and a pasted link gets the full page. Splitting them would mean a link that only works

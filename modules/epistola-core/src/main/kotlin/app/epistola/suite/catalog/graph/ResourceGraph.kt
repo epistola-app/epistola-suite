@@ -19,7 +19,14 @@ data class ResourceAddress(
     val catalogKey: String,
     val key: String,
 ) {
-    val id: String get() = "${type.wireName}:$catalogKey:$key"
+    /**
+     * Stable text form, used for sorting, blocker messages, graph ids and the organise deep link.
+     *
+     * Shaped like [app.epistola.suite.common.ids.EntityIdBase.path]: a colon after the type, then
+     * the address as a path. The tenant is left out because every surface carrying one of these
+     * already names the tenant elsewhere in its URL.
+     */
+    val id: String get() = "${type.wireName}:$catalogKey/$key"
 }
 
 data class ResourceNode(

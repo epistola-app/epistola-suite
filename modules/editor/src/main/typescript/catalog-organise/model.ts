@@ -9,7 +9,7 @@ export interface OrganiseCatalog {
 }
 
 export interface OrganiseResource {
-  /** `<type>:<catalog>:<key>` — also the deep-link form. */
+  /** `<type>:<catalog>/<key>` — also the deep-link form. */
   id: string;
   type: string;
   catalogKey: string;
