@@ -8,10 +8,16 @@
   did, and moving one had arrived as a panel of its own — a fifth on a page that already had four.
   Catalog is now a row in Details beside ID, with the move action inline, the same shape the Name
   row already uses for editing in place.
+- **[dev]** feat(security): **A local user can be given its own sandbox tenant.** `sandbox: true` on
+  an `epistola.auth.local-users` entry routes that login through the same `LoginMembershipResolver`
+  the OIDC path uses, so it lands in a tenant derived from its username instead of a shared one.
+  Per user rather than per profile, because both shapes are wanted at once: an operator account
+  administering a known tenant beside training accounts that each want a private sandbox. Falls
+  back to the configured `tenant` — with a warning — when no resolver is present, so the same file
+  still works under plain `local`.
 - **[dev]** chore(config): **Two training logins on the local profile.** `trainee1@demo` and
-  `trainee2@demo` author, generate and publish in the demo tenant without administering it. They
-  share that tenant: the resolver that derives a sandbox per person runs on the OIDC path, so it
-  never sees an in-memory form login, even under `local,demo`.
+  `trainee2@demo`, each sandboxed under `local,demo` and ordinary members of the demo tenant
+  otherwise.
 - **[user]** fix(ui,design-system): **Muted and small text across the app is styled again.** Markup in
   eleven places reached for `ep-text-muted`, `ep-text-sm`, `ep-text-xs` or `text-sm`; the first is a
   wrong prefix for `text-muted`, and the size classes never existed at all — only the `--ep-text-*`
