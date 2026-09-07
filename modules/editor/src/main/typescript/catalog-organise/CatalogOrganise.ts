@@ -27,6 +27,11 @@ import type {
 export class CatalogOrganise extends LitElement {
   // Light DOM: the app's stylesheet is global, and a shadow root would cut this off from it.
   protected createRenderRoot() {
+    // Lit appends its content to the render root rather than replacing what is already in it, so
+    // the pre-upgrade placeholder this element wraps would otherwise stay on the page above the
+    // component that replaced it. Clearing here rather than in `connectedCallback` keeps it to one
+    // pass: this runs once, immediately before the first render.
+    this.replaceChildren();
     return this;
   }
 
