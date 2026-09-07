@@ -140,7 +140,7 @@ export class CatalogOrganise extends LitElement {
     const catalog = this.catalogs.find((candidate) => candidate.key === applied.destination);
     const where = catalog ? ` to ${catalog.name}` : '';
     const what = applied.count === 1 ? '1 resource' : `${applied.count} resources`;
-    return html`<p class="ep-alert ep-alert-success" role="status" data-testid="organise-applied">
+    return html`<p class="alert alert-success" role="status" data-testid="organise-applied">
       Moved ${what}${where}. Old addresses keep resolving, so existing references still work.
     </p>`;
   }
@@ -271,9 +271,9 @@ export class CatalogOrganise extends LitElement {
     // it had not been.
     if (this.applied) return nothing;
     const resource = this.focused;
-    if (this.busy && !resource) return html`<p class="ep-text-muted">Loading resource…</p>`;
+    if (this.busy && !resource) return html`<p class="text-muted">Loading resource…</p>`;
     if (!resource) {
-      return html`<p class="ep-text-error" data-testid="organise-single-missing">
+      return html`<p class="alert alert-error" data-testid="organise-single-missing">
         That resource cannot be moved. It may have been deleted, or it lives in a catalog this
         tenant does not author.
       </p>`;
@@ -286,11 +286,9 @@ export class CatalogOrganise extends LitElement {
       <div class="ep-panel" style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4);">
         <p style="margin-top: 0;">
           <strong>${resource.name}</strong>
-          <span class="ep-text-muted"
-            >· ${resource.type} · currently in ${resource.catalogName}</span
-          >
+          <span class="text-muted">· ${resource.type} · currently in ${resource.catalogName}</span>
         </p>
-        ${resource.note ? html`<p class="ep-text-muted">${resource.note}</p>` : nothing}
+        ${resource.note ? html`<p class="text-muted">${resource.note}</p>` : nothing}
         <label class="ep-label"
           >Move to
           <select
@@ -339,7 +337,7 @@ export class CatalogOrganise extends LitElement {
     const authored = this.catalogs.filter((catalog) => catalog.type === 'authored');
 
     const banners = html`
-      ${this.error ? html`<p class="ep-alert ep-alert-error" role="alert">${this.error}</p>` : nothing}
+      ${this.error ? html`<p class="alert alert-error" role="alert">${this.error}</p>` : nothing}
       ${this.applied ? this.renderApplied(this.applied) : nothing}
     `;
     if (this.single) return html`${banners} ${this.renderSingle()}`;
@@ -417,7 +415,7 @@ export class CatalogOrganise extends LitElement {
           ${authored.map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
         </select>
       </label>
-      <span class="ep-text-muted">
+      <span class="text-muted">
         ${this.selected.size}
         selected${overridden > 0 ? html` · ${overridden} with their own destination` : nothing}
       </span>
@@ -425,9 +423,9 @@ export class CatalogOrganise extends LitElement {
   }
 
   private renderResources(visible: OrganiseResource[], authored: OrganiseCatalog[]) {
-    if (this.busy && visible.length === 0) return html`<p class="ep-text-muted">Loading…</p>`;
+    if (this.busy && visible.length === 0) return html`<p class="text-muted">Loading…</p>`;
     if (visible.length === 0) {
-      return html`<p class="ep-text-muted">
+      return html`<p class="text-muted">
         ${
           this.search || this.catalogFilter
             ? 'No resources match this filter.'
@@ -470,17 +468,18 @@ export class CatalogOrganise extends LitElement {
             </td>
             <td>
               ${resource.name}
-              <br /><small class="ep-text-muted">${resource.key}</small>
+              <br /><small class="text-muted">${resource.key}</small>
             </td>
             <td>${resource.type}</td>
             <td>
               ${resource.catalogName}
-              ${resource.note ? html`<br /><small class="ep-text-muted">${resource.note}</small>` : nothing}
+              ${resource.note ? html`<br /><small class="text-muted">${resource.note}</small>` : nothing}
             </td>
             <td>
               ${destination ? this.renderDestinationCell(resource, destination, authored) : nothing}
               ${blockers.map(
-                (blocker) => html`<br /><small class="ep-text-error">${blocker.message}</small>`,
+                (blocker) =>
+                  html`<br /><small class="alert alert-error">${blocker.message}</small>`,
               )}
             </td>
           </tr>`;
@@ -505,7 +504,7 @@ export class CatalogOrganise extends LitElement {
         ${
           target && target.key !== resource.catalogKey
             ? html`→ <strong>${target.name}</strong>`
-            : html`<span class="ep-text-muted">stays in ${resource.catalogName}</span>`
+            : html`<span class="text-muted">stays in ${resource.catalogName}</span>`
         }
         <button
           type="button"
@@ -590,10 +589,10 @@ export class CatalogOrganise extends LitElement {
                 </p>`,
               )}
               ${this.batchBlockers.map(
-                (blocker) => html`<p class="ep-text-error">${blocker.message}</p>`,
+                (blocker) => html`<p class="alert alert-error">${blocker.message}</p>`,
               )}
               ${(this.preview.warnings ?? []).map(
-                (warning) => html`<p class="ep-text-warning">⚠ ${warning.message}</p>`,
+                (warning) => html`<p class="alert alert-warning">⚠ ${warning.message}</p>`,
               )}
               ${
                 this.preview.executable

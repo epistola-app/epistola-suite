@@ -3,7 +3,7 @@
 <body>
 <th:block th:fragment="content">
     <div th:replace="~{epistola-web/page-header :: page-header(pageTitle='Resource graph')}"></div>
-    <p class="ep-text-muted" style="margin-top: 0; margin-bottom: var(--ep-space-4);">
+    <p class="text-muted" style="margin-top: 0; margin-bottom: var(--ep-space-4);">
         Explore which catalog resources use each other. Arrows point from a resource to the resource it uses.
     </p>
     <ep-resource-graph
