@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+- **[user]** fix(templates): **Template settings shows which catalog the template is in.** It never
+  did, and moving one had arrived as a panel of its own — a fifth on a page that already had four.
+  Catalog is now a row in Details beside ID, with the move action inline, the same shape the Name
+  row already uses for editing in place.
+- **[dev]** chore(config): **Two training logins on the local profile.** `trainee1@demo` and
+  `trainee2@demo` author, generate and publish in the demo tenant without administering it. They
+  share that tenant: the resolver that derives a sandbox per person runs on the OIDC path, so it
+  never sees an in-memory form login, even under `local,demo`.
 - **[user]** fix(ui,design-system): **Muted and small text across the app is styled again.** Markup in
   eleven places reached for `ep-text-muted`, `ep-text-sm`, `ep-text-xs` or `text-sm`; the first is a
   wrong prefix for `text-muted`, and the size classes never existed at all — only the `--ep-text-*`

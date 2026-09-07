@@ -81,6 +81,31 @@ epistola:
           - CONTENT_AUTHOR
           - DOCUMENT_GENERATOR
           - CONTENT_PUBLISHER
+      # Training accounts: ordinary members of the demo tenant, able to author, generate and
+      # publish but not administer it.
+      #
+      # They share that tenant rather than getting one each. DemoLoginMembershipResolver, which
+      # derives a sandbox tenant per person, hangs off OAuth2UserProvisioningService — so it runs
+      # for OIDC sign-ins and never for these in-memory form logins, even under `local,demo`. Use
+      # `local,keycloak` if per-person sandboxes are what you are after.
+      - username: trainee1@demo
+        password: trainee1
+        display-name: Trainee One
+        tenant: demo
+        roles:
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER
+      - username: trainee2@demo
+        password: trainee2
+        display-name: Trainee Two
+        tenant: demo
+        roles:
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER
   catalog:
     allow-http: true
   # Keep the deployment gate inherited as false, but make opting in locally
